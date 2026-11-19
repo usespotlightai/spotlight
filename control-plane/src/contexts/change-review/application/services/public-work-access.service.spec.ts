@@ -18,7 +18,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const TASK = { kind: 'task', taskId: TaskId.of('task_1') } as const;
 const RUN = { kind: 'run', runId: RunId.of('run_1') } as const;
 
-const stackIn = (repository: string | null): PublicChangeStackDto => ({
+const stackIn = (repository: string): PublicChangeStackDto => ({
   id: `stack-${repository}`,
   repository,
   state: 'ready',
@@ -29,7 +29,7 @@ const stackIn = (repository: string | null): PublicChangeStackDto => ({
 
 const setup = (
   over: {
-    stacks?: (string | null)[];
+    stacks?: string[];
     visible?: (repository: string) => boolean;
     known?: boolean;
   } = {},
@@ -116,13 +116,6 @@ describe('PublicWorkAccess', () => {
     const { access } = setup({ visible: () => false });
 
     expect(await access.stacksOf(RUN)).toBeNull();
-  });
-
-  it('denies a stack that names no repository', async () => {
-    const { access, visibility } = setup({ stacks: [null] });
-
-    expect(await access.stacksOf(TASK)).toBeNull();
-    expect(visibility.arePublic).not.toHaveBeenCalled();
   });
 
   it('denies a stack whose repository name is not valid', async () => {

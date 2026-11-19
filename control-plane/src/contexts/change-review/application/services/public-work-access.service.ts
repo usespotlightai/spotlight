@@ -18,10 +18,6 @@ const repositoriesOf = (
   const repositories: Repository[] = [];
 
   for (const { repository } of stacks) {
-    if (repository === null) {
-      return null;
-    }
-
     try {
       repositories.push(Repository.of(repository));
     } catch (error) {

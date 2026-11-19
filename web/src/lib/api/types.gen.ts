@@ -4478,7 +4478,7 @@ export type PublicStackCohortResponseDto = {
 
 export type PublicChangeStackResponseDto = {
   id: string;
-  repository: string | null;
+  repository: string;
   state: 'generating' | 'ready' | 'failed';
   files: Array<DiffFileResponseDto>;
   cohorts: Array<PublicStackCohortResponseDto>;

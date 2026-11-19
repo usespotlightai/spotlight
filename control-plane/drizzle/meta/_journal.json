@@ -22,6 +22,13 @@
       "when": 1795114714080,
       "tag": "20261119185834_repository_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795117227604,
+      "tag": "20261119194027_change_stack_repository_owner",
+      "breakpoints": true
     }
   ]
 }

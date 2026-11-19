@@ -91,6 +91,7 @@ const stackOfRun = (): ChangeStack =>
     trial: false,
     checkouts: 1,
     workspaceId: WorkspaceId.of(team.workspaceId.value),
+    owner: 'acme',
     repository: null,
     base: null,
     diff: Diff.of([

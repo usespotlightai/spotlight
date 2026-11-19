@@ -1,0 +1,1 @@
+ALTER TABLE "change_stack" ADD COLUMN "repository_owner" text NOT NULL;

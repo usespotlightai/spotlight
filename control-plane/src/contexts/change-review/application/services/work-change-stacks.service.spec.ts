@@ -75,6 +75,7 @@ const generating = () =>
     trial: false,
     checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
+    owner: 'acme',
     repository: null,
     base: null,
     diff: Diff.of(['schema.ts', 'api.ts'].map(changed)),

@@ -1,7 +1,9 @@
 import type { GenerateRunChangeStackCommand } from '@change-review/application/commands/generate-run-change-stack.command';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
+import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
+import { lineRepositoryOf } from '@change-review/domain/services/line-repository';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
@@ -38,6 +40,15 @@ export class GenerateRunChangeStackHandler implements CommandHandlerPort<
         throw new UnknownChangeStackError(`Run ${command.runId} not found.`);
       }
 
+      if (run.checkouts === 0) {
+        throw new NoStackWithoutCheckoutsError();
+      }
+
+      const repository = lineRepositoryOf(
+        await this.work.repositoriesOfRun(runId),
+        command.repository,
+      );
+
       await this.generating.begin(
         {
           origin: StackOrigin.run(run.id),
@@ -49,7 +60,8 @@ export class GenerateRunChangeStackHandler implements CommandHandlerPort<
         },
         {
           diff: command.diff,
-          repository: command.repository,
+          owner: repository.owner,
+          repository: repository.name,
           base: command.base,
           request: CheckRequest.forRepository(run.checking, command.repository),
         },

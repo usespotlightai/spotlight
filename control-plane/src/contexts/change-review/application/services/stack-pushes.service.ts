@@ -268,6 +268,7 @@ export class StackPushes {
           },
           {
             diff: input.diff,
+            owner: shape.owner,
             repository: shape.repository?.value ?? null,
             base: input.base,
             request: shape.request,

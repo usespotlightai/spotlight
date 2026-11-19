@@ -75,6 +75,7 @@ const stack = (
     trial: false,
     checkouts: 1,
     workspaceId: WorkspaceId.of('ws_1'),
+    owner: 'acme',
     repository,
     base: null,
     diff: DIFF,
@@ -418,6 +419,7 @@ describe('pushStackOf', () => {
       teamOfRun: null,
       trial: false,
       checkouts: 1,
+      owner: 'acme',
       repository: null,
       request: null,
     });
@@ -427,6 +429,10 @@ describe('pushStackOf', () => {
     expect(
       pushStackOf(diffOf('diff_b', { repository: 'gadgets' }), null).repository,
     ).toEqual(RepositoryName.of('gadgets'));
+  });
+
+  it('stacks a push in the owner of its pull request', () => {
+    expect(pushStackOf(diffOf('diff_b'), null).owner).toBe('acme');
   });
 });
 

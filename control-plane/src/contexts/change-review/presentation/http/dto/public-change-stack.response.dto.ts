@@ -111,8 +111,8 @@ export class PublicChangeStackResponseDto {
   @ApiProperty()
   readonly id: string;
 
-  @ApiProperty({ nullable: true, type: String })
-  readonly repository: string | null;
+  @ApiProperty()
+  readonly repository: string;
 
   @ApiProperty({ enum: CHANGE_STACK_STATE_NAMES })
   readonly state: 'generating' | 'ready' | 'failed';
@@ -132,7 +132,7 @@ export class PublicChangeStackResponseDto {
 
   constructor(
     id: string,
-    repository: string | null,
+    repository: string,
     state: 'generating' | 'ready' | 'failed',
     files: readonly DiffFileResponseDto[],
     cohorts: readonly PublicStackCohortResponseDto[],

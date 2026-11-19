@@ -167,7 +167,7 @@ interface PublicStackCohortDto extends Omit<StackCohortDto, 'layers'> {
 
 export interface PublicChangeStackDto {
   readonly id: string;
-  readonly repository: string | null;
+  readonly repository: string;
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
   readonly files: readonly DiffFileDto[];
   readonly cohorts: readonly PublicStackCohortDto[];

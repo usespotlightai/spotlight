@@ -34466,8 +34466,7 @@
             "type": "string"
           },
           "repository": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "state": {
             "type": "string",

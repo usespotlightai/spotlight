@@ -26,6 +26,7 @@ const ready = (repository: string | null = null, run = 'run-1') =>
     trial: false,
     checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
+    owner: 'acme',
     repository,
     base: null,
     request: null,
@@ -141,6 +142,7 @@ const posting = (
         };
       },
       teamOfRun: async () => null,
+      repositoriesOfRun: async () => [],
       reasoning: async () => null,
       task: async () => {
         if (over.failing === 'task') {

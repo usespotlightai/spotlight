@@ -90,6 +90,7 @@ const SHOWN = {
   runId: changeStack.runId,
   pushedHead: changeStack.pushedHead,
   pushedBy: changeStack.pushedBy,
+  repositoryOwner: changeStack.repositoryOwner,
   repository: changeStack.repository,
   files: changeStack.files,
   cohorts: changeStack.cohorts,
@@ -205,9 +206,16 @@ const publicFilesOf = (files: ShownRow['files']) =>
     })),
   }));
 
-const publicStackOf = (row: ShownRow): PublicChangeStackDto => ({
+const hasRepository = (
+  row: ShownRow,
+): row is ShownRow & { readonly repository: string } =>
+  row.repository !== null;
+
+const publicStackOf = (
+  row: ShownRow & { readonly repository: string },
+): PublicChangeStackDto => ({
   id: row.id,
-  repository: row.repository,
+  repository: `${row.repositoryOwner}/${row.repository}`,
   state: row.state,
   files: publicFilesOf(row.files),
   cohorts: publicCohortsOf(row.cohorts),
@@ -273,6 +281,9 @@ const inScopeOf = (stacks: readonly StackScope[]) => {
     tasks.length > 0 ? inArray(questionAnswer.taskId, tasks) : undefined,
   );
 };
+
+const publicStacksOf = (rows: readonly ShownRow[]): PublicChangeStackDto[] =>
+  rows.every(hasRepository) ? rows.map(publicStackOf) : [];
 
 @Injectable()
 export class DrizzleChangeStackReader implements ChangeStackReaderPort {
@@ -365,11 +376,11 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
   }
 
   async publicOfRun(runId: RunId): Promise<PublicChangeStackDto[]> {
-    return (await this.rowsOfRun(runId)).map(publicStackOf);
+    return publicStacksOf(await this.rowsOfRun(runId));
   }
 
   async publicOfTask(taskId: TaskId): Promise<PublicChangeStackDto[]> {
-    return (await this.rowsOfTask(taskId)).map(publicStackOf);
+    return publicStacksOf(await this.rowsOfTask(taskId));
   }
 
   private rowsOfRun(runId: RunId): Promise<ShownRow[]> {

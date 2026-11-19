@@ -52,6 +52,7 @@ const completed = () =>
     trial: false,
     checkouts: 1,
     workspaceId: WorkspaceId.of('ws_1'),
+    owner: 'acme',
     repository: null,
     base: null,
     diff: Diff.of([
