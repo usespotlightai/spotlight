@@ -24,6 +24,7 @@ import {
   pullRequestStateOf,
 } from '@github/domain/value-objects/pull-request-state.vo';
 import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
+import type { RepositoryVisibility } from '@github/domain/value-objects/repository-visibility.vo';
 import type { ReviewState } from '@github/domain/value-objects/review-state.vo';
 import { stripByline } from '@github/infrastructure/github/byline';
 import { pullRequestActivityOf } from '@github/infrastructure/webhooks/pull-request-activity.translation';
@@ -549,6 +550,20 @@ const reviewDismissed = (payload: Payload): WebhookEvent[] => {
   ];
 };
 
+const VISIBILITY_ACTIONS: ReadonlyMap<unknown, RepositoryVisibility> = new Map([
+  ['publicized', 'public'],
+  ['privatized', 'private'],
+]);
+
+const repositoryVisibility = (payload: Payload): WebhookEvent[] => {
+  const visibility = VISIBILITY_ACTIONS.get(payload.action);
+  const repository = text(payload.repository?.full_name);
+
+  return visibility && repository
+    ? [{ kind: 'repository-visibility', repository, visibility }]
+    : [];
+};
+
 const eventsIn = (
   event: string | undefined,
   payload: Payload,
@@ -560,6 +575,7 @@ const eventsIn = (
   }
 
   return [
+    ...(event === 'repository' ? repositoryVisibility(payload) : []),
     ...(event === 'pull_request_review_comment' ? reviewComment(payload) : []),
     ...(event === 'issue_comment' ? conversationComment(payload) : []),
     ...(event === 'pull_request_review_thread' ? reviewThread(payload) : []),

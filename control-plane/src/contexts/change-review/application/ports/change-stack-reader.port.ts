@@ -1,6 +1,7 @@
 import type {
   ChangeStackDto,
   OutlinedCohortDto,
+  PublicChangeStackDto,
   QuestionAnswerDto,
   StackCheckDto,
 } from '@change-review/application/dto/change-stack.dto';
@@ -39,6 +40,10 @@ export interface ChangeStackReaderPort {
     viewerId: UserId,
     now: Date,
   ): Promise<ChangeStackDto[]>;
+
+  publicOfRun(runId: RunId): Promise<PublicChangeStackDto[]>;
+
+  publicOfTask(taskId: TaskId): Promise<PublicChangeStackDto[]>;
 
   visibilityOf(stackId: ChangeStackId): Promise<StackVisibility | null>;
 

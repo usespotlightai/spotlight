@@ -1,6 +1,8 @@
 import type {
   ChangeStackDto,
   CheckedStepDto,
+  PublicChangeStackDto,
+  RemovedLayerDto,
   QuestionAnswerDto,
   StackCheckDto,
   StackCohortDto,
@@ -159,6 +161,59 @@ const outlinedCohortOf = <L>(
 
 type StoredQuestion = NonNullable<StoredLayer['questions']>[number];
 
+const revisionOf = (layer: StoredLayer) =>
+  layer.revision
+    ? {
+        status: layer.revision.status,
+        previous: layer.revision.previous ?? null,
+      }
+    : null;
+
+const removedOf = (row: ShownRow): RemovedLayerDto[] =>
+  row.removedLayers.map((each) => ({
+    previous: each.previous,
+    cohort: each.cohort,
+    title: each.title,
+  }));
+
+const publicCohortsOf = (cohorts: readonly StoredCohort[]) =>
+  cohorts.map((cohort) =>
+    outlinedCohortOf(cohort, (layer) => ({
+      ...outlinedLayerOf(layer),
+      questions: (layer.questions ?? []).map((each) => ({
+        id: each.id,
+        question: each.question,
+        hunks: each.hunks,
+      })),
+      revision: revisionOf(layer),
+    })),
+  );
+
+const publicFilesOf = (files: ShownRow['files']) =>
+  files.map((file) => ({
+    path: file.path,
+    previousPath: file.previousPath,
+    status: file.status,
+    binary: file.binary,
+    hunks: file.hunks.map((hunk) => ({
+      id: hunk.id,
+      oldStart: hunk.oldStart,
+      oldLines: hunk.oldLines,
+      newStart: hunk.newStart,
+      newLines: hunk.newLines,
+      patch: hunk.patch,
+    })),
+  }));
+
+const publicStackOf = (row: ShownRow): PublicChangeStackDto => ({
+  id: row.id,
+  repository: row.repository,
+  state: row.state,
+  files: publicFilesOf(row.files),
+  cohorts: publicCohortsOf(row.cohorts),
+  removed: removedOf(row),
+});
+
 const cohortDtosOf = (
   cohorts: readonly StoredCohort[],
   answered: (question: StoredQuestion) => QuestionAnswerDto | null,
@@ -172,12 +227,7 @@ const cohortDtosOf = (
         hunks: each.hunks,
         answered: answered(each),
       })),
-      revision: layer.revision
-        ? {
-            status: layer.revision.status,
-            previous: layer.revision.previous ?? null,
-          }
-        : null,
+      revision: revisionOf(layer),
     })),
   );
 
@@ -303,15 +353,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     viewerId: UserId,
     now: Date,
   ): Promise<ChangeStackDto[]> {
-    return this.shown(
-      await this.context.db
-        .select(SHOWN)
-        .from(changeStack)
-        .where(eq(changeStack.runId, runId.value))
-        .orderBy(asc(changeStack.startedAt)),
-      viewerId,
-      now,
-    );
+    return this.shown(await this.rowsOfRun(runId), viewerId, now);
   }
 
   async ofTask(
@@ -319,6 +361,26 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     viewerId: UserId,
     now: Date,
   ): Promise<ChangeStackDto[]> {
+    return this.shown(await this.rowsOfTask(taskId), viewerId, now);
+  }
+
+  async publicOfRun(runId: RunId): Promise<PublicChangeStackDto[]> {
+    return (await this.rowsOfRun(runId)).map(publicStackOf);
+  }
+
+  async publicOfTask(taskId: TaskId): Promise<PublicChangeStackDto[]> {
+    return (await this.rowsOfTask(taskId)).map(publicStackOf);
+  }
+
+  private rowsOfRun(runId: RunId): Promise<ShownRow[]> {
+    return this.context.db
+      .select(SHOWN)
+      .from(changeStack)
+      .where(eq(changeStack.runId, runId.value))
+      .orderBy(asc(changeStack.startedAt));
+  }
+
+  private async rowsOfTask(taskId: TaskId): Promise<ShownRow[]> {
     const latest = latestShownPerRepository(
       await this.context.db
         .select(SHOWN)
@@ -328,7 +390,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       shownOf,
     );
 
-    return this.shown([...latest].reverse(), viewerId, now);
+    return [...latest].reverse();
   }
 
   private async shown(
@@ -357,11 +419,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       completedAt: row.completedAt?.toISOString() ?? null,
       files: row.files,
       cohorts: cohortDtosOf(row.cohorts, answeredFrom(answers, row)),
-      removed: row.removedLayers.map((each) => ({
-        previous: each.previous,
-        cohort: each.cohort,
-        title: each.title,
-      })),
+      removed: removedOf(row),
       check: checkOf(
         StackCheck.latestOf(
           checks.filter((each) => each.stackId.value === row.id),

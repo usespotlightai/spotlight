@@ -1,13 +1,11 @@
-import { AnswerFailed } from '@/components/features/changes/AnswerFailed';
 import { CitedPlaces } from '@/components/features/changes/CitedPlaces';
+import { QuestionAnswerForm } from '@/components/features/changes/QuestionAnswerForm';
 import { QuestionVerdict } from '@/components/features/changes/QuestionVerdict';
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
 import { ThreadEntry } from '@/components/features/review/ThreadEntry';
-import { Composer } from '@/components/shared/form/Composer';
 import { Logo } from '@/components/shared/icons';
 import { Pill } from '@/components/shared/Pill';
-import { Button } from '@/components/ui/button';
-import { useAnswerStackQuestion } from '@/hooks/api/useAnswerStackQuestion';
+import { SignInPrompt } from '@/components/shared/SignInPrompt';
 import { useMe } from '@/hooks/useMe';
 import {
   type ChangeStack,
@@ -16,7 +14,7 @@ import {
   type LayerQuestion,
 } from '@/lib/change-stack';
 import { YOU } from '@/lib/person';
-import { useStackTeam } from '@/lib/review-context';
+import { useStackVisitor } from '@/lib/review-context';
 
 type LayerQuestionThreadProps = {
   stack: ChangeStack;
@@ -24,29 +22,15 @@ type LayerQuestionThreadProps = {
   onReveal: (place: CitedPlace) => void;
 };
 
-const MAX_REPLY = 4_000;
-
 export function LayerQuestionThread({
   stack,
   question,
   onReveal,
 }: LayerQuestionThreadProps) {
-  const teamId = useStackTeam();
+  const visitor = useStackVisitor();
   const me = useMe();
-  const answering = useAnswerStackQuestion();
   const { answered } = question;
   const current = answered && !answered.outdated ? answered : null;
-
-  const answer = (reply: string | null) => {
-    if (teamId) {
-      answering.mutate({
-        teamId,
-        stackId: stack.id,
-        questionId: question.id,
-        reply,
-      });
-    }
-  };
 
   return (
     <section
@@ -118,34 +102,10 @@ export function LayerQuestionThread({
         )}
       </ol>
 
-      {!current && (
-        <Composer
-          key={answered ? 'again' : 'first'}
-          label={`Answer “${question.question}”`}
-          placeholder="Your answer…"
-          initial={answered?.reply ?? ''}
-          submitLabel="Check"
-          max={MAX_REPLY}
-          avatar={<ReviewerAvatar />}
-          autoFocus={false}
-          pending={answering.isPending}
-          onSubmit={answer}
-          aside={
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              disabled={answering.isPending}
-              onClick={() => answer(null)}
-            >
-              I don’t know
-            </Button>
-          }
-        />
-      )}
-
-      {answering.isError && !current && (
-        <AnswerFailed error={answering.error} />
+      {visitor ? (
+        <SignInPrompt signedIn={visitor.signedIn} to="answer this question" />
+      ) : (
+        !current && <QuestionAnswerForm stack={stack} question={question} />
       )}
     </section>
   );

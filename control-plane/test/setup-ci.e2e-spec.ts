@@ -46,6 +46,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     }),
     oidcSubjectPrefixOf: async (_, repository) =>
       subjectPrefix ?? `repo:${repository.value}`,
+    visibilityOf: async () => 'public',
     putVariables: async (_, __, put) => {
       written.push({ ...put });
       return variables;

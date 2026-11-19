@@ -9,6 +9,10 @@ export const changeStackKeys = {
   ofTasks: ['change-stacks', 'task-stacks'] as const,
   forTask: (taskId?: string) =>
     ['change-stacks', 'task-stacks', taskId ?? null] as const,
+  publicRun: (runId?: string) =>
+    ['change-stacks', 'public-run', runId ?? null] as const,
+  publicTask: (taskId?: string) =>
+    ['change-stacks', 'public-task', taskId ?? null] as const,
 };
 
 const POLL_MS = 5_000;

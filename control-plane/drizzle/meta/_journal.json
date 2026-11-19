@@ -15,6 +15,13 @@
       "when": 1795017456465,
       "tag": "20261118155736_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795114714080,
+      "tag": "20261119185834_repository_visibility",
+      "breakpoints": true
     }
   ]
 }

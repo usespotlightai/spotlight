@@ -23,7 +23,15 @@ import {
 } from '@github/application/ports/repository-access.port';
 import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
-import { REPOSITORY_SETTINGS } from '@github/application/ports/repository-settings.port';
+import {
+  REPOSITORY_SETTINGS,
+  type RepositorySettingsPort,
+} from '@github/application/ports/repository-settings.port';
+import {
+  REPOSITORY_VISIBILITY_STORE,
+  type RepositoryVisibilityStorePort,
+} from '@github/application/ports/repository-visibility-store.port';
+import { REPOSITORY_VISIBILITY } from '@github/application/ports/repository-visibility.port';
 import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
 import {
   WEBHOOK_PARSER,
@@ -41,6 +49,7 @@ import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { Installations } from '@github/application/services/installations.service';
 import { PullRequestSync } from '@github/application/services/pull-request-sync.service';
+import { RepositoryVisibilities } from '@github/application/services/repository-visibility.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
 import { GITHUB_PAYLOAD_TYPES } from '@github/infrastructure/events/github-payload-types';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
@@ -57,6 +66,7 @@ import { GitHubRepositoryContents } from '@github/infrastructure/github/github-r
 import { GitHubRepositorySettings } from '@github/infrastructure/github/github-repository-settings';
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
+import { DrizzleRepositoryVisibilityLedger } from '@github/infrastructure/persistence/drizzle/ledgers/repository-visibility.ledger';
 import { DrizzleGitHubConnectionReader } from '@github/infrastructure/persistence/drizzle/readers/github-connection.reader';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
@@ -87,6 +97,10 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -210,6 +224,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       PullRequestSync,
       LOGGER,
       CHECK_RUNS,
+      RepositoryVisibilities,
     ],
     useFactory: (
       parser: WebhookParserPort,
@@ -218,6 +233,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       sync: PullRequestSync,
       logger: LoggerPort,
       checkRuns: CheckRunsPort,
+      visibilities: RepositoryVisibilities,
     ) =>
       new GitHubWebhooks(
         parser,
@@ -226,8 +242,35 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
         sync,
         logger,
         checkRuns,
+        visibilities,
       ),
   },
+
+  DrizzleRepositoryVisibilityLedger,
+  {
+    provide: REPOSITORY_VISIBILITY_STORE,
+    useExisting: DrizzleRepositoryVisibilityLedger,
+  },
+
+  {
+    provide: RepositoryVisibilities,
+    inject: [
+      REPOSITORY_VISIBILITY_STORE,
+      REPOSITORY_SETTINGS,
+      CLOCK,
+      LOGGER,
+      TELEMETRY,
+    ],
+    useFactory: (
+      store: RepositoryVisibilityStorePort,
+      settings: RepositorySettingsPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+      telemetry: TelemetryPort,
+    ) => new RepositoryVisibilities(store, settings, clock, logger, telemetry),
+  },
+
+  { provide: REPOSITORY_VISIBILITY, useExisting: RepositoryVisibilities },
 
   {
     provide: INSTALLATIONS,

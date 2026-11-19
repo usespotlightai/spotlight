@@ -93,6 +93,8 @@ const posting = (
   const poster = new PostChangeStackComment(
     {
       latestForTask: async () => null,
+      publicOfRun: async () => [],
+      publicOfTask: async () => [],
       latestPerRepository: async () =>
         (over.stacks ?? [{ repository: null, run: 'run-1' }]).map((each) => {
           const stack = ready(each.repository, each.run);

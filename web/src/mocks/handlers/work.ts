@@ -5,9 +5,11 @@ import type {
   AnswerQuestionRequestDto,
   AssignTaskRequestDto,
   AttachmentResponseDto,
+  ChangeStackResponseDto,
   GrantAttachmentUploadRequestDto,
   ResumeLineRequestDto,
   MoveTaskRequestDto,
+  PublicChangeStackResponseDto,
   SendMessageRequestDto,
   TaskResponseDto,
 } from '@/lib/api';
@@ -36,6 +38,35 @@ import {
   teamRunsOf,
 } from '@/mocks/world/work';
 import { runMemoriesOf } from '@/mocks/world/work-memories';
+
+const publicStackOf = ({
+  id,
+  repository,
+  state,
+  files,
+  cohorts,
+  removed,
+}: ChangeStackResponseDto): PublicChangeStackResponseDto => ({
+  id,
+  repository,
+  state,
+  files,
+  removed,
+  cohorts: cohorts.map((cohort) => ({
+    ...cohort,
+    layers: cohort.layers.map((layer) => ({
+      ...layer,
+      questions: layer.questions.map(({ id, question, hunks }) => ({
+        id,
+        question,
+        hunks,
+      })),
+    })),
+  })),
+});
+
+const publicStacksResponse = (stacks: readonly ChangeStackResponseDto[]) =>
+  stacks.length > 0 ? json({ stacks: stacks.map(publicStackOf) }) : notFound();
 
 const UPLOAD_PATH = '/attachment-uploads/:attachmentId';
 
@@ -324,6 +355,14 @@ export const workHandlers: RequestHandler[] = [
     findTask(String(params.teamId), String(params.taskId))
       ? json({ stacks: taskChangeStacksOf(String(params.taskId)) })
       : notFound(),
+  ),
+
+  api.get('/public/runs/:runId/change-stacks', ({ params }) =>
+    publicStacksResponse(changeStacksOf(String(params.runId))),
+  ),
+
+  api.get('/public/tasks/:taskId/change-stacks', ({ params }) =>
+    publicStacksResponse(taskChangeStacksOf(String(params.taskId))),
   ),
 
   api.post(
