@@ -29,13 +29,15 @@ export class PullRequestOpeningHook {
     );
   }
 
-  async allowsNew(input: Opening): Promise<void> {
+  async allowsNew(
+    input: Opening & { changed: readonly string[] },
+  ): Promise<void> {
     await this.decided(await this.taskViews.ofNew(input.task), input);
   }
 
   private async decided(
     view: TaskViewDto | null,
-    input: Opening,
+    input: Opening & { changed?: readonly string[] },
   ): Promise<void> {
     if (
       !view ||
@@ -49,11 +51,13 @@ export class PullRequestOpeningHook {
       repository: input.repository.value,
       branch: input.task.branch.value,
       title: input.title,
-      changed: await this.pullRequests.changedOn(
-        input.task.workspaceId,
-        input.repository,
-        input.task.branch.value,
-      ),
+      changed:
+        input.changed ??
+        (await this.pullRequests.changedOn(
+          input.task.workspaceId,
+          input.repository,
+          input.task.branch.value,
+        )),
     });
 
     if (decision.kind === 'denied') {

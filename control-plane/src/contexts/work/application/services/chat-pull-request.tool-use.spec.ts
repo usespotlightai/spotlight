@@ -243,6 +243,7 @@ describe('ChatPullRequestToolUse', () => {
       }) as unknown,
       repository: expect.objectContaining({ value: 'acme/web' }) as unknown,
       title: 'Show video icons',
+      changed: ['web/src/icons.ts'],
     });
   });
 
@@ -489,6 +490,30 @@ describe('ChatPullRequestToolUse', () => {
     expect(
       stored('task_first')?.pullRequests.map((each) => each.value),
     ).toEqual([URL]);
+  });
+
+  it('answers no pull request it opened once the task was handed to the line', async () => {
+    const { tool, context, created, stored, put } = using();
+
+    await tool.call(context, INPUTS);
+    const task = stored(created[0]?.id.value ?? '') as Task;
+    put(
+      task.resumeLine({
+        by: LEON,
+        line: DELIVERY,
+        next: 'continue',
+        to: null,
+        rank: null,
+        verdict: null,
+        summary: null,
+        turnHeads: [],
+        at: NOW,
+      }),
+    );
+
+    await expect(tool.call(context, INPUTS)).rejects.toThrow(
+      /was handed to the line\. Push the change to a new branch/,
+    );
   });
 
   it('opens nothing from a branch that belongs to another task', async () => {

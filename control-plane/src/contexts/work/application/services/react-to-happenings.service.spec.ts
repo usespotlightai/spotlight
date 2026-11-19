@@ -31,12 +31,16 @@ import { ReactToHappenings } from '@work/application/services/react-to-happening
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
+import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   deliveryLineOf,
   lineMapOf,
@@ -186,7 +190,6 @@ const tasks = (found: Task | null) =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
-    heldForChat: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>
@@ -1111,6 +1114,40 @@ describe('ReactToHappenings', () => {
         expect(dispatched).toHaveLength(0);
       });
 
+      it('finishes a task on hold for the chat that opened its pull request, and tells the chat', async () => {
+        await receive(
+          MERGED,
+          Task.openedInChat({
+            line: line(),
+            at: StationId.of('station_2'),
+            title: TaskTitle.of('Fix the queue'),
+            description: null,
+            branch: Branch.of('spotlight/task_1'),
+            rank: TaskRank.of('i'),
+            by: UserId.of('user_1'),
+            members: TeamMembers.of([UserId.of('user_1')]),
+            chat: ChatId.of('chat_1'),
+            hold: HoldId.of('hold_1'),
+            now: NOW,
+            newId: () => 'task_1',
+          }),
+        );
+
+        expect(saved?.stationId).toEqual(StationId.of('station_3'));
+        expect(saved?.finished).toBe(true);
+        expect(saved?.openHold).toBeNull();
+        expect(
+          saved
+            ?.pullEvents()
+            .filter(
+              (each): each is TaskNotedForChat =>
+                each instanceof TaskNotedForChat,
+            )
+            .map((each) => [each.chatId.value, each.wakes]),
+        ).toEqual([['chat_1', false]]);
+        expect(dispatched).toHaveLength(0);
+      });
+
       it('finishes a task that has no current run, as before', async () => {
         await receive(MERGED, taskAt('station_1'));
 
@@ -1177,7 +1214,6 @@ describe('ReactToHappenings', () => {
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
-      heldForChat: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -1263,7 +1299,6 @@ describe('ReactToHappenings', () => {
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
-      heldForChat: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -1348,7 +1383,6 @@ describe('ReactToHappenings', () => {
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
-      heldForChat: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -1433,7 +1467,6 @@ describe('ReactToHappenings', () => {
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
-      heldForChat: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -1519,7 +1552,6 @@ describe('ReactToHappenings', () => {
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
-      heldForChat: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -1608,7 +1640,6 @@ describe('ReactToHappenings assigning a task it opens', () => {
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
-      heldForChat: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {

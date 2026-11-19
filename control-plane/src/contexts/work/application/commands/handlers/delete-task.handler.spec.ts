@@ -82,7 +82,6 @@ const tasks = (found: Task | null = existing()) =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
-    heldForChat: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const access = (teamId = 'team_1') =>

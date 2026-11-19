@@ -10,6 +10,7 @@ import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { ChatRefused } from '@work/application/rendering/chat-refused';
 import type { CreateTask } from '@work/application/services/create-task';
 import type { PullRequestOpeningHook } from '@work/application/services/pull-request-opening-hook';
 import type { WorkAccess } from '@work/application/services/work-access.service';
@@ -82,7 +83,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       opening.branch,
     );
     const { task, url } = onBranch
-      ? await this.onTaskOf(opening, this.reused(opening, lines, onBranch))
+      ? await this.onTaskOf(opening, lines, onBranch)
       : await this.withNewTask(opening, lines, inputs);
 
     await this.transaction.inTransaction(async () => {
@@ -90,6 +91,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
         (await this.found(chatId)).openedPullRequest({
           runId,
           title: opening.title.value,
+          repository: opening.repository,
           pullRequest: ChatPullRequest.of({ task: task.id, url }),
           at: this.clock.now(),
         }),
@@ -99,47 +101,23 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     return { url: url.value, task: task.id.value, next: NEXT };
   }
 
-  private reused(
+  private async onTaskOf(
     opening: Opening,
     lines: readonly LineMap[],
     task: Task,
-  ): { line: LineMap; task: Task } {
-    const { chat, branch, repository } = opening;
-    const line = lines.find((each) => each.stationAt(task.stationId));
-
-    if (!line || !task.wasHeldFor(chat.id)) {
-      throw new InvalidChatTransitionError(
-        `Branch ${branch.value} belongs to another task. Push the change to a new branch.`,
-      );
-    }
-
-    if (task.pullRequestIn(repository)) {
-      return { line, task };
-    }
-
-    if (!task.heldFor(chat.id)) {
-      throw new InvalidChatTransitionError(
-        `The task of branch ${branch.value} ${task.finished ? 'is completed' : 'was handed to the line'}. Push the change to a new branch.`,
-      );
-    }
-
-    if (!line.names(repository)) {
-      throw new InvalidChatTransitionError(
-        `The task of branch ${branch.value} is on ${line.name.value}, which does not work on ${repository.value}. Push the change in ${repository.value} to a branch with another name.`,
-      );
-    }
-
-    return { line, task };
-  }
-
-  private async onTaskOf(
-    opening: Opening,
-    { line, task }: { line: LineMap; task: Task },
   ): Promise<{ task: Task; url: PullRequestUrl }> {
-    const known = task.pullRequestIn(opening.repository);
+    const step = task.chatPullRequestStep(
+      opening.chat.id,
+      opening.repository,
+      lines.find((each) => each.stationAt(task.stationId)) ?? null,
+    );
 
-    if (known) {
-      return { task, url: known };
+    if (step.kind === 'refused') {
+      throw new InvalidChatTransitionError(ChatRefused.text(step.refusal));
+    }
+
+    if (step.kind === 'known') {
+      return { task, url: step.url };
     }
 
     await this.openingHook.allows({
@@ -157,7 +135,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
           opening.chat.id,
           url,
           this.clock.now(),
-          line,
+          step.line,
         ),
       );
     });
@@ -212,6 +190,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       task: draft,
       repository,
       title: opening.title.value,
+      changed,
     });
 
     const url = await this.opened(opening);
@@ -236,7 +215,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
         throw error;
       }
 
-      return this.onTaskOf(opening, this.reused(opening, lines, raced));
+      return this.onTaskOf(opening, lines, raced);
     }
   }
 

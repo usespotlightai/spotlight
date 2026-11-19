@@ -95,6 +95,7 @@ import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { ChatPullRequestStep } from '@work/domain/value-objects/chat-pull-request-step';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { RunDriver } from '@work/domain/value-objects/dispatch-subject';
@@ -969,6 +970,50 @@ export class Task extends EventRecorder {
     return this.holds.some((each) => each.chat?.equals(chat) ?? false);
   }
 
+  chatPullRequestStep(
+    chat: ChatId,
+    repository: Repository,
+    line: LineMap | null,
+  ): ChatPullRequestStep {
+    const branch = this.branch;
+
+    if (!line || !this.wasHeldFor(chat)) {
+      return {
+        kind: 'refused',
+        refusal: { kind: 'branch-of-another-task', branch },
+      };
+    }
+
+    if (!this.heldFor(chat)) {
+      return {
+        kind: 'refused',
+        refusal: {
+          kind: 'branch-of-released-task',
+          branch,
+          completed: this.finished,
+        },
+      };
+    }
+
+    const known = this.pullRequestIn(repository);
+
+    if (known) {
+      return { kind: 'known', url: known };
+    }
+
+    return line.names(repository)
+      ? { kind: 'open', line }
+      : {
+          kind: 'refused',
+          refusal: {
+            kind: 'branch-off-the-line',
+            branch,
+            line: line.name,
+            repository,
+          },
+        };
+  }
+
   recordChatPullRequest(
     chat: ChatId,
     url: PullRequestUrl,
@@ -1832,51 +1877,13 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.resumedFrom(hold, {
-      ...input,
-      because: null,
-      voice: input.run ? Voice.station(input.run) : Voice.person(input.by),
-    }).toldChatItLeft(hold, input.line, input.at);
-  }
-
-  releasedByDeletedChat(chat: ChatId, line: LineMap, at: Date): Task {
-    const hold = this.openHold;
-
-    if (!hold?.chat?.equals(chat)) {
-      return this;
-    }
-
-    return this.resumedFrom(hold, {
-      line,
-      next: 'continue',
-      to: null,
-      rank: null,
-      verdict: null,
-      summary: null,
-      because: TaskNoteBody.CHAT_DELETED,
-      turnHeads: [],
-      voice: Voice.world(),
-      at,
-    });
-  }
-
-  private resumedFrom(
-    hold: Hold,
-    input: {
-      line: LineMap;
-      next: HoldEnd;
-      to: StationId | null;
-      rank: TaskRank | null;
-      verdict: HoldVerdict | null;
-      summary: string | null;
-      because: string | null;
-      turnHeads: readonly TurnHeads[];
-      voice: Voice;
-      at: Date;
-    },
-  ): Task {
     const into = this.resumeDestination(input.line, input.next, input.to);
-    const ending = this.endedHold({ ...input, hold, into });
+    const ending = this.endedHold({
+      ...input,
+      hold,
+      into,
+      voice: input.run ? Voice.station(input.run) : Voice.person(input.by),
+    });
     const resumed = into
       ? ending.closed.relocated(
           input.line,
@@ -1889,7 +1896,12 @@ export class Task extends EventRecorder {
           .withHeldNotesFor(hold)
           .continuedAfter(input.line, ending.newNote, ending.held);
 
-    return this.recordedResume(resumed, ending.ended, input.next, input.line);
+    return this.recordedResume(
+      resumed,
+      ending.ended,
+      input.next,
+      input.line,
+    ).toldChatItLeft(hold, input.line, input.at);
   }
 
   private toldChatItLeft(ended: Hold, line: LineMap, at: Date): Task {
@@ -1899,8 +1911,7 @@ export class Task extends EventRecorder {
           this.id,
           this.workspaceId,
           ended.chat,
-          TaskNoteBody.leftChat(Task.stationOn(line, this.stationId).name)
-            .value,
+          TaskNoteBody.leftChat(Task.stationOn(line, this.stationId)).value,
           false,
           at,
         ),
@@ -1916,7 +1927,6 @@ export class Task extends EventRecorder {
     next: HoldEnd;
     into: Station | null;
     summary: string | null;
-    because?: string | null;
     verdict: HoldVerdict | null;
     turnHeads: readonly TurnHeads[];
     voice: Voice;
@@ -1942,7 +1952,6 @@ export class Task extends EventRecorder {
           completed: input.into.isCompleted,
         },
         held: held?.name ?? null,
-        because: input.because ?? null,
         changes: ended.toHeads.flatMap((to) => {
           const from = ended.fromHeads.find((each) => each.path === to.path);
 

@@ -47,9 +47,6 @@ export const drivenByAPerson = (
   ].join('\n\n');
 
 export class TaskNoteBody {
-  static readonly CHAT_DELETED =
-    'The agent chat that held the task was deleted, so the line took the task back.';
-
   private static readonly TURNS_ARE_OVER =
     "The rules for the person's turns no longer apply.";
 
@@ -131,9 +128,19 @@ export class TaskNoteBody {
     );
   }
 
-  static leftChat(at: StationName): TaskNoteBody {
+  static leftChat(at: {
+    name: StationName;
+    isCompleted: boolean;
+    isBacklog: boolean;
+  }): TaskNoteBody {
+    const moved = at.isCompleted
+      ? `The person moved the task to ${at.name.value}, so the task is done.`
+      : at.isBacklog
+        ? `The person moved the task to ${at.name.value}. It waits there until someone starts it.`
+        : `The person handed the task to the line. It is at ${at.name.value}, and the line works on it from now on.`;
+
     return TaskNoteBody.of(
-      `The person handed the task to the line. It is at ${at.value}, and the line works on it from now on. Do not push to its branch again. When the person asks for more changes, make them on a new branch.`,
+      `${moved} Do not push to its branch again. When the person asks for more changes, make them on a new branch.`,
     );
   }
 
@@ -153,7 +160,6 @@ export class TaskNoteBody {
     at: StationName;
     into: { name: StationName; completed: boolean } | null;
     held: StationName | null;
-    because: string | null;
     changes: readonly { path: string; from: string; to: string }[];
     summary: string | null;
   }): TaskNoteBody {
@@ -162,7 +168,6 @@ export class TaskNoteBody {
     return TaskNoteBody.of(
       [
         `The line resumed at ${input.at.value}. ${TaskNoteBody.resumedInto(input.into)}`,
-        input.because,
         TaskNoteBody.heldMoveOnResume(input.into, input.held),
         input.summary ? `About the changes:\n\n${input.summary}` : null,
         changed.length > 0

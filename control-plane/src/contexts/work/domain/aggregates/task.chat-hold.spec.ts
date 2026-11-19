@@ -3,6 +3,7 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -267,44 +268,84 @@ describe('a task a chat opens a pull request for', () => {
     );
 
     expect(moved.openHold).toBeNull();
-    expect(wordsFor(moved).map((each) => each.wakes)).toEqual([false]);
+    expect(wordsFor(moved).map((each) => [each.body, each.wakes])).toEqual([
+      [
+        'The person moved the task to backlog. It waits there until someone starts it. Do not push to its branch again. When the person asks for more changes, make them on a new branch.',
+        false,
+      ],
+    ]);
   });
 
-  it('goes back to the line when its chat is deleted, and says why', () => {
+  it('tells the chat the task is done when the person moves it to completed', () => {
     const task = opened();
     task.pullEvents();
-    const released = task.releasedByDeletedChat(CHAT, line, LATER);
-    const events = released.pullEvents();
-
-    expect(released.openHold).toBeNull();
-    expect(released.stationId.equals(REVIEW)).toBe(true);
-    expect(released.wantsRun(line)).toBe(true);
-    expect(released.notes.slice(-1)[0]?.body.value).toContain(
-      TaskNoteBody.CHAT_DELETED,
+    const moved = task.moveTo(
+      line,
+      COMPLETED,
+      TaskRank.of('m'),
+      said('Ship it.', Voice.person(LEON)),
+      { mover: LEON },
     );
-    expect(events.some((each) => each instanceof LineResumed)).toBe(true);
-    expect(events.some((each) => each instanceof TaskNotedForChat)).toBe(false);
+
+    expect(wordsFor(moved)[0]?.body).toMatch(
+      /^The person moved the task to completed, so the task is done\./,
+    );
   });
 
-  it('passes the notes it held aside to the line when its chat is deleted', () => {
-    const released = opened()
-      .addMessage(said('Checks failed on web.', Voice.world()))
-      .releasedByDeletedChat(CHAT, line, LATER);
+  it('refuses to open its pull request again after the person handed it to the line, though one is open', () => {
+    const back = opened()
+      .recordChatPullRequest(CHAT, URL, LATER, line)
+      .resumeLine({
+        by: LEON,
+        line,
+        next: 'continue',
+        to: null,
+        rank: null,
+        verdict: null,
+        summary: null,
+        turnHeads: [],
+        at: LATER,
+      });
 
-    expect(released.wantsRun(line)).toBe(true);
     expect(
-      released.notes.some(
-        (each) => each.body.value === 'Checks failed on web.',
-      ),
-    ).toBe(true);
+      back.chatPullRequestStep(CHAT, Repository.of('acme/web'), line),
+    ).toEqual({
+      kind: 'refused',
+      refusal: {
+        kind: 'branch-of-released-task',
+        branch: Branch.of('feat/video-icons'),
+        completed: false,
+      },
+    });
   });
 
-  it('stays as it is when another chat is deleted', () => {
+  it('answers the pull request it already opened while it holds the task', () => {
+    expect(
+      opened()
+        .recordChatPullRequest(CHAT, URL, LATER, line)
+        .chatPullRequestStep(CHAT, Repository.of('acme/web'), line),
+    ).toEqual({ kind: 'known', url: URL });
+  });
+
+  it('opens a pull request only in a repository its line works on', () => {
     const task = opened();
 
-    expect(task.releasedByDeletedChat(ChatId.of('chat_2'), line, LATER)).toBe(
-      task,
-    );
+    expect(
+      task.chatPullRequestStep(CHAT, Repository.of('acme/billing'), line),
+    ).toMatchObject({
+      kind: 'refused',
+      refusal: { kind: 'branch-off-the-line' },
+    });
+    expect(
+      task.chatPullRequestStep(
+        ChatId.of('chat_2'),
+        Repository.of('acme/web'),
+        line,
+      ),
+    ).toMatchObject({
+      kind: 'refused',
+      refusal: { kind: 'branch-of-another-task' },
+    });
   });
 
   it('takes no turns of its own while the chat holds it', () => {

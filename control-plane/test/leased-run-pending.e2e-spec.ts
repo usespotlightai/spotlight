@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunsPort } from '@runs/application/ports/runs.port';
@@ -37,6 +38,7 @@ beforeAll(async () => {
     new DrizzleChatRepository(context, NO_EVENTS),
     { findByStation: async () => null } as unknown as LineMapsPort,
     new DrizzleDispatchRepository(context, NO_EVENTS),
+    {} as RepositorySettingsPort,
     { now: () => new Date(), sleep: async () => {} },
   );
 }, 60_000);

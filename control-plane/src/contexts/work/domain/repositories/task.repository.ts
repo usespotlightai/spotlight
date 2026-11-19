@@ -5,7 +5,6 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
-import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
@@ -34,8 +33,6 @@ export interface TaskRepository {
   ): Promise<Task | null>;
 
   onBranch(workspaceId: WorkspaceId, branch: Branch): Promise<Task | null>;
-
-  heldForChat(chat: ChatId): Promise<readonly Task[]>;
 
   reviewingPullRequest(
     workspaceId: WorkspaceId,

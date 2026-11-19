@@ -236,7 +236,6 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
-import { ReleaseTasksOfDeletedChat } from '@work/application/events/handlers/release-tasks-of-deleted-chat.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
@@ -327,6 +326,10 @@ import {
   PULL_REQUEST_REVIEWING,
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
+import {
+  RECEIVE_PACK,
+  type ReceivePackPort,
+} from '@work/application/ports/receive-pack.port';
 import {
   REVIEW_WORK_ACCESS,
   type ReviewWorkAccessPort,
@@ -609,6 +612,7 @@ import { RunsHarnessCatalogue } from '@work/infrastructure/acl/runs-harness-cata
 import { DrizzleTaskDraftStates } from '@work/infrastructure/collab/drizzle-task-draft-states';
 import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus-live-task-drafts';
 import { WORK_PAYLOAD_TYPES } from '@work/infrastructure/events/work-payload-types';
+import { GitReceivePack } from '@work/infrastructure/git/receive-pack';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
 import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
@@ -1377,6 +1381,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       CHAT_REPOSITORY,
       LINE_MAPS,
       DISPATCH_REPOSITORY,
+      REPOSITORY_SETTINGS,
       CLOCK,
     ],
     useFactory: (
@@ -1386,9 +1391,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       chats: ChatRepository,
       lines: LineMapsPort,
       dispatches: DispatchRepository,
+      settings: RepositorySettingsPort,
       clock: ClockPort,
     ) =>
-      new RunWorks(leases, runCommands, tasks, chats, lines, dispatches, clock),
+      new RunWorks(
+        leases,
+        runCommands,
+        tasks,
+        chats,
+        lines,
+        dispatches,
+        settings,
+        clock,
+      ),
   },
 
   {
@@ -1399,6 +1414,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       REPOSITORY_GIT,
       REVIEW_WORK_ACCESS,
       RUNNER_LEASES,
+      RECEIVE_PACK,
       CLOCK,
     ],
     useFactory: (
@@ -1407,9 +1423,21 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       git: RepositoryGitPort,
       checking: ReviewWorkAccessPort,
       leases: RunnerLeasesPort,
+      receivePack: ReceivePackPort,
       clock: ClockPort,
-    ) => new CarryGitCall(works, workspaces, git, checking, leases, clock),
+    ) =>
+      new CarryGitCall(
+        works,
+        workspaces,
+        git,
+        checking,
+        leases,
+        receivePack,
+        clock,
+      ),
   },
+
+  { provide: RECEIVE_PACK, useClass: GitReceivePack },
 
   {
     provide: ChatLoader,
@@ -1930,12 +1958,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             clock,
           ),
           chatsOfTasks: new TellChatOfTask(chats, chatDispatch, transaction),
-          tasksOfDeletedChats: new ReleaseTasksOfDeletedChat(
-            tasks,
-            lines,
-            transaction,
-            clock,
-          ),
         }),
       ]);
       return true;

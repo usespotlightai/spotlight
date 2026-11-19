@@ -489,23 +489,19 @@ export class Chat extends EventRecorder {
   openedPullRequest(input: {
     runId: RunId;
     title: string;
+    repository: Repository;
     pullRequest: ChatPullRequest;
     at: Date;
   }): Chat {
-    const repository = input.pullRequest.url.repository;
-
     if (this.setup) {
       throw new InvalidChatTransitionError(
         `Chat ${this.id.value} sets up the team. It opens its pull request with setup-pull-request.`,
       );
     }
 
-    if (
-      !repository ||
-      !this.repositories.some((each) => each.equals(repository))
-    ) {
+    if (!this.repositories.some((each) => each.equals(input.repository))) {
       throw new InvalidChatTransitionError(
-        `${input.pullRequest.url.value} is not in a repository of chat ${this.id.value}.`,
+        `${input.repository.value} is not a repository of chat ${this.id.value}.`,
       );
     }
 

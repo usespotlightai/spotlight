@@ -38,7 +38,6 @@ export function ChatPullRequest({
             teamId,
             taskId: pullRequest.taskId,
             next: 'continue',
-            verdict: 'exploring',
           },
           {
             onSuccess: () => {

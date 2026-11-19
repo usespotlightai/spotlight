@@ -1399,6 +1399,7 @@ describe('Chat', () => {
       working().openedPullRequest({
         runId: RunId.of('run_1'),
         title: 'Show video icons',
+        repository: Repository.of('acme/api'),
         pullRequest: ChatPullRequest.of({
           task: TaskId.of('task_1'),
           url: URL,
@@ -1448,7 +1449,7 @@ describe('Chat', () => {
       ]);
     });
 
-    it('keeps a pull request whose address names the repository in other letter case, after its run ended', () => {
+    it('keeps a pull request whose address names the repository another way, after its run ended', () => {
       const ended = working().runEnded(RunId.of('run_1'), {
         session: HarnessSession.of('session_1'),
         claimedBy: null,
@@ -1458,9 +1459,10 @@ describe('Chat', () => {
       const kept = ended.openedPullRequest({
         runId: RunId.of('run_1'),
         title: 'Show video icons',
+        repository: Repository.of('acme/api'),
         pullRequest: ChatPullRequest.of({
           task: TaskId.of('task_1'),
-          url: PullRequestUrl.of('https://github.com/Acme/API/pull/7'),
+          url: PullRequestUrl.of('https://github.com/acme/api-renamed/pull/7'),
         }),
         at: LATEST,
       });
@@ -1473,13 +1475,14 @@ describe('Chat', () => {
         working().openedPullRequest({
           runId: RunId.of('run_1'),
           title: 'Elsewhere',
+          repository: Repository.of('acme/billing'),
           pullRequest: ChatPullRequest.of({
             task: TaskId.of('task_1'),
             url: PullRequestUrl.of('https://github.com/acme/billing/pull/1'),
           }),
           at: LATER,
         }),
-      ).toThrow(/is not in a repository of chat/);
+      ).toThrow(/is not a repository of chat/);
     });
 
     it('answers the same pull request again without a second message', () => {
@@ -1488,6 +1491,7 @@ describe('Chat', () => {
       const again = chat.openedPullRequest({
         runId: RunId.of('run_1'),
         title: 'Show video icons',
+        repository: Repository.of('acme/api'),
         pullRequest: ChatPullRequest.of({
           task: TaskId.of('task_1'),
           url: URL,
@@ -1503,6 +1507,7 @@ describe('Chat', () => {
       const twice = opened().openedPullRequest({
         runId: RunId.of('run_1'),
         title: 'Show audio icons',
+        repository: Repository.of('acme/api'),
         pullRequest: ChatPullRequest.of({
           task: TaskId.of('task_2'),
           url: PullRequestUrl.of('https://github.com/acme/api/pull/8'),

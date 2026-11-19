@@ -68,23 +68,9 @@ describe('TaskNoteBody.resumed', () => {
       at: StationName.of('Build'),
       into,
       held: null,
-      because: null,
       changes: [],
       summary: null,
     }).value;
-
-  it('says why the line resumed, right after where', () => {
-    expect(
-      TaskNoteBody.resumed({
-        at: StationName.of('Build'),
-        into: null,
-        held: null,
-        because: TaskNoteBody.CHAT_DELETED,
-        changes: [],
-        summary: null,
-      }).value.split('\n\n')[1],
-    ).toBe(TaskNoteBody.CHAT_DELETED);
-  });
 
   it('ends the rules for the person’s turns wherever the task goes on', () => {
     expect(resumed(null)).toContain(

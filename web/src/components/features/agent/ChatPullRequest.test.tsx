@@ -70,7 +70,6 @@ describe('ChatPullRequest', () => {
         teamId: 'team_1',
         taskId: 'task_1',
         next: 'continue',
-        verdict: 'exploring',
       },
       expect.anything(),
     );

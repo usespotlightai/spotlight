@@ -121,6 +121,7 @@ import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { Resumption } from '@work/domain/value-objects/resumption.vo';
@@ -160,6 +161,7 @@ export const WORK_PAYLOAD_TYPES = [
   LineMap,
   LineRepositories,
   Reaction,
+  RefUpdate,
   ReviewIntake,
   Station,
   Approval,

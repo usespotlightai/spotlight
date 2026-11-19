@@ -83,7 +83,6 @@ import {
   gt,
   inArray,
   isNotNull,
-  isNull,
   lt,
   not,
   or,
@@ -675,24 +674,6 @@ export class DrizzleTaskRepository implements TaskRepository {
       )
       .orderBy(task.id)
       .for('update');
-
-    return this.whole(found);
-  }
-
-  async heldForChat(chat: ChatId): Promise<readonly Task[]> {
-    const found = await this.context.db
-      .select()
-      .from(task)
-      .where(
-        inArray(
-          task.id,
-          this.context.db
-            .select({ taskId: taskHold.taskId })
-            .from(taskHold)
-            .where(and(eq(taskHold.chatId, chat.value), isNull(taskHold.endedAt))),
-        ),
-      )
-      .orderBy(asc(task.id));
 
     return this.whole(found);
   }

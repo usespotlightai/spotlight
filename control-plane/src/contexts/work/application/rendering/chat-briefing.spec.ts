@@ -290,6 +290,7 @@ describe('ChatBriefing', () => {
         .openedPullRequest({
           runId: RunId.of('run_1'),
           title: 'Show video icons',
+          repository: Repository.of('acme/web'),
           pullRequest: ChatPullRequest.of({
             task: TaskId.of('task_1'),
             url: WEB,

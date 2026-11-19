@@ -57,7 +57,6 @@ import type { NotifyOutsideTools } from '@work/application/events/handlers/notif
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
-import type { ReleaseTasksOfDeletedChat } from '@work/application/events/handlers/release-tasks-of-deleted-chat.handler';
 import type { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import type { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
@@ -143,7 +142,6 @@ export const workSubscribers = (reactions: {
   takenMarks: ReleaseTakenMarks;
   taskPullRequests: TrackTaskPullRequests;
   chatsOfTasks: TellChatOfTask;
-  tasksOfDeletedChats: ReleaseTasksOfDeletedChat;
 }): readonly DomainEventSubscriber[] => [
   subscribing<ToolUsed>(
     'work.fire-hooks-after-tool-used',
@@ -244,11 +242,6 @@ export const workSubscribers = (reactions: {
     'work.tell-chat-of-task',
     ['task.noted-for-chat'],
     (event) => reactions.chatsOfTasks.on(event),
-  ),
-  subscribing<ChatDeleted>(
-    'work.release-tasks-of-deleted-chat',
-    ['chat.deleted'],
-    (event) => reactions.tasksOfDeletedChats.on(event),
   ),
   subscribing<TaskOpened>(
     'work.complete-accepted-proposal',

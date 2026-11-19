@@ -119,6 +119,7 @@ const chatFor = (
     .openedPullRequest({
       runId: run,
       title: 'Show video icons',
+      repository: WEB,
       pullRequest,
       at: NOW,
     });
@@ -165,6 +166,7 @@ describe('pull requests an agent chat opened, stored in the database (e2e)', () 
     const chat = start.openedPullRequest({
       runId: run,
       title: 'Show video icons',
+      repository: WEB,
       pullRequest: ChatPullRequest.of({ task: task.id, url }),
       at: NOW,
     });
@@ -182,9 +184,6 @@ describe('pull requests an agent chat opened, stored in the database (e2e)', () 
     ).toBe(true);
     expect(
       (await chats.find(chat.id))?.pullRequests.map((each) => each.task.value),
-    ).toEqual([task.id.value]);
-    expect(
-      (await tasks.heldForChat(chat.id)).map((each) => each.id.value),
     ).toEqual([task.id.value]);
     expect(await pullRequestOf(team, chat)).toMatchObject({
       taskId: task.id.value,
@@ -208,7 +207,6 @@ describe('pull requests an agent chat opened, stored in the database (e2e)', () 
     );
 
     expect((await pullRequestOf(team, chat))?.state).toBe('line');
-    expect(await tasks.heldForChat(chat.id)).toEqual([]);
   });
 
   it('reads a pull request whose task was deleted as gone', async () => {

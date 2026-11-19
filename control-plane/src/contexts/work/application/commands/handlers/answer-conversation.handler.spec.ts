@@ -159,7 +159,6 @@ const tasks = (found: Task) =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
-    heldForChat: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>

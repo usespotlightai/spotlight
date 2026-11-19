@@ -16,6 +16,10 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type {
+  PushRead,
+  ReceivePackPort,
+} from '@work/application/ports/receive-pack.port';
 import type { LeasedReviewWork } from '@work/application/ports/review-work-access.port';
 import { runLeasesOver } from '@work/application/ports/runs.fake-spec';
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
@@ -40,6 +44,7 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -54,6 +59,34 @@ const call: GitCall = {
   headers: {},
   body: null,
 };
+
+const PUSHED = 'a'.repeat(40);
+
+const push: GitCall = {
+  method: 'POST',
+  path: '/git-receive-pack',
+  search: '',
+  headers: {},
+  body: null,
+};
+
+const forwarded: GitCall = { ...push, path: '/forwarded' };
+
+const REFUSED = { status: 200, headers: {}, body: null };
+
+const pushing = (...refs: readonly string[]): ReceivePackPort => ({
+  read: vi.fn(async (): Promise<PushRead> => ({
+    kind: 'read',
+    push: {
+      updates: refs.map((ref) => RefUpdate.of({ ref, to: PUSHED })),
+      call: forwarded,
+      refused: vi.fn(async (reason: string) => ({
+        ...REFUSED,
+        headers: { reason },
+      })),
+    },
+  })),
+});
 
 const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   lineMapOf({
@@ -207,6 +240,7 @@ const carrying = (
     (checking.runId
       ? { kind: 'check', id: 'stack_1' }
       : { kind: 'diff', id: 'diff_1' }),
+  receivePack: ReceivePackPort = pushing('refs/heads/fix/icons'),
 ) => {
   const git = {
     call: vi.fn(async () => ({ status: 200, headers: {}, body: null })),
@@ -217,7 +251,10 @@ const carrying = (
   const service = new CarryGitCall(
     runWorksOver(
       runLeasesOver(() => claimed?.run ?? null),
-      { find: vi.fn(async () => existing) } as unknown as TaskRepository,
+      {
+        find: vi.fn(async () => existing),
+        onBranch: vi.fn(async () => null),
+      } as unknown as TaskRepository,
       { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
       {
         findByStation: vi.fn(async () => lineWorking(repositories)),
@@ -235,6 +272,7 @@ const carrying = (
     git,
     checks,
     leases,
+    receivePack,
     { now: () => NOW, sleep: async () => {} },
   );
 
@@ -293,6 +331,90 @@ describe('CarryGitCall', () => {
       WorkspaceId.of('ws_1'),
       Repository.of('acme/planning'),
       call,
+    );
+  });
+
+  it('carries a chat’s push of its own branch as the commands were read', async () => {
+    const { service, git } = carrying(claimedBy('runner_1', 'chat'), null);
+
+    await service.carry(
+      'run_1',
+      'runner_1',
+      'planning',
+      'git-receive-pack',
+      push,
+    );
+
+    expect(git.call).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      Repository.of('acme/planning'),
+      forwarded,
+    );
+  });
+
+  it('answers a chat’s push to the default branch with the refusal, and carries nothing', async () => {
+    const { service, git } = carrying(
+      claimedBy('runner_1', 'chat'),
+      null,
+      undefined,
+      null,
+      null,
+      pushing('refs/heads/fix/icons', 'refs/heads/main'),
+    );
+
+    await expect(
+      service.carry('run_1', 'runner_1', 'planning', 'git-receive-pack', push),
+    ).resolves.toEqual({
+      ...REFUSED,
+      headers: {
+        reason:
+          'main is the default branch. Push the change to a new branch and open a pull request.',
+      },
+    });
+    expect(git.call).not.toHaveBeenCalled();
+  });
+
+  it('answers a push it cannot read, and carries nothing', async () => {
+    const unreadable = { status: 400, headers: {}, body: null };
+    const { service, git } = carrying(
+      claimedBy('runner_1', 'chat'),
+      null,
+      undefined,
+      null,
+      null,
+      { read: async () => ({ kind: 'unreadable', answer: unreadable }) },
+    );
+
+    await expect(
+      service.carry('run_1', 'runner_1', 'planning', 'git-receive-pack', push),
+    ).resolves.toBe(unreadable);
+    expect(git.call).not.toHaveBeenCalled();
+  });
+
+  it('carries a task run’s push as it came, without reading it, since only a chat’s pushes are limited', async () => {
+    const receivePack = pushing('refs/heads/main');
+    const { service, git } = carrying(
+      claimedBy('runner_1'),
+      task(),
+      undefined,
+      null,
+      null,
+      receivePack,
+    );
+
+    await service.carry(
+      'run_1',
+      'runner_1',
+      'widgets',
+      'git-receive-pack',
+      push,
+    );
+
+    expect(receivePack.read).not.toHaveBeenCalled();
+    expect(git.call).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      Repository.of('acme/widgets'),
+      push,
     );
   });
 
