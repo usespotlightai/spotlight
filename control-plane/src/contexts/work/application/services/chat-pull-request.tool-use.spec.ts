@@ -118,6 +118,7 @@ const using = (
     'web/src/icons.ts',
   ]);
   const allows = vi.fn(async () => {});
+  const allowsNew = vi.fn(async () => {});
   const tool = new ChatPullRequestToolUse(
     {
       find: async () => chat,
@@ -154,7 +155,7 @@ const using = (
       },
     } as unknown as CreateTask,
     { open, changedOn } as unknown as PullRequestPort,
-    { allows } as unknown as PullRequestOpeningHook,
+    { allows, allowsNew } as unknown as PullRequestOpeningHook,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
@@ -176,6 +177,7 @@ const using = (
     open,
     changedOn,
     allows,
+    allowsNew,
     created,
     stored: (id: string) => tasks.get(id),
     put: (task: Task) => {
@@ -226,22 +228,27 @@ describe('ChatPullRequestToolUse', () => {
     ]);
   });
 
-  it('asks the pull-request.opening hook before it opens the pull request', async () => {
-    const { tool, context, allows, created } = using();
+  it('asks the pull-request.opening hook about the new task before it opens the pull request', async () => {
+    const { tool, context, allowsNew, open, created } = using();
+    allowsNew.mockImplementationOnce(async () => {
+      expect(open).not.toHaveBeenCalled();
+      expect(created).toEqual([]);
+    });
 
     await tool.call(context, INPUTS);
 
-    expect(allows).toHaveBeenCalledWith({
-      task: created[0],
-      runId: null,
+    expect(allowsNew).toHaveBeenCalledWith({
+      task: expect.objectContaining({
+        branch: Branch.of('feat/video-icons'),
+      }) as unknown,
       repository: expect.objectContaining({ value: 'acme/web' }) as unknown,
       title: 'Show video icons',
     });
   });
 
-  it('opens nothing when the hook denies the pull request, and removes the task it created', async () => {
-    const { tool, context, allows, open, created, stored, current } = using();
-    allows.mockRejectedValueOnce(
+  it('creates no task and opens nothing when the hook denies the pull request', async () => {
+    const { tool, context, allowsNew, open, created, current } = using();
+    allowsNew.mockRejectedValueOnce(
       new PullRequestHookDeniedError('Name the issue in the title.'),
     );
 
@@ -249,8 +256,42 @@ describe('ChatPullRequestToolUse', () => {
       PullRequestHookDeniedError,
     );
     expect(open).not.toHaveBeenCalled();
-    expect(stored(created[0]?.id.value ?? '')).toBeUndefined();
+    expect(created).toEqual([]);
     expect(current().pullRequests).toEqual([]);
+  });
+
+  it('asks the hook about the task it already has when it opens a pull request in another repository', async () => {
+    const both = lineMapOf({
+      ...DELIVERY_INPUT,
+      repositories: [
+        repositoryOf(Repository.of('acme/web')),
+        repositoryOf(Repository.of('acme/api')),
+      ],
+    });
+    const { tool, context, allows, allowsNew, open, created } = using(
+      [Repository.of('acme/web'), Repository.of('acme/api')],
+      [both],
+    );
+    open
+      .mockResolvedValueOnce({ url: URL })
+      .mockResolvedValueOnce({ url: 'https://github.com/acme/api/pull/3' });
+
+    await tool.call(
+      context,
+      ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/web' }),
+    );
+    await tool.call(
+      context,
+      ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/api' }),
+    );
+
+    expect(allowsNew).toHaveBeenCalledTimes(1);
+    expect(allows).toHaveBeenCalledWith({
+      task: created[0],
+      runId: null,
+      repository: expect.objectContaining({ value: 'acme/api' }) as unknown,
+      title: 'Show video icons',
+    });
   });
 
   it('creates no task from a branch with no changes, such as the default branch', async () => {
@@ -276,11 +317,21 @@ describe('ChatPullRequestToolUse', () => {
   });
 
   it('keeps the pull request on its task when the person hands the task to the line while GitHub opens it', async () => {
-    const { tool, context, open, created, stored, put, current } = using();
+    const both = lineMapOf({
+      ...DELIVERY_INPUT,
+      repositories: [
+        repositoryOf(Repository.of('acme/web')),
+        repositoryOf(Repository.of('acme/api')),
+      ],
+    });
+    const { tool, context, open, stored, put, current } = using(
+      [Repository.of('acme/web'), Repository.of('acme/api')],
+      [both],
+    );
     const handedOver = (task: Task) =>
       task.resumeLine({
         by: LEON,
-        line: DELIVERY,
+        line: both,
         next: 'continue',
         to: null,
         rank: null,
@@ -289,23 +340,31 @@ describe('ChatPullRequestToolUse', () => {
         turnHeads: [],
         at: NOW,
       });
+    const first = (await tool.call(
+      context,
+      ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/web' }),
+    )) as { task: string };
     open.mockImplementationOnce(async () => {
-      const [task] = created;
+      const task = stored(first.task);
 
       if (task) {
         put(handedOver(task));
       }
 
-      return { url: URL };
+      return { url: 'https://github.com/acme/api/pull/3' };
     });
 
-    const answer = (await tool.call(context, INPUTS)) as { task: string };
-
-    expect(stored(answer.task)?.openHold).toBeNull();
-    expect(stored(answer.task)?.pullRequests.map((each) => each.value)).toEqual(
-      [URL],
+    await tool.call(
+      context,
+      ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/api' }),
     );
-    expect(current().pullRequests).toHaveLength(1);
+
+    expect(stored(first.task)?.openHold).toBeNull();
+    expect(stored(first.task)?.pullRequests.map((each) => each.value)).toEqual([
+      URL,
+      'https://github.com/acme/api/pull/3',
+    ]);
+    expect(current().pullRequests).toHaveLength(2);
   });
 
   it('opens another pull request for the same task from the same branch in a second repository the line works on', async () => {
@@ -389,17 +448,17 @@ describe('ChatPullRequestToolUse', () => {
     expect(created).toHaveLength(1);
   });
 
-  it('leaves no task when GitHub fails, and opens the pull request on a new try', async () => {
+  it('creates no task when GitHub fails, and opens the pull request on a new try', async () => {
     const { tool, context, open, created, stored } = using();
     open.mockRejectedValueOnce(new Error('GitHub is down.'));
 
     await expect(tool.call(context, INPUTS)).rejects.toThrow('GitHub is down.');
-    expect(stored(created[0]?.id.value ?? '')).toBeUndefined();
+    expect(created).toEqual([]);
 
     const answer = (await tool.call(context, INPUTS)) as { task: string };
 
     expect(open).toHaveBeenCalledTimes(2);
-    expect(created).toHaveLength(2);
+    expect(created).toHaveLength(1);
     expect(stored(answer.task)?.pullRequests.map((each) => each.value)).toEqual(
       [URL],
     );

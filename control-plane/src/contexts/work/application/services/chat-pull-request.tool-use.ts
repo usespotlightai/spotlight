@@ -81,12 +81,9 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       chat.workspaceId,
       opening.branch,
     );
-    const { line, task, created } = onBranch
-      ? { ...this.reused(opening, lines, onBranch), created: false }
-      : await this.created(opening, lines, inputs);
-    const url =
-      task.pullRequestIn(opening.repository) ??
-      (await this.opened(opening, line, task, created));
+    const { task, url } = onBranch
+      ? await this.onTaskOf(opening, this.reused(opening, lines, onBranch))
+      : await this.withNewTask(opening, lines, inputs);
 
     await this.transaction.inTransaction(async () => {
       await this.chats.save(
@@ -135,11 +132,44 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     return { line, task };
   }
 
-  private async created(
+  private async onTaskOf(
+    opening: Opening,
+    { line, task }: { line: LineMap; task: Task },
+  ): Promise<{ task: Task; url: PullRequestUrl }> {
+    const known = task.pullRequestIn(opening.repository);
+
+    if (known) {
+      return { task, url: known };
+    }
+
+    await this.openingHook.allows({
+      task,
+      runId: null,
+      repository: opening.repository,
+      title: opening.title.value,
+    });
+
+    const url = await this.opened(opening);
+
+    await this.transaction.inTransaction(async () => {
+      await this.tasks.save(
+        (await this.taskFound(task.id)).recordChatPullRequest(
+          opening.chat.id,
+          url,
+          this.clock.now(),
+          line,
+        ),
+      );
+    });
+
+    return { task, url };
+  }
+
+  private async withNewTask(
     opening: Opening,
     lines: readonly LineMap[],
     inputs: ToolInputs,
-  ): Promise<{ line: LineMap; task: Task; created: boolean }> {
+  ): Promise<{ task: Task; url: PullRequestUrl }> {
     const { chat, branch, repository } = opening;
     const { line, station } = chatPullRequestPlacement(
       lines,
@@ -158,8 +188,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       );
     }
 
-    const now = this.clock.now();
-    const opened = Task.openedInChat({
+    const draft = Task.openedInChat({
       line,
       at: station.id,
       title: TaskTitle.of(opening.title.value),
@@ -175,15 +204,30 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       members: (await this.access.membersOf(line.teamId)) ?? TeamMembers.of([]),
       chat: chat.id,
       hold: HoldId.of(this.ids.generate()),
-      now,
+      now: this.clock.now(),
       newId: () => this.ids.generate(),
     });
 
+    await this.openingHook.allowsNew({
+      task: draft,
+      repository,
+      title: opening.title.value,
+    });
+
+    const url = await this.opened(opening);
+
     try {
       return {
-        line,
-        task: await this.createTask.create({ task: opened, line }),
-        created: true,
+        task: await this.createTask.create({
+          task: draft.recordChatPullRequest(
+            chat.id,
+            url,
+            this.clock.now(),
+            line,
+          ),
+          line,
+        }),
+        url,
       };
     } catch (error) {
       const raced = await this.tasks.onBranch(chat.workspaceId, branch);
@@ -192,67 +236,20 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
         throw error;
       }
 
-      return { ...this.reused(opening, lines, raced), created: false };
+      return this.onTaskOf(opening, this.reused(opening, lines, raced));
     }
   }
 
-  private async opened(
-    opening: Opening,
-    line: LineMap,
-    task: Task,
-    created: boolean,
-  ): Promise<PullRequestUrl> {
-    let url: PullRequestUrl;
-
-    try {
-      await this.openingHook.allows({
-        task,
-        runId: null,
-        repository: opening.repository,
-        title: opening.title.value,
-      });
-
-      url = PullRequestUrl.of(
-        (
-          await this.pullRequests.open({
-            workspaceId: opening.chat.workspaceId,
-            repository: opening.repository,
-            branch: opening.branch.value,
-            title: opening.title.value,
-            body: opening.body,
-          })
-        ).url,
-      );
-    } catch (error) {
-      if (created) {
-        await this.removed(task.id);
-      }
-
-      throw error;
-    }
-
-    await this.transaction.inTransaction(async () => {
-      await this.tasks.save(
-        (await this.taskFound(task.id)).recordChatPullRequest(
-          opening.chat.id,
-          url,
-          this.clock.now(),
-          line,
-        ),
-      );
+  private async opened(opening: Opening): Promise<PullRequestUrl> {
+    const opened = await this.pullRequests.open({
+      workspaceId: opening.chat.workspaceId,
+      repository: opening.repository,
+      branch: opening.branch.value,
+      title: opening.title.value,
+      body: opening.body,
     });
 
-    return url;
-  }
-
-  private async removed(taskId: TaskId): Promise<void> {
-    await this.transaction.inTransaction(async () => {
-      const task = await this.tasks.find(taskId);
-
-      if (task && task.pullRequests.length === 0) {
-        await this.tasks.remove(task.deleted());
-      }
-    });
+    return PullRequestUrl.of(opened.url);
   }
 
   private async found(chatId: ChatId): Promise<Chat> {

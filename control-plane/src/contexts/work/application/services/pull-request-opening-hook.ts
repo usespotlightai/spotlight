@@ -2,9 +2,18 @@ import type { PullRequestPort } from '@github/application/ports/pull-request.por
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
-import type { TaskViewsPort } from '@work/application/ports/task-views.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request-hook-denied.error';
+
+interface Opening {
+  readonly task: Task;
+  readonly repository: Repository;
+  readonly title: string;
+}
 
 export class PullRequestOpeningHook {
   constructor(
@@ -13,17 +22,21 @@ export class PullRequestOpeningHook {
     private readonly pullRequests: PullRequestPort,
   ) {}
 
-  async allows(input: {
-    task: Task;
-    runId: RunId | null;
-    repository: Repository;
-    title: string;
-  }): Promise<void> {
-    const view = await this.taskViews.of(
-      input.task.id.value,
-      input.runId?.value ?? null,
+  async allows(input: Opening & { runId: RunId | null }): Promise<void> {
+    await this.decided(
+      await this.taskViews.of(input.task.id.value, input.runId?.value ?? null),
+      input,
     );
+  }
 
+  async allowsNew(input: Opening): Promise<void> {
+    await this.decided(await this.taskViews.ofNew(input.task), input);
+  }
+
+  private async decided(
+    view: TaskViewDto | null,
+    input: Opening,
+  ): Promise<void> {
     if (
       !view ||
       !(await this.hooks.listens(view.teamId, 'pull-request.opening'))

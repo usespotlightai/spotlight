@@ -468,6 +468,7 @@ const using = (
       hooked.asked.push({ taskId, runId });
       return TASK_VIEW;
     },
+    ofNew: async () => TASK_VIEW,
     ofPullRequest: async () => null,
   };
   const hooks: LifecycleHooksPort = {
