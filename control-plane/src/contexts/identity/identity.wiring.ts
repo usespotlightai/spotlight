@@ -107,6 +107,7 @@ import {
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
+import { WORKSPACE_DIRECTORY } from '@identity/application/ports/workspace-directory.port';
 import {
   WORKSPACE_OUTBOUND_HOSTS,
   type WorkspaceOutboundHostsPort,
@@ -122,6 +123,7 @@ import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-
 import { ImportTeamHandler } from '@identity/application/queries/handlers/import-team.handler';
 import { ImportWorkspaceHandler } from '@identity/application/queries/handlers/import-workspace.handler';
 import { ListConfigurationChangesHandler } from '@identity/application/queries/handlers/list-configuration-changes.handler';
+import { ListDirectoryMembersHandler } from '@identity/application/queries/handlers/list-directory-members.handler';
 import { ListMembersHandler } from '@identity/application/queries/handlers/list-members.handler';
 import { ListOidcTrustsHandler } from '@identity/application/queries/handlers/list-oidc-trusts.handler';
 import { ListTeamResourcesHandler } from '@identity/application/queries/handlers/list-team-resources.handler';
@@ -148,6 +150,7 @@ import {
 import { ImportTeamQuery } from '@identity/application/queries/import-team.query';
 import { ImportWorkspaceQuery } from '@identity/application/queries/import-workspace.query';
 import { ListConfigurationChangesQuery } from '@identity/application/queries/list-configuration-changes.query';
+import { ListDirectoryMembersQuery } from '@identity/application/queries/list-directory-members.query';
 import { ListMembersQuery } from '@identity/application/queries/list-members.query';
 import { ListOidcTrustsQuery } from '@identity/application/queries/list-oidc-trusts.query';
 import { ListTeamResourcesQuery } from '@identity/application/queries/list-team-resources.query';
@@ -211,6 +214,7 @@ import { DrizzleMemberReader } from '@identity/infrastructure/persistence/drizzl
 import { DrizzleOidcTrustReader } from '@identity/infrastructure/persistence/drizzle/readers/oidc-trust.reader';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleUserEmailReader } from '@identity/infrastructure/persistence/drizzle/readers/user-email.reader';
+import { DrizzleWorkspaceDirectory } from '@identity/infrastructure/persistence/drizzle/readers/workspace-directory.reader';
 import { DrizzleWorkspaceRecords } from '@identity/infrastructure/persistence/drizzle/readers/workspace-records.reader';
 import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/drizzle/readers/workspace-roles.reader';
 import { DrizzleAvatarRepository } from '@identity/infrastructure/persistence/drizzle/repositories/avatar.repository';
@@ -225,6 +229,7 @@ import { S3AvatarImages } from '@identity/infrastructure/storage/s3-avatar-image
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { identitySubscribers } from '@identity/presentation/events/identity.subscribers';
 import { IDENTITY_API_CONVENTIONS } from '@identity/presentation/http/api-conventions';
+import { AdminMemberController } from '@identity/presentation/http/controllers/admin-member.controller';
 import {
   TeamAvatarController,
   WorkspaceAvatarController,
@@ -295,6 +300,7 @@ const IDENTITY_API_DOCUMENTATION = Symbol('IDENTITY_API_DOCUMENTATION');
 const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
 
 export const IDENTITY_CONTROLLERS: readonly Type[] = [
+  AdminMemberController,
   WorkspaceAvatarController,
   TeamAvatarController,
   WorkspaceResourceController,
@@ -350,6 +356,7 @@ const adapters: Provider[] = [
   },
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
+  { provide: WORKSPACE_DIRECTORY, useClass: DrizzleWorkspaceDirectory },
   { provide: OIDC_TRUST_READER, useClass: DrizzleOidcTrustReader },
   { provide: MEMBER_DIRECTORY, useClass: DrizzleMemberDirectory },
   { provide: INVITE_READER, useClass: DrizzleInviteReader },
@@ -507,6 +514,10 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(ListWorkspaceMembersQuery, ListWorkspaceMembersHandler, [
     DrizzleWorkspaceRepository,
+    MEMBER_READER,
+  ]),
+  ...bindQueryHandler(ListDirectoryMembersQuery, ListDirectoryMembersHandler, [
+    WORKSPACE_DIRECTORY,
     MEMBER_READER,
   ]),
   ...bindQueryHandler(ListWorkspaceInvitesQuery, ListWorkspaceInvitesHandler, [

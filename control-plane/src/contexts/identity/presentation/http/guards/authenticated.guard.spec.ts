@@ -6,6 +6,7 @@ import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token
 import { AuthenticatedGuard } from '@identity/presentation/http/guards/authenticated.guard';
 import { type ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ADMIN_ONLY } from '@platform/http/decorators/admin-only.decorator';
 import {
   ALLOW_ANONYMOUS,
   READS_SESSION_IF_ANY,
@@ -32,6 +33,7 @@ const TOKEN = IssuedTokenGrant.principal({
 function setup(
   options: {
     anonymous?: boolean;
+    adminOnly?: boolean;
     readsSession?: boolean;
     allowsTokens?: boolean;
     session?: boolean;
@@ -44,6 +46,7 @@ function setup(
   vi.spyOn(reflector, 'getAllAndOverride').mockImplementation(
     (marker) =>
       (marker === ALLOW_ANONYMOUS && options.anonymous) ||
+      (marker === ADMIN_ONLY && options.adminOnly) ||
       (marker === READS_SESSION_IF_ANY && options.readsSession) ||
       (marker === ALLOW_WORKSPACE_TOKENS && options.allowsTokens) ||
       false,
@@ -106,6 +109,21 @@ describe('AuthenticatedGuard', () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(read).not.toHaveBeenCalled();
+  });
+
+  it('leaves an admin route to the admin guard, and never reads a session or a workspace token for it', async () => {
+    const { guard, context, request, read, readBearer, authenticate } = setup({
+      adminOnly: true,
+      bearer: LOGIN,
+      login: true,
+      session: true,
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(read).not.toHaveBeenCalled();
+    expect(readBearer).not.toHaveBeenCalled();
+    expect(authenticate).not.toHaveBeenCalled();
+    expect(request[REQUEST_PRINCIPAL]).toBeUndefined();
   });
 
   it('accepts an anonymous route that reads the session, as the person signed in or as nobody', async () => {

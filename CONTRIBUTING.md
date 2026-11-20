@@ -93,6 +93,7 @@ see.
 | Ledger | A table gateway that is not an aggregate repository (`*.ledger.ts`). |
 | Metered call | One usage row for each catalog tool call (`MeteredCall`). |
 | Pending job | A row that a job loop must process, with its attempts and next attempt time (`job_attempts`, `job_due_at`). |
+| Plan term | A plan and the time it ends, if it ends (`PlanTerm`). A workspace without a stored plan has the free plan with no end. The admin API sets and removes the stored plan (`WorkspacePlan`). |
 | Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
 | Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
 | Recipient | The public key that Spotlight seals a run's secrets to: one key for each run in an egress sidecar, one key for each process in a shared egress. |
@@ -102,6 +103,7 @@ see.
 | Tombstone | A row that Spotlight keeps after it deletes data, so that it does not restore the data (`deleted_*` tables). |
 | Value origin | Where a secret's value comes from (`SecretValueOrigin`): `awaiting` (no value yet), `spotlight` (a person set it, or Terraform handed it over) or `terraform` (`valueWoVersion` is set). |
 | Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |
+| Workspace directory | Every workspace of the deployment, for callers with the admin token only (`WorkspaceDirectoryPort`). It is not scoped to a viewer. |
 
 ## Releases
 

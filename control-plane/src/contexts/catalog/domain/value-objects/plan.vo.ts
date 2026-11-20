@@ -1,8 +1,12 @@
+import { InvalidPlanError } from '@catalog/domain/exceptions/invalid-plan.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export const PLANS = ['free', 'team', 'enterprise'] as const;
 
 type PlanName = (typeof PLANS)[number];
+
+const named = (raw: string): PlanName | undefined =>
+  PLANS.find((each) => each === raw);
 
 export class Plan {
   private constructor(readonly value: PlanName) {}
@@ -14,13 +18,23 @@ export class Plan {
   static readonly enterprise = new Plan('enterprise');
 
   static of(raw: string): Plan {
-    const named = PLANS.find((each) => each === raw);
+    const plan = named(raw);
 
-    if (!named) {
+    if (!plan) {
+      throw new InvalidPlanError(raw, PLANS);
+    }
+
+    return new Plan(plan);
+  }
+
+  static rehydrate(raw: string): Plan {
+    const plan = named(raw);
+
+    if (!plan) {
       throw new InconsistentStateError('plan', `names no plan (${raw})`);
     }
 
-    return new Plan(named);
+    return new Plan(plan);
   }
 
   includes(other: Plan): boolean {

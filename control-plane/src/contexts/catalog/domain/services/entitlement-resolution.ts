@@ -7,7 +7,7 @@ import type {
 import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
-import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
+import type { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 
 type DenialReason = 'unknown' | 'wrong-kind' | 'not-entitled' | 'expired';
 
@@ -51,7 +51,7 @@ const denied = (id: string, reason: DenialReason, detail: string): Denied => ({
 
 export const resolveEntitledItem = <T extends CatalogItem>(
   item: T,
-  plan: WorkspacePlan,
+  plan: PlanTerm,
   now: Date,
 ): EntitlementResult<T> => {
   const entitlement = entitlementTo(item, plan, now);
@@ -65,7 +65,7 @@ export const resolveEntitled = <K extends CatalogKind>(
   id: string,
   kind: K,
   catalog: CatalogItems,
-  plan: WorkspacePlan,
+  plan: PlanTerm,
   now: Date,
 ): EntitlementResult<ItemOf<K>> => {
   let parsed: CatalogItemId;
@@ -100,7 +100,7 @@ export const resolveEntitled = <K extends CatalogKind>(
 export const resolveEntitledFor = (
   request: EntitlementRequest,
   catalog: CatalogItems,
-  plan: WorkspacePlan,
+  plan: PlanTerm,
   now: Date,
 ): EntitledItems => {
   const tools: CatalogTool[] = [];

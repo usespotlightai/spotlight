@@ -392,6 +392,20 @@ export type LineResourceListResponseDto = {
   items: Array<LineResourceResponseDto>;
 };
 
+export type AdminMemberResponseDto = {
+  userId: string;
+  email: string;
+  name: string;
+  /**
+   * What they are in the workspace
+   */
+  role: 'owner' | 'admin' | 'member';
+  /**
+   * When they joined the workspace
+   */
+  joinedAt: string;
+};
+
 export type SetAvatarRequestDto = {
   /**
    * What kind of image the bytes are.
@@ -1012,6 +1026,52 @@ export type CatalogSkillResponseDto = {
    * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
    */
   tools: Array<string>;
+};
+
+export type AdminWorkspaceResponseDto = {
+  id: string;
+  slug: string;
+  name: string;
+  createdAt: string;
+  /**
+   * How many people are in it
+   */
+  memberCount: number;
+  /**
+   * The plan set for the workspace; free when none is set
+   */
+  plan: 'free' | 'team' | 'enterprise';
+  /**
+   * When the plan ends; the workspace then has the free plan. Null when it does not end
+   */
+  planExpiresAt: string | null;
+};
+
+export type AdminWorkspacePageResponseDto = {
+  /**
+   * Oldest first
+   */
+  items: Array<AdminWorkspaceResponseDto>;
+  /**
+   * Pass as `after` to read the next page; null on the last
+   */
+  next: string | null;
+};
+
+export type SetWorkspacePlanRequestDto = {
+  plan: 'free' | 'team' | 'enterprise';
+  /**
+   * When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end
+   */
+  expiresAt?: string | null;
+};
+
+export type WorkspacePlanResponseDto = {
+  plan: 'free' | 'team' | 'enterprise';
+  /**
+   * When the plan ends; the workspace then has the free plan. Null when it does not end
+   */
+  expiresAt: string | null;
 };
 
 export type EnqueueRunRequestDto = {
@@ -9884,6 +9944,32 @@ export type ListLinesResponses = {
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
+export type ListAdminWorkspaceMembersData = {
+  body?: never;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}/members';
+};
+
+export type ListAdminWorkspaceMembersErrors = {
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+};
+
+export type ListAdminWorkspaceMembersResponses = {
+  200: Array<AdminMemberResponseDto>;
+};
+
+export type ListAdminWorkspaceMembersResponse = ListAdminWorkspaceMembersResponses[keyof ListAdminWorkspaceMembersResponses];
+
 export type RemoveWorkspaceAvatarData = {
   body?: never;
   path: {
@@ -12225,6 +12311,148 @@ export type ReadCatalogSkillResponses = {
 };
 
 export type ReadCatalogSkillResponse = ReadCatalogSkillResponses[keyof ReadCatalogSkillResponses];
+
+export type ListAdminWorkspacesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Only the workspaces created after this time
+     */
+    createdAfter?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+    /**
+     * The `next` cursor of the page before
+     */
+    after?: string;
+  };
+  url: '/admin/workspaces';
+};
+
+export type ListAdminWorkspacesErrors = {
+  /**
+   * A page limit that is not a whole number above 0, or a createdAfter that is not a time
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No admin token is set
+   */
+  404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
+};
+
+export type ListAdminWorkspacesResponses = {
+  200: AdminWorkspacePageResponseDto;
+};
+
+export type ListAdminWorkspacesResponse = ListAdminWorkspacesResponses[keyof ListAdminWorkspacesResponses];
+
+export type GetAdminWorkspaceData = {
+  body?: never;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}';
+};
+
+export type GetAdminWorkspaceErrors = {
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+};
+
+export type GetAdminWorkspaceResponses = {
+  200: AdminWorkspaceResponseDto;
+};
+
+export type GetAdminWorkspaceResponse = GetAdminWorkspaceResponses[keyof GetAdminWorkspaceResponses];
+
+export type RemoveAdminWorkspacePlanData = {
+  body?: never;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}/plan';
+};
+
+export type RemoveAdminWorkspacePlanErrors = {
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+  /**
+   * The plan changed at the same time; try again
+   */
+  409: unknown;
+};
+
+export type RemoveAdminWorkspacePlanResponses = {
+  /**
+   * The workspace has the free plan
+   */
+  204: void;
+};
+
+export type RemoveAdminWorkspacePlanResponse = RemoveAdminWorkspacePlanResponses[keyof RemoveAdminWorkspacePlanResponses];
+
+export type SetAdminWorkspacePlanData = {
+  body: SetWorkspacePlanRequestDto;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}/plan';
+};
+
+export type SetAdminWorkspacePlanErrors = {
+  /**
+   * An expiresAt that is not a time
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+  /**
+   * The plan changed at the same time; try again
+   */
+  409: unknown;
+  /**
+   * No such plan
+   */
+  422: unknown;
+};
+
+export type SetAdminWorkspacePlanResponses = {
+  200: WorkspacePlanResponseDto;
+};
+
+export type SetAdminWorkspacePlanResponse = SetAdminWorkspacePlanResponses[keyof SetAdminWorkspacePlanResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;

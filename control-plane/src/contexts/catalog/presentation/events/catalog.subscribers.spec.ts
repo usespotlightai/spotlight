@@ -16,7 +16,7 @@ const deleting = () => {
   const calls: WorkspaceId[] = [];
   const subscribers = catalogSubscribers({
     plans: {
-      deleteForWorkspace: async (workspaceId) => void plans.push(workspaceId),
+      remove: async (workspaceId) => void plans.push(workspaceId),
     },
     calls: {
       record: async () => undefined,
@@ -28,7 +28,7 @@ const deleting = () => {
 };
 
 describe('catalogSubscribers', () => {
-  it('deletes the plan of a deleted workspace', async () => {
+  it('removes the plan of a deleted workspace', async () => {
     const { plans, calls, subscribers } = deleting();
 
     await subscribers

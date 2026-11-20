@@ -2,6 +2,7 @@ import { type INestApplication, RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import type { OpenAPIObject } from '@nestjs/swagger';
+import { ADMIN_ONLY } from '@platform/http/decorators/admin-only.decorator';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import {
@@ -10,8 +11,14 @@ import {
   IN_AUDIENCE,
 } from '@platform/http/decorators/in-audience.decorator';
 import { MACHINE_ONLY } from '@platform/http/decorators/machine-only.decorator';
+import { ADMIN } from '@platform/http/routes';
 
-type Credential = 'session' | 'workspace-token' | 'machine' | 'anonymous';
+type Credential =
+  | 'session'
+  | 'workspace-token'
+  | 'machine'
+  | 'admin'
+  | 'anonymous';
 
 export interface Route {
   readonly method: string;
@@ -26,15 +33,18 @@ const CREDENTIALS: Readonly<Record<Audience, readonly Credential[]>> = {
   automation: ['workspace-token'],
   hosts: ['machine', 'anonymous'],
   public: ['anonymous'],
+  admin: ['admin'],
 };
 
 const IMPLIED: Readonly<Partial<Record<Credential, Audience>>> = {
   session: 'web',
   machine: 'hosts',
+  admin: 'admin',
 };
 
 const MARKERS: readonly (readonly [symbol, Credential])[] = [
   [MACHINE_ONLY, 'machine'],
+  [ADMIN_ONLY, 'admin'],
   [ALLOW_ANONYMOUS, 'anonymous'],
   [ALLOW_WORKSPACE_TOKENS, 'workspace-token'],
 ];
@@ -51,6 +61,11 @@ export const audienceOf = (route: Route): Audience => {
   if (!CREDENTIALS[audience].includes(route.credential)) {
     throw new Error(
       `${named} is in the ${audience} audience, which takes ${CREDENTIALS[audience].join(' or ')} routes only.`,
+    );
+  }
+  if ((route.credential === 'admin') !== route.path.startsWith(`/${ADMIN}/`)) {
+    throw new Error(
+      `${named} must be an admin route under /${ADMIN}, and only admin routes may be there.`,
     );
   }
 

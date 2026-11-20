@@ -34,6 +34,7 @@ import { ErrorReportingController } from '@platform/http/controllers/error-repor
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
 import { InternalErrorFilter } from '@platform/http/filters/internal-error.filter';
+import { AdminGuard } from '@platform/http/guards/admin.guard';
 import { RateLimitGuard } from '@platform/http/guards/rate-limit.guard';
 import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempotent-creates';
@@ -126,6 +127,7 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
       ) => new Leadership(redis.client, instance, logger),
     },
     { provide: APP_GUARD, useClass: RateLimitGuard },
+    { provide: APP_GUARD, useClass: AdminGuard },
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_FILTER, useClass: InternalErrorFilter },
     { provide: APP_FILTER, useClass: ApplicationErrorFilter },
