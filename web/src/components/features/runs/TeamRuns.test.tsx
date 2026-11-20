@@ -114,12 +114,13 @@ describe('TeamRuns', () => {
 
     await userEvent.click(filter('Waiting for you'));
 
-    expect(
-      screen.getByText(
-        'Nothing is waiting for you. Switch to All to see every run.',
-      ),
-    ).toBeInTheDocument();
-    expect(filter('All')).toBeInTheDocument();
+    expect(screen.getByText('Nothing is waiting for you')).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show all runs' }),
+    );
+
+    expect(filter('All')).toHaveAttribute('aria-current', 'page');
   });
 
   it('reads older runs on request', async () => {

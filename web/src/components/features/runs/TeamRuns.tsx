@@ -7,6 +7,7 @@ import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Notice } from '@/components/shared/Notice';
+import { PillButton } from '@/components/shared/PillButton';
 import { ShowMore } from '@/components/shared/ShowMore';
 import { ViewPills } from '@/components/shared/ViewPills';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
@@ -78,10 +79,20 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
         <TeamRunsSkeleton />
       ) : shown.length === 0 ? (
         <Notice>
-          <p className="text-muted-foreground text-sm">
-            Nothing is waiting for you. Switch to All to see every run.
-          </p>
-          <ShowMore list={runs} what="Older runs" className="mt-2" />
+          <div className="flex flex-col items-center gap-3">
+            <EmptyState
+              icon={Play}
+              title="Nothing is waiting for you"
+              action={
+                <PillButton size="regular" onClick={() => store('all')}>
+                  Show all runs
+                </PillButton>
+              }
+            >
+              Runs with a review for you show here.
+            </EmptyState>
+            <ShowMore list={runs} what="Older runs" />
+          </div>
         </Notice>
       ) : (
         <div ref={rows} className="contents">
