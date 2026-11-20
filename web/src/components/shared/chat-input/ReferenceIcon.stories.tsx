@@ -34,4 +34,6 @@ const meta = {
 
 export default meta;
 
-export const Formats: StoryObj<typeof meta> = {};
+export const Formats: StoryObj<typeof meta> = {
+  args: { reference: { kind: 'file', key: 'demo.mov', name: 'demo.mov' } },
+};
