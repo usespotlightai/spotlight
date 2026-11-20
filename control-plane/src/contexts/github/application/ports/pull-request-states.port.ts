@@ -1,7 +1,7 @@
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type StoredPullRequestState = 'draft' | 'open' | 'merged' | 'closed';
+type StoredPullRequestState = 'draft' | 'open' | 'merged' | 'closed';
 
 export interface StoredPullRequestStateDto {
   readonly url: string;
