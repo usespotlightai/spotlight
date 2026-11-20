@@ -288,7 +288,6 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
       location: 'header',
       name: 'authorization',
       prefix: 'Bearer ',
-      externalRef: null,
     });
     expect(JSON.stringify(fetched.body)).not.toContain(VALUE);
     expect(opened(audit.sealed, to, call.id, 'AUDIT_TOKEN')).toBe(VALUE);

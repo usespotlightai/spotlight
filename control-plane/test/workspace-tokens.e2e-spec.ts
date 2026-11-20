@@ -449,8 +449,21 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
         .map((each) => [each.action, each.by.kind, each.details]),
     ).toEqual([
       ['deleted', 'token', {}],
-      ['updated', 'token', { valueVersion: 2 }],
-      ['created', 'token', { valueVersion: 1, targets: ['api.linear.app'] }],
+      [
+        'updated',
+        'token',
+        { valueChange: 'stored', valueOrigin: 'terraform', valueVersion: 2 },
+      ],
+      [
+        'created',
+        'token',
+        {
+          valueChange: 'stored',
+          valueOrigin: 'terraform',
+          valueVersion: 1,
+          targets: ['api.linear.app'],
+        },
+      ],
     ]);
   });
 

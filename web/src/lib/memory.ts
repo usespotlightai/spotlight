@@ -370,3 +370,6 @@ export const decidedMemories = <Review extends { memories: ProposedMemory[] }>(
       : memory;
   }),
 });
+
+export const memoryDecisionId = (memory: ProposedMemory): string =>
+  `memory:${memory.id}`;

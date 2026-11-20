@@ -6,7 +6,6 @@ import { ChatComposer } from '@/components/features/agent/ChatComposer';
 import { ChatThread } from '@/components/features/agent/ChatThread';
 import { OpenInEditor } from '@/components/features/editor/OpenInEditor';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
-import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
@@ -126,14 +125,12 @@ export function AgentChat() {
             journals={journal.data ?? []}
             runs={journal.demand.runs}
             footer={
-              <ComposerFooter>
-                <ChatComposer
-                  key={chat.id}
-                  slug={slug}
-                  teamId={teamId}
-                  chat={chat}
-                />
-              </ComposerFooter>
+              <ChatComposer
+                key={chat.id}
+                slug={slug}
+                teamId={teamId}
+                chat={chat}
+              />
             }
           />
         </JournalDemandContext>

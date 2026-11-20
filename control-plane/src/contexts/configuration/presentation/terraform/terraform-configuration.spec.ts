@@ -408,9 +408,6 @@ describe('workspaceTerraform', () => {
         'resource "spotlight_secret" "linear_api_key" {',
         '  workspace_id = spotlight_workspace.acme.id',
         '  name         = "LINEAR_API_KEY"',
-        '  source = {',
-        '    kind = "built-in"',
-        '  }',
         '  bindings = [',
         '    {',
         '      host     = "api.linear.app"',
@@ -435,14 +432,14 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes no value version for a secret that has none, as the API answers it', () => {
-    expect(
-      blockOf(
-        mainOf(CONFIGURATION),
-        'resource "spotlight_secret" "sentry_token"',
-      ),
-    ).toMatch(/\n {2}value_wo = var\.secret_sentry_token\n}$/);
-    expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
+  it('writes no value for a secret whose value a person sets outside Terraform', () => {
+    const block = blockOf(
+      mainOf(CONFIGURATION),
+      'resource "spotlight_secret" "sentry_token"',
+    );
+
+    expect(block).not.toContain('value_wo');
+    expect(fileOf(CONFIGURATION, 'variables.tf')).not.toContain(
       'variable "secret_sentry_token" {',
     );
   });

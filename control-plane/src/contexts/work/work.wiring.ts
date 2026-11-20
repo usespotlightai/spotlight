@@ -11,6 +11,10 @@ import {
   type InstallationRepositoriesPort,
 } from '@github/application/ports/installation-repositories.port';
 import {
+  PULL_REQUEST_STATES,
+  type PullRequestStatesPort,
+} from '@github/application/ports/pull-request-states.port';
+import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
@@ -129,6 +133,10 @@ import {
   type RunViewersPort,
 } from '@runs/application/ports/run-viewers.port';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
+import {
+  SECRET_READINESS,
+  type SecretReadinessPort,
+} from '@secrets/application/ports/secret-readiness.port';
 import {
   CLOCK,
   type ClockPort,
@@ -390,6 +398,7 @@ import {
   TASK_PLACEMENTS,
   type TaskPlacementsPort,
 } from '@work/application/ports/task-placements.port';
+import { TASK_PULL_REQUEST_STATES } from '@work/application/ports/task-pull-request-states.port';
 import { TASK_READER } from '@work/application/ports/task-reader.port';
 import {
   TASK_VIEWS,
@@ -463,6 +472,7 @@ import {
   ReadInboxNoticeHandler,
 } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListTaskJournalRunsHandler } from '@work/application/queries/handlers/list-task-journal-runs.handler';
+import { ListTaskPullRequestsHandler } from '@work/application/queries/handlers/list-task-pull-requests.handler';
 import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
 import {
   ListTasksHandler,
@@ -492,6 +502,7 @@ import {
   ReadInboxItemQuery,
   ReadInboxNoticeQuery,
 } from '@work/application/queries/list-inbox.query';
+import { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
   ListTasksQuery,
@@ -619,6 +630,7 @@ import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus
 import { WORK_PAYLOAD_TYPES } from '@work/infrastructure/events/work-payload-types';
 import { GitReceivePack } from '@work/infrastructure/git/receive-pack';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
+import { GitHubTaskPullRequestStates } from '@work/infrastructure/github/github-task-pull-request-states';
 import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
 import { DrizzleTeamWelcomes } from '@work/infrastructure/persistence/drizzle/ledgers/team-welcomes.ledger';
@@ -1209,6 +1221,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: TASK_PULL_REQUEST_STATES,
+    inject: [PULL_REQUEST_STATES],
+    useFactory: (states: PullRequestStatesPort) =>
+      new GitHubTaskPullRequestStates(states),
+  },
+
+  {
     provide: ACCESSIBLE_REPOSITORIES,
     inject: [INSTALLATION_REPOSITORIES],
     useFactory: (repositories: InstallationRepositoriesPort) =>
@@ -1623,6 +1642,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       LOGGER,
       SAVEPOINT,
       CONTENT_HASH,
+      SECRET_READINESS,
     ],
     useFactory: (
       ids: IdGeneratorPort,
@@ -1640,6 +1660,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       logger: LoggerPort,
       savepoint: SavepointPort,
       hash: ContentHashPort,
+      readiness: SecretReadinessPort,
     ) =>
       new DispatchTask(
         ids,
@@ -1657,6 +1678,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         logger,
         savepoint,
         hash,
+        readiness,
       ),
   },
 
@@ -1674,6 +1696,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunCatalog,
       STATION_PROFILES,
       CONTENT_HASH,
+      SECRET_READINESS,
       TeamIntegrations,
       MEMORIES_BRIEFED_BEFORE,
       ATTACHMENT_STORE,
@@ -1693,6 +1716,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       catalog: RunCatalog,
       profiles: StationProfilesPort,
       hash: ContentHashPort,
+      readiness: SecretReadinessPort,
       integrations: TeamIntegrations,
       memories: MemoriesBriefedBeforePort,
       files: AttachmentStorePort,
@@ -1713,6 +1737,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           catalog,
           profiles,
           hash,
+          readiness,
         ),
         integrations,
         memories,
@@ -1734,6 +1759,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       StationSkills,
       STATION_PROFILES,
       CONTENT_HASH,
+      SECRET_READINESS,
     ],
     useFactory: (
       lines: LineMapsPort,
@@ -1744,6 +1770,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       teamSkills: StationSkills,
       profiles: StationProfilesPort,
       hash: ContentHashPort,
+      readiness: SecretReadinessPort,
     ) =>
       new CandidateLines(
         lines,
@@ -1755,6 +1782,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           catalog,
           profiles,
           hash,
+          readiness,
         ),
       ),
   },
@@ -2013,6 +2041,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ReadTaskQuery, ReadTaskHandler, [
     TASK_READER,
+    WorkAccess,
+  ]),
+
+  ...bindQueryHandler(ListTaskPullRequestsQuery, ListTaskPullRequestsHandler, [
+    TASK_READER,
+    TASK_PULL_REQUEST_STATES,
     WorkAccess,
   ]),
 

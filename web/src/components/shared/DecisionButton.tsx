@@ -1,16 +1,24 @@
-import type { ComponentProps } from 'react';
+import { type ComponentProps, use } from 'react';
 
 import { PillButton } from '@/components/shared/PillButton';
+import { DockedContext } from '@/lib/decision-tray';
 import { cn } from '@/lib/utils';
 
 export function DecisionButton({
   className,
+  variant = 'outline',
   ...props
 }: ComponentProps<typeof PillButton>) {
+  const docked = use(DockedContext) !== null;
+  const quiet = docked && variant === 'outline';
+
   return (
     <PillButton
+      variant={quiet ? 'ghost' : variant}
       className={cn(
-        'h-7 min-w-18 rounded-md px-3 text-sm shadow-xs pointer-coarse:h-9',
+        'h-7 min-w-18 px-3 text-sm pointer-coarse:h-9',
+        docked ? 'rounded-full' : 'rounded-md shadow-xs',
+        quiet && 'text-muted-foreground hover:text-foreground',
         className,
       )}
       {...props}

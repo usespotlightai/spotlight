@@ -138,11 +138,10 @@ type Options struct {
 }
 
 type Egress struct {
-	Image       string
-	Allow       []string
-	SecretAllow []string
-	Env         []string
-	CABundle    []byte
+	Image    string
+	Allow    []string
+	Env      []string
+	CABundle []byte
 }
 
 type Host struct {

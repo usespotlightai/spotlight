@@ -18,6 +18,7 @@ type RunBriefingProps = {
   activity?: ReactNode;
   closing?: ReactNode;
   footer: ReactNode;
+  pills?: ReactNode;
 };
 
 export function RunBriefing({
@@ -26,6 +27,7 @@ export function RunBriefing({
   activity,
   closing,
   footer,
+  pills,
 }: RunBriefingProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
   const { sidePanel } = useRunSidePanel();
@@ -34,7 +36,18 @@ export function RunBriefing({
     <PaneScroller
       ref={scroller}
       sidePanel={sidePanel}
-      footer={<ComposerFooter>{footer}</ComposerFooter>}
+      footer={
+        <ComposerFooter>
+          <div className="flex flex-col gap-0.5">
+            {pills && (
+              <div className="flex max-w-full flex-wrap items-center gap-1">
+                {pills}
+              </div>
+            )}
+            {footer}
+          </div>
+        </ComposerFooter>
+      }
     >
       <div className={cn(THREAD_COLUMN, 'flex flex-col')}>
         <TimeMarker at={run.startedAt} />

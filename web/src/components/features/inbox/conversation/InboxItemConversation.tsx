@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router';
 
-import { TaskPullRequests } from '@/components/features/board/task/TaskPullRequests';
+import { TaskPullRequestPills } from '@/components/features/board/task/TaskPullRequestPills';
 import { CloseTaskSuggestion } from '@/components/features/inbox/conversation/CloseTaskSuggestion';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxItemBriefing } from '@/components/features/inbox/conversation/InboxItemBriefing';
@@ -8,12 +8,15 @@ import { InboxItemFooter } from '@/components/features/inbox/conversation/InboxI
 import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
+import { Dockable } from '@/components/shared/decision-tray/Dockable';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
+import { useTaskPullRequests } from '@/hooks/api/useTaskPullRequests';
+import { useClosableTask } from '@/hooks/useClosableTask';
 import { useRunProgress } from '@/hooks/useRunProgress';
 import {
   type InboxItemView,
@@ -28,6 +31,8 @@ import {
   suggestsClosing,
 } from '@/lib/inbox-item';
 import { shownProgress } from '@/lib/run';
+
+const CLOSE_TASK = 'close-task';
 
 type InboxItemConversationProps = {
   slug: string;
@@ -47,13 +52,34 @@ export function InboxItemConversation({
   const ownsItsBriefing = carriesItsOwn(item);
   const reported = useRunProgress(item.runId, item.progress);
   const progress = shownProgress(reported, item.runId, worked);
+  const closable = useClosableTask(item.teamId, item.taskId);
+  const { data: pullRequests = [] } = useTaskPullRequests(
+    item.teamId,
+    item.taskId,
+  );
+  const closing =
+    suggestsClosing(item) && closable
+      ? {
+          id: CLOSE_TASK,
+          kind: 'Suggestion',
+          label: 'Close the task',
+          group: 'Suggestions',
+          content: (
+            <CloseTaskSuggestion
+              slug={slug}
+              teamId={item.teamId}
+              station={item.station}
+              closable={closable}
+            />
+          ),
+        }
+      : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title={<Breadcrumbs segments={trail} />}
         trailing={<FailureCount failure={item.failure} />}
-        actions={<TaskPullRequests teamId={item.teamId} taskId={item.taskId} />}
       />
 
       <RunSidePanel>
@@ -85,14 +111,17 @@ export function InboxItemConversation({
                 inputs,
               }),
           }}
+          docked={closing ? [closing] : []}
+          pills={
+            pullRequests.length > 0 && (
+              <TaskPullRequestPills pullRequests={pullRequests} />
+            )
+          }
           suggestion={
-            suggestsClosing(item) ? (
-              <CloseTaskSuggestion
-                slug={slug}
-                teamId={item.teamId}
-                taskId={item.taskId}
-                station={item.station}
-              />
+            closing ? (
+              <div className="mt-3">
+                <Dockable id={closing.id}>{closing.content}</Dockable>
+              </div>
             ) : undefined
           }
           openAt={shownAt(item.notes, params.get('run'))}

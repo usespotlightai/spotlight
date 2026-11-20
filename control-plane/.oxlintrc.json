@@ -66,6 +66,7 @@
           "**.expect",
           "expectTypeOf",
           "vi.waitFor",
+          "fc.assert",
           "problem"
         ]
       }
@@ -100,7 +101,8 @@
                   "**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The shared kernel’s domain contains identifiers and event plumbing, and depends on nothing else."
               }
@@ -117,7 +119,13 @@
           {
             "patterns": [
               {
-                "group": ["**", "!@shared-kernel/**", "!./**", "!vitest"],
+                "group": [
+                  "**",
+                  "!@shared-kernel/**",
+                  "!./**",
+                  "!vitest",
+                  "!fast-check"
+                ],
                 "message": "The shared kernel’s application layer contains the ports and faults every context shares, and depends only on the shared kernel."
               }
             ]
@@ -1105,7 +1113,8 @@
                   "!@identity/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'identity' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1127,7 +1136,8 @@
                   "!@github/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'github' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1149,7 +1159,8 @@
                   "!@secrets/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'secrets' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1171,7 +1182,8 @@
                   "!@catalog/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'catalog' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1193,7 +1205,8 @@
                   "!@lines/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'lines' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1215,7 +1228,8 @@
                   "!@runs/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'runs' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1237,7 +1251,8 @@
                   "!@runners/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'runners' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1270,7 +1285,8 @@
                   "!@work/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'work' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1292,7 +1308,8 @@
                   "!@configuration/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'configuration' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1314,7 +1331,8 @@
                   "!@notifications/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'notifications' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1336,7 +1354,8 @@
                   "!@change-review/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'change-review' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1358,7 +1377,8 @@
                   "!@memory/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'memory' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1380,7 +1400,8 @@
                   "!@insights/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'insights' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1402,7 +1423,8 @@
                   "!@replays/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'replays' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -1424,7 +1446,8 @@
                   "!@integrations/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'integrations' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -4353,7 +4376,8 @@
                   "!@identity/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'identity' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4386,7 +4410,8 @@
                   "!@github/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'github' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4419,7 +4444,8 @@
                   "!@secrets/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'secrets' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4452,7 +4478,8 @@
                   "!@catalog/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'catalog' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4485,7 +4512,8 @@
                   "!@lines/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'lines' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4518,7 +4546,8 @@
                   "!@runs/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'runs' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4551,7 +4580,8 @@
                   "!@runners/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'runners' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4584,7 +4614,8 @@
                   "!@work/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'work' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4617,7 +4648,8 @@
                   "!@configuration/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'configuration' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4650,7 +4682,8 @@
                   "!@notifications/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'notifications' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4683,7 +4716,8 @@
                   "!@change-review/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'change-review' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4716,7 +4750,8 @@
                   "!@memory/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'memory' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4749,7 +4784,8 @@
                   "!@insights/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'insights' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4782,7 +4818,8 @@
                   "!@replays/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'replays' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -4815,7 +4852,8 @@
                   "!@integrations/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'integrations' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },
@@ -5836,7 +5874,8 @@
                   "!@inference/domain/**",
                   "!@shared-kernel/domain/**",
                   "!./**",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "The domain layer contains the model: 'inference' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
               }
@@ -6026,7 +6065,8 @@
                   "!@inference/*.fake-spec",
                   "!./**",
                   "!node:*",
-                  "!vitest"
+                  "!vitest",
+                  "!fast-check"
                 ],
                 "message": "A domain spec tests the model: 'inference' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
               },

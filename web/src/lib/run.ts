@@ -39,6 +39,18 @@ export const shownProgress = (
 export const underway = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'queued' || run.state === 'claimed';
 
+export const newestRunAt = (
+  runs: readonly Run[],
+  stationId: string,
+): Run | null =>
+  runs
+    .filter((run) => run.station?.id === stationId)
+    .reduce<Run | null>(
+      (newest, run) =>
+        newest && newest.startedAt >= run.startedAt ? newest : run,
+      null,
+    );
+
 export const stoppable = (run: Pick<Run, 'progress'>): boolean =>
   run.progress === 'in-progress';
 

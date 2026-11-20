@@ -8,8 +8,9 @@ import type {
   SpotlightRequest,
   VerifyingRequest,
 } from '@secrets/application/ports/secret-injection.port';
+import type { SecretStorePort } from '@secrets/application/ports/secret-store.port';
 import type { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
-import type { SecretSources } from '@secrets/application/services/secret-sources.service';
+import { storedValueOf } from '@secrets/application/services/stored-value';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
@@ -35,7 +36,7 @@ export class SecretInjection implements SecretInjectionPort {
     private readonly secrets: SecretRepository,
     private readonly grants: RunGrantsRepository,
     private readonly changes: RunGrantsChanges,
-    private readonly sources: SecretSources,
+    private readonly store: SecretStorePort,
   ) {}
 
   async grant(grant: RunGrant): Promise<void> {
@@ -79,7 +80,9 @@ export class SecretInjection implements SecretInjectionPort {
   async forVerifying(request: VerifyingRequest): Promise<VerifyingSecret> {
     const [secret] = await this.named(request.workspaceId, [request.secret]);
 
-    return VerifyingSecret.of((await this.sources.read(secret)).revealed());
+    return VerifyingSecret.of(
+      (await storedValueOf(this.store, secret)).revealed(),
+    );
   }
 
   private async grantedTo(
@@ -99,7 +102,7 @@ export class SecretInjection implements SecretInjectionPort {
 
   private valueFor(url: string): Injecting {
     return async (secret) =>
-      secret.injectedFor(url, await this.sources.read(secret));
+      secret.injectedFor(url, await storedValueOf(this.store, secret));
   }
 
   private async injected(

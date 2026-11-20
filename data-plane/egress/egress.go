@@ -13,13 +13,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 
 	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
-	"usespotlight.ai/data-plane/egress/internal/awssm"
 	"usespotlight.ai/data-plane/egress/internal/proxy"
 	"usespotlight.ai/data-plane/egress/internal/send"
 	"usespotlight.ai/data-plane/egress/serve"
@@ -123,7 +121,7 @@ func run() error {
 		return err
 	}
 
-	injector := inject.From(ctx, fetched, config.HarnessKeys, inject.Limits{Hosts: allowed, SecretAllow: config.SecretAllow}, key, externalSecretReader(ctx), log)
+	injector := inject.From(fetched, config.HarnessKeys, allowed, key, log)
 	defer injector.Wipe()
 
 	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, key); err != nil {
@@ -192,7 +190,7 @@ func serveShared() error {
 		_, err := client.Request(ctx, http.MethodGet, "/api/health", nil, nil)
 		return err
 	}
-	shared, err := serve.New(settings, client, externalSecretReader(ctx), log)
+	shared, err := serve.New(settings, client, log)
 	if err != nil {
 		return err
 	}
@@ -291,19 +289,6 @@ func fetchedBy(
 	}
 }
 
-func externalSecretReader(ctx context.Context) func() (inject.Reader, error) {
-	var (
-		once   sync.Once
-		reader inject.Reader
-		err    error
-	)
-
-	return func() (inject.Reader, error) {
-		once.Do(func() { reader, err = awssm.Connect(ctx) })
-		return reader, err
-	}
-}
-
 type Sender interface {
 	Send(ctx context.Context, call protocol.HostCall) protocol.HostCallResponse
 }
@@ -382,8 +367,7 @@ func callInjector(
 	}
 	fetched.RunID = secrets.CallID
 
-	limits := inject.Limits{Hosts: allowed, SecretAllow: config.SecretAllow}
-	return inject.From(ctx, fetched, nil, limits, key, externalSecretReader(ctx), log), fetched, nil
+	return inject.From(fetched, nil, allowed, key, log), fetched, nil
 }
 
 func redeemedBy(

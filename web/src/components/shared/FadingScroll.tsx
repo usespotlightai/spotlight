@@ -7,9 +7,11 @@ const FADE = 'min(1.5rem, 25%)';
 
 export function FadingScroll({
   className,
+  contentClassName,
   children,
 }: {
   className?: string;
+  contentClassName?: string;
   children: ReactNode;
 }) {
   const { viewport, edges, measure } = useScrollEdges();
@@ -23,6 +25,7 @@ export function FadingScroll({
       viewportRef={viewport}
       onScroll={measure}
       className={className}
+      contentClassName={contentClassName}
       style={{ maskImage: mask, WebkitMaskImage: mask }}
     >
       {children}

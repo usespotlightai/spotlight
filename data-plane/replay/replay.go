@@ -1,7 +1,6 @@
 package replay
 
 import (
-	"flag"
 	"fmt"
 	"net/url"
 	"os"
@@ -65,22 +64,6 @@ func retryDelay(every time.Duration, failures int) time.Duration {
 
 func teamPath(teamID string) string {
 	return "/api/teams/" + url.PathEscape(teamID)
-}
-
-func parsed(set *flag.FlagSet, args []string) ([]string, error) {
-	var positional []string
-
-	for {
-		if err := set.Parse(args); err != nil {
-			return nil, err
-		}
-		if set.NArg() == 0 {
-			return positional, nil
-		}
-
-		positional = append(positional, set.Arg(0))
-		args = set.Args()[1:]
-	}
 }
 
 func describeInterval(of interval) string {

@@ -1,11 +1,9 @@
-import { Link } from 'react-router';
-
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
+import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { followed, type InboxItem, inboxRunPath } from '@/lib/inbox';
+import { answerPlaceholder, followed, type InboxItem } from '@/lib/inbox';
 import type { Progress } from '@/lib/run';
-import { taskPath } from '@/lib/task';
 
 type InboxItemFooterProps = {
   slug: string;
@@ -22,9 +20,15 @@ export function InboxItemFooter({
 
   if (!item.resolved && followed(item)) {
     return (
-      <p className="pb-5 text-center text-muted-foreground text-xs">
-        You follow this task. Its assignee answers here.
-      </p>
+      <ClosedTaskComposer
+        slug={slug}
+        teamId={item.teamId}
+        taskId={item.taskId}
+        station={item.station}
+        label={`Answer ${item.station}`}
+        placeholder={answerPlaceholder(item.station)}
+        because="You follow this task. Its assignee answers here."
+      />
     );
   }
 
@@ -55,25 +59,18 @@ export function InboxItemFooter({
   const { currentStation } = item;
 
   return (
-    <p className="pb-5 text-center text-muted-foreground text-xs">
-      {currentStation.name === item.station ? (
-        'The conversation is closed here. Nothing is left to answer.'
-      ) : (
-        <>
-          The task moved on to{' '}
-          <Link
-            to={
-              currentStation.latestRunId
-                ? inboxRunPath(slug, item.teamId, currentStation.latestRunId)
-                : taskPath(slug, item.teamId, item.taskId)
-            }
-            className="font-medium text-foreground hover:underline"
-          >
-            {currentStation.name}
-          </Link>
-          . Nothing is left to answer.
-        </>
-      )}
-    </p>
+    <ClosedTaskComposer
+      slug={slug}
+      teamId={item.teamId}
+      taskId={item.taskId}
+      station={item.station}
+      label={`Answer ${item.station}`}
+      placeholder={answerPlaceholder(item.station)}
+      because={
+        currentStation.name === item.station
+          ? 'The conversation is closed here. Nothing is left to answer.'
+          : `The task moved on to ${currentStation.name}. Nothing is left to answer.`
+      }
+    />
   );
 }

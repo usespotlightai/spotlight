@@ -70,13 +70,13 @@ func TestGoesOutInjectingNothingWhenTheControlPlaneDoesNotAccept(t *testing.T) {
 
 func TestReadsItsConfigOnceAndLeavesNoCopy(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "egress.json")
-	if err := os.WriteFile(path, []byte(`{"url":"http://control-plane:3000","token":"egress-token","credential":"proxy","allow":["api.example.com"],"secretAllow":["sentry-*"]}`), 0o400); err != nil {
+	if err := os.WriteFile(path, []byte(`{"url":"http://control-plane:3000","token":"egress-token","credential":"proxy","allow":["api.example.com"]}`), 0o400); err != nil {
 		t.Fatal(err)
 	}
 
 	config, err := readConfig(path)
 	if err != nil || config.Token != "egress-token" || config.URL != "http://control-plane:3000" ||
-		config.Credential != "proxy" || len(config.Allow) != 1 || len(config.SecretAllow) != 1 {
+		config.Credential != "proxy" || len(config.Allow) != 1 {
 		t.Fatalf("config %+v: %v", config, err)
 	}
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
