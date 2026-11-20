@@ -775,7 +775,7 @@ export type ConfigurationChangeResponseDto = {
    */
   client: string | null;
   /**
-   * What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value
+   * What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value
    */
   details: {
     [key: string]: unknown;
@@ -1418,15 +1418,9 @@ export type HostRequirementsResponseDto = {
 
 export type HarnessKeysRequestDto = {
   /**
-   * The X25519 public key that the egress of the host’s image probe holds, in base64; values Spotlight stores are sealed to it
+   * The X25519 public key that the egress of the host’s image probe holds, in base64; Spotlight seals each value to it
    */
   recipient: string;
-};
-
-export type ExternalSecretRefResponseDto = {
-  kind: 'aws-secrets-manager';
-  secretId: string;
-  field: string | null;
 };
 
 export type FetchedSecretResponseDto = {
@@ -1445,13 +1439,9 @@ export type FetchedSecretResponseDto = {
   name: string;
   prefix: string;
   /**
-   * The value, sealed to the recipient for this run; null when egress reads it in its own network
+   * The value, sealed to the recipient for this run
    */
-  sealed: string | null;
-  /**
-   * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
-   */
-  externalRef: ExternalSecretRefResponseDto | null;
+  sealed: string;
 };
 
 export type DeniedSecretResponseDto = {
@@ -1469,7 +1459,7 @@ export type HarnessKeysResponseDto = {
    */
   bound: Array<string>;
   /**
-   * Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id
+   * Each harness key the workspace holds, for each host it is bound to, sealed to the recipient with an empty run id
    */
   secrets: Array<FetchedSecretResponseDto>;
   /**
@@ -1642,7 +1632,7 @@ export type EgressSecretsResponseDto = {
 
 export type FetchRunSecretsRequestDto = {
   /**
-   * The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it
+   * The X25519 public key that egress holds for this run alone, in base64; Spotlight seals each value to it
    */
   recipient: string;
   /**
@@ -1791,21 +1781,6 @@ export type HarnessResponseDto = {
   efforts: Array<string>;
 };
 
-export type SecretSourceResponseDto = {
-  /**
-   * Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used
-   */
-  kind: 'built-in' | 'aws-secrets-manager';
-  /**
-   * The name or ARN of the secret in AWS Secrets Manager
-   */
-  secretId: string | null;
-  /**
-   * The key to read when that secret contains JSON
-   */
-  field: string | null;
-};
-
 export type SecretBindingResponseDto = {
   /**
    * A host the secret may be sent to, over HTTPS only
@@ -1850,7 +1825,6 @@ export type SecretResourceResponseDto = {
    * What integrations call it. Immutable: changing it means replacing the secret
    */
   name: string;
-  source: SecretSourceResponseDto;
   /**
    * The only hosts the secret is ever sent to, and how; a request anywhere else goes without it
    */
@@ -1870,6 +1844,38 @@ export type SecretResourceListResponseDto = {
    * Every one there is, each as a read returns it, in address order
    */
   items: Array<SecretResourceResponseDto>;
+};
+
+/**
+ * Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)
+ */
+export type SecretValueOrigin = 'awaiting' | 'spotlight' | 'terraform';
+
+export type WorkspaceSecretResponseDto = {
+  name: string;
+  /**
+   * The hosts egress sends the value to
+   */
+  hosts: Array<string>;
+  /**
+   * Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)
+   */
+  valueOrigin: SecretValueOrigin;
+  /**
+   * When Spotlight last stored a value; null when it holds none
+   */
+  valueSetAt: string | null;
+  /**
+   * True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets
+   */
+  settable: boolean;
+};
+
+export type SetSecretValueRequestDto = {
+  /**
+   * The new value, on one line if the secret is bound to a host. Spotlight encrypts it and never returns it
+   */
+  value: string;
 };
 
 export type HostHeartbeatRequestDto = {
@@ -2920,11 +2926,19 @@ export type InboxItemResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
+   * How it reaches the person: assignee when they are its assignee, asked when its open conversation waits on them to approve or connect and they are neither its assignee nor, while it has no assignee, a member of its team, team when it has no assignee and they are a member of its team (for an inbox request: when they act on the tasks of its team), following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one with no assignee in a team whose tasks the person does not act on
    */
-  standing: 'assignee' | 'team' | 'following' | null;
+  standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
-   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   * True when the person can answer the conversation now. It must be open, the person must act on the tasks of its team, and they must be its assignee, the person its open ask names, or a member of its team when it has no assignee. Always false for an inbox request, which has its own actions
+   */
+  answerable: boolean;
+  /**
+   * True when the person can resolve it now. It must be open, and the person must act on the tasks of its team. A conversation can then be resolved by its assignee, or by a member of its team when it has no assignee. An inbox request can be resolved by any person who acts on the tasks of its team
+   */
+  resolvable: boolean;
+  /**
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person may answer it once it is open again: its assignee or, when it has no assignee, a member of its team
    */
   reopenable: boolean;
   /**
@@ -3004,7 +3018,11 @@ export type InboxNoticeResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * True when the person can open it again: once it is resolved
+   * True when the person can resolve it now: it is not resolved yet, and the person acts on the tasks of its team
+   */
+  resolvable: boolean;
+  /**
+   * True when the person can open it again: it is resolved, and the person acts on the tasks of its team
    */
   reopenable: boolean;
 };
@@ -3137,11 +3155,19 @@ export type InboxItemViewResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
+   * How it reaches the person: assignee when they are its assignee, asked when its open conversation waits on them to approve or connect and they are neither its assignee nor, while it has no assignee, a member of its team, team when it has no assignee and they are a member of its team (for an inbox request: when they act on the tasks of its team), following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one with no assignee in a team whose tasks the person does not act on
    */
-  standing: 'assignee' | 'team' | 'following' | null;
+  standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
-   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   * True when the person can answer the conversation now. It must be open, the person must act on the tasks of its team, and they must be its assignee, the person its open ask names, or a member of its team when it has no assignee. Always false for an inbox request, which has its own actions
+   */
+  answerable: boolean;
+  /**
+   * True when the person can resolve it now. It must be open, and the person must act on the tasks of its team. A conversation can then be resolved by its assignee, or by a member of its team when it has no assignee. An inbox request can be resolved by any person who acts on the tasks of its team
+   */
+  resolvable: boolean;
+  /**
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person may answer it once it is open again: its assignee or, when it has no assignee, a member of its team
    */
   reopenable: boolean;
   /**
@@ -3200,6 +3226,10 @@ export type AnswerInboxItemRequestDto = {
    * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.
    */
   approve?: boolean;
+  /**
+   * With approve, the note of the ask it decides, by its position in the trail, as the person saw it. Required with approve. Refused when the conversation now asks for something newer
+   */
+  ask?: number;
   /**
    * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.
    */
@@ -3309,6 +3339,25 @@ export type TaskHoldResponseDto = {
    * The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station.
    */
   heldMoveTo: string | null;
+  /**
+   * The agent chat that holds the task while it works on the pull request itself
+   */
+  chatId: string | null;
+  /**
+   * Whether the caller can send the agent turns while the task is on hold
+   */
+  viewerDrives: boolean;
+  /**
+   * Whether the caller can resume the line or move the task while it is on hold
+   */
+  viewerEnds: boolean;
+};
+
+export type TaskRunNotStartedResponseDto = {
+  /**
+   * The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start
+   */
+  harness: string;
 };
 
 export type TaskResponseDto = {
@@ -3364,6 +3413,10 @@ export type TaskResponseDto = {
    * The person who drives the task at its station in place of the line, or null where the line drives it
    */
   hold: TaskHoldResponseDto | null;
+  /**
+   * Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried
+   */
+  runNotStarted: TaskRunNotStartedResponseDto | null;
 };
 
 export type TaskPageResponseDto = {
@@ -3554,6 +3607,14 @@ export type SendMessageRequestDto = {
   draftGeneration?: number | null;
 };
 
+export type TaskPullRequestResponseDto = {
+  url: string;
+  /**
+   * Draft, open, merged or closed; null when Spotlight holds no state for it: not seen on GitHub yet, or removed after the retention period
+   */
+  state: 'draft' | 'open' | 'merged' | 'closed' | null;
+};
+
 export type TaskRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
@@ -3624,7 +3685,7 @@ export type AssignTaskRequestDto = {
 export type HoldEnd = 'continue' | 'move-on' | 'finish';
 
 /**
- * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+ * Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
  */
 export type HoldVerdict = 'not-right' | 'exploring';
 
@@ -3638,7 +3699,7 @@ export type ResumeLineRequestDto = {
    */
   stationId?: string;
   /**
-   * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+   * Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
    */
   verdict?: HoldVerdict;
   /**
@@ -3778,9 +3839,32 @@ export type ChatProposalResponseDto = {
   taskId: string | null;
 };
 
+export type ChatPullRequestResponseDto = {
+  /**
+   * The task that tracks the pull request
+   */
+  taskId: string;
+  url: string;
+  /**
+   * held: the task waits on hold for this chat. line: the line has the task. completed: the task completed. gone: the task was deleted
+   */
+  state: 'held' | 'line' | 'completed' | 'gone';
+  lineName: string | null;
+  stationName: string | null;
+  stationColor: string | null;
+  /**
+   * The position of the task’s station on its line, from 0
+   */
+  stationPosition: number | null;
+  /**
+   * How many stations its line has
+   */
+  stationCount: number | null;
+};
+
 export type ChatMessageResponseDto = {
   position: number;
-  kind: 'message' | 'proposed';
+  kind: 'message' | 'proposed' | 'opened' | 'happened';
   body: string;
   at: string;
   author: InboxAuthorResponseDto | null;
@@ -3798,6 +3882,10 @@ export type ChatMessageResponseDto = {
    */
   traces: Array<ChatTraceResponseDto>;
   proposal: ChatProposalResponseDto | null;
+  /**
+   * The pull request the agent opened, on an opened message
+   */
+  pullRequest: ChatPullRequestResponseDto | null;
 };
 
 export type ChatResponseDto = {
@@ -4203,6 +4291,10 @@ export type HarnessProfileResourceResponseDto = {
   native: {
     [key: string]: unknown;
   };
+  /**
+   * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
+   */
+  secrets: Array<string>;
 };
 
 export type HarnessProfileResourceListResponseDto = {
@@ -13214,11 +13306,6 @@ export type ListSecretsResponse = ListSecretsResponses[keyof ListSecretsResponse
 export type CreateSecretData = {
   body: {
     name: string;
-    source?: {
-      kind: 'built-in' | 'aws-secrets-manager';
-      secretId?: string;
-      field?: string;
-    };
     bindings?: Array<{
       host: string;
       location?: 'header' | 'query';
@@ -13229,11 +13316,11 @@ export type CreateSecretData = {
       prefix?: string;
     }>;
     /**
-     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
+     * The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform
      */
     valueWo?: string;
     /**
-     * Change it to rotate the value to the valueWo sent with it
+     * Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform
      */
     valueWoVersion?: number;
   };
@@ -13405,11 +13492,6 @@ export type ReadSecretResponse = ReadSecretResponses[keyof ReadSecretResponses];
 export type UpdateSecretData = {
   body: {
     name: string;
-    source?: {
-      kind: 'built-in' | 'aws-secrets-manager';
-      secretId?: string;
-      field?: string;
-    };
     bindings?: Array<{
       host: string;
       location?: 'header' | 'query';
@@ -13420,11 +13502,11 @@ export type UpdateSecretData = {
       prefix?: string;
     }>;
     /**
-     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
+     * The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform
      */
     valueWo?: string;
     /**
-     * Change it to rotate the value to the valueWo sent with it
+     * Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform
      */
     valueWoVersion?: number;
   };
@@ -13540,6 +13622,74 @@ export type ImportSecretResponses = {
 };
 
 export type ImportSecretResponse = ImportSecretResponses[keyof ImportSecretResponses];
+
+export type ListWorkspaceSecretsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/secrets';
+};
+
+export type ListWorkspaceSecretsErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListWorkspaceSecretsResponses = {
+  200: Array<WorkspaceSecretResponseDto>;
+};
+
+export type ListWorkspaceSecretsResponse = ListWorkspaceSecretsResponses[keyof ListWorkspaceSecretsResponses];
+
+export type SetWorkspaceSecretValueData = {
+  body: SetSecretValueRequestDto;
+  path: {
+    slug: string;
+    name: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/secrets/{name}/value';
+};
+
+export type SetWorkspaceSecretValueErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * You do not manage secrets
+   */
+  403: unknown;
+  /**
+   * No such secret for this caller
+   */
+  404: unknown;
+  /**
+   * Terraform sets this value, or the secret changed meanwhile
+   */
+  409: unknown;
+  /**
+   * The value is not text, is empty, is too long, or is more than one line for a bound secret
+   */
+  422: unknown;
+};
+
+export type SetWorkspaceSecretValueResponses = {
+  /**
+   * Spotlight stores the new value
+   */
+  204: void;
+};
+
+export type SetWorkspaceSecretValueResponse = SetWorkspaceSecretValueResponses[keyof SetWorkspaceSecretValueResponses];
 
 export type DeregisterHostData = {
   body?: never;
@@ -15516,7 +15666,7 @@ export type AnswerInboxItemErrors = {
    */
   404: unknown;
   /**
-   * Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with
+   * Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, only the ask it waits on now can be decided, and only an approved tool call can be changed, naming exactly the inputs it was called with
    */
   409: unknown;
 };
@@ -16311,6 +16461,33 @@ export type StopRunResponses = {
 
 export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
 
+export type ListTaskPullRequestsData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/pull-requests';
+};
+
+export type ListTaskPullRequestsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ListTaskPullRequestsResponses = {
+  200: Array<TaskPullRequestResponseDto>;
+};
+
+export type ListTaskPullRequestsResponse = ListTaskPullRequestsResponses[keyof ListTaskPullRequestsResponses];
+
 export type ListTaskRunsData = {
   body?: never;
   path: {
@@ -16518,7 +16695,7 @@ export type ResumeLineErrors = {
    */
   404: unknown;
   /**
-   * The task is not on hold, someone else put it on hold, or it cannot move on to that station
+   * The task is not on hold, an agent chat of another person holds it, or it cannot move on to that station
    */
   409: unknown;
 };
@@ -16528,6 +16705,76 @@ export type ResumeLineResponses = {
 };
 
 export type ResumeLineResponse = ResumeLineResponses[keyof ResumeLineResponses];
+
+export type SendTaskMessageData = {
+  body: SendMessageRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/messages';
+};
+
+export type SendTaskMessageErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The message answers a question that another person is the assignee of
+   */
+  409: unknown;
+};
+
+export type SendTaskMessageResponses = {
+  200: TaskResponseDto;
+};
+
+export type SendTaskMessageResponse = SendTaskMessageResponses[keyof SendTaskMessageResponses];
+
+export type StartTaskRunData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/start';
+};
+
+export type StartTaskRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The task is not waiting for its run to start
+   */
+  409: unknown;
+};
+
+export type StartTaskRunResponses = {
+  200: TaskResponseDto;
+};
+
+export type StartTaskRunResponse = StartTaskRunResponses[keyof StartTaskRunResponses];
 
 export type ListChatsData = {
   body?: never;
@@ -17934,6 +18181,10 @@ export type CreateHarnessProfileData = {
     native?: {
       [key: string]: unknown;
     };
+    /**
+     * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
+     */
+    secrets?: Array<string>;
   };
   headers: {
     /**
@@ -18122,6 +18373,10 @@ export type UpdateHarnessProfileData = {
     native?: {
       [key: string]: unknown;
     };
+    /**
+     * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
+     */
+    secrets?: Array<string>;
   };
   headers: {
     /**

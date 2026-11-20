@@ -22,7 +22,6 @@ import { ImportSecretQuery } from '@secrets/application/queries/import-secret.qu
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
-import { SECRET_SOURCE_KINDS } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretResourceResponseDto } from '@secrets/presentation/http/dto/secret-resource.response.dto';
 import type {
   ResourceCreated,
@@ -48,19 +47,6 @@ const DEFINITION = ApiBody({
     required: ['name'],
     properties: {
       name: { type: 'string', example: 'LINEAR_API_KEY' },
-      source: {
-        type: 'object',
-        required: ['kind'],
-        properties: {
-          kind: {
-            type: 'string',
-            enum: [...SECRET_SOURCE_KINDS],
-            default: 'built-in',
-          },
-          secretId: { type: 'string' },
-          field: { type: 'string' },
-        },
-      },
       bindings: {
         type: 'array',
         items: {
@@ -87,14 +73,14 @@ const DEFINITION = ApiBody({
         type: 'string',
         writeOnly: true,
         description:
-          'The value to store; accepted on create and whenever valueWoVersion changes, and never returned',
+          'The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform',
       },
       valueWoVersion: {
         type: 'integer',
         minimum: 0,
         example: 1,
         description:
-          'Change it to rotate the value to the valueWo sent with it',
+          'Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform',
       },
     },
   },

@@ -1,3 +1,4 @@
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -13,15 +14,21 @@ import type {
 } from '@work/application/services/run-work';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { ChatPush } from '@work/domain/services/chat-push';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import type { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 
 export class ChatRunWork implements RunWork {
   constructor(
     private readonly run: LeasedRunFacts,
     private readonly chat: Chat,
     private readonly chats: ChatRepository,
+    private readonly tasks: TaskRepository,
+    private readonly settings: RepositorySettingsPort,
   ) {}
 
   get workspaceId(): WorkspaceId {
@@ -53,6 +60,45 @@ export class ChatRunWork implements RunWork {
     return service === 'git-receive-pack'
       ? this.chat.pushableNamed(name)
       : this.chat.repositoryNamed(name);
+  }
+
+  readonly limitsPushes = true;
+
+  async pushRefusal(
+    repository: Repository,
+    updates: readonly RefUpdate[],
+  ): Promise<string | null> {
+    if (updates.length === 0) {
+      return null;
+    }
+
+    const named = await this.settings
+      .defaultBranchNameOf(this.chat.workspaceId, repository)
+      .catch(() => null);
+
+    if (!named) {
+      return `Spotlight could not read the default branch of ${repository.value} from GitHub, so it cannot check this push. Push again in a minute.`;
+    }
+
+    const defaultBranch = Branch.of(named);
+
+    for (const update of updates) {
+      const branch = update.branch;
+      const refusal = ChatPush.refusal({
+        chat: this.chat.id,
+        update,
+        defaultBranch,
+        owner: branch
+          ? await this.tasks.onBranch(this.chat.workspaceId, branch)
+          : null,
+      });
+
+      if (refusal) {
+        return ChatRefused.text(refusal);
+      }
+    }
+
+    return null;
   }
 
   async clearFor(declared: DeclaredTool): Promise<Cleared> {

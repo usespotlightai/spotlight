@@ -1,19 +1,24 @@
 import type { ReactNode } from 'react';
 
-import type { Expansion } from '@/components/shared/nested-table/ExpandingRow';
+import { useClipped } from '@/hooks/useClipped';
+import type { Expansion } from '@/hooks/useExpandingRow';
 import { cn } from '@/lib/utils';
 
 type ClampedCellProps = {
   expansion: Expansion;
   pinned?: boolean;
+  preview?: ReactNode;
   children: ReactNode;
 };
 
 export function ClampedCell({
   expansion: { clamp },
   pinned = false,
+  preview,
   children,
 }: ClampedCellProps) {
+  const clipped = useClipped(clamp, pinned && preview !== undefined);
+
   return (
     <div
       ref={clamp}
@@ -25,7 +30,7 @@ export function ClampedCell({
           : '@4xl:group-data-clamped/row:max-h-4 @lg:group-data-compact/nested:group-data-clamped/row:max-h-4 @4xl:group-data-clamped/row:overflow-hidden @lg:group-data-compact/nested:group-data-clamped/row:overflow-hidden',
       )}
     >
-      {children}
+      {clipped ? preview : children}
     </div>
   );
 }

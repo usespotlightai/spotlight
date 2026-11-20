@@ -9,6 +9,7 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import type { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
@@ -35,6 +36,11 @@ export interface RunWork {
     name: string,
     service: GitService,
   ): Promise<Repository | null>;
+  readonly limitsPushes: boolean;
+  pushRefusal(
+    repository: Repository,
+    updates: readonly RefUpdate[],
+  ): Promise<string | null>;
   toolContext(tool: Tool): Promise<ToolContext>;
   clearFor(
     declared: DeclaredTool,

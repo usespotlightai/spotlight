@@ -11,6 +11,7 @@ import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
 import { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
@@ -167,5 +168,26 @@ describe('Notice', () => {
     expect(() => Notice.rehydrate({ ...state, resolvedAt: later(-1) })).toThrow(
       InconsistentStateError,
     );
+  });
+});
+
+describe('who can resolve or reopen a notice', () => {
+  const ACTS = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+  const SEES = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+  const AT = new Date('2026-11-20T09:00:00.000Z');
+
+  it('lets a person who acts on the team resolve it while it is open', () => {
+    expect(Notice.resolvableBy(ACTS, null)).toBe(true);
+    expect(Notice.resolvableBy(ACTS, AT)).toBe(false);
+  });
+
+  it('lets a person who acts on the team reopen it once it is resolved', () => {
+    expect(Notice.reopenableBy(ACTS, AT)).toBe(true);
+    expect(Notice.reopenableBy(ACTS, null)).toBe(false);
+  });
+
+  it('lets nobody resolve or reopen it who only sees the team', () => {
+    expect(Notice.resolvableBy(SEES, null)).toBe(false);
+    expect(Notice.reopenableBy(SEES, AT)).toBe(false);
   });
 });

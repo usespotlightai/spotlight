@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
-import type { Expansion } from '@/components/shared/nested-table/ExpandingRow';
+import type { Expansion } from '@/hooks/useExpandingRow';
 
 type ExpandToggleProps = {
   expansion: Expansion;

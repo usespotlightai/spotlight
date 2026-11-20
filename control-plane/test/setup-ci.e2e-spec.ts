@@ -44,6 +44,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
       repositoryId: '101',
       ownerId: '7',
     }),
+    defaultBranchNameOf: async () => 'main',
     oidcSubjectPrefixOf: async (_, repository) =>
       subjectPrefix ?? `repo:${repository.value}`,
     visibilityOf: async () => 'public',

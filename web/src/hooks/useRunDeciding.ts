@@ -15,13 +15,14 @@ export function useRunDeciding(
 
   return {
     pending: answer.isPending,
-    onDecide: ({ approve, body, inputs }) =>
+    onDecide: ({ approve, ask, body, inputs }) =>
       answer.mutate({
         slug,
         itemId,
         body,
         attachments: [],
         approve,
+        ask,
         inputs,
       }),
   };

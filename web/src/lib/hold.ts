@@ -5,7 +5,9 @@ import type {
   StationResponseDto,
   HoldVerdict,
 } from '@/lib/api';
+import { chatPath } from '@/lib/chat';
 import type { Note } from '@/lib/inbox';
+import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
 import type { Task } from '@/lib/task';
 
@@ -37,29 +39,39 @@ export const moveOnTargets = (
   return stations.filter((each) => Boolean(each.harness) && next.has(each.id));
 };
 
+export const holdPathOf = (
+  slug: string,
+  teamId: string,
+  hold: TaskHoldResponseDto,
+): string | undefined =>
+  hold.chatId
+    ? chatPath(slug, teamId, hold.chatId)
+    : hold.runId
+      ? runPath(slug, teamId, hold.runId)
+      : undefined;
+
 export const heldUntilResumed = (
   hold: TaskHoldResponseDto,
   viewerId: string | undefined,
 ): string =>
-  hold.by.id === viewerId
-    ? `You put the task on hold ${since(hold.startedAt)}. The line continues when you resume it.`
-    : `${hold.by.name} put the task on hold ${since(hold.startedAt)}. The line continues when they resume it.`;
+  hold.chatId
+    ? hold.by.id === viewerId
+      ? `Your agent chat opened the pull request of this task ${since(hold.startedAt)}. The line continues when you hand the task to the line.`
+      : `The agent chat of ${hold.by.name} opened the pull request of this task ${since(hold.startedAt)}. The line continues when they hand the task to the line.`
+    : `${hold.by.id === viewerId ? 'You' : hold.by.name} put the task on hold ${since(hold.startedAt)}. The line continues when a person on the team resumes it.`;
 
-export const heldByOther = (
+export const lockedHold = (
   hold: TaskHoldResponseDto | null | undefined,
-  viewerId: string | undefined,
-): TaskHoldResponseDto | null =>
-  hold && hold.by.id !== viewerId ? hold : null;
+): TaskHoldResponseDto | null => (hold && !hold.viewerEnds ? hold : null);
 
-export const heldByMe = (
+export const drivesHold = (
   hold: TaskHoldResponseDto | null | undefined,
-  viewerId: string | undefined,
-): boolean => Boolean(hold && hold.by.id === viewerId);
+): boolean => hold?.viewerDrives ?? false;
 
 export const heldBecause = (verdict: HoldVerdict): string =>
   verdict === 'exploring'
-    ? 'You put the task on hold to try something.'
-    : 'You put the task on hold because the line got it wrong.';
+    ? 'The task is on hold to try something.'
+    : 'The task is on hold because the line got it wrong.';
 
 export const resumedTo = (
   next: HoldEnd,

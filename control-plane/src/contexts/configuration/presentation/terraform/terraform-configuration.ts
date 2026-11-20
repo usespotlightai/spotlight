@@ -46,7 +46,10 @@ import {
 } from '@platform/ordering/code-point-order';
 import { PLATFORM_EGRESS } from '@runners/application/ports/runner-configuration.port';
 import { ALL_CLAIMS } from '@shared-kernel/domain/value-objects/claim-share';
-import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
+import {
+  FieldPath,
+  type FieldSegment,
+} from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -212,6 +215,14 @@ const moduleIndexOf = (
   };
 };
 
+const secretNameIn = (
+  moduleIndex: ModuleIndex,
+  name: string,
+): HclExpression | null =>
+  moduleIndex.secrets.has(name)
+    ? referenceTo('secret', secretNameOf(name), 'name')
+    : null;
+
 const References = (moduleIndex: ModuleIndex) => ({
   owner(resource: ExportableResourceDto): HclItem[] {
     if (resource.kind === 'workspace') {
@@ -297,12 +308,15 @@ const References = (moduleIndex: ModuleIndex) => ({
       : named;
   },
 
+  secretName(name: string): HclExpression | null {
+    return secretNameIn(moduleIndex, name);
+  },
+
   secret(name: string): HclExpression | null {
-    return moduleIndex.secrets.has(name)
-      ? HclExpression.template(
-          SecretName.REFERENCE_PREFIX,
-          referenceTo('secret', secretNameOf(name), 'name'),
-        )
+    const named = secretNameIn(moduleIndex, name);
+
+    return named
+      ? HclExpression.template(SecretName.REFERENCE_PREFIX, named)
       : null;
   },
 });
@@ -649,6 +663,17 @@ const withSecretReferences = (
       : written;
   }, definition);
 
+const referencesUnder = (
+  references: readonly SecretReferenceAt[],
+  field: string,
+): readonly SecretReferenceAt[] =>
+  references
+    .filter((each) => each.path.segments[0] === field)
+    .map((each) => ({
+      ...each,
+      path: FieldPath.of(each.path.segments.slice(1)),
+    }));
+
 const integration = (
   resource: ResourceOf<'integration'>,
   importedAs: string,
@@ -691,12 +716,22 @@ const profile = (
         hclOf(
           withSecretReferences(
             resource.mcpServers,
-            resource.secretReferences,
+            referencesUnder(resource.secretReferences, 'mcpServers'),
             refer,
           ),
         ),
       ),
       attribute('native', hclOf(resource.native)),
+      ...(resource.secrets.length > 0
+        ? [
+            attribute(
+              'secrets',
+              hclOf(
+                resource.secrets.map((name) => refer.secretName(name) ?? name),
+              ),
+            ),
+          ]
+        : []),
     ],
   );
 
@@ -832,32 +867,25 @@ const secret = (
     [
       ...refer.owner(resource),
       attribute('name', resource.name),
-      attribute(
-        'source',
-        hclOf({
-          kind: resource.source.kind,
-          secret_id: resource.source.secretId ?? undefined,
-          field: resource.source.field ?? undefined,
-        }),
-      ),
       attribute('bindings', hclOf(resource.bindings)),
-      ...(resource.storesValue
-        ? [attribute('value_wo', HclExpression.traversal('var', value))]
-        : []),
       ...(resource.valueVersion === null
         ? []
-        : [attribute('value_wo_version', resource.valueVersion)]),
+        : [
+            attribute('value_wo', HclExpression.traversal('var', value)),
+            attribute('value_wo_version', resource.valueVersion),
+          ]),
     ],
     {
-      variables: resource.storesValue
-        ? [
-            variable(
-              value,
-              `The value of the secret ${resource.name}, which Spotlight stores and never returns`,
-              false,
-            ),
-          ]
-        : [],
+      variables:
+        resource.valueVersion !== null
+          ? [
+              variable(
+                value,
+                `The value of the secret ${resource.name}, which Spotlight stores and never returns`,
+                false,
+              ),
+            ]
+          : [],
     },
   );
 };

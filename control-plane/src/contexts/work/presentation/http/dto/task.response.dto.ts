@@ -64,16 +64,55 @@ export class TaskHoldResponseDto {
   })
   readonly heldMoveTo: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The agent chat that holds the task while it works on the pull request itself',
+  })
+  readonly chatId: string | null;
+
+  @ApiProperty({
+    description:
+      'Whether the caller can send the agent turns while the task is on hold',
+  })
+  readonly viewerDrives: boolean;
+
+  @ApiProperty({
+    description:
+      'Whether the caller can resume the line or move the task while it is on hold',
+  })
+  readonly viewerEnds: boolean;
+
   constructor(
     by: TaskPersonResponseDto,
     startedAt: string,
     runId: string | null,
     heldMoveTo: string | null,
+    chatId: string | null,
+    viewerDrives: boolean,
+    viewerEnds: boolean,
   ) {
     this.by = by;
     this.startedAt = startedAt;
     this.runId = runId;
     this.heldMoveTo = heldMoveTo;
+    this.chatId = chatId;
+    this.viewerDrives = viewerDrives;
+    this.viewerEnds = viewerEnds;
+  }
+}
+
+export class TaskRunNotStartedResponseDto {
+  @ApiProperty({
+    example: 'claude-code',
+    description:
+      'The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start',
+  })
+  readonly harness: string;
+
+  constructor(harness: string) {
+    this.harness = harness;
   }
 }
 
@@ -195,6 +234,14 @@ export class TaskResponseDto {
   })
   readonly hold: TaskHoldResponseDto | null;
 
+  @ApiProperty({
+    type: TaskRunNotStartedResponseDto,
+    nullable: true,
+    description:
+      'Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried',
+  })
+  readonly runNotStarted: TaskRunNotStartedResponseDto | null;
+
   constructor(
     id: string,
     stationId: string,
@@ -212,6 +259,7 @@ export class TaskResponseDto {
     note: TaskNoteResponseDto | null,
     source: string | null,
     hold: TaskHoldResponseDto | null,
+    runNotStarted: TaskRunNotStartedResponseDto | null,
   ) {
     this.id = id;
     this.stationId = stationId;
@@ -229,6 +277,7 @@ export class TaskResponseDto {
     this.note = note;
     this.source = source;
     this.hold = hold;
+    this.runNotStarted = runNotStarted;
   }
 }
 

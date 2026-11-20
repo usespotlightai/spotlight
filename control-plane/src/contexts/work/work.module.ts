@@ -7,6 +7,7 @@ import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
 import { RunnersModule } from '@runners/runners.module';
 import { RunsModule } from '@runs/runs.module';
+import { SecretsModule } from '@secrets/secrets.module';
 import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensions.port';
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
@@ -37,6 +38,7 @@ const BINDINGS = contextBindings([STATION_DELETION_GUARD]);
     CatalogModule,
     GitHubModule,
     RunnersModule,
+    SecretsModule,
     LinesModule,
     RunsModule,
   ],

@@ -46,7 +46,6 @@ var Settings = []Setting{
 	{Key: "sandbox-hosts", Env: envHosts, Group: GroupSandboxes, Live: true},
 	{Key: "egress-image", Env: envEgressImg, Group: GroupEgress, Live: true},
 	{Key: "egress-allow", Env: envEgressOK, Group: GroupEgress, Live: true},
-	{Key: "egress-secret-allow", Env: envSecretAllow, Group: GroupEgress, Live: true},
 	{Key: "egress-env", Env: envEgressEnv, Group: GroupEgress, Live: true},
 	{Key: "egress-pass", Env: envEgressPass, Group: GroupEgress, Live: true},
 	{Key: "egress-ca-bundle", Env: envCABundle, Group: GroupEgress, Live: true},

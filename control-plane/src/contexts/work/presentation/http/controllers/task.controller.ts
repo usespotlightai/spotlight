@@ -36,17 +36,21 @@ import { DeleteTaskCommand } from '@work/application/commands/delete-task.comman
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
+import { SendTaskMessageCommand } from '@work/application/commands/send-task-message.command';
+import { StartTaskRunCommand } from '@work/application/commands/start-task-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { NoteDto } from '@work/application/dto/inbox.dto';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
+import type { TaskPullRequestDto } from '@work/application/dto/task-pull-request.dto';
 import type {
   TaskRunDto,
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
+import { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
   ListTasksQuery,
@@ -68,6 +72,7 @@ import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto'
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { ResumeLineRequestDto } from '@work/presentation/http/dto/resume-line.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
+import { TaskPullRequestResponseDto } from '@work/presentation/http/dto/task-pull-request.response.dto';
 import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
   LatestRunResponseDto,
@@ -378,6 +383,33 @@ export class TaskController {
     await this.commandBus.execute(new StopRunCommand(runId, user.id));
   }
 
+  @Get('tasks/:taskId/pull-requests')
+  @ApiOperation({
+    operationId: 'listTaskPullRequests',
+    summary: 'List the pull requests of a task, each with its state',
+  })
+  @ApiParam({ name: 'taskId', type: String })
+  @ApiOkResponse({ type: TaskPullRequestResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  async pullRequests(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskPullRequestResponseDto[]> {
+    const found = await this.queryBus.execute<
+      ListTaskPullRequestsQuery,
+      TaskPullRequestDto[] | null
+    >(new ListTaskPullRequestsQuery(teamId, taskId, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return found.map(
+      (each) => new TaskPullRequestResponseDto(each.url, each.state),
+    );
+  }
+
   @Get('tasks/:taskId/runs')
   @ApiOperation({
     operationId: 'listTaskRuns',
@@ -592,9 +624,9 @@ export class TaskController {
   @Post('tasks/:taskId/resume')
   @ApiOperation({
     operationId: 'resumeLine',
-    summary: 'Resume the line on a task that you put on hold',
+    summary: 'Resume the line on a task that is on hold',
     description:
-      'Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.',
+      'Sending a message to a station run that is not an answer puts the task on hold. While it is on hold, every member of the team can send the agent turns. The line waits until a member resumes it here, until a member moves the task, or until the agent resumes it because a member asked it to. A task that an agent chat holds resumes only for the person whose chat it is.',
   })
   @ApiParam({
     name: 'taskId',
@@ -604,7 +636,7 @@ export class TaskController {
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   @ApiConflictResponse({
     description:
-      'The task is not on hold, someone else put it on hold, or it cannot move on to that station',
+      'The task is not on hold, an agent chat of another person holds it, or it cannot move on to that station',
   })
   @HttpCode(HttpStatus.OK)
   @ApiForbiddenResponse({
@@ -627,6 +659,82 @@ export class TaskController {
         body.verdict ?? null,
         body.summary ?? null,
       ),
+    );
+
+    return this.readBack(teamId, taskId, user);
+  }
+
+  @Post('tasks/:taskId/messages')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'sendTaskMessage',
+    summary: 'Send a message to a task at the station it stands at',
+    description:
+      'For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.',
+  })
+  @ApiParam({
+    name: 'taskId',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  @ApiOkResponse({ type: TaskResponseDto })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  @ApiConflictResponse({
+    description:
+      'The message answers a question that another person is the assignee of',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
+  async sendTaskMessage(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @Body() body: SendMessageRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    await this.commandBus.execute<SendTaskMessageCommand, void>(
+      new SendTaskMessageCommand(
+        teamId,
+        taskId,
+        user.id,
+        body.body ?? '',
+        idsInput(body.attachments),
+        idsInput(body.coAuthors),
+        draftGenerationInput(body.draftGeneration),
+      ),
+    );
+
+    return this.readBack(teamId, taskId, user);
+  }
+
+  @Post('tasks/:taskId/start')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'startTaskRun',
+    summary: 'Try again to start the run of a task whose agent did not start',
+    description:
+      'Spotlight tries to start the agent of the task’s station again. When it still cannot, runNotStarted says why.',
+  })
+  @ApiParam({
+    name: 'taskId',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  @ApiOkResponse({ type: TaskResponseDto })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  @ApiConflictResponse({
+    description: 'The task is not waiting for its run to start',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
+  async startTaskRun(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    await this.commandBus.execute<StartTaskRunCommand, void>(
+      new StartTaskRunCommand(teamId, taskId, user.id),
     );
 
     return this.readBack(teamId, taskId, user);

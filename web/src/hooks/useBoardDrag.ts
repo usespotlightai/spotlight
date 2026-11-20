@@ -13,7 +13,6 @@ import { useState } from 'react';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useDragGuard } from '@/hooks/useDragGuard';
 import { useDragSensors } from '@/hooks/useDragSensors';
-import { useMe } from '@/hooks/useMe';
 import type { StationResponseDto } from '@/lib/api';
 import { type Landing, landingFor } from '@/lib/dragging';
 import { mayLand, type Task } from '@/lib/task';
@@ -43,7 +42,6 @@ type Board = {
 export function useBoardDrag(board: Board) {
   const moveTask = useMoveTask();
   const swallowNextClick = useDragGuard();
-  const me = useMe();
 
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [landing, setLanding] = useState<Landing | null>(null);
@@ -64,7 +62,7 @@ export function useBoardDrag(board: Board) {
         stationId: String(over.data.current?.stationId ?? over.id),
       });
 
-    return target && mayLand(board.stations, moving, target.stationId, me?.id)
+    return target && mayLand(board.stations, moving, target.stationId)
       ? target
       : null;
   };

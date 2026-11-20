@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,6 +28,17 @@ vi.mock('@/hooks/api/useGitHub', () => ({
 
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
+}));
+
+const visitNotes = vi.fn((): Note[] | undefined => undefined);
+
+vi.mock('@/hooks/api/useTaskNotes', () => ({
+  useTaskNotes: () => ({
+    data: visitNotes(),
+    isError: false,
+    isFetching: false,
+    refetch: () => {},
+  }),
 }));
 
 const AT = '2026-09-03T21:22:00.000Z';
@@ -185,18 +196,130 @@ describe('Conversation', () => {
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '', ask: 0 });
+  });
+
+  it('docks only the newest ask, and says why an older approval waits on nothing', async () => {
+    const onDecide = vi.fn();
+    showing(
+      [
+        { ...note(0, AT), form: 'approval', approval: APPROVAL },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        {
+          ...note(2, AT),
+          form: 'approval',
+          approval: { ...APPROVAL, name: 'github.merge' },
+        },
+      ],
+      { pending: false, onDecide },
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Approve linear.comment' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('The run asked for something newer since.'),
+    ).toBeVisible();
+
+    const tray = screen.getByRole('region', { name: 'Approval' });
+    await userEvent.click(
+      within(tray).getByRole('button', { name: 'Approve github.merge' }),
+    );
+
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '', ask: 2 });
+  });
+
+  it('docks an open approval above the text bar, with a pill where it was asked', () => {
+    showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
+      pending: false,
+      onDecide: vi.fn(),
+    });
+
+    const tray = screen.getByRole('region', { name: 'Approval' });
+    expect(tray).toHaveAttribute('data-slot', 'decision-tray');
+    expect(
+      within(tray).getByRole('button', { name: 'Approve linear.comment' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Show Approval' })).toBeVisible();
+  });
+
+  it('says nothing more on a decided approval once the run asks again', () => {
+    showing(
+      [
+        {
+          ...note(0, AT),
+          form: 'approval',
+          approval: { ...APPROVAL, status: 'approved' as const },
+        },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        { ...note(2, AT), form: 'approval', approval: APPROVAL },
+      ],
+      { pending: false, onDecide: vi.fn() },
+    );
+
+    expect(
+      screen.queryByText('The run asked for something newer since.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('docks only the connection of the newest ask', () => {
+    showing(
+      [
+        {
+          ...note(0, AT),
+          connection: {
+            integration: 'linear',
+            integrationName: 'Linear',
+            personId: 'user_1',
+            personName: 'Ola',
+            met: false,
+          },
+        },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        { ...note(2, AT), form: 'approval', approval: APPROVAL },
+      ],
+      { pending: false, onDecide: vi.fn() },
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Show Connect Linear' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Connect' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('The run asked for something newer since.'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Show Approval' })).toBeVisible();
+  });
+
+  it('keeps a decided approval in the thread', () => {
+    showing(
+      [
+        {
+          ...note(0, AT),
+          form: 'approval',
+          approval: { ...APPROVAL, status: 'approved' as const },
+        },
+      ],
+      { pending: false, onDecide: vi.fn() },
+    );
+
+    expect(
+      document.querySelector('[data-slot=decision-tray]'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Fixed in #41.')).toBeVisible();
   });
 
   it('shows the tool call without a decision to make where nobody can make one', () => {
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }]);
 
     expect(
-      screen.getByRole('button', { name: 'Approve linear.comment' }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: 'Approve linear.comment' }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Dismiss linear.comment' }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: 'Dismiss linear.comment' }),
+    ).not.toBeInTheDocument();
   });
 
   it('closes a run once, after its last note, when a person answers in between', () => {
@@ -343,5 +466,30 @@ describe('Conversation', () => {
       screen.getByText(body).closest('li')?.className.includes('animate-in');
     expect(arrives('note 0')).toBe(false);
     expect(arrives('note 1')).toBe(true);
+  });
+
+  it('shows what was said at a later station open at the end, under its name', () => {
+    const later: Note = {
+      ...note(5, LATER, 'Implementation'),
+      voice: 'person',
+      kind: 'message',
+      body: 'Leave billing paused',
+      stationPosition: 2,
+    };
+    visitNotes.mockReturnValue([later]);
+
+    showing([note(0, AT)], undefined, undefined, null, [
+      {
+        first: later,
+        to: 5,
+        endedAt: LATER,
+        closing: null,
+        answer: null,
+        sentBack: false,
+      },
+    ]);
+
+    expect(screen.getByText('Leave billing paused')).toBeVisible();
+    expectInOrder('note 0', 'Implementation', 'Leave billing paused');
   });
 });

@@ -7,8 +7,26 @@ import {
   planNameWidth,
 } from '@/lib/config-plan';
 
-export function ConfigPlan({ entries }: { entries: readonly PlanEntry[] }) {
+type ConfigPlanProps = {
+  entries: readonly PlanEntry[];
+  firstLine?: boolean;
+};
+
+export function ConfigPlan({ entries, firstLine = false }: ConfigPlanProps) {
   const width = planNameWidth(entries);
+
+  if (firstLine) {
+    return (
+      <ul
+        aria-label="What changed"
+        data-slot="config-plan"
+        className="min-w-0 font-mono text-xs text-foreground leading-4"
+      >
+        {entries[0] && <FirstRow entry={entries[0]} width={width} />}
+        <li aria-hidden className="h-4" />
+      </ul>
+    );
+  }
 
   return (
     <ul
@@ -47,5 +65,27 @@ export function ConfigPlan({ entries }: { entries: readonly PlanEntry[] }) {
         );
       })}
     </ul>
+  );
+}
+
+function FirstRow({ entry, width }: { entry: PlanEntry; width: number }) {
+  if (entry.kind === 'leaf') {
+    return <PlanLeafRow leaf={entry} width={width} />;
+  }
+
+  return (
+    <li>
+      <ul>
+        {entry.kind === 'text' ? (
+          <PlanRow mark={entry.mark}>
+            {`${entry.name.padEnd(width)} = <<-EOT`}
+          </PlanRow>
+        ) : (
+          <PlanRow mark="changed">
+            {entry.list ? `${entry.name.padEnd(width)} = [` : `${entry.name} {`}
+          </PlanRow>
+        )}
+      </ul>
+    </li>
   );
 }

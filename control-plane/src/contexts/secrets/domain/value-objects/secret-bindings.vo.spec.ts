@@ -1,5 +1,6 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const invalidAt = (inputs: Parameters<typeof SecretBindings.of>[0]) => {
@@ -17,6 +18,18 @@ const invalidAt = (inputs: Parameters<typeof SecretBindings.of>[0]) => {
 };
 
 describe('SecretBindings', () => {
+  it('sends the stand-in after its prefix', () => {
+    const [binding] = SecretBindings.of([
+      { host: 'staging.acme.example', prefix: 'Bearer ' },
+    ]).all;
+    const name = SecretName.of('STAGING_VIEWER');
+
+    expect(binding.standInSent(name)).toBe(`Bearer ${name.standIn}`);
+    expect(binding.standIn(name).revealedValue()).toBe(
+      binding.standInSent(name),
+    );
+  });
+
   it('is injected in authorization with no prefix unless it says otherwise', () => {
     const [binding] = SecretBindings.of([{ host: 'API.Linear.app' }]).all;
 

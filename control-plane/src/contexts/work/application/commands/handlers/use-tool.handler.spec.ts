@@ -78,6 +78,7 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
+  OPEN_PULL_REQUEST,
 } from '@work/domain/value-objects/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -408,12 +409,17 @@ const using = (
           return 'Proposed.';
         },
       },
-      ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST, CHECKS, OPEN_TASKS].map(
-        (tool) => ({
-          tool,
-          call: async () => null,
-        }),
-      ),
+      ...[
+        REVIEW_COMMENT,
+        REVIEW,
+        SETUP_PULL_REQUEST,
+        OPEN_PULL_REQUEST,
+        CHECKS,
+        OPEN_TASKS,
+      ].map((tool) => ({
+        tool,
+        call: async () => null,
+      })),
     ],
     new ChatToolExtensions({
       find: async () => chat(),
@@ -462,6 +468,7 @@ const using = (
       hooked.asked.push({ taskId, runId });
       return TASK_VIEW;
     },
+    ofNew: async () => TASK_VIEW,
     ofPullRequest: async () => null,
   };
   const hooks: LifecycleHooksPort = {

@@ -1,7 +1,6 @@
 package inject
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"log/slog"
@@ -19,22 +18,8 @@ type Opener interface {
 	Open(sealed, runID, secret string) (string, error)
 }
 
-type Reader interface {
-	Read(ctx context.Context, source protocol.ExternalSecretRef) (string, error)
-}
-
-type Limits struct {
-	Hosts       interface{ Allows(host string) bool }
-	SecretAllow []string
-}
-
-func (l Limits) allowsSecret(secretID string) bool {
-	return slices.ContainsFunc(l.SecretAllow, func(entry string) bool {
-		if prefix, pattern := strings.CutSuffix(entry, "*"); pattern {
-			return strings.HasPrefix(secretID, prefix)
-		}
-		return entry == secretID
-	})
+type Hosts interface {
+	Allows(host string) bool
 }
 
 type injected struct {
@@ -107,14 +92,13 @@ type Injector struct {
 }
 
 func From(
-	ctx context.Context, fetched protocol.EgressSecrets, harnessKeys []protocol.HarnessKey, limits Limits,
-	opener Opener, reader func() (Reader, error), log *slog.Logger,
+	fetched protocol.EgressSecrets, harnessKeys []protocol.HarnessKey, hosts Hosts, opener Opener, log *slog.Logger,
 ) *Injector {
 	injector := &Injector{byHost: map[string][]*injected{}, log: log}
 
 	for _, key := range harnessKeys {
 		host, header := allowlist.Normal(key.Host), http.CanonicalHeaderKey(key.Header)
-		if problem := harnessKeyProblem(host, header, key, limits); problem != "" {
+		if problem := harnessKeyProblem(host, header, key, hosts); problem != "" {
 			log.Warn("egress will not inject a key the host has", "key", key.Name, "host", host, "reason", problem)
 			continue
 		}
@@ -139,12 +123,12 @@ func From(
 		host := allowlist.Normal(secret.Host)
 		location, name := located(secret.Location, secret.Name)
 
-		if problem := injector.problem(host, location, name, secret, limits); problem != "" {
+		if problem := injector.problem(host, location, name, hosts); problem != "" {
 			log.Warn("egress will not inject a secret of the run", "secret", secret.Secret, "host", host, "reason", problem)
 			continue
 		}
 
-		value, err := valueOf(ctx, fetched.RunID, secret, opener, reader)
+		value, err := opener.Open(secret.Sealed, fetched.RunID, secret.Secret)
 		if err == nil && strings.ContainsAny(value, "\r\n\x00") {
 			err = fmt.Errorf("it has more than one line, so egress cannot inject it into a request")
 		}
@@ -169,9 +153,9 @@ func From(
 	return injector
 }
 
-func harnessKeyProblem(host, header string, key protocol.HarnessKey, limits Limits) string {
+func harnessKeyProblem(host, header string, key protocol.HarnessKey, hosts Hosts) string {
 	switch {
-	case !limits.Hosts.Allows(host):
+	case !hosts.Allows(host):
 		return "the host's allow-list does not allow " + host
 	case header == "" || key.Value == "" || strings.ContainsAny(key.Value+key.Prefix, "\r\n\x00"):
 		return "it is empty or more than one line"
@@ -180,16 +164,14 @@ func harnessKeyProblem(host, header string, key protocol.HarnessKey, limits Limi
 	}
 }
 
-func (w *Injector) problem(host, location, name string, secret protocol.FetchedSecret, limits Limits) string {
+func (w *Injector) problem(host, location, name string, hosts Hosts) string {
 	target := (&injected{location: location, name: name}).target()
 
 	switch {
 	case slices.ContainsFunc(w.byHost[host], func(each *injected) bool { return each.fromHost }):
 		return "the host has a key of its own for " + host
-	case !limits.Hosts.Allows(host):
+	case !hosts.Allows(host):
 		return "the host's allow-list does not allow " + host
-	case secret.ExternalRef != nil && !limits.allowsSecret(secret.ExternalRef.SecretID):
-		return "the host does not let egress read " + secret.ExternalRef.SecretID
 	case location != protocol.LocationHeader && location != protocol.LocationQuery:
 		return "its location is neither a header nor a query parameter"
 	case name == "":
@@ -198,23 +180,6 @@ func (w *Injector) problem(host, location, name string, secret protocol.FetchedS
 		return "another secret is already injected in " + target + " for " + host
 	default:
 		return ""
-	}
-}
-
-func valueOf(
-	ctx context.Context, runID string, secret protocol.FetchedSecret, opener Opener, reader func() (Reader, error),
-) (string, error) {
-	switch {
-	case secret.Sealed != "":
-		return opener.Open(secret.Sealed, runID, secret.Secret)
-	case secret.ExternalRef != nil:
-		read, err := reader()
-		if err != nil {
-			return "", err
-		}
-		return read.Read(ctx, *secret.ExternalRef)
-	default:
-		return "", fmt.Errorf("the control plane sent neither a sealed value nor where to read one")
 	}
 }
 

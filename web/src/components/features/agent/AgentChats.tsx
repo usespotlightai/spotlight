@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { ShowMore } from '@/components/shared/ShowMore';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { usePrefetchChatJournal } from '@/hooks/api/useChatJournal';
 import { useChats } from '@/hooks/api/useChats';
 import {
   chatPath,
@@ -31,6 +32,7 @@ type AgentChatsProps = {
 };
 
 export function AgentChats({ slug, teamId }: AgentChatsProps) {
+  const prefetch = usePrefetchChatJournal();
   const chats = useChats(teamId);
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,6 +79,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
                   key={chat.id}
                   chat={chat}
                   to={chatPath(slug, teamId, chat.id)}
+                  onIntent={() => prefetch(teamId, chat.id)}
                 />
               ))}
             </ol>

@@ -30,6 +30,9 @@ export const onHoldBy = (
             startedAt: new Date(Date.now() - 12 * 60_000).toISOString(),
             runId: turn?.id ?? null,
             heldMoveTo: null,
+            chatId: null,
+            viewerDrives: true,
+            viewerEnds: true,
           },
         }
       : each,

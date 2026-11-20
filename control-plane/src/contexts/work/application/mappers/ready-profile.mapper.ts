@@ -17,6 +17,7 @@ export const ReadyProfileMapper = {
         env: { ...server.env },
       })),
       native: ready.native,
+      secrets: [...ready.secrets],
       injectedSecrets: [...ready.injectedSecrets],
     };
   },

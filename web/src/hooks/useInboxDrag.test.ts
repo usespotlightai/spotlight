@@ -17,7 +17,13 @@ vi.mock('@/hooks/api/useReopenInboxEntry', () => ({
 }));
 
 const notice = (over: Partial<InboxEntry> = {}) =>
-  ({ kind: 'notice', id: 'notice_1', resolved: false, ...over }) as InboxEntry;
+  ({
+    kind: 'notice',
+    id: 'notice_1',
+    resolved: false,
+    resolvable: true,
+    ...over,
+  }) as InboxEntry;
 
 const dropped = (activeId: string, overId: string | null) =>
   ({
@@ -52,7 +58,11 @@ describe('useInboxDrag', () => {
   });
 
   it('reopens a resolved entry dropped on Open', () => {
-    const entry = notice({ resolved: true, reopenable: true });
+    const entry = notice({
+      resolved: true,
+      resolvable: false,
+      reopenable: true,
+    });
 
     dropping([entry], dropped('notice:notice_1', OPEN_DROP));
 
@@ -68,7 +78,7 @@ describe('useInboxDrag', () => {
 
   it('leaves an entry that is already resolved alone', () => {
     dropping(
-      [notice({ resolved: true, reopenable: true })],
+      [notice({ resolved: true, resolvable: false, reopenable: true })],
       dropped('notice:notice_1', RESOLVED_DROP),
     );
 

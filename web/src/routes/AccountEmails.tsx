@@ -24,11 +24,18 @@ export function AccountEmails() {
         description="Spotlight recognizes you by your sign-in email and any additional verified email addresses. This allows Spotlight to identify you across connected services, regardless of which verified address you use."
       >
         {loading(emails) && (
-          <SettingsSection>
-            <div role="status" aria-label="Loading your emails">
-              <IconRowSkeleton nameWidth="w-40" aboutWidth="w-56" />
-            </div>
-          </SettingsSection>
+          <div
+            role="status"
+            aria-label="Loading your emails"
+            className="contents"
+          >
+            <SettingsSection title="Sign-in email">
+              <IconRowSkeleton nameWidth="w-40" />
+            </SettingsSection>
+            <SettingsSection title="Additional emails">
+              <IconRowSkeleton nameWidth="w-48" />
+            </SettingsSection>
+          </div>
         )}
 
         {failed(emails) && (

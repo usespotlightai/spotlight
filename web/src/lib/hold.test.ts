@@ -46,16 +46,19 @@ describe('heldUntilResumed', () => {
     startedAt: '2026-11-16T09:00:00.000Z',
     runId: null,
     heldMoveTo: null,
+    chatId: null,
+    viewerDrives: true,
+    viewerEnds: true,
   };
 
   it('names who put the task on hold and since when, and speaks to them as you', () => {
     vi.setSystemTime(new Date('2026-11-16T09:12:00.000Z'));
 
     expect(heldUntilResumed(hold, 'user_1')).toBe(
-      'Maya Chen put the task on hold 12m ago. The line continues when they resume it.',
+      'Maya Chen put the task on hold 12m ago. The line continues when a person on the team resumes it.',
     );
     expect(heldUntilResumed(hold, 'user_2')).toBe(
-      'You put the task on hold 12m ago. The line continues when you resume it.',
+      'You put the task on hold 12m ago. The line continues when a person on the team resumes it.',
     );
 
     vi.useRealTimers();

@@ -1,5 +1,5 @@
+import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
-import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { ReferenceToken } from '@/components/shared/chat-input/ReferenceToken';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -33,7 +33,7 @@ export function ChatPersonMessage({
   return (
     <div className="flex flex-col gap-1.5">
       <MessageCard>
-        <PinnedText>
+        <ExpandableText what="message">
           <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-6">
             {message.body}
             {message.body && referenced && ' '}
@@ -78,7 +78,7 @@ export function ChatPersonMessage({
               </TrailLink>
             ))}
           </p>
-        </PinnedText>
+        </ExpandableText>
       </MessageCard>
 
       <AttachmentTiles attachments={images} />

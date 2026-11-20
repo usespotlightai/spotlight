@@ -59,6 +59,7 @@ describe('ChatMessage', () => {
         proposal: null,
         acknowledgedAt: null,
         acknowledgedBy: RUN,
+        pullRequest: null,
       }),
     ).toThrow(InconsistentStateError);
   });
@@ -77,6 +78,7 @@ describe('ChatMessage', () => {
         proposal: null,
         acknowledgedAt: null,
         acknowledgedBy: null,
+        pullRequest: null,
       }),
     ).toThrow(InconsistentStateError);
   });

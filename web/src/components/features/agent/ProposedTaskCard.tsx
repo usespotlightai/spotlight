@@ -1,5 +1,5 @@
 import { Undo2 } from 'lucide-react';
-import { type Ref, useId, useState } from 'react';
+import { type Ref, use, useId, useState } from 'react';
 
 import { ProposedTaskFacts } from '@/components/features/agent/ProposedTaskFacts';
 import { Collapsible } from '@/components/shared/Collapsible';
@@ -12,7 +12,6 @@ import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import { FoldToggle } from '@/components/shared/FoldToggle';
 import { IconAction } from '@/components/shared/IconAction';
 import { OverflowFade } from '@/components/shared/OverflowFade';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Attachment } from '@/lib/attachment';
 import {
   type Proposal,
@@ -20,7 +19,7 @@ import {
   proposalText,
   proposalTitleOf,
 } from '@/lib/chat';
-import { taskPath } from '@/lib/task';
+import { DockedContext } from '@/lib/decision-tray';
 import { cn } from '@/lib/utils';
 
 type ProposedTaskCardProps = {
@@ -35,8 +34,6 @@ type ProposedTaskCardProps = {
   ref?: Ref<HTMLElement>;
 };
 
-const OUTCOME = 'flex h-7 items-center justify-end text-sm pointer-coarse:h-9';
-
 export function ProposedTaskCard({
   slug,
   teamId,
@@ -49,10 +46,20 @@ export function ProposedTaskCard({
   ref,
 }: ProposedTaskCardProps) {
   const titleId = useId();
+  const docked = use(DockedContext) !== null;
   const [unfolded, setUnfolded] = useState(false);
   const dismissed =
     proposal.state === 'dismissed' || proposal.state === 'replaced';
   const folded = dismissed && !unfolded;
+  const facts = (
+    <ProposedTaskFacts
+      slug={slug}
+      teamId={teamId}
+      proposal={proposal}
+      attachments={attachments}
+      titleId={titleId}
+    />
+  );
 
   return (
     <DecisionCard
@@ -92,10 +99,12 @@ export function ProposedTaskCard({
                 <Undo2 />
               </IconAction>
             )}
-            <CopyIconAction
-              text={proposalText(proposal)}
-              label={`Copy ${proposal.title}`}
-            />
+            {!docked && (
+              <CopyIconAction
+                text={proposalText(proposal)}
+                label={`Copy ${proposal.title}`}
+              />
+            )}
             {dismissed && (
               <FoldToggle
                 folded={folded}
@@ -109,19 +118,13 @@ export function ProposedTaskCard({
 
       <Collapsible open={!folded} appear={false}>
         <div className="flex flex-col gap-3 pt-1.5">
-          <OverflowFade className="max-h-96">
-            <ProposedTaskFacts
-              slug={slug}
-              teamId={teamId}
-              proposal={proposal}
-              attachments={attachments}
-              titleId={titleId}
-            />
-          </OverflowFade>
+          {docked ? (
+            facts
+          ) : (
+            <OverflowFade className="max-h-96">{facts}</OverflowFade>
+          )}
 
           <ProposalOutcome
-            slug={slug}
-            teamId={teamId}
             proposal={proposal}
             pending={pending}
             titleId={titleId}
@@ -136,12 +139,10 @@ export function ProposedTaskCard({
 
 type ProposalOutcomeProps = Pick<
   ProposedTaskCardProps,
-  'slug' | 'teamId' | 'proposal' | 'pending' | 'onCreate' | 'onDismiss'
+  'proposal' | 'pending' | 'onCreate' | 'onDismiss'
 > & { titleId: string };
 
 function ProposalOutcome({
-  slug,
-  teamId,
   proposal,
   pending,
   titleId,
@@ -169,24 +170,6 @@ function ProposalOutcome({
         </DecisionButton>
       </DecisionControls>
     );
-  }
-
-  if (proposal.state === 'created' && proposal.taskId) {
-    return (
-      <div className={OUTCOME}>
-        <TrailLink
-          data-focus-next
-          to={taskPath(slug, teamId, proposal.taskId)}
-          className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Open task
-        </TrailLink>
-      </div>
-    );
-  }
-
-  if (proposal.state === 'accepted' || proposal.state === 'created') {
-    return <div aria-hidden className={OUTCOME} />;
   }
 
   return null;

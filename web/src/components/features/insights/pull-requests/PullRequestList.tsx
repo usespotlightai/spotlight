@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
@@ -8,6 +8,7 @@ import { PullRequestListSkeleton } from '@/components/features/insights/pull-req
 import { PullRequestsTable } from '@/components/features/insights/pull-requests/PullRequestsTable';
 import { Button } from '@/components/ui/button';
 import { useInsightsPullRequestList } from '@/hooks/api/useInsightsPullRequestList';
+import { useScrollIntoViewOn } from '@/hooks/useScrollIntoViewOn';
 import { type InsightsView, lastPageOf, pageShownOf } from '@/lib/insights';
 import {
   PULL_REQUEST_LIST_NOTE,
@@ -43,11 +44,7 @@ export function PullRequestList({
     .join('&');
   const here = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (narrowing) {
-      here.current?.scrollIntoView?.({ block: 'start' });
-    }
-  }, [narrowing]);
+  useScrollIntoViewOn(here, narrowing);
 
   return (
     <div ref={here} id={PULL_REQUESTS_LIST_ID} className="scroll-mt-4">

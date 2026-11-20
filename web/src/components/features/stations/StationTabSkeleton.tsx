@@ -2,6 +2,7 @@ import { ACTIVITY_LAYOUT } from '@/components/features/stations/activity/Station
 import { StationActivitySkeleton } from '@/components/features/stations/activity/StationActivitySkeleton';
 import { StationConfigSkeleton } from '@/components/features/stations/config/StationConfigSkeleton';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { STATION_TABS, type StationTab } from '@/lib/station';
 
 const JudgeTabSkeleton = () => (
@@ -16,13 +17,27 @@ const BODIES = {
   judge: JudgeTabSkeleton,
 } as const;
 
-export function StationTabSkeleton({ tab }: { tab: StationTab }) {
-  const Body = BODIES[tab];
+type StationTabSkeletonProps = {
+  tab: StationTab;
+  line?: LineResponseDto;
+  station?: StationResponseDto;
+};
+
+export function StationTabSkeleton({
+  tab,
+  line,
+  station,
+}: StationTabSkeletonProps) {
   const label = STATION_TABS.find((each) => each.id === tab)?.label ?? '';
+  const Body = BODIES[tab];
 
   return (
     <div role="status" aria-label={`Loading the ${label.toLowerCase()} tab`}>
-      <Body />
+      {tab === 'config' ? (
+        <StationConfigSkeleton line={line} station={station} />
+      ) : (
+        <Body />
+      )}
     </div>
   );
 }

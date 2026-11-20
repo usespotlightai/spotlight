@@ -1,5 +1,6 @@
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
+import { BOUND_SECRETS } from '@secrets/application/ports/bound-secrets.port';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
@@ -8,6 +9,7 @@ import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
 import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetches.port';
 import { SECRET_CONFIGURATION } from '@secrets/application/ports/secret-configuration.port';
 import { SECRET_INJECTION } from '@secrets/application/ports/secret-injection.port';
+import { SECRET_READINESS } from '@secrets/application/ports/secret-readiness.port';
 import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
 import { WORKSPACE_SECRETS } from '@secrets/application/ports/workspace-secrets.port';
 import {
@@ -28,6 +30,8 @@ import {
     RUN_GRANTS,
     RUN_SECRET_FETCHES,
     SECRET_CONFIGURATION,
+    SECRET_READINESS,
+    BOUND_SECRETS,
     SECRET_USES,
     WORKSPACE_SECRETS,
   ],

@@ -72,6 +72,8 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   resolved: false,
   section: 'open',
   standing: 'assignee',
+  answerable: true,
+  resolvable: true,
   reopenable: false,
   progress: null,
   runId: null,
@@ -165,6 +167,7 @@ describe('ListInboxHandler', () => {
               unread: true,
               resolved: false,
               section: 'open',
+              resolvable: true,
               reopenable: false,
             },
           ]),
@@ -188,6 +191,7 @@ describe('ListInboxHandler', () => {
       unread: true,
       resolved: false,
       section: 'open',
+      resolvable: true,
       reopenable: false,
     });
   });

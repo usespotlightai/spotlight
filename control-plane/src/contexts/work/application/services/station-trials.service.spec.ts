@@ -128,6 +128,7 @@ const LINEAR: HarnessProfileShape = {
     },
   ],
   native: {},
+  secrets: [],
 };
 
 const SCREENSHOT = Attachment.of({
@@ -250,6 +251,7 @@ const DECLARED: readonly ToolDeclaration[] = [
   declaration('sentry.get-issue', true, { because: 'It reads private data.' }),
 ];
 let trials: Dispatch[] = [];
+let awaitingAsked: string[] = [];
 let requestedAgain: {
   place: BriefedContext;
   briefed: readonly NamedMemory[];
@@ -305,6 +307,16 @@ const trialsOf = () =>
       }),
       { named: async (_team, key) => (key === 'linear' ? LINEAR : null) },
       new Sha256ContentHash(),
+      {
+        boundIn: async (_workspace, names) => {
+          awaitingAsked.push(...names);
+          return names.map((name) => ({
+            name,
+            bindings: [],
+            awaitingValue: true,
+          }));
+        },
+      },
     ),
     new TeamIntegrations({
       provided: async (_team, tools) =>
@@ -388,6 +400,7 @@ const reasonOf = (ordering: TrialOrdering) =>
 
 describe('StationTrials', () => {
   beforeEach(() => {
+    awaitingAsked = [];
     facts = factsOf();
     candidate = LINE;
     trials = [];
@@ -502,6 +515,13 @@ describe('StationTrials', () => {
       mcpServers: [],
       askKinds: ['execute'],
     });
+  });
+
+  it('orders a trial while a secret of its profile awaits a value, since a trial injects no secrets', async () => {
+    const trial = ordered(await trialsOf().order(request()));
+
+    expect(trial.order.refusal).toBeNull();
+    expect(awaitingAsked).toEqual([]);
   });
 
   it('enables the integration tools of the station and of its original’s marks that change nothing, and briefs the agent on them', async () => {

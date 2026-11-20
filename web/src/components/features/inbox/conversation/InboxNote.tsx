@@ -1,13 +1,18 @@
 import { type ReactNode, useRef } from 'react';
 
-import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
 import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
+import {
+  approvalDecisionId,
+  connectionDecisionId,
+} from '@/components/features/inbox/conversation/noteDecisions';
 import { PromptDisclosure } from '@/components/features/inbox/conversation/PromptDisclosure';
+import { StationTag } from '@/components/features/inbox/conversation/StationTag';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
+import { Dockable } from '@/components/shared/decision-tray/Dockable';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useSession } from '@/hooks/api/useSession';
 import { useInAppLinks } from '@/hooks/useInAppLinks';
@@ -18,7 +23,6 @@ import {
   type Note,
   type RunJournal,
 } from '@/lib/inbox';
-import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
 type InboxNoteProps = {
@@ -29,6 +33,7 @@ type InboxNoteProps = {
   about: ConversationItem['about'];
   resolved: ConversationItem['resolved'];
   deciding?: Deciding;
+  outdated?: boolean;
   suggestion?: ReactNode;
   arrived?: boolean;
   prompt?: string;
@@ -42,6 +47,7 @@ export function InboxNote({
   about,
   resolved,
   deciding,
+  outdated = false,
   suggestion,
   arrived = false,
   prompt,
@@ -63,13 +69,12 @@ export function InboxNote({
       className={cn('flex flex-col gap-1.5', arriving)}
     >
       {!shows && (
-        <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
-          <StationIcon
-            share={stationShare(note.stationPosition, stationCount)}
-            color={note.stationColor}
-          />
-          {note.station}
-        </span>
+        <StationTag
+          name={note.station}
+          color={note.stationColor}
+          position={note.stationPosition}
+          count={stationCount}
+        />
       )}
 
       {prompt && <PromptDisclosure prompt={prompt} />}
@@ -77,12 +82,20 @@ export function InboxNote({
       {worked.length > 0 && <InboxWork journals={worked} />}
 
       {approval ? (
-        <ApprovalCard
-          approval={approval}
-          viewerId={session?.user.id ?? null}
-          pending={deciding?.pending ?? false}
-          onDecide={deciding?.onDecide}
-        />
+        <Dockable id={approvalDecisionId(note)}>
+          <ApprovalCard
+            approval={approval}
+            viewerId={session?.user.id ?? null}
+            pending={deciding?.pending ?? false}
+            outdated={outdated}
+            onDecide={
+              deciding
+                ? (answer) =>
+                    deciding.onDecide({ ...answer, ask: note.position })
+                : undefined
+            }
+          />
+        </Dockable>
       ) : shows ? (
         <SetupSteps
           teamId={teamId}
@@ -104,11 +117,14 @@ export function InboxNote({
       )}
 
       {connection && (
-        <ConnectionCard
-          connection={connection}
-          teamId={teamId}
-          viewer={session?.user.id ?? null}
-        />
+        <Dockable id={connectionDecisionId(note)}>
+          <ConnectionCard
+            connection={connection}
+            teamId={teamId}
+            viewer={session?.user.id ?? null}
+            outdated={outdated}
+          />
+        </Dockable>
       )}
 
       <AttachmentTiles attachments={note.attachments} />

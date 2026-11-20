@@ -16,7 +16,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import type { LineResponseDto } from '@/lib/api';
-import { runPath } from '@/lib/run';
+import { holdPathOf } from '@/lib/hold';
 import type { Task } from '@/lib/task';
 import { linePath, teamPath } from '@/lib/team';
 
@@ -61,11 +61,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
           hold && (
             <OnHoldPill
               hold={hold}
-              to={
-                slug && teamId && hold.runId
-                  ? runPath(slug, teamId, hold.runId)
-                  : undefined
-              }
+              to={slug && teamId ? holdPathOf(slug, teamId, hold) : undefined}
             />
           )
         }

@@ -5,6 +5,7 @@ import { INSTALLATION_REPOSITORIES } from '@github/application/ports/installatio
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
+import { PULL_REQUEST_STATES } from '@github/application/ports/pull-request-states.port';
 import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import { REPOSITORY_ACCESS } from '@github/application/ports/repository-access.port';
 import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
@@ -33,6 +34,7 @@ import { Module } from '@nestjs/common';
     PULL_REQUEST_COMMENTS,
     PULL_REQUEST_REACTIONS,
     PULL_REQUEST_REVIEWS,
+    PULL_REQUEST_STATES,
     REVIEW_COMMENTS,
     CHECK_RUNS,
     GITHUB_APP,

@@ -1,0 +1,1 @@
+ALTER TABLE "harness_profile" ADD COLUMN "secrets" text[] DEFAULT '{}' NOT NULL;

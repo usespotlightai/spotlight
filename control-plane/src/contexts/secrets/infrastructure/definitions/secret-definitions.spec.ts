@@ -19,27 +19,9 @@ describe('SecretDefinitions', () => {
       valueWoVersion: 1,
     });
 
-    expect(read.ok && read.source.kind).toBe('built-in');
     expect(read.ok && read.value?.revealed()).toBe('lin_api_1');
     expect(read.ok && read.valueVersion?.value).toBe(1);
     expect(read.ok && read.bindings.hosts).toEqual(['api.linear.app']);
-  });
-
-  it('reads a secret that AWS Secrets Manager stores', () => {
-    const read = definitions.secret({
-      name: 'LINEAR_API_KEY',
-      source: {
-        kind: 'aws-secrets-manager',
-        secretId: 'arn:aws:secretsmanager:eu-west-1:1:secret:linear',
-        field: 'token',
-      },
-    });
-
-    expect(read.ok && read.source).toMatchObject({
-      kind: 'aws-secrets-manager',
-      field: 'token',
-    });
-    expect(read.ok && read.value).toBeNull();
   });
 
   it('points at each field that is wrong', () => {
@@ -50,12 +32,6 @@ describe('SecretDefinitions', () => {
     expect(problemsAt({ name: 'LINEAR_API_KEY', valueWoVersion: 1.5 })).toEqual(
       ['valueWoVersion'],
     );
-    expect(
-      problemsAt({
-        name: 'LINEAR_API_KEY',
-        source: { kind: 'aws-secrets-manager', secretId: 'has space' },
-      }),
-    ).toEqual(['source.secretId']);
   });
 
   it('never repeats a value it rejects', () => {

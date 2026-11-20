@@ -13,7 +13,6 @@ import {
   RESERVED_SECRET_PREFIX,
 } from '@secrets/domain/value-objects/reserved-secret-name';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -28,18 +27,8 @@ const bindingSchema = z.object({
   prefix: z.string().optional(),
 });
 
-const sourceSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('built-in') }),
-  z.object({
-    kind: z.literal('aws-secrets-manager'),
-    secretId: z.string(),
-    field: z.string().nullish(),
-  }),
-]);
-
 const secretSchema = z.object({
   name: madeBy(SecretName.of),
-  source: sourceSchema.default({ kind: 'built-in' }),
   bindings: z.array(bindingSchema).default([]),
   valueWo: z.string({ error: 'is the value, as text' }).nullish(),
   valueWoVersion: z
@@ -71,15 +60,9 @@ export class SecretDefinitions implements SecretDefinitionsPort {
     }
 
     try {
-      const { source } = read.data;
-
       return {
         ok: true,
         name: SecretName.of(read.data.name),
-        source:
-          source.kind === 'built-in'
-            ? SecretSource.builtIn()
-            : SecretSource.awsSecretsManager(source),
         bindings: SecretBindings.of(read.data.bindings),
         value:
           read.data.valueWo === null || read.data.valueWo === undefined

@@ -859,10 +859,18 @@ describe('Task, what it is doing', () => {
 
     it('stands as the team for a member of the team', () => {
       expect(
-        unowned().conversationStandingOf({ person: ANA, onTeam: true }),
+        unowned().conversationStandingOf({
+          person: ANA,
+          onTeam: true,
+          actsOnTasks: true,
+        }),
       ).toBe('team');
       expect(
-        unowned().conversationStandingOf({ person: ANA, onTeam: false }),
+        unowned().conversationStandingOf({
+          person: ANA,
+          onTeam: false,
+          actsOnTasks: false,
+        }),
       ).toBeNull();
     });
 
@@ -876,7 +884,11 @@ describe('Task, what it is doing', () => {
         'task.assigned',
       );
       expect(
-        answered.conversationStandingOf({ person: BEN, onTeam: true }),
+        answered.conversationStandingOf({
+          person: BEN,
+          onTeam: true,
+          actsOnTasks: true,
+        }),
       ).toBeNull();
     });
 
@@ -942,13 +954,18 @@ describe('Task, what it is doing', () => {
     it('lets a person who wrote follow it while someone else is the assignee', () => {
       const task = added().addMessage({ ...newNote, voice: Voice.person(CY) });
 
-      expect(task.conversationStandingOf({ person: CY, onTeam: true })).toBe(
-        'following',
-      );
+      expect(
+        task.conversationStandingOf({
+          person: CY,
+          onTeam: true,
+          actsOnTasks: true,
+        }),
+      ).toBe('following');
       expect(
         task.conversationStandingOf({
           person: UserId.of('user_1'),
           onTeam: true,
+          actsOnTasks: true,
         }),
       ).toBe('assignee');
     });

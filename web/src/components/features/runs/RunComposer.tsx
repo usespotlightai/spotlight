@@ -1,20 +1,21 @@
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
-import { useSendMessage } from '@/hooks/api/useSendMessage';
+import { useSendMessage, useSendTaskMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { useMe } from '@/hooks/useMe';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
-import { heldByMe } from '@/lib/hold';
+import { drivesHold } from '@/lib/hold';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
 import { holdsOnMessage, startsAgainOnMessage } from '@/lib/task';
 
-type RunComposerProps = {
+type Target =
+  | { runId: string; taskId: string | undefined }
+  | { runId: null; taskId: string };
+
+type RunComposerProps = Target & {
   slug: string;
   teamId: string;
-  runId: string;
-  taskId: string | undefined;
   station: string;
   stationId: string | undefined;
   running: boolean;
@@ -41,12 +42,14 @@ const labelFor = (mode: Mode, station: string): string => {
   return `Message ${station}`;
 };
 
+export const WRITE_A_MESSAGE = 'Write a message…';
+
 const PLACEHOLDERS: Record<Mode, string> = {
   answering: 'Answer the question to continue the run…',
   driving: 'Tell the agent what to do next…',
   holds: 'Your message puts the task on hold…',
   restarts: 'Say what to change…',
-  message: 'Write a message…',
+  message: WRITE_A_MESSAGE,
 };
 
 const placeholderFor = (mode: Mode, running: boolean): string =>
@@ -57,25 +60,25 @@ const placeholderFor = (mode: Mode, running: boolean): string =>
 export function RunComposer({
   slug,
   teamId,
-  runId,
-  taskId,
   station,
   stationId,
   running,
   answering,
   onSent,
+  ...target
 }: RunComposerProps) {
+  const { runId, taskId } = target;
   const send = useSendMessage();
+  const sendToTask = useSendTaskMessage();
   const stop = useStopRun();
   const {
     line,
     station: currentStation,
     task,
   } = useTaskStation(teamId, taskId);
-  const me = useMe();
   const mode = modeOf({
     answering,
-    driving: heldByMe(task?.hold, me?.id),
+    driving: drivesHold(task?.hold),
     holds: holdsOnMessage(task, currentStation, stationId),
     restarts: startsAgainOnMessage(task, currentStation, stationId),
   });
@@ -86,7 +89,7 @@ export function RunComposer({
       slug={slug}
       label={labelFor(mode, station)}
       placeholder={placeholderFor(mode, running)}
-      pending={send.isPending}
+      pending={send.isPending || sendToTask.isPending}
       running={running}
       shared={shared}
       settings={<FixedAgent agent={currentStation} />}
@@ -97,15 +100,30 @@ export function RunComposer({
           because={LINE_SETS_REPOSITORIES}
         />
       }
-      onStop={() => stop.mutate({ teamId, runId })}
+      onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
       onSend={(
         { body, attachments, files, coAuthors, draftGeneration },
         restore,
       ) => {
+        if (target.runId === null) {
+          sendToTask.mutate(
+            {
+              teamId,
+              taskId: target.taskId,
+              body,
+              attachments,
+              coAuthors,
+              draftGeneration,
+            },
+            { onError: restore, onSuccess: onSent },
+          );
+          return;
+        }
+
         send.mutate(
           {
             teamId,
-            runId,
+            runId: target.runId,
             body,
             attachments,
             files,

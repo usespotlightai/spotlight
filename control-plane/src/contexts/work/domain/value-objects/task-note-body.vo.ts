@@ -41,14 +41,14 @@ export const drivenByAPerson = (
   options: readonly HandoverOption[],
 ): string =>
   [
-    '## A person drives this session',
-    'A person put the task on hold. The line waits. Each of their messages is one turn.',
+    '## People drive this session',
+    'A person put the task on hold. The line waits. People on the team now send the messages. Each message is one turn.',
     driverRules(here, options),
   ].join('\n\n');
 
 export class TaskNoteBody {
   private static readonly TURNS_ARE_OVER =
-    "The rules for the person's turns no longer apply.";
+    "The rules for people's turns no longer apply.";
 
   private constructor(readonly value: string) {}
 
@@ -118,7 +118,29 @@ export class TaskNoteBody {
     options: readonly HandoverOption[],
   ): TaskNoteBody {
     return TaskNoteBody.of(
-      `A person put the task on hold at ${at.value}. The line waits. From now on they drive this session, turn by turn.\n${driverRules(at, options)}`,
+      `A person put the task on hold at ${at.value}. The line waits. From now on people on the team drive this session, turn by turn.\n${driverRules(at, options)}`,
+    );
+  }
+
+  static heldForChat(at: StationName): TaskNoteBody {
+    return TaskNoteBody.of(
+      `An agent chat works on this task at ${at.value} and opens its pull request. The line waits while the chat works on it. Events about the pull request go to the chat. When the person hands the task to the line, the line resumes here.`,
+    );
+  }
+
+  static leftChat(at: {
+    name: StationName;
+    isCompleted: boolean;
+    isBacklog: boolean;
+  }): TaskNoteBody {
+    const moved = at.isCompleted
+      ? `The person moved the task to ${at.name.value}, so the task is done.`
+      : at.isBacklog
+        ? `The person moved the task to ${at.name.value}. It waits there until someone starts it.`
+        : `The person handed the task to the line. It is at ${at.name.value}, and the line works on it from now on.`;
+
+    return TaskNoteBody.of(
+      `${moved} Do not push to its branch again. When the person asks for more changes, make them on a new branch.`,
     );
   }
 

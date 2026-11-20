@@ -49,6 +49,7 @@ const ISSUED = 'issued-token';
 interface InboxItem {
   readonly id: string;
   readonly taskId: string;
+  readonly lastNote: { readonly position: number } | null;
 }
 
 interface ReceivedRequest {
@@ -538,6 +539,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       .send({
         body: 'Delete the other one.',
         approve: true,
+        ask: item.lastNote?.position,
         inputs: [{ name: 'id', value: 'ENG-2' }],
       })
       .expect(204);

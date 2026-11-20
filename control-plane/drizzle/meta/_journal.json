@@ -12,22 +12,36 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1795017456465,
-      "tag": "20261118155736_initial_schema",
+      "when": 1795176785224,
+      "tag": "20261120121305_initial_schema",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1795114714080,
-      "tag": "20261119185834_repository_visibility",
+      "when": 1795178084290,
+      "tag": "20261120123444_drop_secret_source",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1795117227604,
-      "tag": "20261119194027_change_stack_repository_owner",
+      "when": 1795184139503,
+      "tag": "20261120141539_backfill_awaiting_secret_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795186337240,
+      "tag": "20261120145217_harness_profile_secrets",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795207925179,
+      "tag": "20261120205205_public_change_stack",
       "breakpoints": true
     }
   ]

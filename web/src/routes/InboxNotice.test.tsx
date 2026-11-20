@@ -55,6 +55,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   askedAt: '2026-08-29T13:00:00.000Z',
   unread: true,
   resolved: false,
+  resolvable: true,
   ...over,
 });
 

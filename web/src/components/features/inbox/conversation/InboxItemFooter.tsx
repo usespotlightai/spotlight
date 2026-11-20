@@ -1,9 +1,9 @@
-import { Link } from 'react-router';
-
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
-import { followed, type InboxItem, inboxRunPath } from '@/lib/inbox';
+import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
+import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
+import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { answerPlaceholder, followed, type InboxItem } from '@/lib/inbox';
 import type { Progress } from '@/lib/run';
-import { taskPath } from '@/lib/task';
 
 type InboxItemFooterProps = {
   slug: string;
@@ -16,50 +16,71 @@ export function InboxItemFooter({
   item,
   progress,
 }: InboxItemFooterProps) {
-  if (!item.resolved && followed(item)) {
+  const { station, task } = useTaskStation(item.teamId, item.taskId);
+
+  if (!item.resolved && !item.answerable && followed(item)) {
+    return (
+      <ClosedTaskComposer
+        slug={slug}
+        teamId={item.teamId}
+        taskId={item.taskId}
+        station={item.station}
+        label={`Answer ${item.station}`}
+        placeholder={answerPlaceholder(item.station)}
+        because="You follow this task. Its assignee answers here."
+      />
+    );
+  }
+
+  if (!item.resolved && !item.answerable) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
-        You follow this task. Its assignee answers here.
+        {item.standing === null
+          ? 'Its assignee answers here.'
+          : 'You see the tasks of this team, but do not act on them.'}
       </p>
     );
   }
 
   if (!item.resolved) {
     return (
-      <InboxComposer
-        slug={slug}
-        itemId={item.id}
-        taskId={item.taskId}
-        station={item.station}
-        teamId={item.teamId}
-        runId={item.runId}
-        running={progress === 'in-progress'}
-      />
+      <>
+        {station && task?.runNotStarted ? (
+          <RunNotStartedNotice
+            teamId={item.teamId}
+            taskId={item.taskId}
+            station={station.name}
+            harness={task.runNotStarted.harness}
+          />
+        ) : null}
+        <InboxComposer
+          slug={slug}
+          itemId={item.id}
+          taskId={item.taskId}
+          station={item.station}
+          teamId={item.teamId}
+          runId={item.runId}
+          running={progress === 'in-progress'}
+        />
+      </>
     );
   }
 
   const { currentStation } = item;
 
   return (
-    <p className="pb-5 text-center text-muted-foreground text-xs">
-      {currentStation.name === item.station ? (
-        'The conversation is closed here. Nothing is left to answer.'
-      ) : (
-        <>
-          The task moved on to{' '}
-          <Link
-            to={
-              currentStation.latestRunId
-                ? inboxRunPath(slug, item.teamId, currentStation.latestRunId)
-                : taskPath(slug, item.teamId, item.taskId)
-            }
-            className="font-medium text-foreground hover:underline"
-          >
-            {currentStation.name}
-          </Link>
-          . Nothing is left to answer.
-        </>
-      )}
-    </p>
+    <ClosedTaskComposer
+      slug={slug}
+      teamId={item.teamId}
+      taskId={item.taskId}
+      station={item.station}
+      label={`Answer ${item.station}`}
+      placeholder={answerPlaceholder(item.station)}
+      because={
+        currentStation.name === item.station
+          ? 'The conversation is closed here. Nothing is left to answer.'
+          : `The task moved on to ${currentStation.name}. Nothing is left to answer.`
+      }
+    />
   );
 }

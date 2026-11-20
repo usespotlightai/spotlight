@@ -936,10 +936,9 @@ func options(t *testing.T) serve.Options {
 		SandboxURL:   "https://spotlight.test",
 		SandboxEnv:   []string{"ANTHROPIC_API_KEY=sk-test"},
 		Egress: serve.Egress{
-			Image:       egressImage,
-			Allow:       []string{"api.anthropic.com"},
-			SecretAllow: []string{"prod/*"},
-			Env:         []string{"AWS_REGION=eu-west-1"},
+			Image: egressImage,
+			Allow: []string{"api.anthropic.com"},
+			Env:   []string{"ACME_REGION=eu-west-1"},
 		},
 	}
 }
@@ -2228,7 +2227,7 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		t.Fatal("no egress was started for the run")
 	}
 	if egress.Image != "sha256:egress" || egress.Network != "spotlight_default" ||
-		!slices.Equal(egress.ExtraHosts, opts.ExtraHosts) || !slices.Equal(egress.Env, []string{"AWS_REGION=eu-west-1"}) {
+		!slices.Equal(egress.ExtraHosts, opts.ExtraHosts) || !slices.Equal(egress.Env, []string{"ACME_REGION=eu-west-1"}) {
 		t.Errorf("egress started as %+v", egress)
 	}
 	if len(egress.Joins) != 1 || egress.Joins[0].Network != "spotlight-runner_1" ||
@@ -2246,7 +2245,7 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		t.Errorf("egress keeps %s for a restarted host, more than the sandbox's credential and key names", kept)
 	}
 	if config.Token != "egress-runner_1" || config.URL != opts.SandboxURL || !slices.Equal(config.Allow, []string{"api.anthropic.com"}) ||
-		!slices.Equal(config.SecretAllow, []string{"prod/*"}) || len(config.Credential) < 16 {
+		len(config.Credential) < 16 {
 		t.Errorf("egress got %+v", config)
 	}
 
@@ -2627,7 +2626,7 @@ func TestSendsACallThroughAnEgressOfItsOwnAndRecordsItsResponse(t *testing.T) {
 		t.Fatal("sent the call without an egress")
 	}
 	if spec.Labels[serve.LabelHost] != "host_1" || spec.Network != "spotlight" || len(spec.Joins) != 0 ||
-		!slices.Equal(spec.ExtraHosts, opts.ExtraHosts) || !slices.Contains(spec.Env, "AWS_REGION=eu-west-1") {
+		!slices.Equal(spec.ExtraHosts, opts.ExtraHosts) || !slices.Contains(spec.Env, "ACME_REGION=eu-west-1") {
 		t.Errorf("started the call's egress as %+v", spec)
 	}
 	config := egressConfigIn(t, spec)

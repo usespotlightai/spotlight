@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import {
   MEMORY_COLUMNS,
@@ -15,6 +15,7 @@ import { MemoryPlaceEditor } from '@/components/features/memory/MemoryPlaceEdito
 import { RetirementNote } from '@/components/features/memory/RetirementNote';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { useMemoryEditing } from '@/hooks/useMemoryEditing';
+import { useRevealWhenOpened } from '@/hooks/useRevealWhenOpened';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useRowExpansion } from '@/hooks/useRowExpansion';
 import type { LineResponseDto } from '@/lib/api';
@@ -47,25 +48,18 @@ export function TeamMemoryRow({
   const editing = useMemoryEditing(teamId, memory, lines, open);
   const { draft } = editing;
   const changing = editing.editing && expanded;
-  const toggledHere = useRef(false);
+  const toggledHere = useRevealWhenOpened(row, open);
 
   if (open && !seen) {
     setSeen(true);
   }
 
   const flip = () => {
-    toggledHere.current = true;
+    toggledHere();
     toggle();
   };
 
   useRowClick(row, flip, { ignore: () => changing });
-
-  useEffect(() => {
-    if (open && !toggledHere.current) {
-      row.current?.scrollIntoView?.({ block: 'nearest' });
-    }
-    toggledHere.current = false;
-  }, [open, row]);
 
   return (
     <li

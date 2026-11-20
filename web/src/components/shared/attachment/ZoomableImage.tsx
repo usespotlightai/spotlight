@@ -1,7 +1,8 @@
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 import { ImageGallery } from '@/components/shared/attachment/ImageGallery';
 import { useImageGallery } from '@/components/shared/attachment/imageGalleryContext';
+import { useGalleryTile } from '@/hooks/useGalleryTile';
 import { cn } from '@/lib/utils';
 
 type ZoomableImageProps = {
@@ -13,20 +14,8 @@ type ZoomableImageProps = {
 };
 
 function Tile({ src, name, className, loading, onError }: ZoomableImageProps) {
-  const id = useId();
   const button = useRef<HTMLButtonElement>(null);
-  const gallery = useImageGallery();
-  const register = gallery?.register;
-  const unregister = gallery?.unregister;
-  const shown = gallery?.openId === id;
-
-  useLayoutEffect(() => {
-    if (button.current) {
-      register?.({ id, src, name, button: button.current });
-    }
-  }, [id, src, name, register]);
-
-  useLayoutEffect(() => () => unregister?.(id), [id, unregister]);
+  const { shown, open } = useGalleryTile(button, src, name);
 
   return (
     <button
@@ -34,7 +23,7 @@ function Tile({ src, name, className, loading, onError }: ZoomableImageProps) {
       type="button"
       onClick={(event) => {
         event.stopPropagation();
-        gallery?.open(id);
+        open();
       }}
       aria-label={`View ${name}`}
       className={cn(

@@ -14,6 +14,7 @@ type ApprovalControlsProps = {
   onReason: (reason: string) => void;
   onMode: (mode: ApprovalMode) => void;
   onApproveEdited: () => void;
+  outdated?: boolean;
   onDecide?: (answer: ApprovalAnswer) => void;
 };
 
@@ -28,10 +29,15 @@ export function ApprovalControls({
   onReason,
   onMode,
   onApproveEdited,
+  outdated = false,
   onDecide,
 }: ApprovalControlsProps) {
   if (!onDecide) {
-    return <ApprovalDecision approval={approval} pending={false} />;
+    return outdated ? (
+      <p className="text-muted-foreground text-xs">
+        The run asked for something newer since.
+      </p>
+    ) : null;
   }
 
   if (mode === 'editing') {

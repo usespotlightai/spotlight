@@ -1,4 +1,5 @@
 import { TabLinks } from '@/components/shared/TabLinks';
+import { usePrefetchInsightsTab } from '@/hooks/api/usePrefetchInsightsTab';
 import { INSIGHTS_TABS, type InsightsView, insightsPath } from '@/lib/insights';
 
 type InsightsTabsProps = {
@@ -8,12 +9,15 @@ type InsightsTabsProps = {
 };
 
 export function InsightsTabs({ slug, teamId, view }: InsightsTabsProps) {
+  const prefetch = usePrefetchInsightsTab(teamId, view.period);
+
   return (
     <TabLinks
       label="Insights"
       current={view.tab}
       variant="underline"
       className="border-border border-b px-1"
+      onIntent={prefetch}
       tabs={INSIGHTS_TABS.map((tab) => ({
         id: tab.id,
         label: tab.label,

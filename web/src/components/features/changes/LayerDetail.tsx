@@ -1,11 +1,11 @@
-import { useVirtualizer } from '@pierre/diffs/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
 import { LayerFileCard } from '@/components/features/changes/LayerFileCard';
 import { LayerQuestions } from '@/components/features/changes/LayerQuestions';
 import { Button } from '@/components/ui/button';
+import { useScrollToTopOn } from '@/hooks/useScrollToTopOn';
 import {
   type ChangeStack,
   type CitedPlace,
@@ -47,7 +47,6 @@ const collapsedFilesFor = (
 
 export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   const { layer } = located;
-  const virtualizer = useVirtualizer();
   const layers = layersOf(stack);
   const at = layers.findIndex((each) => each.layer.id === layer.id);
   const previous = layers[at - 1];
@@ -67,9 +66,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
     setCollapsedFiles(collapsedFilesFor(located, files));
   }
 
-  useEffect(() => {
-    virtualizer?.scrollTo({ top: 0 });
-  }, [virtualizer, layer.id]);
+  useScrollToTopOn(layer.id);
 
   const allCollapsed =
     files.length > 0 &&

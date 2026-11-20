@@ -6,6 +6,7 @@ import type {
 import { ListTasksHandler } from '@work/application/queries/handlers/list-tasks.handler';
 import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
 import type { WorkAccess } from '@work/application/services/work-access.service';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const created = new Date('2026-08-27T09:15:00.000Z');
@@ -28,6 +29,7 @@ const summaries: TaskSummary[] = [
     note: null,
     source: null,
     hold: null,
+    runNotStarted: null,
   },
   {
     id: 'task_2',
@@ -46,6 +48,7 @@ const summaries: TaskSummary[] = [
     note: null,
     source: null,
     hold: null,
+    runNotStarted: null,
   },
 ];
 
@@ -59,8 +62,26 @@ const reader = (result: TaskSummary[]): TaskReaderPort => ({
   findInTeam: vi.fn(),
 });
 
-const seeing = (sees = true): WorkAccess =>
-  ({ seesTeam: vi.fn(async () => sees) }) as unknown as WorkAccess;
+const seeing = (sees = true, acts = sees): WorkAccess =>
+  ({
+    standingOn: vi.fn(async () =>
+      TeamStanding.of({ seesTeam: sees, actsOnTeam: acts }),
+    ),
+  }) as unknown as WorkAccess;
+
+const held = (chatId: string | null): TaskSummary => ({
+  ...summaries[0],
+  hold: {
+    by: { id: 'user_2', name: 'Maya Chen', image: null },
+    startedAt: created,
+    runId: 'run_1',
+    heldMoveTo: null,
+    chatId,
+  },
+});
+
+const holdOf = async (summary: TaskSummary, access: WorkAccess) =>
+  (await handle(reader([summary]), access))?.items[0]?.hold;
 
 const handle = (tasks: TaskReaderPort, access = seeing()) =>
   new ListTasksHandler(tasks, access).execute(
@@ -113,6 +134,29 @@ describe('ListTasksHandler', () => {
     await expect(handle(reader([]))).resolves.toEqual({
       items: [],
       next: null,
+    });
+  });
+
+  it('tells the caller they can drive and resume a task someone else put on hold', async () => {
+    await expect(holdOf(held(null), seeing())).resolves.toMatchObject({
+      viewerDrives: true,
+      viewerEnds: true,
+    });
+  });
+
+  it('tells a caller who only sees the team that they can do neither', async () => {
+    await expect(
+      holdOf(held(null), seeing(true, false)),
+    ).resolves.toMatchObject({
+      viewerDrives: false,
+      viewerEnds: false,
+    });
+  });
+
+  it('keeps a task that another person’s agent chat holds from the caller', async () => {
+    await expect(holdOf(held('chat_1'), seeing())).resolves.toMatchObject({
+      viewerDrives: false,
+      viewerEnds: false,
     });
   });
 });

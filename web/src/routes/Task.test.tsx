@@ -179,6 +179,9 @@ describe('Task', () => {
         startedAt: new Date().toISOString(),
         runId: 'run_turn',
         heldMoveTo: null,
+        chatId: null,
+        viewerDrives: true,
+        viewerEnds: true,
       },
     };
 
@@ -221,7 +224,7 @@ describe('Task', () => {
       }
     });
 
-    it('keeps the task at its station for everyone but the person who holds it', () => {
+    it('lets any person move the task, which resumes the line', () => {
       listed.mockReturnValue([
         {
           ...taken,
@@ -233,14 +236,25 @@ describe('Task', () => {
       ]);
       renderAt('task_1');
 
-      expect(screen.getByRole('button', { name: 'Station' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Station' })).toBeEnabled();
     });
 
-    it('lets the person who holds the task move it, which resumes the line', () => {
-      listed.mockReturnValue([taken]);
+    it('keeps the task at its station while an agent chat of another person holds it', () => {
+      listed.mockReturnValue([
+        {
+          ...taken,
+          hold: {
+            ...taken.hold,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+            chatId: 'chat_1',
+            viewerDrives: false,
+            viewerEnds: false,
+          },
+        },
+      ]);
       renderAt('task_1');
 
-      expect(screen.getByRole('button', { name: 'Station' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Station' })).toBeDisabled();
     });
   });
 

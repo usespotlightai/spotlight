@@ -78,9 +78,7 @@ const secretOf = (id: string, name: string) => ({
   address: name,
   workspaceId: WORKSPACE,
   name,
-  source: { kind: 'built-in', secretId: null, field: null },
   bindings: [],
-  storesValue: true,
   valueVersion: 1,
 });
 
@@ -268,6 +266,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       permissions: { allow: [], ask: [], deny: [] },
       mcpServers: [],
       native: {},
+      secrets: [],
     }),
   });
   const profiles = {
@@ -285,7 +284,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     ),
   } satisfies HarnessProfileResourcesPort;
   const profileViews = {
-    onTeam: vi.fn((record: HarnessProfileRecord, teamKey: string) => ({
+    exported: vi.fn((record: HarnessProfileRecord, teamKey: string) => ({
       id: record.id,
       version: record.version,
       address: `${teamKey}/${record.key.value}`,
@@ -294,6 +293,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       permissions: { allow: [], ask: [], deny: [] },
       mcpServers: [],
       native: {},
+      secrets: [],
       secretReferences: [],
       warnings: [],
     })),

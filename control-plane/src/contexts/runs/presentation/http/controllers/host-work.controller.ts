@@ -137,7 +137,7 @@ export class HostWorkController {
     summary:
       'The harness keys of the host’s workspace, for the egress of its image probe',
     description:
-      'Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Values that Spotlight stores come back sealed to the recipient, bound to an empty run id. For a value in an external store, the response gives the external reference that egress reads. Spotlight grants nothing to a run.',
+      'Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Each value comes back sealed to the recipient, bound to an empty run id. Spotlight grants nothing to a run.',
   })
   @ApiOkResponse({ type: HarnessKeysResponseDto })
   @ApiUnprocessableEntityResponse({

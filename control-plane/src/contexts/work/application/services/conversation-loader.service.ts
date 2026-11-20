@@ -6,6 +6,7 @@ import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-t
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
+  type Conversant,
   ConversationAudience,
   type ConversationStanding,
 } from '@work/domain/services/conversation-audience';
@@ -17,7 +18,7 @@ import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 export interface Conversing {
   readonly item: ConversationId;
   readonly task: Task;
-  readonly standing: ConversationStanding;
+  readonly standing: ConversationStanding | null;
 }
 
 export interface ActedOnConversation extends Conversing {
@@ -33,6 +34,7 @@ interface OnTeam {
 }
 
 interface Seen extends Conversing {
+  readonly drives: boolean;
   readonly team: OnTeam | null;
 }
 
@@ -43,8 +45,18 @@ export class ConversationLoader {
     private readonly access: WorkAccess,
   ) {}
 
-  async putTo(itemId: string, them: string): Promise<ActedOnConversation> {
-    const { item, task, standing, team } = await this.seen(itemId, them);
+  async putTo(
+    itemId: string,
+    them: string,
+    may: (team: TeamStanding, conversant: Conversant) => boolean = (
+      team,
+      conversant,
+    ) => ConversationAudience.mayAnswer(team, conversant),
+  ): Promise<ActedOnConversation> {
+    const { item, task, standing, drives, team } = await this.seen(
+      itemId,
+      them,
+    );
     const unknown = () => new UnknownTaskError(task.id.value);
 
     if (!team) {
@@ -53,7 +65,7 @@ export class ConversationLoader {
 
     team.standing.assertActsOnTasks(unknown);
 
-    if (!ConversationAudience.answers(standing)) {
+    if (!may(team.standing, { standing, drives })) {
       throw new AssignedToAnotherPersonError(task.id.value);
     }
 
@@ -72,16 +84,22 @@ export class ConversationLoader {
     const task = await this.tasks.find(item.taskId);
     const line = task ? await this.lines.findByStation(task.stationId) : null;
     const team = line ? await this.teamOf(line, person) : null;
-    const standing = task?.conversationStandingOf({
+    const conversant = task?.conversantOf({
       person,
       onTeam: team?.joined ?? false,
+      actsOnTasks: team?.standing.actsOnTasks ?? false,
     });
-
-    if (!task || !standing) {
+    if (!task || !conversant || (!conversant.standing && !conversant.drives)) {
       throw new UnknownTaskError(item.taskId.value);
     }
 
-    return { item, task, standing, team };
+    return {
+      item,
+      task,
+      standing: conversant.standing,
+      drives: conversant.drives,
+      team,
+    };
   }
 
   private async teamOf(line: LineMap, person: UserId): Promise<OnTeam> {

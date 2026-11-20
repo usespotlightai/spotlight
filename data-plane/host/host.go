@@ -256,8 +256,7 @@ func liveSettings(cfg config.Config, version string) serve.Settings {
 		SandboxURL:    cfg.SandboxURL,
 		SandboxEnv:    cfg.SandboxEnv,
 		Egress: serve.Egress{
-			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, SecretAllow: cfg.Egress.SecretAllow,
-			Env: cfg.Egress.Env, CABundle: cfg.Egress.CABundle,
+			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, Env: cfg.Egress.Env, CABundle: cfg.Egress.CABundle,
 		},
 		Network:    cfg.Network,
 		ExtraHosts: cfg.ExtraHosts,

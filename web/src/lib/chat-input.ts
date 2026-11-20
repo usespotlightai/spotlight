@@ -5,6 +5,8 @@ import type { SharedTrace, TargetStation } from '@/lib/chat';
 
 type ReferenceKind = 'file' | 'trace' | 'station';
 
+export const DRAFT_SENT = 'draft-sent';
+
 export interface Reference {
   readonly kind: ReferenceKind;
   readonly key: string;

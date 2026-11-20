@@ -216,6 +216,20 @@ describe('GitHubRepositorySettings', () => {
       );
     });
 
+    it('reads only the name of the default branch, in one call', async () => {
+      branch({ name: 'trunk' });
+
+      await expect(
+        new GitHubRepositorySettings(access).defaultBranchNameOf(
+          workspaceId,
+          repository,
+        ),
+      ).resolves.toBe('trunk');
+      expect(sent.map((each) => each.url)).toEqual([
+        expect.stringMatching(/\/repos\/acme\/config$/),
+      ]);
+    });
+
     it('encodes a branch name with characters a URL reserves', async () => {
       branch({ name: 'release#1', reviews: 2 });
 

@@ -1,10 +1,4 @@
-import {
-  type SubmitEvent,
-  type KeyboardEvent,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type SubmitEvent, type KeyboardEvent, useState } from 'react';
 
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';
@@ -15,6 +9,10 @@ import { useRetireMemory } from '@/hooks/api/useRetireMemory';
 import { useMe } from '@/hooks/useMe';
 import { MAX_RETIRE_REASON } from '@/lib/memory';
 import { YOU } from '@/lib/person';
+
+const focusReason = (form: HTMLFormElement | null) => {
+  form?.querySelector('textarea')?.focus({ preventScroll: true });
+};
 
 type RetireInPlaceProps = {
   teamId: string;
@@ -30,11 +28,6 @@ export function RetireInPlace({
   const me = useMe() ?? YOU;
   const retire = useRetireMemory();
   const [reason, setReason] = useState('');
-  const form = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    form.current?.querySelector('textarea')?.focus({ preventScroll: true });
-  }, []);
   const ready = reason.trim().length > 0 && !retire.isPending;
 
   const submit = (event?: SubmitEvent) => {
@@ -55,7 +48,7 @@ export function RetireInPlace({
   };
 
   return (
-    <form ref={form} aria-label="Retire this memory" onSubmit={submit}>
+    <form ref={focusReason} aria-label="Retire this memory" onSubmit={submit}>
       <PersonNote
         avatar={<PersonAvatar person={me} size="md" />}
         name={me.name}

@@ -6,6 +6,7 @@ import {
   type Deciding,
 } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
+import type { DockedDecision } from '@/lib/decision-tray';
 import type { RunJournal } from '@/lib/inbox';
 import type { ShownProgress } from '@/lib/run';
 import {
@@ -24,6 +25,8 @@ type RunConversationProps = {
   closing?: ReactNode;
   openAt?: number | null;
   afterRun?: AfterRun;
+  docked?: readonly DockedDecision[];
+  pills?: ReactNode;
 };
 
 export function RunConversation({
@@ -37,6 +40,8 @@ export function RunConversation({
   closing,
   openAt,
   afterRun,
+  docked,
+  pills,
 }: RunConversationProps) {
   return (
     <Conversation
@@ -61,6 +66,8 @@ export function RunConversation({
       footer={footer}
       deciding={deciding}
       afterRun={afterRun}
+      docked={docked}
+      pills={pills}
     />
   );
 }

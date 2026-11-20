@@ -209,7 +209,7 @@ func riggedAllowing(t *testing.T, settings Settings, allow []string) *rig {
 		t.Fatal(err)
 	}
 
-	egress, err := New(settings, plane, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	egress, err := New(settings, plane, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

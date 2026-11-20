@@ -4,8 +4,10 @@ import type {
   PreparedHarness,
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
+import type { BoundSecretsPort } from '@secrets/application/ports/bound-secrets.port';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
+import { BoundSecretMapper } from '@work/application/mappers/bound-secret.mapper';
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
@@ -22,11 +24,13 @@ import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import {
   type OrderedAt,
   orderAt,
+  type RunLaunch,
   type RunOrder,
 } from '@work/domain/services/run-order';
 import { RunReadying } from '@work/domain/services/run-readying';
 import { stationConfigOf } from '@work/domain/services/station-config-of';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
@@ -81,6 +85,7 @@ export class StationOrdering {
     private readonly catalog: RunCatalog,
     private readonly profiles: StationProfilesPort,
     private readonly hash: ContentHashPort,
+    private readonly bound: BoundSecretsPort,
   ) {}
 
   ordered(
@@ -113,15 +118,20 @@ export class StationOrdering {
       ? await this.catalog.enabledAt(line, station)
       : null;
     const ready = [...teamSkills, ...(catalog?.skills ?? [])];
+    const profiles = await this.profilesAt(line, station);
     const order = orderAt({
       at,
       line,
       harnesses: this.harnesses.current(),
       ready: ready.map((each) => ReadySkillMapper.toReady(each)),
-      profiles: await this.profilesAt(line, station),
+      profiles,
       denied:
         station && catalog ? readying.denied(station, catalog.denied) : [],
       toolsOnMarks,
+      boundSecrets: await this.boundSecrets(
+        line,
+        profiles.map((each) => readying.profile(each)),
+      ),
     });
 
     if (!order) {
@@ -171,19 +181,33 @@ export class StationOrdering {
       : [];
   }
 
-  prepared(order: RunOrder): PreparedHarness | null {
-    return this.preparedAs(order, RunReadying.asATaskRun);
+  private async boundSecrets(
+    line: LineMap,
+    profiles: readonly ReadyProfile[],
+  ): Promise<readonly BoundSecret[]> {
+    return (
+      await this.bound.boundIn(
+        line.workspaceId.value,
+        profiles
+          .flatMap((each) => each.injectedSecrets)
+          .map((each) => each.value),
+      )
+    ).map((each) => BoundSecretMapper.toBound(each));
+  }
+
+  prepared(runLaunch: RunLaunch): PreparedHarness | null {
+    return this.preparedAs(runLaunch, RunReadying.asATaskRun);
   }
 
   private preparedAs(
-    order: RunOrder,
+    runLaunch: RunLaunch,
     readying: RunReadying,
   ): PreparedHarness | null {
-    const profile = order.enabled.profile;
+    const profile = runLaunch.enabled.profile;
 
-    return this.launch.preparedFor(order.harness, {
-      model: order.model,
-      effort: order.effort,
+    return this.launch.preparedFor(runLaunch.harness, {
+      model: runLaunch.model,
+      effort: runLaunch.effort,
       profile: profile && readying.profile(profile),
     });
   }

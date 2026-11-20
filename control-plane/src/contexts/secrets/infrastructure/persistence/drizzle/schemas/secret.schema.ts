@@ -1,11 +1,9 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
-import { SECRET_SOURCE_KINDS } from '@secrets/domain/value-objects/secret-source.vo';
 import {
   boolean,
   index,
   integer,
   jsonb,
-  pgEnum,
   pgTable,
   primaryKey,
   text,
@@ -19,17 +17,12 @@ export interface SecretBindingRow {
   readonly prefix: string;
 }
 
-export const secretSource = pgEnum('secret_source', SECRET_SOURCE_KINDS);
-
 export const secret = pgTable(
   'secret',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     name: text('name').notNull(),
-    source: secretSource('source').notNull(),
-    sourceSecretId: text('source_secret_id'),
-    sourceField: text('source_field'),
     bindings: jsonb('bindings').$type<SecretBindingRow[]>().notNull(),
     valueVersion: integer('value_version'),
     rotatedAt: timestamptz('rotated_at').notNull(),

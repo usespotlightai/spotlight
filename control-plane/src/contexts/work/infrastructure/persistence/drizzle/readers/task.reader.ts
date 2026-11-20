@@ -43,6 +43,7 @@ interface OpenHoldRow {
   readonly startedAt: Date;
   readonly turnRunIds: readonly string[];
   readonly heldMoveTo: string | null;
+  readonly chatId: string | null;
 }
 
 type HoldPerson = TaskHoldSummary['by'];
@@ -57,6 +58,7 @@ const holdOf = (
         startedAt: row.startedAt,
         runId: row.turnRunIds[row.turnRunIds.length - 1] ?? null,
         heldMoveTo: row.heldMoveTo,
+        chatId: row.chatId,
       }
     : null;
 
@@ -132,11 +134,14 @@ export class DrizzleTaskReader implements TaskReaderPort {
         createdById: task.createdById,
         assigneeId: task.assigneeId,
         openedFrom: task.openedFrom,
+        notStartedStationId: task.notStartedStationId,
+        notStartedHarness: task.notStartedHarness,
         hold: {
           heldBy: taskHold.heldBy,
           startedAt: taskHold.startedAt,
           turnRunIds: taskHold.turnRunIds,
           heldMoveTo: taskHold.heldMoveTo,
+          chatId: taskHold.chatId,
         },
       })
       .from(task)
@@ -189,6 +194,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
         reviewedPullRequest,
         openedFrom,
         hold,
+        notStartedStationId,
+        notStartedHarness,
         ...rest
       }) => ({
         ...rest,
@@ -206,6 +213,13 @@ export class DrizzleTaskReader implements TaskReaderPort {
         note: notes.get(rest.id) ?? null,
         source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
         hold: holdOf(hold, person),
+        runNotStarted:
+          notStartedHarness &&
+          notStartedStationId === rest.stationId &&
+          currentRunId === null &&
+          finishedAt === null
+            ? { harness: notStartedHarness }
+            : null,
       }),
     );
   }

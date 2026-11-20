@@ -185,6 +185,9 @@ const resumeOf = (value: JsonValue | undefined): RunResumeShape => {
     ...present('resumeSession', resume.resumeSession, (each) =>
       flagAt(each, 'spec resume session flag'),
     ),
+    ...present('followUp', resume.followUp, (each) =>
+      textAt(each, 'spec resume follow-up'),
+    ),
   };
 };
 

@@ -230,6 +230,8 @@ describe('UpdateSecretHandler', () => {
     expect(
       secrets.events.filter(changesConfiguration)[1]?.change.recordedDetail,
     ).toEqual({
+      valueChange: 'stored',
+      valueOrigin: 'terraform',
       valueVersion: 2,
       targets: ['uploads.linear.app'],
     });

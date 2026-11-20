@@ -79,9 +79,14 @@ export class ConfigurationChangeResponseDto {
   @ApiProperty({
     type: 'object',
     additionalProperties: true,
-    example: { valueVersion: 2, targets: ['api.linear.app'] },
+    example: {
+      valueChange: 'stored',
+      valueOrigin: 'terraform',
+      valueVersion: 2,
+      targets: ['api.linear.app'],
+    },
     description:
-      'What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value',
+      'What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value',
   })
   readonly details: RecordedDetail;
 

@@ -4,6 +4,7 @@ import type { ApprovalMode } from '@/lib/approval';
 
 type ApproveKey = {
   mode: ApprovalMode;
+  docked: boolean;
   ready: boolean;
   blank: boolean;
   onlyFor: string | null;
@@ -33,7 +34,7 @@ export function useApproveKey(key: ApproveKey) {
   const { focused, handlers } = useFocusWithin();
   const approve = approvalOf(key);
 
-  const keyed = focused && approve !== null;
+  const keyed = (focused || key.docked) && approve !== null;
 
   useCommands(
     keyed && approve ? [{ id: 'approval.approve', run: approve }] : [],

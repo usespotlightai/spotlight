@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -116,6 +118,40 @@ describe('stationConfigOf', () => {
 
     expect(marked.parts.tools).toEqual(['pull-request']);
     expect(marked.fingerprint).toBe(unmarked.fingerprint);
+  });
+
+  describe('the secrets its profile has egress inject', () => {
+    const profiled = (secrets: readonly string[]) =>
+      configured(station(), {
+        ...ORDER,
+        enabled: {
+          profile: {
+            key: ProfileKey.of('careful'),
+            rules: [],
+            mcpServers: [],
+            native: {},
+            injectedSecrets: secrets.map((each) => SecretName.of(each)),
+          },
+          stationTools: [],
+          toolsOnMarks: [],
+          tools: [],
+        },
+      } as unknown as RunOrder);
+
+    it('are part of the profile’s settings, even where it names none', () => {
+      expect(profiled(['STAGING_VIEWER']).parts.profile?.settings).toEqual(
+        expect.objectContaining({ injectedSecrets: ['STAGING_VIEWER'] }),
+      );
+      expect(profiled([]).parts.profile?.settings).toEqual(
+        expect.objectContaining({ injectedSecrets: [] }),
+      );
+    });
+
+    it('change the station’s config when they change', () => {
+      expect(profiled(['STAGING_VIEWER']).fingerprint).not.toBe(
+        profiled([]).fingerprint,
+      );
+    });
   });
 
   it('configures no judge on a station without one', () => {

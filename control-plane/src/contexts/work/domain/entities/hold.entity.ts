@@ -4,6 +4,8 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidHoldTransitionError } from '@work/domain/exceptions/invalid-hold-transition.error';
+import { HoldRights, type HoldViewer } from '@work/domain/services/hold-rights';
+import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { HoldEnd } from '@work/domain/value-objects/hold-end';
 import type { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
@@ -11,10 +13,12 @@ import {
   UNSAID_HOLD_VERDICT,
 } from '@work/domain/value-objects/hold-verdict';
 import type { TurnHeads } from '@work/domain/value-objects/turn-heads.vo';
+import type { Voice } from '@work/domain/value-objects/voice.vo';
 
 interface HoldState {
   readonly id: HoldId;
   readonly by: UserId;
+  readonly chat: ChatId | null;
   readonly stationId: StationId;
   readonly from: RunId | null;
   readonly verdict: HoldVerdict;
@@ -55,6 +59,18 @@ const problemOf = (state: HoldState): string | null => {
     return 'is exploring while open';
   }
 
+  if (state.chat && state.from) {
+    return 'was put on hold for a chat but holds from a line run';
+  }
+
+  if (state.chat && state.endedAt && state.verdict !== 'exploring') {
+    return 'was put on hold for a chat but counts against the line';
+  }
+
+  if (state.chat && state.turns.length > 0) {
+    return 'was put on hold for a chat but counts turns of the task';
+  }
+
   const from = state.from;
 
   if (from && state.turns.some((each) => each.equals(from))) {
@@ -88,9 +104,31 @@ export class Hold {
     from: RunId | null;
     at: Date;
   }): Hold {
+    return Hold.started({ ...input, chat: null });
+  }
+
+  static forChat(input: {
+    id: HoldId;
+    by: UserId;
+    chat: ChatId;
+    stationId: StationId;
+    at: Date;
+  }): Hold {
+    return Hold.started({ ...input, from: null });
+  }
+
+  private static started(input: {
+    id: HoldId;
+    by: UserId;
+    chat: ChatId | null;
+    stationId: StationId;
+    from: RunId | null;
+    at: Date;
+  }): Hold {
     return new Hold({
       id: input.id,
       by: input.by,
+      chat: input.chat,
       stationId: input.stationId,
       from: input.from,
       verdict: UNSAID_HOLD_VERDICT,
@@ -120,6 +158,10 @@ export class Hold {
 
   get by(): UserId {
     return this.state.by;
+  }
+
+  get chat(): ChatId | null {
+    return this.state.chat;
   }
 
   get stationId(): StationId {
@@ -166,12 +208,34 @@ export class Hold {
     return this.state.endedAt === null;
   }
 
-  drives(runId: RunId): boolean {
+  countsTurn(runId: RunId): boolean {
     return this.state.turns.some((each) => each.equals(runId));
+  }
+
+  get takesTurns(): boolean {
+    return HoldRights.takesTurns(this.state);
+  }
+
+  takesTurnsFrom(voice: Voice): boolean {
+    return this.takesTurns && voice.isPerson && voice.author !== null;
+  }
+
+  endableBy(person: UserId): boolean {
+    return HoldRights.endableBy(this.state, person);
+  }
+
+  drivenBy(viewer: HoldViewer): boolean {
+    return HoldRights.drives(this.state, viewer);
   }
 
   withTurn(runId: RunId): Hold {
     this.assertOpen('take a turn');
+
+    if (this.state.chat) {
+      throw new InvalidHoldTransitionError(
+        'for a chat cannot take a turn, because the chat does the work',
+      );
+    }
 
     if (this.state.from?.equals(runId)) {
       throw new InvalidHoldTransitionError(
@@ -179,7 +243,7 @@ export class Hold {
       );
     }
 
-    return this.drives(runId)
+    return this.countsTurn(runId)
       ? this
       : this.with({ turns: [...this.state.turns, runId] });
   }
@@ -198,7 +262,7 @@ export class Hold {
 
   ended(input: {
     end: HoldEnd;
-    verdict: HoldVerdict;
+    verdict: HoldVerdict | null;
     turnHeads: readonly TurnHeads[];
     at: Date;
   }): Hold {
@@ -208,13 +272,22 @@ export class Hold {
       throw new InvalidHoldTransitionError('cannot end before it started');
     }
 
+    const verdict =
+      input.verdict ?? (this.state.chat ? 'exploring' : this.state.verdict);
+
+    if (this.state.chat && verdict !== 'exploring') {
+      throw new InvalidHoldTransitionError(
+        'for a chat cannot count against the line, because the line did no work on it',
+      );
+    }
+
     const inOrder = this.state.turns.flatMap((run) =>
       input.turnHeads.filter((each) => each.runId.equals(run)),
     );
 
     return this.with({
       end: input.end,
-      verdict: input.verdict,
+      verdict,
       fromHeads: firstPerCheckout(inOrder.flatMap((each) => each.started)),
       toHeads: lastPerCheckout(inOrder.flatMap((each) => each.ended)),
       heldMove: null,

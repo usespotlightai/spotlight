@@ -7,26 +7,20 @@ import type {
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
 import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunSecretFetches } from '@secrets/application/services/run-secret-fetches.service';
-import { SecretSources } from '@secrets/application/services/secret-sources.service';
-import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { RecipientPinnedError } from '@secrets/domain/exceptions/recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
 import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
-import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import {
-  BY,
+  bindStored,
   clockAt,
-  definition,
   InMemoryGrants,
   InMemorySecrets,
   InMemoryStore,
-  NOW,
-  readingFrom,
+  saveSecret,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 class SealedInTheOpen implements SecretSealingPort {
   recipientOf(written: string): SealingRecipient {
@@ -54,38 +48,28 @@ const setUp = async () => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const grants = new InMemoryGrants();
-  const aws = readingFrom({ 'sentry-token': 'sntrys_1' });
-  vi.spyOn(aws, 'read');
 
-  const saved = async (id: string, secret: Parameters<typeof definition>[0]) =>
-    secrets.save(
-      Secret.create(definition(secret), {
-        id: SecretId.of(id),
-        workspaceId: WORKSPACE,
-        by: BY,
-        at: NOW,
-      }),
-    );
-
-  await saved('secret_linear', {
+  await saveSecret(secrets, 'secret_linear', {
     bindings: [{ host: 'mcp.linear.app', prefix: 'Bearer ' }],
   });
-  await saved('secret_sentry', {
+  await saveSecret(secrets, 'secret_sentry', {
     name: 'SENTRY_TOKEN',
-    source: SecretSource.awsSecretsManager({
-      secretId: 'sentry-token',
-      field: 'token',
-    }),
-    value: null,
+    value: 'sntrys_1',
     bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
   });
-  await saved('secret_loose', { name: 'LOOSE', bindings: [] });
-  await saved('secret_linear_bot', {
+  await saveSecret(secrets, 'secret_loose', { name: 'LOOSE', bindings: [] });
+  await saveSecret(secrets, 'secret_staging', {
+    name: 'STAGING_LOGIN_PASSWORD',
+    value: null,
+    valueVersion: null,
+    bindings: [{ host: 'staging.example.com' }],
+  });
+  await saveSecret(secrets, 'secret_linear_bot', {
     name: 'LINEAR_BOT_KEY',
     value: 'lin_bot_1',
     bindings: [{ host: 'mcp.linear.app' }],
   });
-  await saved('secret_lines', {
+  await bindStored(secrets, 'secret_lines', {
     name: 'MULTI_LINE',
     value: 'one\ntwo',
     bindings: [{ host: 'pem.example.com' }],
@@ -95,11 +79,10 @@ const setUp = async () => {
     fetches: new RunSecretFetches(
       secrets,
       new RunGrantsChanges(grants),
-      new SecretSources(store, aws),
+      store,
       new SealedInTheOpen(),
     ),
     grants,
-    aws,
   };
 };
 
@@ -123,7 +106,7 @@ describe('RunSecretFetches', () => {
     ]);
   });
 
-  it('seals a value Spotlight stores to the run’s recipient, with where egress injects it', async () => {
+  it('seals the value to the run’s recipient, with where egress injects it', async () => {
     const { fetches } = await setUp();
 
     await expect(
@@ -140,37 +123,10 @@ describe('RunSecretFetches', () => {
           name: 'authorization',
           prefix: 'Bearer ',
           sealed: 'sealed(lin_api_1|recipient-key|run_1|LINEAR_API_KEY)',
-          externalRef: null,
         },
       ],
       denied: [],
     });
-  });
-
-  it('says where egress reads a value an external store holds, and never reads it itself', async () => {
-    const { fetches, aws } = await setUp();
-
-    const fetched = await fetches.fetchSecrets({
-      ...FETCHING,
-      injectedSecrets: ['SENTRY_TOKEN'],
-    });
-
-    expect(fetched.secrets).toEqual([
-      {
-        secret: 'SENTRY_TOKEN',
-        host: 'sentry.io',
-        location: 'header',
-        name: 'x-sentry-token',
-        prefix: '',
-        sealed: null,
-        externalRef: {
-          kind: 'aws-secrets-manager',
-          secretId: 'sentry-token',
-          field: 'token',
-        },
-      },
-    ]);
-    expect(aws.read).not.toHaveBeenCalled();
   });
 
   it('grants the run each secret it injects, for every host the secret is bound to', async () => {
@@ -193,12 +149,18 @@ describe('RunSecretFetches', () => {
     ]);
   });
 
-  it('denies what it cannot grant, says why, and grants the rest', async () => {
+  it('denies what it cannot grant, a secret that awaits a value too, says why, and grants the rest', async () => {
     const { fetches } = await setUp();
 
     const fetched = await fetches.fetchSecrets({
       ...FETCHING,
-      injectedSecrets: ['NOWHERE', 'LOOSE', 'MULTI_LINE', 'LINEAR_API_KEY'],
+      injectedSecrets: [
+        'NOWHERE',
+        'LOOSE',
+        'MULTI_LINE',
+        'STAGING_LOGIN_PASSWORD',
+        'LINEAR_API_KEY',
+      ],
     });
 
     expect(fetched.secrets.map((each) => each.secret)).toEqual([
@@ -217,6 +179,11 @@ describe('RunSecretFetches', () => {
         secret: 'MULTI_LINE',
         reason:
           'Secret MULTI_LINE contains more than one line. It cannot be sent in a request.',
+      },
+      {
+        secret: 'STAGING_LOGIN_PASSWORD',
+        reason:
+          'Secret STAGING_LOGIN_PASSWORD has no value. Set it on the Secrets settings page, with spotlight secret set STAGING_LOGIN_PASSWORD, or with value_wo and value_wo_version in Terraform.',
       },
     ]);
   });

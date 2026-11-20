@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,6 +17,9 @@ const journalFailing = vi.fn();
 const closeTask = vi.fn();
 const taskStation = vi.fn<(...args: unknown[]) => unknown>();
 
+vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
+  useTaskFooterLoading: () => false,
+}));
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
 }));
@@ -149,6 +152,7 @@ const item = (
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
     resolved: false,
+    answerable: true,
     progress: null,
     unread: false,
     briefing: null,
@@ -535,7 +539,9 @@ describe('InboxItem', () => {
           query: { from: 0, to: 2 },
         }),
       );
-      expect(screen.getAllByText('Per token.')).toHaveLength(1);
+      await waitFor(() =>
+        expect(screen.getAllByText('Per token.')).toHaveLength(1),
+      );
       expect(screen.getByLabelText('Sam wrote this')).toBeInTheDocument();
     });
 
@@ -771,11 +777,14 @@ describe('InboxItem', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('offers no close while another person holds the task', () => {
+    it('offers no close while an agent chat of another person holds the task', () => {
       taskStation.mockReturnValue({
         line,
         station: line.stations[0],
-        task: { ...task, hold: { by: { id: 'user_9' } } },
+        task: {
+          ...task,
+          hold: { by: { id: 'user_9' }, chatId: 'chat_1', viewerEnds: false },
+        },
       });
 
       renderItem();
@@ -809,20 +818,72 @@ describe('InboxItem', () => {
     });
   });
 
-  describe('followed by the viewer', () => {
+  describe('followed by a viewer who drives the task a person holds', () => {
     beforeEach(() => {
       const [only] = item([note()]);
       waiting.mockReturnValue([
-        { ...only, standing: 'following', unread: true },
+        { ...only, standing: 'following', answerable: true },
       ]);
     });
 
-    it('shows the conversation without a way to answer it', () => {
+    it('can be answered by them', () => {
+      renderItem();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Answer Implementation' }),
+      ).not.toHaveAttribute('aria-disabled', 'true');
+    });
+  });
+
+  describe('when the server says its assignee cannot answer it', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([
+        { ...only, standing: 'assignee', answerable: false },
+      ]);
+    });
+
+    it('says they do not act on the tasks of the team', () => {
       renderItem();
 
       expect(
         screen.queryByRole('textbox', { name: /Answer/ }),
       ).not.toBeInTheDocument();
+      expect(screen.getByText(/do not act on them/)).toBeInTheDocument();
+    });
+  });
+
+  describe('when the server gives the person no standing on it', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([{ ...only, standing: null, answerable: false }]);
+    });
+
+    it('leaves the answer to its assignee', () => {
+      renderItem();
+
+      expect(
+        screen.queryByRole('textbox', { name: /Answer/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/Its assignee answers here/)).toBeInTheDocument();
+    });
+  });
+
+  describe('followed by the viewer', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([
+        { ...only, standing: 'following', answerable: false, unread: true },
+      ]);
+    });
+
+    it('shows the conversation with the text bar disabled', () => {
+      renderItem();
+
+      expect(screen.getByRole('textbox', { name: /Answer/ })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
       expect(screen.getByText(/Its assignee answers here/)).toBeInTheDocument();
     });
 
@@ -839,40 +900,15 @@ describe('InboxItem', () => {
 
     renderItem();
 
+    expect(screen.getByRole('textbox', { name: /Answer/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(
-      screen.queryByRole('textbox', { name: /Answer/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/moved on to/)).toBeInTheDocument();
-  });
-
-  it('links the station it moved on to at its latest run there', () => {
-    const [only] = item([note()]);
-    waiting.mockReturnValue([
-      {
-        ...only,
-        resolved: true,
-        currentStation: { ...only.currentStation, latestRunId: 'run_9' },
-      },
-    ]);
-
-    renderItem();
-
-    expect(screen.getByRole('link', { name: 'Code Review' })).toHaveAttribute(
-      'href',
-      '/w/acme/inbox/teams/team_1/runs/run_9',
-    );
-  });
-
-  it('links the task when no run started at the station it moved on to', () => {
-    const [only] = item([note()]);
-    waiting.mockReturnValue([{ ...only, resolved: true }]);
-
-    renderItem();
-
-    expect(screen.getByRole('link', { name: 'Code Review' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/tasks/task_1',
-    );
+      screen.getByText(
+        'The task moved on to Code Review. Nothing is left to answer.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('says only that the conversation is closed here when the conversation closed in place', () => {

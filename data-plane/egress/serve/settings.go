@@ -24,7 +24,6 @@ const (
 	envURL            = "SPOTLIGHT_URL"
 	envToken          = "SPOTLIGHT_EGRESS_TOKEN"
 	envAllow          = "SPOTLIGHT_EGRESS_ALLOW"
-	envSecretAllow    = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
 	envRateLimit      = "SPOTLIGHT_EGRESS_RATE_LIMIT"
 	envMaxConnections = "SPOTLIGHT_EGRESS_MAX_CONNECTIONS"
 	envCABundle       = "SPOTLIGHT_EGRESS_CA_BUNDLE"
@@ -42,7 +41,6 @@ type Settings struct {
 	URL         string
 	Token       string
 	Allow       allowlist.List
-	SecretAllow []string
 	Rate        float64
 	Connections int
 
@@ -66,7 +64,6 @@ func Load() (Settings, error) {
 		Listen:      or(get(envListen), defaultListen),
 		URL:         get(envURL),
 		Token:       get(envToken),
-		SecretAllow: list(get(envSecretAllow)),
 		Rate:        defaultRate,
 		Connections: defaultConnections,
 	}

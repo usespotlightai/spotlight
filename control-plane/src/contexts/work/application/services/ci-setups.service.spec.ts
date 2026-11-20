@@ -14,6 +14,7 @@ const settingUp = (variables: 'written' | 'not-permitted' = 'written') => {
       repositoryId: '101',
       ownerId: '7',
     })),
+    defaultBranchNameOf: vi.fn(async () => 'trunk'),
     oidcSubjectPrefixOf: vi.fn(async () => 'repo:acme@7/infra@101'),
     visibilityOf: vi.fn(async () => 'public' as const),
     putVariables: vi.fn(async () => variables),

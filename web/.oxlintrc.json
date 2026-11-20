@@ -113,6 +113,32 @@
   },
   "overrides": [
     {
+      "files": ["src/components/**", "src/routes/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "importNames": [
+                  "useEffect",
+                  "useLayoutEffect",
+                  "useInsertionEffect"
+                ],
+                "message": "Put the effect in a named hook in src/hooks, or replace it with an event handler, a ref callback or a key."
+              },
+              {
+                "name": "react",
+                "importNames": ["default"],
+                "message": "Import the React APIs you use by name."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": [
         "**/*.spec.ts",
         "**/*.spec.tsx",
@@ -124,7 +150,8 @@
       ],
       "rules": {
         "typescript/unbound-method": "off",
-        "typescript/no-misused-spread": "off"
+        "typescript/no-misused-spread": "off",
+        "no-restricted-imports": "off"
       }
     },
     {

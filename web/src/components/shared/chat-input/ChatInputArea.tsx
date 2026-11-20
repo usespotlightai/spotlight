@@ -1,10 +1,5 @@
 import type { ReactNode } from 'react';
 
-import { cn } from '@/lib/utils';
-
-const GREYED =
-  'pointer-events-none opacity-50 [&_.truncate]:text-foreground! [&_button]:text-foreground! [&_svg]:text-foreground!';
-
 type ChatInputAreaProps = {
   disabled: boolean;
   area?: string;
@@ -22,7 +17,7 @@ export function ChatInputArea({
     <div
       inert={disabled}
       style={area ? { gridArea: area } : undefined}
-      className={cn(className, disabled && GREYED)}
+      className={className}
     >
       {children}
     </div>

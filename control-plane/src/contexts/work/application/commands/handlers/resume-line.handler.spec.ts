@@ -202,11 +202,12 @@ describe('ResumeLineHandler', () => {
     expect(dispatched).toBe(false);
   });
 
-  it('says who put the task on hold when someone else resumes the line', async () => {
-    await expect(resumeLine('continue', [], 'user_2')).rejects.toMatchObject({
-      kind: 'conflict',
-      message: 'Sam Lee put this task on hold. Only they can resume the line.',
-    });
+  it('lets a teammate resume the line for the person who put the task on hold', async () => {
+    const { saved, dispatched } = await resumeLine('continue', [], 'user_2');
+
+    expect(saved?.onHold).toBe(false);
+    expect(saved?.holds[0]?.by.value).toBe('user_1');
+    expect(dispatched).toBe(true);
   });
 
   it('says there is nothing to resume when the task is not on hold', async () => {

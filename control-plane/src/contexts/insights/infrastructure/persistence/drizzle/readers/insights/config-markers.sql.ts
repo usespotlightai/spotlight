@@ -9,7 +9,7 @@ import { type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 export const precedes = (at: SQL, run: SQL, thenAt: SQL, thenRun: SQL): SQL =>
-  sql`(${at} < ${thenAt} or (${at} = ${thenAt} and ${run} collate "C" < ${thenRun} collate "C"))`;
+  sql`((${at}, ${run} collate "C") < (${thenAt}, ${thenRun} collate "C"))`;
 
 export const configMarkers = (team: TeamInPeriod, began: Window): SQL => {
   const earlier = alias(runFact, 'earlier');

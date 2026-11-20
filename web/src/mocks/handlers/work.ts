@@ -149,6 +149,9 @@ const holdOnMessage = ({
       startedAt: new Date().toISOString(),
       runId: world().runs[task.id]?.[0]?.id ?? null,
       heldMoveTo: null,
+      chatId: null,
+      viewerDrives: true,
+      viewerEnds: true,
     },
   });
 };
@@ -182,6 +185,7 @@ export const workHandlers: RequestHandler[] = [
         note: null,
         source: null,
         hold: null,
+        runNotStarted: null,
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];
@@ -278,6 +282,7 @@ export const workHandlers: RequestHandler[] = [
         stationId: to,
         finished: next === 'finish',
         hold: null,
+        runNotStarted: null,
       };
       replaceTask(teamId, resumed);
       if (next !== 'finish') {
@@ -402,6 +407,42 @@ export const workHandlers: RequestHandler[] = [
       return noContent();
     },
   ),
+
+  api.post(
+    '/teams/:teamId/tasks/:taskId/messages',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const task = findTask(teamId, String(params.taskId));
+      const newest = (world().runs[task?.id ?? ''] ?? []).at(-1);
+
+      if (!task) {
+        return notFound();
+      }
+
+      const body = (await request.json()) as SendMessageRequestDto;
+      if (newest) {
+        addMessage(
+          { teamId, task, run: newest },
+          body.body ?? '',
+          attachmentsOf(body.attachments),
+        );
+      }
+
+      return json(task);
+    },
+  ),
+
+  api.post('/teams/:teamId/tasks/:taskId/start', ({ params }) => {
+    const task = findTask(String(params.teamId), String(params.taskId));
+
+    if (!task) {
+      return notFound();
+    }
+
+    return task.runNotStarted
+      ? json(task)
+      : problem(409, `Task ${task.id} is not waiting for its run to start.`);
+  }),
 
   api.post('/teams/:teamId/runs/:runId/stop', ({ params }) => {
     const teamId = String(params.teamId);

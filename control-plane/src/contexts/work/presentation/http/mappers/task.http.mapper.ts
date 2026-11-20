@@ -5,6 +5,7 @@ import {
   TaskResponseDto,
   TaskReviewResponseDto,
   TaskHoldResponseDto,
+  TaskRunNotStartedResponseDto,
 } from '@work/presentation/http/dto/task.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { stationLabelOf } from '@work/presentation/http/mappers/station-label';
@@ -57,7 +58,13 @@ export const TaskHttpMapper = {
             dto.hold.startedAt,
             dto.hold.runId,
             dto.hold.heldMoveTo,
+            dto.hold.chatId,
+            dto.hold.viewerDrives,
+            dto.hold.viewerEnds,
           )
+        : null,
+      dto.runNotStarted
+        ? new TaskRunNotStartedResponseDto(dto.runNotStarted.harness)
         : null,
     );
   },

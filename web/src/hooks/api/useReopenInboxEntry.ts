@@ -55,6 +55,12 @@ export function useReopenInboxEntry() {
         resolved: false,
         section: 'open',
         reopenable: false,
+        ...(entry.kind === 'task' || entry.kind === 'notice'
+          ? { resolvable: true }
+          : {}),
+        ...(entry.kind === 'task' && !entry.inboxRequest
+          ? { answerable: true }
+          : {}),
       }),
     }),
 

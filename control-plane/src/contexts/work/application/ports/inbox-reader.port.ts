@@ -124,6 +124,8 @@ export interface InboxItemSummary {
   readonly resolved: boolean;
   readonly section: InboxSection;
   readonly standing: ConversationStanding | null;
+  readonly answerable: boolean;
+  readonly resolvable: boolean;
   readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
@@ -165,6 +167,7 @@ export interface InboxNoticeSummary {
   readonly unread: boolean;
   readonly resolved: boolean;
   readonly section: InboxSection;
+  readonly resolvable: boolean;
   readonly reopenable: boolean;
 }
 

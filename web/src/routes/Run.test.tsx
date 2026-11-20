@@ -18,6 +18,9 @@ const refetchConversation = vi.fn();
 const journal = vi.fn<(...args: unknown[]) => unknown>();
 const journalFailing = vi.fn();
 
+vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
+  useTaskFooterLoading: () => false,
+}));
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   teamRunKeys: { forTeam: () => ['runs'] },
   useTeamRun: (_teamId: string, runId: string) => ({
@@ -78,6 +81,13 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   useRunChangeStacks: () => ({ data: undefined }),
 }));
 
+const taskRuns = vi.fn((): unknown[] | undefined => undefined);
+
+vi.mock('@/hooks/api/useTaskRuns', () => ({
+  taskRunKeys: { forTask: () => ['runs', 'task'] },
+  useTaskRuns: () => ({ data: taskRuns() }),
+}));
+
 const taskStation = vi.fn((): Record<string, unknown> => ({}));
 
 vi.mock('@/hooks/api/useTaskStation', () => ({
@@ -93,9 +103,26 @@ vi.mock('@/hooks/api/useHold', () => ({
 const send = vi.fn();
 const inFlight = vi.fn((): unknown[] => []);
 
+const sendToTask = vi.fn();
+const startRun = vi.fn();
+
+const triedToStart = vi.fn(() => false);
+
 vi.mock('@/hooks/api/useSendMessage', () => ({
   useSendMessage: () => ({ mutate: send, isPending: false }),
+  useSendTaskMessage: () => ({ mutate: sendToTask, isPending: false }),
   useMessagesInFlight: () => inFlight(),
+  useTriedToStartRun: () => triedToStart(),
+}));
+
+vi.mock('@/hooks/api/useStartTaskRun', () => ({
+  useStartTaskRun: () => ({
+    mutate: startRun,
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    data: undefined,
+  }),
 }));
 
 const answer = vi.fn();
@@ -203,8 +230,12 @@ const renderRun = (client = new QueryClient()) =>
 describe('Run', () => {
   beforeEach(() => {
     taskStation.mockReturnValue({});
+    taskRuns.mockReturnValue([]);
+    triedToStart.mockReturnValue(false);
     resumption.mockReset();
     send.mockReset();
+    sendToTask.mockReset();
+    startRun.mockReset();
     stop.mockReset();
     inFlight.mockReturnValue([]);
     runs.mockReturnValue([run()]);
@@ -718,7 +749,7 @@ describe('Run', () => {
       station: { ...idle.station, id: 'station_4', name: 'Review' },
     };
 
-    it('names the station the task is at and links to the latest run there', () => {
+    it('disables the text bar and names the station the task moved to', () => {
       taskStation.mockReturnValue(left);
       conversation.mockReturnValue({
         ...conversation(),
@@ -727,28 +758,120 @@ describe('Run', () => {
 
       renderRun();
 
-      expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute(
-        'href',
-        '/w/acme/team/team_1/runs/run_2',
-      );
       expect(
-        screen.getByText(/Messages here reach no one\./),
-      ).toHaveTextContent('The task has moved to Review. Messages here');
+        screen.getByText(
+          'The task has moved to Review. Messages here reach no one.',
+        ),
+      ).toBeInTheDocument();
       expect(
-        screen.queryByRole('textbox', { name: 'Message Implementation' }),
-      ).toBeNull();
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-disabled', 'true');
     });
 
-    it('names the station without a link while no run has started there', () => {
+    it('says nothing about the station the task moved to until its runs load', () => {
       taskStation.mockReturnValue(left);
+      taskRuns.mockReturnValue(undefined);
 
       renderRun();
 
-      expect(screen.getByText('Review')).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: 'Review' })).toBeNull();
+      expect(screen.queryByText(/Messages here reach no one./)).toBeNull();
       expect(
         screen.queryByRole('textbox', { name: 'Message Implementation' }),
       ).toBeNull();
+      expect(
+        screen.queryByRole('textbox', { name: 'Send it back to Review' }),
+      ).toBeNull();
+    });
+
+    it('gives the text bar to the station the task is at, once a run started there', async () => {
+      taskStation.mockReturnValue(left);
+      taskRuns.mockReturnValue([
+        run({
+          id: 'run_2',
+          station: { ...STATION, id: 'station_4', name: 'Review' },
+        }),
+      ]);
+
+      renderRun();
+      await write(
+        screen.getByRole('textbox', { name: 'Send it back to Review' }),
+        'check the replay too',
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(screen.queryByText(/Messages here reach no one\./)).toBeNull();
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          runId: 'run_2',
+          body: 'check the replay too',
+        }),
+        expect.objectContaining({ onError: expect.any(Function) as unknown }),
+      );
+    });
+
+    describe('where the agent of the station did not start', () => {
+      const stuck = {
+        ...left,
+        task: {
+          ...idle.task,
+          finished: false,
+          runNotStarted: { harness: 'gemini-cli' },
+        },
+      };
+
+      it('says which agent did not start, and tries it again on request', async () => {
+        taskStation.mockReturnValue(stuck);
+
+        renderRun();
+        await userEvent.click(
+          screen.getByRole('button', { name: 'Try again' }),
+        );
+
+        expect(
+          screen.getByRole('status', { name: 'The run did not start' }),
+        ).toHaveTextContent(
+          'Spotlight cannot start gemini-cli at Review. Change the station’s agent, then try again.',
+        );
+        expect(startRun).toHaveBeenCalledWith({
+          teamId: 'team_1',
+          taskId: 'task_1',
+        });
+        expect(screen.queryByText(/Messages here reach no one\./)).toBeNull();
+      });
+
+      it('sends a message to the task, which tries the agent again', async () => {
+        taskStation.mockReturnValue(stuck);
+
+        renderRun();
+        await write(
+          screen.getByRole('textbox', { name: 'Message Review' }),
+          'use the new image',
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+        expect(sendToTask).toHaveBeenCalledWith(
+          expect.objectContaining({
+            teamId: 'team_1',
+            taskId: 'task_1',
+            body: 'use the new image',
+          }),
+          expect.objectContaining({ onError: expect.any(Function) as unknown }),
+        );
+        expect(send).not.toHaveBeenCalled();
+      });
+
+      it('says the agent still does not start after a message or Try again', () => {
+        taskStation.mockReturnValue(stuck);
+        triedToStart.mockReturnValue(true);
+
+        renderRun();
+
+        expect(
+          screen.getByRole('status', { name: 'The run did not start' }),
+        ).toHaveTextContent(
+          'Spotlight still cannot start gemini-cli at Review.',
+        );
+      });
     });
 
     it('only says something to the station while a run still works the task', () => {
@@ -793,6 +916,9 @@ describe('Run', () => {
           startedAt: '2026-08-29T09:00:00.000Z',
           runId: 'run_1',
           heldMoveTo: null,
+          chatId: null,
+          viewerDrives: true,
+          viewerEnds: true,
         },
         ...over,
       },
@@ -905,7 +1031,7 @@ describe('Run', () => {
       ).toBeInTheDocument();
     });
 
-    it('lets only the person who put the task on hold resume the line', () => {
+    it('lets a teammate resume the line and send the next turn', () => {
       const theirs = mine();
       taskStation.mockReturnValue({
         ...theirs,
@@ -920,10 +1046,40 @@ describe('Run', () => {
 
       renderRun();
 
-      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Resume' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-placeholder', 'Tell the agent what to do next…');
     });
 
-    it('tells a teammate that the agent reads their message after the line resumes', () => {
+    it('tells a person who only sees the team that they cannot send turns', () => {
+      const theirs = mine();
+      taskStation.mockReturnValue({
+        ...theirs,
+        task: {
+          ...theirs.task,
+          hold: {
+            ...theirs.task.hold,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+            viewerDrives: false,
+            viewerEnds: false,
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+      expect(
+        screen.getByText(
+          "Maya Chen put the task on hold. Only people who act on the team's tasks can send it turns.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('tells a teammate that the agent reads their message after an agent chat hands the task to the line', () => {
       taskStation.mockReturnValue({
         ...working,
         task: {
@@ -931,8 +1087,11 @@ describe('Run', () => {
           hold: {
             by: { id: 'user_2', name: 'Maya Chen', image: null },
             startedAt: '2026-08-29T09:00:00.000Z',
-            runId: 'run_1',
+            runId: null,
             heldMoveTo: null,
+            chatId: 'chat_1',
+            viewerDrives: false,
+            viewerEnds: false,
           },
         },
       });
@@ -941,14 +1100,12 @@ describe('Run', () => {
 
       expect(
         screen.getByText(
-          'Maya Chen put the task on hold. The agent reads new messages after they resume the line.',
+          'An agent chat of Maya Chen holds the task. The agent reads new messages after they hand the task to the line.',
         ),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole('textbox', {
-          name: /^(Message|Send it back to|Answer) /,
-        }),
-      ).toBeNull();
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('asks the person who holds the task for the next turn', () => {
@@ -1032,6 +1189,7 @@ describe('Run', () => {
           slug: 'acme',
           itemId: 'task_1:0',
           approve: true,
+          ask: approval.findLast((note) => note.kind === 'asked')?.position,
         }),
       );
 

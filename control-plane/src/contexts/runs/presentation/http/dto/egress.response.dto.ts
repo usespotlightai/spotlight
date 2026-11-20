@@ -1,30 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SECRET_LOCATIONS } from '@secrets/application/contracts/injected-secrets.contract';
 
-export class ExternalSecretRefResponseDto {
-  @ApiProperty({ enum: ['aws-secrets-manager'] })
-  readonly kind: 'aws-secrets-manager';
-
-  @ApiProperty({
-    example:
-      'arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key',
-  })
-  readonly secretId: string;
-
-  @ApiProperty({ type: String, nullable: true, example: 'token' })
-  readonly field: string | null;
-
-  constructor(
-    kind: 'aws-secrets-manager',
-    secretId: string,
-    field: string | null,
-  ) {
-    this.kind = kind;
-    this.secretId = secretId;
-    this.field = field;
-  }
-}
-
 export class FetchedSecretResponseDto {
   @ApiProperty({ example: 'LINEAR_API_KEY' })
   readonly secret: string;
@@ -53,20 +29,9 @@ export class FetchedSecretResponseDto {
   readonly prefix: string;
 
   @ApiProperty({
-    type: String,
-    nullable: true,
-    description:
-      'The value, sealed to the recipient for this run; null when egress reads it in its own network',
+    description: 'The value, sealed to the recipient for this run',
   })
-  readonly sealed: string | null;
-
-  @ApiProperty({
-    type: ExternalSecretRefResponseDto,
-    nullable: true,
-    description:
-      'Where egress reads the value with its host’s own identity; null when Spotlight sealed it',
-  })
-  readonly externalRef: ExternalSecretRefResponseDto | null;
+  readonly sealed: string;
 
   constructor(
     secret: string,
@@ -74,8 +39,7 @@ export class FetchedSecretResponseDto {
     location: string,
     name: string,
     prefix: string,
-    sealed: string | null,
-    externalRef: ExternalSecretRefResponseDto | null,
+    sealed: string,
   ) {
     this.secret = secret;
     this.host = host;
@@ -83,7 +47,6 @@ export class FetchedSecretResponseDto {
     this.name = name;
     this.prefix = prefix;
     this.sealed = sealed;
-    this.externalRef = externalRef;
   }
 }
 
@@ -194,7 +157,7 @@ export class HarnessKeysResponseDto {
   @ApiProperty({
     type: [FetchedSecretResponseDto],
     description:
-      'Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id',
+      'Each harness key the workspace holds, for each host it is bound to, sealed to the recipient with an empty run id',
   })
   readonly secrets: readonly FetchedSecretResponseDto[];
 
