@@ -20,6 +20,7 @@ type ApprovalCardProps = {
   approval: Approval;
   viewerId?: string | null;
   pending: boolean;
+  outdated?: boolean;
   onDecide?: (answer: ApprovalAnswer) => void;
 };
 
@@ -27,6 +28,7 @@ export function ApprovalCard({
   approval,
   viewerId = null,
   pending,
+  outdated = false,
   onDecide,
 }: ApprovalCardProps) {
   const [mode, setMode] = useState<ApprovalMode>('viewing');
@@ -102,6 +104,7 @@ export function ApprovalCard({
           onReason={setReason}
           onMode={toMode}
           onApproveEdited={approveEdited}
+          outdated={outdated}
           onDecide={deciding}
         />
       </DecisionCard>

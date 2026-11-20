@@ -406,6 +406,7 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   unread: true,
   resolved: false,
   section: 'open',
+  resolvable: true,
   reopenable: false,
   ...over,
 });
@@ -540,5 +541,10 @@ describe('resolvable', () => {
     expect(
       resolvable(conversation({ standing: 'asked', resolvable: false })),
     ).toBe(false);
+  });
+
+  it('follows the server for a notice', () => {
+    expect(resolvable(notice())).toBe(true);
+    expect(resolvable(notice({ resolvable: false }))).toBe(false);
   });
 });

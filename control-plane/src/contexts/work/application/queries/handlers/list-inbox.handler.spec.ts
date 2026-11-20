@@ -167,6 +167,7 @@ describe('ListInboxHandler', () => {
               unread: true,
               resolved: false,
               section: 'open',
+              resolvable: true,
               reopenable: false,
             },
           ]),
@@ -190,6 +191,7 @@ describe('ListInboxHandler', () => {
       unread: true,
       resolved: false,
       section: 'open',
+      resolvable: true,
       reopenable: false,
     });
   });

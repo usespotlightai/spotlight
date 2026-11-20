@@ -13,5 +13,6 @@ export class AnswerConversationCommand {
     readonly edits: ApprovalEdits | null = null,
     readonly coAuthors: readonly string[] = [],
     readonly draftGeneration: number | null = null,
+    readonly ask: number | null = null,
   ) {}
 }

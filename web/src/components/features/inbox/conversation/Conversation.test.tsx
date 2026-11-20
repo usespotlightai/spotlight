@@ -185,7 +185,36 @@ describe('Conversation', () => {
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '', ask: 0 });
+  });
+
+  it('decides only the newest ask, and says why an older approval waits on nothing', async () => {
+    const onDecide = vi.fn();
+    showing(
+      [
+        { ...note(0, AT), form: 'approval', approval: APPROVAL },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        {
+          ...note(2, AT),
+          form: 'approval',
+          approval: { ...APPROVAL, name: 'github.merge' },
+        },
+      ],
+      { pending: false, onDecide },
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Approve linear.comment' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText('The run asked for something newer since'),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Approve github.merge' }),
+    );
+
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '', ask: 2 });
   });
 
   it('shows the tool call without a decision to make where nobody can make one', () => {

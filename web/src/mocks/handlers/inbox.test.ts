@@ -156,6 +156,7 @@ describe('the mock inbox', () => {
       body: {
         body: '',
         approve: true,
+        ask: 0,
         inputs: [{ name: 'for', value: '20m' }],
       },
       throwOnError: true,
@@ -165,6 +166,24 @@ describe('the mock inbox', () => {
 
     expect(approval?.status).toBe('approved');
     expect(approval?.edited).toEqual([{ name: 'for', value: '20m' }]);
+  });
+
+  it('refuses a decision that does not name the ask it decides, or names an older one', async () => {
+    const decide = (ask?: number) =>
+      answerInboxItem({
+        path: { slug: SLUG, itemId: 'task_latency:0' },
+        body: {
+          body: '',
+          approve: true,
+          ...(ask === undefined ? {} : { ask }),
+        },
+      });
+
+    expect((await decide()).response?.status).toBe(400);
+    expect((await decide(1)).response?.status).toBe(409);
+    expect((await itemIn('task_latency:0'))?.notes[0]?.approval?.status).toBe(
+      'pending',
+    );
   });
 
   it('requests approvals in every status', async () => {

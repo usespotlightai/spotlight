@@ -49,14 +49,14 @@ import {
 import {
   ConversationAudience,
   type ConversationStanding,
-  type OpeningAsk,
+  type OpenAsk,
   type RunStanding,
 } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
   listedAsOpen,
   reopenable,
-  openIn,
+  openAskIn,
   stillOpen,
   TURNING_NOTE_KINDS,
   worksOn,
@@ -203,10 +203,10 @@ const wroteInBy = (viewer: UserId): SQL =>
 const openlyAskedBy = (viewer: UserId): SQL =>
   sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and ((${taskNote.approval}->>'askedOf' = ${viewer.value} and ${taskNote.approval}->>'status' = 'pending') or (${taskNote.connectionAsk}->>'personId' = ${viewer.value} and (${taskNote.connectionAsk}->>'met')::boolean = false)))`;
 
-const openingAskOf = (note: {
+const openAskOf = (note: {
   readonly approval: ApprovalRow | null;
   readonly connectionAsk: ConnectionAskRow | null;
-}): OpeningAsk => ({
+}): OpenAsk => ({
   approval: note.approval
     ? {
         open: Approval.isPending(note.approval.status),
@@ -223,10 +223,10 @@ const openingAskOf = (note: {
     : null,
 });
 
-const openingAsksOf = async (
+const openAsksOf = async (
   db: DrizzleDatabase,
   taskIds: readonly string[],
-): Promise<Map<string, OpeningAsk>> => {
+): Promise<Map<string, OpenAsk>> => {
   if (taskIds.length === 0) {
     return new Map();
   }
@@ -254,9 +254,9 @@ const openingAsksOf = async (
 
   return new Map(
     [...byTask].flatMap(([taskId, notes]) => {
-      const open = openIn(conversationsAmong(notes));
+      const ask = openAskIn(notes);
 
-      return open ? [[taskId, openingAskOf(open.from)] as const] : [];
+      return ask ? [[taskId, openAskOf(ask)] as const] : [];
     }),
   );
 };
@@ -279,7 +279,7 @@ const standingOf = (
     readonly assigneeId: string | null;
     readonly wroteIn: boolean;
   },
-  opening: OpeningAsk | null,
+  ask: OpenAsk | null,
 ): ConversationStanding | null =>
   ConversationAudience.standingOf(
     row.assigneeId ? UserId.of(row.assigneeId) : null,
@@ -287,7 +287,7 @@ const standingOf = (
       person: scope.viewer,
       onTeam: scope.teamsJoined.has(row.teamId),
       wroteIn: row.wroteIn,
-      asked: ConversationAudience.asks(opening, scope.viewer),
+      asked: ConversationAudience.asks(ask, scope.viewer),
     },
   );
 
@@ -355,7 +355,7 @@ const tasksWhere = async (
       (each) => [each.runId.value, each],
     ),
   );
-  const openings = await openingAsksOf(
+  const asks = await openAsksOf(
     db,
     rows.flatMap((row) =>
       row.openlyAsked && row.assigneeId !== scope.viewer.value
@@ -366,7 +366,7 @@ const tasksWhere = async (
 
   return rows.flatMap((row) => {
     const working = row.working ? facts.get(row.working) : undefined;
-    const standing = standingOf(scope, row, openings.get(row.taskId) ?? null);
+    const standing = standingOf(scope, row, asks.get(row.taskId) ?? null);
 
     return standing
       ? [
@@ -1273,7 +1273,14 @@ export class DrizzleInboxReader implements InboxReaderPort {
               running: false,
               following: false,
             }),
-            reopenable: Notice.reopenable(row.resolvedAt),
+            resolvable: Notice.resolvableBy(
+              teamStandingOf(scope, row.teamId),
+              row.resolvedAt,
+            ),
+            reopenable: Notice.reopenableBy(
+              teamStandingOf(scope, row.teamId),
+              row.resolvedAt,
+            ),
           },
           cursorAt,
         ),

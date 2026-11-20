@@ -264,12 +264,19 @@ const conversationHandlers = [
       }
 
       const reply = (await request.json()) as AnswerInboxItemRequestDto;
-      const decisionPending =
-        item.notes.findLast((note) => note.kind === 'asked')?.form ===
-        'approval';
+      const asking = item.notes.findLast((note) => note.kind === 'asked');
 
-      if (reply.approve !== undefined && !decisionPending) {
+      if (reply.approve !== undefined && asking?.form !== 'approval') {
         return problem(400, 'Nothing here waits for an approval.');
+      }
+      if (reply.approve !== undefined && reply.ask === undefined) {
+        return problem(400, 'Field ask is required with approve.');
+      }
+      if (reply.approve !== undefined && reply.ask !== asking?.position) {
+        return problem(
+          409,
+          'The run asked for something newer since. Decide the newer ask.',
+        );
       }
 
       answer(item, reply);

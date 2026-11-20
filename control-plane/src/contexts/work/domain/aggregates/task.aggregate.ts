@@ -70,6 +70,7 @@ import {
 import {
   type Conversation,
   notesIn,
+  openAskIn,
   reopenable,
   worksOn,
 } from '@work/domain/services/conversations';
@@ -785,12 +786,13 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
+    decides: NotePosition | null = null,
   ): Task {
     return (
       this.answersItsOwnAsk(from, Voice.person(answerer))
         ? this.claimedOnAnswer(answerer, members)
         : this.heldBy(answerer, members)
-    ).answer(from, newNote, decision, edits);
+    ).answer(from, newNote, decision, edits, decides);
   }
 
   resolveAs(
@@ -1418,13 +1420,7 @@ export class Task extends EventRecorder {
   }
 
   private get pendingAsk(): TaskNote | null {
-    if (!this.awaitingReview) {
-      return null;
-    }
-
-    return (
-      [...this.notes].reverse().find((note) => note.kind === 'asked') ?? null
-    );
+    return this.awaitingReview ? this.openAsk : null;
   }
 
   closeConversation(newNote: NewNote): Task {
@@ -1917,7 +1913,7 @@ export class Task extends EventRecorder {
   }
 
   private asks(person: UserId): boolean {
-    return ConversationAudience.asks(this.openConversationNote, person);
+    return ConversationAudience.asks(this.openAsk, person);
   }
 
   private answersItsOwnAsk(from: NotePosition, voice: Voice): boolean {
@@ -2095,10 +2091,8 @@ export class Task extends EventRecorder {
     return this.openConversation?.from.equals(from) ?? false;
   }
 
-  get openConversationNote(): TaskNote | null {
-    const open = this.trail.open;
-
-    return open ? (open.from.noteIn(this.notes) ?? null) : null;
+  get openAsk(): TaskNote | null {
+    return openAskIn(this.notes);
   }
 
   wroteIn(person: UserId): boolean {
@@ -2557,8 +2551,7 @@ export class Task extends EventRecorder {
     this.assertNoOtherRun(by, 'ask a person to connect');
 
     if (this.awaitingReview) {
-      const open = this.openConversation;
-      const waiting = open ? open.from.noteIn(this.notes)?.connectionAsk : null;
+      const waiting = this.openAsk?.connectionAsk;
 
       return {
         task: this,
@@ -2585,9 +2578,10 @@ export class Task extends EventRecorder {
     on: { readonly line: LineMap | null; readonly at: Date },
   ): Task | null {
     const open = this.openConversation;
-    const ask = open ? open.from.noteIn(this.notes)?.connectionAsk : null;
+    const asking = this.openAsk;
+    const ask = asking?.connectionAsk;
 
-    if (!open || !ask?.answeredBy(teamId, integration, personId)) {
+    if (!open || !asking || !ask?.answeredBy(teamId, integration, personId)) {
       return null;
     }
 
@@ -2600,7 +2594,7 @@ export class Task extends EventRecorder {
 
     return answered.with({
       notes: answered.notes.map((note) =>
-        note.position.equals(open.from) ? note.connectionMet() : note,
+        note.position.equals(asking.position) ? note.connectionMet() : note,
       ),
     });
   }
@@ -2635,7 +2629,7 @@ export class Task extends EventRecorder {
       return null;
     }
 
-    return from.noteIn(this.notes)?.approval?.changedBy(edits) ?? null;
+    return this.openAsk?.approval?.changedBy(edits) ?? null;
   }
 
   answer(
@@ -2643,6 +2637,7 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
+    decides: NotePosition | null = null,
   ): Task {
     if (!this.answersItsOwnAsk(from, newNote.voice)) {
       this.assertDrivenBy(newNote.voice, 'answer it');
@@ -2655,8 +2650,15 @@ export class Task extends EventRecorder {
     }
 
     const by = newNote.voice.author;
+    const asking = this.openAsk;
 
-    if (decision && !from.noteIn(this.notes)?.approval) {
+    if (decision && decides && !asking?.position.equals(decides)) {
+      throw new InvalidApprovalAnswerError(
+        `Task ${this.id.value} asked something newer since the ask that was decided.`,
+      );
+    }
+
+    if (decision && !asking?.approval) {
       throw new InvalidApprovalAnswerError(
         `Task ${this.id.value} has nothing waiting for approval at that note.`,
       );
@@ -2708,15 +2710,13 @@ export class Task extends EventRecorder {
           by,
           this.lastRun,
           newNote.at,
-          decision
-            ? (from.noteIn(this.notes)?.approval?.subject.tool ?? null)
-            : null,
+          decision ? (asking?.approval?.subject.tool ?? null) : null,
         ),
       );
     }
 
-    return decision && by
-      ? answered.withApprovalAt(from, (note) =>
+    return decision && by && asking
+      ? answered.withApprovalAt(asking.position, (note) =>
           note.decided(
             decision,
             {

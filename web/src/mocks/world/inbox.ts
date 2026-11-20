@@ -45,14 +45,16 @@ export type InboxConversation = Omit<
 
 type ShownConversation<T> = T extends InboxConversation
   ? Pick<InboxItemViewResponseDto, 'answerable' | 'resolvable'>
-  : unknown;
+  : T extends StoredNotice
+    ? Pick<InboxNoticeResponseDto, 'resolvable'>
+    : unknown;
 
 const answers = (entry: InboxConversation): boolean =>
   entry.standing === 'assignee' ||
   entry.standing === 'asked' ||
   entry.standing === 'team';
 
-type StoredNotice = Omit<InboxNoticeResponseDto, Shown>;
+type StoredNotice = Omit<InboxNoticeResponseDto, Shown | 'resolvable'>;
 
 type StoredRun = Omit<InboxRunResponseDto, Shown>;
 
@@ -119,6 +121,7 @@ export const shown = <T extends InboxEntry>(
     ...(entry.kind === 'task'
       ? { answerable: answerableOf(entry), resolvable: resolvableOf(entry) }
       : {}),
+    ...(entry.kind === 'notice' ? { resolvable: !entry.resolved } : {}),
   }) as T & Pick<InboxNoticeResponseDto, Shown> & ShownConversation<T>;
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';

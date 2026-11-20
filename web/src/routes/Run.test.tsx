@@ -1032,6 +1032,7 @@ describe('Run', () => {
           slug: 'acme',
           itemId: 'task_1:0',
           approve: true,
+          ask: approval.findLast((note) => note.kind === 'asked')?.position,
         }),
       );
 
