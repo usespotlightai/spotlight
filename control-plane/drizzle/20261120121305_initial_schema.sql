@@ -2358,6 +2358,8 @@ CREATE TABLE "task" (
 	"reviewed_pull_request" text,
 	"review_from_outside" boolean DEFAULT false NOT NULL,
 	"move_held_to" text,
+	"not_started_station_id" text,
+	"not_started_harness" text,
 	"finished_at" timestamp (3) with time zone,
 	"working_copy_released_at" timestamp (3) with time zone,
 	"revision" integer DEFAULT 0 NOT NULL,

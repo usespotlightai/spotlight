@@ -1,5 +1,5 @@
 {
-  "id": "c2ccfa22-acb8-4b85-a869-5e5a0dca0be7",
+  "id": "41733126-9f67-435a-8fe2-ee19a44b06f7",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -19264,6 +19264,18 @@
         },
         "move_held_to": {
           "name": "move_held_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "not_started_station_id": {
+          "name": "not_started_station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "not_started_harness": {
+          "name": "not_started_harness",
           "type": "text",
           "primaryKey": false,
           "notNull": false
