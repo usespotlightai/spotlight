@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
-
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { Button } from '@/components/ui/button';
 import { useCopied } from '@/hooks/useCopied';
+
+const focusOnMount = (button: HTMLButtonElement | null) => {
+  button?.focus();
+};
 
 type CopyBlockProps = {
   text: string;
@@ -14,13 +16,6 @@ type CopyBlockProps = {
 
 export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
   const { copied, copy } = useCopied();
-  const button = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (focused) {
-      button.current?.focus();
-    }
-  }, [focused]);
 
   return (
     <CodeBlock
@@ -28,7 +23,7 @@ export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
       className="pr-1"
       trailing={
         <Button
-          ref={button}
+          ref={focused ? focusOnMount : undefined}
           variant="ghost"
           size="icon-xs"
           aria-label={copied ? 'Copied' : label}

@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { FoldedVisits } from '@/components/features/inbox/conversation/FoldedVisits';
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
@@ -10,8 +10,8 @@ import { PaneScroller } from '@/components/shared/PaneScroller';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { Turn } from '@/components/shared/Turn';
 import { useArrivals } from '@/hooks/useArrivals';
+import { useConversationScroll } from '@/hooks/useConversationScroll';
 import type { ApprovalAnswer } from '@/lib/approval';
-import { changesInPlace } from '@/lib/disclosure';
 import { placeVisits } from '@/lib/folded-visit';
 import {
   ARRIVING,
@@ -99,73 +99,6 @@ const marksIn = (item: ConversationItem): Set<number> => {
   return marked;
 };
 
-const CLOSE = 80;
-
-const FADE_BELOW_HEAD = 24;
-
-const latestTop = (
-  box: HTMLDivElement,
-  inside: HTMLDivElement,
-  fromTop: boolean,
-): number => {
-  const bottom = box.scrollHeight - box.clientHeight;
-  const latest = inside.querySelector(
-    ':scope > section:last-of-type > ol > li:last-child[data-note]',
-  );
-
-  if (!latest) {
-    return bottom;
-  }
-
-  const head = latest.closest('section')?.querySelector(':scope > [data-head]');
-  const covered =
-    head instanceof HTMLElement && getComputedStyle(head).position === 'sticky'
-      ? head.offsetHeight + FADE_BELOW_HEAD
-      : null;
-
-  if (covered === null && !fromTop) {
-    return bottom;
-  }
-
-  const top =
-    latest.getBoundingClientRect().top -
-    box.getBoundingClientRect().top +
-    box.scrollTop -
-    (covered ?? 0);
-
-  return Math.min(bottom, Math.max(0, top));
-};
-
-const toLatest = (
-  box: HTMLDivElement,
-  inside: HTMLDivElement,
-  fromTop: boolean,
-) => {
-  box.scrollTop = box.scrollHeight;
-  box.scrollTop = latestTop(box, inside, fromTop);
-};
-
-const put = (
-  box: HTMLDivElement,
-  inside: HTMLDivElement,
-  at: number | null,
-  fromTop: boolean,
-): boolean => {
-  const note = at === null ? null : inside.querySelector(`[data-note="${at}"]`);
-  const was = box.scrollTop;
-
-  if (note) {
-    box.scrollTop =
-      note.getBoundingClientRect().top -
-      box.getBoundingClientRect().top +
-      box.scrollTop;
-  } else {
-    toLatest(box, inside, fromTop);
-  }
-
-  return box.scrollTop !== was;
-};
-
 export type Deciding = {
   readonly pending: boolean;
   readonly onDecide: (answer: ApprovalAnswer) => void;
@@ -223,73 +156,13 @@ export function Conversation({
     item.notes.map((note) => note.position),
   );
   const { sidePanel } = useRunSidePanel();
-  const scroller = useRef<HTMLDivElement>(null);
-  const content = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
-  const pinnedAt = useRef<number | null>(null);
-  const ours = useRef(false);
   const setup = item.notes.filter(showsInThread).at(-1)?.form === 'setup';
   const latest = item.notes.at(-1)?.position;
-
-  useLayoutEffect(() => {
-    const box = scroller.current;
-    const inside = content.current;
-
-    if (!box || !inside) {
-      return;
-    }
-
-    pinnedAt.current = openAt ?? null;
-    following.current = pinnedAt.current === null;
-    ours.current = put(box, inside, pinnedAt.current, setup);
-
-    const grew = new ResizeObserver(() => {
-      if (pinnedAt.current !== null) {
-        ours.current =
-          put(box, inside, pinnedAt.current, setup) || ours.current;
-        return;
-      }
-
-      if (!following.current) {
-        return;
-      }
-
-      const was = box.scrollTop;
-      toLatest(box, inside, setup);
-      ours.current = box.scrollTop !== was || ours.current;
-    });
-    grew.observe(inside);
-
-    const toggled = (event: Event) => {
-      if (changesInPlace(event.target)) {
-        pinnedAt.current = null;
-        following.current = false;
-      }
-    };
-    box.addEventListener('click', toggled, true);
-
-    return () => {
-      grew.disconnect();
-      box.removeEventListener('click', toggled, true);
-    };
-  }, [item.id, openAt, setup]);
-
-  const watched = () => {
-    const box = scroller.current;
-
-    if (!box) {
-      return;
-    }
-
-    if (ours.current) {
-      ours.current = false;
-      return;
-    }
-
-    pinnedAt.current = null;
-    following.current =
-      box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
-  };
+  const { scroller, content, watched } = useConversationScroll(
+    item.id,
+    openAt ?? null,
+    setup,
+  );
 
   const rendered = (turn: NoteTurn, at: number): boolean =>
     turn.prompt !== null ||

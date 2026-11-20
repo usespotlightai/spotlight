@@ -1,9 +1,9 @@
 import { Send, Undo2 } from 'lucide-react';
-import { useEffect } from 'react';
 
 import { RowActions } from '@/components/shared/RowActions';
 import { useResendInvite } from '@/hooks/api/useResendInvite';
 import { useRevokeInvite } from '@/hooks/api/useRevokeInvite';
+import { useResetAfter } from '@/hooks/useResetAfter';
 import type { WorkspaceInvite } from '@/lib/members';
 
 const RESENT_SHOWN_MS = 4000;
@@ -18,14 +18,7 @@ export function InviteActions({ slug, invite }: InviteActionsProps) {
   const revoke = useRevokeInvite(slug);
   const { isSuccess: resent, reset: resetResent } = resend;
 
-  useEffect(() => {
-    if (!resent) {
-      return;
-    }
-
-    const timer = setTimeout(resetResent, RESENT_SHOWN_MS);
-    return () => clearTimeout(timer);
-  }, [resent, resetResent]);
+  useResetAfter(resent, resetResent, RESENT_SHOWN_MS);
 
   return (
     <>
