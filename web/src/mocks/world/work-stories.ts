@@ -150,7 +150,7 @@ export const failedWith = (body: string): NoteScript => ({
 
 export const PULL_431 = 'https://github.com/acme/api/pull/431';
 export const PULL_412 = 'https://github.com/acme/api/pull/412';
-const PULL_88 = 'https://github.com/acme/web/pull/88';
+export const PULL_88 = 'https://github.com/acme/web/pull/88';
 
 export const PAID_AT_MIGRATION =
   'migrations/0042_invoice_paid_at_precision.sql';

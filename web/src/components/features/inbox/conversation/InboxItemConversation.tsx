@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router';
 
-import { TaskPullRequests } from '@/components/features/board/task/TaskPullRequests';
+import { TaskPullRequestPills } from '@/components/features/board/task/TaskPullRequestPills';
 import { CloseTaskSuggestion } from '@/components/features/inbox/conversation/CloseTaskSuggestion';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxItemBriefing } from '@/components/features/inbox/conversation/InboxItemBriefing';
@@ -15,6 +15,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
+import { useTaskPullRequests } from '@/hooks/api/useTaskPullRequests';
 import { useClosableTask } from '@/hooks/useClosableTask';
 import { useRunProgress } from '@/hooks/useRunProgress';
 import {
@@ -52,6 +53,10 @@ export function InboxItemConversation({
   const reported = useRunProgress(item.runId, item.progress);
   const progress = shownProgress(reported, item.runId, worked);
   const closable = useClosableTask(item.teamId, item.taskId);
+  const { data: pullRequests = [] } = useTaskPullRequests(
+    item.teamId,
+    item.taskId,
+  );
   const closing =
     suggestsClosing(item) && closable
       ? {
@@ -75,7 +80,6 @@ export function InboxItemConversation({
       <PageHeader
         title={<Breadcrumbs segments={trail} />}
         trailing={<FailureCount failure={item.failure} />}
-        actions={<TaskPullRequests teamId={item.teamId} taskId={item.taskId} />}
       />
 
       <RunSidePanel>
@@ -108,6 +112,11 @@ export function InboxItemConversation({
               }),
           }}
           docked={closing ? [closing] : []}
+          pills={
+            pullRequests.length > 0 && (
+              <TaskPullRequestPills pullRequests={pullRequests} />
+            )
+          }
           suggestion={
             closing ? (
               <div className="mt-3">

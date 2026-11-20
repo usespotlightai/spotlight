@@ -43,12 +43,14 @@ import type { NoteDto } from '@work/application/dto/inbox.dto';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
+import type { TaskPullRequestDto } from '@work/application/dto/task-pull-request.dto';
 import type {
   TaskRunDto,
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
+import { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
   ListTasksQuery,
@@ -70,6 +72,7 @@ import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto'
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { ResumeLineRequestDto } from '@work/presentation/http/dto/resume-line.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
+import { TaskPullRequestResponseDto } from '@work/presentation/http/dto/task-pull-request.response.dto';
 import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
   LatestRunResponseDto,
@@ -378,6 +381,33 @@ export class TaskController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(new StopRunCommand(runId, user.id));
+  }
+
+  @Get('tasks/:taskId/pull-requests')
+  @ApiOperation({
+    operationId: 'listTaskPullRequests',
+    summary: 'List the pull requests of a task, each with its state',
+  })
+  @ApiParam({ name: 'taskId', type: String })
+  @ApiOkResponse({ type: TaskPullRequestResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  async pullRequests(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskPullRequestResponseDto[]> {
+    const found = await this.queryBus.execute<
+      ListTaskPullRequestsQuery,
+      TaskPullRequestDto[] | null
+    >(new ListTaskPullRequestsQuery(teamId, taskId, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return found.map(
+      (each) => new TaskPullRequestResponseDto(each.url, each.state),
+    );
   }
 
   @Get('tasks/:taskId/runs')

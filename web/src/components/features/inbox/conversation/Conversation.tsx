@@ -124,6 +124,7 @@ type ConversationProps = {
   prompt?: RunPrompt | null;
   suggestion?: ReactNode;
   docked?: readonly DockedDecision[];
+  pills?: ReactNode;
 };
 
 export function Conversation({
@@ -139,6 +140,7 @@ export function Conversation({
   prompt,
   suggestion,
   docked = [],
+  pills,
 }: ConversationProps) {
   const marked = marksIn(item);
   const turns = turnsOf(item);
@@ -199,7 +201,9 @@ export function Conversation({
         sidePanel={sidePanel}
         footer={
           <ComposerFooter floating>
-            <DecisionTray tray={tray}>{footer}</DecisionTray>
+            <DecisionTray tray={tray} alongside={pills}>
+              {footer}
+            </DecisionTray>
           </ComposerFooter>
         }
       >

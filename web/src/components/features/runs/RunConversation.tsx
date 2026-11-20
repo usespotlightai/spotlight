@@ -26,6 +26,7 @@ type RunConversationProps = {
   openAt?: number | null;
   afterRun?: AfterRun;
   docked?: readonly DockedDecision[];
+  pills?: ReactNode;
 };
 
 export function RunConversation({
@@ -40,6 +41,7 @@ export function RunConversation({
   openAt,
   afterRun,
   docked,
+  pills,
 }: RunConversationProps) {
   return (
     <Conversation
@@ -65,6 +67,7 @@ export function RunConversation({
       deciding={deciding}
       afterRun={afterRun}
       docked={docked}
+      pills={pills}
     />
   );
 }

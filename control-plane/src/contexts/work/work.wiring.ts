@@ -11,6 +11,10 @@ import {
   type InstallationRepositoriesPort,
 } from '@github/application/ports/installation-repositories.port';
 import {
+  PULL_REQUEST_STATES,
+  type PullRequestStatesPort,
+} from '@github/application/ports/pull-request-states.port';
+import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
@@ -390,6 +394,7 @@ import {
   TASK_PLACEMENTS,
   type TaskPlacementsPort,
 } from '@work/application/ports/task-placements.port';
+import { TASK_PULL_REQUEST_STATES } from '@work/application/ports/task-pull-request-states.port';
 import { TASK_READER } from '@work/application/ports/task-reader.port';
 import {
   TASK_VIEWS,
@@ -463,6 +468,7 @@ import {
   ReadInboxNoticeHandler,
 } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListTaskJournalRunsHandler } from '@work/application/queries/handlers/list-task-journal-runs.handler';
+import { ListTaskPullRequestsHandler } from '@work/application/queries/handlers/list-task-pull-requests.handler';
 import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
 import {
   ListTasksHandler,
@@ -492,6 +498,7 @@ import {
   ReadInboxItemQuery,
   ReadInboxNoticeQuery,
 } from '@work/application/queries/list-inbox.query';
+import { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
   ListTasksQuery,
@@ -619,6 +626,7 @@ import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus
 import { WORK_PAYLOAD_TYPES } from '@work/infrastructure/events/work-payload-types';
 import { GitReceivePack } from '@work/infrastructure/git/receive-pack';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
+import { GitHubTaskPullRequestStates } from '@work/infrastructure/github/github-task-pull-request-states';
 import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
 import { DrizzleTeamWelcomes } from '@work/infrastructure/persistence/drizzle/ledgers/team-welcomes.ledger';
@@ -1206,6 +1214,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       chats: ChatReaderPort,
       chatRepository: ChatRepository,
     ) => new SetupStatus(connections, runners, chats, chatRepository),
+  },
+
+  {
+    provide: TASK_PULL_REQUEST_STATES,
+    inject: [PULL_REQUEST_STATES],
+    useFactory: (states: PullRequestStatesPort) =>
+      new GitHubTaskPullRequestStates(states),
   },
 
   {
@@ -2013,6 +2028,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ReadTaskQuery, ReadTaskHandler, [
     TASK_READER,
+    WorkAccess,
+  ]),
+
+  ...bindQueryHandler(ListTaskPullRequestsQuery, ListTaskPullRequestsHandler, [
+    TASK_READER,
+    TASK_PULL_REQUEST_STATES,
     WorkAccess,
   ]),
 

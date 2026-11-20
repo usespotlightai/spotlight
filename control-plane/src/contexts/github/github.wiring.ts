@@ -16,6 +16,7 @@ import {
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
+import { PULL_REQUEST_STATES } from '@github/application/ports/pull-request-states.port';
 import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import {
   REPOSITORY_ACCESS,
@@ -41,6 +42,7 @@ import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { Installations } from '@github/application/services/installations.service';
 import { PullRequestSync } from '@github/application/services/pull-request-sync.service';
+import { StoredPullRequestStates } from '@github/application/services/stored-pull-request-states.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
 import { GITHUB_PAYLOAD_TYPES } from '@github/infrastructure/events/github-payload-types';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
@@ -124,6 +126,13 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   },
 
   DrizzlePullRequests,
+
+  {
+    provide: PULL_REQUEST_STATES,
+    inject: [DrizzlePullRequests],
+    useFactory: (pullRequests: DrizzlePullRequests) =>
+      new StoredPullRequestStates(pullRequests),
+  },
 
   {
     provide: PullRequestSync,
