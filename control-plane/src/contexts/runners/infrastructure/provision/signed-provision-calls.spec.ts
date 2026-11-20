@@ -219,6 +219,72 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
+  it('passes on the reason when the provisioner declines the work', async () => {
+    const { provision } = calls(async () =>
+      Response.json(
+        {
+          type: 'work.declined',
+          reason: '  This workspace has used its free run-hours.  ',
+        },
+        { status: 422 },
+      ),
+    );
+
+    await expect(provision.call(calling())).resolves.toEqual({
+      outcome: 'declined',
+      detail: 'This workspace has used its free run-hours.',
+    });
+  });
+
+  it('keeps at most 300 characters of a reason', async () => {
+    const { provision } = calls(async () =>
+      Response.json(
+        { type: 'work.declined', reason: 'x'.repeat(400) },
+        { status: 422 },
+      ),
+    );
+
+    await expect(provision.call(calling())).resolves.toEqual({
+      outcome: 'declined',
+      detail: 'x'.repeat(300),
+    });
+  });
+
+  it.each([
+    ['no JSON', 'unprocessable'],
+    ['another type', JSON.stringify({ type: 'other', reason: 'no' })],
+    ['no reason', JSON.stringify({ type: 'work.declined' })],
+    ['an empty reason', JSON.stringify({ type: 'work.declined', reason: ' ' })],
+  ])('takes a 422 with %s as an HTTP error', async (_, body) => {
+    const { provision } = calls(
+      async () => new Response(body, { status: 422 }),
+    );
+
+    await expect(provision.call(calling())).resolves.toMatchObject({
+      outcome: 'http-error',
+    });
+  });
+
+  it('takes a decline body with another status as an HTTP error', async () => {
+    const { provision } = calls(async () =>
+      Response.json({ type: 'work.declined', reason: 'No.' }, { status: 403 }),
+    );
+
+    await expect(provision.call(calling())).resolves.toMatchObject({
+      outcome: 'http-error',
+    });
+  });
+
+  it('says the provisioner is busy when it answers 429', async () => {
+    const { provision } = calls(
+      async () => new Response('slow down', { status: 429 }),
+    );
+
+    await expect(provision.call(calling())).resolves.toEqual({
+      outcome: 'busy',
+    });
+  });
+
   it('says the endpoint could not be reached', async () => {
     const { provision } = calls(async () => {
       throw new TypeError('fetch failed');

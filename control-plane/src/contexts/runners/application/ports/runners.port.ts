@@ -50,6 +50,7 @@ type ProvisionFailureKind =
   | 'unreachable'
   | 'http-error'
   | 'not-allowed'
+  | 'declined'
   | 'unusable';
 
 export type ProvisionedRunner =

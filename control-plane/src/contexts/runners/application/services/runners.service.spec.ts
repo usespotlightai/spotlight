@@ -748,6 +748,30 @@ describe('Runners', () => {
       expect(saved[0]?.isDiscarded).toBe(true);
     });
 
+    it('releases the runner and passes on the reason when the provisioner declines the work', async () => {
+      const { service, saved } = running(aPushPool(), {
+        answer: { outcome: 'declined', detail: 'No free run-hours left.' },
+      });
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'failed',
+        kind: 'declined',
+        detail: 'No free run-hours left.',
+      });
+      expect(saved[0]?.isDiscarded).toBe(true);
+    });
+
+    it('releases the runner and takes the pool as full when the provisioner is busy', async () => {
+      const { service, saved } = running(aPushPool(), {
+        answer: { outcome: 'busy' },
+      });
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'full',
+      });
+      expect(saved[0]?.isDiscarded).toBe(true);
+    });
+
     it('still says why provision failed when releasing the runner fails, and logs it', async () => {
       const lost = new Error('the database is down');
       const { service, logged } = running(aPushPool(), {

@@ -37,8 +37,13 @@ export interface ProvisionCall {
 
 export type ProvisionAnswer =
   | { readonly outcome: 'accepted' }
+  | { readonly outcome: 'busy' }
   | {
-      readonly outcome: 'unreachable' | 'http-error' | 'not-allowed';
+      readonly outcome:
+        | 'unreachable'
+        | 'http-error'
+        | 'not-allowed'
+        | 'declined';
       readonly detail: string;
     };
 

@@ -281,6 +281,10 @@ export class Runners implements RunnersPort {
       );
     });
 
+    if (answer.outcome === 'busy') {
+      return { outcome: 'full' };
+    }
+
     return { outcome: 'failed', kind: answer.outcome, detail: answer.detail };
   }
 

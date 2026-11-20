@@ -17,6 +17,35 @@ const TIMEOUT_MS = 10_000;
 
 const MAX_DETAIL = 500;
 
+const BUSY = 429;
+
+const DECLINED = 422;
+
+const MAX_REASON = 300;
+
+// A 422 declines the work only with this body. Another 422 stays an HTTP error, so older provisioners keep their retries.
+const declinedReason = (text: string): string | null => {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    return null;
+  }
+
+  const { type, reason } = parsed as { type?: unknown; reason?: unknown };
+
+  if (type !== 'work.declined' || typeof reason !== 'string') {
+    return null;
+  }
+
+  return reason.trim().slice(0, MAX_REASON) || null;
+};
+
 export interface ProvisionSettings {
   readonly spotlightUrl: string;
   readonly guard: OutboundGuard;
@@ -119,13 +148,21 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return { outcome: 'unreachable', detail: described(error) };
     }
 
-    const response = (await answered.text().catch(() => '')).slice(
-      0,
-      MAX_DETAIL,
-    );
+    const text = await answered.text().catch(() => '');
+    const response = text.slice(0, MAX_DETAIL);
 
     if (answered.status >= 200 && answered.status < 300) {
       return { outcome: 'accepted' };
+    }
+
+    if (answered.status === BUSY) {
+      return { outcome: 'busy' };
+    }
+
+    const reason = answered.status === DECLINED ? declinedReason(text) : null;
+
+    if (reason) {
+      return { outcome: 'declined', detail: reason };
     }
 
     return {
