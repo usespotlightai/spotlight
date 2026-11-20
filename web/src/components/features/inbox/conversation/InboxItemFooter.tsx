@@ -27,7 +27,9 @@ export function InboxItemFooter({
   if (!item.resolved && !item.answerable) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
-        Its assignee answers here.
+        {item.standing === null
+          ? 'Its assignee answers here.'
+          : 'You see the tasks of this team, but do not act on them.'}
       </p>
     );
   }

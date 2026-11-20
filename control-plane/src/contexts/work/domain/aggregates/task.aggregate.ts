@@ -788,7 +788,7 @@ export class Task extends EventRecorder {
   ): Task {
     return (
       this.answersItsOwnAsk(from, Voice.person(answerer))
-        ? this
+        ? this.claimedOnAnswer(answerer, members)
         : this.heldBy(answerer, members)
     ).answer(from, newNote, decision, edits);
   }

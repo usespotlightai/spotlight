@@ -259,6 +259,9 @@ const conversationHandlers = [
       if (item.resolved) {
         return problem(409, 'Sorry, this was already answered.');
       }
+      if (!shown(item).answerable) {
+        return problem(403, 'Another person is the assignee.');
+      }
 
       const reply = (await request.json()) as AnswerInboxItemRequestDto;
       const decisionPending =

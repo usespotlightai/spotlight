@@ -29,6 +29,7 @@ import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
+import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import { Placement } from '@work/domain/services/placement';
 import { ReactionFor } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -52,6 +53,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -123,6 +125,7 @@ const CODE_REVIEW = stationAt('code-review').id;
 type Step =
   | { readonly kind: 'dispatch' }
   | { readonly kind: 'stray-assign' }
+  | { readonly kind: 'assign'; readonly to: Person | null }
   | {
       readonly kind: 'run-ends';
       readonly stale: boolean;
@@ -176,6 +179,13 @@ const rarely = fc.oneof(
 const step: fc.Arbitrary<Step> = fc.oneof(
   { weight: 1, arbitrary: fc.constant({ kind: 'dispatch' as const }) },
   { weight: 1, arbitrary: fc.constant({ kind: 'stray-assign' as const }) },
+  {
+    weight: 2,
+    arbitrary: fc.record({
+      kind: fc.constant('assign' as const),
+      to: fc.option(person, { nil: null }),
+    }),
+  },
   {
     weight: 6,
     arbitrary: fc.record({
@@ -616,6 +626,8 @@ const applied = async (world: World, each: Step): Promise<Task> => {
       return handedToRun(services.dispatch, task, LINE);
     case 'stray-assign':
       return task.assignRun(RunId.of(`run_${++world.runs}`), LINE);
+    case 'assign':
+      return each.to ? task.assign(PEOPLE[each.to], TEAM) : task.unassign();
     case 'run-ends':
       return runEnded(world, services, each);
     case 'turn-kept':
@@ -1104,6 +1116,42 @@ describe('a task under any order of runs, people and happenings on its line', ()
     );
   });
 
+  it('lets a person answer or resolve exactly when the inbox offers it to them', async () => {
+    const acting = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+
+    await fc.assert(
+      lifecycle((visit) => {
+        if (visit.step.kind !== 'answer' && visit.step.kind !== 'resolve') {
+          return true;
+        }
+
+        const person = PEOPLE[visit.step.by];
+        const standing = visit.before.conversationStandingOf({
+          person,
+          onTeam: true,
+        });
+        const offered =
+          visit.before.openConversation !== null &&
+          (visit.step.kind === 'resolve'
+            ? ConversationAudience.mayResolve(acting, standing)
+            : ConversationAudience.mayAnswer(acting, standing));
+        const approval = visit.before.openConversationNote?.approval ?? null;
+        const decidedOnlyBySomeoneElse =
+          visit.step.kind === 'answer' &&
+          approval !== null &&
+          (!approval.open ||
+            (visit.step.approve &&
+              approval.askedOf !== null &&
+              !approval.askedOf.equals(person)));
+
+        return decidedOnlyBySomeoneElse
+          ? !visit.accepted || offered
+          : visit.accepted === offered;
+      }),
+      RUNS,
+    );
+  }, 120_000);
+
   it('lets only its current run route it, and routes every ending of that run', async () => {
     await fc.assert(
       lifecycle(({ before, after, step: each, accepted }) => {
@@ -1389,5 +1437,56 @@ describe('a task held by one person whose turn asks another person', () => {
     ).toBe('asked');
     expect(approved.assignee).toEqual(PEOPLE.maya);
     expect(loadable(approved)).toBe(true);
+  });
+});
+
+describe('a task unassigned while its turn asks a person on its team', () => {
+  const asked = (): Task =>
+    askingApproval(
+      opened('implementation').assignRun(RunId.of('run_turn'), LINE),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    ).unassign();
+  const note = (body: string) => ({
+    line: LINE,
+    body: TaskNoteBody.of(body),
+    at: START,
+    voice: Voice.person(PEOPLE.leon),
+  });
+
+  it('gives the person asked the team standing, so they may resolve it', () => {
+    const task = asked();
+
+    expect(task.assignee).toBeNull();
+    expect(
+      task.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('team');
+  });
+
+  it('assigns the person asked when they resolve it', () => {
+    const task = asked();
+    const resolved = task.resolveAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(task),
+      note('Not needed.'),
+    );
+
+    expect(resolved.assignee).toEqual(PEOPLE.leon);
+    expect(resolved.openConversation).toBeNull();
+  });
+
+  it('assigns the person asked when they answer in words', () => {
+    const task = asked();
+    const answered = task.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(task),
+      note('Use the staging key.'),
+    );
+
+    expect(answered.assignee).toEqual(PEOPLE.leon);
+    expect(loadable(answered)).toBe(true);
   });
 });

@@ -2932,7 +2932,7 @@ export type InboxItemResponseDto = {
    */
   resolvable: boolean;
   /**
-   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee or, when it has no assignee, a member of its team
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person may answer it once it is open again: its assignee or, when it has no assignee, a member of its team
    */
   reopenable: boolean;
   /**
@@ -3157,7 +3157,7 @@ export type InboxItemViewResponseDto = {
    */
   resolvable: boolean;
   /**
-   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee or, when it has no assignee, a member of its team
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person may answer it once it is open again: its assignee or, when it has no assignee, a member of its team
    */
   reopenable: boolean;
   /**

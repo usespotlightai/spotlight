@@ -200,8 +200,8 @@ const inTeamsSeen = (scope: InboxScope): SQL =>
 const wroteInBy = (viewer: UserId): SQL =>
   sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and ${taskNote.voice} = 'person' and (${taskNote.authorId} = ${viewer.value} or ${viewer.value} = any(${taskNote.coAuthorIds})))`;
 
-const namedInBy = (viewer: UserId): SQL =>
-  sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and (${taskNote.approval}->>'askedOf' = ${viewer.value} or ${taskNote.connectionAsk}->>'personId' = ${viewer.value}))`;
+const openlyAskedBy = (viewer: UserId): SQL =>
+  sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and ((${taskNote.approval}->>'askedOf' = ${viewer.value} and ${taskNote.approval}->>'status' = 'pending') or (${taskNote.connectionAsk}->>'personId' = ${viewer.value} and (${taskNote.connectionAsk}->>'met')::boolean = false)))`;
 
 const openingAskOf = (note: {
   readonly approval: ApprovalRow | null;
@@ -298,14 +298,14 @@ const taskRowsWhere = (
 ) => {
   const origin = alias(workStation, 'origin');
   const wroteIn = wroteInBy(scope.viewer);
-  const namedIn = namedInBy(scope.viewer);
+  const openlyAsked = openlyAskedBy(scope.viewer);
 
   return db
     .select({
       taskId: task.id,
       assigneeId: task.assigneeId,
       wroteIn: sql<boolean>`${wroteIn}`,
-      namedIn: sql<boolean>`${namedIn}`,
+      openlyAsked: sql<boolean>`${openlyAsked}`,
       teamId: workStation.teamId,
       title: task.title,
       description: task.description,
@@ -332,7 +332,7 @@ const taskRowsWhere = (
           eq(task.assigneeId, scope.viewer.value),
           and(isNull(task.assigneeId), inTeamsJoined(scope)),
           wroteIn,
-          namedIn,
+          openlyAsked,
         ),
         inTeamsSeen(scope),
         narrowedTo,
@@ -358,7 +358,7 @@ const tasksWhere = async (
   const openings = await openingAsksOf(
     db,
     rows.flatMap((row) =>
-      row.namedIn && row.assigneeId !== scope.viewer.value
+      row.openlyAsked && row.assigneeId !== scope.viewer.value
         ? [row.taskId]
         : [],
     ),

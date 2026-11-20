@@ -89,6 +89,25 @@ describe('ConversationAudience', () => {
     ).toBe('assignee');
   });
 
+  it('stands the person an open ask names as the team while nobody is the assignee, so they may resolve it', () => {
+    expect(
+      ConversationAudience.standingOf(null, {
+        person: ANA,
+        onTeam: true,
+        wroteIn: false,
+        asked: true,
+      }),
+    ).toBe('team');
+    expect(
+      ConversationAudience.standingOf(null, {
+        person: ANA,
+        onTeam: false,
+        wroteIn: false,
+        asked: true,
+      }),
+    ).toBe('asked');
+  });
+
   it('lets only the assignee, the person asked and the team answer', () => {
     expect(ConversationAudience.answers('assignee')).toBe(true);
     expect(ConversationAudience.answers('asked')).toBe(true);
