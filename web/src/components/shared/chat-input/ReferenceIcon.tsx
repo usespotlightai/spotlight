@@ -14,8 +14,9 @@ import {
   ScrollText,
   Terminal,
 } from 'lucide-react';
+import { createElement } from 'react';
 
-import { isCode, type Reference } from '@/lib/chat-input';
+import { extensionOf, isCode, type Reference } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 
 const ICON: Record<Reference['kind'], LucideIcon> = {
@@ -42,42 +43,31 @@ const FORMATS: [LucideIcon, string[]][] = [
   [Database, ['sql', 'sqlite']],
 ];
 
-const BY_EXTENSION: Record<string, LucideIcon> = Object.fromEntries(
+const BY_EXTENSION = new Map<string, LucideIcon>(
   FORMATS.flatMap(([icon, extensions]) =>
-    extensions.map((extension) => [extension, icon]),
+    extensions.map((extension): [string, LucideIcon] => [extension, icon]),
   ),
 );
-
-const extensionOf = (name: string): string =>
-  name.slice(name.lastIndexOf('.') + 1).toLowerCase();
 
 const iconOf = (reference: Reference): LucideIcon => {
   if (reference.kind !== 'file') return ICON[reference.kind];
   return (
-    BY_EXTENSION[extensionOf(reference.name)] ??
+    BY_EXTENSION.get(extensionOf(reference.name)) ??
     (isCode(reference.name) ? Braces : ICON.file)
   );
 };
 
 const isPlainCode = (reference: Reference): boolean =>
   reference.kind === 'file' &&
-  !(extensionOf(reference.name) in BY_EXTENSION) &&
+  !BY_EXTENSION.has(extensionOf(reference.name)) &&
   isCode(reference.name);
 
-const renderIcon = (reference: Reference) => {
-  const Icon = iconOf(reference);
-
-  return (
-    <Icon
-      aria-hidden
-      className={cn(
-        'size-3.5 shrink-0 self-center',
-        isPlainCode(reference) ? 'text-amber-500' : TINT[reference.kind],
-      )}
-    />
-  );
-};
-
 export function ReferenceIcon({ reference }: { reference: Reference }) {
-  return renderIcon(reference);
+  return createElement(iconOf(reference), {
+    'aria-hidden': true,
+    className: cn(
+      'size-3.5 shrink-0 self-center',
+      isPlainCode(reference) ? 'text-amber-500' : TINT[reference.kind],
+    ),
+  });
 }

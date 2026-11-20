@@ -63,8 +63,12 @@ export const targetStationIdIn = (
 ): string | null =>
   references.find((each) => each.kind === 'station')?.key ?? null;
 
-export const isCode = (name: string): boolean =>
-  CODE.has(name.slice(name.lastIndexOf('.') + 1).toLowerCase());
+export const extensionOf = (name: string): string => {
+  const dot = name.lastIndexOf('.');
+  return dot === -1 ? '' : name.slice(dot + 1).toLowerCase();
+};
+
+export const isCode = (name: string): boolean => CODE.has(extensionOf(name));
 
 export const ReferenceStates = createContext<
   ReadonlyMap<string, PendingAttachment>
