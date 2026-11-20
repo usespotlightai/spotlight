@@ -60,6 +60,7 @@ import { GitHubRepositorySettings } from '@github/infrastructure/github/github-r
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
 import { DrizzleGitHubConnectionReader } from '@github/infrastructure/persistence/drizzle/readers/github-connection.reader';
+import { DrizzlePullRequestStatusReader } from '@github/infrastructure/persistence/drizzle/readers/pull-request-status.reader';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
 import { GitHubWebhookParser } from '@github/infrastructure/webhooks/github-webhook.parser';
@@ -127,11 +128,13 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
 
   DrizzlePullRequests,
 
+  DrizzlePullRequestStatusReader,
+
   {
     provide: PULL_REQUEST_STATES,
-    inject: [DrizzlePullRequests],
-    useFactory: (pullRequests: DrizzlePullRequests) =>
-      new StoredPullRequestStates(pullRequests),
+    inject: [DrizzlePullRequestStatusReader],
+    useFactory: (reader: DrizzlePullRequestStatusReader) =>
+      new StoredPullRequestStates(reader),
   },
 
   {

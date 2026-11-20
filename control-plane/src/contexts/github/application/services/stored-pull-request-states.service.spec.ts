@@ -1,80 +1,58 @@
+import type {
+  NumberedPullRequest,
+  PullRequestStatusReaderPort,
+  PullRequestWithStatus,
+} from '@github/application/ports/pull-request-status-reader.port';
 import { StoredPullRequestStates } from '@github/application/services/stored-pull-request-states.service';
-import { PullRequest } from '@github/domain/aggregates/pull-request.aggregate';
-import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
-import type { PullRequestState } from '@github/domain/value-objects/pull-request-state.vo';
+import type { PullRequestStatus } from '@github/domain/value-objects/pull-request-state.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
-import type { Repository as Repo } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
-const OPENED = new Date('2026-11-20T08:00:00Z');
 
-const urlOf = (number: number) =>
-  PullRequestUrl.of(`https://github.com/acme/api/pull/${number}`);
+const urlOf = (number: number, repository = 'acme/api') =>
+  PullRequestUrl.of(`https://github.com/${repository}/pull/${number}`);
 
 const stored = (
   number: number,
-  state: PullRequestState,
-  draft = false,
-): PullRequest =>
-  PullRequest.rehydrate({
-    workspaceId: WORKSPACE,
-    url: urlOf(number),
-    repository: Repository.of('acme/api'),
-    number,
-    title: `Change ${number}`,
-    author: 'ada',
-    authorIsBot: false,
-    branch: null,
-    size: null,
-    openedAt: OPENED,
-    draft,
-    readyForReviewAt: null,
-    draftPeriods: [],
-    state,
-    closedAt: state === 'open' ? null : OPENED,
-    updatedAt: OPENED,
-    reverts: null,
-    reviews: [],
-    dismissedReviews: [],
-    comments: [],
-    deletedComments: [],
-    botComments: [],
-    threads: [],
-    revertedBy: null,
-    version: 0,
-  });
-
-const holding = (
-  ...pullRequests: readonly PullRequest[]
-): PullRequestRepository => ({
-  numbered: async (_: WorkspaceId, __: Repo, number: number) =>
-    pullRequests.find((each) => each.number === number) ?? null,
-  titled: async () => [],
-  lastUpdatedBefore: async () => [],
-  ofWorkspace: async () => [],
-  lockedAt: async () => null,
-  lockedUnlessBusy: async () => null,
-  add: async () => {},
-  save: async () => {},
-  remove: async () => {},
+  status: PullRequestStatus,
+  repository = 'acme/api',
+): PullRequestWithStatus => ({
+  repository: Repository.of(repository),
+  number,
+  status,
 });
 
+const holding = (...stored: readonly PullRequestWithStatus[]) => {
+  const asked: NumberedPullRequest[][] = [];
+  const reader: PullRequestStatusReaderPort = {
+    statusesOf: async (_, pullRequests) => {
+      asked.push([...pullRequests]);
+      return stored;
+    },
+  };
+
+  return { reader, asked };
+};
+
 describe('StoredPullRequestStates', () => {
-  it('says whether each pull request is a draft, open, merged or closed', async () => {
-    const states = new StoredPullRequestStates(
-      holding(
-        stored(1, 'open', true),
-        stored(2, 'open'),
-        stored(3, 'merged'),
-        stored(4, 'closed'),
-      ),
+  it('gives each pull request the status it has stored', async () => {
+    const { reader } = holding(
+      stored(1, 'draft'),
+      stored(2, 'open'),
+      stored(3, 'merged'),
+      stored(4, 'closed'),
     );
 
     await expect(
-      states.of(WORKSPACE, [urlOf(1), urlOf(2), urlOf(3), urlOf(4)]),
+      new StoredPullRequestStates(reader).of(WORKSPACE, [
+        urlOf(1),
+        urlOf(2),
+        urlOf(3),
+        urlOf(4),
+      ]),
     ).resolves.toEqual([
       { url: urlOf(1).value, state: 'draft' },
       { url: urlOf(2).value, state: 'open' },
@@ -83,15 +61,41 @@ describe('StoredPullRequestStates', () => {
     ]);
   });
 
-  it('leaves out pull requests it has not stored, and links that are not pull requests', async () => {
-    const states = new StoredPullRequestStates(holding(stored(1, 'open')));
+  it('reads all pull requests at once and asks only for links to pull requests', async () => {
+    const { reader, asked } = holding();
+
+    await new StoredPullRequestStates(reader).of(WORKSPACE, [
+      urlOf(1),
+      PullRequestUrl.of('https://github.com/acme/api/issues/2'),
+      urlOf(3, 'acme/web'),
+    ]);
+
+    expect(asked).toHaveLength(1);
+    expect(
+      asked[0]?.map((each) => `${each.repository.value}#${each.number}`),
+    ).toEqual(['acme/api#1', 'acme/web#3']);
+  });
+
+  it('leaves out pull requests it has not stored', async () => {
+    const { reader } = holding(
+      stored(1, 'open'),
+      stored(2, 'merged', 'acme/web'),
+    );
 
     await expect(
-      states.of(WORKSPACE, [
+      new StoredPullRequestStates(reader).of(WORKSPACE, [
         urlOf(1),
+        urlOf(2),
         urlOf(9),
-        PullRequestUrl.of('https://github.com/acme/api/issues/2'),
       ]),
+    ).resolves.toEqual([{ url: urlOf(1).value, state: 'open' }]);
+  });
+
+  it('matches the repository whatever its case', async () => {
+    const { reader } = holding(stored(1, 'open', 'Acme/API'));
+
+    await expect(
+      new StoredPullRequestStates(reader).of(WORKSPACE, [urlOf(1)]),
     ).resolves.toEqual([{ url: urlOf(1).value, state: 'open' }]);
   });
 });

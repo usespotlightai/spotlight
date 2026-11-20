@@ -1,45 +1,45 @@
 import type {
   PullRequestStatesPort,
-  StoredPullRequestState,
   StoredPullRequestStateDto,
 } from '@github/application/ports/pull-request-states.port';
-import type { PullRequest } from '@github/domain/aggregates/pull-request.aggregate';
-import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
+import type {
+  NumberedPullRequest,
+  PullRequestStatusReaderPort,
+} from '@github/application/ports/pull-request-status-reader.port';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const stateOf = (pullRequest: PullRequest): StoredPullRequestState =>
-  pullRequest.state === 'open' && pullRequest.draft
-    ? 'draft'
-    : pullRequest.state;
+const keyOf = ({ repository, number }: NumberedPullRequest): string =>
+  `${repository.value.toLowerCase()}#${number}`;
+
+const numberedOf = (url: PullRequestUrl): NumberedPullRequest | null => {
+  const { repository, number } = url;
+
+  return repository && number !== null ? { repository, number } : null;
+};
 
 export class StoredPullRequestStates implements PullRequestStatesPort {
-  constructor(private readonly pullRequests: PullRequestRepository) {}
+  constructor(private readonly reader: PullRequestStatusReaderPort) {}
 
   async of(
     workspaceId: WorkspaceId,
     urls: readonly PullRequestUrl[],
   ): Promise<readonly StoredPullRequestStateDto[]> {
-    const found = await Promise.all(
-      urls.map(async (url) => {
-        const { repository, number } = url;
+    const asked = urls.flatMap((url) => {
+      const numbered = numberedOf(url);
 
-        if (!repository || number === null) {
-          return null;
-        }
-
-        const pullRequest = await this.pullRequests.numbered(
-          workspaceId,
-          repository,
-          number,
-        );
-
-        return pullRequest
-          ? { url: url.value, state: stateOf(pullRequest) }
-          : null;
-      }),
+      return numbered ? [{ url, numbered }] : [];
+    });
+    const found = await this.reader.statusesOf(
+      workspaceId,
+      asked.map((each) => each.numbered),
     );
+    const statuses = new Map(found.map((each) => [keyOf(each), each.status]));
 
-    return found.filter((each) => each !== null);
+    return asked.flatMap(({ url, numbered }) => {
+      const status = statuses.get(keyOf(numbered));
+
+      return status ? [{ url: url.value, state: status }] : [];
+    });
   }
 }

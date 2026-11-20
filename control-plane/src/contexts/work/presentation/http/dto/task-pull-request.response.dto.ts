@@ -13,7 +13,7 @@ export class TaskPullRequestResponseDto {
     nullable: true,
     example: 'open',
     description:
-      'Draft, open, merged or closed; null while Spotlight has not seen the pull request on GitHub',
+      'Draft, open, merged or closed; null when Spotlight holds no state for it: not seen on GitHub yet, or removed after the retention period',
   })
   readonly state: TaskPullRequestState | null;
 

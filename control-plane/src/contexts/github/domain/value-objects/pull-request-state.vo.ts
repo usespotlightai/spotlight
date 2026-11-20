@@ -2,6 +2,13 @@ const PULL_REQUEST_STATES = ['open', 'merged', 'closed'] as const;
 
 export type PullRequestState = (typeof PULL_REQUEST_STATES)[number];
 
+export type PullRequestStatus = 'draft' | PullRequestState;
+
+export const pullRequestStatusOf = (
+  state: PullRequestState,
+  draft: boolean,
+): PullRequestStatus => (state === 'open' && draft ? 'draft' : state);
+
 export interface ReportedPullRequestState {
   readonly state: string | null;
   readonly merged: boolean;
