@@ -340,7 +340,7 @@ export const followed = (entry: InboxEntry): boolean =>
   (entry.kind === 'task' || entry.kind === 'run') &&
   entry.standing === 'following';
 
-export const askedOnly = (entry: InboxEntry): boolean =>
+const askedOnly = (entry: InboxEntry): boolean =>
   entry.kind === 'task' && entry.standing === 'asked';
 
 export const resolvable = (entry: InboxEntry): entry is ResolvableEntry =>
