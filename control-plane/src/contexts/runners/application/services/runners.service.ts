@@ -277,11 +277,11 @@ export class Runners implements RunnersPort {
     await this.release(request.runnerId, at).catch((error: unknown) => {
       this.logger.error(
         { err: error, runner: request.runnerId.value },
-        'Releasing a runner whose provision call failed',
+        'Releasing a runner that the pool did not accept',
       );
     });
 
-    if (answer.outcome === 'busy') {
+    if (answer.outcome === 'full') {
       return { outcome: 'full' };
     }
 

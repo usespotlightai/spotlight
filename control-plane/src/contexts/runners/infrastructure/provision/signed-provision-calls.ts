@@ -17,13 +17,11 @@ const TIMEOUT_MS = 10_000;
 
 const MAX_DETAIL = 500;
 
-const BUSY = 429;
+const UNPROCESSABLE = 422;
 
-const DECLINED = 422;
+const TOO_MANY_REQUESTS = 429;
 
-const MAX_REASON = 300;
-
-// A 422 declines the work only with this body. Another 422 stays an HTTP error, so older provisioners keep their retries.
+// A 422 declines the work only when its body is {"type": "work.declined", "reason": "<text>"}. Another 422 stays an HTTP error, so older provisioners keep their retries.
 const declinedReason = (text: string): string | null => {
   let parsed: unknown;
 
@@ -43,7 +41,7 @@ const declinedReason = (text: string): string | null => {
     return null;
   }
 
-  return reason.trim().slice(0, MAX_REASON) || null;
+  return reason.trim().slice(0, MAX_DETAIL) || null;
 };
 
 export interface ProvisionSettings {
@@ -155,11 +153,12 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return { outcome: 'accepted' };
     }
 
-    if (answered.status === BUSY) {
-      return { outcome: 'busy' };
+    if (answered.status === TOO_MANY_REQUESTS) {
+      return { outcome: 'full' };
     }
 
-    const reason = answered.status === DECLINED ? declinedReason(text) : null;
+    const reason =
+      answered.status === UNPROCESSABLE ? declinedReason(text) : null;
 
     if (reason) {
       return { outcome: 'declined', detail: reason };

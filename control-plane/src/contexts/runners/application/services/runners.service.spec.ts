@@ -761,9 +761,9 @@ describe('Runners', () => {
       expect(saved[0]?.isDiscarded).toBe(true);
     });
 
-    it('releases the runner and takes the pool as full when the provisioner is busy', async () => {
+    it('releases the runner and takes the pool as full when the provisioner says it is full', async () => {
       const { service, saved } = running(aPushPool(), {
-        answer: { outcome: 'busy' },
+        answer: { outcome: 'full' },
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({

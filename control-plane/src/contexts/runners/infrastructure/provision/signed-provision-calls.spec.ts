@@ -236,17 +236,17 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('keeps at most 300 characters of a reason', async () => {
+  it('keeps at most 500 characters of a reason', async () => {
     const { provision } = calls(async () =>
       Response.json(
-        { type: 'work.declined', reason: 'x'.repeat(400) },
+        { type: 'work.declined', reason: 'x'.repeat(600) },
         { status: 422 },
       ),
     );
 
     await expect(provision.call(calling())).resolves.toEqual({
       outcome: 'declined',
-      detail: 'x'.repeat(300),
+      detail: 'x'.repeat(500),
     });
   });
 
@@ -275,13 +275,13 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('says the provisioner is busy when it answers 429', async () => {
+  it('takes the pool as full when the provisioner answers 429', async () => {
     const { provision } = calls(
       async () => new Response('slow down', { status: 429 }),
     );
 
     await expect(provision.call(calling())).resolves.toEqual({
-      outcome: 'busy',
+      outcome: 'full',
     });
   });
 
