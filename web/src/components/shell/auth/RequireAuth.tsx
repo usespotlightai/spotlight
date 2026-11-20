@@ -1,10 +1,9 @@
-import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 
 import { useSession } from '@/hooks/api/useSession';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { useErrorReportsAs } from '@/hooks/useErrorReportsAs';
 import { useQueryCacheOwnedBy } from '@/hooks/useQueryCacheOwner';
-import { reportAs } from '@/lib/error-reporting';
 import { loading } from '@/lib/query';
 
 const CREATE_WORKSPACE = '/workspaces/new';
@@ -17,7 +16,7 @@ export function RequireAuth() {
   const userId = session?.user.id ?? null;
   const cacheOwned = useQueryCacheOwnedBy(userId);
 
-  useEffect(() => reportAs(userId), [userId]);
+  useErrorReportsAs(userId);
 
   if (isPending) {
     return null;

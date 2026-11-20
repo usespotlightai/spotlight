@@ -1,13 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
 import { myEmailKeys } from '@/hooks/api/useMyEmails';
 import { verifyMyEmail } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 
-export function useVerifyMyEmail(token: string | undefined) {
+export function useVerifyMyEmail(token: string | undefined, signedIn: boolean) {
   const queryClient = useQueryClient();
+  const started = useRef<string | null>(null);
 
-  return useMutation({
+  const verify = useMutation({
     meta: { quiet: true },
     mutationFn: async () => {
       const { data, error, response } = await verifyMyEmail({
@@ -31,4 +33,16 @@ export function useVerifyMyEmail(token: string | undefined) {
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: myEmailKeys.all }),
   });
+
+  useEffect(() => {
+    if (!signedIn || !token || started.current === token) {
+      return;
+    }
+
+    started.current = token;
+    verify.reset();
+    verify.mutate();
+  }, [signedIn, token, verify]);
+
+  return verify;
 }

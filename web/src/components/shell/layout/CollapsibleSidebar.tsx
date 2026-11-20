@@ -1,11 +1,4 @@
-import {
-  type ReactNode,
-  type RefObject,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useId, useRef, useState } from 'react';
 
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { SidebarAside } from '@/components/shell/layout/SidebarAside';
@@ -18,6 +11,7 @@ import { useNarrowViewport } from '@/hooks/useNarrowViewport';
 import { usePaneWidth, WORKSPACE_SIDEBAR } from '@/hooks/usePaneWidth';
 import { useSettling } from '@/hooks/useSettling';
 import { useSidebarKey } from '@/hooks/useSidebarKey';
+import { useToggleFocus } from '@/hooks/useToggleFocus';
 import { framesWindow } from '@/lib/desktop';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -55,52 +49,6 @@ function ToggleRoom({ touch, narrow, desktop, floating }: ToggleRoomProps) {
       )}
     />
   );
-}
-
-type ToggleFocusProps = {
-  paneRef: RefObject<HTMLElement | null>;
-  asideRef: RefObject<HTMLElement | null>;
-  toggleRef: RefObject<HTMLButtonElement | null>;
-  hidden: boolean;
-  collapsed: boolean;
-  pinned: boolean;
-  desktop: boolean;
-  touch: boolean;
-  narrow: boolean;
-};
-
-function useToggleFocus({
-  paneRef,
-  asideRef,
-  toggleRef,
-  hidden,
-  collapsed,
-  pinned,
-  desktop,
-  touch,
-  narrow,
-}: ToggleFocusProps) {
-  const restoreRef = useRef<HTMLElement | null>(null);
-  const opened = !collapsed || pinned;
-  const reachable = desktop || (touch && !narrow);
-
-  useLayoutEffect(() => {
-    const active = document.activeElement;
-    if (!(active instanceof HTMLElement)) {
-      return;
-    }
-
-    if (hidden && paneRef.current?.contains(active)) {
-      restoreRef.current = active;
-      toggleRef.current?.focus();
-    } else if (opened && !reachable && active === toggleRef.current) {
-      const aside = asideRef.current;
-      const restore = restoreRef.current?.isConnected
-        ? restoreRef.current
-        : aside?.querySelector<HTMLElement>('a[href]');
-      (restore ?? aside)?.focus();
-    }
-  }, [hidden, opened, reachable, paneRef, asideRef, toggleRef]);
 }
 
 type CollapsibleSidebarProps = {

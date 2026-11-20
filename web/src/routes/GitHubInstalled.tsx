@@ -1,5 +1,4 @@
 import { ArrowLeft } from 'lucide-react';
-import { useEffect } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 
 import { useConnectGitHub } from '@/hooks/api/useConnectGitHub';
@@ -19,19 +18,6 @@ export function GitHubInstalled() {
     whence?.slug,
     requested ? null : installationId,
   );
-  const connected = connect.isSuccess;
-
-  useEffect(() => {
-    if (!connected || !whence) {
-      return;
-    }
-
-    void navigate(
-      whence.from ??
-        teamSettingsPath(whence.slug, whence.teamId, 'integrations'),
-      { replace: true },
-    );
-  }, [connected, navigate, whence]);
 
   if (!whence) {
     return <Navigate to="/" replace />;
@@ -39,6 +25,10 @@ export function GitHubInstalled() {
 
   const back =
     whence.from ?? teamSettingsPath(whence.slug, whence.teamId, 'integrations');
+
+  if (connect.isSuccess) {
+    return <Navigate to={back} replace />;
+  }
 
   return (
     <main className="flex min-h-svh items-center justify-center px-4">

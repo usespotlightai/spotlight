@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
-import { canAnimate, prefersReducedMotion } from '@/lib/motion';
+import { useFrameStrip } from '@/hooks/useFrameStrip';
+import { prefersReducedMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -34,21 +35,7 @@ export function TerminalSpinner({
     ? FRAMES
     : [stopped ? SYMBOLS[stopped].glyph : FRAMES[0]];
 
-  useEffect(() => {
-    if (!moving || !canAnimate(strip.current)) {
-      return;
-    }
-    const turning = strip.current.animate(
-      [{ transform: 'translateY(0)' }, { transform: 'translateY(-100%)' }],
-      {
-        duration: FRAME_MS * FRAMES.length,
-        easing: `steps(${FRAMES.length})`,
-        iterations: Infinity,
-      },
-    );
-
-    return () => turning.cancel();
-  }, [moving]);
+  useFrameStrip(strip, FRAMES.length, FRAME_MS, moving);
 
   return (
     <span

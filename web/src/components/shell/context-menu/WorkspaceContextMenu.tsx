@@ -1,15 +1,10 @@
-import {
-  type ReactNode,
-  useEffect,
-  useEffectEvent,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { type ReactNode, useState, useSyncExternalStore } from 'react';
 
 import {
   ContextMenuPopup,
   type MenuPoint,
 } from '@/components/shell/context-menu/ContextMenuPopup';
+import { useDocumentListener } from '@/hooks/useDocumentListener';
 import { type WorkspaceLink, workspaceLinkAt } from '@/lib/app-tabs';
 import {
   MENU_ACTIONS_ATTRIBUTE,
@@ -73,7 +68,7 @@ export function WorkspaceContextMenu({
     () => registry.actionsOf(menu.region),
   );
 
-  const opened = useEffectEvent((event: MouseEvent) => {
+  useDocumentListener('contextmenu', (event) => {
     const target = event.target instanceof Element ? event.target : null;
 
     if (
@@ -104,12 +99,6 @@ export function WorkspaceContextMenu({
       closing: [],
     });
   });
-
-  useEffect(() => {
-    document.addEventListener('contextmenu', opened);
-
-    return () => document.removeEventListener('contextmenu', opened);
-  }, []);
 
   return (
     <MenuActionsContext value={registry}>
