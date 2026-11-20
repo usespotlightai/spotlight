@@ -24,7 +24,7 @@ vi.mock('@/hooks/api/useTeamRuns', () => ({
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
     refetch,
-    more: { available: older(), loading: false, load },
+    more: { available: older(), loading: false, failed: false, load },
   }),
 }));
 
@@ -114,12 +114,41 @@ describe('TeamRuns', () => {
 
     await userEvent.click(filter('Waiting for you'));
 
+    expect(screen.getByText('Nothing is waiting for you')).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show all runs' }),
+    );
+
+    expect(filter('All')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('reads older runs by itself under Waiting for you', async () => {
+    runs.mockReturnValue([answered, unreviewed]);
+    older.mockReturnValue(true);
+    showing();
+
+    await userEvent.click(filter('Waiting for you'));
+
+    expect(load).toHaveBeenCalled();
     expect(
-      screen.getByText(
-        'Nothing is waiting for you. Switch to All to see every run.',
-      ),
-    ).toBeInTheDocument();
-    expect(filter('All')).toBeInTheDocument();
+      screen.queryByText('Nothing is waiting for you'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Show more' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers no Show more under Waiting for you', async () => {
+    older.mockReturnValue(true);
+    showing();
+
+    await userEvent.click(filter('Waiting for you'));
+
+    expect(screen.getByText('Fix the login bug')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Show more' }),
+    ).not.toBeInTheDocument();
   });
 
   it('reads older runs on request', async () => {

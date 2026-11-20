@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 export type Page<T> = {
   readonly items: readonly T[];
@@ -83,9 +84,23 @@ export function usePagedList<T>({
     more: {
       available: list.hasNextPage,
       loading: list.isFetchingNextPage,
-      load: () => void list.fetchNextPage(),
+      failed: list.isFetchNextPageError,
+      load: () => void list.fetchNextPage({ cancelRefetch: false }),
     },
   };
 }
 
 export type PagedList<T> = ReturnType<typeof usePagedList<T>>;
+
+export function useReadEveryPage(list: PagedList<unknown>, when: boolean) {
+  const { available, loading, failed, load } = list.more;
+  const reading = when && available && !failed;
+
+  useEffect(() => {
+    if (reading && !loading) {
+      load();
+    }
+  }, [reading, loading, load]);
+
+  return reading;
+}
