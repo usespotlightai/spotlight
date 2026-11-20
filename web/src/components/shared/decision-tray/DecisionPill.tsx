@@ -17,7 +17,9 @@ export function DecisionPill({ label, current, onShow }: DecisionPillProps) {
       onClick={onShow}
     >
       <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />
-      <span className="truncate">{label}</span>
+      <span data-pill-label className="truncate">
+        {label}
+      </span>
     </PillButton>
   );
 }

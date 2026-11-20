@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 
 import { canAnimate } from '@/lib/motion';
 
@@ -7,6 +8,18 @@ const MORPHING: KeyframeAnimationOptions = {
   easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
   fill: 'both',
 };
+
+const HANDING_OVER: Keyframe[] = [
+  { opacity: 1 },
+  { opacity: 1, offset: 0.5 },
+  { opacity: 0 },
+];
+
+const TAKING_OVER: Keyframe[] = [
+  { opacity: 0 },
+  { opacity: 1, offset: 0.5 },
+  { opacity: 1 },
+];
 
 const boxes = (card: HTMLElement, pill: HTMLElement): Keyframe[] => {
   const from = card.getBoundingClientRect();
@@ -31,6 +44,57 @@ const boxes = (card: HTMLElement, pill: HTMLElement): Keyframe[] => {
   ];
 };
 
+const category = (
+  card: HTMLElement,
+  pill: HTMLElement,
+): { label: HTMLElement; frames: Keyframe[] } | null => {
+  const label = card.querySelector<HTMLElement>('[data-tray-category]');
+  const target = pill.querySelector<HTMLElement>('[data-pill-label]');
+
+  if (!label || !target) {
+    return null;
+  }
+
+  const box = card.getBoundingClientRect();
+  const from = label.getBoundingClientRect();
+  const to = pill.getBoundingClientRect();
+  const onto = target.getBoundingClientRect();
+  const now = getComputedStyle(label);
+  const then = getComputedStyle(target);
+  const x = onto.left - (to.left + from.left - box.left);
+  const y =
+    onto.top +
+    onto.height / 2 -
+    (to.top + from.top + from.height / 2 - box.top);
+
+  return {
+    label,
+    frames: [
+      {
+        transform: 'translate(0px, 0px)',
+        fontSize: now.fontSize,
+        lineHeight: now.lineHeight,
+        fontWeight: now.fontWeight,
+        color: now.color,
+      },
+      {
+        transform: `translate(${x}px, ${y}px)`,
+        fontSize: then.fontSize,
+        lineHeight: then.lineHeight,
+        fontWeight: then.fontWeight,
+        color: then.color,
+      },
+    ],
+  };
+};
+
+const fading = (card: HTMLElement, label: HTMLElement | null): Element[] =>
+  [...card.children].flatMap((part) =>
+    label && part.contains(label)
+      ? [...part.children].filter((each) => each !== label)
+      : [part],
+  );
+
 const hold = (card: HTMLElement) => {
   const parts = [...card.children].filter(
     (part): part is HTMLElement => part instanceof HTMLElement,
@@ -53,15 +117,29 @@ const play = (
   card: HTMLElement,
   pill: HTMLElement,
   collapsing: boolean,
+  settle: () => void = () => {},
 ): Promise<Animation> => {
   for (const running of card.getAnimations({ subtree: true })) {
     running.cancel();
   }
 
   const frames = boxes(card, pill);
+  const moving = category(card, pill);
   const release = hold(card);
+  const ordered = (keyframes: Keyframe[]) =>
+    collapsing ? keyframes : keyframes.toReversed();
 
-  for (const part of card.children) {
+  if (moving) {
+    moving.label.animate(ordered(moving.frames), MORPHING);
+    const renamed = moving.label.querySelector('[data-collapsed-as]');
+
+    if (renamed) {
+      moving.label.firstElementChild?.animate(ordered(HANDING_OVER), MORPHING);
+      renamed.animate(ordered(TAKING_OVER), MORPHING);
+    }
+  }
+
+  for (const part of fading(card, moving?.label ?? null)) {
     part.animate(
       { opacity: collapsing ? [1, 0] : [0, 1] },
       {
@@ -72,11 +150,11 @@ const play = (
     );
   }
 
-  const morph = card.animate(
-    collapsing ? frames : frames.toReversed(),
-    MORPHING,
-  );
-  morph.finished.then(release, release);
+  const morph = card.animate(ordered(frames), MORPHING);
+  morph.finished.then(() => {
+    settle();
+    release();
+  }, release);
 
   return morph.finished;
 };
@@ -103,7 +181,9 @@ export function useTrayMotion(
     opened.current = open;
 
     if (collapsed && pill && canAnimate(pill)) {
-      for (const part of pill.children) {
+      for (const part of pill.querySelectorAll(
+        ':scope > :not([data-pill-label])',
+      )) {
         part.animate(
           { opacity: [0, 1] },
           { duration: 100, easing: 'ease-out' },
@@ -161,8 +241,8 @@ export function useTrayMotion(
       }
 
       morphing.current = true;
-      play(card.current, pill, true)
-        .then(collapse, () => {})
+      play(card.current, pill, true, () => flushSync(collapse))
+        .catch(() => {})
         .finally(() => {
           morphing.current = false;
         });

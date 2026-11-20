@@ -4,7 +4,12 @@ import { type Ref, useState } from 'react';
 import { DecisionPager } from '@/components/shared/decision-tray/DecisionPager';
 import { FadingScroll } from '@/components/shared/FadingScroll';
 import { IconAction } from '@/components/shared/IconAction';
-import { type DecisionTray, DockedContext } from '@/lib/decision-tray';
+import {
+  decisionGroups,
+  type DecisionTray,
+  DockedContext,
+  pillLabel,
+} from '@/lib/decision-tray';
 
 type DecisionTrayCardProps = {
   ref: Ref<HTMLElement>;
@@ -30,6 +35,11 @@ export function DecisionTrayCard({
     return null;
   }
 
+  const shownGroup = decisionGroups(decisions).find((group) =>
+    group.includes(shown),
+  );
+  const collapsedAs = shownGroup ? pillLabel(shownGroup) : shown.kind;
+
   return (
     <section
       ref={ref}
@@ -39,8 +49,20 @@ export function DecisionTrayCard({
       className="absolute inset-x-0 bottom-1 z-10 flex max-h-[min(32rem,55vh)] flex-col rounded-2xl border border-border bg-card shadow-xs"
     >
       <header className="flex h-9 shrink-0 items-center justify-between gap-2 pr-1.5 pl-3">
-        <span className="truncate font-medium text-muted-foreground text-xs">
-          {shown.kind}
+        <span
+          data-tray-category
+          className="grid min-w-0 font-medium text-muted-foreground text-xs"
+        >
+          <span className="col-start-1 row-start-1 truncate">{shown.kind}</span>
+          {collapsedAs !== shown.kind && (
+            <span
+              data-collapsed-as
+              aria-hidden
+              className="col-start-1 row-start-1 truncate opacity-0"
+            >
+              {collapsedAs}
+            </span>
+          )}
         </span>
         <IconAction label="Collapse" onClick={onCollapse}>
           <Minus />
