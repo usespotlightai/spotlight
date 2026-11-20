@@ -141,12 +141,10 @@ export type RunFilter = (typeof RUN_FILTERS)[number]['id'];
 
 export const ALL_RUNS: RunFilter = 'all';
 
-export const FALLBACK_RUN_FILTER: RunFilter = ALL_RUNS;
-
 export const asRunFilter = (raw: string): RunFilter =>
   RUN_FILTERS.some((filter) => filter.id === raw)
     ? (raw as RunFilter)
-    : FALLBACK_RUN_FILTER;
+    : ALL_RUNS;
 
 export const inRunFilter = (
   filter: RunFilter,

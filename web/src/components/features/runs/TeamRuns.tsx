@@ -24,7 +24,6 @@ import {
   ALL_RUNS,
   asRunFilter,
   byAge,
-  FALLBACK_RUN_FILTER,
   inRunFilter,
   RUN_FILTERS,
   runPath,
@@ -38,7 +37,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
   const prefetch = usePrefetchTaskJournal(slug);
   const runs = useTeamRuns(teamId);
   const ages = useCollapsed(STORAGE_KEY);
-  const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUN_FILTER);
+  const [stored, store] = useStoredState(FILTER_KEY, ALL_RUNS);
   const filter = asRunFilter(stored);
   const rows = useRef<HTMLDivElement>(null);
   useListKeys(rows);
