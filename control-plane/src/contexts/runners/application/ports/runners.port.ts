@@ -1,3 +1,4 @@
+import type { ProvisionCallFailureKind } from '@runners/application/ports/provision-calls.port';
 import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
 import type { ProvisionFailureKind } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -53,10 +54,9 @@ export type ProvisionedRunner =
   | { readonly outcome: 'gone' }
   | {
       readonly outcome: 'failed';
-      readonly kind: Exclude<
-        ProvisionFailureKind,
-        'expired' | 'harness-missing'
-      >;
+      readonly kind:
+        | ProvisionCallFailureKind
+        | Extract<ProvisionFailureKind, 'unusable'>;
       readonly detail: string;
     };
 

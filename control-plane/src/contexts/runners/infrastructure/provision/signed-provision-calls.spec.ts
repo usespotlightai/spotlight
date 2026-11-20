@@ -219,7 +219,7 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('passes on the reason when the provisioner declines the work', async () => {
+  it('passes on the reason when the pool declines the work', async () => {
     const { provision } = calls(async () =>
       Response.json(
         {
@@ -275,7 +275,7 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('takes the pool as full when the provisioner answers 429', async () => {
+  it('takes the pool as full when the provision URL answers 429', async () => {
     const { provision } = calls(
       async () => new Response('slow down', { status: 429 }),
     );

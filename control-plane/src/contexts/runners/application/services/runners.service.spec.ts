@@ -748,7 +748,7 @@ describe('Runners', () => {
       expect(saved[0]?.isDiscarded).toBe(true);
     });
 
-    it('releases the runner and passes on the reason when the provisioner declines the work', async () => {
+    it('releases the runner and passes on the reason when the pool declines the work', async () => {
       const { service, saved } = running(aPushPool(), {
         answer: { outcome: 'declined', detail: 'No free run-hours left.' },
       });
@@ -761,7 +761,7 @@ describe('Runners', () => {
       expect(saved[0]?.isDiscarded).toBe(true);
     });
 
-    it('releases the runner and takes the pool as full when the provisioner says it is full', async () => {
+    it('releases the runner and takes the pool as full when the pool says it is full', async () => {
       const { service, saved } = running(aPushPool(), {
         answer: { outcome: 'full' },
       });

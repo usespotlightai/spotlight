@@ -277,7 +277,7 @@ export class Runners implements RunnersPort {
     await this.release(request.runnerId, at).catch((error: unknown) => {
       this.logger.error(
         { err: error, runner: request.runnerId.value },
-        'Releasing a runner that the pool did not accept',
+        'Releasing a runner that was not provisioned',
       );
     });
 

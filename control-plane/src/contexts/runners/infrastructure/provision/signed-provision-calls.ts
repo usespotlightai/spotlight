@@ -21,7 +21,7 @@ const UNPROCESSABLE = 422;
 
 const TOO_MANY_REQUESTS = 429;
 
-// A 422 declines the work only when its body is {"type": "work.declined", "reason": "<text>"}. Another 422 stays an HTTP error, so older provisioners keep their retries.
+// A 422 declines the work only when its body is {"type": "work.declined", "reason": "<text>"}. Another 422 stays an HTTP error, so older provision endpoints keep their retries.
 const declinedReason = (text: string): string | null => {
   let parsed: unknown;
 

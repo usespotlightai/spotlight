@@ -36,14 +36,16 @@ export interface ProvisionCall {
   readonly egress: ProvisionEgress | null;
 }
 
+export type ProvisionCallFailureKind = Extract<
+  ProvisionFailureKind,
+  'unreachable' | 'http-error' | 'not-allowed' | 'declined'
+>;
+
 export type ProvisionAnswer =
   | { readonly outcome: 'accepted' }
   | { readonly outcome: 'full' }
   | {
-      readonly outcome: Exclude<
-        ProvisionFailureKind,
-        'expired' | 'harness-missing' | 'unusable'
-      >;
+      readonly outcome: ProvisionCallFailureKind;
       readonly detail: string;
     };
 
