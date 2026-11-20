@@ -1,5 +1,6 @@
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import type { ProvisionFailureKind } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 
 export const PROVISION_CALLS = Symbol('PROVISION_CALLS');
 
@@ -35,10 +36,16 @@ export interface ProvisionCall {
   readonly egress: ProvisionEgress | null;
 }
 
+export type ProvisionCallFailureKind = Extract<
+  ProvisionFailureKind,
+  'unreachable' | 'http-error' | 'not-allowed' | 'declined'
+>;
+
 export type ProvisionAnswer =
   | { readonly outcome: 'accepted' }
+  | { readonly outcome: 'full' }
   | {
-      readonly outcome: 'unreachable' | 'http-error' | 'not-allowed';
+      readonly outcome: ProvisionCallFailureKind;
       readonly detail: string;
     };
 

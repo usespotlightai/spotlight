@@ -1,4 +1,6 @@
+import type { ProvisionCallFailureKind } from '@runners/application/ports/provision-calls.port';
 import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
+import type { ProvisionFailureKind } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -46,19 +48,15 @@ export interface ProvisionRequest {
   readonly claimBy: Date;
 }
 
-type ProvisionFailureKind =
-  | 'unreachable'
-  | 'http-error'
-  | 'not-allowed'
-  | 'unusable';
-
 export type ProvisionedRunner =
   | { readonly outcome: 'provisioned' }
   | { readonly outcome: 'full' }
   | { readonly outcome: 'gone' }
   | {
       readonly outcome: 'failed';
-      readonly kind: ProvisionFailureKind;
+      readonly kind:
+        | ProvisionCallFailureKind
+        | Extract<ProvisionFailureKind, 'unusable'>;
       readonly detail: string;
     };
 

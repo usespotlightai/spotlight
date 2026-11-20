@@ -12,6 +12,7 @@ export const PROVISION_FAILURES = {
   'http-error': BACKING_OFF,
   expired: BACKING_OFF,
   'not-allowed': Retry.never(),
+  declined: Retry.never(),
   unusable: Retry.never(),
   'harness-missing': Retry.never(),
 } as const satisfies Record<string, Retry>;
