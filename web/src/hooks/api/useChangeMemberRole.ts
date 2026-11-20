@@ -1,12 +1,12 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { useRefreshMembers } from '@/hooks/api/useRefreshMembers';
+import { refreshMembers } from '@/hooks/api/refreshMembers';
 import { changeMemberRole } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 import type { Role } from '@/lib/role';
 
 export function useChangeMemberRole(slug: string | undefined) {
-  const refreshMembers = useRefreshMembers(slug);
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (change: { userId: string; role: Role }) => {
@@ -21,6 +21,6 @@ export function useChangeMemberRole(slug: string | undefined) {
         );
       }
     },
-    onSettled: refreshMembers,
+    onSettled: () => refreshMembers(queryClient, slug),
   });
 }

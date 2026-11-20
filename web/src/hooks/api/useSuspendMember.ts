@@ -1,11 +1,11 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { useRefreshMembers } from '@/hooks/api/useRefreshMembers';
+import { refreshMembers } from '@/hooks/api/refreshMembers';
 import { suspendMember } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 
 export function useSuspendMember(slug: string | undefined) {
-  const refreshMembers = useRefreshMembers(slug);
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (userId: string) => {
@@ -19,6 +19,6 @@ export function useSuspendMember(slug: string | undefined) {
         );
       }
     },
-    onSettled: refreshMembers,
+    onSettled: () => refreshMembers(queryClient, slug),
   });
 }
