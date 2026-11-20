@@ -26,10 +26,18 @@ export const RunSpecPartsMapper = {
     };
   },
 
-  resume(resume: {
-    readonly session: { readonly value: string } | null;
-  }): RunResumeShape {
-    return resume.session ? { sessionId: resume.session.value } : {};
+  resume(
+    resume: { readonly session: { readonly value: string } | null },
+    followUp: string | null = null,
+  ): RunResumeShape {
+    if (!resume.session) {
+      return {};
+    }
+
+    return {
+      sessionId: resume.session.value,
+      ...(followUp ? { followUp } : {}),
+    };
   },
 
   traced(command: RunCommandShape, traceParent: string): RunCommandShape {

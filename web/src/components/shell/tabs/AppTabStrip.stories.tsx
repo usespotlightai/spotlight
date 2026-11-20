@@ -59,3 +59,11 @@ export const BesideTheSidebar: Story = {
     </DashboardLayout>
   ),
 };
+
+export const InDark: Story = {
+  beforeEach: () => {
+    document.documentElement.classList.add('dark');
+
+    return () => document.documentElement.classList.remove('dark');
+  },
+};

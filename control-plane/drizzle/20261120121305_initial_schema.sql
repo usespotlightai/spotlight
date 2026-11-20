@@ -78,7 +78,7 @@ CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'suspended', 'comp
 CREATE TYPE "public"."run_turn" AS ENUM('pending', 'kept');--> statement-breakpoint
 CREATE TYPE "public"."working_copy_restores" AS ENUM('always', 'when-continuing');--> statement-breakpoint
 CREATE TYPE "public"."secret_source" AS ENUM('built-in', 'aws-secrets-manager');--> statement-breakpoint
-CREATE TYPE "public"."chat_message_kind" AS ENUM('message', 'proposed');--> statement-breakpoint
+CREATE TYPE "public"."chat_message_kind" AS ENUM('message', 'proposed', 'opened', 'happened');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_driver" AS ENUM('line', 'person');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_follow_up" AS ENUM('accepted', 'sent-back');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_kind" AS ENUM('task', 'chat', 'trial');--> statement-breakpoint
@@ -2237,10 +2237,12 @@ CREATE TABLE "chat_message" (
 	"run_id" text,
 	"traces" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"proposal" jsonb,
+	"pull_request" jsonb,
 	"acknowledged_at" timestamp (3) with time zone,
 	"acknowledged_by_run_id" text,
 	CONSTRAINT "chat_message_chat_id_position_pk" PRIMARY KEY("chat_id","position"),
-	CONSTRAINT "chat_message_position_not_negative" CHECK ("chat_message"."position" >= 0)
+	CONSTRAINT "chat_message_position_not_negative" CHECK ("chat_message"."position" >= 0),
+	CONSTRAINT "chat_message_opened_names_a_pull_request" CHECK (("chat_message"."kind"::text = 'opened') = ("chat_message"."pull_request" is not null))
 );
 --> statement-breakpoint
 CREATE TABLE "dispatch" (
@@ -2356,6 +2358,8 @@ CREATE TABLE "task" (
 	"reviewed_pull_request" text,
 	"review_from_outside" boolean DEFAULT false NOT NULL,
 	"move_held_to" text,
+	"not_started_station_id" text,
+	"not_started_harness" text,
 	"finished_at" timestamp (3) with time zone,
 	"working_copy_released_at" timestamp (3) with time zone,
 	"revision" integer DEFAULT 0 NOT NULL,
@@ -2390,6 +2394,7 @@ CREATE TABLE "task_hold" (
 	"task_id" text NOT NULL,
 	"station_id" text NOT NULL,
 	"held_by" text NOT NULL,
+	"chat_id" text,
 	"from_run_id" text,
 	"verdict" "hold_verdict" NOT NULL,
 	"turn_run_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -2399,6 +2404,7 @@ CREATE TABLE "task_hold" (
 	"hold_end" "hold_end",
 	"started_at" timestamp (3) with time zone NOT NULL,
 	"ended_at" timestamp (3) with time zone,
+	CONSTRAINT "task_hold_for_a_chat_holds_from_no_run" CHECK ("task_hold"."chat_id" is null or "task_hold"."from_run_id" is null),
 	CONSTRAINT "task_hold_ends_with_an_end" CHECK (("task_hold"."ended_at" is null) = ("task_hold"."hold_end" is null))
 );
 --> statement-breakpoint
@@ -2839,6 +2845,7 @@ CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_
 CREATE UNIQUE INDEX "task_hold_open_uidx" ON "task_hold" USING btree ("task_id") WHERE "task_hold"."ended_at" is null;--> statement-breakpoint
 CREATE INDEX "task_hold_task_idx" ON "task_hold" USING btree ("task_id","started_at");--> statement-breakpoint
 CREATE INDEX "task_hold_station_idx" ON "task_hold" USING btree ("station_id","started_at");--> statement-breakpoint
+CREATE INDEX "task_hold_chat_idx" ON "task_hold" USING btree ("chat_id") WHERE "task_hold"."chat_id" is not null;--> statement-breakpoint
 CREATE INDEX "task_mark_mark_idx" ON "task_mark" USING btree ("workspace_id","kind","value");--> statement-breakpoint
 CREATE INDEX "task_note_run_idx" ON "task_note" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "task_note_closing_idx" ON "task_note" USING btree ("task_id","at") WHERE "task_note"."closes_conversation";--> statement-breakpoint

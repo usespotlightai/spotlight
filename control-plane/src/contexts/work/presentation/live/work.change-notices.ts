@@ -6,8 +6,10 @@ import {
 } from '@platform/live/change-notices';
 import type { ChatCiSetUp } from '@work/domain/events/chat-ci-set-up.event';
 import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import type { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.event';
 import type { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import type { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
+import type { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
 import type { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import type { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -65,6 +67,8 @@ import type { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.even
 type ChatEvent =
   | ChatCiSetUp
   | ChatDeleted
+  | ChatHeardFromTask
+  | ChatPullRequestOpened
   | ChatMessagesAcknowledged
   | ProposalAcceptanceFailed
   | ProposalBecameTask
@@ -125,12 +129,14 @@ type InboxEvent = NoticeRaised | NoticeReopened | NoticeResolved;
 const CHAT_KINDS = [
   'chat.ci-set-up',
   'chat.deleted',
+  'chat.heard-from-task',
   'chat.messages-acknowledged',
   'chat.proposal-acceptance-failed',
   'chat.proposal-became-task',
   'chat.proposal-dismissed',
   'chat.proposal-restored',
   'chat.proposals-replaced',
+  'chat.pull-request-opened',
   'chat.run-assigned',
   'chat.run-ended',
   'chat.run-not-started',

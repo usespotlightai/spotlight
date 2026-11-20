@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
@@ -6,7 +5,7 @@ import { AuthTitle } from '@/components/shell/auth/AuthTitle';
 import { SignInToContinue } from '@/components/shell/auth/SignInToContinue';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useSession } from '@/hooks/api/useSession';
-import { useVerifyMyEmail } from '@/hooks/api/useVerifyMyEmail';
+import { useVerifyOnSignIn } from '@/hooks/useVerifyOnSignIn';
 import { verifyEmailPath } from '@/lib/emails';
 import { messageOf } from '@/lib/error';
 import { cn } from '@/lib/utils';
@@ -30,19 +29,8 @@ function OpenSpotlight() {
 export function VerifyEmail() {
   const { token } = useParams();
   const { data: session, isPending: reading } = useSession();
-  const verify = useVerifyMyEmail(token);
   const signedIn = Boolean(session?.user);
-  const started = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!signedIn || !token || started.current === token) {
-      return;
-    }
-
-    started.current = token;
-    verify.reset();
-    verify.mutate();
-  }, [signedIn, token, verify]);
+  const verify = useVerifyOnSignIn(token, signedIn);
 
   if (reading || !token) {
     return null;

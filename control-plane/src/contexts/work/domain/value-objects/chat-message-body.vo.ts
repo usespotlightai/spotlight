@@ -24,6 +24,16 @@ export class ChatMessageBody {
     return new ChatMessageBody(trimmed);
   }
 
+  static cut(raw: string): ChatMessageBody {
+    const trimmed = raw.trim();
+
+    return ChatMessageBody.of(
+      trimmed.length > MAX_LENGTH
+        ? `${trimmed.slice(0, MAX_LENGTH - 1)}…`
+        : trimmed,
+    );
+  }
+
   static fromInput(
     raw: string,
     attachments: readonly Attachment[] = [],

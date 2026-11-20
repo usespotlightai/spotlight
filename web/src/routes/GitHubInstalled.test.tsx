@@ -19,25 +19,23 @@ vi.mock('@/hooks/api/useConnectGitHub', () => ({
   },
 }));
 
-const navigate = vi.fn();
-vi.mock('react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('react-router')>()),
-  useNavigate: () => navigate,
-}));
-
 const renderAt = (query: string) =>
   render(
     <MemoryRouter initialEntries={[`/github/installed${query}`]}>
       <Routes>
         <Route path="/github/installed" element={<GitHubInstalled />} />
         <Route path="/" element={<p>the beginning</p>} />
+        <Route path="/w/acme/inbox/i_1" element={<p>the inbox item</p>} />
+        <Route
+          path="/w/acme/settings/team/team_1/integrations"
+          element={<p>the team integrations</p>}
+        />
       </Routes>
     </MemoryRouter>,
   );
 
 beforeEach(() => {
   connect.mockReset();
-  navigate.mockReset();
   connectState.data = undefined;
   connectState.isPending = true;
   connectState.isSuccess = false;
@@ -58,21 +56,14 @@ describe('GitHubInstalled', () => {
       `?installation_id=42&state=${encodeURIComponent(`acme:team_1:${encodeURIComponent('/w/acme/inbox/i_1')}`)}`,
     );
 
-    expect(navigate).toHaveBeenCalledWith('/w/acme/inbox/i_1', {
-      replace: true,
-    });
+    expect(screen.getByText('the inbox item')).toBeInTheDocument();
   });
 
   it('falls back to the integrations page', () => {
     connectState.isSuccess = true;
     renderAt('?installation_id=42&state=acme%3Ateam_1');
 
-    expect(navigate).toHaveBeenCalledWith(
-      '/w/acme/settings/team/team_1/integrations',
-      {
-        replace: true,
-      },
-    );
+    expect(screen.getByText('the team integrations')).toBeInTheDocument();
   });
 
   it('connects nothing when the App was only requested', () => {

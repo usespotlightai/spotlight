@@ -4,8 +4,6 @@ import {
   memo,
   type ReactNode,
   type Ref,
-  startTransition,
-  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -13,6 +11,7 @@ import {
 import { CollapsibleSidebar } from '@/components/shell/layout/CollapsibleSidebar';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useSidebarCollapsedSetting } from '@/hooks/useCollapsedSidebar';
+import { useDeferredMount } from '@/hooks/useDeferredMount';
 import { useDragToClose } from '@/hooks/useDragToClose';
 import { useNarrowerThan } from '@/hooks/useNarrowerThan';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
@@ -381,13 +380,7 @@ const PaneContent = memo(function PaneContent({
   defer: boolean;
   children: ReactNode;
 }) {
-  const [shown, setShown] = useState(!defer);
-
-  useEffect(() => {
-    if (!shown) {
-      startTransition(() => setShown(true));
-    }
-  }, [shown]);
+  const shown = useDeferredMount(defer);
 
   return shown ? children : null;
 });

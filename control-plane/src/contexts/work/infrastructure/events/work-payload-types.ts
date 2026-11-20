@@ -1,7 +1,9 @@
 import { ChatCiSetUp } from '@work/domain/events/chat-ci-set-up.event';
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.event';
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
+import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -44,6 +46,7 @@ import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskMarkReleased } from '@work/domain/events/task-mark-released.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
+import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
 import { TaskNoted } from '@work/domain/events/task-noted.event';
 import { TaskNotesAcknowledged } from '@work/domain/events/task-notes-acknowledged.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
@@ -73,6 +76,7 @@ import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
@@ -117,6 +121,7 @@ import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { Resumption } from '@work/domain/value-objects/resumption.vo';
@@ -125,6 +130,7 @@ import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { ReviewVerdict } from '@work/domain/value-objects/review-verdict.vo';
 import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
+import { RunNotStarted } from '@work/domain/value-objects/run-not-started.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
@@ -156,6 +162,7 @@ export const WORK_PAYLOAD_TYPES = [
   LineMap,
   LineRepositories,
   Reaction,
+  RefUpdate,
   ReviewIntake,
   Station,
   Approval,
@@ -166,6 +173,7 @@ export const WORK_PAYLOAD_TYPES = [
   Attachment,
   Branch,
   ChatId,
+  ChatPullRequest,
   ChatMessageBody,
   ChatTitle,
   CorrelationKeys,
@@ -179,6 +187,7 @@ export const WORK_PAYLOAD_TYPES = [
   ProfileMissing,
   HandoverOption,
   Resumption,
+  RunNotStarted,
   HarnessSession,
   TargetStation,
   DeferredMove,
@@ -238,6 +247,8 @@ export const WORK_PAYLOAD_TYPES = [
   ChatRunAssigned,
   ChatRunNotStarted,
   ChatCiSetUp,
+  ChatHeardFromTask,
+  ChatPullRequestOpened,
   ChatMessageSent,
   ChatMessagesAcknowledged,
   ChatRunEnded,
@@ -280,6 +291,7 @@ export const WORK_PAYLOAD_TYPES = [
   TaskPassed,
   TaskActedOn,
   TaskHeld,
+  TaskNotedForChat,
   LineResumed,
   HoldId,
   TurnHeads,

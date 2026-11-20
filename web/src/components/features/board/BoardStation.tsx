@@ -8,8 +8,8 @@ import { TaskRow } from '@/components/features/board/task/TaskRow';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { Landing } from '@/lib/dragging';
 import { landsOnEmptyStation, rowLanding } from '@/lib/drop-landing';
+import { holdPathOf } from '@/lib/hold';
 import { inboxItemPath } from '@/lib/inbox';
-import { runPath } from '@/lib/run';
 import { stationPath, stationShare } from '@/lib/station';
 import { type Task, taskPath, tasksAt } from '@/lib/task';
 import { entryStationOf } from '@/lib/task-create';
@@ -78,8 +78,8 @@ export function BoardStation({
             teamId={teamId}
             to={taskPath(slug, teamId, task.id)}
             stateTo={
-              task.hold?.runId
-                ? runPath(slug, teamId, task.hold.runId)
+              task.hold
+                ? holdPathOf(slug, teamId, task.hold)
                 : task.awaitingReview
                   ? inboxItemPath(slug, task.awaitingReview.conversationId)
                   : undefined

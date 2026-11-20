@@ -122,6 +122,28 @@ export class TaskNoteBody {
     );
   }
 
+  static heldForChat(at: StationName): TaskNoteBody {
+    return TaskNoteBody.of(
+      `An agent chat works on this task at ${at.value} and opens its pull request. The line waits while the chat works on it. Events about the pull request go to the chat. When the person hands the task to the line, the line resumes here.`,
+    );
+  }
+
+  static leftChat(at: {
+    name: StationName;
+    isCompleted: boolean;
+    isBacklog: boolean;
+  }): TaskNoteBody {
+    const moved = at.isCompleted
+      ? `The person moved the task to ${at.name.value}, so the task is done.`
+      : at.isBacklog
+        ? `The person moved the task to ${at.name.value}. It waits there until someone starts it.`
+        : `The person handed the task to the line. It is at ${at.name.value}, and the line works on it from now on.`;
+
+    return TaskNoteBody.of(
+      `${moved} Do not push to its branch again. When the person asks for more changes, make them on a new branch.`,
+    );
+  }
+
   static movesOnResume(to: StationName, account: TaskNoteBody): TaskNoteBody {
     return TaskNoteBody.of(
       `This arrived while the task was on hold. The task moves to ${to.value} when the line resumes, unless a later event asks for another move.\n\n${account.value}`,

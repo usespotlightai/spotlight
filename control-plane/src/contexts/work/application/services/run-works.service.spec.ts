@@ -1,3 +1,4 @@
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type {
   LeasedRunFacts,
   RunLeasesPort,
@@ -104,6 +105,7 @@ const works = (over: {
       findByStation: async () => null,
     } as unknown as LineMapsPort,
     over.dispatches ?? dispatchesOf(),
+    {} as RepositorySettingsPort,
     { now: () => NOW, sleep: async () => {} },
   );
 

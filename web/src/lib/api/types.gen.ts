@@ -3309,6 +3309,17 @@ export type TaskHoldResponseDto = {
    * The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station.
    */
   heldMoveTo: string | null;
+  /**
+   * The agent chat that holds the task while it works on the pull request itself
+   */
+  chatId: string | null;
+};
+
+export type TaskRunNotStartedResponseDto = {
+  /**
+   * The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start
+   */
+  harness: string;
 };
 
 export type TaskResponseDto = {
@@ -3364,6 +3375,10 @@ export type TaskResponseDto = {
    * The person who drives the task at its station in place of the line, or null where the line drives it
    */
   hold: TaskHoldResponseDto | null;
+  /**
+   * Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried
+   */
+  runNotStarted: TaskRunNotStartedResponseDto | null;
 };
 
 export type TaskPageResponseDto = {
@@ -3778,9 +3793,32 @@ export type ChatProposalResponseDto = {
   taskId: string | null;
 };
 
+export type ChatPullRequestResponseDto = {
+  /**
+   * The task that tracks the pull request
+   */
+  taskId: string;
+  url: string;
+  /**
+   * held: the task waits on hold for this chat. line: the line has the task. completed: the task completed. gone: the task was deleted
+   */
+  state: 'held' | 'line' | 'completed' | 'gone';
+  lineName: string | null;
+  stationName: string | null;
+  stationColor: string | null;
+  /**
+   * The position of the task’s station on its line, from 0
+   */
+  stationPosition: number | null;
+  /**
+   * How many stations its line has
+   */
+  stationCount: number | null;
+};
+
 export type ChatMessageResponseDto = {
   position: number;
-  kind: 'message' | 'proposed';
+  kind: 'message' | 'proposed' | 'opened' | 'happened';
   body: string;
   at: string;
   author: InboxAuthorResponseDto | null;
@@ -3798,6 +3836,10 @@ export type ChatMessageResponseDto = {
    */
   traces: Array<ChatTraceResponseDto>;
   proposal: ChatProposalResponseDto | null;
+  /**
+   * The pull request the agent opened, on an opened message
+   */
+  pullRequest: ChatPullRequestResponseDto | null;
 };
 
 export type ChatResponseDto = {
@@ -16485,6 +16527,76 @@ export type ResumeLineResponses = {
 };
 
 export type ResumeLineResponse = ResumeLineResponses[keyof ResumeLineResponses];
+
+export type SendTaskMessageData = {
+  body: SendMessageRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/messages';
+};
+
+export type SendTaskMessageErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The message answers a question that another person is the assignee of
+   */
+  409: unknown;
+};
+
+export type SendTaskMessageResponses = {
+  200: TaskResponseDto;
+};
+
+export type SendTaskMessageResponse = SendTaskMessageResponses[keyof SendTaskMessageResponses];
+
+export type StartTaskRunData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/start';
+};
+
+export type StartTaskRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The task is not waiting for its run to start
+   */
+  409: unknown;
+};
+
+export type StartTaskRunResponses = {
+  200: TaskResponseDto;
+};
+
+export type StartTaskRunResponse = StartTaskRunResponses[keyof StartTaskRunResponses];
 
 export type ListChatsData = {
   body?: never;

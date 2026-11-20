@@ -1,23 +1,13 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { type ReactNode, useCallback, useLayoutEffect, useState } from 'react';
+import { type ReactNode, useCallback } from 'react';
+
+import { useScrollParent } from '@/hooks/useScrollParent';
 
 type VirtualRowsProps = {
   count: number;
   estimate: number;
   overscan?: number;
   children: (index: number) => ReactNode;
-};
-
-const scrollerOf = (element: HTMLElement | null): HTMLElement | null => {
-  for (let at = element?.parentElement; at; at = at.parentElement) {
-    const { overflowY } = getComputedStyle(at);
-
-    if (overflowY === 'auto' || overflowY === 'scroll') {
-      return at;
-    }
-  }
-
-  return null;
 };
 
 export function VirtualRows({
@@ -28,22 +18,7 @@ export function VirtualRows({
 }: VirtualRowsProps) {
   'use no memo';
 
-  const [list, setList] = useState<HTMLLIElement | null>(null);
-  const [scroller, setScroller] = useState<HTMLElement | null>(null);
-  const [margin, setMargin] = useState(0);
-
-  useLayoutEffect(() => {
-    const found = scrollerOf(list);
-    setScroller(found);
-
-    if (list && found) {
-      setMargin(
-        list.getBoundingClientRect().top -
-          found.getBoundingClientRect().top +
-          found.scrollTop,
-      );
-    }
-  }, [list]);
+  const { attach, scroller, margin } = useScrollParent();
 
   // oxlint-disable-next-line react-hooks-js/incompatible-library
   const virtualizer = useVirtualizer({
@@ -68,7 +43,7 @@ export function VirtualRows({
   return (
     <>
       <li
-        ref={setList}
+        ref={attach}
         aria-hidden
         className="col-span-full"
         style={{ height: before }}

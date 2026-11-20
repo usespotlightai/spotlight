@@ -67,7 +67,7 @@ export function AppTabStrip({
             aria-label="Back"
             disabled={!canGoBack}
             onClick={onBack}
-            className="size-(--history-button) text-muted-foreground"
+            className="size-(--history-button) text-muted-foreground dark:hover:bg-muted"
           >
             <ChevronLeft className="size-3.5" aria-hidden />
           </Button>
@@ -77,7 +77,7 @@ export function AppTabStrip({
             aria-label="Forward"
             disabled={!canGoForward}
             onClick={onForward}
-            className="size-(--history-button) text-muted-foreground"
+            className="size-(--history-button) text-muted-foreground dark:hover:bg-muted"
           >
             <ChevronRight className="size-3.5" aria-hidden />
           </Button>
@@ -107,7 +107,7 @@ export function AppTabStrip({
         size="icon-sm"
         aria-label="New tab"
         onClick={onOpen}
-        className="text-muted-foreground"
+        className="text-muted-foreground dark:hover:bg-muted"
       >
         <Plus className="size-3.5" aria-hidden />
       </Button>

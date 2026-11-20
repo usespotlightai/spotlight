@@ -200,7 +200,9 @@ import { RestoreProposalHandler } from '@work/application/commands/handlers/rest
 import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
+import { SendTaskMessageHandler } from '@work/application/commands/handlers/send-task-message.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
+import { StartTaskRunHandler } from '@work/application/commands/handlers/start-task-run.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
@@ -217,6 +219,8 @@ import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-i
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
+import { SendTaskMessageCommand } from '@work/application/commands/send-task-message.command';
+import { StartTaskRunCommand } from '@work/application/commands/start-task-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
@@ -238,6 +242,7 @@ import { ProjectLineStations } from '@work/application/events/handlers/project-l
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
+import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
@@ -325,6 +330,10 @@ import {
   PULL_REQUEST_REVIEWING,
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
+import {
+  RECEIVE_PACK,
+  type ReceivePackPort,
+} from '@work/application/ports/receive-pack.port';
 import {
   REVIEW_WORK_ACCESS,
   type ReviewWorkAccessPort,
@@ -516,6 +525,7 @@ import { CandidateLines } from '@work/application/services/candidate-lines.servi
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ChatLoader } from '@work/application/services/chat-loader.service';
+import { ChatPullRequestToolUse } from '@work/application/services/chat-pull-request.tool-use';
 import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import { ChecksToolUse } from '@work/application/services/checks.tool-use';
 import { CiSetups } from '@work/application/services/ci-setups.service';
@@ -535,6 +545,7 @@ import { IntegrationTools } from '@work/application/services/integration-tools.s
 import { LineLoader } from '@work/application/services/line-loader.service';
 import { LineResuming } from '@work/application/services/line-resuming.service';
 import { MemberInboxes } from '@work/application/services/member-inboxes.service';
+import { MessageSending } from '@work/application/services/message-sending.service';
 import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
@@ -542,6 +553,7 @@ import { OpenPullRequest } from '@work/application/services/open-pull-request.se
 import { OpenTasksToolUse } from '@work/application/services/open-tasks.tool-use';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
+import { PullRequestOpeningHook } from '@work/application/services/pull-request-opening-hook';
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
 import { PurgeProcessedEvents } from '@work/application/services/purge-processed-events.service';
 import { PurgeToolUses } from '@work/application/services/purge-tool-uses.service';
@@ -605,6 +617,7 @@ import { RunsHarnessCatalogue } from '@work/infrastructure/acl/runs-harness-cata
 import { DrizzleTaskDraftStates } from '@work/infrastructure/collab/drizzle-task-draft-states';
 import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus-live-task-drafts';
 import { WORK_PAYLOAD_TYPES } from '@work/infrastructure/events/work-payload-types';
+import { GitReceivePack } from '@work/infrastructure/git/receive-pack';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
 import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
@@ -1255,6 +1268,43 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: MessageSending,
+    inject: [
+      TASK_REPOSITORY,
+      LINE_MAPS,
+      DispatchTask,
+      CLOCK,
+      FilesLoader,
+      WorkAccess,
+      DraftSending,
+      RUN_FACTS,
+      ID_GENERATOR,
+    ],
+    useFactory: (
+      tasks: TaskRepository,
+      lines: LineMapsPort,
+      dispatch: DispatchTask,
+      clock: ClockPort,
+      files: FilesLoader,
+      access: WorkAccess,
+      drafts: DraftSending,
+      facts: RunFactsPort,
+      ids: IdGeneratorPort,
+    ) =>
+      new MessageSending(
+        tasks,
+        lines,
+        dispatch,
+        clock,
+        files,
+        access,
+        drafts,
+        facts,
+        ids,
+      ),
+  },
+
+  {
     provide: HAPPENING_REACTIONS,
     inject: [
       TASK_REPOSITORY,
@@ -1373,6 +1423,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       CHAT_REPOSITORY,
       LINE_MAPS,
       DISPATCH_REPOSITORY,
+      REPOSITORY_SETTINGS,
       CLOCK,
     ],
     useFactory: (
@@ -1382,9 +1433,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       chats: ChatRepository,
       lines: LineMapsPort,
       dispatches: DispatchRepository,
+      settings: RepositorySettingsPort,
       clock: ClockPort,
     ) =>
-      new RunWorks(leases, runCommands, tasks, chats, lines, dispatches, clock),
+      new RunWorks(
+        leases,
+        runCommands,
+        tasks,
+        chats,
+        lines,
+        dispatches,
+        settings,
+        clock,
+      ),
   },
 
   {
@@ -1395,6 +1456,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       REPOSITORY_GIT,
       REVIEW_WORK_ACCESS,
       RUNNER_LEASES,
+      RECEIVE_PACK,
       CLOCK,
     ],
     useFactory: (
@@ -1403,9 +1465,21 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       git: RepositoryGitPort,
       checking: ReviewWorkAccessPort,
       leases: RunnerLeasesPort,
+      receivePack: ReceivePackPort,
       clock: ClockPort,
-    ) => new CarryGitCall(works, workspaces, git, checking, leases, clock),
+    ) =>
+      new CarryGitCall(
+        works,
+        workspaces,
+        git,
+        checking,
+        leases,
+        receivePack,
+        clock,
+      ),
   },
+
+  { provide: RECEIVE_PACK, useClass: GitReceivePack },
 
   {
     provide: ChatLoader,
@@ -1925,6 +1999,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             transaction,
             clock,
           ),
+          chatsOfTasks: new TellChatOfTask(chats, chatDispatch, transaction),
         }),
       ]);
       return true;
@@ -2197,14 +2272,23 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   {
+    provide: PullRequestOpeningHook,
+    inject: [TASK_VIEWS, LIFECYCLE_HOOKS, PULL_REQUESTS],
+    useFactory: (
+      taskViews: TaskViewsPort,
+      hooks: LifecycleHooksPort,
+      pullRequests: PullRequestPort,
+    ) => new PullRequestOpeningHook(taskViews, hooks, pullRequests),
+  },
+
+  {
     provide: OpenPullRequest,
     inject: [
       TASK_REPOSITORY,
       LINE_MAPS,
       PULL_REQUESTS,
       TRANSACTION,
-      TASK_VIEWS,
-      LIFECYCLE_HOOKS,
+      PullRequestOpeningHook,
       CLOCK,
     ],
     useFactory: (
@@ -2212,8 +2296,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: LineMapsPort,
       pullRequests: PullRequestPort,
       transaction: TransactionPort,
-      taskViews: TaskViewsPort,
-      hooks: LifecycleHooksPort,
+      openingHook: PullRequestOpeningHook,
       clock: ClockPort,
     ) =>
       new OpenPullRequest(
@@ -2221,8 +2304,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         lines,
         pullRequests,
         transaction,
-        taskViews,
-        hooks,
+        openingHook,
         clock,
       ),
   },
@@ -2241,6 +2323,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       CHECK_RUNS,
       AttachmentCopies,
       OPEN_TASK_READER,
+      TASK_PLACEMENTS,
+      WorkAccess,
+      CreateTask,
+      ID_GENERATOR,
+      TASK_REPOSITORY,
+      PullRequestOpeningHook,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2254,12 +2342,31 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       checkRuns: CheckRunsPort,
       copies: AttachmentCopies,
       openTasks: OpenTaskReaderPort,
+      placements: TaskPlacementsPort,
+      access: WorkAccess,
+      createTask: CreateTask,
+      ids: IdGeneratorPort,
+      taskRepository: TaskRepository,
+      openingHook: PullRequestOpeningHook,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ChecksToolUse(tasks, checkRuns),
       new OpenTasksToolUse(lines, openTasks),
       new ProposeTaskToolUse(chats, lines, copies, clock),
       new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
+      new ChatPullRequestToolUse(
+        chats,
+        taskRepository,
+        lines,
+        placements,
+        access,
+        createTask,
+        pullRequests,
+        openingHook,
+        transaction,
+        ids,
+        clock,
+      ),
       new ReviewCommentToolUse(reviewing),
       new ReviewToolUse(reviewing),
     ],
@@ -2408,16 +2515,26 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(SendMessageCommand, SendMessageHandler, [
     DISPATCH_REPOSITORY,
-    TASK_REPOSITORY,
-    LINE_MAPS,
     TRANSACTION,
-    DispatchTask,
-    CLOCK,
     FilesLoader,
-    WorkAccess,
     DraftSending,
-    RUN_FACTS,
-    ID_GENERATOR,
+    MessageSending,
+  ]),
+
+  ...bindCommandHandler(SendTaskMessageCommand, SendTaskMessageHandler, [
+    TASK_REPOSITORY,
+    LineLoader,
+    TRANSACTION,
+    FilesLoader,
+    DraftSending,
+    MessageSending,
+  ]),
+
+  ...bindCommandHandler(StartTaskRunCommand, StartTaskRunHandler, [
+    TASK_REPOSITORY,
+    LineLoader,
+    DispatchTask,
+    TRANSACTION,
   ]),
 
   ...bindCommandHandler(StopRunCommand, StopRunHandler, [

@@ -1,23 +1,9 @@
-import {
-  type ReactNode,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
-import { flushSync } from 'react-dom';
+import { type ReactNode, useId, useRef } from 'react';
 
 import { Collapsible } from '@/components/shared/Collapsible';
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
+import { useNeedMove } from '@/hooks/useNeedMove';
 import { useRowClick } from '@/hooks/useRowClick';
-import { transitionMove } from '@/lib/transition';
-
-const NEED = '[data-need]';
-
-type Moving = {
-  readonly need: string;
-  readonly from: DOMRect;
-};
 
 type IntegrationRowFrameProps = {
   slot: string;
@@ -38,51 +24,14 @@ export function IntegrationRowFrame({
   need,
   children,
 }: IntegrationRowFrameProps) {
-  const [open, setOpen] = useState(false);
-  const [transitioning, setTransitioning] = useState(false);
   const details = useId();
   const head = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
-  const moving = useRef<Moving | null>(null);
-  const stopTransition = useRef<(() => void) | null>(null);
-
-  const toggle = () => {
-    const shown = (open ? body : head).current?.querySelector<HTMLElement>(
-      NEED,
-    );
-    moving.current = shown?.dataset.need
-      ? { need: shown.dataset.need, from: shown.getBoundingClientRect() }
-      : null;
-    setOpen((was) => !was);
-  };
+  const { open, transitioning, toggle } = useNeedMove(head, body);
   const row = useRef<HTMLLIElement>(null);
   useRowClick(row, toggle, {
     ignore: (target) => body.current?.contains(target) ?? false,
   });
-
-  useLayoutEffect(() => {
-    const move = moving.current;
-    moving.current = null;
-    const target = (open ? body : head).current?.querySelector<HTMLElement>(
-      `[data-need="${move?.need}"]`,
-    );
-
-    stopTransition.current?.();
-    stopTransition.current =
-      move && target
-        ? transitionMove(
-            move.from,
-            target,
-            body.current?.firstElementChild as HTMLElement | null,
-            (end) =>
-              end === 'finished'
-                ? flushSync(() => setTransitioning(false))
-                : setTransitioning(false),
-          )
-        : null;
-
-    setTransitioning(stopTransition.current !== null);
-  }, [open]);
 
   return (
     <li

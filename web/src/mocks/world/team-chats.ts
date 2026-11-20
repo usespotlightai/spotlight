@@ -52,16 +52,16 @@ export const journalRunsOf = (
 
 const takenUp = (record: ChatRecord): ChatRecord => {
   const runs = journalRunsOf(record.journals);
-  const sent = record.chat.messages.filter(
-    (message) => message.kind === 'message',
-  );
+  const wakes = (message: ChatMessageResponseDto) =>
+    message.kind === 'message' || message.kind === 'happened';
+  const sent = record.chat.messages.filter(wakes);
 
   return {
     ...record,
     chat: {
       ...record.chat,
       messages: record.chat.messages.map((message) => {
-        if (message.kind !== 'message') {
+        if (!wakes(message)) {
           return message;
         }
 
@@ -154,6 +154,7 @@ export const messageBy = (
   attachments: [],
   traces,
   proposal: null,
+  pullRequest: null,
 });
 
 const proposalAt = (
@@ -197,6 +198,7 @@ const proposed = (
   attachments: [],
   traces: [],
   proposal,
+  pullRequest: null,
 });
 
 const chatOf = (
@@ -538,6 +540,87 @@ const proposalStatesChat = (): ChatRecord => {
       ],
     }),
     journals: [first, second, third],
+  };
+};
+
+const pullRequestChat = (): ChatRecord => {
+  const sentAt = hoursAgo(2);
+  const first = chatTurn('run_chat_pull_request_1', sentAt, [
+    { kind: 'tool', tool: 'search', text: 'FileIcon' },
+    { kind: 'tool', tool: 'edit', text: 'src/files/FileIcon.tsx' },
+    { kind: 'tool', tool: 'execute', text: 'git push -u origin HEAD' },
+    {
+      kind: 'message',
+      text: 'Videos now show the Film icon. I opened a pull request for it.',
+    },
+  ]);
+  const openedAt = turnEndsAt(first);
+  const failedAt = hoursAgo(1);
+  const second = chatTurn('run_chat_pull_request_2', failedAt, [
+    { kind: 'tool', tool: 'edit', text: 'src/files/FileIcon.tsx' },
+    { kind: 'tool', tool: 'execute', text: 'git push' },
+    {
+      kind: 'message',
+      text: 'The import order failed the lint check. I fixed it and pushed to the same branch.',
+    },
+  ]);
+  const line = world().lines[PLATFORM_ID]?.find((each) =>
+    each.stations.some((station) => station.id === 'station_review'),
+  );
+  const station = line?.stations.find((each) => each.id === 'station_review');
+
+  return {
+    chat: chatOf({
+      id: 'chat_pull_request',
+      title: 'Show icons for videos',
+      repositories: ['acme/web'],
+      createdAt: sentAt,
+      updatedAt: turnEndsAt(second),
+      messages: [
+        messageBy(
+          SAM,
+          0,
+          'Videos in the file list show no icon. Can you fix that?',
+          sentAt,
+        ),
+        {
+          position: 1,
+          kind: 'opened',
+          body: 'Show the Film icon for videos',
+          at: openedAt,
+          author: null,
+          runId: 'run_chat_pull_request_1',
+          takenUpBy: null,
+          attachments: [],
+          traces: [],
+          proposal: null,
+          pullRequest: {
+            taskId: 'task_video_icons',
+            url: 'https://github.com/acme/web/pull/412',
+            state: 'held',
+            lineName: line?.name ?? null,
+            stationName: station?.name ?? null,
+            stationColor: station?.color ?? null,
+            stationPosition: station?.position ?? null,
+            stationCount: line?.stations.length ?? null,
+          },
+        },
+        {
+          position: 2,
+          kind: 'happened',
+          body: 'The **lint** check failed on acme/web#412.\n\n```\nsrc/files/FileIcon.tsx\n  3:1  error  Imports are not sorted\n```',
+          at: failedAt,
+          author: null,
+          runId: null,
+          takenUpBy: null,
+          attachments: [],
+          traces: [],
+          proposal: null,
+          pullRequest: null,
+        },
+      ],
+    }),
+    journals: [first, second],
   };
 };
 
@@ -883,6 +966,7 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     implementationChat(),
     rateLimitsChat(),
     proposalStatesChat(),
+    pullRequestChat(),
     settingUpChat(),
     quarterChat(),
     pastedLogChat(),

@@ -14014,6 +14014,124 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/messages": {
+      "post": {
+        "description": "For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.",
+        "operationId": "sendTaskMessage",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The message answers a question that another person is the assignee of"
+          }
+        },
+        "summary": "Send a message to a task at the station it stands at",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/start": {
+      "post": {
+        "description": "Spotlight tries to start the agent of the task’s station again. When it still cannot, runNotStarted says why.",
+        "operationId": "startTaskRun",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The task is not waiting for its run to start"
+          }
+        },
+        "summary": "Try again to start the run of a task whose agent did not start",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/chats": {
       "get": {
         "operationId": "listChats",
@@ -31400,13 +31518,32 @@
             "type": "string",
             "nullable": true,
             "description": "The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station."
+          },
+          "chatId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The agent chat that holds the task while it works on the pull request itself"
           }
         },
         "required": [
           "by",
           "startedAt",
           "runId",
-          "heldMoveTo"
+          "heldMoveTo",
+          "chatId"
+        ]
+      },
+      "TaskRunNotStartedResponseDto": {
+        "type": "object",
+        "properties": {
+          "harness": {
+            "type": "string",
+            "example": "claude-code",
+            "description": "The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start"
+          }
+        },
+        "required": [
+          "harness"
         ]
       },
       "TaskResponseDto": {
@@ -31527,6 +31664,16 @@
                 "$ref": "#/components/schemas/TaskHoldResponseDto"
               }
             ]
+          },
+          "runNotStarted": {
+            "nullable": true,
+            "description": "Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskRunNotStartedResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -31545,7 +31692,8 @@
           "assignee",
           "note",
           "source",
-          "hold"
+          "hold",
+          "runNotStarted"
         ]
       },
       "TaskPageResponseDto": {
@@ -32685,6 +32833,68 @@
           "taskId"
         ]
       },
+      "ChatPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "description": "The task that tracks the pull request"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/web/pull/7"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "held",
+              "line",
+              "completed",
+              "gone"
+            ],
+            "example": "held",
+            "description": "held: the task waits on hold for this chat. line: the line has the task. completed: the task completed. gone: the task was deleted"
+          },
+          "lineName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Default"
+          },
+          "stationName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Code review"
+          },
+          "stationColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#edc12b"
+          },
+          "stationPosition": {
+            "type": "number",
+            "nullable": true,
+            "example": 3,
+            "description": "The position of the task’s station on its line, from 0"
+          },
+          "stationCount": {
+            "type": "number",
+            "nullable": true,
+            "example": 5,
+            "description": "How many stations its line has"
+          }
+        },
+        "required": [
+          "taskId",
+          "url",
+          "state",
+          "lineName",
+          "stationName",
+          "stationColor",
+          "stationPosition",
+          "stationCount"
+        ]
+      },
       "ChatMessageResponseDto": {
         "type": "object",
         "properties": {
@@ -32696,7 +32906,9 @@
             "type": "string",
             "enum": [
               "message",
-              "proposed"
+              "proposed",
+              "opened",
+              "happened"
             ],
             "example": "message"
           },
@@ -32748,6 +32960,16 @@
                 "$ref": "#/components/schemas/ChatProposalResponseDto"
               }
             ]
+          },
+          "pullRequest": {
+            "nullable": true,
+            "description": "The pull request the agent opened, on an opened message",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatPullRequestResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -32760,7 +32982,8 @@
           "takenUpBy",
           "attachments",
           "traces",
-          "proposal"
+          "proposal",
+          "pullRequest"
         ]
       },
       "ChatResponseDto": {

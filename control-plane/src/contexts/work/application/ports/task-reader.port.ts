@@ -25,6 +25,7 @@ export interface TaskHoldSummary {
   readonly startedAt: Date;
   readonly runId: string | null;
   readonly heldMoveTo: string | null;
+  readonly chatId: string | null;
 }
 
 export interface TaskSummary {
@@ -44,6 +45,11 @@ export interface TaskSummary {
   readonly assignee: TaskPersonSummary | null;
   readonly source: string | null;
   readonly hold: TaskHoldSummary | null;
+  readonly runNotStarted: TaskRunNotStartedSummary | null;
+}
+
+interface TaskRunNotStartedSummary {
+  readonly harness: string;
 }
 
 export type TaskListing =

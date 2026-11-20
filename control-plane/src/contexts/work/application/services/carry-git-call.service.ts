@@ -3,22 +3,31 @@ import type { WorkspaceConnectionsPort } from '@github/application/ports/workspa
 import type { RunnerLeasesPort } from '@runners/application/ports/runner-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type {
   GitAnswerDto,
   GitCallDto,
   GitService,
 } from '@work/application/dto/git-call.dto';
+import type { ReceivePackPort } from '@work/application/ports/receive-pack.port';
 import type {
   ReviewWorkAccessPort,
   LeasedReviewWork,
 } from '@work/application/ports/review-work-access.port';
+import type { RunWork } from '@work/application/services/run-work';
 import type {
   CheckedRepository,
   RunWorks,
 } from '@work/application/services/run-works.service';
 import { WorkNotLeasedError } from '@work/domain/exceptions/work-not-leased.error';
 import { ReviewGitAccess } from '@work/domain/services/review-git-access';
+
+const PUSH = 'git-receive-pack';
+
+interface AllowedRepository extends CheckedRepository {
+  readonly work: RunWork | null;
+}
 
 export class CarryGitCall {
   constructor(
@@ -27,6 +36,7 @@ export class CarryGitCall {
     private readonly git: RepositoryGitPort,
     private readonly reviewing: ReviewWorkAccessPort,
     private readonly leases: RunnerLeasesPort,
+    private readonly receivePack: ReceivePackPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -52,15 +62,24 @@ export class CarryGitCall {
       return null;
     }
 
+    const checked =
+      service === PUSH && call.method === 'POST' && allowed.work?.limitsPushes
+        ? await this.checkedPush(allowed.work, allowed.repository, call)
+        : { kind: 'carry' as const, call };
+
+    if (checked.kind === 'answer') {
+      return checked.answer;
+    }
+
     const answer = await this.git.call(
       allowed.workspaceId,
       allowed.repository,
       {
-        method: call.method,
-        path: call.path,
-        search: call.search,
-        headers: call.headers,
-        body: call.body,
+        method: checked.call.method,
+        path: checked.call.path,
+        search: checked.call.search,
+        headers: checked.call.headers,
+        body: checked.call.body,
       },
     );
 
@@ -73,12 +92,33 @@ export class CarryGitCall {
     );
   }
 
+  private async checkedPush(
+    work: RunWork,
+    repository: Repository,
+    call: GitCallDto,
+  ): Promise<
+    | { readonly kind: 'carry'; readonly call: GitCallDto }
+    | { readonly kind: 'answer'; readonly answer: GitAnswerDto }
+  > {
+    const read = await this.receivePack.read(call);
+
+    if (read.kind === 'unreadable') {
+      return { kind: 'answer', answer: read.answer };
+    }
+
+    const refusal = await work.pushRefusal(repository, read.push.updates);
+
+    return refusal
+      ? { kind: 'answer', answer: await read.push.refused(refusal) }
+      : { kind: 'carry', call: read.push.call };
+  }
+
   private async allowedRepository(
     workId: string,
     runnerId: string,
     repo: string,
     service: GitService,
-  ): Promise<CheckedRepository | null> {
+  ): Promise<AllowedRepository | null> {
     const runner = RunnerId.of(runnerId);
     const held = await this.leases.leaseOf(runner);
 
@@ -97,7 +137,7 @@ export class CarryGitCall {
     runnerId: string,
     repo: string,
     service: GitService,
-  ): Promise<CheckedRepository | null> {
+  ): Promise<AllowedRepository | null> {
     const leased = await this.works.leasedRunWork(workId, runnerId);
 
     if (!leased) {
@@ -110,7 +150,7 @@ export class CarryGitCall {
     const repository = work ? await work.repositoryNamed(repo, service) : null;
 
     return work && repository
-      ? { workspaceId: work.workspaceId, repository }
+      ? { workspaceId: work.workspaceId, repository, work }
       : null;
   }
 
@@ -119,7 +159,7 @@ export class CarryGitCall {
     workId: string,
     runner: RunnerId,
     repo: string,
-  ): Promise<CheckedRepository | null> {
+  ): Promise<AllowedRepository | null> {
     const leased =
       held.id === workId
         ? await this.reviewing.leasedWork(held, runner, this.clock.now())
@@ -135,7 +175,7 @@ export class CarryGitCall {
   private async reviewedRepository(
     leased: LeasedReviewWork,
     repo: string,
-  ): Promise<CheckedRepository | null> {
+  ): Promise<AllowedRepository | null> {
     const found = leased.runId
       ? await this.works.repositoryForCheck(leased.runId, repo)
       : leased.taskId
@@ -147,7 +187,7 @@ export class CarryGitCall {
     }
 
     return ReviewGitAccess.mayRead(leased.repository, found.repository)
-      ? found
+      ? { ...found, work: null }
       : null;
   }
 }

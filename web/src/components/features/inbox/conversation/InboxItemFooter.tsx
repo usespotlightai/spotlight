@@ -1,6 +1,8 @@
 import { Link } from 'react-router';
 
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
+import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
+import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { followed, type InboxItem, inboxRunPath } from '@/lib/inbox';
 import type { Progress } from '@/lib/run';
 import { taskPath } from '@/lib/task';
@@ -16,6 +18,8 @@ export function InboxItemFooter({
   item,
   progress,
 }: InboxItemFooterProps) {
+  const { station, task } = useTaskStation(item.teamId, item.taskId);
+
   if (!item.resolved && followed(item)) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
@@ -26,15 +30,25 @@ export function InboxItemFooter({
 
   if (!item.resolved) {
     return (
-      <InboxComposer
-        slug={slug}
-        itemId={item.id}
-        taskId={item.taskId}
-        station={item.station}
-        teamId={item.teamId}
-        runId={item.runId}
-        running={progress === 'in-progress'}
-      />
+      <>
+        {station && task?.runNotStarted ? (
+          <RunNotStartedNotice
+            teamId={item.teamId}
+            taskId={item.taskId}
+            station={station.name}
+            harness={task.runNotStarted.harness}
+          />
+        ) : null}
+        <InboxComposer
+          slug={slug}
+          itemId={item.id}
+          taskId={item.taskId}
+          station={item.station}
+          teamId={item.teamId}
+          runId={item.runId}
+          running={progress === 'in-progress'}
+        />
+      </>
     );
   }
 

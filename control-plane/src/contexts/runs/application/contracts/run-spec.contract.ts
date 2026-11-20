@@ -49,6 +49,7 @@ interface RunHandoverShape {
 export interface RunResumeShape {
   readonly sessionId?: string;
   readonly resumeSession?: boolean;
+  readonly followUp?: string;
 }
 
 interface ToolInputShape {
