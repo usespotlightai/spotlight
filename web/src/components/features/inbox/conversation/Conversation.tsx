@@ -297,7 +297,11 @@ export function Conversation({
                             deciding={
                               note.position === asking ? deciding : undefined
                             }
-                            outdated={asking !== null && note.position < asking}
+                            outdated={
+                              note.approval?.status === 'pending' &&
+                              asking !== null &&
+                              note.position < asking
+                            }
                             suggestion={
                               note.position === latest ? suggestion : undefined
                             }

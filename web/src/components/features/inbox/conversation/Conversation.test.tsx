@@ -243,6 +243,50 @@ describe('Conversation', () => {
     expect(screen.getByRole('button', { name: 'Show Approval' })).toBeVisible();
   });
 
+  it('says nothing more on a decided approval once the run asks again', () => {
+    showing(
+      [
+        {
+          ...note(0, AT),
+          form: 'approval',
+          approval: { ...APPROVAL, status: 'approved' as const },
+        },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        { ...note(2, AT), form: 'approval', approval: APPROVAL },
+      ],
+      { pending: false, onDecide: vi.fn() },
+    );
+
+    expect(
+      screen.queryByText('The run asked for something newer since.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('docks only the connection of the newest ask', () => {
+    showing(
+      [
+        {
+          ...note(0, AT),
+          connection: {
+            integration: 'linear',
+            integrationName: 'Linear',
+            personId: 'user_1',
+            personName: 'Ola',
+            met: false,
+          },
+        },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        { ...note(2, AT), form: 'approval', approval: APPROVAL },
+      ],
+      { pending: false, onDecide: vi.fn() },
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Show Connect Linear' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show Approval' })).toBeVisible();
+  });
+
   it('keeps a decided approval in the thread', () => {
     showing(
       [

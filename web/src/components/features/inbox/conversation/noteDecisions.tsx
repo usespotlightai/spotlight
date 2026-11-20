@@ -49,7 +49,7 @@ export const noteDecisions = (
       ];
     }
 
-    if (connection && !connection.met) {
+    if (connection && !connection.met && note.position === asking) {
       return [
         {
           id: connectionDecisionId(note),
