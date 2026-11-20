@@ -135,30 +135,16 @@ describe('a task a chat opens a pull request for', () => {
     );
   });
 
-  it('lets only its assignee act on its conversations while the chat holds it', () => {
+  it('lets nobody drive it while the chat holds it, not even a person who acts on the team', () => {
     const task = opened();
+    const maya = { person: MAYA, onTeam: true, actsOnTasks: true };
 
+    expect(task.conversantOf(maya)).toEqual({ standing: null, drives: false });
+    expect(answers(task, maya)).toBe(false);
     expect(
-      answers(task, {
-        person: MAYA,
-        onTeam: true,
-        actsOnTasks: true,
-      }),
+      task.conversantOf({ person: LEON, onTeam: true, actsOnTasks: true })
+        .drives,
     ).toBe(false);
-    expect(
-      task.conversationStandingOf({
-        person: MAYA,
-        onTeam: true,
-        actsOnTasks: true,
-      }),
-    ).toBeNull();
-    expect(
-      answers(task, {
-        person: LEON,
-        onTeam: true,
-        actsOnTasks: true,
-      }),
-    ).toBe(true);
   });
 
   it('keeps the pull request its chat opened, once', () => {
