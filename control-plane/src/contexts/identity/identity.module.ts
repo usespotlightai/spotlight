@@ -1,5 +1,6 @@
 import { GITHUB_ACTIONS_TRUSTS } from '@identity/application/ports/github-actions-trusts.port';
 import { MEMBER_DIRECTORY } from '@identity/application/ports/member-directory.port';
+import { MEMBER_LOOKUP } from '@identity/application/ports/member-lookup.port';
 import { OIDC_TRUST_CONFIGURATION } from '@identity/application/ports/oidc-trust-configuration.port';
 import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
@@ -31,6 +32,7 @@ import { Module } from '@nestjs/common';
     WORKSPACE_OUTBOUND_SCOPE,
     PERSON_READER,
     MEMBER_DIRECTORY,
+    MEMBER_LOOKUP,
     OIDC_TRUST_CONFIGURATION,
     RUN_TOKENS,
     GITHUB_ACTIONS_TRUSTS,

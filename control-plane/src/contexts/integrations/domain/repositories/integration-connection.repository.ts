@@ -2,6 +2,8 @@ import type { IntegrationConnection } from '@integrations/domain/aggregates/inte
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const INTEGRATION_CONNECTIONS = Symbol('INTEGRATION_CONNECTIONS');
 
@@ -19,4 +21,9 @@ export interface IntegrationConnectionRepository {
   expiringBefore(horizon: Date): Promise<readonly IntegrationConnection[]>;
 
   ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]>;
+
+  ofPerson(
+    workspaceId: WorkspaceId,
+    person: UserId,
+  ): Promise<readonly IntegrationConnection[]>;
 }

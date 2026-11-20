@@ -56,6 +56,7 @@ export class DrizzleMemberReader implements MemberReaderPort {
         image: user.image,
         role: workspaceMember.role,
         joinedAt: workspaceMember.createdAt,
+        suspendedAt: workspaceMember.suspendedAt,
       })
       .from(workspaceMember)
       .innerJoin(user, eq(user.id, workspaceMember.userId))

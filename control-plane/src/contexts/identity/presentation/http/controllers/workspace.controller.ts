@@ -1,5 +1,8 @@
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
 import { CreateWorkspaceWithTeamCommand } from '@identity/application/commands/create-workspace-with-team.command';
+import { LeaveWorkspaceCommand } from '@identity/application/commands/leave-workspace.command';
+import { SuspendMemberCommand } from '@identity/application/commands/suspend-member.command';
+import { UnsuspendMemberCommand } from '@identity/application/commands/unsuspend-member.command';
 import type { WorkspaceMemberDto } from '@identity/application/dto/member.dto';
 import type {
   WorkspaceDetailDto,
@@ -22,6 +25,7 @@ import { WorkspaceHttpMapper } from '@identity/presentation/http/mappers/workspa
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -29,6 +33,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -188,6 +193,88 @@ export class WorkspaceController {
     >(new ChangeMemberRoleCommand(slug, userId, body.role, user.id));
 
     if (!changed) {
+      throw new NotFoundException();
+    }
+  }
+
+  @Put(':slug/members/:userId/suspension')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'suspendMember',
+    summary: 'Suspend a member',
+    description:
+      'A suspended member loses all access at once but stays listed, with their teams and their work. An owner may suspend anyone, an admin any member or admin. Nobody may suspend themselves, and the last owner stays.',
+  })
+  @ApiParam({ name: 'slug', example: 'acme-inc' })
+  @ApiParam({ name: 'userId' })
+  @ApiNoContentResponse({ description: 'They are suspended' })
+  @ApiForbiddenResponse({ description: 'You cannot suspend this person' })
+  @ApiConflictResponse({ description: 'It would leave nobody who owns it' })
+  @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
+  async suspend(
+    @Param('slug') slug: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    const suspended = await this.commandBus.execute<
+      SuspendMemberCommand,
+      boolean
+    >(new SuspendMemberCommand(slug, userId, user.id));
+
+    if (!suspended) {
+      throw new NotFoundException();
+    }
+  }
+
+  @Delete(':slug/members/:userId/suspension')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'unsuspendMember',
+    summary: 'Unsuspend a member',
+    description:
+      'The member gets back the role and the teams they had. This also brings back a member who left.',
+  })
+  @ApiParam({ name: 'slug', example: 'acme-inc' })
+  @ApiParam({ name: 'userId' })
+  @ApiNoContentResponse({ description: 'They are not suspended' })
+  @ApiForbiddenResponse({ description: 'You cannot unsuspend this person' })
+  @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
+  async unsuspend(
+    @Param('slug') slug: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    const unsuspended = await this.commandBus.execute<
+      UnsuspendMemberCommand,
+      boolean
+    >(new UnsuspendMemberCommand(slug, userId, user.id));
+
+    if (!unsuspended) {
+      throw new NotFoundException();
+    }
+  }
+
+  @Post(':slug/leave')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'leaveWorkspace',
+    summary: 'Leave the workspace',
+    description:
+      'Leaving is a suspension you choose. You stay listed, and an admin or an owner can unsuspend you. The last owner cannot leave.',
+  })
+  @ApiParam({ name: 'slug', example: 'acme-inc' })
+  @ApiNoContentResponse({ description: 'You left the workspace' })
+  @ApiConflictResponse({ description: 'It would leave nobody who owns it' })
+  @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
+  async leave(
+    @Param('slug') slug: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    const left = await this.commandBus.execute<LeaveWorkspaceCommand, boolean>(
+      new LeaveWorkspaceCommand(slug, user.id),
+    );
+
+    if (!left) {
       throw new NotFoundException();
     }
   }

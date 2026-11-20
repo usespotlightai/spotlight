@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_member" ADD COLUMN "suspended_at" timestamp (3) with time zone;

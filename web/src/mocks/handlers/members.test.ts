@@ -5,16 +5,20 @@ import {
   addTeamMember,
   changeMemberRole,
   inviteToWorkspace,
+  leaveWorkspace,
   listMembers,
   listWorkspaceInvites,
   listWorkspaceMembers,
   readInvite,
   resendInvite,
   revokeInvite,
+  suspendMember,
+  unsuspendMember,
 } from '@/lib/api';
 import { setScenario } from '@/mocks/scenario';
 import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
+import { membersWorld } from '@/mocks/world/members';
 
 const slug = { path: { slug: SLUG }, throwOnError: true } as const;
 
@@ -142,6 +146,66 @@ describe('the mock members', () => {
       'admin',
     );
     expect(platform.find((each) => each.id === 'user_2')?.role).toBe('admin');
+  });
+
+  it('suspends a member but keeps them listed with their teams, and unsuspends them', async () => {
+    const at = { path: { slug: SLUG, userId: 'user_3' } };
+    const before = (await members()).find((each) => each.id === 'user_3');
+
+    await suspendMember({ ...at, throwOnError: true });
+    const suspended = (await members()).find((each) => each.id === 'user_3');
+
+    expect(suspended?.suspendedAt).not.toBeNull();
+    expect(suspended?.teams).toEqual(before?.teams);
+    expect(suspended).toMatchObject({
+      mayBeSuspended: false,
+      mayBeUnsuspended: true,
+      assignableRoles: [],
+    });
+
+    await unsuspendMember({ ...at, throwOnError: true });
+
+    expect(
+      (await members()).find((each) => each.id === 'user_3'),
+    ).toMatchObject({ suspendedAt: null, mayBeSuspended: true });
+  });
+
+  it('keeps the last owner from suspending or leaving', async () => {
+    const suspended = await suspendMember({
+      path: { slug: SLUG, userId: 'user_1' },
+    });
+    const left = await leaveWorkspace({ path: { slug: SLUG } });
+
+    expect(suspended.response?.status).toBe(409);
+    expect(left.response?.status).toBe(409);
+    expect(
+      (await members()).find((each) => each.id === 'user_1')?.mayLeave,
+    ).toBe(false);
+  });
+
+  it('lets a member who is not the last owner leave, and keeps them listed', async () => {
+    const world = membersWorld();
+    const priya = world.people.find((each) => each.id === 'user_2');
+
+    if (priya) {
+      priya.role = 'owner';
+    }
+
+    await leaveWorkspace({ path: { slug: SLUG }, throwOnError: true });
+
+    expect(
+      (await members()).find((each) => each.id === 'user_1')?.suspendedAt,
+    ).not.toBeNull();
+  });
+
+  it('lets a member suspend nobody', async () => {
+    setScenario({ account: 'member' });
+    const { response } = await suspendMember({
+      path: { slug: SLUG, userId: 'user_3' },
+    });
+
+    expect(response?.status).toBe(403);
+    expect((await members()).some((each) => each.mayBeSuspended)).toBe(false);
   });
 
   it('reads an invite link and accepts it once', async () => {

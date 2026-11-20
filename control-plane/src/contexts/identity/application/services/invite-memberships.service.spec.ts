@@ -60,8 +60,10 @@ const joining = (
           name: WorkspaceName.of('Acme'),
           slug: WorkspaceSlug.of('acme'),
           members: [
-            { userId: LEON, role: WorkspaceRole.owner },
-            ...(over.adaIs ? [{ userId: ADA, role: over.adaIs }] : []),
+            { userId: LEON, role: WorkspaceRole.owner, suspendedAt: null },
+            ...(over.adaIs
+              ? [{ userId: ADA, role: over.adaIs, suspendedAt: null }]
+              : []),
           ],
           version: 0,
         });

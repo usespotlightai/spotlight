@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within } from 'storybook/test';
 
 import { MEMBER_SHOWS, membersPath, SHOW_PARAM } from '@/lib/members';
 import { SLUG } from '@/mocks/world';
@@ -10,6 +11,8 @@ type Doing =
   | 'inviting'
   | 'invited'
   | 'changing-role'
+  | 'suspending'
+  | 'suspended'
   | 'resending'
   | 'revoking';
 
@@ -40,6 +43,13 @@ const actOnInvite =
     await user.click(await screen.findByRole('menuitem', { name: action }));
   };
 
+const askToSuspend: Script = async (screen, user) => {
+  await user.click(
+    await screen.findByRole('button', { name: 'Actions for Tom Becker' }),
+  );
+  await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }));
+};
+
 const SCRIPTS: Record<Doing, Script | undefined> = {
   nothing: undefined,
   inviting: openInvite,
@@ -57,6 +67,15 @@ const SCRIPTS: Record<Doing, Script | undefined> = {
     );
     await user.click(
       await screen.findByRole('menuitem', { name: 'Change role' }),
+    );
+  },
+  suspending: askToSuspend,
+  suspended: async (screen, user) => {
+    await askToSuspend(screen, user);
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Suspend',
+      }),
     );
   },
   resending: actOnInvite('Resend invite'),
@@ -78,6 +97,8 @@ const meta = {
         inviting: 'Inviting people',
         invited: 'Invites sent',
         'changing-role': 'Changing a role',
+        suspending: 'Confirming a suspension',
+        suspended: 'A suspended member',
         resending: 'Resending an invite',
         revoking: 'Revoking an invite',
       }),

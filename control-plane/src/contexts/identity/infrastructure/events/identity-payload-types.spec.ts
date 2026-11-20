@@ -20,7 +20,10 @@ import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invit
 import { WorkspaceInviteCreated } from '@identity/domain/events/workspace-invite-created.event';
 import { WorkspaceInviteRevoked } from '@identity/domain/events/workspace-invite-revoked.event';
 import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
+import { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
 import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
+import { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
+import { WorkspaceMemberUnsuspended } from '@identity/domain/events/workspace-member-unsuspended.event';
 import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-expired.event';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
@@ -187,6 +190,9 @@ const EVERY_EVENT: readonly DomainEvent[] = [
     WorkspaceRole.admin,
     USER,
   ),
+  new WorkspaceMemberSuspended(WORKSPACE, USER, USER, AT),
+  new WorkspaceMemberUnsuspended(WORKSPACE, USER, USER, AT),
+  new WorkspaceMemberLeft(WORKSPACE, USER, AT),
   new WorkspaceTokenIssued(
     TOKEN,
     WORKSPACE,
