@@ -33,15 +33,11 @@ export function ApprovalControls({
   onDecide,
 }: ApprovalControlsProps) {
   if (!onDecide) {
-    return (
-      <ApprovalDecision
-        approval={approval}
-        pending={false}
-        disabledBecause={
-          outdated ? 'The run asked for something newer since' : null
-        }
-      />
-    );
+    return outdated ? (
+      <p className="text-muted-foreground text-xs">
+        The run asked for something newer since.
+      </p>
+    ) : null;
   }
 
   if (mode === 'editing') {

@@ -17,7 +17,6 @@ type EgressConfig struct {
 	Host        *HostCredential `json:"host,omitempty"`
 	Credential  string          `json:"credential"`
 	Allow       []string        `json:"allow,omitempty"`
-	SecretAllow []string        `json:"secretAllow,omitempty"`
 	HarnessKeys []HarnessKey    `json:"harnessKeys,omitempty"`
 	Send        *HostCall       `json:"send,omitempty"`
 	SendSecrets *CallSecrets    `json:"sendSecrets,omitempty"`
@@ -68,22 +67,13 @@ const SpotlightAPISecret = "spotlight-api"
 const SpotlightAPIStandIn = StandInPrefix + SpotlightAPISecret
 
 type FetchedSecret struct {
-	Secret      string             `json:"secret"`
-	Host        string             `json:"host"`
-	Location    string             `json:"location"`
-	Name        string             `json:"name"`
-	Prefix      string             `json:"prefix"`
-	Sealed      string             `json:"sealed,omitempty"`
-	ExternalRef *ExternalSecretRef `json:"externalRef,omitempty"`
+	Secret   string `json:"secret"`
+	Host     string `json:"host"`
+	Location string `json:"location"`
+	Name     string `json:"name"`
+	Prefix   string `json:"prefix"`
+	Sealed   string `json:"sealed"`
 }
-
-type ExternalSecretRef struct {
-	Kind     string `json:"kind"`
-	SecretID string `json:"secretId"`
-	Field    string `json:"field,omitempty"`
-}
-
-const ReadFromAWSSecretsManager = "aws-secrets-manager"
 
 type DeniedSecret struct {
 	Secret string `json:"secret"`

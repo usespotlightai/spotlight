@@ -4,6 +4,8 @@ import type {
   PreparedHarness,
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
+import type { SecretReadinessPort } from '@secrets/application/ports/secret-readiness.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
@@ -22,6 +24,7 @@ import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import {
   type OrderedAt,
   orderAt,
+  type RunLaunch,
   type RunOrder,
 } from '@work/domain/services/run-order';
 import { RunReadying } from '@work/domain/services/run-readying';
@@ -81,6 +84,7 @@ export class StationOrdering {
     private readonly catalog: RunCatalog,
     private readonly profiles: StationProfilesPort,
     private readonly hash: ContentHashPort,
+    private readonly readiness: SecretReadinessPort,
   ) {}
 
   ordered(
@@ -113,15 +117,20 @@ export class StationOrdering {
       ? await this.catalog.enabledAt(line, station)
       : null;
     const ready = [...teamSkills, ...(catalog?.skills ?? [])];
+    const profiles = await this.profilesAt(line, station);
     const order = orderAt({
       at,
       line,
       harnesses: this.harnesses.current(),
       ready: ready.map((each) => ReadySkillMapper.toReady(each)),
-      profiles: await this.profilesAt(line, station),
+      profiles,
       denied:
         station && catalog ? readying.denied(station, catalog.denied) : [],
       toolsOnMarks,
+      secretsAwaitingValue: await this.secretsAwaitingValue(
+        line,
+        profiles.map((each) => readying.profile(each)),
+      ),
     });
 
     if (!order) {
@@ -171,19 +180,37 @@ export class StationOrdering {
       : [];
   }
 
-  prepared(order: RunOrder): PreparedHarness | null {
-    return this.preparedAs(order, RunReadying.asATaskRun);
+  private async secretsAwaitingValue(
+    line: LineMap,
+    profiles: readonly ReadyProfile[],
+  ): Promise<readonly SecretName[]> {
+    const injected = profiles.flatMap((each) => each.injectedSecrets);
+
+    if (injected.length === 0) {
+      return [];
+    }
+
+    return (
+      await this.readiness.awaitingValue(
+        line.workspaceId.value,
+        injected.map((each) => each.value),
+      )
+    ).map((each) => SecretName.of(each));
+  }
+
+  prepared(runLaunch: RunLaunch): PreparedHarness | null {
+    return this.preparedAs(runLaunch, RunReadying.asATaskRun);
   }
 
   private preparedAs(
-    order: RunOrder,
+    runLaunch: RunLaunch,
     readying: RunReadying,
   ): PreparedHarness | null {
-    const profile = order.enabled.profile;
+    const profile = runLaunch.enabled.profile;
 
-    return this.launch.preparedFor(order.harness, {
-      model: order.model,
-      effort: order.effort,
+    return this.launch.preparedFor(runLaunch.harness, {
+      model: runLaunch.model,
+      effort: runLaunch.effort,
       profile: profile && readying.profile(profile),
     });
   }

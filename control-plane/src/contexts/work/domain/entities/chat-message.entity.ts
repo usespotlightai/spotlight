@@ -4,13 +4,19 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import type { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
-export const CHAT_MESSAGE_KINDS = ['message', 'proposed'] as const;
+export const CHAT_MESSAGE_KINDS = [
+  'message',
+  'proposed',
+  'opened',
+  'happened',
+] as const;
 
 export type ChatMessageKind = (typeof CHAT_MESSAGE_KINDS)[number];
 
@@ -27,6 +33,7 @@ export class ChatMessage {
     readonly proposal: TaskProposal | null,
     readonly acknowledgedAt: Date | null,
     readonly acknowledgedBy: RunId | null,
+    readonly pullRequest: ChatPullRequest | null,
   ) {}
 
   static sent(input: {
@@ -46,6 +53,7 @@ export class ChatMessage {
       null,
       input.attachments ?? [],
       TraceReference.distinct(input.traces ?? []),
+      null,
       null,
       null,
       null,
@@ -73,6 +81,52 @@ export class ChatMessage {
       TaskProposal.open(input),
       input.at,
       null,
+      null,
+    );
+  }
+
+  static opened(input: {
+    position: MessagePosition;
+    runId: RunId;
+    title: string;
+    pullRequest: ChatPullRequest;
+    at: Date;
+  }): ChatMessage {
+    return new ChatMessage(
+      input.position,
+      'opened',
+      ChatMessageBody.of(input.title),
+      input.at,
+      null,
+      input.runId,
+      [],
+      [],
+      null,
+      input.at,
+      null,
+      input.pullRequest,
+    );
+  }
+
+  static happened(input: {
+    position: MessagePosition;
+    body: ChatMessageBody;
+    wakes: boolean;
+    at: Date;
+  }): ChatMessage {
+    return new ChatMessage(
+      input.position,
+      'happened',
+      input.body,
+      input.at,
+      null,
+      null,
+      [],
+      [],
+      null,
+      input.wakes ? null : input.at,
+      null,
+      null,
     );
   }
 
@@ -88,6 +142,7 @@ export class ChatMessage {
     proposal: TaskProposal | null;
     acknowledgedAt: Date | null;
     acknowledgedBy: RunId | null;
+    pullRequest: ChatPullRequest | null;
   }): ChatMessage {
     if (input.proposal && !input.proposal.position.equals(input.position)) {
       throw new InconsistentStateError(
@@ -123,6 +178,33 @@ export class ChatMessage {
       );
     }
 
+    if ((input.kind === 'opened') !== (input.pullRequest !== null)) {
+      throw new InconsistentStateError(
+        'chat message',
+        `is a ${input.kind} message ${input.pullRequest ? 'with' : 'without'} a pull request`,
+      );
+    }
+
+    if (
+      input.kind === 'opened' &&
+      (input.runId === null || input.author !== null)
+    ) {
+      throw new InconsistentStateError(
+        'chat message',
+        'is a pull request not opened by a run',
+      );
+    }
+
+    if (
+      input.kind === 'happened' &&
+      (input.runId !== null || input.author !== null)
+    ) {
+      throw new InconsistentStateError(
+        'chat message',
+        'is an event with a person or a run as its author',
+      );
+    }
+
     if (input.acknowledgedBy && !input.acknowledgedAt) {
       throw new InconsistentStateError(
         'chat message',
@@ -142,11 +224,15 @@ export class ChatMessage {
       input.proposal,
       input.acknowledgedAt,
       input.acknowledgedBy,
+      input.pullRequest,
     );
   }
 
   get unacknowledged(): boolean {
-    return this.kind === 'message' && this.acknowledgedAt === null;
+    return (
+      (this.kind === 'message' || this.kind === 'happened') &&
+      this.acknowledgedAt === null
+    );
   }
 
   proposedIn(runId: RunId): boolean {
@@ -210,6 +296,7 @@ export class ChatMessage {
       part.acknowledgedBy !== undefined
         ? part.acknowledgedBy
         : this.acknowledgedBy,
+      this.pullRequest,
     );
   }
 }

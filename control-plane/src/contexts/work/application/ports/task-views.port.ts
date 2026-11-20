@@ -1,3 +1,5 @@
+import type { Task } from '@work/domain/aggregates/task.aggregate';
+
 export interface TaskViewDto {
   readonly taskId: string;
   readonly workspaceId: string;
@@ -17,6 +19,8 @@ export const TASK_VIEWS = Symbol('TASK_VIEWS');
 
 export interface TaskViewsPort {
   of(taskId: string, runId: string | null): Promise<TaskViewDto | null>;
+
+  ofNew(task: Task): Promise<TaskViewDto | null>;
 
   ofPullRequest(
     workspaceId: string,

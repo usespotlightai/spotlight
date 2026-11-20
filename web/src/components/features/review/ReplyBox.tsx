@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
 import { Composer } from '@/components/shared/form/Composer';
+import { useOffsetHeight } from '@/hooks/useOffsetHeight';
 
 const PROMPT = 'Reply…';
 
@@ -21,19 +22,7 @@ export function ReplyBox({
   onSubmit,
 }: ReplyBoxProps) {
   const content = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | null>(null);
-
-  useLayoutEffect(() => {
-    const measured = content.current;
-
-    if (!measured) {
-      return;
-    }
-
-    const observer = new ResizeObserver(() => setHeight(measured.offsetHeight));
-    observer.observe(measured);
-    return () => observer.disconnect();
-  }, []);
+  const height = useOffsetHeight(content);
 
   return (
     <div

@@ -14,6 +14,7 @@ import (
 
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/credentials"
+	"usespotlight.ai/data-plane/flagset"
 	"usespotlight.ai/data-plane/help"
 	"usespotlight.ai/data-plane/login"
 )
@@ -101,16 +102,9 @@ func (c cli) parseGiven(shown help.Command, args []string, flags func(*flag.Flag
 		flags(set)
 	}
 
-	var positional []string
-	for {
-		if err := set.Parse(args); err != nil {
-			return "", false, nil, fmt.Errorf("%s", shown.Synopsis())
-		}
-		if set.NArg() == 0 {
-			break
-		}
-		positional = append(positional, set.Arg(0))
-		args = set.Args()[1:]
+	positional, err := flagset.Interspersed(set, args)
+	if err != nil {
+		return "", false, nil, fmt.Errorf("%s", shown.Synopsis())
 	}
 
 	address, err := credentials.Choose(c.env, *given)

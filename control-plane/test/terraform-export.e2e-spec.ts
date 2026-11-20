@@ -463,13 +463,12 @@ describe('a workspace exported as Terraform (e2e)', () => {
     expect(variables).toContain('variable "runner_pool_ephemeral_token" {');
   });
 
-  it('writes each secret’s value version exactly as the API answers it, so adopting one plans no rotation', async () => {
+  it('writes each secret’s value and value version only where Terraform sets the value, so adopting one plans no rotation', async () => {
     const unversioned = await as(seat.owner).post(
       `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       {
         name: 'SENTRY_TOKEN',
         bindings: [{ host: 'sentry.io', prefix: 'Bearer ' }],
-        valueWo: VALUE,
       },
     );
 
@@ -486,7 +485,9 @@ describe('a workspace exported as Terraform (e2e)', () => {
         `resource "spotlight_secret" "${answered.name.toLowerCase()}"`,
       );
 
-      expect(block).toMatch(/\n {2}value_wo += var\.secret_/);
+      expect(/\n {2}value_wo += var\.secret_/.test(block)).toBe(
+        answered.valueWoVersion !== null,
+      );
       expect(block.match(/value_wo_version += (\d+)/)?.[1] ?? null).toBe(
         answered.valueWoVersion === null
           ? null
@@ -667,15 +668,8 @@ const bodyOf = (
     case 'secret':
       return {
         name: resource.name,
-        source: {
-          kind: resource.source.kind,
-          ...(resource.source.secretId
-            ? { secretId: resource.source.secretId }
-            : {}),
-          ...(resource.source.field ? { field: resource.source.field } : {}),
-        },
         bindings: resource.bindings,
-        ...(resource.storesValue ? { valueWo: VALUE } : {}),
+        ...(resource.valueVersion !== null ? { valueWo: VALUE } : {}),
         ...(resource.valueVersion === null
           ? {}
           : { valueWoVersion: resource.valueVersion }),

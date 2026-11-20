@@ -217,14 +217,14 @@ func injecting(t *testing.T, allowed allowlist.List) *inject.Injector {
 		}
 		return out
 	}
-	injector := inject.From(context.Background(), protocol.EgressSecrets{RunID: "call_1", Secrets: []protocol.FetchedSecret{
+	injector := inject.From(protocol.EgressSecrets{RunID: "call_1", Secrets: []protocol.FetchedSecret{
 		{Secret: "SLACK_BOT_TOKEN", Host: "slack.example.com", Location: protocol.LocationHeader, Name: "authorization",
 			Prefix: "Bearer ", Sealed: sealed("xoxb-real", "SLACK_BOT_TOKEN")},
 		{Secret: "SLACK_KEY", Host: "slack.example.com", Location: protocol.LocationQuery, Name: "key",
 			Sealed: sealed("key-real", "SLACK_KEY")},
 		{Secret: "OTHER_TOKEN", Host: "other.example.com", Location: protocol.LocationHeader, Name: "X-Other-Token",
 			Sealed: sealed("other-real", "OTHER_TOKEN")},
-	}}, nil, inject.Limits{Hosts: allowed}, key, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	}}, nil, allowed, key, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	t.Cleanup(injector.Wipe)
 
 	return injector

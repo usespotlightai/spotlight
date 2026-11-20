@@ -24,6 +24,7 @@ export function ProposedTaskFacts({
   titleId,
 }: ProposedTaskFactsProps) {
   const station = proposedStationOf(proposal);
+  const made = proposal.state === 'accepted' || proposal.state === 'created';
 
   return (
     <dl>
@@ -33,6 +34,7 @@ export function ProposedTaskFacts({
           {proposal.taskId ? (
             <TrailLink
               id={titleId}
+              data-focus-next
               to={taskPath(slug, teamId, proposal.taskId)}
               className={`${FACT_VALUE} -mx-1.5 rounded-md box-decoration-clone px-1.5 py-0.5 outline-none pointer-coarse:py-1.5 transition-colors hover:bg-accent focus-visible:bg-accent`}
             >
@@ -70,7 +72,7 @@ export function ProposedTaskFacts({
         </dd>
       </FactRow>
 
-      {proposal.description && (
+      {!made && proposal.description && (
         <FactRow>
           <dt className={FACT_LABEL}>Details</dt>
           <dd>
@@ -86,7 +88,7 @@ export function ProposedTaskFacts({
         </FactRow>
       )}
 
-      {attachments.length > 0 && (
+      {!made && attachments.length > 0 && (
         <FactRow>
           <dt className={FACT_LABEL}>Files</dt>
           <dd>

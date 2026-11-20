@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"usespotlight.ai/data-plane/flagset"
 	"usespotlight.ai/data-plane/protocol"
 )
 
@@ -21,16 +22,9 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	name := flags.String("name", "", "tells the candidate from the search's others")
 	hypothesis := flags.String("hypothesis", "", "what you expect the change to do, or @file that contains it")
 
-	var positional []string
-	for {
-		if err := flags.Parse(args); err != nil {
-			return fmt.Errorf("%v\n%s", err, candidateHelp.Synopsis())
-		}
-		if flags.NArg() == 0 {
-			break
-		}
-		positional = append(positional, flags.Arg(0))
-		args = flags.Args()[1:]
+	positional, err := flagset.Interspersed(flags, args)
+	if err != nil {
+		return fmt.Errorf("%v\n%s", err, candidateHelp.Synopsis())
 	}
 
 	if strings.TrimSpace(*name) == "" {

@@ -21,15 +21,15 @@ describe('chat inbox', () => {
   });
 
   it('is unread only while a proposal is newer than the read marker', () => {
-    expect(chatUnread({ readAt: null, lastProposedAt: null })).toBe(false);
-    expect(chatUnread({ readAt: null, lastProposedAt: EARLIER })).toBe(true);
-    expect(chatUnread({ readAt: EARLIER, lastProposedAt: LATER })).toBe(true);
-    expect(chatUnread({ readAt: LATER, lastProposedAt: EARLIER })).toBe(false);
-    expect(chatUnread({ readAt: LATER, lastProposedAt: LATER })).toBe(false);
+    expect(chatUnread({ readAt: null, lastNoticeAt: null })).toBe(false);
+    expect(chatUnread({ readAt: null, lastNoticeAt: EARLIER })).toBe(true);
+    expect(chatUnread({ readAt: EARLIER, lastNoticeAt: LATER })).toBe(true);
+    expect(chatUnread({ readAt: LATER, lastNoticeAt: EARLIER })).toBe(false);
+    expect(chatUnread({ readAt: LATER, lastNoticeAt: LATER })).toBe(false);
   });
 
   it('counts as resolved only once nothing runs for it any more', () => {
-    const facts = { readAt: null, lastProposedAt: null, resolvedAt: LATER };
+    const facts = { readAt: null, lastNoticeAt: null, resolvedAt: LATER };
 
     expect(chatInboxStanding({ ...facts, ...IDLE })).toEqual({
       unread: false,

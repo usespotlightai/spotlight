@@ -47,9 +47,7 @@ export const ExportableResourceMapper = {
       id: secret.id,
       address: secret.address,
       name: secret.name,
-      source: { ...secret.source },
       bindings: secret.bindings.map((each) => ({ ...each })),
-      storesValue: secret.storesValue,
       valueVersion: secret.valueVersion,
     };
   },

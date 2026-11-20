@@ -16,8 +16,8 @@ import type { MessagePosition } from '@work/domain/value-objects/message-positio
 
 const opening = (team: string | null): string =>
   [
-    `You are planning work together with a person${team ? ` on the ${team} team` : ''}. Talk it through with them: ask what you need to know, read the code, and shape what they want into tasks their lines can work.`,
-    'You are not here to make the change yourself. Do not edit files, commit or push anything.',
+    `You are working together with a person${team ? ` on the ${team} team` : ''}. Talk it through with them: ask what you need to know, read the code, and shape what they want into tasks their lines can work.`,
+    'When they ask you to make a small change yourself, make it here and open its pull request. Do not edit files before they ask.',
   ].join(' ');
 
 const linesOf = (lines: readonly LineMap[]): string =>
@@ -65,6 +65,30 @@ const proposing = [
   'When a new proposal takes the place of earlier ones, name each earlier one with `--replaces <number>`. Its number is in the list of proposals so far. The person then sees the earlier one as replaced, and does not have to dismiss it.',
 ].join('\n\n');
 
+const changing = [
+  '## Making a change here',
+  'Make a change yourself only when the person asks for it, and only when it is small: a few files that one pull request can hold. When the work is bigger, needs a plan, or has parts that can be done on their own, propose tasks instead, and say why.',
+  'For each repository you change, create a new branch from the default branch, named like `fix/video-icons` or `feat/csv-export`. Commit your change on it and push it with `git push -u origin HEAD`. Never push to the default branch.',
+  'Then open the pull request:',
+  '```\nspotlight tools call open-pull-request --repository <owner/name> --branch <branch> --title "…" < body.md\n```',
+  'A task on the line tracks the pull request. It waits on hold at the station that holds pull requests, and the line does not work on it while the person works with you.',
+  'When a check fails, someone reviews the pull request or a teammate writes on the task, you hear it here. Fix what it asks for and push to the same branch. More changes to the same work go to the same branch too. Use a new branch only for new work, and open a new pull request for it.',
+  'The person can hand the task to the line at any time. When the pull request is merged, the task completes.',
+].join('\n\n');
+
+const openedSoFar = (chat: Chat): string | null => {
+  const opened = chat.pullRequests;
+
+  if (opened.length === 0) {
+    return null;
+  }
+
+  return [
+    '## Your pull requests',
+    opened.map((each) => `- ${each.url.value}`).join('\n'),
+  ].join('\n\n');
+};
+
 const proposedSoFar = (
   chat: Chat,
   lines: readonly LineMap[],
@@ -91,12 +115,14 @@ const proposedSoFar = (
 };
 
 const words = (message: ChatMessage): string =>
-  [
-    Attached.beside(message.body.value, message.attachments),
-    Traced.listed(message.traces),
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  message.kind === 'happened'
+    ? `From the pull request's task:\n\n${message.body.value}`
+    : [
+        Attached.beside(message.body.value, message.attachments),
+        Traced.listed(message.traces),
+      ]
+        .filter(Boolean)
+        .join('\n\n');
 
 const tracing = (messages: readonly ChatMessage[]): boolean =>
   messages.some((message) => message.traces.length > 0);
@@ -113,7 +139,7 @@ export const ChatBriefing = {
     extensions: readonly string[];
   }): string {
     const messages = input.chat.messages.filter(
-      (message) => message.kind === 'message',
+      (message) => message.kind === 'message' || message.kind === 'happened',
     );
 
     const setup = input.chat.setup;
@@ -140,7 +166,9 @@ export const ChatBriefing = {
       SpotlightCli.section,
       ConfiguringSpotlight.section,
       proposing,
+      setup ? null : changing,
       proposedSoFar(input.chat, input.lines),
+      openedSoFar(input.chat),
       tracing(messages) ? Traced.reading : null,
       ['## Their messages', ...messages.map(words)].join('\n\n'),
     ]

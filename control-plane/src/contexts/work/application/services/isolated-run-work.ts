@@ -41,6 +41,12 @@ export class IsolatedRunWork implements RunWork {
     throw new NotAllowedForIsolatedRunError(`use the repository ${name}`);
   }
 
+  readonly limitsPushes = false;
+
+  async pushRefusal(): Promise<string | null> {
+    return null;
+  }
+
   async toolContext(tool: Tool): Promise<ToolContext> {
     throw new ToolNotEnabledError(tool.value);
   }

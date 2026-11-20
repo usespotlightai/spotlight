@@ -1,9 +1,14 @@
-import { RunComposer } from '@/components/features/runs/RunComposer';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
+import { MovedOnFooter } from '@/components/features/runs/MovedOnFooter';
+import {
+  RunComposer,
+  WRITE_A_MESSAGE,
+} from '@/components/features/runs/RunComposer';
+import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
 import { heldByOther } from '@/lib/hold';
-import { runPath, type TeamRun, waitsOnPerson, stoppable } from '@/lib/run';
+import { stoppable, type TeamRun, waitsOnPerson } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
@@ -34,29 +39,52 @@ export function RunFooter({
 
   if (heldByTeammate) {
     return (
-      <p className="pb-5 text-center text-muted-foreground text-xs">
-        {heldByTeammate.by.name} put the task on hold. The agent reads new
-        messages after they resume the line.
-      </p>
+      <ClosedTaskComposer
+        slug={slug}
+        teamId={teamId}
+        taskId={conversation?.taskId}
+        station={run.station?.name ?? 'the agent'}
+        label={`Message ${run.station?.name ?? 'the agent'}`}
+        placeholder={WRITE_A_MESSAGE}
+        because={`${heldByTeammate.by.name} put the task on hold. The agent reads new messages after they resume the line.`}
+      />
+    );
+  }
+
+  if (current && task?.runNotStarted) {
+    return (
+      <>
+        <RunNotStartedNotice
+          teamId={teamId}
+          taskId={task.id}
+          station={current.name}
+          harness={task.runNotStarted.harness}
+        />
+        <RunComposer
+          slug={slug}
+          teamId={teamId}
+          runId={null}
+          taskId={task.id}
+          station={current.name}
+          stationId={current.id}
+          running={false}
+          answering={false}
+          onSent={onSent}
+        />
+      </>
     );
   }
 
   if (current && run.station && current.id !== run.station.id) {
     return (
-      <p className="pb-5 text-center text-muted-foreground text-xs">
-        The task has moved to{' '}
-        {latest.id === run.id ? (
-          <strong>{current.name}</strong>
-        ) : (
-          <TrailLink
-            to={runPath(slug, teamId, latest.id)}
-            className="font-semibold underline-offset-4 hover:text-foreground hover:underline"
-          >
-            {current.name}
-          </TrailLink>
-        )}
-        . Messages here reach no one.
-      </p>
+      <MovedOnFooter
+        slug={slug}
+        teamId={teamId}
+        taskId={conversation?.taskId}
+        current={current}
+        station={run.station.name}
+        onSent={onSent}
+      />
     );
   }
 

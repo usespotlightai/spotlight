@@ -7,7 +7,6 @@ type ApprovalDecisionProps = {
   approval: Approval;
   pending: boolean;
   onlyFor?: string | null;
-  disabledBecause?: string | null;
   keyed?: boolean;
   onApprove?: () => void;
   onDismiss?: () => void;
@@ -17,7 +16,6 @@ export function ApprovalDecision({
   approval,
   pending,
   onlyFor = null,
-  disabledBecause = null,
   keyed = false,
   onApprove,
   onDismiss,
@@ -34,9 +32,7 @@ export function ApprovalDecision({
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || !onApprove}
-        disabledBecause={
-          onlyFor ? `Only ${onlyFor} can approve this` : disabledBecause
-        }
+        disabledBecause={onlyFor ? `Only ${onlyFor} can approve this` : null}
         keyed={keyed}
         onApprove={onApprove}
       />

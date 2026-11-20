@@ -57,6 +57,11 @@ export interface TargetStationRow {
   readonly stationName: string;
 }
 
+export interface ChatPullRequestRow {
+  readonly taskId: string;
+  readonly url: string;
+}
+
 export const chatMessageKind = pgEnum('chat_message_kind', CHAT_MESSAGE_KINDS);
 
 export const chat = pgTable(
@@ -112,6 +117,7 @@ export const chatMessage = pgTable(
     runId: text('run_id'),
     traces: jsonb('traces').$type<TraceRow[]>().notNull().default([]),
     proposal: jsonb('proposal').$type<ProposalRow>(),
+    pullRequest: jsonb('pull_request').$type<ChatPullRequestRow>(),
     acknowledgedAt: timestamptz('acknowledged_at'),
     acknowledgedByRunId: text('acknowledged_by_run_id'),
   },
@@ -119,6 +125,10 @@ export const chatMessage = pgTable(
     check('chat_message_position_not_negative', sql`${table.position} >= 0`),
     primaryKey({ columns: [table.chatId, table.position] }),
     index('chat_message_run_idx').on(table.runId),
+    check(
+      'chat_message_opened_names_a_pull_request',
+      sql`(${table.kind}::text = 'opened') = (${table.pullRequest} is not null)`,
+    ),
   ],
 );
 

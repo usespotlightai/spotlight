@@ -4,6 +4,7 @@ import {
   CircleDashed,
   Inbox,
   KeyRound,
+  LockKeyhole,
   type LucideIcon,
   Mail,
   Package,
@@ -20,6 +21,7 @@ import { isAdmin, type Role } from '@/lib/role';
 import { runnersPath } from '@/lib/runner';
 import {
   apiAccessPath,
+  secretsPath,
   TEAM_SETTINGS_PAGES,
   teamSettingsPath,
   workspaceGeneralPath,
@@ -175,6 +177,12 @@ export const settingsTargets = (
     label: 'Go to runners',
     icon: Server,
     to: runnersPath(slug),
+  },
+  {
+    id: 'settings:secrets',
+    label: 'Go to secrets',
+    icon: LockKeyhole,
+    to: secretsPath(slug),
   },
   ...(isAdmin(role)
     ? [

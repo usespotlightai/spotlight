@@ -1,8 +1,11 @@
+import { use } from 'react';
+
 import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
 import { MemoryProvenanceList } from '@/components/features/memory/MemoryProvenanceList';
 import { MemoryScopeRows } from '@/components/features/memory/MemoryScopeRows';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { InPlaceTextarea } from '@/components/shared/form/InPlaceTextarea';
+import { DockedContext } from '@/lib/decision-tray';
 import {
   citesAnything,
   MAX_MEMORY_BODY,
@@ -26,6 +29,13 @@ export function ProposedMemoryFacts({
   bodyId,
   onBody,
 }: ProposedMemoryFactsProps) {
+  const docked = use(DockedContext) !== null;
+  const text = (
+    <p id={bodyId} className={FACT_VALUE}>
+      {memory.body}
+    </p>
+  );
+
   return (
     <dl>
       <FactRow>
@@ -41,12 +51,10 @@ export function ProposedMemoryFacts({
               onChange={(event) => onBody(event.target.value)}
               aria-label="The memory as it should be"
             />
+          ) : docked ? (
+            text
           ) : (
-            <PinnedText>
-              <p id={bodyId} className={FACT_VALUE}>
-                {memory.body}
-              </p>
-            </PinnedText>
+            <PinnedText>{text}</PinnedText>
           )}
         </dd>
       </FactRow>

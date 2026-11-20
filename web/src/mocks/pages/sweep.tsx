@@ -25,6 +25,7 @@ export const workspacePages = (): string[] => [
   `${workspace}/settings/general`,
   `${workspace}/settings/members`,
   `${workspace}/settings/runners`,
+  `${workspace}/settings/secrets`,
   `${workspace}/settings/api-access`,
   ...everyTeam((teamId) => [
     `${teamPath(teamId)}/memory`,

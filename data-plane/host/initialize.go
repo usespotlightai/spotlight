@@ -17,6 +17,7 @@ import (
 	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/credentials"
+	"usespotlight.ai/data-plane/flagset"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 	"usespotlight.ai/data-plane/host/internal/pool"
@@ -40,6 +41,7 @@ type initFlags struct {
 func initialize(version string, args []string) error {
 	var f initFlags
 	flags := flag.NewFlagSet("init", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
 	flags.StringVar(&f.url, "url", "", "")
 	flags.StringVar(&f.token, "token", "", "")
 	flags.StringVar(&f.trust, "trust", "", "")
@@ -51,7 +53,7 @@ func initialize(version string, args []string) error {
 	flags.BoolVar(&f.noService, "no-service", false, "")
 	flags.BoolVar(&f.yes, "yes", false, "")
 	flags.BoolVar(&f.tokenStdin, "token-stdin", false, "")
-	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
+	if rest, err := flagset.Interspersed(flags, args); err != nil || len(rest) > 0 {
 		return fmt.Errorf("%s", initHelp.Synopsis())
 	}
 	f.given = map[string]bool{}

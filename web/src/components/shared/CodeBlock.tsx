@@ -1,10 +1,8 @@
-import { getSharedHighlighter } from '@pierre/diffs';
-import { type ReactNode, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useHighlightedShell } from '@/hooks/useHighlightedShell';
 import { cn } from '@/lib/utils';
-
-const THEME = { light: 'github-light', dark: 'github-dark' } as const;
 
 const EDGE_FADE =
   '[mask-image:linear-gradient(to_right,transparent,black_min(24px,var(--scroll-area-overflow-x-start,0px)),black_calc(100%-min(24px,var(--scroll-area-overflow-x-end,0px))),transparent)]';
@@ -20,42 +18,7 @@ export function CodeBlock({
   className?: string;
   trailing?: ReactNode;
 }) {
-  const [highlighted, setHighlighted] = useState<{
-    command: string;
-    html: string;
-  } | null>(null);
-  const commandHtml =
-    command && highlighted?.command === command ? highlighted.html : null;
-
-  useEffect(() => {
-    if (!command) {
-      return;
-    }
-
-    let alive = true;
-
-    void getSharedHighlighter({
-      themes: [THEME.light, THEME.dark],
-      langs: ['shellscript'],
-    })
-      .then((hl) => {
-        if (alive) {
-          setHighlighted({
-            command,
-            html: hl.codeToHtml(command, {
-              lang: 'shellscript',
-              themes: THEME,
-              defaultColor: false,
-            }),
-          });
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      alive = false;
-    };
-  }, [command]);
+  const commandHtml = useHighlightedShell(command);
 
   return (
     <div className="flex max-h-64 overflow-hidden rounded-md border-[0.5px] border-border bg-muted/60">

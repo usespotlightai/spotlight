@@ -67,6 +67,12 @@ export class TrialRunWork implements RunWork {
     return trialRepositoryNamed(this.trial.repositories, name);
   }
 
+  readonly limitsPushes = false;
+
+  async pushRefusal(): Promise<string | null> {
+    return null;
+  }
+
   async toolContext(): Promise<TaskToolContext> {
     return {
       kind: 'task',

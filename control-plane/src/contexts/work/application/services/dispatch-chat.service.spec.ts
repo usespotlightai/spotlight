@@ -271,7 +271,11 @@ describe('DispatchChat', () => {
       again.handed,
     );
 
-    expect(ordering?.run.spec.briefing).toBe('Split it.\n\nThen the docs.');
+    expect(ordering?.run.spec.resume.followUp).toBe(
+      'Split it.\n\nThen the docs.',
+    );
+    expect(ordering?.run.spec.briefing).toMatch(/^You are working together/);
+    expect(ordering?.run.spec.briefing).toContain('Then the docs.');
   });
 
   it('briefs a fresh chat with the team-wide memories, and records them on its run', async () => {

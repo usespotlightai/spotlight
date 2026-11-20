@@ -1,6 +1,116 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/workspaces/{slug}/secrets": {
+      "get": {
+        "operationId": "listWorkspaceSecrets",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceSecretResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The workspace’s secrets, with the hosts each one is sent to and where its value comes from. Never the values",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/secrets/{name}/value": {
+      "put": {
+        "operationId": "setWorkspaceSecretValue",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "STAGING_LOGIN_PASSWORD",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSecretValueRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Spotlight stores the new value"
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "403": {
+            "description": "You do not manage secrets"
+          },
+          "404": {
+            "description": "No such secret for this caller"
+          },
+          "409": {
+            "description": "Terraform sets this value, or the secret changed meanwhile"
+          },
+          "422": {
+            "description": "The value is not text, is empty, is too long, or is more than one line for a bound secret"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the value of a secret that Spotlight stores and Terraform does not set. Spotlight encrypts it and never returns it",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/teams/{teamId}/insights/overview": {
       "get": {
         "operationId": "readInsightsOverview",
@@ -1673,6 +1783,74 @@
           "title",
           "status",
           "detail"
+        ]
+      },
+      "SecretValueOrigin": {
+        "type": "string",
+        "enum": [
+          "awaiting",
+          "spotlight",
+          "terraform"
+        ],
+        "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)"
+      },
+      "WorkspaceSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "STAGING_LOGIN_PASSWORD"
+          },
+          "hosts": {
+            "example": [
+              "staging.example.com"
+            ],
+            "description": "The hosts egress sends the value to",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "valueOrigin": {
+            "example": "awaiting",
+            "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretValueOrigin"
+              }
+            ]
+          },
+          "valueSetAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When Spotlight last stored a value; null when it holds none"
+          },
+          "settable": {
+            "type": "boolean",
+            "description": "True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets"
+          }
+        },
+        "required": [
+          "name",
+          "hosts",
+          "valueOrigin",
+          "valueSetAt",
+          "settable"
+        ]
+      },
+      "SetSecretValueRequestDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "example": "correct-horse-battery-staple",
+            "description": "The new value, on one line if the secret is bound to a host. Spotlight encrypts it and never returns it",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "value"
         ]
       },
       "InsightsConfigChangeResponseDto": {

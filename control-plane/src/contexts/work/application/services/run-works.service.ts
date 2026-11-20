@@ -1,3 +1,4 @@
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type {
   LeasedAttempt,
   LeasedRunFacts,
@@ -61,6 +62,7 @@ export class RunWorks {
     private readonly chats: ChatRepository,
     private readonly lines: LineMapsPort,
     private readonly dispatches: DispatchRepository,
+    private readonly settings: RepositorySettingsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -230,7 +232,9 @@ export class RunWorks {
       case 'chat': {
         const chat = await this.chats.find(subject.chatId);
 
-        return chat ? new ChatRunWork(run, chat, this.chats) : null;
+        return chat
+          ? new ChatRunWork(run, chat, this.chats, this.tasks, this.settings)
+          : null;
       }
       case 'trial':
         return new TrialRunWork(

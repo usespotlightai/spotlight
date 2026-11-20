@@ -36,7 +36,10 @@ export class OrderChatRun {
       teamId: chat.teamId,
       subject: { kind: 'chat' as const, chatId: chat.id },
       configuredAs: null,
-      briefing: ordered?.order.spec.briefing ?? null,
+      briefing:
+        ordered?.order.spec.resume.followUp ??
+        ordered?.order.spec.briefing ??
+        null,
       briefedMemories: ordered?.briefedMemories,
       now: this.clock.now(),
     };

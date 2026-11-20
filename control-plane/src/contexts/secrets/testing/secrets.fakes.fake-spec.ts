@@ -2,8 +2,8 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import type {
   SecretReference,
-  SecretSourcePort,
-} from '@secrets/application/ports/secret-source.port';
+  SecretStorePort,
+} from '@secrets/application/ports/secret-store.port';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import {
   Secret,
@@ -16,8 +16,7 @@ import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grant
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
-import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
+import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -44,19 +43,26 @@ export const WORKSPACE = WorkspaceId.of('ws_1');
 
 export const BY = ChangeActor.of(ADMIN, WORKSPACE);
 
-export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
-  ({
+export const SLUG = 'acme';
+
+export const accessFor = (
+  managesSecrets: () => boolean,
+): WorkspaceAccessPort => {
+  const permissions = () => ({
+    workspaceId: WORKSPACE,
+    slug: SLUG,
+    configures: true,
+    scopes: new Set(managesSecrets() ? (['secrets'] as const) : []),
+    isAdmin: false,
+  });
+
+  return {
     permissionsIn: async (workspaceId: WorkspaceId) =>
-      workspaceId.equals(WORKSPACE)
-        ? {
-            workspaceId,
-            slug: 'acme',
-            configures: true,
-            scopes: new Set(managesSecrets() ? (['secrets'] as const) : []),
-            isAdmin: false,
-          }
-        : null,
-  }) as unknown as WorkspaceAccessPort;
+      workspaceId.equals(WORKSPACE) ? permissions() : null,
+    permissionsInSlug: async (slug: string) =>
+      slug === SLUG ? permissions() : null,
+  } as unknown as WorkspaceAccessPort;
+};
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };
 
@@ -118,7 +124,6 @@ export const clockAt = (now: () => Date = () => NOW): ClockPort => ({
 export const definition = (
   over: Partial<{
     name: string;
-    source: SecretSource;
     bindings: {
       host: string;
       location?: string;
@@ -130,7 +135,6 @@ export const definition = (
   }> = {},
 ): SecretDefinition => ({
   name: SecretName.of(over.name ?? 'LINEAR_API_KEY'),
-  source: over.source ?? SecretSource.builtIn(),
   bindings: SecretBindings.of(
     over.bindings ?? [{ host: 'api.linear.app', prefix: 'Bearer ' }],
   ),
@@ -188,7 +192,7 @@ export class InMemorySecrets implements SecretRepository {
 
     this.events.push(...secret.pullEvents());
 
-    await secret.valueChange({
+    await secret.valueWrite({
       store: (value) => this.values.store(secret, value),
       delete: () => this.values.delete(secret),
       keep: async () => {},
@@ -210,9 +214,9 @@ export class InMemorySecrets implements SecretRepository {
       id: record.secret.id,
       workspaceId: record.secret.workspaceId,
       name: record.secret.name,
-      source: record.secret.source,
       bindings: record.secret.bindings,
       valueVersion: record.secret.valueVersion,
+      holdsValue: this.values.has(record.secret.id),
       rotatedAt: record.secret.rotatedAt,
       version: record.version,
     });
@@ -229,6 +233,35 @@ const copyOf = (grants: RunGrants, version: number): RunGrants =>
     endedAt: grants.endedAt,
     version,
   });
+
+export const saveSecret = (
+  secrets: InMemorySecrets,
+  id: string,
+  over: Parameters<typeof definition>[0],
+): Promise<void> =>
+  secrets.save(
+    Secret.create(definition(over), {
+      id: SecretId.of(id),
+      workspaceId: WORKSPACE,
+      by: BY,
+      at: NOW,
+    }),
+  );
+
+export const bindStored = async (
+  secrets: InMemorySecrets,
+  id: string,
+  over: Parameters<typeof definition>[0],
+): Promise<void> => {
+  await saveSecret(secrets, id, { ...over, bindings: [] });
+  const stored = await secrets.withId(SecretId.of(id));
+
+  if (!stored) {
+    throw new Error(`Secret ${id} was not saved`);
+  }
+
+  await secrets.save(stored.update(definition(over), BY, NOW));
+};
 
 export class InMemoryGrants implements RunGrantsRepository {
   readonly #records = new Map<string, RunGrants>();
@@ -289,7 +322,7 @@ export class InMemoryGrants implements RunGrantsRepository {
   }
 }
 
-export class InMemoryStore implements SecretSourcePort {
+export class InMemoryStore implements SecretStorePort {
   readonly #values = new Map<string, string>();
 
   async store(secret: SecretReference, value: SecretValue): Promise<void> {
@@ -314,17 +347,3 @@ export class InMemoryStore implements SecretSourcePort {
     return this.#values.has(secretId.value);
   }
 }
-
-export const readingFrom = (
-  values: Readonly<Record<string, string>>,
-): SecretSourcePort => ({
-  read: async (secret) => {
-    const stored = values[secret.source.secretId ?? ''];
-
-    if (stored === undefined) {
-      throw new UnreadableSecretError(secret.name.value, 'AWS has nothing');
-    }
-
-    return SecretValue.of(stored);
-  },
-});

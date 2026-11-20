@@ -209,7 +209,7 @@ func (e *Egress) fetchedSecrets(ctx context.Context, r *run, now bool) error {
 	}
 
 	log := e.log.With("run", fetched.RunID)
-	injector := inject.From(fetching, fetched, nil, inject.Limits{Hosts: e.settings.Allow, SecretAllow: e.settings.SecretAllow}, e.key, e.reader, log)
+	injector := inject.From(fetched, nil, e.settings.Allow, e.key, log)
 	controlPlane := &url.URL{Scheme: "https", Host: r.controlPlane}
 	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, e.key); err != nil {
 		log.Warn("could not store the run's Spotlight token", "error", err)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"usespotlight.ai/data-plane/flagset"
 	"usespotlight.ai/data-plane/host/internal/config"
 )
 
@@ -58,8 +59,9 @@ func shown(values map[string]string) []listed {
 
 func listSettings(out io.Writer, args []string) error {
 	flags := flag.NewFlagSet("config", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
 	asJSON := flags.Bool("json", false, "")
-	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
+	if rest, err := flagset.Interspersed(flags, args); err != nil || len(rest) > 0 {
 		return fmt.Errorf("%s", configHelp.Synopsis())
 	}
 
@@ -117,12 +119,13 @@ func changeSettings(in io.Reader, out io.Writer, version, verb string, args []st
 	}
 
 	flags := flag.NewFlagSet("config "+verb, flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
 	now := flags.Bool("now", false, "")
 	fromStdin := new(bool)
 	if verb == "set" {
 		fromStdin = flags.Bool("stdin", false, "")
 	}
-	pairs, err := parse(flags, args)
+	pairs, err := flagset.Interspersed(flags, args)
 	if err != nil || len(pairs) == 0 {
 		return fmt.Errorf("%s", shown.Synopsis())
 	}

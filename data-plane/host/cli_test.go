@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -51,24 +50,6 @@ func saved(t *testing.T, path string) string {
 }
 
 const ready = "SPOTLIGHT_URL=https://spotlight.test\nSPOTLIGHT_POOL_TOKEN=spl_0123456789abcd\n"
-
-func TestFlagsMayFollowTheArguments(t *testing.T) {
-	flags := flag.NewFlagSet("set", flag.ContinueOnError)
-	now := flags.Bool("now", false, "")
-	rest, err := parse(flags, []string{"capacity=8", "--now", "image=runner:2"})
-	if err != nil || !*now || !slices.Equal(rest, []string{"capacity=8", "image=runner:2"}) {
-		t.Errorf("rest %v, now %v, error %v", rest, *now, err)
-	}
-}
-
-func TestArgumentsAfterTheMarkerAreNotFlags(t *testing.T) {
-	flags := flag.NewFlagSet("set", flag.ContinueOnError)
-	now := flags.Bool("now", false, "")
-	rest, err := parse(flags, []string{"capacity=8", "--", "--now"})
-	if err != nil || *now || !slices.Equal(rest, []string{"capacity=8", "--now"}) {
-		t.Errorf("rest %v, now %v, error %v", rest, *now, err)
-	}
-}
 
 func TestValidationReadsTheFileNotTheShell(t *testing.T) {
 	path := settled(t, ready)

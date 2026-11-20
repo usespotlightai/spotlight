@@ -6720,7 +6720,7 @@
     },
     "/hosts/harness-keys": {
       "post": {
-        "description": "Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Values that Spotlight stores come back sealed to the recipient, bound to an empty run id. For a value in an external store, the response gives the external reference that egress reads. Spotlight grants nothing to a run.",
+        "description": "Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Each value comes back sealed to the recipient, bound to an empty run id. Spotlight grants nothing to a run.",
         "operationId": "fetchHarnessKeys",
         "parameters": [
           {
@@ -6945,7 +6945,7 @@
     },
     "/hosts/calls/{id}/secrets": {
       "post": {
-        "description": "Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Values that Spotlight stores come back sealed to the recipient for this call alone. For a value in an external store, the response gives the external reference that egress reads.",
+        "description": "Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Each value comes back sealed to the recipient for this call alone.",
         "operationId": "redeemCallSecrets",
         "parameters": [
           {
@@ -6999,7 +6999,7 @@
     },
     "/egress/secrets": {
       "post": {
-        "description": "Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.",
+        "description": "Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Each value comes back sealed to the recipient.",
         "operationId": "fetchRunSecrets",
         "parameters": [],
         "requestBody": {
@@ -7306,28 +7306,6 @@
                     "type": "string",
                     "example": "LINEAR_API_KEY"
                   },
-                  "source": {
-                    "type": "object",
-                    "required": [
-                      "kind"
-                    ],
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "built-in",
-                          "aws-secrets-manager"
-                        ],
-                        "default": "built-in"
-                      },
-                      "secretId": {
-                        "type": "string"
-                      },
-                      "field": {
-                        "type": "string"
-                      }
-                    }
-                  },
                   "bindings": {
                     "type": "array",
                     "items": {
@@ -7364,13 +7342,13 @@
                   "valueWo": {
                     "type": "string",
                     "writeOnly": true,
-                    "description": "The value to store; accepted on create and whenever valueWoVersion changes, and never returned"
+                    "description": "The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform"
                   },
                   "valueWoVersion": {
                     "type": "integer",
                     "minimum": 0,
                     "example": 1,
-                    "description": "Change it to rotate the value to the valueWo sent with it"
+                    "description": "Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform"
                   }
                 }
               }
@@ -7736,28 +7714,6 @@
                     "type": "string",
                     "example": "LINEAR_API_KEY"
                   },
-                  "source": {
-                    "type": "object",
-                    "required": [
-                      "kind"
-                    ],
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "built-in",
-                          "aws-secrets-manager"
-                        ],
-                        "default": "built-in"
-                      },
-                      "secretId": {
-                        "type": "string"
-                      },
-                      "field": {
-                        "type": "string"
-                      }
-                    }
-                  },
                   "bindings": {
                     "type": "array",
                     "items": {
@@ -7794,13 +7750,13 @@
                   "valueWo": {
                     "type": "string",
                     "writeOnly": true,
-                    "description": "The value to store; accepted on create and whenever valueWoVersion changes, and never returned"
+                    "description": "The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform"
                   },
                   "valueWoVersion": {
                     "type": "integer",
                     "minimum": 0,
                     "example": 1,
-                    "description": "Change it to rotate the value to the valueWo sent with it"
+                    "description": "Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform"
                   }
                 }
               }
@@ -8148,6 +8104,116 @@
           "kind": "secret",
           "operation": "import"
         }
+      }
+    },
+    "/workspaces/{slug}/secrets": {
+      "get": {
+        "operationId": "listWorkspaceSecrets",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceSecretResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The workspace’s secrets, with the hosts each one is sent to and where its value comes from. Never the values",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/secrets/{name}/value": {
+      "put": {
+        "operationId": "setWorkspaceSecretValue",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "STAGING_LOGIN_PASSWORD",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSecretValueRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Spotlight stores the new value"
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "403": {
+            "description": "You do not manage secrets"
+          },
+          "404": {
+            "description": "No such secret for this caller"
+          },
+          "409": {
+            "description": "Terraform sets this value, or the secret changed meanwhile"
+          },
+          "422": {
+            "description": "The value is not text, is empty, is too long, or is more than one line for a bound secret"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the value of a secret that Spotlight stores and Terraform does not set. Spotlight encrypts it and never returns it",
+        "tags": [
+          "workspaces"
+        ]
       }
     },
     "/hosts/{hostId}": {
@@ -13589,6 +13655,55 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/pull-requests": {
+      "get": {
+        "operationId": "listTaskPullRequests",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskPullRequestResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "List the pull requests of a task, each with its state",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/runs": {
       "get": {
         "operationId": "listTaskRuns",
@@ -14009,6 +14124,124 @@
           }
         },
         "summary": "Resume the line on a task that you put on hold",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/messages": {
+      "post": {
+        "description": "For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.",
+        "operationId": "sendTaskMessage",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The message answers a question that another person is the assignee of"
+          }
+        },
+        "summary": "Send a message to a task at the station it stands at",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/start": {
+      "post": {
+        "description": "Spotlight tries to start the agent of the task’s station again. When it still cannot, runNotStarted says why.",
+        "operationId": "startTaskRun",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The task is not waiting for its run to start"
+          }
+        },
+        "summary": "Try again to start the run of a task whose agent did not start",
         "tags": [
           "tasks"
         ]
@@ -25417,12 +25650,14 @@
             "type": "object",
             "additionalProperties": true,
             "example": {
+              "valueChange": "stored",
+              "valueOrigin": "terraform",
               "valueVersion": 2,
               "targets": [
                 "api.linear.app"
               ]
             },
-            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value"
+            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value"
           },
           "at": {
             "type": "string"
@@ -26890,36 +27125,11 @@
           "recipient": {
             "type": "string",
             "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
-            "description": "The X25519 public key that the egress of the host’s image probe holds, in base64; values Spotlight stores are sealed to it"
+            "description": "The X25519 public key that the egress of the host’s image probe holds, in base64; Spotlight seals each value to it"
           }
         },
         "required": [
           "recipient"
-        ]
-      },
-      "ExternalSecretRefResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "aws-secrets-manager"
-            ]
-          },
-          "secretId": {
-            "type": "string",
-            "example": "arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key"
-          },
-          "field": {
-            "type": "string",
-            "nullable": true,
-            "example": "token"
-          }
-        },
-        "required": [
-          "kind",
-          "secretId",
-          "field"
         ]
       },
       "FetchedSecretResponseDto": {
@@ -26954,18 +27164,7 @@
           },
           "sealed": {
             "type": "string",
-            "nullable": true,
-            "description": "The value, sealed to the recipient for this run; null when egress reads it in its own network"
-          },
-          "externalRef": {
-            "nullable": true,
-            "description": "Where egress reads the value with its host’s own identity; null when Spotlight sealed it",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ExternalSecretRefResponseDto"
-              }
-            ]
+            "description": "The value, sealed to the recipient for this run"
           }
         },
         "required": [
@@ -26974,8 +27173,7 @@
           "location",
           "name",
           "prefix",
-          "sealed",
-          "externalRef"
+          "sealed"
         ]
       },
       "DeniedSecretResponseDto": {
@@ -27017,7 +27215,7 @@
             }
           },
           "secrets": {
-            "description": "Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id",
+            "description": "Each harness key the workspace holds, for each host it is bound to, sealed to the recipient with an empty run id",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FetchedSecretResponseDto"
@@ -27338,7 +27536,7 @@
           "recipient": {
             "type": "string",
             "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
-            "description": "The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it"
+            "description": "The X25519 public key that egress holds for this run alone, in base64; Spotlight seals each value to it"
           },
           "proxyCredential": {
             "type": "string",
@@ -27685,37 +27883,6 @@
           "efforts"
         ]
       },
-      "SecretSourceResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "built-in",
-              "aws-secrets-manager"
-            ],
-            "example": "built-in",
-            "description": "Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used"
-          },
-          "secretId": {
-            "type": "string",
-            "nullable": true,
-            "example": null,
-            "description": "The name or ARN of the secret in AWS Secrets Manager"
-          },
-          "field": {
-            "type": "string",
-            "nullable": true,
-            "example": null,
-            "description": "The key to read when that secret contains JSON"
-          }
-        },
-        "required": [
-          "kind",
-          "secretId",
-          "field"
-        ]
-      },
       "SecretBindingResponseDto": {
         "type": "object",
         "properties": {
@@ -27786,9 +27953,6 @@
             "example": "LINEAR_API_KEY",
             "description": "What integrations call it. Immutable: changing it means replacing the secret"
           },
-          "source": {
-            "$ref": "#/components/schemas/SecretSourceResponseDto"
-          },
           "bindings": {
             "description": "The only hosts the secret is ever sent to, and how; a request anywhere else goes without it",
             "type": "array",
@@ -27815,7 +27979,6 @@
           "warnings",
           "workspaceId",
           "name",
-          "source",
           "bindings",
           "valueWoVersion",
           "rotatedAt"
@@ -27834,6 +27997,74 @@
         },
         "required": [
           "items"
+        ]
+      },
+      "SecretValueOrigin": {
+        "type": "string",
+        "enum": [
+          "awaiting",
+          "spotlight",
+          "terraform"
+        ],
+        "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)"
+      },
+      "WorkspaceSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "STAGING_LOGIN_PASSWORD"
+          },
+          "hosts": {
+            "example": [
+              "staging.example.com"
+            ],
+            "description": "The hosts egress sends the value to",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "valueOrigin": {
+            "example": "awaiting",
+            "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretValueOrigin"
+              }
+            ]
+          },
+          "valueSetAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When Spotlight last stored a value; null when it holds none"
+          },
+          "settable": {
+            "type": "boolean",
+            "description": "True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets"
+          }
+        },
+        "required": [
+          "name",
+          "hosts",
+          "valueOrigin",
+          "valueSetAt",
+          "settable"
+        ]
+      },
+      "SetSecretValueRequestDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "example": "correct-horse-battery-staple",
+            "description": "The new value, on one line if the secret is bound to a host. Spotlight encrypts it and never returns it",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "value"
         ]
       },
       "HostHeartbeatRequestDto": {
@@ -31437,13 +31668,32 @@
             "type": "string",
             "nullable": true,
             "description": "The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station."
+          },
+          "chatId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The agent chat that holds the task while it works on the pull request itself"
           }
         },
         "required": [
           "by",
           "startedAt",
           "runId",
-          "heldMoveTo"
+          "heldMoveTo",
+          "chatId"
+        ]
+      },
+      "TaskRunNotStartedResponseDto": {
+        "type": "object",
+        "properties": {
+          "harness": {
+            "type": "string",
+            "example": "claude-code",
+            "description": "The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start"
+          }
+        },
+        "required": [
+          "harness"
         ]
       },
       "TaskResponseDto": {
@@ -31564,6 +31814,16 @@
                 "$ref": "#/components/schemas/TaskHoldResponseDto"
               }
             ]
+          },
+          "runNotStarted": {
+            "nullable": true,
+            "description": "Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskRunNotStartedResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -31582,7 +31842,8 @@
           "assignee",
           "note",
           "source",
-          "hold"
+          "hold",
+          "runNotStarted"
         ]
       },
       "TaskPageResponseDto": {
@@ -32145,6 +32406,32 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "TaskPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/api/pull/42"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "open",
+              "merged",
+              "closed",
+              null
+            ],
+            "nullable": true,
+            "example": "open",
+            "description": "Draft, open, merged or closed; null when Spotlight holds no state for it: not seen on GitHub yet, or removed after the retention period"
+          }
+        },
+        "required": [
+          "url",
+          "state"
         ]
       },
       "TaskRunResponseDto": {
@@ -32722,6 +33009,68 @@
           "taskId"
         ]
       },
+      "ChatPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "description": "The task that tracks the pull request"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/web/pull/7"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "held",
+              "line",
+              "completed",
+              "gone"
+            ],
+            "example": "held",
+            "description": "held: the task waits on hold for this chat. line: the line has the task. completed: the task completed. gone: the task was deleted"
+          },
+          "lineName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Default"
+          },
+          "stationName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Code review"
+          },
+          "stationColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#edc12b"
+          },
+          "stationPosition": {
+            "type": "number",
+            "nullable": true,
+            "example": 3,
+            "description": "The position of the task’s station on its line, from 0"
+          },
+          "stationCount": {
+            "type": "number",
+            "nullable": true,
+            "example": 5,
+            "description": "How many stations its line has"
+          }
+        },
+        "required": [
+          "taskId",
+          "url",
+          "state",
+          "lineName",
+          "stationName",
+          "stationColor",
+          "stationPosition",
+          "stationCount"
+        ]
+      },
       "ChatMessageResponseDto": {
         "type": "object",
         "properties": {
@@ -32733,7 +33082,9 @@
             "type": "string",
             "enum": [
               "message",
-              "proposed"
+              "proposed",
+              "opened",
+              "happened"
             ],
             "example": "message"
           },
@@ -32785,6 +33136,16 @@
                 "$ref": "#/components/schemas/ChatProposalResponseDto"
               }
             ]
+          },
+          "pullRequest": {
+            "nullable": true,
+            "description": "The pull request the agent opened, on an opened message",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatPullRequestResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -32797,7 +33158,8 @@
           "takenUpBy",
           "attachments",
           "traces",
-          "proposal"
+          "proposal",
+          "pullRequest"
         ]
       },
       "ChatResponseDto": {

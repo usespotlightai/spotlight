@@ -1,13 +1,10 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 
+import { useCommandRegistry } from '@/hooks/useCommandRegistry';
 import { CommandsContext } from '@/lib/commands/context';
-import { listenForKeys } from '@/lib/commands/listener';
-import { CommandRegistry } from '@/lib/commands/registry';
 
 export function CommandsProvider({ children }: { children: ReactNode }) {
-  const [registry] = useState(() => new CommandRegistry());
-
-  useEffect(() => listenForKeys(registry), [registry]);
+  const registry = useCommandRegistry();
 
   return <CommandsContext value={registry}>{children}</CommandsContext>;
 }

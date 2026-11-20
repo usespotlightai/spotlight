@@ -1,5 +1,6 @@
-import type { HTMLAttributes, Ref } from 'react';
+import { type HTMLAttributes, type Ref, use } from 'react';
 
+import { DockedContext } from '@/lib/decision-tray';
 import { cn } from '@/lib/utils';
 
 type DecisionCardProps = HTMLAttributes<HTMLElement> & {
@@ -13,14 +14,19 @@ export function DecisionCard({
   ref,
   ...props
 }: DecisionCardProps) {
+  const docked = use(DockedContext) !== null;
+
   return (
     <Card
       ref={ref as Ref<HTMLLIElement & HTMLElement>}
       data-decision
       tabIndex={-1}
       className={cn(
-        'flex flex-col gap-3 outline-none rounded-xl border-[0.5px] border-border bg-card px-3 pt-2 pb-3 shadow-pane',
+        'flex flex-col gap-3 outline-none',
+        !docked &&
+          'rounded-xl border-[0.5px] border-border bg-card px-3 pt-2 pb-3 shadow-pane',
         className,
+        docked && 'm-0 p-0',
       )}
       {...props}
     />

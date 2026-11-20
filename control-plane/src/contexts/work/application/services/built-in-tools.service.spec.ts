@@ -22,6 +22,7 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
+  OPEN_PULL_REQUEST,
 } from '@work/domain/value-objects/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -62,6 +63,7 @@ const reviewing: BuiltInToolUse<TaskToolContext>[] = [
   REVIEW_COMMENT,
   REVIEW,
   SETUP_PULL_REQUEST,
+  OPEN_PULL_REQUEST,
   CHECKS,
   OPEN_TASKS,
 ].map((tool) => ({ tool, call: async () => null }));

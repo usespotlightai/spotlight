@@ -406,3 +406,6 @@ export const previewOf = (item: InboxItem): string => {
 
   return asked.form === 'setup' ? (item.description ?? '') : asked.body;
 };
+
+export const answerPlaceholder = (station: string): string =>
+  `${station} reads your answer and decides the next step…`;

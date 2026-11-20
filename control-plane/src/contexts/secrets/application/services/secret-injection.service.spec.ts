@@ -2,7 +2,6 @@ import type { InjectedSecrets } from '@secrets/application/contracts/injected-se
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
 import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
-import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
@@ -11,7 +10,6 @@ import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
 import { SecretTargetConflictError } from '@secrets/domain/exceptions/secret-target-conflict.error';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import {
   BY,
   clockAt,
@@ -20,7 +18,6 @@ import {
   InMemorySecrets,
   InMemoryStore,
   NOW,
-  readingFrom,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
@@ -31,10 +28,6 @@ const setUp = async () => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const grants = new InMemoryGrants();
-  const sources = new SecretSources(
-    store,
-    readingFrom({ 'sentry-token': 'sntrys_1' }),
-  );
 
   await secrets.save(
     Secret.create(definition(), {
@@ -48,8 +41,7 @@ const setUp = async () => {
     Secret.create(
       definition({
         name: 'SENTRY_TOKEN',
-        source: SecretSource.awsSecretsManager({ secretId: 'sentry-token' }),
-        value: null,
+        value: 'sntrys_1',
         bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
       }),
       {
@@ -66,11 +58,11 @@ const setUp = async () => {
       secrets,
       grants,
       new RunGrantsChanges(grants),
-      sources,
+      store,
     ),
     secrets,
     grants,
-    sources,
+    store,
   };
 };
 
@@ -115,20 +107,6 @@ describe('SecretInjection', () => {
           url: URL,
         }),
       ).rejects.toThrow(SecretTargetConflictError);
-    });
-
-    it('reads a secret that AWS Secrets Manager stores when it is injected', async () => {
-      const { injection } = await setUp();
-
-      expect(
-        await headersOf(
-          injection.forSpotlight({
-            workspaceId: WORKSPACE.value,
-            secrets: ['SENTRY_TOKEN'],
-            url: 'https://sentry.io/api/0/issues/',
-          }),
-        ),
-      ).toEqual({ 'x-sentry-token': 'sntrys_1' });
     });
 
     it('injects nothing for a host the secret is not bound to', async () => {
@@ -182,8 +160,8 @@ describe('SecretInjection', () => {
 
   describe('for a request that a host of the workspace sends', () => {
     it('places a stand-in where the binding injects the secret, and reads no value', async () => {
-      const { injection, sources } = await setUp();
-      const read = vi.spyOn(sources, 'read');
+      const { injection, store } = await setUp();
+      const read = vi.spyOn(store, 'read');
 
       expect(
         await headersOf(

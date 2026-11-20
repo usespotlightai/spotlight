@@ -832,32 +832,25 @@ const secret = (
     [
       ...refer.owner(resource),
       attribute('name', resource.name),
-      attribute(
-        'source',
-        hclOf({
-          kind: resource.source.kind,
-          secret_id: resource.source.secretId ?? undefined,
-          field: resource.source.field ?? undefined,
-        }),
-      ),
       attribute('bindings', hclOf(resource.bindings)),
-      ...(resource.storesValue
-        ? [attribute('value_wo', HclExpression.traversal('var', value))]
-        : []),
       ...(resource.valueVersion === null
         ? []
-        : [attribute('value_wo_version', resource.valueVersion)]),
+        : [
+            attribute('value_wo', HclExpression.traversal('var', value)),
+            attribute('value_wo_version', resource.valueVersion),
+          ]),
     ],
     {
-      variables: resource.storesValue
-        ? [
-            variable(
-              value,
-              `The value of the secret ${resource.name}, which Spotlight stores and never returns`,
-              false,
-            ),
-          ]
-        : [],
+      variables:
+        resource.valueVersion !== null
+          ? [
+              variable(
+                value,
+                `The value of the secret ${resource.name}, which Spotlight stores and never returns`,
+                false,
+              ),
+            ]
+          : [],
     },
   );
 };

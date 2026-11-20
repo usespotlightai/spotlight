@@ -35,6 +35,7 @@ import {
 } from '@work/domain/services/chat-inbox';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { RunProgressReading } from '@work/domain/value-objects/progress';
+import { chatPullRequestState } from '@work/application/read-models/chat-pull-request-state';
 import {
   chatInboxFacts,
   chatInboxFactsOf,
@@ -47,14 +48,18 @@ import {
   chatAttachment,
   chatMessage,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
+import {
+  task,
+  taskHold,
+} from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
 
 type InboxFacts = {
   readonly waiting: boolean;
-  readonly lastProposedAt: Date | null;
+  readonly lastNoticeAt: Date | null;
 };
 
 const summaryOf = (
@@ -205,9 +210,38 @@ export class DrizzleChatReader implements ChatReaderPort {
       currentRunReadings(this.progress, [row.currentRunId]),
     ]);
 
-    const proposedAt = messages.flatMap((each) =>
-      each.proposal ? [each.proposal.stationId] : [],
+    const tasksOpened = messages.flatMap((each) =>
+      each.pullRequest ? [each.pullRequest.taskId] : [],
     );
+    const [openedTasks, heldForChat] =
+      tasksOpened.length > 0
+        ? await Promise.all([
+            this.db
+              .select({
+                id: task.id,
+                stationId: task.stationId,
+                finishedAt: task.finishedAt,
+              })
+              .from(task)
+              .where(inArray(task.id, tasksOpened)),
+            this.db
+              .select({ taskId: taskHold.taskId })
+              .from(taskHold)
+              .where(
+                and(
+                  eq(taskHold.chatId, row.id),
+                  inArray(taskHold.taskId, tasksOpened),
+                  isNull(taskHold.endedAt),
+                ),
+              ),
+          ])
+        : [[], []];
+    const proposedAt = [
+      ...messages.flatMap((each) =>
+        each.proposal ? [each.proposal.stationId] : [],
+      ),
+      ...openedTasks.map((each) => each.stationId),
+    ];
     const stations =
       proposedAt.length > 0
         ? await this.db
@@ -234,6 +268,13 @@ export class DrizzleChatReader implements ChatReaderPort {
         const proposal = message.proposal ?? null;
         const placed = proposal
           ? stations.find((each) => each.id === proposal.stationId)
+          : undefined;
+        const pullRequest = message.pullRequest ?? null;
+        const opened = pullRequest
+          ? openedTasks.find((each) => each.id === pullRequest.taskId)
+          : undefined;
+        const openedAt = opened
+          ? stations.find((each) => each.id === opened.stationId)
           : undefined;
 
         return {
@@ -277,6 +318,25 @@ export class DrizzleChatReader implements ChatReaderPort {
             description: proposal.description,
             state: proposal.state,
             taskId: proposal.taskId,
+          },
+          pullRequest: pullRequest && {
+            taskId: pullRequest.taskId,
+            url: pullRequest.url,
+            state: chatPullRequestState(
+              opened ? {
+                finished: opened.finishedAt !== null,
+                heldForChat: heldForChat.some(
+                  (each) => each.taskId === opened.id,
+                ),
+              } : null,
+            ),
+            lineName: openedAt?.lineName ?? null,
+            stationName: openedAt?.name ?? null,
+            stationColor: openedAt?.color ?? null,
+            stationPosition: openedAt?.position ?? null,
+            stationCount: openedAt
+              ? (stationCounts.get(openedAt.lineId) ?? 1)
+              : null,
           },
         };
       }),

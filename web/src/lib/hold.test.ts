@@ -46,6 +46,7 @@ describe('heldUntilResumed', () => {
     startedAt: '2026-11-16T09:00:00.000Z',
     runId: null,
     heldMoveTo: null,
+    chatId: null,
   };
 
   it('names who put the task on hold and since when, and speaks to them as you', () => {

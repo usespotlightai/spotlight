@@ -231,6 +231,12 @@ export class TaskRunWork implements RunWork {
     }
   }
 
+  readonly limitsPushes = false;
+
+  async pushRefusal(): Promise<string | null> {
+    return null;
+  }
+
   async toolContext(): Promise<TaskToolContext> {
     const line = await this.lines.findByStation(this.stationId);
 
