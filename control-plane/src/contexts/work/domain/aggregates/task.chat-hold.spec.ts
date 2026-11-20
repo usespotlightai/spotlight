@@ -19,6 +19,10 @@ import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
 import { HeldForAgentChatError } from '@work/domain/exceptions/held-for-agent-chat.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
+import {
+  ConversationAudience,
+  type ConversationViewer,
+} from '@work/domain/services/conversation-audience';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
@@ -30,6 +34,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -106,6 +111,12 @@ const wordsFor = (task: Task) =>
       (each): each is TaskNotedForChat => each instanceof TaskNotedForChat,
     );
 
+const answers = (task: Task, viewer: ConversationViewer): boolean =>
+  ConversationAudience.mayAnswer(
+    TeamStanding.of({ seesTeam: true, actsOnTeam: viewer.actsOnTasks }),
+    task.conversantOf(viewer),
+  );
+
 describe('a task a chat opens a pull request for', () => {
   it('waits on hold for the chat at the station it opened at, with the chat’s branch', () => {
     const task = opened();
@@ -128,7 +139,7 @@ describe('a task a chat opens a pull request for', () => {
     const task = opened();
 
     expect(
-      task.actsOnConversation({
+      answers(task, {
         person: MAYA,
         onTeam: true,
         actsOnTasks: true,
@@ -142,7 +153,7 @@ describe('a task a chat opens a pull request for', () => {
       }),
     ).toBeNull();
     expect(
-      task.actsOnConversation({
+      answers(task, {
         person: LEON,
         onTeam: true,
         actsOnTasks: true,

@@ -40,10 +40,21 @@ type Shown = 'section' | 'reopenable';
 
 export type InboxConversation = Omit<
   InboxItemViewResponseDto,
-  'lastNote' | Shown
+  'lastNote' | 'answerable' | 'resolvable' | Shown
 >;
 
-type StoredNotice = Omit<InboxNoticeResponseDto, Shown>;
+type ShownConversation<T> = T extends InboxConversation
+  ? Pick<InboxItemViewResponseDto, 'answerable' | 'resolvable'>
+  : T extends StoredNotice
+    ? Pick<InboxNoticeResponseDto, 'resolvable'>
+    : unknown;
+
+const answers = (entry: InboxConversation): boolean =>
+  entry.standing === 'assignee' ||
+  entry.standing === 'asked' ||
+  entry.standing === 'team';
+
+type StoredNotice = Omit<InboxNoticeResponseDto, Shown | 'resolvable'>;
 
 type StoredRun = Omit<InboxRunResponseDto, Shown>;
 
@@ -86,16 +97,32 @@ const reopenableOf = (entry: InboxEntry): boolean => {
 
   const closing = entry.notes[entry.notes.length - 1];
 
-  return closing?.form === 'resolved' && closing.voice === 'person';
+  return (
+    answers(entry) && closing?.form === 'resolved' && closing.voice === 'person'
+  );
 };
+
+const resolvableOf = (entry: InboxConversation): boolean =>
+  !entry.resolved &&
+  (entry.inboxRequest !== null ||
+    entry.standing === 'assignee' ||
+    entry.standing === 'team');
+
+const answerableOf = (entry: InboxConversation): boolean =>
+  !entry.resolved && entry.inboxRequest === null && answers(entry);
 
 export const shown = <T extends InboxEntry>(
   entry: T,
-): T & Pick<InboxNoticeResponseDto, Shown> => ({
-  ...entry,
-  section: sectionOf(entry),
-  reopenable: reopenableOf(entry),
-});
+): T & Pick<InboxNoticeResponseDto, Shown> & ShownConversation<T> =>
+  ({
+    ...entry,
+    section: sectionOf(entry),
+    reopenable: reopenableOf(entry),
+    ...(entry.kind === 'task'
+      ? { answerable: answerableOf(entry), resolvable: resolvableOf(entry) }
+      : {}),
+    ...(entry.kind === 'notice' ? { resolvable: !entry.resolved } : {}),
+  }) as T & Pick<InboxNoticeResponseDto, Shown> & ShownConversation<T>;
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';
 export const ALERT_REQUEST_ID = 'request_sent_back_alert';
@@ -204,7 +231,6 @@ const conversation = ({
     notes: numberedNotes,
     folded: foldedAround(taskId, trail, numberedNotes),
     standing: 'assignee',
-    viewerActs: over.standing !== 'following',
     ...over,
   };
 };
@@ -262,7 +288,6 @@ const inboxRequestOf = ({
     notes: [],
     folded: [],
     standing: 'team',
-    viewerActs: true,
     ...over,
   };
 };
@@ -566,7 +591,6 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
     failure: null,
     inboxRequest: null,
     standing: 'assignee',
-    viewerActs: true,
     folded: [],
     notes: [
       {

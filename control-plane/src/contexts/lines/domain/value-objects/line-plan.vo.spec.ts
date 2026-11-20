@@ -213,6 +213,50 @@ describe('LinePlan', () => {
     });
   });
 
+  it('names the repeat first when a station passes to one station twice and then to a station that does no work', () => {
+    const error = errorOf(() =>
+      plan({
+        stations: [
+          backlog({
+            passesTo: [
+              StationKey.of('code-review'),
+              StationKey.of('code-review'),
+              StationKey.of('completed'),
+            ],
+          }),
+          station('code-review'),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(error.message).toMatch(/cannot pass to one station twice/);
+  });
+
+  it('rejects a station passing work to one station twice', () => {
+    const error = errorOf(() =>
+      plan({
+        stations: [
+          backlog({
+            passesTo: [
+              StationKey.of('code-review'),
+              StationKey.of('code-review'),
+            ],
+          }),
+          station('code-review'),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(error.message).toMatch(/cannot pass to one station twice/);
+    expect(error.flaw).toEqual({
+      in: 'station',
+      station: StationKey.of('backlog'),
+      rule: 'routes',
+    });
+  });
+
   it('rejects work passing to a station it does not describe', () => {
     const error = errorOf(() =>
       plan({

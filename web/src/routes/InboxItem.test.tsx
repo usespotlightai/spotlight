@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,6 +17,9 @@ const journalFailing = vi.fn();
 const closeTask = vi.fn();
 const taskStation = vi.fn<(...args: unknown[]) => unknown>();
 
+vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
+  useTaskFooterLoading: () => false,
+}));
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
 }));
@@ -129,7 +132,6 @@ const item = (
 ) => [
   {
     kind: 'task',
-    viewerActs: true,
     id: 'task_1:0',
     taskId: 'task_1',
     teamId: 'team_1',
@@ -150,6 +152,7 @@ const item = (
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
     resolved: false,
+    answerable: true,
     progress: null,
     unread: false,
     briefing: null,
@@ -536,7 +539,9 @@ describe('InboxItem', () => {
           query: { from: 0, to: 2 },
         }),
       );
-      expect(screen.getAllByText('Per token.')).toHaveLength(1);
+      await waitFor(() =>
+        expect(screen.getAllByText('Per token.')).toHaveLength(1),
+      );
       expect(screen.getByLabelText('Sam wrote this')).toBeInTheDocument();
     });
 
@@ -817,7 +822,7 @@ describe('InboxItem', () => {
     beforeEach(() => {
       const [only] = item([note()]);
       waiting.mockReturnValue([
-        { ...only, standing: 'following', viewerActs: true },
+        { ...only, standing: 'following', answerable: true },
       ]);
     });
 
@@ -830,24 +835,37 @@ describe('InboxItem', () => {
     });
   });
 
-  describe('seen by a person who only sees the team', () => {
+  describe('when the server says its assignee cannot answer it', () => {
     beforeEach(() => {
       const [only] = item([note()]);
       waiting.mockReturnValue([
-        { ...only, standing: 'team', viewerActs: false },
+        { ...only, standing: 'assignee', answerable: false },
       ]);
     });
 
-    it('shows the conversation with the text bar disabled, and says who answers', () => {
+    it('says they do not act on the tasks of the team', () => {
       renderItem();
 
-      expect(screen.getByRole('textbox', { name: /Answer/ })).toHaveAttribute(
-        'aria-disabled',
-        'true',
-      );
       expect(
-        screen.getByText(/People who act on them answer here/),
-      ).toBeInTheDocument();
+        screen.queryByRole('textbox', { name: /Answer/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/do not act on them/)).toBeInTheDocument();
+    });
+  });
+
+  describe('when the server gives the person no standing on it', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([{ ...only, standing: null, answerable: false }]);
+    });
+
+    it('leaves the answer to its assignee', () => {
+      renderItem();
+
+      expect(
+        screen.queryByRole('textbox', { name: /Answer/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/Its assignee answers here/)).toBeInTheDocument();
     });
   });
 
@@ -855,7 +873,7 @@ describe('InboxItem', () => {
     beforeEach(() => {
       const [only] = item([note()]);
       waiting.mockReturnValue([
-        { ...only, standing: 'following', viewerActs: false, unread: true },
+        { ...only, standing: 'following', answerable: false, unread: true },
       ]);
     });
 

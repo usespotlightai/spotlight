@@ -1,4 +1,5 @@
 import type { OidcTrustSummaryResponseDto } from '@/lib/api';
+import { formatDate } from '@/lib/date-format';
 import { since } from '@/lib/since';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
@@ -8,7 +9,7 @@ export const describeIssued = (lastIssuedAt: string | null): string =>
   lastIssuedAt ? `Issued ${since(lastIssuedAt)}` : 'Never issued a token';
 
 const exactly = (at: string): string =>
-  new Date(at).toLocaleString(undefined, {
+  formatDate(new Date(at), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

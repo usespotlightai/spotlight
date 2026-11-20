@@ -38,47 +38,49 @@ import { toolCountsIn } from '@insights/infrastructure/persistence/drizzle/reade
 import { Injectable } from '@nestjs/common';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
 
+const NO_JIT = { jit: false };
+
 @Injectable()
 export class DrizzleInsightsReader implements InsightsReaderPort {
   constructor(private readonly reading: DrizzleReading) {}
 
   stationCounts(team: TeamInPeriod): Promise<TeamCounts> {
-    return this.reading.read((db) => stationCountsIn(db, team));
+    return this.reading.read((db) => stationCountsIn(db, team), NO_JIT);
   }
 
   overviewCounts(team: TeamInPeriod): Promise<OverviewCounts> {
-    return this.reading.read((db) => overviewCountsIn(db, team));
+    return this.reading.read((db) => overviewCountsIn(db, team), NO_JIT);
   }
 
   costCounts(team: TeamInPeriod): Promise<CostCountsInPeriod> {
-    return this.reading.read((db) => costCountsIn(db, team));
+    return this.reading.read((db) => costCountsIn(db, team), NO_JIT);
   }
 
   flowCounts(team: TeamInPeriod): Promise<FlowCounts> {
-    return this.reading.read((db) => flowCountsIn(db, team));
+    return this.reading.read((db) => flowCountsIn(db, team), NO_JIT);
   }
 
   peopleCounts(team: TeamInPeriod): Promise<PeopleCounts> {
-    return this.reading.read((db) => peopleCountsIn(db, team));
+    return this.reading.read((db) => peopleCountsIn(db, team), NO_JIT);
   }
 
   toolCounts(team: TeamInPeriod): Promise<ToolCounts> {
-    return this.reading.read((db) => toolCountsIn(db, team));
+    return this.reading.read((db) => toolCountsIn(db, team), NO_JIT);
   }
 
   memoryCounts(team: TeamInPeriod): Promise<MemoryCounts> {
-    return this.reading.read((db) => memoryCountsIn(db, team));
+    return this.reading.read((db) => memoryCountsIn(db, team), NO_JIT);
   }
 
   agentConfigCounts(
     team: TeamInPeriod,
     filter: AgentConfigFilter,
   ): Promise<AgentConfigComparisonCounts> {
-    return this.reading.read((db) => agentConfigCountsIn(db, team, filter));
+    return this.reading.read((db) => agentConfigCountsIn(db, team, filter), NO_JIT);
   }
 
   changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]> {
-    return this.reading.read((db) => changeCountsIn(db, team));
+    return this.reading.read((db) => changeCountsIn(db, team), NO_JIT);
   }
 
   pullRequestCounts(
@@ -86,32 +88,31 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     repositories: readonly string[],
   ): Promise<PullRequestCounts> {
     return this.reading.read((db) =>
-      pullRequestCountsIn(db, team, repositories),
-    );
+      pullRequestCountsIn(db, team, repositories), NO_JIT);
   }
 
   pullRequestPage(
     team: TeamInPeriod,
     listing: PullRequestListing,
   ): Promise<PullRequestPage> {
-    return this.reading.read((db) => pullRequestPageIn(db, team, listing));
+    return this.reading.read((db) => pullRequestPageIn(db, team, listing), NO_JIT);
   }
 
   shippingCounts(
     team: TeamInPeriod,
     repositories: readonly string[],
   ): Promise<ShippingCounts> {
-    return this.reading.read((db) => shippingCountsIn(db, team, repositories));
+    return this.reading.read((db) => shippingCountsIn(db, team, repositories), NO_JIT);
   }
 
   runPage(listing: RunListing): Promise<RunsListed> {
-    return this.reading.read((db) => runPageIn(db, listing));
+    return this.reading.read((db) => runPageIn(db, listing), NO_JIT);
   }
 
   runsPerTask(
     window: TeamWindow,
     taskIds: readonly string[],
   ): Promise<ReadonlyMap<string, number>> {
-    return this.reading.read((db) => runsPerTaskIn(db, window, taskIds));
+    return this.reading.read((db) => runsPerTaskIn(db, window, taskIds), NO_JIT);
   }
 }

@@ -1,7 +1,9 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
 export const CONVERSATION_STANDINGS = [
   'assignee',
+  'asked',
   'team',
   'following',
 ] as const;
@@ -21,19 +23,40 @@ export interface ConversationViewer {
   readonly actsOnTasks: boolean;
 }
 
+export interface OpenAsk {
+  readonly approval: {
+    readonly open: boolean;
+    readonly askedOf: UserId | null;
+  } | null;
+  readonly connectionAsk: {
+    readonly met: boolean;
+    readonly personId: UserId;
+  } | null;
+}
+
+const awaits = (ask: OpenAsk, person: UserId): boolean =>
+  (ask.approval?.open === true &&
+    (ask.approval.askedOf?.equals(person) ?? false)) ||
+  (ask.connectionAsk?.met === false &&
+    ask.connectionAsk.personId.equals(person));
+
 export interface ConversationReader {
   readonly person: UserId;
   readonly onTeam: boolean;
   readonly wroteIn: boolean;
-  readonly drives: boolean;
+  readonly asked: boolean;
 }
 
-export interface ConversationActor {
-  readonly actsOnTasks: boolean;
+export interface Conversant {
+  readonly standing: ConversationStanding | null;
   readonly drives: boolean;
 }
 
 export const ConversationAudience = {
+  asks(ask: OpenAsk | null, person: UserId): boolean {
+    return ask !== null && awaits(ask, person);
+  },
+
   standingOf(
     assignee: UserId | null,
     reader: ConversationReader,
@@ -46,22 +69,34 @@ export const ConversationAudience = {
       return 'team';
     }
 
-    return assignee !== null && (reader.wroteIn || reader.drives)
-      ? 'following'
-      : null;
+    if (reader.asked) {
+      return 'asked';
+    }
+
+    return assignee !== null && reader.wroteIn ? 'following' : null;
   },
 
   answers(standing: ConversationStanding | null): boolean {
+    return (
+      standing === 'assignee' || standing === 'asked' || standing === 'team'
+    );
+  },
+
+  resolves(standing: ConversationStanding | null): boolean {
     return standing === 'assignee' || standing === 'team';
   },
 
-  actsOn(
-    standing: ConversationStanding | null,
-    actor: ConversationActor,
-  ): boolean {
+  mayAnswer(team: TeamStanding, conversant: Conversant): boolean {
     return (
-      actor.actsOnTasks &&
-      (actor.drives || ConversationAudience.answers(standing))
+      team.actsOnTasks &&
+      (conversant.drives || ConversationAudience.answers(conversant.standing))
+    );
+  },
+
+  mayResolve(team: TeamStanding, conversant: Conversant): boolean {
+    return (
+      team.actsOnTasks &&
+      (conversant.drives || ConversationAudience.resolves(conversant.standing))
     );
   },
 
@@ -74,6 +109,6 @@ export const ConversationAudience = {
   },
 
   listsRuns(standing: ConversationStanding): standing is RunStanding {
-    return standing !== 'team';
+    return standing === 'assignee' || standing === 'following';
   },
 };

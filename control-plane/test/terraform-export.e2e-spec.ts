@@ -767,6 +767,7 @@ const bodyOf = (
         permissions: resource.permissions,
         mcpServers: resource.mcpServers,
         native: resource.native,
+        secrets: resource.secrets,
       };
   }
 };

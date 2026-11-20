@@ -6,7 +6,7 @@ import {
 
 export const SECRET_LOCATIONS = ['header', 'query'] as const;
 
-type SecretLocation = (typeof SECRET_LOCATIONS)[number];
+export type SecretLocation = (typeof SECRET_LOCATIONS)[number];
 
 export interface SecretInjectionTarget {
   readonly location: SecretLocation;

@@ -3,6 +3,7 @@ import {
   HANDOVER_TO_A_PERSON,
   HANDOVER_TO_FINISH,
 } from '@shared-kernel/domain/value-objects/handover-word';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { SkillBrief } from '@work/application/dto/ready-skill.dto';
@@ -18,6 +19,10 @@ import { enabledIntegrations } from '@work/domain/services/enabled-integrations'
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { skillFolderOf } from '@work/domain/services/skill-folder';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
+import type {
+  BoundSecret,
+  BoundSecretBinding,
+} from '@work/domain/value-objects/bound-secret';
 import type {
   BriefedTask,
   DecisionOnRecord,
@@ -116,6 +121,28 @@ const toolsOf = (described: readonly DeclaredTool[]): string | null => {
     : null;
 };
 
+const sending = (secret: SecretName, binding: BoundSecretBinding): string =>
+  binding.location === 'query'
+    ? `- \`${secret.value}\` to ${binding.host}: send \`${binding.sent}\` as the \`${binding.name}\` query parameter`
+    : `- \`${secret.value}\` to ${binding.host}: send \`${binding.sent}\` in the \`${binding.name}\` header`;
+
+const secretsOf = (secrets: readonly BoundSecret[]): string | null =>
+  secrets.length > 0
+    ? [
+        '## Secrets',
+        'Egress puts these workspace secrets into the requests you send. Send the stand-in as shown, and egress replaces it with the value. You never see the values. A request without the stand-in goes out without the secret.',
+        secrets
+          .flatMap((each) =>
+            each.bindings.length > 0
+              ? each.bindings.map((binding) => sending(each.name, binding))
+              : [
+                  `- \`${each.name.value}\`: bound to no host, so no request gets it`,
+                ],
+          )
+          .join('\n'),
+      ].join('\n\n')
+    : null;
+
 const labelled = (kind: string): string => {
   const words = kind.replaceAll('-', ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -189,6 +216,7 @@ export const TaskBriefing = {
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
     tools: readonly DeclaredTool[];
+    boundSecrets: readonly BoundSecret[];
     drivenByAPerson?: boolean;
   }): string {
     const driven = input.drivenByAPerson ?? false;
@@ -225,6 +253,7 @@ export const TaskBriefing = {
       SpotlightCli.section,
       ConfiguringSpotlight.section,
       toolsOf(input.tools),
+      secretsOf(input.boundSecrets),
       listing(input.skills, input.listedIn),
       replying(input.task),
       driven ? null : closing(input.line, input.task.stationId),

@@ -17,12 +17,13 @@ import { useSession } from '@/hooks/api/useSession';
 import { useArrivals } from '@/hooks/useArrivals';
 import { useConversationScroll } from '@/hooks/useConversationScroll';
 import { useDecisionTray } from '@/hooks/useDecisionTray';
-import type { ApprovalAnswer } from '@/lib/approval';
+import type { AskDecision } from '@/lib/approval';
 import { DecisionTrayContext, type DockedDecision } from '@/lib/decision-tray';
 import { placeVisits } from '@/lib/folded-visit';
 import {
   ARRIVING,
   type ConversationItem,
+  latestAskPosition,
   type Note,
   openedAt,
   type RunJournal,
@@ -34,6 +35,7 @@ import {
 import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 import { showsMessage } from '@/lib/thread-message';
+import { TURNS_SHOWN_FIRST } from '@/lib/turns';
 import { cn } from '@/lib/utils';
 
 interface NoteTurn {
@@ -108,7 +110,7 @@ const marksIn = (item: ConversationItem): Set<number> => {
 
 export type Deciding = {
   readonly pending: boolean;
-  readonly onDecide: (answer: ApprovalAnswer) => void;
+  readonly onDecide: (answer: AskDecision) => void;
 };
 
 type ConversationProps = {
@@ -147,11 +149,13 @@ export function Conversation({
   const shownNotes = item.notes.filter(showsInThread);
   const placed = placeVisits(item.folded, shownNotes);
   const { data: session } = useSession();
+  const asking = latestAskPosition(item.notes);
   const tray = useDecisionTray([
     ...noteDecisions(shownNotes, {
       teamId: item.teamId,
       viewer: session?.user.id ?? null,
       deciding,
+      asking,
     }),
     ...docked,
   ]);
@@ -189,6 +193,14 @@ export function Conversation({
     turn.notes.length > 0 ||
     (at === 0 && Boolean(briefing));
   const firstShown = turns.findIndex(rendered);
+  const openTurn =
+    openAt === undefined || openAt === null
+      ? -1
+      : turns.findIndex(
+          (turn) =>
+            turn.prompt?.position === openAt ||
+            turn.notes.some((note) => note.position === openAt),
+        );
   const runClosing = afterRun?.content
     ? closingPlaceOf(turns, item.notes, afterRun.runId)
     : null;
@@ -232,6 +244,10 @@ export function Conversation({
 
                 <Turn
                   className={cn(afterAnother && 'mt-6')}
+                  shownFirst={
+                    at >= all.length - TURNS_SHOWN_FIRST ||
+                    (openTurn >= 0 && Math.abs(at - openTurn) <= 1)
+                  }
                   head={
                     <>
                       {head &&
@@ -291,7 +307,15 @@ export function Conversation({
                             teamId={item.teamId}
                             about={item.about}
                             resolved={item.resolved}
-                            deciding={deciding}
+                            deciding={
+                              note.position === asking ? deciding : undefined
+                            }
+                            outdated={
+                              (note.approval?.status === 'pending' ||
+                                note.connection?.met === false) &&
+                              asking !== null &&
+                              note.position < asking
+                            }
                             suggestion={
                               note.position === latest ? suggestion : undefined
                             }

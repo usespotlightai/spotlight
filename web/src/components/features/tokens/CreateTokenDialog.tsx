@@ -56,7 +56,7 @@ export function CreateTokenDialog({
   const [lifetime, setLifetime] = useState<string | null>(USUAL_LIFETIME);
 
   const named = slugify(name);
-  const busy = create.isPending;
+  const busy = create.isPending || create.isSuccess;
 
   const reset = () => {
     setName('');

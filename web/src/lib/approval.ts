@@ -16,6 +16,8 @@ export type ApprovalAnswer = {
   readonly inputs?: readonly ApprovalInput[];
 };
 
+export type AskDecision = ApprovalAnswer & { readonly ask: number };
+
 const CODE_INPUTS = new Set(['command', 'cmd', 'script', 'query', 'sql']);
 
 const HARNESS_TITLE = 'title';

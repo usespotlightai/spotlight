@@ -49,7 +49,6 @@ vi.mock('@/hooks/api/useReopenInboxEntry', () => ({
 
 const item = (over: Record<string, unknown> = {}) => ({
   kind: 'task',
-  viewerActs: true,
   id: 'task_1:0',
   taskId: 'task_1',
   teamId: 'team_1',
@@ -84,6 +83,9 @@ const item = (over: Record<string, unknown> = {}) => ({
     at: '2026-08-29T12:00:00.000Z',
     author: null,
   },
+  standing: 'assignee',
+  answerable: true,
+  resolvable: true,
   ...over,
 });
 
@@ -101,6 +103,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   unread: true,
   resolved: false,
   section: 'open',
+  resolvable: true,
   reopenable: false,
   ...over,
 });
@@ -243,12 +246,22 @@ describe('Inbox', () => {
       });
     });
 
+    it('offers no resolve when the server says the person cannot resolve it', () => {
+      waiting.mockReturnValue([item({ resolvable: false })]);
+      renderAt('/w/acme/inbox');
+
+      expect(
+        screen.queryByRole('button', { name: 'Resolve' }),
+      ).not.toBeInTheDocument();
+    });
+
     it('unresolves what is resolved on request', async () => {
       waiting.mockReturnValue([
         notice({
           resolved: true,
           unread: false,
           section: 'resolved',
+          resolvable: false,
           reopenable: true,
         }),
       ]);
@@ -264,7 +277,9 @@ describe('Inbox', () => {
     });
 
     it('does not offer to unresolve a conversation that moved on by itself', () => {
-      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
+      waiting.mockReturnValue([
+        item({ resolved: true, section: 'resolved', resolvable: false }),
+      ]);
       renderAt('/w/acme/inbox');
 
       expect(
@@ -342,6 +357,7 @@ describe('Inbox', () => {
           taskId: 'task_2',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
       renderAt('/w/acme/inbox');
@@ -377,7 +393,9 @@ describe('Inbox', () => {
     });
 
     it('stays, counting none, when nothing is open', () => {
-      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
+      waiting.mockReturnValue([
+        item({ resolved: true, section: 'resolved', resolvable: false }),
+      ]);
       renderAt('/w/acme/inbox');
 
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
@@ -395,9 +413,9 @@ describe('Inbox', () => {
           taskId: 'task_3',
           title: 'Rotate the keys',
           standing: 'following',
-          viewerActs: false,
           section: 'following',
           unread: true,
+          resolvable: false,
         }),
       ]);
     });
@@ -425,28 +443,6 @@ describe('Inbox', () => {
       ).toBeInTheDocument();
       expect(screen.getAllByRole('button', { name: 'Resolve' })).toHaveLength(
         1,
-      );
-    });
-
-    it('offers resolve when the viewer drives the task a person holds', async () => {
-      waiting.mockReturnValue([
-        item(),
-        item({
-          id: 'task_3:0',
-          taskId: 'task_3',
-          title: 'Rotate the keys',
-          standing: 'following',
-          viewerActs: true,
-          section: 'following',
-        }),
-      ]);
-      const person = userEvent.setup();
-      renderAt('/w/acme/inbox');
-
-      await person.click(screen.getByRole('button', { name: /Following/ }));
-
-      expect(screen.getAllByRole('button', { name: 'Resolve' })).toHaveLength(
-        2,
       );
     });
 
@@ -569,6 +565,7 @@ describe('Inbox', () => {
           resolved: true,
           progress: 'in-progress',
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
       renderAt('/w/acme/inbox');
@@ -592,6 +589,7 @@ describe('Inbox', () => {
           title: 'Cap the retries',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
     });
@@ -634,12 +632,14 @@ describe('Inbox', () => {
           taskId: 'task_3',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
         item({
           id: 'task_4:0',
           taskId: 'task_4',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
       moreResolved.mockReturnValue(true);
@@ -712,6 +712,7 @@ describe('Inbox', () => {
           resolved: true,
           unread: false,
           section: 'resolved',
+          resolvable: false,
           reopenable: true,
         }),
         item(),

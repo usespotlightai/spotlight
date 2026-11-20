@@ -466,6 +466,79 @@ describe('AnswerConversation', () => {
     expect(saved).toBeUndefined();
   });
 
+  it('decides the ask the person saw, and refuses one the conversation has moved past', async () => {
+    const task = asking();
+    const at = task.openAsk?.position.value ?? 0;
+    const deciding = (ask: number) =>
+      new AnswerConversationCommand(
+        'task_1:0',
+        'user_1',
+        '',
+        [],
+        'approved',
+        null,
+        [],
+        null,
+        ask,
+      );
+
+    await expect(answer(task, deciding(at + 1))).rejects.toMatchObject({
+      kind: 'conflict',
+    });
+    expect(saved).toBeUndefined();
+
+    await answer(task, deciding(at));
+
+    expect(saved?.openAsk?.approval?.status).toBe('approved');
+  });
+
+  it('lets the person an ask names approve it when nobody is assigned, though they have not joined the team', async () => {
+    const asked = Task.add({
+      line: line(),
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Fix the queue'),
+      rank: TaskRank.of('i'),
+      createdBy: UserId.of('user_1'),
+      now: NOW,
+      newId: () => 'task_1',
+    })
+      .assignRun(RunId.of('run_1'), line())
+      .clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+        ),
+        ApprovalNeeded.of(
+          'linear.comment',
+          'It posts publicly.',
+          UserId.of('user_2'),
+        ),
+        {
+          voice: Voice.station(RunId.of('run_1')),
+          line: null,
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+        },
+        RunId.of('run_1'),
+        null,
+      )
+      .task.unassign();
+
+    await answer(
+      asked,
+      new AnswerConversationCommand(
+        `task_1:${asked.openConversation?.from.value ?? 0}`,
+        'user_2',
+        '',
+        [],
+        'approved',
+      ),
+      workAccessSeeing(() => true, { members: [UserId.of('user_1')] }),
+    );
+
+    expect(saved?.openAsk?.approval?.status).toBe('approved');
+    expect(saved?.assignee).toBeNull();
+  });
+
   it('grants it with the person’s changes, telling the agent what it runs with instead', async () => {
     await answer(
       asking(),

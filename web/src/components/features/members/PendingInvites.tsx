@@ -20,7 +20,7 @@ export function PendingInvites({
   alone,
   action,
 }: PendingInvitesProps) {
-  if (!alone && invites.data?.length === 0) {
+  if (!alone && (loading(invites) || invites.data?.length === 0)) {
     return null;
   }
 

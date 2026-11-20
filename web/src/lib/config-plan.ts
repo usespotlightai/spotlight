@@ -107,7 +107,32 @@ const steps = (was: readonly string[], now: readonly string[]): Step[] => {
 const linesOf = (value: string | null): string[] =>
   value === null ? [] : value.replace(/\n$/, '').split('\n');
 
+const PLANNED_TEXTS = 200;
+
+const plannedTexts = new Map<string, PlanTextLine[]>();
+
 export const planTextLines = (
+  was: string | null,
+  now: string | null,
+): PlanTextLine[] => {
+  const key = `${was ?? '\u0000'}\u0001${now ?? '\u0000'}`;
+  const known = plannedTexts.get(key);
+
+  if (known) {
+    return known;
+  }
+
+  const planned = diffTextLines(was, now);
+
+  if (plannedTexts.size >= PLANNED_TEXTS) {
+    plannedTexts.delete(plannedTexts.keys().next().value as string);
+  }
+  plannedTexts.set(key, planned);
+
+  return planned;
+};
+
+const diffTextLines = (
   was: string | null,
   now: string | null,
 ): PlanTextLine[] => {

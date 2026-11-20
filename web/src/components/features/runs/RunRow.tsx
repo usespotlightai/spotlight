@@ -7,6 +7,7 @@ import { Pill } from '@/components/shared/Pill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useMenuActions } from '@/hooks/useMenuActions';
+import { useOpenIntent } from '@/hooks/useOpenIntent';
 import { useStopRunAction } from '@/hooks/useStopRunAction';
 import type { TaskHoldResponseDto } from '@/lib/api';
 import { type Run, runStatus, stoppable } from '@/lib/run';
@@ -23,6 +24,7 @@ type RunRowProps = {
   inTrail?: boolean;
   gutter?: boolean;
   onHold?: TaskHoldResponseDto | null;
+  onIntent?: () => void;
 };
 
 export function RunRow({
@@ -34,7 +36,9 @@ export function RunRow({
   inTrail,
   gutter,
   onHold,
+  onIntent,
 }: RunRowProps) {
+  const intent = useOpenIntent(onIntent);
   const stop = useStopRunAction(teamId, run.id, stoppable(run));
   const menu = useMenuActions(stop ? [stop] : []);
   const title = taskTitle ?? run.station?.name ?? 'Unknown station';
@@ -43,6 +47,7 @@ export function RunRow({
     <li
       data-list-item
       {...menu}
+      {...intent}
       className={cn(
         'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
         gutter ? 'px-3' : 'px-2',

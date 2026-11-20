@@ -41,6 +41,7 @@ const profileSchema = z.object({
     )
     .default([]),
   native: z.record(z.string(), z.unknown()).default({}),
+  secrets: z.array(z.string()).default([]),
 });
 
 const warningOf = (key: string, note: ReviewNote): ConfigurationProblem =>

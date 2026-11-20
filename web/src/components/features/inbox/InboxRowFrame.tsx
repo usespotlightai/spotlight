@@ -5,6 +5,7 @@ import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
 import { CommandScope } from '@/components/shell/command/CommandScope';
 import { useFocusWithin } from '@/hooks/useFocusWithin';
 import { useMenuActions } from '@/hooks/useMenuActions';
+import { useOpenIntent } from '@/hooks/useOpenIntent';
 import type { MenuAction } from '@/lib/context-menu';
 import { createdOn } from '@/lib/task';
 import { useForwardTrail } from '@/lib/trail';
@@ -21,6 +22,7 @@ type InboxRowFrameProps = {
   resolve?: MenuAction | null;
   menuActions?: readonly MenuAction[];
   onOpen?: () => void;
+  onIntent?: () => void;
 };
 
 export function InboxRowFrame({
@@ -34,7 +36,9 @@ export function InboxRowFrame({
   resolve,
   menuActions = [],
   onOpen,
+  onIntent,
 }: InboxRowFrameProps) {
+  const intent = useOpenIntent(onIntent);
   const trail = useForwardTrail();
   const { focused, handlers } = useFocusWithin();
   const [hovered, setHovered] = useState(false);
@@ -50,8 +54,15 @@ export function InboxRowFrame({
       data-list-item
       {...handlers}
       {...menu}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
+      onPointerEnter={() => {
+        setHovered(true);
+        intent.onPointerEnter?.();
+      }}
+      onPointerLeave={() => {
+        setHovered(false);
+        intent.onPointerLeave?.();
+      }}
+      onFocusCapture={intent.onFocusCapture}
       className="group/row relative flex items-start gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent has-[a[aria-current=page]]:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset"
     >
       <NavLink

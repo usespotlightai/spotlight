@@ -26,7 +26,7 @@ export function AddEmailDialog({ open, onOpenChange }: AddEmailDialogProps) {
   const [email, setEmail] = useState('');
 
   const written = email.trim();
-  const busy = add.isPending;
+  const busy = add.isPending || add.isSuccess;
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();

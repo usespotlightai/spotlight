@@ -1,18 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { readInsightsCost } from '@/lib/api';
 import type { InsightsCost, InsightsPeriod } from '@/lib/insights';
+import { keepTeamPeriod } from '@/lib/query';
 
 const insightsCostKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'cost', teamId ?? null, period] as const,
 };
 
-export function useInsightsCost(
+export const insightsCostQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
-) {
-  return useQuery({
+) =>
+  queryOptions({
     queryKey: insightsCostKeys.forTeam(teamId, period),
     enabled: Boolean(teamId),
     queryFn: async (): Promise<InsightsCost> => {
@@ -23,5 +24,14 @@ export function useInsightsCost(
       });
       return data;
     },
+  });
+
+export function useInsightsCost(
+  teamId: string | undefined,
+  period: InsightsPeriod,
+) {
+  return useQuery({
+    ...insightsCostQuery(teamId, period),
+    placeholderData: keepTeamPeriod(teamId),
   });
 }

@@ -9,6 +9,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { Dockable } from '@/components/shared/decision-tray/Dockable';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useJudgeDisagreement } from '@/hooks/api/useJudgeDisagreement';
+import { useRunScores } from '@/hooks/api/useRunScores';
 import type { DockedDecision } from '@/lib/decision-tray';
 import { notFound } from '@/lib/error';
 import {
@@ -69,6 +70,7 @@ export function JudgeDisagreementThread({
   trail,
 }: JudgeDisagreementThreadProps) {
   const disagreement = useJudgeDisagreement(teamId, disagreementId);
+  const scores = useRunScores(teamId, disagreement.data?.runId);
 
   if (loading(disagreement)) {
     return <InboxItemSkeleton />;
@@ -112,6 +114,7 @@ export function JudgeDisagreementThread({
       runId={disagreement.data.runId}
       trail={trail}
       docked={dockedOf(disagreement.data, item)}
+      pending={loading(scores)}
       after={
         disputedClaimsOf(disagreement.data).length > 0 ? (
           item()

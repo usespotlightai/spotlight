@@ -17,11 +17,17 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useBoardTasks } from '@/hooks/useBoardTasks';
 import { useBoardView } from '@/hooks/useBoardView';
 import { useCreateTaskKey } from '@/hooks/useCreateTaskKey';
-import { BOARD_VIEWS } from '@/lib/board';
-import { failed, loading } from '@/lib/query';
+import { BOARD_VIEWS, type BoardView } from '@/lib/board';
+import { failed, type Loadable, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { teamCrumb } from '@/lib/team-crumb';
 import { TrailContext, useTrail } from '@/lib/trail';
+
+const listLoading = (
+  view: BoardView,
+  tasks: Loadable,
+  completed: Loadable,
+): boolean => loading(tasks) || (view === 'completed' && loading(completed));
 
 export function LineBoard() {
   const { slug, teamId, lineId } = useParams();
@@ -98,7 +104,7 @@ export function LineBoard() {
         }}
       />
 
-      {!line || loading(tasks) ? (
+      {!line || listLoading(view, tasks, completed) ? (
         <BoardSkeleton />
       ) : (
         <Board

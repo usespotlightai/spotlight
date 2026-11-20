@@ -47,6 +47,7 @@ export const harnessProfile = pgTable(
     permissions: jsonb('permissions').$type<PermissionsRow>().notNull(),
     mcpServers: jsonb('mcp_servers').$type<McpServerRow[]>().notNull(),
     native: jsonb('native').$type<Record<string, unknown>>().notNull(),
+    secrets: text('secrets').array().notNull().default([]),
     version: integer('version').notNull().default(1),
     updatedAt: timestamptz('updated_at')
       .defaultNow()

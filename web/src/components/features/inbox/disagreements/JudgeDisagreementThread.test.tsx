@@ -6,6 +6,15 @@ import { failedDisagreementOf } from '@/test/fixtures/judge-disagreement';
 
 const disagreement = vi.fn<() => unknown>();
 const disagreementError = vi.fn<() => unknown>();
+const scoresPending = vi.fn<() => boolean>();
+
+vi.mock('@/hooks/api/useRunScores', () => ({
+  useRunScores: () => ({
+    data: scoresPending() ? undefined : { claims: [] },
+    isPending: scoresPending(),
+    errorUpdateCount: 0,
+  }),
+}));
 
 vi.mock('@/hooks/api/useJudgeDisagreement', () => ({
   useJudgeDisagreement: () => ({
@@ -23,13 +32,16 @@ vi.mock('@/components/features/inbox/RunThread', () => ({
     runId,
     after,
     docked,
+    pending,
   }: {
     runId: string;
     after: unknown;
     docked: { id: string; label: string; content: unknown }[];
+    pending?: boolean;
   }) => (
     <div>
       <p>The thread of run {runId}</p>
+      {pending && <p>Waiting for the judge</p>}
       {after as never}
       <ol aria-label="Tray">
         {docked.map((page) => (
@@ -72,6 +84,7 @@ const showing = () =>
 beforeEach(() => {
   disagreement.mockReturnValue(failedDisagreementOf());
   disagreementError.mockReturnValue(null);
+  scoresPending.mockReturnValue(false);
 });
 
 describe('JudgeDisagreementThread', () => {
@@ -80,6 +93,14 @@ describe('JudgeDisagreementThread', () => {
 
     expect(screen.getByText('The thread of run run_1')).toBeInTheDocument();
     expect(screen.getByText('The question')).toBeInTheDocument();
+  });
+
+  it('keeps the thread waiting until the judge’s reasons load', () => {
+    scoresPending.mockReturnValue(true);
+
+    showing();
+
+    expect(screen.getByText('Waiting for the judge')).toBeInTheDocument();
   });
 
   it('gives each disputed claim its own page in the tray', () => {

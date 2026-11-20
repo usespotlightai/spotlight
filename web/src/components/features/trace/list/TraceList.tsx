@@ -1,5 +1,5 @@
 import { Binoculars } from 'lucide-react';
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useDeferredValue, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
@@ -21,6 +21,8 @@ import { rangeOf } from '@/lib/range';
 import { taskTracePath } from '@/lib/task';
 import { teamSectionPath } from '@/lib/team';
 import { useForwardTrail } from '@/lib/trail';
+
+const FIRST_ROWS = 40;
 
 type TraceListProps = {
   slug: string;
@@ -55,6 +57,9 @@ export function TraceList({
   const [selected, setSelected] = useState<readonly string[]>([]);
   const rows = useRef<HTMLUListElement>(null);
   useListKeys(rows, selected.length > 0 ? () => setSelected([]) : undefined);
+  const count = traces.data?.traces.length ?? 0;
+  const deferred = useDeferredValue(count, Math.min(count, FIRST_ROWS));
+  const drawn = Math.max(Math.min(count, FIRST_ROWS), deferred);
 
   if (loading(traces)) {
     return (
@@ -151,7 +156,7 @@ export function TraceList({
           </div>
         ) : (
           <ul ref={rows} className="flex flex-col">
-            {worked.map((trace) => (
+            {worked.slice(0, drawn).map((trace) => (
               <li key={trace.taskId} data-slot="trace" data-list-item>
                 <TraceRow
                   trace={trace}

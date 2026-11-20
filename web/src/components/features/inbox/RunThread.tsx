@@ -14,6 +14,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
+import { useTaskFooterLoading } from '@/hooks/api/useTaskFooterLoading';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
@@ -33,6 +34,7 @@ type RunThreadProps = {
   trail: readonly BreadcrumbSegment[];
   after: ReactNode;
   docked?: readonly DockedDecision[];
+  pending?: boolean;
 };
 
 export function RunThread({
@@ -43,6 +45,7 @@ export function RunThread({
   trail,
   after,
   docked,
+  pending = false,
 }: RunThreadProps) {
   const conversationQuery = useRunNotes(teamId, runId);
   const journal = useTaskJournal(slug, taskId, [
@@ -56,7 +59,14 @@ export function RunThread({
     conversationQuery.data,
   );
 
-  if (loading(conversationQuery) || loading(journal)) {
+  const footerLoading = useTaskFooterLoading(teamId, taskId, run?.station?.id);
+
+  if (
+    pending ||
+    loading(conversationQuery) ||
+    loading(journal) ||
+    footerLoading
+  ) {
     return <InboxItemSkeleton />;
   }
 

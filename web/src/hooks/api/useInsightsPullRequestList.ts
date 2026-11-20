@@ -1,4 +1,8 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useQuery,
+} from '@tanstack/react-query';
 
 import { listInsightsPullRequests } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
@@ -28,16 +32,15 @@ const insightsPullRequestListKeys = {
     ] as const,
 };
 
-export function useInsightsPullRequestList(
+const insightsPullRequestListQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
   filter: PullRequestFilter,
   page: number,
-) {
-  return useQuery({
+) =>
+  queryOptions({
     queryKey: insightsPullRequestListKeys.forTeam(teamId, period, filter, page),
     enabled: Boolean(teamId),
-    placeholderData: keepPreviousData,
     queryFn: async (): Promise<InsightsPullRequestList> => {
       const { data } = await listInsightsPullRequests({
         path: { teamId: teamId as string },
@@ -57,5 +60,16 @@ export function useInsightsPullRequestList(
       });
       return data;
     },
+  });
+
+export function useInsightsPullRequestList(
+  teamId: string | undefined,
+  period: InsightsPeriod,
+  filter: PullRequestFilter,
+  page: number,
+) {
+  return useQuery({
+    ...insightsPullRequestListQuery(teamId, period, filter, page),
+    placeholderData: keepPreviousData,
   });
 }

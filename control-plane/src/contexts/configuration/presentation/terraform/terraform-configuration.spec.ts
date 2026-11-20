@@ -785,6 +785,7 @@ describe('workspaceTerraform', () => {
         '      includeCoAuthoredBy = false',
         '    }',
         '  }',
+        '  secrets = [spotlight_secret.linear_signing.name]',
         '}',
       ].join('\n'),
     );

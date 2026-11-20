@@ -259,14 +259,24 @@ const conversationHandlers = [
       if (item.resolved) {
         return problem(409, 'Sorry, this was already answered.');
       }
+      if (!shown(item).answerable) {
+        return problem(403, 'Another person is the assignee.');
+      }
 
       const reply = (await request.json()) as AnswerInboxItemRequestDto;
-      const decisionPending =
-        item.notes.findLast((note) => note.kind === 'asked')?.form ===
-        'approval';
+      const asking = item.notes.findLast((note) => note.kind === 'asked');
 
-      if (reply.approve !== undefined && !decisionPending) {
+      if (reply.approve !== undefined && asking?.form !== 'approval') {
         return problem(400, 'Nothing here waits for an approval.');
+      }
+      if (reply.approve !== undefined && reply.ask === undefined) {
+        return problem(400, 'Field ask is required with approve.');
+      }
+      if (reply.approve !== undefined && reply.ask !== asking?.position) {
+        return problem(
+          409,
+          'The run asked for something newer since. Decide the newer ask.',
+        );
       }
 
       answer(item, reply);
@@ -306,8 +316,12 @@ const conversationHandlers = [
     if (item.resolved) {
       return problem(409, 'Nothing here waits for an answer.');
     }
+    if (item.standing !== 'assignee' && item.standing !== 'team') {
+      return problem(403, 'Another person is the assignee.');
+    }
     notedBySam(item, 'passed', 'Resolved without an answer.');
     item.resolved = true;
+    item.standing = 'assignee';
     item.unread = false;
     item.runId = null;
     item.progress = null;
@@ -323,6 +337,9 @@ const conversationHandlers = [
     }
     if (item.notes[item.notes.length - 1]?.form !== 'resolved') {
       return problem(409, 'Nobody resolved this conversation.');
+    }
+    if (!shown(item).reopenable) {
+      return problem(403, 'Another person is the assignee.');
     }
     notedBySam(item, 'reopened', 'Reopened.');
     item.resolved = false;

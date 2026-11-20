@@ -183,6 +183,7 @@ export const ExportableResourceMapper = {
         env: { ...each.env },
       })),
       native: profile.native,
+      secrets: [...profile.secrets],
       secretReferences: profile.secretReferences.map((each) => ({
         path: each.path,
         name: each.name,

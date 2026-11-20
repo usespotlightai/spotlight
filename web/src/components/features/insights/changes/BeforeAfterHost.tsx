@@ -1,16 +1,35 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 
 import { BeforeAfterPanel } from '@/components/features/insights/changes/BeforeAfterPanel';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useDelayedValue } from '@/hooks/useDelayedValue';
+import { useDocumentListener } from '@/hooks/useDocumentListener';
 import {
   BeforeAfterActionsContext,
   BeforeAfterShownContext,
+  PANEL_SLOT,
 } from '@/lib/before-after-panel';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import type { ChangeAt } from '@/lib/insights-changes';
 
 const LEAVING = 240;
+
+const inPanel = (element: Element | null): boolean =>
+  Boolean(element?.closest(`[data-slot="${PANEL_SLOT}"]`));
+
+const focusLostOnClose = (): boolean => {
+  const active = document.activeElement;
+  return !active || active === document.body || inPanel(active);
+};
+
+const ownsEscape = (
+  target: EventTarget | null,
+  opener: HTMLElement | null,
+): boolean =>
+  !(target instanceof Element) ||
+  target === document.body ||
+  target === opener ||
+  inPanel(target);
 
 type BeforeAfterHostProps = {
   slug: string;
@@ -29,13 +48,41 @@ export function BeforeAfterHost({
 }: BeforeAfterHostProps) {
   const [shown, setShown] = useState<ChangeAt | null>(null);
   const displayed = useDelayedValue(shown, LEAVING);
+  const opener = useRef<HTMLElement | null>(null);
 
   const actions = useMemo(
     () => ({
-      show: (change: ChangeAt) => setShown(change),
-      close: () => setShown(null),
+      show: (change: ChangeAt) => {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && active !== document.body) {
+          opener.current = active;
+        }
+        setShown(change);
+      },
+      close: () => {
+        const back = opener.current;
+        opener.current = null;
+        if (back?.isConnected && focusLostOnClose()) {
+          back.focus();
+        }
+        setShown(null);
+      },
     }),
     [],
+  );
+
+  useDocumentListener(
+    'keydown',
+    (event) => {
+      if (
+        event.key === 'Escape' &&
+        !event.defaultPrevented &&
+        ownsEscape(event.target, opener.current)
+      ) {
+        actions.close();
+      }
+    },
+    shown !== null,
   );
 
   return (

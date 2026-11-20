@@ -41,6 +41,10 @@ import {
   type SecretNamesPort,
 } from '@configuration/application/ports/secret-names.port';
 import {
+  SECRETS_AWAITING_VALUE,
+  type SecretsAwaitingValuePort,
+} from '@configuration/application/ports/secrets-awaiting-value.port';
+import {
   SKILL_COMPILER,
   type SkillCompilerPort,
 } from '@configuration/application/ports/skill-compiler.port';
@@ -107,6 +111,7 @@ import { HarnessReviewOfRuns } from '@configuration/infrastructure/acl/harness-r
 import { StationProfiles } from '@configuration/infrastructure/acl/station-profiles.adapter';
 import { StationSkillTools } from '@configuration/infrastructure/acl/station-skill-tools.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
+import { WorkspaceSecretsAwaitingValue } from '@configuration/infrastructure/acl/workspace-secrets-awaiting-value.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/infrastructure/events/configuration-payload-types';
 import { DrizzleHarnessProfileDependents } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-dependents.reader';
@@ -181,6 +186,10 @@ import {
   type SecretConfigurationPort,
 } from '@secrets/application/ports/secret-configuration.port';
 import {
+  SECRET_READINESS,
+  type SecretReadinessPort,
+} from '@secrets/application/ports/secret-readiness.port';
+import {
   SECRET_USES,
   type SecretUsesPort,
 } from '@secrets/application/ports/secret-uses.port';
@@ -229,6 +238,12 @@ const adapters: Provider[] = [
     useFactory: (teams: TeamDirectoryPort, secrets: DefinedSecretsPort) =>
       new WorkspaceSecrets(teams, secrets),
   },
+  {
+    provide: SECRETS_AWAITING_VALUE,
+    inject: [SECRET_READINESS],
+    useFactory: (readiness: SecretReadinessPort) =>
+      new WorkspaceSecretsAwaitingValue(readiness),
+  },
   { provide: SKILL_COMPILER, useClass: SkillCompiler },
   { provide: TERRAFORM_STATES, useClass: DrizzleTerraformStates },
   { provide: TERRAFORM_STATE_READER, useClass: DrizzleTerraformStateReader },
@@ -270,11 +285,12 @@ const adapters: Provider[] = [
   },
   {
     provide: HarnessProfileViews,
-    inject: [TEAM_DIRECTORY, HARNESS_PROFILE_COMPILER],
+    inject: [TEAM_DIRECTORY, HARNESS_PROFILE_COMPILER, SECRETS_AWAITING_VALUE],
     useFactory: (
       teams: TeamDirectoryPort,
       compiler: HarnessProfileCompilerPort,
-    ) => new HarnessProfileViews(teams, compiler),
+      awaitingValue: SecretsAwaitingValuePort,
+    ) => new HarnessProfileViews(teams, compiler, awaitingValue),
   },
   {
     provide: ExportableConfigurations,

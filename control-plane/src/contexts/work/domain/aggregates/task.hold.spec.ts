@@ -21,6 +21,10 @@ import { TaskHeld } from '@work/domain/events/task-held.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
+import {
+  ConversationAudience,
+  type ConversationViewer,
+} from '@work/domain/services/conversation-audience';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
 import {
@@ -33,6 +37,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { TurnHeads } from '@work/domain/value-objects/turn-heads.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
@@ -154,6 +159,12 @@ const resumption = (
   });
 
 const lastOf = (task: Task) => task.notes[task.notes.length - 1];
+
+const answers = (task: Task, viewer: ConversationViewer): boolean =>
+  ConversationAudience.mayAnswer(
+    TeamStanding.of({ seesTeam: true, actsOnTeam: viewer.actsOnTasks }),
+    task.conversantOf(viewer),
+  );
 
 describe('a task a person puts on hold', () => {
   it('stops the line run and counts it as the run the person held it from', () => {
@@ -294,12 +305,15 @@ describe('a task a person drives', () => {
       actsOnTasks,
     });
 
-    expect(task.conversationStandingOf(viewer(true))).toBe('following');
-    expect(task.actsOnConversation(viewer(true))).toBe(true);
-    expect(task.conversationStandingOf(viewer(false))).toBeNull();
-    expect(task.actsOnConversation(viewer(false))).toBe(false);
+    expect(task.conversantOf(viewer(true))).toEqual({
+      standing: null,
+      drives: true,
+    });
+    expect(answers(task, viewer(true))).toBe(true);
+    expect(task.conversantOf(viewer(false)).drives).toBe(false);
+    expect(answers(task, viewer(false))).toBe(false);
     expect(
-      task.actsOnConversation({
+      answers(task, {
         person: LEON,
         onTeam: true,
         actsOnTasks: true,

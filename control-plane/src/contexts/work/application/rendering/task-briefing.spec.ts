@@ -8,6 +8,7 @@ import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -25,6 +26,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import { builtInTool } from '@work/domain/value-objects/built-in-tools';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import {
@@ -164,6 +166,7 @@ const brief = (
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
   tools: readonly DeclaredTool[] = [],
+  secrets: readonly BoundSecret[] = [],
 ) => {
   const line = lineOf(station, at('station_2', 'Spec', 1));
 
@@ -177,6 +180,7 @@ const brief = (
     memories,
     memoryFolder,
     tools,
+    boundSecrets: secrets,
   });
 };
 
@@ -205,6 +209,7 @@ describe('TaskBriefing', () => {
       memories: [],
       memoryFolder: null,
       tools: [],
+      boundSecrets: [],
       drivenByAPerson: true,
     });
 
@@ -475,6 +480,63 @@ describe('TaskBriefing', () => {
     });
   });
 
+  describe('the secrets its profile has egress inject for a run', () => {
+    const bound = (
+      name: string,
+      bindings: BoundSecret['bindings'],
+    ): BoundSecret => ({
+      name: SecretName.of(name),
+      bindings,
+      awaitingValue: false,
+    });
+
+    it('says where to send the stand-in of each secret, and never a value', () => {
+      const briefing = brief(
+        triage(),
+        undefined,
+        [],
+        [],
+        null,
+        [],
+        [
+          bound('STAGING_VIEWER', [
+            {
+              host: 'staging.example.com',
+              location: 'header',
+              name: 'authorization',
+              sent: 'Bearer spotlight-egress:STAGING_VIEWER',
+            },
+          ]),
+          bound('MAPS_KEY', [
+            {
+              host: 'maps.googleapis.com',
+              location: 'query',
+              name: 'key',
+              sent: 'spotlight-egress:MAPS_KEY',
+            },
+          ]),
+          bound('UNBOUND', []),
+        ],
+      );
+
+      expect(briefing).toContain(
+        [
+          '## Secrets',
+          'Egress puts these workspace secrets into the requests you send. Send the stand-in as shown, and egress replaces it with the value. You never see the values. A request without the stand-in goes out without the secret.',
+          [
+            '- `STAGING_VIEWER` to staging.example.com: send `Bearer spotlight-egress:STAGING_VIEWER` in the `authorization` header',
+            '- `MAPS_KEY` to maps.googleapis.com: send `spotlight-egress:MAPS_KEY` as the `key` query parameter',
+            '- `UNBOUND`: bound to no host, so no request gets it',
+          ].join('\n'),
+        ].join('\n\n'),
+      );
+    });
+
+    it('says nothing of secrets where its profile injects none', () => {
+      expect(brief(triage())).not.toContain('## Secrets');
+    });
+  });
+
   it('says that a handover to no station puts the task in front of a person', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
   });
@@ -491,6 +553,7 @@ describe('TaskBriefing', () => {
         memories: [],
         memoryFolder: null,
         tools: [],
+        boundSecrets: [],
       });
     };
 
@@ -667,6 +730,7 @@ describe('TaskBriefing', () => {
         memories: [],
         memoryFolder: null,
         tools: [],
+        boundSecrets: [],
       });
 
     it('lists every repository the line works in, side by side', () => {

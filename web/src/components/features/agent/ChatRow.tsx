@@ -2,6 +2,7 @@ import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { useOpenIntent } from '@/hooks/useOpenIntent';
 import type { ChatSummary } from '@/lib/chat';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -9,9 +10,11 @@ import { cn } from '@/lib/utils';
 type ChatRowProps = {
   chat: ChatSummary;
   to: string;
+  onIntent?: () => void;
 };
 
-export function ChatRow({ chat, to }: ChatRowProps) {
+export function ChatRow({ chat, to, onIntent }: ChatRowProps) {
+  const intent = useOpenIntent(onIntent);
   const status = chat.waitingForYou ? (
     <WaitingForYouPill />
   ) : (
@@ -20,6 +23,7 @@ export function ChatRow({ chat, to }: ChatRowProps) {
 
   return (
     <li
+      {...intent}
       className={cn(
         'relative grid min-h-9 pointer-coarse:min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent @md/pane:h-9 @md/pane:py-0',
         status && '@md/pane:grid-cols-[auto_minmax(0,1fr)_auto_auto]',

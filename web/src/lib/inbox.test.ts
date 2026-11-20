@@ -406,6 +406,7 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   unread: true,
   resolved: false,
   section: 'open',
+  resolvable: true,
   reopenable: false,
   ...over,
 });
@@ -520,5 +521,30 @@ describe('chatPreviewOf', () => {
     expect(resolvable(chat())).toBe(true);
     expect(resolvable(chat({ resolved: true }))).toBe(false);
     expect(reopenable(chat({ resolved: true, reopenable: true }))).toBe(true);
+  });
+});
+
+describe('resolvable', () => {
+  const conversation = (over: Partial<InboxItem>) =>
+    ({
+      kind: 'task',
+      id: 'task_1:3',
+      resolved: false,
+      standing: 'assignee',
+      resolvable: true,
+      ...over,
+    }) as InboxItem;
+
+  it('follows the server for a conversation', () => {
+    expect(resolvable(conversation({}))).toBe(true);
+    expect(resolvable(conversation({ resolvable: false }))).toBe(false);
+    expect(
+      resolvable(conversation({ standing: 'asked', resolvable: false })),
+    ).toBe(false);
+  });
+
+  it('follows the server for a notice', () => {
+    expect(resolvable(notice())).toBe(true);
+    expect(resolvable(notice({ resolvable: false }))).toBe(false);
   });
 });

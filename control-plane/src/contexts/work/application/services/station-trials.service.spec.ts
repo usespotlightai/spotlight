@@ -128,6 +128,7 @@ const LINEAR: HarnessProfileShape = {
     },
   ],
   native: {},
+  secrets: [],
 };
 
 const SCREENSHOT = Attachment.of({
@@ -307,9 +308,13 @@ const trialsOf = () =>
       { named: async (_team, key) => (key === 'linear' ? LINEAR : null) },
       new Sha256ContentHash(),
       {
-        awaitingValue: async (_workspace, names) => {
+        boundIn: async (_workspace, names) => {
           awaitingAsked.push(...names);
-          return names;
+          return names.map((name) => ({
+            name,
+            bindings: [],
+            awaitingValue: true,
+          }));
         },
       },
     ),
