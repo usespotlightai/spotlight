@@ -382,9 +382,6 @@ const payloadOf = (which: Which, closes: Repo | null): HappeningPayload => ({
 const actorOf = (task: Task, by: Actor): UserId =>
   by === 'holder' ? (task.openHold?.by ?? PEOPLE.leon) : PEOPLE[by];
 
-const personAsked = (task: Task, of: Person): UserId =>
-  task.openHold?.by ?? PEOPLE[of];
-
 const askingApproval = (task: Task, run: RunId, of: UserId | null, at: Date) =>
   task.clearFor(
     ApprovalSubject.toolCall(
@@ -627,12 +624,7 @@ const applied = async (world: World, each: Step): Promise<Task> => {
       const run = task.currentRunId;
 
       return run
-        ? askingApproval(
-            task,
-            run,
-            each.of ? personAsked(task, each.of) : null,
-            world.now,
-          )
+        ? askingApproval(task, run, each.of ? PEOPLE[each.of] : null, world.now)
         : task;
     }
     case 'ask-connection': {
@@ -642,7 +634,7 @@ const applied = async (world: World, each: Step): Promise<Task> => {
         ? task.askToConnect(
             run,
             said(world, 'Connect Linear.', Voice.station(run)),
-            connectionOf(personAsked(task, each.of)),
+            connectionOf(PEOPLE[each.of]),
           ).task
         : task;
     }
@@ -1206,5 +1198,56 @@ describe('a task held by one person whose turn asks another person', () => {
     );
 
     expect(loadable(asked)).toBe(true);
+  });
+
+  it('lets the person asked connect, and stays with its holder', () => {
+    const connected = heldByMaya()
+      .askToConnect(
+        RunId.of('run_turn'),
+        {
+          line: LINE,
+          body: TaskNoteBody.of('Connect Linear.'),
+          at: START,
+          voice: Voice.station(RunId.of('run_turn')),
+        },
+        connectionOf(PEOPLE.leon),
+      )
+      .task.connectionMade(TEAM_ID, LINEAR, PEOPLE.leon, {
+        line: LINE,
+        at: START,
+      });
+
+    expect(connected?.assignee).toEqual(PEOPLE.maya);
+    expect(connected && loadable(connected)).toBe(true);
+  });
+
+  it('lets the person asked approve the tool call, and stays with its holder', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Go ahead.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      },
+      'approved',
+    );
+    const approval = approved.approvalFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+      ),
+    )?.approval;
+
+    expect(approval?.grantedFor(PEOPLE.leon)).toBe(true);
+    expect(approved.assignee).toEqual(PEOPLE.maya);
+    expect(loadable(approved)).toBe(true);
   });
 });

@@ -786,12 +786,11 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    return this.heldBy(answerer, members).answer(
-      from,
-      newNote,
-      decision,
-      edits,
-    );
+    return (
+      this.asksPerson(from, Voice.person(answerer))
+        ? this
+        : this.heldBy(answerer, members)
+    ).answer(from, newNote, decision, edits);
   }
 
   resolveAs(
@@ -1917,6 +1916,16 @@ export class Task extends EventRecorder {
     });
   }
 
+  private asksPerson(from: NotePosition, voice: Voice): boolean {
+    const note = from.noteIn(this.notes);
+    const asked =
+      note?.approval?.askedOf ?? note?.connectionAsk?.personId ?? null;
+
+    return (
+      voice.isPerson && asked !== null && (voice.author?.equals(asked) ?? false)
+    );
+  }
+
   private holdsAside(voice: Voice): boolean {
     const hold = this.openHold;
 
@@ -2631,7 +2640,9 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    this.assertDrivenBy(newNote.voice, 'answer it');
+    if (!this.asksPerson(from, newNote.voice)) {
+      this.assertDrivenBy(newNote.voice, 'answer it');
+    }
 
     if (!this.isWaitingAt(from)) {
       throw new InvalidTaskTransitionError(
