@@ -40,8 +40,12 @@ type Shown = 'section' | 'reopenable';
 
 export type InboxConversation = Omit<
   InboxItemViewResponseDto,
-  'lastNote' | Shown
+  'lastNote' | 'resolvable' | Shown
 >;
+
+type ShownResolvable<T> = T extends InboxConversation
+  ? Pick<InboxItemViewResponseDto, 'resolvable'>
+  : unknown;
 
 type StoredNotice = Omit<InboxNoticeResponseDto, Shown>;
 
@@ -86,16 +90,29 @@ const reopenableOf = (entry: InboxEntry): boolean => {
 
   const closing = entry.notes[entry.notes.length - 1];
 
-  return closing?.form === 'resolved' && closing.voice === 'person';
+  return (
+    entry.standing !== 'following' &&
+    entry.standing !== null &&
+    closing?.form === 'resolved' &&
+    closing.voice === 'person'
+  );
 };
+
+const resolvableOf = (entry: InboxConversation): boolean =>
+  !entry.resolved &&
+  (entry.inboxRequest !== null ||
+    entry.standing === 'assignee' ||
+    entry.standing === 'team');
 
 export const shown = <T extends InboxEntry>(
   entry: T,
-): T & Pick<InboxNoticeResponseDto, Shown> => ({
-  ...entry,
-  section: sectionOf(entry),
-  reopenable: reopenableOf(entry),
-});
+): T & Pick<InboxNoticeResponseDto, Shown> & ShownResolvable<T> =>
+  ({
+    ...entry,
+    section: sectionOf(entry),
+    reopenable: reopenableOf(entry),
+    ...(entry.kind === 'task' ? { resolvable: resolvableOf(entry) } : {}),
+  }) as T & Pick<InboxNoticeResponseDto, Shown> & ShownResolvable<T>;
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';
 export const ALERT_REQUEST_ID = 'request_sent_back_alert';

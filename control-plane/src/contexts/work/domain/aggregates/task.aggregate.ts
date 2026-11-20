@@ -787,7 +787,7 @@ export class Task extends EventRecorder {
     edits: ApprovalEdits | null = null,
   ): Task {
     return (
-      this.asksPerson(from, Voice.person(answerer))
+      this.answersItsOwnAsk(from, Voice.person(answerer))
         ? this
         : this.heldBy(answerer, members)
     ).answer(from, newNote, decision, edits);
@@ -1916,27 +1916,20 @@ export class Task extends EventRecorder {
     });
   }
 
-  private asksStill(person: UserId): boolean {
-    const note = this.openConversationNote;
-    const approval = note?.approval;
-    const connection = note?.connectionAsk;
-
-    return (
-      (approval?.status === 'pending' &&
-        (approval.askedOf?.equals(person) ?? false)) ||
-      (connection
-        ? !connection.met && connection.personId.equals(person)
-        : false)
+  private asksWhileHeld(person: UserId): boolean {
+    return ConversationAudience.asksWhileHeld(
+      this.openHold !== null,
+      this.openConversationNote,
+      person,
     );
   }
 
-  private asksPerson(from: NotePosition, voice: Voice): boolean {
-    const note = from.noteIn(this.notes);
-    const asked =
-      note?.approval?.askedOf ?? note?.connectionAsk?.personId ?? null;
-
+  private answersItsOwnAsk(from: NotePosition, voice: Voice): boolean {
     return (
-      voice.isPerson && asked !== null && (voice.author?.equals(asked) ?? false)
+      voice.isPerson &&
+      voice.author !== null &&
+      this.isWaitingAt(from) &&
+      this.asksWhileHeld(voice.author)
     );
   }
 
@@ -2128,7 +2121,7 @@ export class Task extends EventRecorder {
     return ConversationAudience.standingOf(this.assignee, {
       ...viewer,
       wroteIn: this.wroteIn(viewer.person),
-      asked: this.asksStill(viewer.person),
+      asked: this.asksWhileHeld(viewer.person),
     });
   }
 
@@ -2655,7 +2648,7 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    if (!this.asksPerson(from, newNote.voice)) {
+    if (!this.answersItsOwnAsk(from, newNote.voice)) {
       this.assertDrivenBy(newNote.voice, 'answer it');
     }
 

@@ -156,6 +156,14 @@ export class InboxRequest extends EventRecorder {
     return resolvedAt !== null;
   }
 
+  static resolvableBy(actsOnTeam: boolean, resolvedAt: Date | null): boolean {
+    return actsOnTeam && resolvedAt === null;
+  }
+
+  static reopenableBy(actsOnTeam: boolean, resolvedAt: Date | null): boolean {
+    return actsOnTeam && InboxRequest.reopenable(resolvedAt);
+  }
+
   static requiredAccess(form: InboxRequestForm): InboxRequestAccess {
     switch (form) {
       case 'memories':

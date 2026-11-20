@@ -258,4 +258,21 @@ describe('InboxRequest', () => {
       expect(seen(null, true, BEA)).toBeNull();
     });
   });
+
+  describe('who can resolve or reopen it', () => {
+    it('lets a person who acts on the team resolve it while it is open', () => {
+      expect(InboxRequest.resolvableBy(true, null)).toBe(true);
+      expect(InboxRequest.resolvableBy(true, NOW)).toBe(false);
+    });
+
+    it('lets a person who acts on the team reopen it once it is resolved', () => {
+      expect(InboxRequest.reopenableBy(true, NOW)).toBe(true);
+      expect(InboxRequest.reopenableBy(true, null)).toBe(false);
+    });
+
+    it('lets nobody resolve or reopen it who only sees the team', () => {
+      expect(InboxRequest.resolvableBy(false, null)).toBe(false);
+      expect(InboxRequest.reopenableBy(false, NOW)).toBe(false);
+    });
+  });
 });

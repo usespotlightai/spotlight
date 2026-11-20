@@ -9,6 +9,7 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   InboxEntrySummary,
+  InboxItemSummary,
   InboxScope,
 } from '@work/application/ports/inbox-reader.port';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -95,11 +96,11 @@ afterAll(async () => {
   await database?.close();
 });
 
-const scopeOf = (viewer: UserId): InboxScope => ({
+const scopeOf = (viewer: UserId, actsOnTeam = true): InboxScope => ({
   workspaceId,
   viewer,
   teamsSeen: new Set([teamId]),
-  teamsActedOn: new Set(),
+  teamsActedOn: new Set(actsOnTeam ? [teamId] : []),
   teamsJoined: new Set([teamId]),
 });
 
@@ -157,16 +158,16 @@ const heldAndAsking = async (): Promise<Task> => {
   return task;
 };
 
+const conversationIn = (entries: readonly InboxEntrySummary[], task: Task) =>
+  entries.find(
+    (each): each is InboxItemSummary =>
+      each.kind === 'task' && each.taskId === task.id.value,
+  );
+
 const standingIn = (
   entries: readonly InboxEntrySummary[],
   task: Task,
-): string | null | undefined => {
-  const entry = entries.find(
-    (each) => each.kind === 'task' && each.taskId === task.id.value,
-  );
-
-  return entry && 'standing' in entry ? entry.standing : undefined;
-};
+): string | null | undefined => conversationIn(entries, task)?.standing;
 
 describe('a held task whose turn asks another person (e2e)', () => {
   it('lists the ask for the person it names, and keeps the task with its holder', async () => {
@@ -176,6 +177,53 @@ describe('a held task whose turn asks another person (e2e)', () => {
     expect(standingIn(await reader.open(scopeOf(holder)), task)).toBe(
       'assignee',
     );
+  });
+
+  it('lets the holder resolve the ask, and not the person it names', async () => {
+    const task = await heldAndAsking();
+
+    expect(
+      conversationIn(await reader.open(scopeOf(holder)), task)?.resolvable,
+    ).toBe(true);
+    expect(
+      conversationIn(await reader.open(scopeOf(asked)), task)?.resolvable,
+    ).toBe(false);
+    expect(
+      conversationIn(await reader.open(scopeOf(holder, false)), task)
+        ?.resolvable,
+    ).toBe(false);
+  });
+
+  it('lets the holder reopen the ask once resolved, only while they act on the team', async () => {
+    const task = await heldAndAsking();
+    const from = task.openConversation?.from;
+
+    if (!from) {
+      throw new Error('the ask opened no conversation');
+    }
+
+    await tasks.save(
+      task.resolveAs(holder, TeamMembers.of([holder, asked]), from, {
+        line,
+        body: TaskNoteBody.of('Resolved without an answer.'),
+        at: NOW,
+        voice: Voice.person(holder),
+      }),
+    );
+
+    const resolvedFor = async (actsOnTeam: boolean) =>
+      conversationIn(
+        (
+          await reader.resolved(scopeOf(holder, actsOnTeam), {
+            before: null,
+            limit: 50,
+          })
+        ).items,
+        task,
+      );
+
+    expect((await resolvedFor(true))?.reopenable).toBe(true);
+    expect((await resolvedFor(false))?.reopenable).toBe(false);
   });
 
   it('lists nothing for a team member the ask does not name', async () => {
@@ -201,6 +249,39 @@ describe('a held task whose turn asks another person (e2e)', () => {
 
     expect(standingIn(await reader.open(scopeOf(asked)), task)).not.toBe(
       'asked',
+    );
+  });
+
+  it('stops listing an ask whose conversation closed, once the turn asks something new', async () => {
+    const task = await heldAndAsking();
+    const turn = task.currentRunId;
+
+    if (!turn) {
+      throw new Error('the task has no current run');
+    }
+
+    const asksAgain = task
+      .closeConversation({
+        line,
+        body: TaskNoteBody.of('Going on without Linear.'),
+        at: NOW,
+        voice: Voice.station(turn),
+      })
+      .askedAbout(
+        {
+          line,
+          body: TaskNoteBody.of('Which queue should I drain?'),
+          at: NOW,
+          voice: Voice.station(turn),
+        },
+        turn,
+      );
+
+    await tasks.save(asksAgain);
+
+    expect(standingIn(await reader.open(scopeOf(asked)), task)).toBeUndefined();
+    expect(standingIn(await reader.open(scopeOf(holder)), task)).toBe(
+      'assignee',
     );
   });
 });

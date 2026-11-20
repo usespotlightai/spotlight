@@ -524,16 +524,21 @@ describe('chatPreviewOf', () => {
 });
 
 describe('resolvable', () => {
-  const conversation = (standing: InboxItem['standing']) =>
-    ({ kind: 'task', id: 'task_1:3', resolved: false, standing }) as InboxItem;
+  const conversation = (over: Partial<InboxItem>) =>
+    ({
+      kind: 'task',
+      id: 'task_1:3',
+      resolved: false,
+      standing: 'assignee',
+      resolvable: true,
+      ...over,
+    }) as InboxItem;
 
-  it('lets the assignee and the team resolve a conversation', () => {
-    expect(resolvable(conversation('assignee'))).toBe(true);
-    expect(resolvable(conversation('team'))).toBe(true);
-  });
-
-  it('leaves the conversation to its assignee for a person it only asks or who follows it', () => {
-    expect(resolvable(conversation('asked'))).toBe(false);
-    expect(resolvable(conversation('following'))).toBe(false);
+  it('follows the server for a conversation', () => {
+    expect(resolvable(conversation({}))).toBe(true);
+    expect(resolvable(conversation({ resolvable: false }))).toBe(false);
+    expect(
+      resolvable(conversation({ standing: 'asked', resolvable: false })),
+    ).toBe(false);
   });
 });

@@ -21,12 +21,37 @@ export interface ConversationViewer {
   readonly onTeam: boolean;
 }
 
+export interface OpeningAsk {
+  readonly approval: {
+    readonly open: boolean;
+    readonly askedOf: UserId | null;
+  } | null;
+  readonly connectionAsk: {
+    readonly met: boolean;
+    readonly personId: UserId;
+  } | null;
+}
+
+const awaits = (ask: OpeningAsk, person: UserId): boolean =>
+  (ask.approval?.open === true &&
+    (ask.approval.askedOf?.equals(person) ?? false)) ||
+  (ask.connectionAsk?.met === false &&
+    ask.connectionAsk.personId.equals(person));
+
 export interface ConversationReader extends ConversationViewer {
   readonly wroteIn: boolean;
   readonly asked: boolean;
 }
 
 export const ConversationAudience = {
+  asksWhileHeld(
+    held: boolean,
+    opening: OpeningAsk | null,
+    person: UserId,
+  ): boolean {
+    return held && opening !== null && awaits(opening, person);
+  },
+
   standingOf(
     assignee: UserId | null,
     reader: ConversationReader,
@@ -50,6 +75,10 @@ export const ConversationAudience = {
     return (
       standing === 'assignee' || standing === 'asked' || standing === 'team'
     );
+  },
+
+  resolves(standing: ConversationStanding | null): boolean {
+    return standing === 'assignee' || standing === 'team';
   },
 
   notifies(standing: ConversationStanding | null): boolean {

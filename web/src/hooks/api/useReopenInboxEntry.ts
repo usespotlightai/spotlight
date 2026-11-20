@@ -55,6 +55,7 @@ export function useReopenInboxEntry() {
         resolved: false,
         section: 'open',
         reopenable: false,
+        ...(entry.kind === 'task' ? { resolvable: true } : {}),
       }),
     }),
 

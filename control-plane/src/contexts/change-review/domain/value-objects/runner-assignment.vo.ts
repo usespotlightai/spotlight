@@ -127,7 +127,7 @@ export class RunnerAssignment {
   }
 
   restarted(): RunnerAssignment {
-    return new RunnerAssignment(RunnerClaim.none(), null, Provisioning.none());
+    return RunnerAssignment.none();
   }
 
   private withClaim(claim: RunnerClaim): RunnerAssignment {

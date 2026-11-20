@@ -1281,4 +1281,84 @@ describe('a task held by one person whose turn asks another person', () => {
     expect(approved.assignee).toEqual(PEOPLE.maya);
     expect(loadable(approved)).toBe(true);
   });
+
+  it('leaves any further answer to its holder once the person asked has decided', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const words = {
+      line: LINE,
+      body: TaskNoteBody.of('Also drain the queue.'),
+      at: START,
+      voice: Voice.person(PEOPLE.leon),
+    };
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      { ...words, body: TaskNoteBody.of('Go ahead.') },
+      'approved',
+    );
+
+    expect(() =>
+      approved.answerAs(PEOPLE.leon, TEAM, openFrom(approved), words),
+    ).toThrow(AssignedToAnotherPersonError);
+  });
+
+  it('leaves the answer to its holder when the ask names another person', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.maya,
+      START,
+    );
+
+    expect(() =>
+      asked.answerAs(
+        PEOPLE.leon,
+        TEAM,
+        openFrom(asked),
+        {
+          line: LINE,
+          body: TaskNoteBody.of('Go ahead.'),
+          at: START,
+          voice: Voice.person(PEOPLE.leon),
+        },
+        'approved',
+      ),
+    ).toThrow(AssignedToAnotherPersonError);
+  });
+
+  it('leaves the answer to its holder once the person asked has connected', () => {
+    const asked = heldByMaya().askToConnect(
+      RunId.of('run_turn'),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Connect Linear.'),
+        at: START,
+        voice: Voice.station(RunId.of('run_turn')),
+      },
+      connectionOf(PEOPLE.leon),
+    ).task;
+    const connected = asked.connectionMade(TEAM_ID, LINEAR, PEOPLE.leon, {
+      line: LINE,
+      at: START,
+    });
+
+    if (!connected?.openConversation) {
+      throw new Error('the connection closed the conversation');
+    }
+
+    expect(() =>
+      connected.answerAs(PEOPLE.leon, TEAM, openFrom(connected), {
+        line: LINE,
+        body: TaskNoteBody.of('Done.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      }),
+    ).toThrow(AssignedToAnotherPersonError);
+  });
 });

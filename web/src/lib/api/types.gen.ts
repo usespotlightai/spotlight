@@ -2920,11 +2920,15 @@ export type InboxItemResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
+   * How it reaches the person: assignee when they are its assignee, asked when the task is on hold with another person and its open conversation waits on them to approve or connect, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one in a team the person only sees
    */
   standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
-   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   * True when the person can resolve it now. It must be open, and the person must act on the tasks of its team. A conversation can then be resolved by its assignee, or by a member of its team when it has no assignee. An inbox request can be resolved by any person who acts on the tasks of its team
+   */
+  resolvable: boolean;
+  /**
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee, is asked in it or answers for the team
    */
   reopenable: boolean;
   /**
@@ -3137,11 +3141,15 @@ export type InboxItemViewResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
+   * How it reaches the person: assignee when they are its assignee, asked when the task is on hold with another person and its open conversation waits on them to approve or connect, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one in a team the person only sees
    */
   standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
-   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   * True when the person can resolve it now. It must be open, and the person must act on the tasks of its team. A conversation can then be resolved by its assignee, or by a member of its team when it has no assignee. An inbox request can be resolved by any person who acts on the tasks of its team
+   */
+  resolvable: boolean;
+  /**
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee, is asked in it or answers for the team
    */
   reopenable: boolean;
   /**

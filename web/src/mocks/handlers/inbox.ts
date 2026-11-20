@@ -306,8 +306,12 @@ const conversationHandlers = [
     if (item.resolved) {
       return problem(409, 'Nothing here waits for an answer.');
     }
+    if (item.standing !== 'assignee' && item.standing !== 'team') {
+      return problem(403, 'Another person is the assignee.');
+    }
     notedBySam(item, 'passed', 'Resolved without an answer.');
     item.resolved = true;
+    item.standing = 'assignee';
     item.unread = false;
     item.runId = null;
     item.progress = null;

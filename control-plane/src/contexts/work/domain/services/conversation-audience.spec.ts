@@ -108,4 +108,80 @@ describe('ConversationAudience', () => {
     expect(ConversationAudience.notifies('team')).toBe(true);
     expect(ConversationAudience.notifies('following')).toBe(false);
   });
+
+  it('lets only the assignee and the team resolve without an answer', () => {
+    expect(ConversationAudience.resolves('assignee')).toBe(true);
+    expect(ConversationAudience.resolves('team')).toBe(true);
+    expect(ConversationAudience.resolves('asked')).toBe(false);
+    expect(ConversationAudience.resolves('following')).toBe(false);
+    expect(ConversationAudience.resolves(null)).toBe(false);
+  });
+
+  describe('asksWhileHeld', () => {
+    const approval = (open: boolean, askedOf: UserId | null) => ({
+      approval: { open, askedOf },
+      connectionAsk: null,
+    });
+    const connection = (met: boolean, personId: UserId) => ({
+      approval: null,
+      connectionAsk: { met, personId },
+    });
+
+    it('asks the person a pending approval or an unmet connection names, while the task is on hold', () => {
+      expect(
+        ConversationAudience.asksWhileHeld(true, approval(true, ANA), ANA),
+      ).toBe(true);
+      expect(
+        ConversationAudience.asksWhileHeld(true, connection(false, ANA), ANA),
+      ).toBe(true);
+    });
+
+    it('asks nobody once the approval is decided or the connection is made', () => {
+      expect(
+        ConversationAudience.asksWhileHeld(true, approval(false, ANA), ANA),
+      ).toBe(false);
+      expect(
+        ConversationAudience.asksWhileHeld(true, connection(true, ANA), ANA),
+      ).toBe(false);
+    });
+
+    it('asks nobody while the task is not on hold, or when the open conversation asks nothing', () => {
+      expect(
+        ConversationAudience.asksWhileHeld(false, approval(true, ANA), ANA),
+      ).toBe(false);
+      expect(ConversationAudience.asksWhileHeld(true, null, ANA)).toBe(false);
+      expect(
+        ConversationAudience.asksWhileHeld(
+          true,
+          { approval: null, connectionAsk: null },
+          ANA,
+        ),
+      ).toBe(false);
+    });
+
+    it('asks the person an unmet connection names, though the approval on the same note names nobody', () => {
+      expect(
+        ConversationAudience.asksWhileHeld(
+          true,
+          {
+            approval: { open: true, askedOf: null },
+            connectionAsk: { met: false, personId: ANA },
+          },
+          ANA,
+        ),
+      ).toBe(true);
+    });
+
+    it('asks only the person named', () => {
+      expect(
+        ConversationAudience.asksWhileHeld(true, approval(true, BEN), ANA),
+      ).toBe(false);
+      expect(
+        ConversationAudience.asksWhileHeld(true, approval(true, null), ANA),
+      ).toBe(false);
+      expect(
+        ConversationAudience.asksWhileHeld(true, connection(false, BEN), ANA),
+      ).toBe(false);
+    });
+  });
 });
