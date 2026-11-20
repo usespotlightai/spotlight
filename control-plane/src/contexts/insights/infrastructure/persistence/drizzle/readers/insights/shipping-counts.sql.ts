@@ -237,7 +237,6 @@ const reviewDaysIn = async (
       and reviewed.first_unblocking_review_at < days.day_to
     group by days.at
   )`;
-  // Each day aggregates only the rows that it joins, not all reviewed rows.
   const result = await db.execute<ReviewDaysRow>(sql`
     with covered as (${coveredOf(team, repositories)}),
     reviewed as (
@@ -345,7 +344,6 @@ const stagesIn = async (
   repositories: readonly string[],
 ): Promise<readonly StageRow[]> => {
   const none = sql.raw('null::float8');
-  // Materialized, so that the join with made does not run station_visits again for each row.
   const result = await db.execute<StageRow>(sql`
     with ${shippedOf(team, repositories)},
     station_visits as materialized (${stationVisitsOfOpened(team)}),

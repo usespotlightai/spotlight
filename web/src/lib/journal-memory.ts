@@ -1,8 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 
-// Run journals stay in memory by count rather than by age, so a run seen
-// a while ago opens at once instead of waiting for IndexedDB.
-export const JOURNALS_KEPT = 30;
+const JOURNALS_KEPT = 30;
 
 const isJournal = (queryKey: readonly unknown[]): boolean =>
   queryKey[0] === 'journal';

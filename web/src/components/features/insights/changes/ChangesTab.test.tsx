@@ -415,6 +415,24 @@ describe('the Changes tab', () => {
     expect(opener).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('keeps the change open when Esc is meant for something else', async () => {
+    showing();
+
+    const changes = screen.getByRole('list', { name: 'Config changes' });
+    const opener = within(changes).getAllByRole('button', {
+      name: /^Impact of the /,
+    })[0];
+    await userEvent.click(opener);
+
+    within(changes).getAllByRole('link')[0].focus();
+    await userEvent.keyboard('{Escape}');
+
+    expect(opener).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByRole('complementary', { name: 'Impact of the change' }),
+    ).toBeInTheDocument();
+  });
+
   it('leaves the judge pass rate out of the impact of a change to the judge’s claims', async () => {
     answer.changes = queried({
       ...CHANGES,

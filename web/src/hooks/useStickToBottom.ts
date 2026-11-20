@@ -9,9 +9,6 @@ const BIG_BLOCK = 0.4;
 
 const READ_ON = 0.6;
 
-// How long after opening, or after a new message, content that fills in
-// (run histories, images) keeps the view at the bottom instead of scrolling
-// to it.
 export const SETTLE_MS = 1_000;
 
 export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
@@ -90,7 +87,6 @@ export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
     };
   }, []);
 
-  // Before paint, so a thread never shows its top first and then scrolls down.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) {

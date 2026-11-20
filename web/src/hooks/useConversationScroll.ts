@@ -105,7 +105,6 @@ export function useConversationScroll(
 
       const was = box.scrollTop;
       toLatest(box, inside, setup);
-      // A reflow, such as a side panel opening, never pulls the reader back up.
       if (box.scrollTop < was) {
         box.scrollTop = was;
       }

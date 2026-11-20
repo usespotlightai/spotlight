@@ -39,7 +39,6 @@ export function useTaskNotes(range: TaskNotesRange) {
 }
 
 export function usePrefetchTaskNotes() {
-  // No client outside a QueryClientProvider (stories, isolated tests): nothing to warm.
   const client = useContext(QueryClientContext);
 
   return useCallback(

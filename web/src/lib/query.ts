@@ -12,8 +12,6 @@ export const failed = (query: Loadable): boolean =>
 
 type KeyedQuery = { readonly queryKey: readonly unknown[] };
 
-// Placeholder data for an insights query keyed [..., kind, teamId, period]:
-// the team's last period stays shown until the new period arrives.
 export const keepTeamPeriod =
   (teamId: string | undefined) =>
   <T>(previous: T | undefined, query: KeyedQuery | undefined): T | undefined =>

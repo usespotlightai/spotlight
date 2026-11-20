@@ -12,7 +12,7 @@ const insightsShippingKeys = {
     ['insights', 'shipping', teamId ?? null, period] as const,
 };
 
-export const insightsShippingQuery = (
+const insightsShippingQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
 ) =>

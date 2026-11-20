@@ -40,7 +40,6 @@ export function useTaskJournal(
 }
 
 export function usePrefetchTaskJournal(slug: string | undefined) {
-  // No client outside a QueryClientProvider (stories, isolated tests): nothing to warm.
   const client = useContext(QueryClientContext);
 
   return useCallback(

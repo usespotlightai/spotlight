@@ -72,8 +72,6 @@ const whenIdle = (work: () => void) =>
     ? requestIdleCallback(work, { timeout: 2000 })
     : setTimeout(work, 200);
 
-// Loads the code of every page while the browser is idle, one page at a time,
-// so a first visit does not wait for its chunk.
 export const preloadEveryPage = (routes: RouteObject[] = workspaceRoutes()) => {
   const pages = [
     ...new Set(

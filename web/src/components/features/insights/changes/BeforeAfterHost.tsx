@@ -14,15 +14,22 @@ import type { ChangeAt } from '@/lib/insights-changes';
 
 const LEAVING = 240;
 
-// Focus that would be lost when the panel closes: on the panel, or nowhere.
-const lostOnClose = (): boolean => {
+const inPanel = (element: Element | null): boolean =>
+  Boolean(element?.closest(`[data-slot="${PANEL_SLOT}"]`));
+
+const focusLostOnClose = (): boolean => {
   const active = document.activeElement;
-  return (
-    !active ||
-    active === document.body ||
-    Boolean(active.closest(`[data-slot="${PANEL_SLOT}"]`))
-  );
+  return !active || active === document.body || inPanel(active);
 };
+
+const ownsEscape = (
+  target: EventTarget | null,
+  opener: HTMLElement | null,
+): boolean =>
+  !(target instanceof Element) ||
+  target === document.body ||
+  target === opener ||
+  inPanel(target);
 
 type BeforeAfterHostProps = {
   slug: string;
@@ -55,7 +62,7 @@ export function BeforeAfterHost({
       close: () => {
         const back = opener.current;
         opener.current = null;
-        if (back?.isConnected && lostOnClose()) {
+        if (back?.isConnected && focusLostOnClose()) {
           back.focus();
         }
         setShown(null);
@@ -67,7 +74,11 @@ export function BeforeAfterHost({
   useDocumentListener(
     'keydown',
     (event) => {
-      if (event.key === 'Escape' && !event.defaultPrevented) {
+      if (
+        event.key === 'Escape' &&
+        !event.defaultPrevented &&
+        ownsEscape(event.target, opener.current)
+      ) {
         actions.close();
       }
     },

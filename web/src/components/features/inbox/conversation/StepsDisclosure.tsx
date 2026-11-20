@@ -9,7 +9,6 @@ import { useOpenWhenFocused } from '@/hooks/useOpenWhenFocused';
 import type { JournalStep } from '@/lib/inbox';
 import { useStepAnchors } from '@/lib/step-anchors';
 
-// Enough rows to fill the scroll box; the rest follow once the list has opened, so a long list opens without a stall.
 const FIRST_STEPS = 16;
 
 type StepsDisclosureProps = {
@@ -61,7 +60,6 @@ function StepList({
 }: {
   steps: readonly JournalStep[];
   live: boolean;
-  // A cited step is scrolled to as soon as the list opens, so it must be drawn.
   whole: boolean;
 }) {
   const opened = useMountedFor(COLLAPSE_MS);

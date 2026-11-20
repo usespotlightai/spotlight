@@ -27,7 +27,7 @@ const insightsAgentConfigsKeys = {
     ] as const,
 };
 
-export const insightsAgentConfigsQuery = (
+const insightsAgentConfigsQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
   narrowed: AgentConfigsNarrowed,

@@ -10,7 +10,7 @@ const insightsMemoryKeys = {
     ['insights', 'memory', teamId ?? null, period] as const,
 };
 
-export const insightsMemoryQuery = (
+const insightsMemoryQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
 ) =>

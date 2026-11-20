@@ -22,16 +22,18 @@ const ROW = /^\s*\|(.*)\|\s*$/;
 
 const DIVIDER_CELL = /^\s*:?-+:?\s*$/;
 
-// Splits a row on the pipes that are not escaped as \|.
 const cellsOf = (line: string | undefined): string[] | null => {
   const found = line === undefined ? null : ROW.exec(line);
 
   return found
     ? found[1]
         .split(/(?<!\\)\|/)
-        .map((cell) => cell.trim().replace(/\\\|/g, '|'))
+        .map((cell) => cell.trim().replaceAll('\\|', '|'))
     : null;
 };
+
+const escapePipes = (markdown: string): string =>
+  markdown.split('|').join('\\|');
 
 const isDivider = (cells: readonly string[]): boolean =>
   cells.every((cell) => DIVIDER_CELL.test(cell));
@@ -45,14 +47,11 @@ const $cellOf = (text: string, header: boolean): TableCellNode => {
 };
 
 const textOf = (cell: TableCellNode): string =>
-  $convertToMarkdownString(TRANSFORMERS, cell)
-    .replace(/\n+/g, ' ')
-    .replace(/\|/g, '\\|')
-    .trim();
+  escapePipes(
+    $convertToMarkdownString(TRANSFORMERS, cell).replace(/\n+/g, ' '),
+  ).trim();
 
-// A GitHub-style table: a header row, a divider row such as |---|---|, then
-// body rows. Like GitHub, it may follow a line of text with no blank line.
-export const TABLE: MultilineElementTransformer = {
+const TABLE: MultilineElementTransformer = {
   type: 'multiline-element',
   dependencies: [TableNode, TableRowNode, TableCellNode],
   regExpStart: ROW,

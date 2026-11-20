@@ -59,7 +59,6 @@ type StationConfigSkeletonProps = {
   station?: StationResponseDto;
 };
 
-// What the line already says shows as is; the rest waits as low-fidelity rows.
 const GROUPS_BEFORE_LINE = [
   ['Live config', [['Since', 'w-14']]],
   GROUPS[1],

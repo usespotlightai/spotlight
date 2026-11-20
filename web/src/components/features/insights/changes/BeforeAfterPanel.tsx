@@ -51,7 +51,6 @@ export function BeforeAfterPanel({
             <p className="truncate font-medium text-foreground text-sm">
               Impact at {formatStation(names, change.stationId)}
             </p>
-            {/* Several changes can be at one station, so say which one. */}
             <p className="truncate text-muted-foreground text-xs">
               {[
                 names.get(change.stationId)?.lineName,

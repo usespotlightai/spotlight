@@ -27,7 +27,6 @@ export function RevokeTokenDialog({
 }: RevokeTokenDialogProps) {
   const revoke = useRevokeWorkspaceToken(workspaceId);
   const shown = useDelayedValue(token, CLOSING_MS);
-  // Still revoking once it succeeds, so the closing dialog keeps its last state.
   const revoking = revoke.isPending || revoke.isSuccess;
 
   return (

@@ -76,8 +76,6 @@ export const showsInThread = (note: Note): boolean => !closesOrReopens(note);
 
 const NOTES_IN_FIRST_VIEW = 4;
 
-// The runs whose work shows when an item opens: its own, and those behind the
-// notes at the bottom of the thread, where the conversation opens.
 export const runsShownFirst = (item: {
   readonly runId: string | null;
   readonly notes: readonly Note[];

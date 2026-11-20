@@ -21,7 +21,6 @@ import { cn } from '@/lib/utils';
 
 const LINK_TOUCH_TARGET = 'pointer-coarse:-my-2 pointer-coarse:py-2';
 
-// The links sit above the button that makes the whole row a target.
 const ABOVE_ROW = 'relative z-10';
 
 type ChangeMarkerRowProps = {

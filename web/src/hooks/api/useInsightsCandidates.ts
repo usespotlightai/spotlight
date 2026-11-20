@@ -10,7 +10,7 @@ const insightsCandidatesKeys = {
     ['insights', 'candidates', teamId ?? null, period] as const,
 };
 
-export const insightsCandidatesQuery = (
+const insightsCandidatesQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
 ) =>

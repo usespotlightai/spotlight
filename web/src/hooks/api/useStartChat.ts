@@ -32,7 +32,6 @@ export function useStartChat() {
       });
       queryClient.setQueryData(chatKeys.one(data.id), data);
       if (data.runId) {
-        // A new chat's run has no journal yet; stale, so the page still refetches it.
         const fresh = { updatedAt: 0 };
         queryClient.setQueryData(
           journalKeys.runsOfChat(data.id),

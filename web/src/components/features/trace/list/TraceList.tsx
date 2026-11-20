@@ -22,7 +22,6 @@ import { taskTracePath } from '@/lib/task';
 import { teamSectionPath } from '@/lib/team';
 import { useForwardTrail } from '@/lib/trail';
 
-// Rows drawn with the first paint; the rest follow in a deferred render.
 const FIRST_ROWS = 40;
 
 type TraceListProps = {

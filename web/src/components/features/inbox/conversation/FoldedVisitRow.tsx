@@ -18,10 +18,8 @@ import { JournalDemandContext } from '@/lib/journal-demand';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
 
-// Room for the reply avatar, which overhangs its card's corner by 8px, inside a clipped section.
 const AVATAR_ROOM = '-mr-2 pr-2';
 
-// The runs that worked during a visit, so their "Worked for" lines are ready when it opens.
 const runsDuring = (
   runs: readonly JournalledRun[],
   visit: FoldedVisit,
@@ -89,7 +87,6 @@ export function FoldedVisitRow({ visit, item, worked }: FoldedVisitRowProps) {
         <ExpandChevron open={open} className="shrink-0 text-muted-foreground" />
       </button>
 
-      {/* The notes open above the reply that stands in for them, so their text stays put while the reply folds away. */}
       <Collapsible open={open} appear={false} lazy className={AVATAR_ROOM}>
         <div id={shown}>
           <FoldedVisitNotes visit={visit} item={item} worked={worked} />

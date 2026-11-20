@@ -148,4 +148,52 @@ describe('markdown tables', () => {
 
     expect(markdown).toBe('| A | B |\n| --- | --- |\n| `x` | a \\| b |');
   });
+
+  it('keeps backslashes and pipes in a cell through a round trip', () => {
+    const editor = createEditor({
+      nodes: [TableNode, TableRowNode, TableCellNode],
+      onError: (error) => {
+        throw error;
+      },
+    });
+    const markdown = '| Path |\n| --- |\n| C:\\\\temp \\| D:\\\\ |';
+    editor.update(() => $convertFromMarkdownString(markdown, MARKDOWN), {
+      discrete: true,
+    });
+
+    const cells = editor
+      .getEditorState()
+      .read(() => rowsOf($getRoot().getFirstChild() ?? undefined));
+    const written = editor
+      .getEditorState()
+      .read(() => $convertToMarkdownString(MARKDOWN));
+
+    expect(cells).toEqual([['Path'], ['C:\\temp | D:\\']]);
+    expect(written).toBe(markdown);
+  });
+
+  it('writes a cell with a line break as one line, as tables allow', () => {
+    const editor = createEditor({
+      nodes: [TableNode, TableRowNode, TableCellNode],
+      onError: (error) => {
+        throw error;
+      },
+    });
+    editor.update(
+      () => {
+        $convertFromMarkdownString('| A |\n| --- |\n| one |', MARKDOWN);
+        const table = $getRoot().getFirstChild();
+        const row = $isTableNode(table) ? table.getLastChild() : null;
+        const cell = $isTableRowNode(row) ? row.getFirstChild() : null;
+        if ($isTableCellNode(cell)) {
+          $convertFromMarkdownString('one\n\ntwo', MARKDOWN, cell);
+        }
+      },
+      { discrete: true },
+    );
+
+    expect(
+      editor.getEditorState().read(() => $convertToMarkdownString(MARKDOWN)),
+    ).toBe('| A |\n| --- |\n| one two |');
+  });
 });

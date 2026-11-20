@@ -535,7 +535,6 @@ describe('InboxItem', () => {
           query: { from: 0, to: 2 },
         }),
       );
-      // The reply under the row folds away as the visit opens, then only the visit's own copy is left.
       await waitFor(() =>
         expect(screen.getAllByText('Per token.')).toHaveLength(1),
       );

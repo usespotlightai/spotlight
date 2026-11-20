@@ -71,7 +71,6 @@ const journalQuery = (
   ...(first ? {} : { staleTime: Number.POSITIVE_INFINITY }),
 });
 
-// Loads the journals a page shows first, so they are in memory when it opens.
 export const prefetchJournals = async (
   client: QueryClient,
   source: JournalSource,
@@ -82,7 +81,6 @@ export const prefetchJournals = async (
     return;
   }
 
-  // Which runs are newest is known only from the list, so fetch it first when it is not cached.
   const runs =
     client.getQueryData<JournalledRun[]>(source.runsKey) ??
     (await client
@@ -116,7 +114,6 @@ const settled = (query: UseQueryResult): boolean =>
 export function useRunJournals(
   source: JournalSource,
   eagerIds: readonly (string | null | undefined)[],
-  // How many of the newest runs a page waits for, because they show when it opens.
   newestFirst = 1,
 ): RunJournals {
   const runs = useQuery({

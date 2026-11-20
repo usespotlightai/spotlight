@@ -4,7 +4,6 @@ import { TabSection } from '@/components/features/stations/TabSection';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-// Low fidelity: one block for the signals table, then the failure reasons.
 export function StationAttentionSkeleton() {
   return (
     <TabSection title={ATTENTION_TITLE}>

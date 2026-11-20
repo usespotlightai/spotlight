@@ -9,7 +9,6 @@ import {
 } from '@/hooks/api/useRunJournals';
 import { listChatJournalRuns, readChatJournal } from '@/lib/api';
 
-// A chat opens at its newest turns, one per run, so their journals load before it shows.
 const CHAT_RUNS_SHOWN_FIRST = 3;
 
 const chatJournalSource = (
@@ -47,7 +46,6 @@ export function useChatJournal(
 }
 
 export function usePrefetchChatJournal() {
-  // No client outside a QueryClientProvider (stories, isolated tests): nothing to warm.
   const client = useContext(QueryClientContext);
 
   return useCallback(

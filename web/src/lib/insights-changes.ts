@@ -41,7 +41,6 @@ export type OutcomeMeasure = AgentConfigOutcome['frontier'][number];
 export type ChangeAt = {
   readonly stationId: string;
   readonly runId: string;
-  // Known when the change is opened from its row, not from a chart marker.
   readonly firstRunAt?: string;
 };
 

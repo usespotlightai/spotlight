@@ -19,7 +19,6 @@ type TabLinksProps<T extends string> = {
   current: T;
   variant?: 'pills' | 'underline';
   className?: string;
-  // Called when a tab is about to be opened, to start loading what it shows.
   onIntent?: (id: T) => void;
 };
 

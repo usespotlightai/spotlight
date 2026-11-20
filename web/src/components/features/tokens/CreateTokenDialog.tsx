@@ -56,7 +56,6 @@ export function CreateTokenDialog({
   const [lifetime, setLifetime] = useState<string | null>(USUAL_LIFETIME);
 
   const named = slugify(name);
-  // Still busy once it succeeds, so the closing dialog keeps its last state.
   const busy = create.isPending || create.isSuccess;
 
   const reset = () => {

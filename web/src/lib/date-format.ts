@@ -1,7 +1,5 @@
 const formats = new Map<string, Intl.DateTimeFormat>();
 
-// The text Date#toLocale(Date|Time)String gives for options that name their
-// own fields, from one formatter per options instead of a new one per call.
 export const formatDate = (
   at: Date,
   options: Intl.DateTimeFormatOptions,

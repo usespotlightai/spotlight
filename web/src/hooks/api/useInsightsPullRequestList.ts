@@ -32,7 +32,7 @@ const insightsPullRequestListKeys = {
     ] as const,
 };
 
-export const insightsPullRequestListQuery = (
+const insightsPullRequestListQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
   filter: PullRequestFilter,

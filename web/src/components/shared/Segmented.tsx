@@ -37,7 +37,6 @@ export function Segmented<T extends string>({
           aria-hidden
           className={cn(
             'pointer-events-none absolute inset-y-0.5 rounded-md bg-card shadow-xs ring-1 ring-foreground/[0.06] dark:bg-accent dark:ring-foreground/10',
-            // Both edges animate on the main thread, so a busy switch cannot leave one edge behind.
             indicator.ready &&
               'transition-[left,width] duration-200 ease-out motion-reduce:transition-none',
           )}

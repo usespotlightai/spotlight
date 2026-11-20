@@ -9,7 +9,6 @@ type RowDetailProps = {
   children: ReactNode;
 };
 
-// A clamped row hides its detail, so the detail renders only when the row opens.
 export function RowDetail({ expansion, className, children }: RowDetailProps) {
   return (
     <div

@@ -7,8 +7,6 @@ import { cn } from '@/lib/utils';
 type ClampedCellProps = {
   expansion: Expansion;
   pinned?: boolean;
-  // What a pinned cell shows while it clips to one line: its first line and
-  // enough below it to overflow.
   preview?: ReactNode;
   children: ReactNode;
 };

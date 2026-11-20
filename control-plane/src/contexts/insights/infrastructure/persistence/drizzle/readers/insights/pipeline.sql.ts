@@ -33,7 +33,6 @@ export const stationVisitsOfOpened = (team: TeamInPeriod): SQL => {
   const runningMs = msOf(sql`facts.ended_at - facts.started_at`);
   const answerMs = msOf(sql`waits.answered_at - waits.asked_at`);
 
-  // Materialized, because the planner estimates one row for ran and runs answered again for each row.
   return sql`
     with ran as (
       select

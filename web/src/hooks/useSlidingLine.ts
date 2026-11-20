@@ -2,8 +2,6 @@ import { type RefObject, useLayoutEffect } from 'react';
 
 import { canAnimate, TRANSITION_TIMING } from '@/lib/motion';
 
-// Places a line at left/width and slides it there from where it was, as one
-// compositor animation, so its edges stay in step even while the next view renders.
 export function useSlidingLine(
   line: RefObject<HTMLElement | null>,
   left: number,
