@@ -321,6 +321,36 @@ describe('a task a person drives', () => {
     ).toBe(true);
   });
 
+  it('gives the running turn what two people send while it runs, in the order they sent it, and starts no other turn', () => {
+    const both = driving()
+      .receiveMessage(
+        TURN,
+        said('Drain the old queue first.', Voice.person(MAYA)),
+        null,
+        TEAM,
+      )
+      .receiveMessage(
+        TURN,
+        said('Keep the retry limit.', Voice.person(LEON)),
+        null,
+        TEAM,
+      );
+    const fromPeople = (task: Task) =>
+      task
+        .pendingFor(TURN)
+        .filter((note) => note.form === 'words' && note.voice.isPerson)
+        .map((note) => [note.voice.author?.value, note.body.value]);
+
+    expect(both.currentRunId).toEqual(TURN);
+    expect(both.wantsRun(line)).toBe(false);
+    expect(fromPeople(both)).toEqual([
+      [LEON.value, 'Use a bounded queue.'],
+      [MAYA.value, 'Drain the old queue first.'],
+      [LEON.value, 'Keep the retry limit.'],
+    ]);
+    expect(both.assignee).toEqual(LEON);
+  });
+
   it('takes answers to its turns from people only', () => {
     const asked = turnDone(driving2(running().assign(MAYA, members)));
     const from = asked.pendingConversation?.from;

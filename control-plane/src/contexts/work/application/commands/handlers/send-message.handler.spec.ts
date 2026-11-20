@@ -268,6 +268,26 @@ describe('SendMessageHandler', () => {
     expect(saved?.currentRunId?.value).toBe('run_2');
   });
 
+  it('refuses the words of a person who does not act on the team while someone holds the task, starting no turn', async () => {
+    const held = handed().hold({
+      id: HoldId.of('hold_0'),
+      by: OWNER,
+      members: TeamMembers.of([OWNER, UserId.of('teammate')]),
+      line,
+      currentRunStarted: true,
+      at: NOW,
+    });
+
+    await expect(
+      sendMessage(held, 'Also the docs.', BYSTANDER),
+    ).rejects.toMatchObject({ kind: 'not-allowed' });
+    await expect(
+      sendMessage(held, 'Also the docs.', OUTSIDER),
+    ).rejects.toMatchObject({ kind: 'not-found' });
+    expect(saved).toBeUndefined();
+    expect(dispatched).toEqual([]);
+  });
+
   it('takes the words as the answer a paused run waits on, resuming that run', async () => {
     await sendMessage(paused(), 'The default one.');
 
