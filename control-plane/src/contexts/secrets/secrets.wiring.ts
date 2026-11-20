@@ -21,6 +21,7 @@ import { SetSecretValueHandler } from '@secrets/application/commands/handlers/se
 import { UpdateSecretHandler } from '@secrets/application/commands/handlers/update-secret.handler';
 import { SetSecretValueCommand } from '@secrets/application/commands/set-secret-value.command';
 import { UpdateSecretCommand } from '@secrets/application/commands/update-secret.command';
+import { BOUND_SECRETS } from '@secrets/application/ports/bound-secrets.port';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
@@ -53,6 +54,7 @@ import { ImportSecretQuery } from '@secrets/application/queries/import-secret.qu
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ListWorkspaceSecretsQuery } from '@secrets/application/queries/list-workspace-secrets.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
+import { BoundSecrets } from '@secrets/application/services/bound-secrets.service';
 import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
 import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
 import { HostSecretFetches } from '@secrets/application/services/host-secret-fetches.service';
@@ -171,6 +173,11 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   DrizzleSecretResources,
   { provide: SECRET_RESOURCES, useExisting: DrizzleSecretResources },
   { provide: DEFINED_SECRETS, useExisting: DrizzleSecretResources },
+  {
+    provide: BOUND_SECRETS,
+    inject: [SECRET_RESOURCES],
+    useFactory: (secrets: SecretResourcesPort) => new BoundSecrets(secrets),
+  },
   {
     provide: SECRET_READINESS,
     inject: [SECRET_RESOURCES],

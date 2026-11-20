@@ -120,6 +120,7 @@ interface Profile {
   readonly id: string;
   readonly version: number;
   readonly warnings: readonly unknown[];
+  readonly secrets: readonly string[];
   readonly mcpServers: readonly {
     readonly env: Readonly<Record<string, string>>;
   }[];
@@ -403,6 +404,77 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         LINEAR_TEAM: 'core',
         LINEAR_API_KEY: 'spotlight-egress:LINEAR_API_KEY',
       });
+
+      const rejected = (await served(app)
+        .delete(`/api/v1/resources/secrets/${secret.body.id}`)
+        .set(TEST_USER_HEADER, fixture.admin)
+        .set('If-Match', `"${secret.body.version}"`)) as Answer<Problem>;
+
+      expect(rejected.status).toBe(409);
+      expect(rejected.body.detail).toContain('harness profile team/careful');
+    });
+  });
+
+  describe('a secret the profile names', () => {
+    const NAMING = { ...CAREFUL, secrets: ['STAGING_VIEWER'] };
+
+    afterEach(async () => {
+      const db = app.get<DrizzleDatabase>(DRIZZLE);
+      await db
+        .delete(schema.harnessProfile)
+        .where(eq(schema.harnessProfile.teamId, teamId));
+      await db
+        .delete(schema.secret)
+        .where(eq(schema.secret.workspaceId, teamId));
+    });
+
+    it('rejects a secret the workspace does not have, where it is named', async () => {
+      const rejected = await create(NAMING);
+
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([
+        expect.objectContaining({
+          path: 'secrets[0]',
+          message: expect.stringContaining('STAGING_VIEWER') as unknown,
+        }),
+      ]);
+    });
+
+    it('has egress inject it, warns while it has no value, and keeps it from being deleted', async () => {
+      const secret = (await as(fixture.admin).create(
+        `/api/v1/resources/workspaces/${teamId}/secrets`,
+        {
+          name: 'STAGING_VIEWER',
+          bindings: [{ host: 'staging.example.com', prefix: 'Bearer ' }],
+        },
+      )) as Answer<{ id: string; version: number }>;
+      expect(secret.status).toBe(201);
+
+      const made = await create(NAMING);
+      expect(made.status).toBe(201);
+      expect(made.body.secrets).toEqual(['STAGING_VIEWER']);
+      expect(made.body.warnings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: 'secrets[0]',
+            message: expect.stringContaining(
+              'names secret STAGING_VIEWER, which has no value.',
+            ) as unknown,
+          }),
+        ]),
+      );
+
+      const stored = await app
+        .get<StationProfilesPort>(STATION_PROFILES)
+        .named(TeamId.of(teamId), 'careful');
+      const ready = stored
+        ? ReadyProfileMapper.toReady(
+            app.get<HarnessLaunchPort>(HARNESS_LAUNCH).readyProfile(stored),
+          )
+        : null;
+      expect(ready?.injectedSecrets.map((each) => each.value)).toEqual([
+        'STAGING_VIEWER',
+      ]);
 
       const rejected = (await served(app)
         .delete(`/api/v1/resources/secrets/${secret.body.id}`)

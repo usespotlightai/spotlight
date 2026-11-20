@@ -31,7 +31,9 @@ export interface ReadyProfile extends HarnessSettings {
   readonly injectedSecrets: readonly SecretName[];
 }
 
-export const withoutServers = (profile: ReadyProfile): ReadyProfile => ({
+export const withoutServersOrSecrets = (
+  profile: ReadyProfile,
+): ReadyProfile => ({
   ...profile,
   mcpServers: [],
   injectedSecrets: [],

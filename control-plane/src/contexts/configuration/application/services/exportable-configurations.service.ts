@@ -99,7 +99,7 @@ export class ExportableConfigurations {
       ...profiles.map((each) =>
         ExportableResourceMapper.profile(
           team.key,
-          this.profileViews.onTeam(each, team.key),
+          this.profileViews.exported(each, team.key),
         ),
       ),
     ];

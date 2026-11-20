@@ -8,6 +8,7 @@ import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const harnesses = new BuiltInHarnesses();
@@ -25,6 +26,7 @@ const profile = (
   rules: [],
   mcpServers: [],
   native: {},
+  secrets: [],
   ...over,
 });
 
@@ -515,5 +517,31 @@ describe('reviewing a harness profile', () => {
     );
 
     expect([...laid].sort()).toEqual([...harnesses.settingFiles()].sort());
+  });
+});
+
+describe('the secrets a ready profile has egress inject', () => {
+  it('are the secrets its MCP servers refer to and the secrets it names, each once', () => {
+    const ready = harnesses.readyProfile(
+      profile({
+        mcpServers: [
+          {
+            name: 'linear',
+            command: 'linear-mcp',
+            args: [],
+            env: { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' },
+          },
+        ],
+        secrets: [
+          SecretName.of('STAGING_VIEWER'),
+          SecretName.of('LINEAR_API_KEY'),
+        ],
+      }),
+    );
+
+    expect(ready.injectedSecrets.map((each) => each.value)).toEqual([
+      'LINEAR_API_KEY',
+      'STAGING_VIEWER',
+    ]);
   });
 });

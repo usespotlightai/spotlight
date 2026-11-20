@@ -1,5 +1,5 @@
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
-import type { SecretReadinessPort } from '@secrets/application/ports/secret-readiness.port';
+import type { BoundSecretsPort } from '@secrets/application/ports/bound-secrets.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -59,7 +59,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly logger: LoggerPort,
     private readonly savepoint: SavepointPort,
     hash: ContentHashPort,
-    readiness: SecretReadinessPort,
+    bound: BoundSecretsPort,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -69,7 +69,7 @@ export class DispatchTask implements TaskDispatching {
       catalog,
       profiles,
       hash,
-      readiness,
+      bound,
     );
   }
 
@@ -166,6 +166,7 @@ export class DispatchTask implements TaskDispatching {
       memories: memories.briefed,
       memoryFolder: memories.folder,
       tools: described,
+      boundSecrets: order.boundSecrets,
       drivenByAPerson,
     });
     const injected = (order.enabled.profile?.injectedSecrets ?? []).map(
