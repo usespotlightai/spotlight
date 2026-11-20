@@ -2922,7 +2922,7 @@ export type InboxItemResponseDto = {
   /**
    * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
    */
-  standing: 'assignee' | 'team' | 'following' | null;
+  standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
    * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
    */
@@ -3139,7 +3139,7 @@ export type InboxItemViewResponseDto = {
   /**
    * How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of
    */
-  standing: 'assignee' | 'team' | 'following' | null;
+  standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
    * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
    */

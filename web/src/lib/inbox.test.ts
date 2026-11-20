@@ -522,3 +522,18 @@ describe('chatPreviewOf', () => {
     expect(reopenable(chat({ resolved: true, reopenable: true }))).toBe(true);
   });
 });
+
+describe('resolvable', () => {
+  const conversation = (standing: InboxItem['standing']) =>
+    ({ kind: 'task', id: 'task_1:3', resolved: false, standing }) as InboxItem;
+
+  it('lets the assignee and the team resolve a conversation', () => {
+    expect(resolvable(conversation('assignee'))).toBe(true);
+    expect(resolvable(conversation('team'))).toBe(true);
+  });
+
+  it('leaves the conversation to its assignee for a person it only asks or who follows it', () => {
+    expect(resolvable(conversation('asked'))).toBe(false);
+    expect(resolvable(conversation('following'))).toBe(false);
+  });
+});

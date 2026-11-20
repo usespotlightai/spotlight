@@ -1200,6 +1200,37 @@ describe('a task held by one person whose turn asks another person', () => {
     expect(loadable(asked)).toBe(true);
   });
 
+  it('shows the ask to the person it names, and only while it is open', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Go ahead.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      },
+      'approved',
+    );
+
+    expect(
+      asked.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('asked');
+    expect(
+      asked.conversationStandingOf({ person: PEOPLE.maya, onTeam: true }),
+    ).toBe('assignee');
+    expect(
+      approved.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('following');
+  });
+
   it('lets the person asked connect, and stays with its holder', () => {
     const connected = heldByMaya()
       .askToConnect(

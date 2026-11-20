@@ -30445,6 +30445,7 @@
             "type": "string",
             "enum": [
               "assignee",
+              "asked",
               "team",
               "following",
               null
@@ -30948,6 +30949,7 @@
             "type": "string",
             "enum": [
               "assignee",
+              "asked",
               "team",
               "following",
               null

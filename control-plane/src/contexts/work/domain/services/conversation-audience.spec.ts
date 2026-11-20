@@ -12,6 +12,7 @@ describe('ConversationAudience', () => {
         person: ANA,
         onTeam: true,
         wroteIn: true,
+        asked: false,
       }),
     ).toBe('assignee');
   });
@@ -22,6 +23,7 @@ describe('ConversationAudience', () => {
         person: ANA,
         onTeam: true,
         wroteIn: true,
+        asked: false,
       }),
     ).toBe('team');
   });
@@ -32,6 +34,7 @@ describe('ConversationAudience', () => {
         person: ANA,
         onTeam: true,
         wroteIn: true,
+        asked: false,
       }),
     ).toBe('following');
   });
@@ -42,6 +45,7 @@ describe('ConversationAudience', () => {
         person: ANA,
         onTeam: true,
         wroteIn: false,
+        asked: false,
       }),
     ).toBeNull();
     expect(
@@ -49,6 +53,7 @@ describe('ConversationAudience', () => {
         person: ANA,
         onTeam: false,
         wroteIn: false,
+        asked: false,
       }),
     ).toBeNull();
   });
@@ -59,19 +64,47 @@ describe('ConversationAudience', () => {
         person: ANA,
         onTeam: false,
         wroteIn: true,
+        asked: false,
       }),
     ).toBeNull();
   });
 
-  it('lets only the assignee and the team answer', () => {
+  it('stands the person an open ask names as asked, while someone else is the assignee', () => {
+    expect(
+      ConversationAudience.standingOf(BEN, {
+        person: ANA,
+        onTeam: false,
+        wroteIn: true,
+        asked: true,
+      }),
+    ).toBe('asked');
+    expect(
+      ConversationAudience.standingOf(ANA, {
+        person: ANA,
+        onTeam: true,
+        wroteIn: false,
+        asked: true,
+      }),
+    ).toBe('assignee');
+  });
+
+  it('lets only the assignee, the person asked and the team answer', () => {
     expect(ConversationAudience.answers('assignee')).toBe(true);
+    expect(ConversationAudience.answers('asked')).toBe(true);
     expect(ConversationAudience.answers('team')).toBe(true);
     expect(ConversationAudience.answers('following')).toBe(false);
     expect(ConversationAudience.answers(null)).toBe(false);
   });
 
+  it('lists runs and resolved conversations to neither the person asked nor the team', () => {
+    expect(ConversationAudience.listsRuns('asked')).toBe(false);
+    expect(ConversationAudience.listsRuns('team')).toBe(false);
+    expect(ConversationAudience.listsResolved('asked')).toBe(false);
+  });
+
   it('tells only the people who answer that something is unread', () => {
     expect(ConversationAudience.notifies('assignee')).toBe(true);
+    expect(ConversationAudience.notifies('asked')).toBe(true);
     expect(ConversationAudience.notifies('team')).toBe(true);
     expect(ConversationAudience.notifies('following')).toBe(false);
   });

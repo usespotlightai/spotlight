@@ -1916,6 +1916,20 @@ export class Task extends EventRecorder {
     });
   }
 
+  private asksStill(person: UserId): boolean {
+    const note = this.openConversationNote;
+    const approval = note?.approval;
+    const connection = note?.connectionAsk;
+
+    return (
+      (approval?.status === 'pending' &&
+        (approval.askedOf?.equals(person) ?? false)) ||
+      (connection
+        ? !connection.met && connection.personId.equals(person)
+        : false)
+    );
+  }
+
   private asksPerson(from: NotePosition, voice: Voice): boolean {
     const note = from.noteIn(this.notes);
     const asked =
@@ -2114,6 +2128,7 @@ export class Task extends EventRecorder {
     return ConversationAudience.standingOf(this.assignee, {
       ...viewer,
       wroteIn: this.wroteIn(viewer.person),
+      asked: this.asksStill(viewer.person),
     });
   }
 

@@ -2,6 +2,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const CONVERSATION_STANDINGS = [
   'assignee',
+  'asked',
   'team',
   'following',
 ] as const;
@@ -22,6 +23,7 @@ export interface ConversationViewer {
 
 export interface ConversationReader extends ConversationViewer {
   readonly wroteIn: boolean;
+  readonly asked: boolean;
 }
 
 export const ConversationAudience = {
@@ -33,6 +35,10 @@ export const ConversationAudience = {
       return 'assignee';
     }
 
+    if (reader.asked) {
+      return 'asked';
+    }
+
     if (assignee === null && reader.onTeam) {
       return 'team';
     }
@@ -41,7 +47,9 @@ export const ConversationAudience = {
   },
 
   answers(standing: ConversationStanding | null): boolean {
-    return standing === 'assignee' || standing === 'team';
+    return (
+      standing === 'assignee' || standing === 'asked' || standing === 'team'
+    );
   },
 
   notifies(standing: ConversationStanding | null): boolean {
@@ -53,6 +61,6 @@ export const ConversationAudience = {
   },
 
   listsRuns(standing: ConversationStanding): standing is RunStanding {
-    return standing !== 'team';
+    return standing === 'assignee' || standing === 'following';
   },
 };

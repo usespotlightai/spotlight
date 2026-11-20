@@ -192,6 +192,9 @@ const inTeamsSeen = (scope: InboxScope): SQL =>
 const wroteInBy = (viewer: UserId): SQL =>
   sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and ${taskNote.voice} = 'person' and (${taskNote.authorId} = ${viewer.value} or ${viewer.value} = any(${taskNote.coAuthorIds})))`;
 
+const askedInBy = (viewer: UserId): SQL =>
+  sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and ((${taskNote.approval}->>'askedOf' = ${viewer.value} and ${taskNote.approval}->>'status' = 'pending') or (${taskNote.connectionAsk}->>'personId' = ${viewer.value} and (${taskNote.connectionAsk}->>'met')::boolean = false)))`;
+
 const inTeamsJoined = (scope: InboxScope): SQL =>
   scope.teamsJoined.size > 0
     ? inArray(workStation.teamId, [...scope.teamsJoined])
@@ -203,6 +206,7 @@ const standingOf = (
     readonly teamId: string;
     readonly assigneeId: string | null;
     readonly wroteIn: boolean;
+    readonly askedIn: boolean;
   },
 ): ConversationStanding | null =>
   ConversationAudience.standingOf(
@@ -211,6 +215,7 @@ const standingOf = (
       person: scope.viewer,
       onTeam: scope.teamsJoined.has(row.teamId),
       wroteIn: row.wroteIn,
+      asked: row.askedIn,
     },
   );
 
@@ -221,12 +226,14 @@ const taskRowsWhere = (
 ) => {
   const origin = alias(workStation, 'origin');
   const wroteIn = wroteInBy(scope.viewer);
+  const askedIn = askedInBy(scope.viewer);
 
   return db
     .select({
       taskId: task.id,
       assigneeId: task.assigneeId,
       wroteIn: sql<boolean>`${wroteIn}`,
+      askedIn: sql<boolean>`${askedIn}`,
       teamId: workStation.teamId,
       title: task.title,
       description: task.description,
@@ -253,6 +260,7 @@ const taskRowsWhere = (
           eq(task.assigneeId, scope.viewer.value),
           and(isNull(task.assigneeId), inTeamsJoined(scope)),
           wroteIn,
+          askedIn,
         ),
         inTeamsSeen(scope),
         narrowedTo,
