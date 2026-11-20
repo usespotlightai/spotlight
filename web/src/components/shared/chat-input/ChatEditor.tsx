@@ -24,7 +24,6 @@ import { WatchMessage } from '@/components/shared/chat-input/WatchMessage';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { Reference, Written } from '@/lib/chat-input';
-import { cn } from '@/lib/utils';
 
 type ChatEditorProps = {
   label: string;
@@ -88,14 +87,10 @@ export function ChatEditor({
         <ScrollArea className="max-h-[min(14rem,25svh)]">
           <ContentEditable
             aria-label={label}
+            aria-disabled={disabled || undefined}
             aria-placeholder={placeholder}
             placeholder={
-              <p
-                className={cn(
-                  'pointer-events-none absolute inset-x-1.5 top-0 truncate text-sm leading-6',
-                  disabled ? 'text-faint' : 'text-muted-foreground',
-                )}
-              >
+              <p className="pointer-events-none absolute inset-x-1.5 top-0 truncate text-muted-foreground text-sm leading-6">
                 {placeholder}
               </p>
             }

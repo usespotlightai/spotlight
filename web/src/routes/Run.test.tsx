@@ -746,7 +746,7 @@ describe('Run', () => {
       station: { ...idle.station, id: 'station_4', name: 'Review' },
     };
 
-    it('names the station the task is at and links to the latest run there', () => {
+    it('disables the text bar and names the station the task moved to', () => {
       taskStation.mockReturnValue(left);
       conversation.mockReturnValue({
         ...conversation(),
@@ -755,16 +755,14 @@ describe('Run', () => {
 
       renderRun();
 
-      expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute(
-        'href',
-        '/w/acme/team/team_1/runs/run_2',
-      );
       expect(
-        screen.getByText(/Messages here reach no one\./),
-      ).toHaveTextContent('The task has moved to Review. Messages here');
+        screen.getByText(
+          'The task has moved to Review. Messages here reach no one.',
+        ),
+      ).toBeInTheDocument();
       expect(
-        screen.queryByRole('textbox', { name: 'Message Implementation' }),
-      ).toBeNull();
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('says nothing about the station the task moved to until its runs load', () => {
@@ -871,18 +869,6 @@ describe('Run', () => {
           'Spotlight still cannot start gemini-cli at Review.',
         );
       });
-    });
-
-    it('names the station without a link while no run has started there', () => {
-      taskStation.mockReturnValue(left);
-
-      renderRun();
-
-      expect(screen.getByText('Review')).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: 'Review' })).toBeNull();
-      expect(
-        screen.queryByRole('textbox', { name: 'Message Implementation' }),
-      ).toBeNull();
     });
 
     it('only says something to the station while a run still works the task', () => {
@@ -1081,10 +1067,8 @@ describe('Run', () => {
         ),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole('textbox', {
-          name: /^(Message|Send it back to|Answer) /,
-        }),
-      ).toBeNull();
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('asks the person who holds the task for the next turn', () => {

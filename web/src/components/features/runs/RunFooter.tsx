@@ -1,5 +1,9 @@
+import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
 import { MovedOnFooter } from '@/components/features/runs/MovedOnFooter';
-import { RunComposer } from '@/components/features/runs/RunComposer';
+import {
+  RunComposer,
+  WRITE_A_MESSAGE,
+} from '@/components/features/runs/RunComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
@@ -35,10 +39,15 @@ export function RunFooter({
 
   if (heldByTeammate) {
     return (
-      <p className="pb-5 text-center text-muted-foreground text-xs">
-        {heldByTeammate.by.name} put the task on hold. The agent reads new
-        messages after they resume the line.
-      </p>
+      <ClosedTaskComposer
+        slug={slug}
+        teamId={teamId}
+        taskId={conversation?.taskId}
+        station={run.station?.name ?? 'the agent'}
+        label={`Message ${run.station?.name ?? 'the agent'}`}
+        placeholder={WRITE_A_MESSAGE}
+        because={`${heldByTeammate.by.name} put the task on hold. The agent reads new messages after they resume the line.`}
+      />
     );
   }
 
@@ -72,9 +81,8 @@ export function RunFooter({
         slug={slug}
         teamId={teamId}
         taskId={conversation?.taskId}
-        runId={run.id}
-        latest={latest}
         current={current}
+        station={run.station.name}
         onSent={onSent}
       />
     );

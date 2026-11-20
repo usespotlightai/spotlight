@@ -1,16 +1,17 @@
-import { RunComposer } from '@/components/features/runs/RunComposer';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
+import {
+  RunComposer,
+  WRITE_A_MESSAGE,
+} from '@/components/features/runs/RunComposer';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
-import { newestRunAt, runPath, stoppable, waitsOnPerson } from '@/lib/run';
-import type { LatestRun } from '@/lib/run-notes';
+import { newestRunAt, stoppable, waitsOnPerson } from '@/lib/run';
 
 type MovedOnFooterProps = {
   slug: string;
   teamId: string;
   taskId: string | undefined;
-  runId: string;
-  latest: LatestRun;
   current: { id: string; name: string };
+  station: string;
   onSent?: () => void;
 };
 
@@ -18,9 +19,8 @@ export function MovedOnFooter({
   slug,
   teamId,
   taskId,
-  runId,
-  latest,
   current,
+  station,
   onSent,
 }: MovedOnFooterProps) {
   const { data: runs } = useTaskRuns(teamId, taskId);
@@ -48,19 +48,14 @@ export function MovedOnFooter({
   }
 
   return (
-    <p className="pb-5 text-center text-muted-foreground text-xs">
-      The task has moved to{' '}
-      {latest.id === runId ? (
-        <strong>{current.name}</strong>
-      ) : (
-        <TrailLink
-          to={runPath(slug, teamId, latest.id)}
-          className="font-semibold underline-offset-4 hover:text-foreground hover:underline"
-        >
-          {current.name}
-        </TrailLink>
-      )}
-      . Messages here reach no one.
-    </p>
+    <ClosedTaskComposer
+      slug={slug}
+      teamId={teamId}
+      taskId={taskId}
+      station={station}
+      label={`Message ${station}`}
+      placeholder={WRITE_A_MESSAGE}
+      because={`The task has moved to ${current.name}. Messages here reach no one.`}
+    />
   );
 }

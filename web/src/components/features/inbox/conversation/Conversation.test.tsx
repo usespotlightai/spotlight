@@ -235,11 +235,11 @@ describe('Conversation', () => {
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }]);
 
     expect(
-      screen.getByRole('button', { name: 'Approve linear.comment' }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: 'Approve linear.comment' }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Dismiss linear.comment' }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: 'Dismiss linear.comment' }),
+    ).not.toBeInTheDocument();
   });
 
   it('closes a run once, after its last note, when a person answers in between', () => {

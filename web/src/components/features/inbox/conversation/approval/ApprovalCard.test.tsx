@@ -276,11 +276,11 @@ describe('ApprovalCard', () => {
     expect(screen.getByText('Fixed in #41.')).toBeInTheDocument();
     expect(screen.getByText('(modified)')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Approve linear.comment' }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: 'Approve linear.comment' }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Dismiss linear.comment' }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: 'Dismiss linear.comment' }),
+    ).not.toBeInTheDocument();
   });
 
   it('titles it as approved or dismissed', () => {
