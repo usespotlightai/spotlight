@@ -7,6 +7,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useRunRefresh } from '@/hooks/api/useRunRefresh';
+import { useTaskFooterLoading } from '@/hooks/api/useTaskFooterLoading';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { notFound } from '@/lib/error';
@@ -19,11 +20,13 @@ const stillLoading = (
   found: Query,
   conversation: Query,
   journal: Loadable,
+  footerLoading: boolean,
 ): boolean =>
   loading(found) ||
   (Boolean(found.data) &&
     (loading(conversation) ||
-      (conversation.data !== undefined && loading(journal))));
+      (conversation.data !== undefined &&
+        (loading(journal) || footerLoading))));
 
 const lostOf = (found: Query, conversation: Query) => {
   if (failed(found) && !notFound(found.error)) {
@@ -47,6 +50,12 @@ export function Run() {
     conversation?.latestRun?.id,
   ]);
 
+  const footerLoading = useTaskFooterLoading(
+    teamId,
+    conversation?.taskId,
+    run?.station?.id,
+  );
+
   useRunRefresh({
     teamId,
     runId,
@@ -60,7 +69,7 @@ export function Run() {
     return null;
   }
 
-  if (stillLoading(found, conversationQuery, journal)) {
+  if (stillLoading(found, conversationQuery, journal, footerLoading)) {
     return <RunSkeleton />;
   }
 

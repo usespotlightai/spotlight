@@ -17,6 +17,9 @@ const journalFailing = vi.fn();
 const closeTask = vi.fn();
 const taskStation = vi.fn<(...args: unknown[]) => unknown>();
 
+vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
+  useTaskFooterLoading: () => false,
+}));
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
 }));
