@@ -42,30 +42,42 @@ const FORMATS: [LucideIcon, string[]][] = [
   [Database, ['sql', 'sqlite']],
 ];
 
-const BY_EXTENSION = new Map<string, LucideIcon>(
+const BY_EXTENSION: Record<string, LucideIcon> = Object.fromEntries(
   FORMATS.flatMap(([icon, extensions]) =>
-    extensions.map((extension): [string, LucideIcon] => [extension, icon]),
+    extensions.map((extension) => [extension, icon]),
   ),
 );
 
 const extensionOf = (name: string): string =>
   name.slice(name.lastIndexOf('.') + 1).toLowerCase();
 
-export function ReferenceIcon({ reference }: { reference: Reference }) {
-  const isFile = reference.kind === 'file';
-  const format = isFile
-    ? BY_EXTENSION.get(extensionOf(reference.name))
-    : undefined;
-  const code = isFile && !format && isCode(reference.name);
-  const Icon = format ?? (code ? Braces : ICON[reference.kind]);
+const iconOf = (reference: Reference): LucideIcon => {
+  if (reference.kind !== 'file') return ICON[reference.kind];
+  return (
+    BY_EXTENSION[extensionOf(reference.name)] ??
+    (isCode(reference.name) ? Braces : ICON.file)
+  );
+};
+
+const isPlainCode = (reference: Reference): boolean =>
+  reference.kind === 'file' &&
+  !(extensionOf(reference.name) in BY_EXTENSION) &&
+  isCode(reference.name);
+
+const renderIcon = (reference: Reference) => {
+  const Icon = iconOf(reference);
 
   return (
     <Icon
       aria-hidden
       className={cn(
         'size-3.5 shrink-0 self-center',
-        code ? 'text-amber-500' : TINT[reference.kind],
+        isPlainCode(reference) ? 'text-amber-500' : TINT[reference.kind],
       )}
     />
   );
+};
+
+export function ReferenceIcon({ reference }: { reference: Reference }) {
+  return renderIcon(reference);
 }
