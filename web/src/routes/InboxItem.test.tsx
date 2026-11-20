@@ -817,12 +817,13 @@ describe('InboxItem', () => {
       ]);
     });
 
-    it('shows the conversation without a way to answer it', () => {
+    it('shows the conversation with the text bar disabled', () => {
       renderItem();
 
-      expect(
-        screen.queryByRole('textbox', { name: /Answer/ }),
-      ).not.toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /Answer/ })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
       expect(screen.getByText(/Its assignee answers here/)).toBeInTheDocument();
     });
 
@@ -839,40 +840,15 @@ describe('InboxItem', () => {
 
     renderItem();
 
+    expect(screen.getByRole('textbox', { name: /Answer/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(
-      screen.queryByRole('textbox', { name: /Answer/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/moved on to/)).toBeInTheDocument();
-  });
-
-  it('links the station it moved on to at its latest run there', () => {
-    const [only] = item([note()]);
-    waiting.mockReturnValue([
-      {
-        ...only,
-        resolved: true,
-        currentStation: { ...only.currentStation, latestRunId: 'run_9' },
-      },
-    ]);
-
-    renderItem();
-
-    expect(screen.getByRole('link', { name: 'Code Review' })).toHaveAttribute(
-      'href',
-      '/w/acme/inbox/teams/team_1/runs/run_9',
-    );
-  });
-
-  it('links the task when no run started at the station it moved on to', () => {
-    const [only] = item([note()]);
-    waiting.mockReturnValue([{ ...only, resolved: true }]);
-
-    renderItem();
-
-    expect(screen.getByRole('link', { name: 'Code Review' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/tasks/task_1',
-    );
+      screen.getByText(
+        'The task moved on to Code Review. Nothing is left to answer.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('says only that the conversation is closed here when the conversation closed in place', () => {

@@ -1,7 +1,12 @@
 import { useSendOnEnter } from '@/hooks/useSendOnEnter';
 
-export function SendOnEnter({ send }: { send: () => void }) {
-  useSendOnEnter(send);
+type SendOnEnterProps = {
+  send: () => void;
+  blank: boolean;
+};
+
+export function SendOnEnter({ send, blank }: SendOnEnterProps) {
+  useSendOnEnter(send, blank);
 
   return null;
 }

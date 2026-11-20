@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { type RefObject, useRef } from 'react';
 
 import { ProposedTaskCard } from '@/components/features/agent/ProposedTaskCard';
 import { useAcceptProposal } from '@/hooks/api/useAcceptProposal';
@@ -16,6 +16,7 @@ type ChatProposalProps = {
   position: number;
   proposal: Proposal;
   attachments: readonly Attachment[];
+  awaiting: RefObject<Set<number>>;
 };
 
 export function ChatProposal({
@@ -25,6 +26,7 @@ export function ChatProposal({
   position,
   proposal,
   attachments,
+  awaiting,
 }: ChatProposalProps) {
   const accept = useAcceptProposal();
   const dismiss = useDismissProposal();
@@ -37,6 +39,7 @@ export function ChatProposal({
     teamId,
     proposal,
     card,
+    { awaiting, position },
   );
 
   return (

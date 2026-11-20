@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react';
 
+import { TaskPullRequestPills } from '@/components/features/board/task/TaskPullRequestPills';
 import type { AfterRun } from '@/components/features/inbox/conversation/Conversation';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
@@ -12,6 +13,7 @@ import { RunHeader } from '@/components/features/runs/RunHeader';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
+import { useTaskPullRequests } from '@/hooks/api/useTaskPullRequests';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
@@ -67,6 +69,11 @@ export function RunPage({
   const ran = workedOn(worked, notes, run.id);
   const [openAt, setOpenAt] = useState(() => followedOnAfter(notes, run.id));
   const followedOn = followedOnAfter(notes, run.id) !== null;
+
+  const { data: pullRequests = [] } = useTaskPullRequests(teamId, run.taskId);
+  const pills = pullRequests.length > 0 && (
+    <TaskPullRequestPills pullRequests={pullRequests} />
+  );
 
   const footer = (
     <RunFooter
@@ -128,6 +135,7 @@ export function RunPage({
                   live={live}
                   {...placeClosing(closing, followedOn, run.id)}
                   footer={footer}
+                  pills={pills}
                   deciding={decide}
                 />
               ) : (
@@ -143,6 +151,7 @@ export function RunPage({
                     )
                   }
                   footer={footer}
+                  pills={pills}
                 />
               )}
             </RunCitationTargets>

@@ -1,11 +1,15 @@
+import { use } from 'react';
 import { useLocation } from 'react-router';
 
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionCard } from '@/components/shared/DecisionCard';
+import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import { PillButton } from '@/components/shared/PillButton';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
 import type { InboxConnectionResponseDto } from '@/lib/api';
+import { DockedContext } from '@/lib/decision-tray';
 
 type ConnectionCardProps = {
   connection: InboxConnectionResponseDto;
@@ -22,6 +26,24 @@ export function ConnectionCard({
   const connect = useConnectIntegration(teamId);
   const theirs = viewer === connection.personId;
   const who = connection.personName || 'the person who started this task';
+  const docked = use(DockedContext) !== null;
+  const Action = docked ? DecisionButton : PillButton;
+  const action =
+    !connection.met && theirs && teamId ? (
+      <Action
+        variant="default"
+        disabled={connect.isPending}
+        onClick={() =>
+          connect.mutate({
+            integration: connection.integration,
+            actsAs: 'requester',
+            returnTo: pathname,
+          })
+        }
+      >
+        {connect.isPending ? 'Opening…' : 'Connect'}
+      </Action>
+    ) : null;
 
   return (
     <DecisionCard
@@ -36,25 +58,7 @@ export function ConnectionCard({
               : `Connect ${connection.integrationName}`}
           </DecisionTitle>
         }
-        trailing={
-          !connection.met &&
-          theirs &&
-          teamId && (
-            <PillButton
-              variant="default"
-              disabled={connect.isPending}
-              onClick={() =>
-                connect.mutate({
-                  integration: connection.integration,
-                  actsAs: 'requester',
-                  returnTo: pathname,
-                })
-              }
-            >
-              {connect.isPending ? 'Opening…' : 'Connect'}
-            </PillButton>
-          )
-        }
+        trailing={docked ? null : action}
       />
 
       <p className="text-muted-foreground text-xs leading-5">
@@ -66,6 +70,8 @@ export function ConnectionCard({
             ? `If you connect your ${connection.integrationName} account, the run carries on.`
             : `The run is waiting for ${who} to connect ${connection.integrationName}.`}
       </p>
+
+      {docked && action && <DecisionControls>{action}</DecisionControls>}
     </DecisionCard>
   );
 }

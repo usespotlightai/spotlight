@@ -5,6 +5,7 @@ import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
+import { answerPlaceholder } from '@/lib/inbox';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
 
 type InboxComposerProps = {
@@ -35,7 +36,7 @@ export function InboxComposer({
     <ChatInput
       slug={slug}
       label={`Answer ${station}`}
-      placeholder={`${station} reads your answer and decides the next step…`}
+      placeholder={answerPlaceholder(station)}
       pending={answer.isPending}
       running={running}
       shared={shared}

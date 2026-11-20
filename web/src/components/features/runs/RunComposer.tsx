@@ -43,12 +43,14 @@ const labelFor = (mode: Mode, station: string): string => {
   return `Message ${station}`;
 };
 
+export const WRITE_A_MESSAGE = 'Write a message…';
+
 const PLACEHOLDERS: Record<Mode, string> = {
   answering: 'Answer the question to continue the run…',
   driving: 'Tell the agent what to do next…',
   holds: 'Your message puts the task on hold…',
   restarts: 'Say what to change…',
-  message: 'Write a message…',
+  message: WRITE_A_MESSAGE,
 };
 
 const placeholderFor = (mode: Mode, running: boolean): string =>

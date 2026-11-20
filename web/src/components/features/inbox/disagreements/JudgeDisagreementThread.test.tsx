@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { JudgeDisagreementThread } from '@/components/features/inbox/disagreements/JudgeDisagreementThread';
@@ -19,10 +19,25 @@ vi.mock('@/hooks/api/useJudgeDisagreement', () => ({
 }));
 
 vi.mock('@/components/features/inbox/RunThread', () => ({
-  RunThread: ({ runId, after }: { runId: string; after: unknown }) => (
+  RunThread: ({
+    runId,
+    after,
+    docked,
+  }: {
+    runId: string;
+    after: unknown;
+    docked: { id: string; label: string; content: unknown }[];
+  }) => (
     <div>
       <p>The thread of run {runId}</p>
       {after as never}
+      <ol aria-label="Tray">
+        {docked.map((page) => (
+          <li key={page.id} aria-label={page.label}>
+            {page.content as never}
+          </li>
+        ))}
+      </ol>
     </div>
   ),
 }));
@@ -30,7 +45,9 @@ vi.mock('@/components/features/inbox/RunThread', () => ({
 vi.mock(
   '@/components/features/inbox/disagreements/JudgeDisagreementItem',
   () => ({
-    JudgeDisagreementItem: () => <p>The question</p>,
+    JudgeDisagreementItem: ({ claim }: { claim?: number }) => (
+      <p>{claim === undefined ? 'The question' : `Claim ${claim + 1} only`}</p>
+    ),
   }),
 );
 
@@ -63,6 +80,45 @@ describe('JudgeDisagreementThread', () => {
 
     expect(screen.getByText('The thread of run run_1')).toBeInTheDocument();
     expect(screen.getByText('The question')).toBeInTheDocument();
+  });
+
+  it('gives each disputed claim its own page in the tray', () => {
+    showing();
+
+    expect(
+      within(
+        screen.getByRole('listitem', { name: 'Disagreement on claim 1' }),
+      ).getByText('Claim 1 only'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole('listitem', { name: 'Disagreement on claim 3' }),
+      ).getByText('Claim 3 only'),
+    ).toBeInTheDocument();
+  });
+
+  it('takes an answered claim out of the tray', () => {
+    disagreement.mockReturnValue(
+      failedDisagreementOf({
+        answers: [
+          {
+            claim: 0,
+            answer: 'judge-right',
+            note: null,
+            answeredBy: 'user_sam',
+            answeredAt: new Date().toISOString(),
+          },
+        ],
+      }),
+    );
+    showing();
+
+    expect(
+      within(screen.getByRole('list', { name: 'Tray' })).getAllByRole(
+        'listitem',
+      ),
+    ).toHaveLength(1);
+    expect(screen.getByText('Claim 3 only')).toBeInTheDocument();
   });
 
   it('keeps the shape of the thread while the question loads', () => {

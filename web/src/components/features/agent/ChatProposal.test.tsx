@@ -44,6 +44,8 @@ const MOCKUP: Attachment = {
   size: 2048,
 };
 
+const awaiting = { current: new Set<number>() };
+
 const proposing = (
   proposal: Proposal,
   attachments: readonly Attachment[] = [],
@@ -60,6 +62,7 @@ const proposing = (
             position={3}
             proposal={proposal}
             attachments={attachments}
+            awaiting={awaiting}
           />
         }
       />
@@ -79,6 +82,7 @@ const accepting = async () => {
 };
 
 beforeEach(() => {
+  awaiting.current.clear();
   created.mockReset();
   dismissed.mockReset();
   restored.mockReset();
@@ -133,7 +137,17 @@ describe('ChatProposal', () => {
   });
 
   it('links to the task once it is created, offering nothing more to do', () => {
-    showing({ ...OPEN, state: 'created', taskId: 'task_1' });
+    render(
+      proposing(
+        {
+          ...OPEN,
+          description: 'Retry after 1s, 2s, 4s.',
+          state: 'created',
+          taskId: 'task_1',
+        },
+        [MOCKUP],
+      ),
+    );
 
     expect(screen.getByText('Task created')).toBeInTheDocument();
     expect(
@@ -144,6 +158,11 @@ describe('ChatProposal', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Dismiss' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Details')).not.toBeInTheDocument();
+    expect(screen.queryByText('Files')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Open task' }),
     ).not.toBeInTheDocument();
   });
 

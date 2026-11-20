@@ -2934,6 +2934,55 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/pull-requests": {
+      "get": {
+        "operationId": "listTaskPullRequests",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskPullRequestResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "List the pull requests of a task, each with its state",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/runs": {
       "get": {
         "operationId": "listTaskRuns",
@@ -11509,6 +11558,32 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "TaskPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/api/pull/42"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "open",
+              "merged",
+              "closed",
+              null
+            ],
+            "nullable": true,
+            "example": "open",
+            "description": "Draft, open, merged or closed; null when Spotlight holds no state for it: not seen on GitHub yet, or removed after the retention period"
+          }
+        },
+        "required": [
+          "url",
+          "state"
         ]
       },
       "TaskRunResponseDto": {

@@ -195,6 +195,19 @@ const earlierElsewhere = (located: Located): NoteResponseDto[] => {
   }));
 };
 
+const LATER_FROM = 1_000;
+
+const laterElsewhere = (located: Located): NoteResponseDto[] =>
+  runsOfAnyTask(located.task.id)
+    .filter(
+      (run) =>
+        run.startedAt > located.run.startedAt &&
+        run.station?.id !== located.run.station?.id,
+    )
+    .sort((one, other) => one.startedAt.localeCompare(other.startedAt))
+    .flatMap(storyNotesOf)
+    .map((note, at) => ({ ...note, position: LATER_FROM + at }));
+
 export const conversationOf = (located: Located): RunNotesResponseDto => {
   const story = storyOf(located.run.id);
   const scripted = story.notes.map((script, position) =>
@@ -218,7 +231,11 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
       progress: located.run.progress,
     },
     notes: [...scripted, ...added],
-    folded: foldedAround(located.task.id, earlierElsewhere(located), []),
+    folded: foldedAround(
+      located.task.id,
+      [...earlierElsewhere(located), ...laterElsewhere(located)],
+      [],
+    ),
     spend: finished(located.run) ? story.spend : null,
   };
 };

@@ -910,7 +910,7 @@ const longTurnSteps = (turn: number): StepDraft[] => [
 
 export const STEPS_UNLOADED_CHAT = 'chat_steps_unloaded';
 
-const longChat = (id = 'chat_long'): ChatRecord => {
+const longChat = (id = 'chat_long', proposes = true): ChatRecord => {
   const startedAt = hoursAgo(LONG_TURNS + 2);
   const journals = Array.from({ length: LONG_TURNS }, (_, turn) =>
     chatTurn(
@@ -928,16 +928,32 @@ const longChat = (id = 'chat_long'): ChatRecord => {
       repositories: ['acme/worker'],
       createdAt: startedAt,
       updatedAt: last ? turnEndsAt(last) : startedAt,
-      messages: Array.from({ length: LONG_TURNS }, (_, turn) =>
-        messageBy(
-          SAM,
-          turn,
-          turn === 0
-            ? 'Tune the retry backoff, one pass at a time.'
-            : `Do pass ${turn + 1}.`,
-          secondsAfter(startedAt, turn * 3_600),
+      messages: [
+        ...Array.from({ length: LONG_TURNS }, (_, turn) =>
+          messageBy(
+            SAM,
+            turn,
+            turn === 0
+              ? 'Tune the retry backoff, one pass at a time.'
+              : `Do pass ${turn + 1}.`,
+            secondsAfter(startedAt, turn * 3_600),
+          ),
         ),
-      ),
+        ...(proposes
+          ? [
+              proposed(
+                LONG_TURNS,
+                `run_chat_long_${LONG_TURNS}`,
+                secondsAfter(startedAt, (LONG_TURNS - 1) * 3_600 + 60),
+                proposalAt(PLATFORM_ID, 'station_backlog', {
+                  title: 'Ship the tuned retry backoff',
+                  description:
+                    'Release the backoff from the last pass behind a flag, then turn it on for the webhook queue first.',
+                }),
+              ),
+            ]
+          : []),
+      ],
     }),
     journals,
   };
@@ -956,7 +972,7 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     pastedLogChat(),
     longProposalChat(),
     longChat(),
-    longChat(STEPS_UNLOADED_CHAT),
+    longChat(STEPS_UNLOADED_CHAT, false),
   ].map(takenUp),
   [GROWTH_ID]: [onboardingChat()].map(takenUp),
 });
