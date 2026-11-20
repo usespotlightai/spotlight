@@ -13,6 +13,7 @@ import { ViewPills } from '@/components/shared/ViewPills';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useReadEveryPage } from '@/hooks/api/usePagedList';
 import { usePrefetchTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useCollapsed } from '@/hooks/useCollapsed';
@@ -39,6 +40,8 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
   const ages = useCollapsed(STORAGE_KEY);
   const [stored, store] = useStoredState(FILTER_KEY, ALL_RUNS);
   const filter = asRunFilter(stored);
+  const waiting = filter !== ALL_RUNS;
+  const reading = useReadEveryPage(runs, waiting);
   const rows = useRef<HTMLDivElement>(null);
   useListKeys(rows);
 
@@ -70,23 +73,29 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
   }
 
   const shown = (runs.data ?? []).filter((run) => inRunFilter(filter, run));
+  const older = !waiting ? (
+    <ShowMore list={runs} what="Older runs" className="mt-2" />
+  ) : runs.more.failed ? (
+    <CouldNotLoad
+      what="Older runs"
+      retrying={runs.more.loading}
+      onRetry={runs.more.load}
+      className="py-4"
+    />
+  ) : null;
 
   return (
     <>
       <ViewPills views={RUN_FILTERS} current={filter} onChange={store} />
 
-      {loading(runs) ? (
+      {loading(runs) || (reading && shown.length === 0) ? (
         <TeamRunsSkeleton />
       ) : shown.length === 0 ? (
         <Notice>
           <div className="flex flex-col items-center gap-3">
             <EmptyState
               icon={Play}
-              title={
-                runs.more.available
-                  ? 'No recent run is waiting for you'
-                  : 'Nothing is waiting for you'
-              }
+              title="Nothing is waiting for you"
               action={
                 <PillButton size="regular" onClick={() => store(ALL_RUNS)}>
                   Show all runs
@@ -95,7 +104,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
             >
               Runs with a review for you show here.
             </EmptyState>
-            <ShowMore list={runs} what="Older runs" />
+            {older}
           </div>
         </Notice>
       ) : (
@@ -144,7 +153,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
                 </Disclosure>
               </section>
             ))}
-            <ShowMore list={runs} what="Older runs" className="mt-2" />
+            {older}
           </ScrollArea>
         </div>
       )}
