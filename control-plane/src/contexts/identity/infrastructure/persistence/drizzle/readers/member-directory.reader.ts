@@ -1,4 +1,5 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
+import type { MemberLookupPort } from '@identity/application/ports/member-lookup.port';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import { userEmail } from '@identity/infrastructure/persistence/drizzle/schemas/user-email.schema';
 import { workspaceMember } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
@@ -7,15 +8,57 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, isNotNull, or, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleMemberDirectory implements MemberDirectoryPort {
+export class DrizzleMemberDirectory
+  implements MemberDirectoryPort, MemberLookupPort
+{
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async byEmail(
     workspaceId: WorkspaceId,
     email: string,
+  ): Promise<UserId | null> {
+    return this.matching(workspaceId, email, true);
+  }
+
+  async listedByEmail(
+    workspaceId: WorkspaceId,
+    email: string,
+  ): Promise<UserId | null> {
+    return this.matching(workspaceId, email, false);
+  }
+
+  async emailsOf(userId: UserId): Promise<readonly string[]> {
+    const [primary] = await this.db
+      .select({ email: user.email })
+      .from(user)
+      .where(eq(user.id, userId.value))
+      .limit(1);
+    const verified = await this.db
+      .select({ email: userEmail.email })
+      .from(userEmail)
+      .where(
+        and(
+          eq(userEmail.userId, userId.value),
+          isNotNull(userEmail.verifiedAt),
+        ),
+      );
+
+    return [
+      ...new Set(
+        [primary?.email, ...verified.map((each) => each.email)]
+          .filter((each): each is string => each !== undefined)
+          .map((each) => each.toLowerCase()),
+      ),
+    ];
+  }
+
+  private async matching(
+    workspaceId: WorkspaceId,
+    email: string,
+    activeOnly: boolean,
   ): Promise<UserId | null> {
     const wanted = email.trim();
 
@@ -30,6 +73,7 @@ export class DrizzleMemberDirectory implements MemberDirectoryPort {
       .where(
         and(
           eq(workspaceMember.workspaceId, workspaceId.value),
+          activeOnly ? isNull(workspaceMember.suspendedAt) : undefined,
           or(
             sql`lower(${user.email}) = lower(${wanted})`,
             sql`exists (${this.db

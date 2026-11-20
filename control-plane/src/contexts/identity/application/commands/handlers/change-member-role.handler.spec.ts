@@ -15,7 +15,11 @@ const acme = (...members: readonly [string, WorkspaceRole][]) =>
     id: WorkspaceId.of('ws_1'),
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
-    members: members.map(([id, role]) => ({ userId: UserId.of(id), role })),
+    members: members.map(([id, role]) => ({
+      userId: UserId.of(id),
+      role,
+      suspendedAt: null,
+    })),
     version: 3,
   });
 

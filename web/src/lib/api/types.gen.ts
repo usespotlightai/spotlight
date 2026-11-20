@@ -729,6 +729,22 @@ export type WorkspaceMemberResponseDto = {
    * When they joined the workspace.
    */
   joinedAt: string;
+  /**
+   * When they were suspended or left. It is null for a member with access.
+   */
+  suspendedAt: string | null;
+  /**
+   * Whether the caller may suspend this member.
+   */
+  mayBeSuspended: boolean;
+  /**
+   * Whether the caller may unsuspend this member.
+   */
+  mayBeUnsuspended: boolean;
+  /**
+   * Whether this member is the caller and may leave the workspace.
+   */
+  mayLeave: boolean;
 };
 
 export type ChangeMemberRoleRequestDto = {
@@ -11613,6 +11629,111 @@ export type ChangeMemberRoleResponses = {
 };
 
 export type ChangeMemberRoleResponse = ChangeMemberRoleResponses[keyof ChangeMemberRoleResponses];
+
+export type UnsuspendMemberData = {
+  body?: never;
+  path: {
+    slug: string;
+    userId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/members/{userId}/suspension';
+};
+
+export type UnsuspendMemberErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * You cannot unsuspend this person
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type UnsuspendMemberResponses = {
+  /**
+   * They are not suspended
+   */
+  204: void;
+};
+
+export type UnsuspendMemberResponse = UnsuspendMemberResponses[keyof UnsuspendMemberResponses];
+
+export type SuspendMemberData = {
+  body?: never;
+  path: {
+    slug: string;
+    userId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/members/{userId}/suspension';
+};
+
+export type SuspendMemberErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * You cannot suspend this person
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * It would leave nobody who owns it
+   */
+  409: unknown;
+};
+
+export type SuspendMemberResponses = {
+  /**
+   * They are suspended
+   */
+  204: void;
+};
+
+export type SuspendMemberResponse = SuspendMemberResponses[keyof SuspendMemberResponses];
+
+export type LeaveWorkspaceData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/leave';
+};
+
+export type LeaveWorkspaceErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * It would leave nobody who owns it
+   */
+  409: unknown;
+};
+
+export type LeaveWorkspaceResponses = {
+  /**
+   * You left the workspace
+   */
+  204: void;
+};
+
+export type LeaveWorkspaceResponse = LeaveWorkspaceResponses[keyof LeaveWorkspaceResponses];
 
 export type ListConfigurationChangesData = {
   body?: never;

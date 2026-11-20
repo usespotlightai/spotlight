@@ -1,6 +1,9 @@
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
+import { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
+import { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
+import { WorkspaceMemberUnsuspended } from '@identity/domain/events/workspace-member-unsuspended.event';
 import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
@@ -10,6 +13,7 @@ import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/works
 import { dependentsInWorkspace } from '@identity/domain/services/workspace-contents';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
+import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
 import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
@@ -64,7 +68,11 @@ describe('Workspace', () => {
 
   it('starts with its creator as the sole owner', () => {
     expect(build().members).toEqual([
-      { userId: UserId.of('user_1'), role: WorkspaceRole.owner },
+      {
+        userId: UserId.of('user_1'),
+        role: WorkspaceRole.owner,
+        suspendedAt: null,
+      },
     ]);
   });
 
@@ -94,8 +102,8 @@ describe('Workspace', () => {
         name: WorkspaceName.of('Acme Inc.'),
         slug: WorkspaceSlug.of('acme-inc'),
         members: [
-          { userId: OWNER, role: WorkspaceRole.owner },
-          { userId: UserId.of(user), role },
+          { userId: OWNER, role: WorkspaceRole.owner, suspendedAt: null },
+          { userId: UserId.of(user), role, suspendedAt: null },
         ],
         version: 0,
       });
@@ -144,9 +152,9 @@ describe('Workspace', () => {
       name: WorkspaceName.of('Acme Inc.'),
       slug: WorkspaceSlug.of('acme-inc'),
       members: [
-        { userId: OWNER, role: WorkspaceRole.owner },
-        { userId: ADMIN, role: WorkspaceRole.admin },
-        { userId: MEMBER, role: WorkspaceRole.member },
+        { userId: OWNER, role: WorkspaceRole.owner, suspendedAt: null },
+        { userId: ADMIN, role: WorkspaceRole.admin, suspendedAt: null },
+        { userId: MEMBER, role: WorkspaceRole.member, suspendedAt: null },
       ],
       version: 0,
     });
@@ -254,7 +262,11 @@ describe('Workspace', () => {
         id: WorkspaceId.of('ws_1'),
         name: WorkspaceName.of('Acme'),
         slug: WorkspaceSlug.of('acme'),
-        members: members.map((each) => ({ userId: each.id, role: each.role })),
+        members: members.map((each) => ({
+          userId: each.id,
+          role: each.role,
+          suspendedAt: null,
+        })),
         version: 0,
       });
 
@@ -421,7 +433,13 @@ describe('Workspace', () => {
         id: WorkspaceId.of('ws_1'),
         name: WorkspaceName.of('Acme Inc.'),
         slug: WorkspaceSlug.of('acme-inc'),
-        members: [{ userId: UserId.of('user_1'), role: WorkspaceRole.owner }],
+        members: [
+          {
+            userId: UserId.of('user_1'),
+            role: WorkspaceRole.owner,
+            suspendedAt: null,
+          },
+        ],
         version,
       });
 
@@ -508,7 +526,13 @@ describe('Workspace', () => {
         name: WorkspaceName.of('Acme Inc.'),
         slug: WorkspaceSlug.of('acme-inc'),
         outboundHosts: HostAllowList.of(['api.example.com']),
-        members: [{ userId: UserId.of('user_1'), role: WorkspaceRole.owner }],
+        members: [
+          {
+            userId: UserId.of('user_1'),
+            role: WorkspaceRole.owner,
+            suspendedAt: null,
+          },
+        ],
         version: 3,
       });
       const unchanged = workspace.update(
@@ -581,9 +605,21 @@ describe('Workspace', () => {
       name: WorkspaceName.of('Acme Inc.'),
       slug: WorkspaceSlug.of('acme-inc'),
       members: [
-        { userId: UserId.of('owner'), role: WorkspaceRole.owner },
-        { userId: UserId.of('admin'), role: WorkspaceRole.admin },
-        { userId: UserId.of('member'), role: WorkspaceRole.member },
+        {
+          userId: UserId.of('owner'),
+          role: WorkspaceRole.owner,
+          suspendedAt: null,
+        },
+        {
+          userId: UserId.of('admin'),
+          role: WorkspaceRole.admin,
+          suspendedAt: null,
+        },
+        {
+          userId: UserId.of('member'),
+          role: WorkspaceRole.member,
+          suspendedAt: null,
+        },
       ],
       version: 0,
     });
@@ -689,6 +725,314 @@ describe('Workspace', () => {
         acme.delete(Dependents.none(), BY).permissionsFor(person('owner'))
           .reads,
       ).toBe(false);
+    });
+  });
+
+  describe('suspending somebody', () => {
+    const OWNER = UserId.of('user_owner');
+    const OTHER_OWNER = UserId.of('user_owner_2');
+    const ADMIN = UserId.of('user_admin');
+    const OTHER_ADMIN = UserId.of('user_admin_2');
+    const MEMBER = UserId.of('user_member');
+    const AT = new Date('2026-11-20T10:00:00.000Z');
+
+    const staffed = (
+      ...members: readonly {
+        id: UserId;
+        role: WorkspaceRole;
+        suspendedAt?: Date;
+      }[]
+    ) =>
+      Workspace.rehydrate({
+        id: WorkspaceId.of('ws_1'),
+        name: WorkspaceName.of('Acme'),
+        slug: WorkspaceSlug.of('acme'),
+        members: members.map((each) => ({
+          userId: each.id,
+          role: each.role,
+          suspendedAt: each.suspendedAt ?? null,
+        })),
+        version: 0,
+      });
+
+    const staff = () =>
+      staffed(
+        { id: OWNER, role: WorkspaceRole.owner },
+        { id: OTHER_OWNER, role: WorkspaceRole.owner },
+        { id: ADMIN, role: WorkspaceRole.admin },
+        { id: OTHER_ADMIN, role: WorkspaceRole.admin },
+        { id: MEMBER, role: WorkspaceRole.member },
+      );
+
+    it('lets an owner suspend anybody else', () => {
+      for (const target of [OTHER_OWNER, ADMIN, MEMBER]) {
+        expect(staff().suspend(target, OWNER, AT).isSuspended(target)).toBe(
+          true,
+        );
+      }
+    });
+
+    it('lets an admin suspend a member or another admin', () => {
+      for (const target of [OTHER_ADMIN, MEMBER]) {
+        expect(staff().suspend(target, ADMIN, AT).isSuspended(target)).toBe(
+          true,
+        );
+      }
+    });
+
+    it('denies an admin who suspends an owner', () => {
+      expect(() => staff().suspend(OWNER, ADMIN, AT)).toThrow(
+        new RoleAssignmentDeniedError('suspend-above-your-rank'),
+      );
+    });
+
+    it('denies a plain member who suspends anybody', () => {
+      expect(() => staff().suspend(ADMIN, MEMBER, AT)).toThrow(
+        new RoleAssignmentDeniedError('not-an-admin-to-suspend'),
+      );
+    });
+
+    it('denies somebody who suspends themselves', () => {
+      expect(() => staff().suspend(ADMIN, ADMIN, AT)).toThrow(
+        new RoleAssignmentDeniedError('suspend-your-own'),
+      );
+    });
+
+    it('denies somebody who is not of the workspace', () => {
+      expect(() => staff().suspend(MEMBER, UserId.of('stranger'), AT)).toThrow(
+        new RoleAssignmentDeniedError('not-an-admin-to-suspend'),
+      );
+      expect(() => staff().suspend(UserId.of('stranger'), OWNER, AT)).toThrow(
+        new RoleAssignmentDeniedError('not-a-member'),
+      );
+    });
+
+    it('denies a suspended admin', () => {
+      const suspended = staff().suspend(ADMIN, OWNER, AT);
+
+      expect(() => suspended.suspend(MEMBER, ADMIN, AT)).toThrow(
+        new RoleAssignmentDeniedError('not-an-admin-to-suspend'),
+      );
+    });
+
+    it('keeps the last owner', () => {
+      const sole = staffed(
+        { id: OWNER, role: WorkspaceRole.owner },
+        { id: ADMIN, role: WorkspaceRole.admin },
+      );
+
+      expect(() => sole.suspend(OWNER, OWNER, AT)).toThrow(LastOwnerError);
+      expect(() => sole.suspend(OWNER, ADMIN, AT)).toThrow(
+        new RoleAssignmentDeniedError('suspend-above-your-rank'),
+      );
+    });
+
+    it('counts only owners with access as owners', () => {
+      const suspended = staff().suspend(OTHER_OWNER, OWNER, AT);
+
+      expect(() => suspended.suspend(OWNER, OWNER, AT)).toThrow(LastOwnerError);
+      expect(() => suspended.leave(OWNER, AT)).toThrow(LastOwnerError);
+    });
+
+    it('takes every permission from them and keeps their role to show', () => {
+      const suspended = staff().suspend(ADMIN, OWNER, AT);
+
+      expect(suspended.permissionsFor(PersonPrincipal.of(ADMIN))).toEqual(
+        Permissions.none,
+      );
+      expect(suspended.hasMember(ADMIN)).toBe(false);
+      expect(suspended.roleOf(ADMIN)).toBe(WorkspaceRole.admin);
+      expect(suspended.members).toHaveLength(5);
+    });
+
+    it('says who suspended whom, and when', () => {
+      const suspended = staff().suspend(MEMBER, ADMIN, AT);
+
+      expect(suspended.pullEvents()).toEqual([
+        new WorkspaceMemberSuspended(WorkspaceId.of('ws_1'), MEMBER, ADMIN, AT),
+      ]);
+    });
+
+    it('is no change, and says nothing, for somebody already suspended', () => {
+      const suspended = staff().suspend(MEMBER, ADMIN, AT);
+      const again = suspended.suspend(MEMBER, OWNER, new Date());
+
+      suspended.pullEvents();
+
+      expect(again.pullEvents()).toEqual([]);
+      expect(again.members).toEqual(suspended.members);
+    });
+
+    it('refuses to change the role of somebody suspended', () => {
+      const suspended = staff().suspend(MEMBER, ADMIN, AT);
+
+      expect(() =>
+        suspended.changeRole(MEMBER, WorkspaceRole.admin, OWNER),
+      ).toThrow(new RoleAssignmentDeniedError('suspended-member'));
+      expect(suspended.assignableRolesFor(MEMBER, OWNER)).toEqual([]);
+    });
+
+    it('offers what it would allow, and nothing it would deny', () => {
+      const workspace = staff();
+
+      expect(workspace.mayBeSuspended(MEMBER, ADMIN)).toBe(true);
+      expect(workspace.mayBeSuspended(OWNER, ADMIN)).toBe(false);
+      expect(workspace.mayBeSuspended(ADMIN, ADMIN)).toBe(false);
+      expect(workspace.mayBeSuspended(ADMIN, MEMBER)).toBe(false);
+      expect(workspace.mayBeUnsuspended(MEMBER, ADMIN)).toBe(false);
+    });
+
+    it('invites nobody who is on the roster, suspended or not', () => {
+      const suspended = staff().suspend(MEMBER, ADMIN, AT);
+
+      expect(suspended.isListed(MEMBER)).toBe(true);
+      expect(suspended.join(MEMBER, WorkspaceRole.admin)).toBe(suspended);
+    });
+  });
+
+  describe('unsuspending somebody', () => {
+    const OWNER = UserId.of('user_owner');
+    const ADMIN = UserId.of('user_admin');
+    const MEMBER = UserId.of('user_member');
+    const AT = new Date('2026-11-20T10:00:00.000Z');
+    const LATER = new Date('2026-11-21T10:00:00.000Z');
+
+    const suspended = () =>
+      Workspace.rehydrate({
+        id: WorkspaceId.of('ws_1'),
+        name: WorkspaceName.of('Acme'),
+        slug: WorkspaceSlug.of('acme'),
+        members: [
+          { userId: OWNER, role: WorkspaceRole.owner, suspendedAt: null },
+          { userId: ADMIN, role: WorkspaceRole.admin, suspendedAt: null },
+          { userId: MEMBER, role: WorkspaceRole.member, suspendedAt: AT },
+        ],
+        version: 0,
+      });
+
+    it('gives back the role and the access they had', () => {
+      const restored = suspended().unsuspend(MEMBER, ADMIN, LATER);
+
+      expect(restored.isSuspended(MEMBER)).toBe(false);
+      expect(restored.roleOf(MEMBER)).toBe(WorkspaceRole.member);
+      expect(restored.permissionsFor(PersonPrincipal.of(MEMBER)).reads).toBe(
+        true,
+      );
+    });
+
+    it('says who unsuspended whom, and when', () => {
+      expect(suspended().unsuspend(MEMBER, ADMIN, LATER).pullEvents()).toEqual([
+        new WorkspaceMemberUnsuspended(
+          WorkspaceId.of('ws_1'),
+          MEMBER,
+          ADMIN,
+          LATER,
+        ),
+      ]);
+    });
+
+    it('denies a plain member, and somebody suspended', () => {
+      const workspace = suspended();
+
+      expect(() => workspace.unsuspend(MEMBER, MEMBER, LATER)).toThrow(
+        RoleAssignmentDeniedError,
+      );
+      expect(() =>
+        workspace.suspend(ADMIN, OWNER, AT).unsuspend(MEMBER, ADMIN, LATER),
+      ).toThrow(RoleAssignmentDeniedError);
+    });
+
+    it('is no change for somebody who has access', () => {
+      const workspace = suspended();
+
+      expect(workspace.unsuspend(ADMIN, OWNER, LATER)).toBe(workspace);
+    });
+
+    it('offers it only for somebody suspended', () => {
+      const workspace = suspended();
+
+      expect(workspace.mayBeUnsuspended(MEMBER, ADMIN)).toBe(true);
+      expect(workspace.mayBeUnsuspended(ADMIN, OWNER)).toBe(false);
+      expect(workspace.mayBeUnsuspended(MEMBER, MEMBER)).toBe(false);
+    });
+  });
+
+  describe('somebody leaving', () => {
+    const OWNER = UserId.of('user_owner');
+    const MEMBER = UserId.of('user_member');
+    const AT = new Date('2026-11-20T10:00:00.000Z');
+
+    const staffed = (owners: number) =>
+      Workspace.rehydrate({
+        id: WorkspaceId.of('ws_1'),
+        name: WorkspaceName.of('Acme'),
+        slug: WorkspaceSlug.of('acme'),
+        members: [
+          { userId: OWNER, role: WorkspaceRole.owner, suspendedAt: null },
+          ...(owners > 1
+            ? [
+                {
+                  userId: UserId.of('user_owner_2'),
+                  role: WorkspaceRole.owner,
+                  suspendedAt: null,
+                },
+              ]
+            : []),
+          { userId: MEMBER, role: WorkspaceRole.member, suspendedAt: null },
+        ],
+        version: 0,
+      });
+
+    it('takes their access and keeps them on the roster, dated', () => {
+      const left = staffed(1).leave(MEMBER, AT);
+
+      expect(left.hasMember(MEMBER)).toBe(false);
+      expect(left.members.find((each) => each.userId.equals(MEMBER))).toEqual({
+        userId: MEMBER,
+        role: WorkspaceRole.member,
+        suspendedAt: AT,
+      });
+    });
+
+    it('says who left, and when', () => {
+      expect(staffed(1).leave(MEMBER, AT).pullEvents()).toEqual([
+        new WorkspaceMemberLeft(WorkspaceId.of('ws_1'), MEMBER, AT),
+      ]);
+    });
+
+    it('lets an owner go once another owner stays', () => {
+      expect(staffed(2).leave(OWNER, AT).hasMember(OWNER)).toBe(false);
+    });
+
+    it('keeps the last owner', () => {
+      expect(() => staffed(1).leave(OWNER, AT)).toThrow(LastOwnerError);
+    });
+
+    it('denies somebody who is not of the workspace, or already suspended', () => {
+      const workspace = staffed(1);
+
+      expect(() => workspace.leave(UserId.of('stranger'), AT)).toThrow(
+        new RoleAssignmentDeniedError('not-a-member'),
+      );
+      expect(() =>
+        workspace.suspend(MEMBER, OWNER, AT).leave(MEMBER, AT),
+      ).toThrow(new RoleAssignmentDeniedError('not-a-member'));
+    });
+
+    it('offers it to everybody but the last owner', () => {
+      const workspace = staffed(1);
+
+      expect(workspace.mayLeave(MEMBER)).toBe(true);
+      expect(workspace.mayLeave(OWNER)).toBe(false);
+      expect(staffed(2).mayLeave(OWNER)).toBe(true);
+    });
+
+    it('can be undone by an owner', () => {
+      const restored = staffed(1)
+        .leave(MEMBER, AT)
+        .unsuspend(MEMBER, OWNER, new Date());
+
+      expect(restored.hasMember(MEMBER)).toBe(true);
     });
   });
 });

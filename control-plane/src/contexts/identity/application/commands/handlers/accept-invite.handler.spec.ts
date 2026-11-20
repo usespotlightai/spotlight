@@ -26,7 +26,13 @@ const workspace = Workspace.rehydrate({
   id: WorkspaceId.of('ws_1'),
   name: WorkspaceName.of('Acme'),
   slug: WorkspaceSlug.of('acme'),
-  members: [{ userId: UserId.of('user_leon'), role: WorkspaceRole.owner }],
+  members: [
+    {
+      userId: UserId.of('user_leon'),
+      role: WorkspaceRole.owner,
+      suspendedAt: null,
+    },
+  ],
   version: 0,
 });
 

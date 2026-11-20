@@ -6,7 +6,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleWorkspaceRoles implements WorkspaceRolesPort {
@@ -31,6 +31,7 @@ export class DrizzleWorkspaceRoles implements WorkspaceRolesPort {
       .where(
         and(
           eq(workspaceMember.userId, person.value),
+          isNull(workspaceMember.suspendedAt),
           inArray(workspaceMember.workspaceId, unique),
         ),
       );

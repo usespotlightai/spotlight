@@ -5,6 +5,7 @@ import type { InboundDeliveryRetention } from '@integrations/application/service
 import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import type { IntegrationCursors } from '@integrations/application/services/integration-cursors.service';
 import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
+import type { MemberConnections } from '@integrations/application/services/member-connections.service';
 import type { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
 import type { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import type { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
@@ -29,10 +30,15 @@ import {
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
+  WORKSPACE_MEMBER_ACCESS_ENDED,
+  type WorkspaceMemberAccessEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
+import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConnectionAsksPort } from '@work/application/ports/connection-asks.port';
 
@@ -44,7 +50,18 @@ export const integrationsSubscribers = (
   connectionAsks: ConnectionAsksPort,
   cursors: IntegrationCursors,
   deliveries: InboundDeliveryRetention,
+  memberConnections: MemberConnections,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<WorkspaceMemberAccessEndedIntegrationEvent>(
+    'integrations.disconnect-connections-of-member-without-access',
+    [WORKSPACE_MEMBER_ACCESS_ENDED],
+    (event) =>
+      memberConnections.disconnect(
+        WorkspaceId.of(event.workspaceId),
+        UserId.of(event.userId),
+      ),
+    { callsOut: true },
+  ),
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.delete-integrations-of-deleted-team',
     [TEAM_DELETED],

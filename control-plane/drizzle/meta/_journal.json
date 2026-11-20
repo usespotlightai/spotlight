@@ -36,6 +36,13 @@
       "when": 1795186337240,
       "tag": "20261120145217_harness_profile_secrets",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795216136103,
+      "tag": "20261120230856_add_workspace_member_suspended_at",
+      "breakpoints": true
     }
   ]
 }

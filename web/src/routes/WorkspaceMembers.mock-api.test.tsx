@@ -88,6 +88,49 @@ describe('WorkspaceMembers on the mock API', () => {
     ).toBeInTheDocument();
   });
 
+  it('suspends a member after a confirmation, marks them, and lists them under the Suspended filter', async () => {
+    await opened();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for Maya Chen' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Suspend' }, WAIT),
+    );
+    await userEvent.click(
+      within(await screen.findByRole('dialog', undefined, WAIT)).getByRole(
+        'button',
+        { name: 'Suspend' },
+      ),
+    );
+
+    expect(
+      await within(rowOf('Members', 'Maya Chen')).findByText(
+        'Suspended',
+        undefined,
+        WAIT,
+      ),
+    ).toBeInTheDocument();
+    await waitFor(
+      () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      WAIT,
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Filter members' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Show: Everyone' }, WAIT),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitemradio', { name: 'Suspended' }, WAIT),
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: /Suspended\s*1/ }, WAIT),
+    ).toBeInTheDocument();
+  });
+
   it('says an invite was resent', async () => {
     await opened();
 

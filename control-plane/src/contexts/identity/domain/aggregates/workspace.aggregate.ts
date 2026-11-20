@@ -1,7 +1,10 @@
 import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
+import { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
 import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
+import { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
+import { WorkspaceMemberUnsuspended } from '@identity/domain/events/workspace-member-unsuspended.event';
 import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
@@ -9,6 +12,10 @@ import { RoleAssignmentDeniedError } from '@identity/domain/exceptions/role-assi
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
+import {
+  leaveDenial,
+  suspensionDenial,
+} from '@identity/domain/services/member-suspension';
 import {
   assignableRoles,
   type RoleAssignmentContext,
@@ -45,6 +52,7 @@ export type WorkspaceSetupStatus = (typeof WORKSPACE_SETUP_STATUSES)[number];
 export interface WorkspaceMember {
   readonly userId: UserId;
   readonly role: WorkspaceRole;
+  readonly suspendedAt: Date | null;
 }
 
 export interface WorkspaceDefinition {
@@ -57,6 +65,12 @@ interface TeamOfWorkspace {
   readonly id: TeamId;
   readonly workspaceId: WorkspaceId;
 }
+
+const isActive = (member: WorkspaceMember): boolean =>
+  member.suspendedAt === null;
+
+const isActiveOwner = (member: WorkspaceMember): boolean =>
+  isActive(member) && member.role.isOwner;
 
 export class Workspace extends EventRecorder {
   private constructor(
@@ -87,7 +101,7 @@ export class Workspace extends EventRecorder {
       input.name,
       input.slug,
       input.outboundHosts ?? HostAllowList.none,
-      [{ userId: input.owner, role: WorkspaceRole.owner }],
+      [{ userId: input.owner, role: WorkspaceRole.owner, suspendedAt: null }],
       input.firstTeam !== undefined,
       0,
       false,
@@ -124,7 +138,7 @@ export class Workspace extends EventRecorder {
     if (input.members.length === 0) {
       throw new InconsistentStateError('workspace', 'has no members at all');
     }
-    if (!input.members.some((member) => member.role.isOwner)) {
+    if (!input.members.some((member) => isActiveOwner(member))) {
       throw new InconsistentStateError('workspace', 'has nobody who owns it');
     }
 
@@ -228,10 +242,22 @@ export class Workspace extends EventRecorder {
     }
   }
 
+  private memberOf(userId: UserId): WorkspaceMember | null {
+    return this.members.find((each) => each.userId.equals(userId)) ?? null;
+  }
+
   roleOf(userId: UserId): WorkspaceRole | null {
-    return (
-      this.members.find((each) => each.userId.equals(userId))?.role ?? null
-    );
+    return this.memberOf(userId)?.role ?? null;
+  }
+
+  isListed(userId: UserId): boolean {
+    return this.memberOf(userId) !== null;
+  }
+
+  isSuspended(userId: UserId): boolean {
+    const member = this.memberOf(userId);
+
+    return member !== null && !isActive(member);
   }
 
   hasMember(userId: UserId): boolean {
@@ -249,9 +275,11 @@ export class Workspace extends EventRecorder {
         : Permissions.none;
     }
 
-    const role = this.roleOf(principal.userId);
+    const member = this.memberOf(principal.userId);
 
-    return role ? Permissions.ofRole(role) : Permissions.none;
+    return member && isActive(member)
+      ? Permissions.ofRole(member.role)
+      : Permissions.none;
   }
 
   private get whatChanged() {
@@ -263,14 +291,14 @@ export class Workspace extends EventRecorder {
   }
 
   private isLastOwner(userId: UserId): boolean {
-    const owners = this.members.filter((each) => each.role.isOwner);
+    const owners = this.members.filter(isActiveOwner);
 
     return owners.length === 1 && owners[0]?.userId.equals(userId);
   }
 
   private assignmentContext(target: UserId, by: UserId): RoleAssignmentContext {
     return {
-      callerRole: this.roleOf(by),
+      callerRole: this.hasMember(by) ? this.roleOf(by) : null,
       memberRole: this.roleOf(target),
       isLastOwner: this.isLastOwner(target),
       isSelf: target.equals(by),
@@ -278,7 +306,31 @@ export class Workspace extends EventRecorder {
   }
 
   assignableRolesFor(target: UserId, by: UserId): readonly WorkspaceRole[] {
-    return assignableRoles(this.assignmentContext(target, by));
+    return this.isSuspended(target)
+      ? []
+      : assignableRoles(this.assignmentContext(target, by));
+  }
+
+  mayBeSuspended(target: UserId, by: UserId): boolean {
+    return (
+      this.isListed(target) &&
+      !this.isSuspended(target) &&
+      suspensionDenial(this.assignmentContext(target, by)) === null
+    );
+  }
+
+  mayBeUnsuspended(target: UserId, by: UserId): boolean {
+    return (
+      this.isSuspended(target) &&
+      suspensionDenial(this.assignmentContext(target, by)) === null
+    );
+  }
+
+  mayLeave(userId: UserId): boolean {
+    return (
+      this.hasMember(userId) &&
+      leaveDenial(this.assignmentContext(userId, userId)) === null
+    );
   }
 
   changeRole(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
@@ -292,6 +344,10 @@ export class Workspace extends EventRecorder {
       throw new RoleAssignmentDeniedError(denial);
     }
 
+    if (this.isSuspended(target)) {
+      throw new RoleAssignmentDeniedError('suspended-member');
+    }
+
     const was = context.memberRole;
 
     if (!was || was.equals(role)) {
@@ -300,7 +356,7 @@ export class Workspace extends EventRecorder {
 
     const changed = this.with({
       members: this.members.map((each) =>
-        each.userId.equals(target) ? { userId: each.userId, role } : each,
+        each.userId.equals(target) ? { ...each, role } : each,
       ),
     });
 
@@ -311,13 +367,81 @@ export class Workspace extends EventRecorder {
     return changed;
   }
 
+  private assertMaySuspend(target: UserId, by: UserId): void {
+    const denial = suspensionDenial(this.assignmentContext(target, by));
+
+    if (denial === 'last-owner') {
+      throw new LastOwnerError();
+    }
+    if (denial) {
+      throw new RoleAssignmentDeniedError(denial);
+    }
+  }
+
+  suspend(target: UserId, by: UserId, at: Date): Workspace {
+    this.assertMaySuspend(target, by);
+
+    if (this.isSuspended(target)) {
+      return this;
+    }
+
+    const suspended = this.with({
+      members: this.members.map((each) =>
+        each.userId.equals(target) ? { ...each, suspendedAt: at } : each,
+      ),
+    });
+
+    suspended.record(new WorkspaceMemberSuspended(this.id, target, by, at));
+
+    return suspended;
+  }
+
+  unsuspend(target: UserId, by: UserId, at: Date): Workspace {
+    this.assertMaySuspend(target, by);
+
+    if (!this.isSuspended(target)) {
+      return this;
+    }
+
+    const unsuspended = this.with({
+      members: this.members.map((each) =>
+        each.userId.equals(target) ? { ...each, suspendedAt: null } : each,
+      ),
+    });
+
+    unsuspended.record(new WorkspaceMemberUnsuspended(this.id, target, by, at));
+
+    return unsuspended;
+  }
+
+  leave(by: UserId, at: Date): Workspace {
+    const denial = leaveDenial(this.assignmentContext(by, by));
+
+    if (denial === 'last-owner') {
+      throw new LastOwnerError();
+    }
+    if (denial || this.isSuspended(by)) {
+      throw new RoleAssignmentDeniedError('not-a-member');
+    }
+
+    const left = this.with({
+      members: this.members.map((each) =>
+        each.userId.equals(by) ? { ...each, suspendedAt: at } : each,
+      ),
+    });
+
+    left.record(new WorkspaceMemberLeft(this.id, by, at));
+
+    return left;
+  }
+
   join(userId: UserId, role: WorkspaceRole): Workspace {
-    if (this.hasMember(userId)) {
+    if (this.isListed(userId)) {
       return this;
     }
 
     const joined = this.with({
-      members: [...this.members, { userId, role }],
+      members: [...this.members, { userId, role, suspendedAt: null }],
     });
 
     joined.record(new WorkspaceMemberJoined(this.id, userId, role));
