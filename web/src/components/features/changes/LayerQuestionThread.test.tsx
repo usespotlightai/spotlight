@@ -1,10 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { LayerQuestionThread } from '@/components/features/changes/LayerQuestionThread';
 import type { LayerQuestion } from '@/lib/change-stack';
-import { StackTeamContext } from '@/lib/review-context';
+import { StackTeamContext, StackVisitorContext } from '@/lib/review-context';
 import { INVITATIONS } from '@/test/fixtures/change-stack';
 
 const mutate = vi.fn();
@@ -133,5 +134,51 @@ describe('LayerQuestionThread', () => {
     expect(mutate).toHaveBeenLastCalledWith(
       expect.objectContaining({ reply: 'It adds the member.' }),
     );
+  });
+
+  describe('for a visitor', () => {
+    const visiting = (signedIn: boolean) =>
+      render(
+        <MemoryRouter
+          initialEntries={['/w/acme/team/team_1/tasks/task_1/changes']}
+        >
+          <StackVisitorContext value={{ signedIn }}>
+            <LayerQuestionThread
+              stack={INVITATIONS}
+              question={QUESTION}
+              onReveal={vi.fn()}
+            />
+          </StackVisitorContext>
+        </MemoryRouter>,
+      );
+
+    it('shows the question and asks an anonymous visitor to log in or create an account', () => {
+      visiting(false);
+
+      expect(screen.getByText(QUESTION.question)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute(
+        'href',
+        '/login',
+      );
+      expect(
+        screen.getByRole('link', { name: 'create an account' }),
+      ).toHaveAttribute('href', '/login');
+    });
+
+    it('shows no way to answer', () => {
+      visiting(false);
+
+      expect(screen.queryByRole('textbox')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'I don’t know' })).toBeNull();
+    });
+
+    it('says only team members take part to a signed-in visitor, with no link', () => {
+      visiting(true);
+
+      expect(
+        screen.getByText('Only team members can answer this question.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('link')).toBeNull();
+    });
   });
 });

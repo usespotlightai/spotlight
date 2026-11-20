@@ -2,6 +2,7 @@ import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
+import type { RecordsRepositoryVisibility } from '@github/application/ports/repository-visibility.port';
 import type {
   WebhookEvent,
   WebhookParserPort,
@@ -23,6 +24,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     private readonly sync: PullRequestSync,
     private readonly logger: LoggerPort,
     private readonly checkRuns: CheckRunsPort,
+    private readonly visibilities: RecordsRepositoryVisibility,
   ) {}
 
   verifies(delivery: GitHubDelivery): boolean {
@@ -155,6 +157,13 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     if (event.kind === 'installation-removed') {
       await this.connections.save(
         (await this.connections.of(workspaceId)).disconnectFrom(installation),
+      );
+    }
+
+    if (event.kind === 'repository-visibility') {
+      await this.visibilities.record(
+        Repository.of(event.repository),
+        event.visibility,
       );
     }
 

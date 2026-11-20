@@ -25,6 +25,7 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
     data: stacks(),
     isPending: stacks() === undefined,
     errorUpdateCount: stacksFailing() ? 1 : 0,
+    error: stacksFailing() === 404 ? { statusCode: 404 } : undefined,
     isFetching: false,
     refetch: refetchStacks,
   }),
@@ -71,6 +72,10 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
   }),
 }));
 
+vi.mock('@/routes/PublicChangeStack', () => ({
+  PublicChangeStack: () => <p>The public view</p>,
+}));
+
 vi.mock('@/components/shared/PatchCodeDiff', () => ({
   PatchCodeDiff: ({ patch }: { patch: string }) => <pre>{patch}</pre>,
 }));
@@ -110,6 +115,16 @@ describe('RunChangeStack', () => {
       expect(
         screen.getByRole('status', { name: 'Loading the change stack' }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('when the person may not read it as a team member', () => {
+    it('shows the public view, which serves it when every repository is public', () => {
+      serving(undefined);
+      stacksFailing.mockReturnValue(404);
+      renderAt();
+
+      expect(screen.getByText('The public view')).toBeInTheDocument();
     });
   });
 

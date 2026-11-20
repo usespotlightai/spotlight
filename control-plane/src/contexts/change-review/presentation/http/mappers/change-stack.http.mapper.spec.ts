@@ -196,3 +196,105 @@ describe('ChangeStackHttpMapper', () => {
     ]);
   });
 });
+
+describe('ChangeStackHttpMapper for the public', () => {
+  const keysOf = (value: unknown) => Object.keys(value as object).sort();
+
+  const response = ChangeStackHttpMapper.toPublicResponse({
+    stacks: [
+      {
+        id: 'stack-1',
+        repository: 'acme/api',
+        state: 'ready',
+        files: [
+          {
+            path: 'src/invite.ts',
+            previousPath: null,
+            status: 'modified',
+            binary: false,
+            hunks: [
+              {
+                id: 'h1',
+                oldStart: 1,
+                oldLines: 1,
+                newStart: 1,
+                newLines: 1,
+                patch: '@@ -1 +1 @@\n-a\n+b',
+              },
+            ],
+          },
+        ],
+        cohorts: [
+          {
+            id: 'c1',
+            kind: 'change',
+            title: 'Invitations',
+            intent: 'Invite people',
+            layers: [
+              {
+                id: 'c1.l1',
+                title: 'Add invite',
+                summary: 'The function',
+                dependsOn: [],
+                hunks: [{ hunk: 'h1' }],
+                notes: [{ path: 'src/invite.ts', note: 'Adds it.' }],
+                questions: [
+                  {
+                    id: 'c1.l1.q1',
+                    question: 'Who gets the invitation?',
+                    hunks: ['h1'],
+                    answered: { reply: 'Secret', expected: 'Secret' },
+                  } as never,
+                ],
+                revision: { status: 'modified', previous: 'c1.l0' },
+              },
+            ],
+          },
+        ],
+        removed: [{ previous: 'c9.l1', cohort: 'Old', title: 'Gone' }],
+        check: { command: 'npm test' },
+        runId: 'run-1',
+        push: { head: 'abc', pushedBy: 'octocat' },
+        failure: 'broke',
+        startedAt: '2026-09-16T10:00:00.000Z',
+      } as never,
+    ],
+  });
+  const [stack] = response.stacks;
+  const layer = stack?.cohorts[0]?.layers[0];
+
+  it('names exactly the fields of a stack that anybody may read', () => {
+    expect(keysOf(stack)).toEqual([
+      'cohorts',
+      'files',
+      'id',
+      'removed',
+      'repository',
+      'state',
+    ]);
+  });
+
+  it('names exactly the fields of a layer', () => {
+    expect(keysOf(layer)).toEqual([
+      'hunks',
+      'id',
+      'notes',
+      'questions',
+      'revision',
+      'summary',
+      'title',
+    ]);
+  });
+
+  it('shows a question without any answer', () => {
+    expect(keysOf(layer?.questions[0])).toEqual(['hunks', 'id', 'question']);
+  });
+
+  it('carries none of what stays private', () => {
+    const body = JSON.stringify(response);
+
+    for (const hidden of ['npm test', 'run-1', 'octocat', 'broke', 'Secret']) {
+      expect(body).not.toContain(hidden);
+    }
+  });
+});

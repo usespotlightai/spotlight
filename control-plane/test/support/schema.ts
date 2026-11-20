@@ -7,6 +7,7 @@ export * from '@change-review/infrastructure/persistence/drizzle/schemas/stack-c
 export * from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 export * from '@github/infrastructure/persistence/drizzle/schemas/github-connection.schema';
 export * from '@github/infrastructure/persistence/drizzle/schemas/pull-request.schema';
+export * from '@github/infrastructure/persistence/drizzle/schemas/repository-visibility.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/avatar.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';

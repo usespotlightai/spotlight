@@ -9,9 +9,11 @@ import { useRunChangeStacks } from '@/hooks/api/useRunChangeStacks';
 import { useTaskReview } from '@/hooks/api/useTaskReview';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useChangeStackTrail } from '@/hooks/useChangeStackTrail';
+import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import { runPath } from '@/lib/run';
 import { TrailContext, useTrail } from '@/lib/trail';
+import { PublicChangeStack } from '@/routes/PublicChangeStack';
 
 export function RunChangeStack() {
   const { slug, teamId, runId } = useParams();
@@ -28,6 +30,10 @@ export function RunChangeStack() {
 
   if (loading(stacks) || loading(found)) {
     return <ChangeStackSkeleton known={trail.slice(0, -1)} />;
+  }
+
+  if (failed(stacks) && notFound(stacks.error)) {
+    return <PublicChangeStack />;
   }
 
   if (failed(stacks)) {

@@ -174,6 +174,7 @@ const LONG = written(
 
 const LARGE_INPUT = {
   diff: LARGE,
+  owner: 'acme',
   repository: null,
   base: null,
   request: null,
@@ -391,7 +392,13 @@ describe('GenerateChangeStack', () => {
     await expect(
       service.begin(
         { ...RUN, checkouts: 0 },
-        { diff: DIFF, repository: 'web', base: null, request: null },
+        {
+          diff: DIFF,
+          owner: 'acme',
+          repository: 'web',
+          base: null,
+          request: null,
+        },
       ),
     ).rejects.toThrow(NoStackWithoutCheckoutsError);
     expect(saved).toEqual([]);
@@ -403,6 +410,7 @@ describe('GenerateChangeStack', () => {
 
     const stack = await service.begin(RUN, {
       diff: DIFF,
+      owner: 'acme',
       repository: 'web',
       base: null,
       request: null,
@@ -430,6 +438,7 @@ describe('GenerateChangeStack', () => {
 
     await generated({
       diff: DIFF,
+      owner: 'acme',
       repository: null,
       base: null,
       request: null,
@@ -453,6 +462,7 @@ describe('GenerateChangeStack', () => {
 
     await generated({
       diff: DIFF,
+      owner: 'acme',
       repository: null,
       base: null,
       request: null,
@@ -467,6 +477,7 @@ describe('GenerateChangeStack', () => {
     const { service } = generating({ answers: [new Error('overloaded')] });
     const stack = await service.begin(RUN, {
       diff: DIFF,
+      owner: 'acme',
       repository: null,
       base: null,
       request: null,
@@ -491,6 +502,7 @@ describe('GenerateChangeStack', () => {
     });
     const stack = await service.begin(RUN, {
       diff: DIFF,
+      owner: 'acme',
       repository: null,
       base: null,
       request: null,
@@ -522,6 +534,7 @@ describe('GenerateChangeStack', () => {
     });
     const stack = await service.begin(RUN, {
       diff: DIFF,
+      owner: 'acme',
       repository: null,
       base: null,
       request: null,
@@ -541,6 +554,7 @@ describe('GenerateChangeStack', () => {
     await expect(
       service.begin(RUN, {
         diff: DIFF,
+        owner: 'acme',
         repository: null,
         base: null,
         request: null,
@@ -554,6 +568,7 @@ describe('GenerateChangeStack', () => {
     await expect(
       service.begin(RUN, {
         diff: 'nothing changed',
+        owner: 'acme',
         repository: null,
         base: null,
         request: null,
@@ -746,6 +761,7 @@ describe('GenerateChangeStack', () => {
 
       await generated({
         diff: LINKED,
+        owner: 'acme',
         repository: null,
         base: null,
         request: null,
@@ -778,6 +794,7 @@ describe('GenerateChangeStack', () => {
 
       await generated({
         diff: LINKED,
+        owner: 'acme',
         repository: null,
         base: null,
         request: null,
@@ -842,6 +859,7 @@ describe('GenerateChangeStack', () => {
 
       await generated({
         diff: DIFF,
+        owner: 'acme',
         repository: null,
         base: null,
         request: null,
@@ -873,6 +891,7 @@ describe('GenerateChangeStack', () => {
 
       await generated({
         diff: LINKED,
+        owner: 'acme',
         repository: null,
         base: null,
         request: null,
@@ -888,6 +907,7 @@ describe('GenerateChangeStack', () => {
 
       await generated({
         diff: lockfileOnly,
+        owner: 'acme',
         repository: null,
         base: null,
         request: null,
@@ -928,6 +948,7 @@ describe('RedraftChangeStack', () => {
     const generated = generating({ answers: [[twoLayers], ...answers] });
     await generated.generated({
       diff: DIFF,
+      owner: 'acme',
       repository: null,
       base: null,
       request: CheckRequest.of('npx tsc --noEmit', null),
@@ -1176,6 +1197,7 @@ describe('the problems a broken stack is settled with', () => {
     });
     await generated.generated({
       diff: text,
+      owner: 'acme',
       repository: null,
       base: null,
       request: CheckRequest.of('npx tsc --noEmit', null),
@@ -1255,7 +1277,12 @@ describe('for a task that had a stack before', () => {
     answers: (readonly ProposedCohort[])[],
   ) => {
     const generation = generating({ ids: counted(), answers });
-    const input = { repository: 'web', base: null, request: null };
+    const input = {
+      owner: 'acme',
+      repository: 'web',
+      base: null,
+      request: null,
+    };
 
     const first = await generation.service.begin(TASK_RUN, {
       ...input,
@@ -1276,7 +1303,12 @@ describe('for a task that had a stack before', () => {
       ids: counted(),
       answers: [[cohort(['h1', 'h2'])]],
     });
-    const input = { repository: 'web', base: null, request: null };
+    const input = {
+      owner: 'acme',
+      repository: 'web',
+      base: null,
+      request: null,
+    };
     const first = await generation.service.generated(
       await generation.service.begin(TASK_RUN, { ...input, diff: DIFF }),
     );
@@ -1309,6 +1341,7 @@ describe('for a task that had a stack before', () => {
 
     await generation.service.begin(TASK_RUN, {
       diff: DIFF,
+      owner: 'acme',
       repository: 'web',
       base: null,
       request: null,
@@ -1326,6 +1359,7 @@ describe('for a task that had a stack before', () => {
 
     await generation.service.begin(RUN, {
       diff: DIFF,
+      owner: 'acme',
       repository: 'web',
       base: null,
       request: null,
@@ -1339,7 +1373,12 @@ describe('for a task that had a stack before', () => {
       ids: counted(),
       answers: [[cohort(['h1', 'h2'])]],
     });
-    const input = { repository: 'web', base: null, request: null };
+    const input = {
+      owner: 'acme',
+      repository: 'web',
+      base: null,
+      request: null,
+    };
     await generation.stacks.save(
       await generation.service.generated(
         await generation.service.begin(TASK_RUN, { ...input, diff: DIFF }),
@@ -1387,7 +1426,13 @@ describe('for a task that had a stack before', () => {
 
   it('follows no earlier stack for a team’s run', async () => {
     const team = generating({ ids: counted() });
-    const input = { diff: DIFF, repository: 'web', base: null, request: null };
+    const input = {
+      diff: DIFF,
+      owner: 'acme',
+      repository: 'web',
+      base: null,
+      request: null,
+    };
 
     await team.stacks.save(
       await team.service.generated(await team.service.begin(RUN, input)),

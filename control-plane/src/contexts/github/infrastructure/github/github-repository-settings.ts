@@ -7,6 +7,7 @@ import type {
   RepositorySettingsPort,
   VariablesWrite,
 } from '@github/application/ports/repository-settings.port';
+import type { RepositoryVisibility } from '@github/domain/value-objects/repository-visibility.vo';
 import {
   answered,
   call,
@@ -27,6 +28,10 @@ interface RepositoryAnswer {
   readonly id: number;
   readonly default_branch: string;
   readonly owner: { readonly id: number };
+}
+
+interface VisibilityAnswer {
+  readonly private: boolean;
 }
 
 interface RequiredReviews {
@@ -119,6 +124,20 @@ export class GitHubRepositorySettings implements RepositorySettingsPort {
     );
 
     return customization.sub_claim_prefix;
+  }
+
+  async visibilityOf(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+  ): Promise<RepositoryVisibility> {
+    const found = await answered<VisibilityAnswer>(
+      await call(this.at(repository), await this.tokenFor(workspaceId)),
+      `GitHub would not return the visibility of ${repository.value}`,
+    );
+
+    return typeof found.private === 'boolean' && !found.private
+      ? 'public'
+      : 'private';
   }
 
   async putVariables(

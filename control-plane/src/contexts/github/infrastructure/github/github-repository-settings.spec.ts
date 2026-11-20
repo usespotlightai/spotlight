@@ -254,6 +254,39 @@ describe('GitHubRepositorySettings', () => {
     });
   });
 
+  describe('reading the visibility', () => {
+    const visibility = () =>
+      new GitHubRepositorySettings(access).visibilityOf(
+        workspaceId,
+        repository,
+      );
+
+    it('reads a public repository', async () => {
+      routing(() => ({ status: 200, body: { private: false } }));
+
+      expect(await visibility()).toBe('public');
+      expect(sent[0]?.url).toContain('/repos/acme/config');
+    });
+
+    it('reads a private repository', async () => {
+      routing(() => ({ status: 200, body: { private: true } }));
+
+      expect(await visibility()).toBe('private');
+    });
+
+    it('treats an answer without the private flag as private', async () => {
+      routing(() => ({ status: 200, body: {} }));
+
+      expect(await visibility()).toBe('private');
+    });
+
+    it('fails when GitHub does not answer', async () => {
+      routing(() => ({ status: 404, body: { message: 'Not Found' } }));
+
+      await expect(visibility()).rejects.toThrow(/visibility of acme\/config/);
+    });
+  });
+
   describe('reading the OIDC subject prefix', () => {
     const subjectSettings = (answer: Answer) =>
       routing((_, url) =>

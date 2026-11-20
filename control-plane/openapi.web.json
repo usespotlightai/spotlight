@@ -4634,6 +4634,74 @@
         ]
       }
     },
+    "/public/runs/{runId}/change-stacks": {
+      "get": {
+        "operationId": "listPublicRunChangeStacks",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The change stack does not exist, or a repository in it is not public"
+          }
+        },
+        "summary": "The change stacks of a run, for anybody, when every repository in them is public on GitHub",
+        "tags": [
+          "public-change-stacks"
+        ]
+      }
+    },
+    "/public/tasks/{taskId}/change-stacks": {
+      "get": {
+        "operationId": "listPublicTaskChangeStacks",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The change stack does not exist, or a repository in it is not public"
+          }
+        },
+        "summary": "The newest change stack of each repository of a task, for anybody, when every repository in them is public on GitHub",
+        "tags": [
+          "public-change-stacks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/decisions": {
       "get": {
         "operationId": "readTaskDecisions",
@@ -13430,6 +13498,182 @@
         },
         "required": [
           "latest"
+        ]
+      },
+      "PublicLayerQuestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2.q1"
+          },
+          "question": {
+            "type": "string",
+            "example": "What happens when the address is already a member?"
+          },
+          "hunks": {
+            "example": [
+              "h3"
+            ],
+            "description": "The hunks that show the answer",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "hunks"
+        ]
+      },
+      "PublicStackLayerResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2"
+          },
+          "title": {
+            "type": "string",
+            "example": "Add the invitation API and emails"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "hunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StackHunkResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileNoteResponseDto"
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLayerQuestionResponseDto"
+            }
+          },
+          "revision": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerRevisionResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "hunks",
+          "notes",
+          "questions",
+          "revision"
+        ]
+      },
+      "PublicStackCohortResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "change",
+              "incidental"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Team invitations"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackLayerResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "intent",
+          "layers"
+        ]
+      },
+      "PublicChangeStackResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "generating",
+              "ready",
+              "failed"
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiffFileResponseDto"
+            }
+          },
+          "cohorts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackCohortResponseDto"
+            }
+          },
+          "removed": {
+            "description": "Layers of the previous stack that this stack no longer has",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RemovedLayerResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "repository",
+          "state",
+          "files",
+          "cohorts",
+          "removed"
+        ]
+      },
+      "PublicChangeStacksResponseDto": {
+        "type": "object",
+        "properties": {
+          "stacks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicChangeStackResponseDto"
+            }
+          }
+        },
+        "required": [
+          "stacks"
         ]
       },
       "DecisionMergeResponseDto": {

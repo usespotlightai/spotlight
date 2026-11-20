@@ -64,6 +64,7 @@ export interface PreparedStack {
 
 export interface StackInput {
   readonly diff: string;
+  readonly owner: string;
   readonly repository: string | null;
   readonly base: string | null;
   readonly request: CheckRequest | null;
@@ -119,6 +120,7 @@ export class GenerateChangeStack {
       trial: source.trial,
       checkouts: source.checkouts,
       workspaceId: source.workspaceId,
+      owner: input.owner,
       repository: input.repository,
       base: input.base,
       diff: prepared.diff,

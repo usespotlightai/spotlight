@@ -176,6 +176,7 @@ const delivering = (over: {
     {
       run: async () => null,
       teamOfRun: async () => null,
+      repositoriesOfRun: async () => [],
       reasoning: async () => null,
       task: async () => task,
       taskWithPullRequest: async () => null,
