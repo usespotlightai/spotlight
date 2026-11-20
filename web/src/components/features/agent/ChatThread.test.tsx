@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +9,10 @@ import type { JournalledRun, RunJournal } from '@/lib/inbox';
 
 vi.mock('@/hooks/useJournalSight', () => ({
   useJournalSight: () => () => undefined,
+}));
+
+vi.mock('@/hooks/api/useHold', () => ({
+  useResumeLine: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const chat = (over: Partial<Chat> = {}) =>
@@ -72,17 +77,47 @@ const thread = (
   runs: JournalledRun[],
   over: Partial<Chat> = {},
 ) => (
-  <MemoryRouter>
-    <ChatThread
-      slug="acme"
-      teamId="team_1"
-      chat={chat(over)}
-      journals={journals}
-      runs={runs}
-      footer={null}
-    />
-  </MemoryRouter>
+  <QueryClientProvider client={new QueryClient()}>
+    <MemoryRouter>
+      <ChatThread
+        slug="acme"
+        teamId="team_1"
+        chat={chat(over)}
+        journals={journals}
+        runs={runs}
+        footer={null}
+      />
+    </MemoryRouter>
+  </QueryClientProvider>
 );
+
+const openedPullRequest = (state: 'held' | 'line') => ({
+  messages: [
+    ...chat().messages,
+    {
+      position: 1,
+      kind: 'message',
+      body: 'Show video icons',
+      at: '2026-08-29T09:01:00.000Z',
+      author: null,
+      runId: 'run_1',
+      takenUpBy: null,
+      attachments: [],
+      traces: [],
+      proposal: null,
+      pullRequest: {
+        taskId: 'task_1',
+        url: 'https://github.com/acme/web/pull/7',
+        state,
+        lineName: 'Default',
+        stationName: 'Code review',
+        stationColor: '#edc12b',
+        stationPosition: 3,
+        stationCount: 5,
+      },
+    },
+  ],
+});
 
 describe('ChatThread', () => {
   it('reserves a loading row for a run whose journal has not loaded', () => {
@@ -122,5 +157,30 @@ describe('ChatThread', () => {
     );
 
     expect(screen.queryByText(/Loading/)).not.toBeInTheDocument();
+  });
+
+  it('docks a pull request on hold for the chat above the text bar', () => {
+    render(
+      thread([], [], openedPullRequest('held') as unknown as Partial<Chat>),
+    );
+    const tray = screen.getByRole('region', { name: 'Show video icons' });
+
+    expect(
+      within(tray).getByRole('button', { name: 'Hand to the line' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Show Show video icons' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps a pull request handed to the line in the thread', () => {
+    render(
+      thread([], [], openedPullRequest('line') as unknown as Partial<Chat>),
+    );
+
+    expect(screen.getByText('Handed to the line')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Show video icons' }),
+    ).not.toBeInTheDocument();
   });
 });

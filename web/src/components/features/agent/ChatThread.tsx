@@ -93,20 +93,41 @@ export function ChatThread({
       awaiting={awaiting}
     />
   );
+  const pullRequestOf = (moment: Extract<ChatMoment, { kind: 'opened' }>) => (
+    <ChatPullRequest
+      slug={slug}
+      teamId={teamId}
+      chatId={chat.id}
+      title={moment.message.body}
+      pullRequest={moment.pullRequest}
+    />
+  );
   const tray = useDecisionTray(
-    moments.flatMap((moment): DockedDecision[] =>
-      moment.kind === 'proposed' && STILL_OPEN.has(moment.proposal.state)
-        ? [
-            {
-              id: moment.key,
-              kind: 'Task proposal',
-              label: moment.proposal.title,
-              group: 'Tasks proposed',
-              content: proposalOf(moment),
-            },
-          ]
-        : [],
-    ),
+    moments.flatMap((moment): DockedDecision[] => {
+      if (moment.kind === 'proposed' && STILL_OPEN.has(moment.proposal.state)) {
+        return [
+          {
+            id: moment.key,
+            kind: 'Task proposal',
+            label: moment.proposal.title,
+            group: 'Tasks proposed',
+            content: proposalOf(moment),
+          },
+        ];
+      }
+      if (moment.kind === 'opened' && moment.pullRequest.state === 'held') {
+        return [
+          {
+            id: moment.key,
+            kind: 'Pull request on hold',
+            label: moment.message.body,
+            group: 'Pull requests on hold',
+            content: pullRequestOf(moment),
+          },
+        ];
+      }
+      return [];
+    }),
   );
   const [opened, setOpened] = useState(() => ({
     chatId: chat.id,
@@ -203,13 +224,12 @@ export function ChatThread({
                             )}
 
                             {moment.kind === 'opened' && (
-                              <ChatPullRequest
-                                slug={slug}
-                                teamId={teamId}
-                                chatId={chat.id}
-                                title={moment.message.body}
-                                pullRequest={moment.pullRequest}
-                              />
+                              <Dockable
+                                id={moment.key}
+                                run={runs.get(moment.key)}
+                              >
+                                {pullRequestOf(moment)}
+                              </Dockable>
                             )}
 
                             {moment.kind === 'answered' && (

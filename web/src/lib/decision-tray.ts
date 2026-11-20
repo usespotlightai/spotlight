@@ -39,24 +39,26 @@ export const dockedRuns = (
   ids: readonly string[],
 ): ReadonlyMap<string, number> => {
   const runs = new Map<string, number>();
-  let first: string | null = null;
+  let first: DockedDecision | null = null;
   let length = 0;
 
   for (const id of ids) {
-    if (!dockedIn(tray, id)) {
+    const docked = dockedIn(tray, id);
+
+    if (!docked) {
       first = null;
       continue;
     }
 
-    if (first === null) {
-      first = id;
+    if (first === null || first.group !== docked.group) {
+      first = docked;
       length = 0;
     } else {
       runs.set(id, 0);
     }
 
     length += 1;
-    runs.set(first, length);
+    runs.set(first.id, length);
   }
 
   return runs;
