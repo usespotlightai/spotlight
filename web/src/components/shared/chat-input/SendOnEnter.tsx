@@ -2,9 +2,15 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { COMMAND_PRIORITY_HIGH, KEY_ENTER_COMMAND } from 'lexical';
 import { useEffect, useEffectEvent } from 'react';
 
-export function SendOnEnter({ send }: { send: () => void }) {
+type SendOnEnterProps = {
+  send: () => void;
+  blank: boolean;
+};
+
+export function SendOnEnter({ send, blank }: SendOnEnterProps) {
   const [editor] = useLexicalComposerContext();
   const sent = useEffectEvent(send);
+  const empty = useEffectEvent(() => blank);
 
   useEffect(
     () =>
@@ -13,6 +19,10 @@ export function SendOnEnter({ send }: { send: () => void }) {
         (event) => {
           if (event?.shiftKey) {
             return false;
+          }
+          // An empty text bar leaves Mod+Enter to the page, so it can approve a docked approval.
+          if (event && (event.metaKey || event.ctrlKey) && empty()) {
+            return true;
           }
           event?.preventDefault();
           sent();

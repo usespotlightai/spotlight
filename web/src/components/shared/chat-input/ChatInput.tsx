@@ -175,6 +175,7 @@ export function ChatInput({
       {/* Remote cursors sit outside the form, so their name labels are not cut off at its edge. */}
       <div ref={cursors} />
       <form
+        data-slot="chat-input-form"
         onSubmit={send}
         {...(!disabled && message.handlers)}
         style={height === null ? undefined : { height }}
@@ -216,6 +217,7 @@ export function ChatInput({
                 editable={!locked && !disabled}
                 disabled={disabled}
                 onEnter={send}
+                blank={message.blank}
                 onWritten={message.setWritten}
               />
             </ReferenceStates>

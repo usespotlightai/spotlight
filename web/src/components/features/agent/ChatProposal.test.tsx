@@ -44,6 +44,8 @@ const MOCKUP: Attachment = {
   size: 2048,
 };
 
+const awaiting = { current: new Set<number>() };
+
 const proposing = (
   proposal: Proposal,
   attachments: readonly Attachment[] = [],
@@ -60,6 +62,7 @@ const proposing = (
             position={3}
             proposal={proposal}
             attachments={attachments}
+            awaiting={awaiting}
           />
         }
       />
@@ -79,6 +82,7 @@ const accepting = async () => {
 };
 
 beforeEach(() => {
+  awaiting.current.clear();
   created.mockReset();
   dismissed.mockReset();
   restored.mockReset();

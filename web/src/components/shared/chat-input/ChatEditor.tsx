@@ -35,6 +35,7 @@ type ChatEditorProps = {
   editable: boolean;
   disabled: boolean;
   onEnter: () => void;
+  blank?: boolean;
   onWritten: (written: Written) => void;
   shared?: SharedDraft | null;
   cursors?: RefObject<HTMLDivElement | null>;
@@ -49,6 +50,7 @@ export function ChatEditor({
   editable,
   disabled,
   onEnter,
+  blank = false,
   onWritten,
   shared,
   cursors,
@@ -117,7 +119,7 @@ export function ChatEditor({
           </>
         ) : null}
         <EditorHandle editorRef={handle} editable={editable} />
-        <SendOnEnter send={onEnter} />
+        <SendOnEnter send={onEnter} blank={blank} />
         <WatchMessage onChange={onWritten} />
       </LexicalExtensionComposer>
     </LexicalCollaboration>

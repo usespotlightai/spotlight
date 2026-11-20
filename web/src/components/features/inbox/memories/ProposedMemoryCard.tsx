@@ -51,7 +51,6 @@ export function ProposedMemoryCard({
 
   return (
     <DecisionCard
-      as="li"
       ref={card}
       data-slot="proposed-memory"
       className={cn(

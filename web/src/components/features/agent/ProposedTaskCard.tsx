@@ -1,5 +1,5 @@
 import { Undo2 } from 'lucide-react';
-import { type Ref, useId, useState } from 'react';
+import { type Ref, use, useId, useState } from 'react';
 
 import { ProposedTaskFacts } from '@/components/features/agent/ProposedTaskFacts';
 import { Collapsible } from '@/components/shared/Collapsible';
@@ -20,6 +20,7 @@ import {
   proposalText,
   proposalTitleOf,
 } from '@/lib/chat';
+import { DockedContext } from '@/lib/decision-tray';
 import { taskPath } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -49,10 +50,20 @@ export function ProposedTaskCard({
   ref,
 }: ProposedTaskCardProps) {
   const titleId = useId();
+  const docked = use(DockedContext) !== null;
   const [unfolded, setUnfolded] = useState(false);
   const dismissed =
     proposal.state === 'dismissed' || proposal.state === 'replaced';
   const folded = dismissed && !unfolded;
+  const facts = (
+    <ProposedTaskFacts
+      slug={slug}
+      teamId={teamId}
+      proposal={proposal}
+      attachments={attachments}
+      titleId={titleId}
+    />
+  );
 
   return (
     <DecisionCard
@@ -92,10 +103,12 @@ export function ProposedTaskCard({
                 <Undo2 />
               </IconAction>
             )}
-            <CopyIconAction
-              text={proposalText(proposal)}
-              label={`Copy ${proposal.title}`}
-            />
+            {!docked && (
+              <CopyIconAction
+                text={proposalText(proposal)}
+                label={`Copy ${proposal.title}`}
+              />
+            )}
             {dismissed && (
               <FoldToggle
                 folded={folded}
@@ -109,15 +122,11 @@ export function ProposedTaskCard({
 
       <Collapsible open={!folded} appear={false}>
         <div className="flex flex-col gap-3 pt-1.5">
-          <OverflowFade className="max-h-96">
-            <ProposedTaskFacts
-              slug={slug}
-              teamId={teamId}
-              proposal={proposal}
-              attachments={attachments}
-              titleId={titleId}
-            />
-          </OverflowFade>
+          {docked ? (
+            facts
+          ) : (
+            <OverflowFade className="max-h-96">{facts}</OverflowFade>
+          )}
 
           <ProposalOutcome
             slug={slug}
@@ -186,7 +195,11 @@ function ProposalOutcome({
   }
 
   if (proposal.state === 'accepted' || proposal.state === 'created') {
-    return <div aria-hidden className={OUTCOME} />;
+    return (
+      <DecisionControls>
+        <div aria-hidden className={OUTCOME} />
+      </DecisionControls>
+    );
   }
 
   return null;

@@ -51,6 +51,7 @@ export function DisputedClaimCard({
   const [draft, setDraft] = useState<ClaimDraft>(EMPTY_CLAIM_DRAFT);
   const section = useRef<HTMLElement>(null);
   const textId = useId();
+  const formId = useId();
 
   const state = cardStateOf(disagreement, claim.index);
   const given = answerOfClaim(disagreement, claim.index);
@@ -114,6 +115,7 @@ export function DisputedClaimCard({
 
       {answering ? (
         <form
+          id={formId}
           data-slot="disagreement-form"
           className="flex flex-col gap-3"
           onSubmit={(event) => {
@@ -141,6 +143,7 @@ export function DisputedClaimCard({
               {(describedBy) => (
                 <DecisionButton
                   type="submit"
+                  form={formId}
                   variant="default"
                   disabled={send.isPending || !body}
                   aria-describedby={describedBy}

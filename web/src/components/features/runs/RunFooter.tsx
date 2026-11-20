@@ -1,9 +1,16 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
 import { heldByOther } from '@/lib/hold';
-import { runPath, type TeamRun, waitsOnPerson, stoppable } from '@/lib/run';
+import {
+  newestRunAt,
+  runPath,
+  stoppable,
+  type TeamRun,
+  waitsOnPerson,
+} from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
@@ -29,8 +36,13 @@ export function RunFooter({
     teamId,
     conversation?.taskId,
   );
+  const { data: runs } = useTaskRuns(teamId, conversation?.taskId);
   const me = useMe();
   const heldByTeammate = heldByOther(task?.hold, me?.id);
+  const movedOn = Boolean(
+    current && run.station && current.id !== run.station.id,
+  );
+  const there = movedOn && current ? newestRunAt(runs ?? [], current.id) : null;
 
   if (heldByTeammate) {
     return (
@@ -41,7 +53,23 @@ export function RunFooter({
     );
   }
 
-  if (current && run.station && current.id !== run.station.id) {
+  if (current && there) {
+    return (
+      <RunComposer
+        slug={slug}
+        teamId={teamId}
+        runId={there.id}
+        taskId={conversation?.taskId}
+        station={current.name}
+        stationId={current.id}
+        running={stoppable(there)}
+        answering={waitsOnPerson(there)}
+        onSent={onSent}
+      />
+    );
+  }
+
+  if (current && movedOn) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
         The task has moved to{' '}

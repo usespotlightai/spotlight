@@ -12,9 +12,11 @@ const FADE = 'min(1.5rem, 25%)';
 
 export function FadingScroll({
   className,
+  contentClassName,
   children,
 }: {
   className?: string;
+  contentClassName?: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -64,6 +66,7 @@ export function FadingScroll({
       viewportRef={ref}
       onScroll={measure}
       className={className}
+      contentClassName={contentClassName}
       style={{ maskImage: mask, WebkitMaskImage: mask }}
     >
       {children}

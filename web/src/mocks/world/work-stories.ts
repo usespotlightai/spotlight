@@ -1,5 +1,6 @@
 import type {
   InboxApprovalResponseDto,
+  InboxConnectionResponseDto,
   InboxFailureResponseDto,
   JournalStepResponseDto,
   NoteResponseDto,
@@ -27,6 +28,7 @@ export type NoteScript = {
   readonly author?: TaskPersonResponseDto;
   readonly failure?: InboxFailureResponseDto;
   readonly approval?: InboxApprovalResponseDto;
+  readonly connection?: InboxConnectionResponseDto;
   readonly source?: string;
   readonly deferredTo?: string;
   readonly minutesAfterEnd?: number;
@@ -304,6 +306,20 @@ export const RUN_STORIES: Record<string, RunStory> = {
         },
         6,
       ),
+      asked(
+        'I need your GitHub connection to read the CI history of this test.',
+        {
+          form: 'connection',
+          minutesIn: 7,
+          connection: {
+            integration: 'github',
+            integrationName: 'GitHub',
+            personId: SAM.id,
+            personName: SAM.name,
+            met: false,
+          },
+        },
+      ),
     ],
   },
   run_retry_after_1: {
@@ -472,7 +488,14 @@ export const RUN_STORIES: Record<string, RunStory> = {
       ),
       execute('npm test -- retries', 'running 14 tests', 2, 'running'),
     ],
-    notes: [],
+    notes: [
+      {
+        kind: 'message',
+        body: 'Leave billing-retries paused until finance signs off on the replay.',
+        author: MAYA,
+        minutesIn: 3,
+      },
+    ],
   },
   run_billing_1: {
     spend: spend(1.41, 6_020, 12_400, 894_000, 52_100),

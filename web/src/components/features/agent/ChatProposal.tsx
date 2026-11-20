@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ProposedTaskCard } from '@/components/features/agent/ProposedTaskCard';
@@ -27,6 +27,7 @@ type ChatProposalProps = {
   position: number;
   proposal: Proposal;
   attachments: readonly Attachment[];
+  awaiting: RefObject<Set<number>>;
 };
 
 export function ChatProposal({
@@ -36,6 +37,7 @@ export function ChatProposal({
   position,
   proposal,
   attachments,
+  awaiting,
 }: ChatProposalProps) {
   const accept = useAcceptProposal();
   const dismiss = useDismissProposal();
@@ -43,7 +45,6 @@ export function ChatProposal({
   const pending = accept.isPending || dismiss.isPending || restore.isPending;
   const navigate = useNavigate();
   const trail = useForwardTrail();
-  const awaiting = useRef(false);
   const card = useRef<HTMLElement>(null);
   const decided = useFocusAfterDecision(card, `${proposal.state}:${pending}`);
   const seen = useRef(proposal.state);
@@ -52,12 +53,12 @@ export function ChatProposal({
     const before = seen.current;
     seen.current = proposal.state;
 
-    if (!awaiting.current) {
+    if (!awaiting.current.has(position)) {
       return;
     }
 
     if (proposal.state === 'created' && proposal.taskId) {
-      awaiting.current = false;
+      awaiting.current.delete(position);
       if (inView(card.current)) {
         return;
       }
@@ -74,16 +75,16 @@ export function ChatProposal({
         },
       });
     } else if (proposal.state === 'open' && before === 'accepted') {
-      awaiting.current = false;
+      awaiting.current.delete(position);
       toast.add({
         type: 'error',
         title: 'Sorry, the task was not created',
         description: 'The station is not on the line. Please try again.',
       });
     } else if (proposal.state === 'dismissed') {
-      awaiting.current = false;
+      awaiting.current.delete(position);
     }
-  }, [proposal, slug, teamId, navigate, trail]);
+  }, [proposal, slug, teamId, navigate, trail, awaiting, position]);
 
   return (
     <ProposedTaskCard
@@ -95,12 +96,12 @@ export function ChatProposal({
       pending={pending}
       onCreate={() => {
         decided();
-        awaiting.current = true;
+        awaiting.current.add(position);
         accept.mutate(
           { teamId, chatId, position },
           {
             onError: () => {
-              awaiting.current = false;
+              awaiting.current.delete(position);
             },
           },
         );

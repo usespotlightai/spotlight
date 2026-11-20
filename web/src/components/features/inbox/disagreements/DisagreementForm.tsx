@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { DisagreementNote } from '@/components/features/inbox/disagreements/DisagreementNote';
 import { NotMetClaimPick } from '@/components/features/inbox/disagreements/NotMetClaimPick';
@@ -28,12 +28,14 @@ export function DisagreementForm({
   pending,
   onAnswer,
 }: DisagreementFormProps) {
+  const formId = useId();
   const [draft, setDraft] = useState<NotMetDraft>(EMPTY_NOT_MET_DRAFT);
   const answer = notMetAnswerOf(draft);
   const blocked = pending ? null : notMetBlockedReason(draft);
 
   return (
     <form
+      id={formId}
       data-slot="disagreement-form"
       className="flex flex-col gap-3"
       onSubmit={(event) => {
@@ -64,6 +66,7 @@ export function DisagreementForm({
           {(describedBy) => (
             <DecisionButton
               type="submit"
+              form={formId}
               variant="default"
               disabled={pending || !answer}
               aria-describedby={describedBy}

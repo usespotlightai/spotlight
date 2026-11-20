@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import type { Approval } from '@/lib/approval';
+import { type Docked, DockedContext } from '@/lib/decision-tray';
 
 const COMMENT: Approval = {
   kind: 'tool-call',
@@ -310,14 +311,20 @@ describe('ApprovalCard', () => {
   });
 
   describe('keyboard', () => {
-    const showingWithKeys = (approval: Approval, onDecide = vi.fn()) => {
+    const showingWithKeys = (
+      approval: Approval,
+      onDecide = vi.fn(),
+      docked: Docked | null = null,
+    ) => {
       render(
         <CommandsProvider>
-          <ApprovalCard
-            approval={approval}
-            pending={false}
-            onDecide={onDecide}
-          />
+          <DockedContext value={docked}>
+            <ApprovalCard
+              approval={approval}
+              pending={false}
+              onDecide={onDecide}
+            />
+          </DockedContext>
           <button type="button">Elsewhere</button>
         </CommandsProvider>,
       );
@@ -349,6 +356,43 @@ describe('ApprovalCard', () => {
       approveKey();
 
       expect(onDecide).not.toHaveBeenCalled();
+    });
+
+    it('approves with Command Enter from anywhere while the open tray shows it', () => {
+      const onDecide = showingWithKeys(COMMENT, vi.fn(), {
+        controls: null,
+        active: true,
+      });
+
+      act(() => screen.getByRole('button', { name: 'Elsewhere' }).focus());
+      approveKey();
+
+      expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
+      expect(
+        screen.getByRole('button', { name: 'Approve linear.comment' }),
+      ).toHaveTextContent(/Approve/);
+      expect(
+        screen
+          .getByRole('button', { name: 'Approve linear.comment' })
+          .querySelector('[data-slot=shortcut-keys]'),
+      ).toBeInTheDocument();
+    });
+
+    it('approves nothing with Command Enter from elsewhere while the tray hides it', () => {
+      const onDecide = showingWithKeys(COMMENT, vi.fn(), {
+        controls: null,
+        active: false,
+      });
+
+      act(() => screen.getByRole('button', { name: 'Elsewhere' }).focus());
+      approveKey();
+
+      expect(onDecide).not.toHaveBeenCalled();
+      expect(
+        screen
+          .getByRole('button', { name: 'Approve linear.comment' })
+          .querySelector('[data-slot=shortcut-keys]'),
+      ).not.toBeInTheDocument();
     });
 
     it('shows Command Enter on Approve only while the key approves', async () => {

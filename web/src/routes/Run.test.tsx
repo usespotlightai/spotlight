@@ -78,6 +78,13 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   useRunChangeStacks: () => ({ data: undefined }),
 }));
 
+const taskRuns = vi.fn((): unknown[] | undefined => undefined);
+
+vi.mock('@/hooks/api/useTaskRuns', () => ({
+  taskRunKeys: { forTask: () => ['runs', 'task'] },
+  useTaskRuns: () => ({ data: taskRuns() }),
+}));
+
 const taskStation = vi.fn((): Record<string, unknown> => ({}));
 
 vi.mock('@/hooks/api/useTaskStation', () => ({
@@ -203,6 +210,7 @@ const renderRun = (client = new QueryClient()) =>
 describe('Run', () => {
   beforeEach(() => {
     taskStation.mockReturnValue({});
+    taskRuns.mockReturnValue(undefined);
     resumption.mockReset();
     send.mockReset();
     stop.mockReset();
@@ -737,6 +745,32 @@ describe('Run', () => {
       expect(
         screen.queryByRole('textbox', { name: 'Message Implementation' }),
       ).toBeNull();
+    });
+
+    it('gives the text bar to the station the task is at, once a run started there', async () => {
+      taskStation.mockReturnValue(left);
+      taskRuns.mockReturnValue([
+        run({
+          id: 'run_2',
+          station: { ...STATION, id: 'station_4', name: 'Review' },
+        }),
+      ]);
+
+      renderRun();
+      await write(
+        screen.getByRole('textbox', { name: 'Send it back to Review' }),
+        'check the replay too',
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(screen.queryByText(/Messages here reach no one\./)).toBeNull();
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          runId: 'run_2',
+          body: 'check the replay too',
+        }),
+        expect.objectContaining({ onError: expect.any(Function) as unknown }),
+      );
     });
 
     it('names the station without a link while no run has started there', () => {

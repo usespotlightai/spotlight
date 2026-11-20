@@ -18,6 +18,7 @@ import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
+import type { DockedDecision } from '@/lib/decision-tray';
 import { decisionPending, showsInThread } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
@@ -31,6 +32,7 @@ type RunThreadProps = {
   runId: string;
   trail: readonly BreadcrumbSegment[];
   after: ReactNode;
+  docked?: readonly DockedDecision[];
 };
 
 export function RunThread({
@@ -40,6 +42,7 @@ export function RunThread({
   runId,
   trail,
   after,
+  docked,
 }: RunThreadProps) {
   const conversationQuery = useRunNotes(teamId, runId);
   const journal = useTaskJournal(slug, taskId, [
@@ -102,6 +105,7 @@ export function RunThread({
                   }
                   deciding={decide}
                   afterRun={{ runId, content: after }}
+                  docked={docked}
                 />
               </JournalDemandContext>
             </RunCitationTargets>
