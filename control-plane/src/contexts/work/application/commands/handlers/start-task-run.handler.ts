@@ -49,6 +49,14 @@ export class StartTaskRunHandler implements CommandHandlerPort<
       );
     }
 
-    await this.tasks.save(await handedToRun(this.dispatch, task, line));
+    const settled = task.withoutAgentOn(line);
+
+    if (settled.runNotStartedHere && !settled.wantsRun(line)) {
+      throw new InvalidTaskTransitionError(
+        `Task ${command.taskId} cannot start a run now. It waits on a person or is on hold.`,
+      );
+    }
+
+    await this.tasks.save(await handedToRun(this.dispatch, settled, line));
   }
 }

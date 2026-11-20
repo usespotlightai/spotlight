@@ -53,6 +53,16 @@ type TaskMessage = TaskRef & {
   readonly draftGeneration?: number;
 };
 
+export const startsTaskRunKey = ['starts-task-run'] as const;
+
+export function useTriedToStartRun(taskId: string): boolean {
+  return useMutationState({
+    filters: { mutationKey: startsTaskRunKey, status: 'success' },
+    select: (mutation) =>
+      (mutation.state.variables as TaskRef | undefined)?.taskId,
+  }).includes(taskId);
+}
+
 export const refreshTask = (queryClient: QueryClient, teamId: string) =>
   Promise.all(
     [
@@ -67,6 +77,7 @@ export function useSendTaskMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: startsTaskRunKey,
     mutationFn: async ({ teamId, taskId, ...body }: TaskMessage) => {
       const { data } = await sendTaskMessage({
         path: { teamId, taskId },

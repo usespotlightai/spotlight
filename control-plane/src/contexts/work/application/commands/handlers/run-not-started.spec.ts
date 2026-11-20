@@ -25,13 +25,16 @@ import { MessageSending } from '@work/application/services/message-sending.servi
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,
   routesOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-11-20T09:00:00.000Z');
@@ -54,21 +57,24 @@ const station = (
     ...extra,
   });
 
-const line = lineMapOf({
-  id: LineId.of('line_1'),
-  workspaceId: WorkspaceId.of('ws_1'),
-  teamId: TeamId.of('team_1'),
-  key: LineKey.of('delivery'),
-  name: LineName.of('Delivery'),
-  stations: [
-    station('station_backlog', 'Backlog', 0, { kind: 'backlog' }),
-    station('station_review', 'Code Review', 1, {
-      harness: HarnessId.of('dev'),
-      routes: routesOf({ stations: [], ends: true }),
-    }),
-    station('station_completed', 'Completed', 2, { kind: 'completed' }),
-  ],
-});
+const lineWith = (review: Partial<Parameters<typeof stationOf>[0]>) =>
+  lineMapOf({
+    id: LineId.of('line_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    key: LineKey.of('delivery'),
+    name: LineName.of('Delivery'),
+    stations: [
+      station('station_backlog', 'Backlog', 0, { kind: 'backlog' }),
+      station('station_review', 'Code Review', 1, {
+        routes: routesOf({ stations: [], ends: true }),
+        ...review,
+      }),
+      station('station_completed', 'Completed', 2, { kind: 'completed' }),
+    ],
+  });
+
+const line = lineWith({ harness: HarnessId.of('dev') });
 
 const waiting = () =>
   Task.add({
@@ -84,7 +90,7 @@ const waiting = () =>
 let starts: RunId | null;
 let saved: Task | undefined;
 
-const world = (task: Task) => {
+const world = (task: Task, at: LineMap = line) => {
   const access = workAccessSeeing(
     (_teamId, viewer) => viewer.value !== OUTSIDER,
     {
@@ -98,7 +104,7 @@ const world = (task: Task) => {
     }),
   } as unknown as TaskRepository;
   const lines = {
-    findByStation: vi.fn(async () => line),
+    findByStation: vi.fn(async () => at),
   } as unknown as LineMapsPort;
   const dispatch: TaskDispatching = { runIdFor: async () => starts };
   const transaction = {
@@ -191,6 +197,29 @@ describe('a task whose agent did not start', () => {
 
     await expect(world(running).start()).rejects.toThrow(
       'Task task_1 is not waiting for its run to start.',
+    );
+    expect(saved).toBeUndefined();
+  });
+
+  it('forgets why the run did not start once the station has no agent', async () => {
+    await world(waiting(), lineWith({})).start();
+
+    expect(saved?.running).toBe(false);
+    expect(saved?.runNotStarted).toBeNull();
+  });
+
+  it('refuses Try again while someone holds the task without a message', async () => {
+    const held = waiting().hold({
+      id: HoldId.of('hold_1'),
+      by: UserId.of('maya'),
+      members: TeamMembers.of([OWNER, UserId.of('maya')]),
+      line,
+      currentRunStarted: false,
+      at: NOW,
+    });
+
+    await expect(world(held).start()).rejects.toThrow(
+      'Task task_1 cannot start a run now. It waits on a person or is on hold.',
     );
     expect(saved).toBeUndefined();
   });

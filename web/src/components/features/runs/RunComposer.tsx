@@ -10,11 +10,13 @@ import { heldByMe } from '@/lib/hold';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
 import { holdsOnMessage, startsAgainOnMessage } from '@/lib/task';
 
-type RunComposerProps = {
+type Target =
+  | { runId: string; taskId: string | undefined }
+  | { runId: null; taskId: string };
+
+type RunComposerProps = Target & {
   slug: string;
   teamId: string;
-  runId: string | null;
-  taskId: string | undefined;
   station: string;
   stationId: string | undefined;
   running: boolean;
@@ -57,14 +59,14 @@ const placeholderFor = (mode: Mode, running: boolean): string =>
 export function RunComposer({
   slug,
   teamId,
-  runId,
-  taskId,
   station,
   stationId,
   running,
   answering,
   onSent,
+  ...target
 }: RunComposerProps) {
+  const { runId, taskId } = target;
   const send = useSendMessage();
   const sendToTask = useSendTaskMessage();
   const stop = useStopRun();
@@ -103,21 +105,25 @@ export function RunComposer({
         { body, attachments, files, coAuthors, draftGeneration },
         restore,
       ) => {
-        if (!runId) {
-          if (taskId) {
-            sendToTask.mutate(
-              { teamId, taskId, body, attachments, coAuthors, draftGeneration },
-              { onError: restore },
-            );
-            onSent?.();
-          }
+        if (target.runId === null) {
+          sendToTask.mutate(
+            {
+              teamId,
+              taskId: target.taskId,
+              body,
+              attachments,
+              coAuthors,
+              draftGeneration,
+            },
+            { onError: restore, onSuccess: onSent },
+          );
           return;
         }
 
         send.mutate(
           {
             teamId,
-            runId,
+            runId: target.runId,
             body,
             attachments,
             files,

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
+import { useTriedToStartRun } from '@/hooks/api/useSendMessage';
 import { useStartTaskRun } from '@/hooks/api/useStartTaskRun';
 
 type RunNotStartedNoticeProps = {
@@ -18,7 +19,7 @@ export function RunNotStartedNotice({
   const start = useStartTaskRun();
   const { data: harnesses } = useHarnesses();
   const agent = harnesses?.find((each) => each.id === harness)?.name ?? harness;
-  const still = start.isSuccess && start.data?.runNotStarted !== null;
+  const still = useTriedToStartRun(taskId);
 
   return (
     <div

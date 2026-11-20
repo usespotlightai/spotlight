@@ -8,7 +8,7 @@ export const handedToRun = async (
   line: LineMap,
 ): Promise<Task> => {
   if (!task.wantsRun(line)) {
-    return task;
+    return task.withoutAgentOn(line);
   }
 
   const runId = await dispatch.runIdFor({ task, line });

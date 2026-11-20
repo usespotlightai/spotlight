@@ -1582,6 +1582,12 @@ export class Task extends EventRecorder {
 
     return harness
       ? this.with({ runNotStarted: RunNotStarted.at(this.stationId, harness) })
+      : this.withoutAgentOn(line);
+  }
+
+  withoutAgentOn(line: LineMap): Task {
+    return this.runNotStarted && !line.stationAt(this.stationId)?.harness
+      ? this.with({ runNotStarted: null })
       : this;
   }
 

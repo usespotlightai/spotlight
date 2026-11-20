@@ -96,10 +96,13 @@ const inFlight = vi.fn((): unknown[] => []);
 const sendToTask = vi.fn();
 const startRun = vi.fn();
 
+const triedToStart = vi.fn(() => false);
+
 vi.mock('@/hooks/api/useSendMessage', () => ({
   useSendMessage: () => ({ mutate: send, isPending: false }),
   useSendTaskMessage: () => ({ mutate: sendToTask, isPending: false }),
   useMessagesInFlight: () => inFlight(),
+  useTriedToStartRun: () => triedToStart(),
 }));
 
 vi.mock('@/hooks/api/useStartTaskRun', () => ({
@@ -217,6 +220,7 @@ const renderRun = (client = new QueryClient()) =>
 describe('Run', () => {
   beforeEach(() => {
     taskStation.mockReturnValue({});
+    triedToStart.mockReturnValue(false);
     resumption.mockReset();
     send.mockReset();
     sendToTask.mockReset();
@@ -804,6 +808,19 @@ describe('Run', () => {
           expect.objectContaining({ onError: expect.any(Function) as unknown }),
         );
         expect(send).not.toHaveBeenCalled();
+      });
+
+      it('says the agent still does not start after a message or Try again', () => {
+        taskStation.mockReturnValue(stuck);
+        triedToStart.mockReturnValue(true);
+
+        renderRun();
+
+        expect(
+          screen.getByRole('status', { name: 'The run did not start' }),
+        ).toHaveTextContent(
+          'Spotlight still cannot start gemini-cli at Review.',
+        );
       });
     });
 
