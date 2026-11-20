@@ -52,6 +52,6 @@ export interface TaskDto {
   readonly runNotStarted: TaskRunNotStartedDto | null;
 }
 
-export interface TaskRunNotStartedDto {
+interface TaskRunNotStartedDto {
   readonly harness: string;
 }

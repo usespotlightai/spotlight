@@ -47,7 +47,7 @@ export interface TaskSummary {
   readonly runNotStarted: TaskRunNotStartedSummary | null;
 }
 
-export interface TaskRunNotStartedSummary {
+interface TaskRunNotStartedSummary {
   readonly harness: string;
 }
 
