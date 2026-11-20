@@ -21,6 +21,7 @@ import { useStoredState } from '@/hooks/useStoredState';
 import { inboxItemPath } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import {
+  ALL_RUNS,
   asRunFilter,
   byAge,
   FALLBACK_RUN_FILTER,
@@ -82,9 +83,13 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
           <div className="flex flex-col items-center gap-3">
             <EmptyState
               icon={Play}
-              title="Nothing is waiting for you"
+              title={
+                runs.more.available
+                  ? 'No recent run is waiting for you'
+                  : 'Nothing is waiting for you'
+              }
               action={
-                <PillButton size="regular" onClick={() => store('all')}>
+                <PillButton size="regular" onClick={() => store(ALL_RUNS)}>
                   Show all runs
                 </PillButton>
               }

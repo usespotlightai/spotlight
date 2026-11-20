@@ -123,6 +123,21 @@ describe('TeamRuns', () => {
     expect(filter('All')).toHaveAttribute('aria-current', 'page');
   });
 
+  it('claims only recent runs while older runs are not read', async () => {
+    runs.mockReturnValue([answered, unreviewed]);
+    older.mockReturnValue(true);
+    showing();
+
+    await userEvent.click(filter('Waiting for you'));
+
+    expect(
+      screen.getByText('No recent run is waiting for you'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Show more' }),
+    ).toBeInTheDocument();
+  });
+
   it('reads older runs on request', async () => {
     older.mockReturnValue(true);
     showing();
