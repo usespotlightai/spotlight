@@ -810,13 +810,31 @@ describe('InboxItem', () => {
     });
   });
 
-  describe('when the server says the person cannot answer it', () => {
+  describe('when the server says its assignee cannot answer it', () => {
     beforeEach(() => {
       const [only] = item([note()]);
-      waiting.mockReturnValue([{ ...only, answerable: false }]);
+      waiting.mockReturnValue([
+        { ...only, standing: 'assignee', answerable: false },
+      ]);
     });
 
-    it('shows the conversation without a way to answer it', () => {
+    it('says they do not act on the tasks of the team', () => {
+      renderItem();
+
+      expect(
+        screen.queryByRole('textbox', { name: /Answer/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/do not act on them/)).toBeInTheDocument();
+    });
+  });
+
+  describe('when the server gives the person no standing on it', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([{ ...only, standing: null, answerable: false }]);
+    });
+
+    it('leaves the answer to its assignee', () => {
       renderItem();
 
       expect(

@@ -372,6 +372,21 @@ describe('a held task whose turn asks another person (e2e)', () => {
     ).toMatchObject({ standing: 'asked', answerable: true, resolvable: false });
   });
 
+  it('lets the person asked resolve the ask once nobody is assigned, as any member of the team may', async () => {
+    const turn = RunId.of(randomUUID());
+    const unassigned = askingApproval(
+      added().assignRun(turn, line),
+      turn,
+      asked,
+    ).unassign();
+
+    await tasks.add(unassigned);
+
+    expect(
+      conversationIn(await reader.open(scopeOf(asked)), unassigned),
+    ).toMatchObject({ standing: 'team', answerable: true, resolvable: true });
+  });
+
   it('asks nobody again when a person reopens a conversation whose approval is decided', async () => {
     const turn = RunId.of(randomUUID());
     const asking = askingApproval(

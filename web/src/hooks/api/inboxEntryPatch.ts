@@ -10,7 +10,7 @@ import {
 } from '@/lib/inbox';
 
 type EntryPatch = Pick<InboxItem, 'resolved' | 'section' | 'reopenable'> &
-  Partial<Pick<InboxItem, 'unread' | 'resolvable'>>;
+  Partial<Pick<InboxItem, 'unread' | 'resolvable' | 'answerable'>>;
 
 export const patchInboxEntry = (
   queryClient: QueryClient,

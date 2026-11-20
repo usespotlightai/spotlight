@@ -57,12 +57,12 @@ export const ConversationAudience = {
       return 'assignee';
     }
 
-    if (reader.asked) {
-      return 'asked';
-    }
-
     if (assignee === null && reader.onTeam) {
       return 'team';
+    }
+
+    if (reader.asked) {
+      return 'asked';
     }
 
     return assignee !== null && reader.wroteIn ? 'following' : null;
