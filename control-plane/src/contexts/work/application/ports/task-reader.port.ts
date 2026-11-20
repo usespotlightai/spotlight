@@ -45,6 +45,11 @@ export interface TaskSummary {
   readonly assignee: TaskPersonSummary | null;
   readonly source: string | null;
   readonly hold: TaskHoldSummary | null;
+  readonly runNotStarted: TaskRunNotStartedSummary | null;
+}
+
+interface TaskRunNotStartedSummary {
+  readonly harness: string;
 }
 
 export type TaskListing =

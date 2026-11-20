@@ -14,6 +14,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -54,6 +55,7 @@ import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { RunNotStarted } from '@work/domain/value-objects/run-not-started.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -266,6 +268,13 @@ const toTask = (
         })
       : null,
     moveHeldTo: row.moveHeldTo ? StationId.of(row.moveHeldTo) : null,
+    runNotStarted:
+      row.notStartedStationId && row.notStartedHarness
+        ? RunNotStarted.at(
+            StationId.of(row.notStartedStationId),
+            HarnessId.of(row.notStartedHarness),
+          )
+        : null,
     holds: holds.map(toHold),
     heldMarks: marks.map((each) =>
       HeldMark.of(Mark.of(each.kind, each.value), each.heldSince),
@@ -356,6 +365,8 @@ export class DrizzleTaskRepository implements TaskRepository {
         reviewedPullRequest: added.reviewedPullRequest?.url.value ?? null,
         reviewFromOutside: added.fromOutside,
         moveHeldTo: added.moveHeldTo?.value ?? null,
+        notStartedStationId: added.runNotStarted?.stationId.value ?? null,
+        notStartedHarness: added.runNotStarted?.harness.value ?? null,
         finishedAt: added.finishedAt,
         workingCopyReleasedAt: added.workingCopyRelease.releasedAt,
         revision: added.revision.value,
@@ -425,6 +436,8 @@ export class DrizzleTaskRepository implements TaskRepository {
           reviewedPullRequest: saved.reviewedPullRequest?.url.value ?? null,
           reviewFromOutside: saved.fromOutside,
           moveHeldTo: saved.moveHeldTo?.value ?? null,
+          notStartedStationId: saved.runNotStarted?.stationId.value ?? null,
+          notStartedHarness: saved.runNotStarted?.harness.value ?? null,
           finishedAt: saved.finishedAt,
           workingCopyReleasedAt: saved.workingCopyRelease.releasedAt,
           assigneeId: saved.assignee?.value ?? null,

@@ -232,6 +232,7 @@ const task = (
   finished: false,
   pullRequests: [],
   hold: null,
+  runNotStarted: null,
   createdBy: SAM,
   assignee: null,
   note: null,
@@ -285,6 +286,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     stationId: 'station_implementation',
     createdBy: PRIYA,
     createdAt: hoursAgo(28),
+    runNotStarted: { harness: 'claude-code' },
   }),
   task({
     id: 'task_postgres',

@@ -200,7 +200,9 @@ import { RestoreProposalHandler } from '@work/application/commands/handlers/rest
 import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
+import { SendTaskMessageHandler } from '@work/application/commands/handlers/send-task-message.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
+import { StartTaskRunHandler } from '@work/application/commands/handlers/start-task-run.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
@@ -217,6 +219,8 @@ import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-i
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
+import { SendTaskMessageCommand } from '@work/application/commands/send-task-message.command';
+import { StartTaskRunCommand } from '@work/application/commands/start-task-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
@@ -541,6 +545,7 @@ import { IntegrationTools } from '@work/application/services/integration-tools.s
 import { LineLoader } from '@work/application/services/line-loader.service';
 import { LineResuming } from '@work/application/services/line-resuming.service';
 import { MemberInboxes } from '@work/application/services/member-inboxes.service';
+import { MessageSending } from '@work/application/services/message-sending.service';
 import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
@@ -1260,6 +1265,43 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [WorkAccess, LINE_MAPS],
     useFactory: (access: WorkAccess, lines: LineMapsPort) =>
       new LineLoader(access, lines),
+  },
+
+  {
+    provide: MessageSending,
+    inject: [
+      TASK_REPOSITORY,
+      LINE_MAPS,
+      DispatchTask,
+      CLOCK,
+      FilesLoader,
+      WorkAccess,
+      DraftSending,
+      RUN_FACTS,
+      ID_GENERATOR,
+    ],
+    useFactory: (
+      tasks: TaskRepository,
+      lines: LineMapsPort,
+      dispatch: DispatchTask,
+      clock: ClockPort,
+      files: FilesLoader,
+      access: WorkAccess,
+      drafts: DraftSending,
+      facts: RunFactsPort,
+      ids: IdGeneratorPort,
+    ) =>
+      new MessageSending(
+        tasks,
+        lines,
+        dispatch,
+        clock,
+        files,
+        access,
+        drafts,
+        facts,
+        ids,
+      ),
   },
 
   {
@@ -2473,16 +2515,26 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(SendMessageCommand, SendMessageHandler, [
     DISPATCH_REPOSITORY,
-    TASK_REPOSITORY,
-    LINE_MAPS,
     TRANSACTION,
-    DispatchTask,
-    CLOCK,
     FilesLoader,
-    WorkAccess,
     DraftSending,
-    RUN_FACTS,
-    ID_GENERATOR,
+    MessageSending,
+  ]),
+
+  ...bindCommandHandler(SendTaskMessageCommand, SendTaskMessageHandler, [
+    TASK_REPOSITORY,
+    LineLoader,
+    TRANSACTION,
+    FilesLoader,
+    DraftSending,
+    MessageSending,
+  ]),
+
+  ...bindCommandHandler(StartTaskRunCommand, StartTaskRunHandler, [
+    TASK_REPOSITORY,
+    LineLoader,
+    DispatchTask,
+    TRANSACTION,
   ]),
 
   ...bindCommandHandler(StopRunCommand, StopRunHandler, [

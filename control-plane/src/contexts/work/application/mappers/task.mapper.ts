@@ -24,6 +24,7 @@ export const TaskMapper = {
             startedAt: summary.hold.startedAt.toISOString(),
           }
         : null,
+      runNotStarted: summary.runNotStarted,
       note: summary.note
         ? {
             position: summary.note.position,

@@ -130,6 +130,7 @@ import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { ReviewVerdict } from '@work/domain/value-objects/review-verdict.vo';
 import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
+import { RunNotStarted } from '@work/domain/value-objects/run-not-started.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
@@ -186,6 +187,7 @@ export const WORK_PAYLOAD_TYPES = [
   ProfileMissing,
   HandoverOption,
   Resumption,
+  RunNotStarted,
   HarnessSession,
   TargetStation,
   DeferredMove,

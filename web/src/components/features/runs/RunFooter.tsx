@@ -1,4 +1,5 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
+import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
@@ -38,6 +39,30 @@ export function RunFooter({
         {heldByTeammate.by.name} put the task on hold. The agent reads new
         messages after they resume the line.
       </p>
+    );
+  }
+
+  if (current && task?.runNotStarted) {
+    return (
+      <>
+        <RunNotStartedNotice
+          teamId={teamId}
+          taskId={task.id}
+          station={current.name}
+          harness={task.runNotStarted.harness}
+        />
+        <RunComposer
+          slug={slug}
+          teamId={teamId}
+          runId={null}
+          taskId={task.id}
+          station={current.name}
+          stationId={current.id}
+          running={false}
+          answering={false}
+          onSent={onSent}
+        />
+      </>
     );
   }
 

@@ -118,6 +118,8 @@ export const task = pgTable(
     reviewedPullRequest: text('reviewed_pull_request'),
     reviewFromOutside: boolean('review_from_outside').notNull().default(false),
     moveHeldTo: text('move_held_to'),
+    notStartedStationId: text('not_started_station_id'),
+    notStartedHarness: text('not_started_harness'),
     finishedAt: timestamptz('finished_at'),
     workingCopyReleasedAt: timestamptz('working_copy_released_at'),
     revision: integer('revision').notNull().default(0),

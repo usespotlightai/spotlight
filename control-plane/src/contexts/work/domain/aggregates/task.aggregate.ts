@@ -120,6 +120,7 @@ import {
   type ReviewedHead,
   ReviewedPullRequest,
 } from '@work/domain/value-objects/reviewed-pull-request.vo';
+import { RunNotStarted } from '@work/domain/value-objects/run-not-started.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
@@ -217,6 +218,7 @@ export class Task extends EventRecorder {
     readonly ownedPullRequests: readonly OwnedPullRequest[] = [],
     readonly moveHeldTo: StationId | null = null,
     readonly holds: readonly Hold[] = [],
+    readonly runNotStarted: RunNotStarted | null = null,
   ) {
     super();
   }
@@ -376,9 +378,16 @@ export class Task extends EventRecorder {
     ownedPullRequests?: readonly OwnedPullRequest[];
     moveHeldTo?: StationId | null;
     holds?: readonly Hold[];
+    runNotStarted?: RunNotStarted | null;
   }): Task {
     if (input.version < 0) {
       throw new InconsistentStateError('task', 'has a negative version');
+    }
+    if (input.runNotStarted && input.currentRunId !== null) {
+      throw new InconsistentStateError(
+        'task',
+        'has a run yet notes that its run could not start',
+      );
     }
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
@@ -501,6 +510,7 @@ export class Task extends EventRecorder {
       owned,
       input.moveHeldTo ?? null,
       holds,
+      input.runNotStarted ?? null,
     );
 
     if (
@@ -1407,7 +1417,7 @@ export class Task extends EventRecorder {
   }
 
   holdsOnMessage(
-    by: RunId,
+    by: RunId | null,
     voice: Voice,
     at: StationId | null,
     line: LineMap,
@@ -1425,18 +1435,18 @@ export class Task extends EventRecorder {
   }
 
   private pendingAnswerTo(
-    by: RunId,
+    by: RunId | null,
     at: StationId | null,
   ): Conversation | null {
     const answering =
-      this.hasCurrentRun(by) ||
+      (by !== null && this.hasCurrentRun(by)) ||
       (!this.running && at !== null && this.stationId.equals(at));
 
     return answering && !this.decisionPending ? this.pendingConversation : null;
   }
 
   receiveMessage(
-    by: RunId,
+    by: RunId | null,
     newNote: NewNote,
     at: StationId | null,
     members: TeamMembers,
@@ -1726,12 +1736,38 @@ export class Task extends EventRecorder {
     const hold = this.openHold;
     const assigned = this.with({
       currentRunId: runId,
+      runNotStarted: null,
       ...(hold ? { holds: this.replacedHold(hold.withTurn(runId)) } : {}),
     });
 
     assigned.record(new TaskRunAssigned(this.id, this.workspaceId, runId));
 
     return assigned;
+  }
+
+  notStartedOn(line: LineMap): Task {
+    const harness = line.stationAt(this.stationId)?.harness;
+
+    return harness
+      ? this.with({ runNotStarted: RunNotStarted.at(this.stationId, harness) })
+      : this.withoutAgentOn(line);
+  }
+
+  withoutAgentOn(line: LineMap): Task {
+    return this.runNotStarted && !line.stationAt(this.stationId)?.harness
+      ? this.with({ runNotStarted: null })
+      : this;
+  }
+
+  get runNotStartedHere(): RunNotStarted | null {
+    const failed = this.runNotStarted;
+
+    return failed &&
+      !this.running &&
+      !this.finished &&
+      failed.stationId.equals(this.stationId)
+      ? failed
+      : null;
   }
 
   wantsRun(line: LineMap): boolean {
@@ -3059,6 +3095,7 @@ export class Task extends EventRecorder {
     ownedPullRequests?: readonly OwnedPullRequest[];
     moveHeldTo?: StationId | null;
     holds?: readonly Hold[];
+    runNotStarted?: RunNotStarted | null;
   }): Task {
     const next = new Task(
       this.id,
@@ -3094,6 +3131,9 @@ export class Task extends EventRecorder {
       part.ownedPullRequests ?? this.ownedPullRequests,
       part.moveHeldTo !== undefined ? part.moveHeldTo : this.moveHeldTo,
       part.holds ?? this.holds,
+      part.runNotStarted !== undefined
+        ? part.runNotStarted
+        : this.runNotStarted,
     );
 
     next.inheritEvents(this);
