@@ -157,6 +157,10 @@ export class InboxRequest extends EventRecorder {
     return resolvedAt !== null;
   }
 
+  static assertActedOnBy(team: TeamStanding, unseen: () => Error): void {
+    team.assertActsOnTasks(unseen);
+  }
+
   static resolvableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
     return team.actsOnTasks && resolvedAt === null;
   }

@@ -2926,7 +2926,7 @@ export type InboxItemResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * How it reaches the person: assignee when they are its assignee, asked when another person is its assignee and its open conversation waits on them to approve or connect, team when it has no assignee and they are a member of its team (for an inbox request: when they act on the tasks of its team), following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one with no assignee in a team whose tasks the person does not act on
+   * How it reaches the person: assignee when they are its assignee, asked when its open conversation waits on them to approve or connect and they are neither its assignee nor, while it has no assignee, a member of its team, team when it has no assignee and they are a member of its team (for an inbox request: when they act on the tasks of its team), following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one with no assignee in a team whose tasks the person does not act on
    */
   standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
@@ -2938,7 +2938,7 @@ export type InboxItemResponseDto = {
    */
   resolvable: boolean;
   /**
-   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee or, when it has no assignee, a member of its team
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person may answer it once it is open again: its assignee or, when it has no assignee, a member of its team
    */
   reopenable: boolean;
   /**
@@ -3018,7 +3018,11 @@ export type InboxNoticeResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * True when the person can open it again: once it is resolved
+   * True when the person can resolve it now: it is not resolved yet, and the person acts on the tasks of its team
+   */
+  resolvable: boolean;
+  /**
+   * True when the person can open it again: it is resolved, and the person acts on the tasks of its team
    */
   reopenable: boolean;
 };
@@ -3151,7 +3155,7 @@ export type InboxItemViewResponseDto = {
    */
   section: 'open' | 'running' | 'following' | 'resolved';
   /**
-   * How it reaches the person: assignee when they are its assignee, asked when another person is its assignee and its open conversation waits on them to approve or connect, team when it has no assignee and they are a member of its team (for an inbox request: when they act on the tasks of its team), following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one with no assignee in a team whose tasks the person does not act on
+   * How it reaches the person: assignee when they are its assignee, asked when its open conversation waits on them to approve or connect and they are neither its assignee nor, while it has no assignee, a member of its team, team when it has no assignee and they are a member of its team (for an inbox request: when they act on the tasks of its team), following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one with no assignee in a team whose tasks the person does not act on
    */
   standing: 'assignee' | 'asked' | 'team' | 'following' | null;
   /**
@@ -3163,7 +3167,7 @@ export type InboxItemViewResponseDto = {
    */
   resolvable: boolean;
   /**
-   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee or, when it has no assignee, a member of its team
+   * True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person may answer it once it is open again: its assignee or, when it has no assignee, a member of its team
    */
   reopenable: boolean;
   /**
@@ -3222,6 +3226,10 @@ export type AnswerInboxItemRequestDto = {
    * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.
    */
   approve?: boolean;
+  /**
+   * With approve, the note of the ask it decides, by its position in the trail, as the person saw it. Required with approve. Refused when the conversation now asks for something newer
+   */
+  ask?: number;
   /**
    * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.
    */
@@ -15607,7 +15615,7 @@ export type AnswerInboxItemErrors = {
    */
   404: unknown;
   /**
-   * Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with
+   * Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, only the ask it waits on now can be decided, and only an approved tool call can be changed, naming exactly the inputs it was called with
    */
   409: unknown;
 };

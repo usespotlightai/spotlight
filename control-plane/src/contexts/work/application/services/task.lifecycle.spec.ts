@@ -29,6 +29,7 @@ import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
+import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import { Placement } from '@work/domain/services/placement';
 import { ReactionFor } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -52,6 +53,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -63,6 +65,7 @@ const TEAM_ID = TeamId.of('team_1');
 const PEOPLE = {
   leon: UserId.of('user_leon'),
   maya: UserId.of('user_maya'),
+  ola: UserId.of('user_ola'),
 } as const;
 const TEAM = TeamMembers.of([PEOPLE.leon, PEOPLE.maya]);
 const LINEAR = IntegrationName.of('linear');
@@ -123,6 +126,7 @@ const CODE_REVIEW = stationAt('code-review').id;
 type Step =
   | { readonly kind: 'dispatch' }
   | { readonly kind: 'stray-assign' }
+  | { readonly kind: 'assign'; readonly to: Person | null }
   | {
       readonly kind: 'run-ends';
       readonly stale: boolean;
@@ -162,6 +166,7 @@ type Step =
   | { readonly kind: 'delete' };
 
 const person = fc.constantFrom<Person>('leon', 'maya');
+const anyone = fc.constantFrom<Person>('leon', 'maya', 'ola');
 const actor = fc.oneof(
   { weight: 1, arbitrary: person },
   { weight: 1, arbitrary: fc.constant<Actor>('holder') },
@@ -176,6 +181,13 @@ const rarely = fc.oneof(
 const step: fc.Arbitrary<Step> = fc.oneof(
   { weight: 1, arbitrary: fc.constant({ kind: 'dispatch' as const }) },
   { weight: 1, arbitrary: fc.constant({ kind: 'stray-assign' as const }) },
+  {
+    weight: 2,
+    arbitrary: fc.record({
+      kind: fc.constant('assign' as const),
+      to: fc.option(person, { nil: null }),
+    }),
+  },
   {
     weight: 6,
     arbitrary: fc.record({
@@ -217,13 +229,13 @@ const step: fc.Arbitrary<Step> = fc.oneof(
     weight: 3,
     arbitrary: fc.record({
       kind: fc.constant('answer' as const),
-      by: person,
+      by: anyone,
       approve: fc.boolean(),
     }),
   },
   {
     weight: 1,
-    arbitrary: fc.record({ kind: fc.constant('resolve' as const), by: person }),
+    arbitrary: fc.record({ kind: fc.constant('resolve' as const), by: anyone }),
   },
   {
     weight: 2,
@@ -453,8 +465,11 @@ const answered = async (
 ): Promise<Task> => {
   const task = world.task;
   const from = openFrom(task);
-  const approval = from.noteIn(task.notes)?.approval ?? null;
-  const decision = approval ? (each.approve ? 'approved' : 'dismissed') : null;
+  const decision = task.openAsk?.approval?.open
+    ? each.approve
+      ? 'approved'
+      : 'dismissed'
+    : null;
 
   return handedToRun(
     services.dispatch,
@@ -616,6 +631,8 @@ const applied = async (world: World, each: Step): Promise<Task> => {
       return handedToRun(services.dispatch, task, LINE);
     case 'stray-assign':
       return task.assignRun(RunId.of(`run_${++world.runs}`), LINE);
+    case 'assign':
+      return each.to ? task.assign(PEOPLE[each.to], TEAM) : task.unassign();
     case 'run-ends':
       return runEnded(world, services, each);
     case 'turn-kept':
@@ -1104,6 +1121,97 @@ describe('a task under any order of runs, people and happenings on its line', ()
     );
   });
 
+  it('lets a person answer or resolve exactly when the inbox offers it to them', async () => {
+    const acting = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+
+    await fc.assert(
+      lifecycle((visit) => {
+        if (visit.step.kind !== 'answer' && visit.step.kind !== 'resolve') {
+          return true;
+        }
+
+        const person = PEOPLE[visit.step.by];
+        const standing = visit.before.conversationStandingOf({
+          person,
+          onTeam: TEAM.includes(person),
+        });
+        const offered =
+          visit.before.openConversation !== null &&
+          (visit.step.kind === 'resolve'
+            ? ConversationAudience.mayResolve(acting, standing)
+            : ConversationAudience.mayAnswer(acting, standing));
+        const approval = visit.before.openAsk?.approval ?? null;
+        const decidedOnlyBySomeoneElse =
+          visit.step.kind === 'answer' &&
+          visit.step.approve &&
+          approval?.open === true &&
+          approval.askedOf !== null &&
+          !approval.askedOf.equals(person);
+
+        return decidedOnlyBySomeoneElse
+          ? !visit.accepted || offered
+          : visit.accepted === offered;
+      }),
+      RUNS,
+    );
+  }, 120_000);
+
+  it('leaves every approval or connection it waits on with a person who can give it', async () => {
+    const later = new Date('2100-01-01T00:00:00.000Z');
+    const gives = (give: () => Task | null): boolean => {
+      try {
+        return give() !== null;
+      } catch (error) {
+        if (refused(error)) {
+          return false;
+        }
+        throw error;
+      }
+    };
+
+    await fc.assert(
+      lifecycle(({ after }) => {
+        const ask = after.awaitingReview
+          ? [...after.notes].reverse().find((note) => note.kind === 'asked')
+          : undefined;
+        const connection = ask?.connectionAsk;
+
+        if (ask?.approval?.open) {
+          return Object.values(PEOPLE).some((each) =>
+            gives(() =>
+              after.answerAs(
+                each,
+                TEAM,
+                openFrom(after),
+                {
+                  line: LINE,
+                  body: TaskNoteBody.of('Go ahead.'),
+                  at: later,
+                  voice: Voice.person(each),
+                },
+                'approved',
+              ),
+            ),
+          );
+        }
+
+        if (connection && !connection.met) {
+          return gives(() =>
+            after.connectionMade(
+              connection.teamId,
+              connection.integration,
+              connection.personId,
+              { line: LINE, at: later },
+            ),
+          );
+        }
+
+        return true;
+      }),
+      RUNS,
+    );
+  }, 120_000);
+
   it('lets only its current run route it, and routes every ending of that run', async () => {
     await fc.assert(
       lifecycle(({ before, after, step: each, accepted }) => {
@@ -1389,5 +1497,217 @@ describe('a task held by one person whose turn asks another person', () => {
     ).toBe('asked');
     expect(approved.assignee).toEqual(PEOPLE.maya);
     expect(loadable(approved)).toBe(true);
+  });
+});
+
+describe('a turn that asks again after a question was answered in words', () => {
+  const run = RunId.of('run_turn');
+  const said = (body: string, voice: Voice) => ({
+    line: LINE,
+    body: TaskNoteBody.of(body),
+    at: START,
+    voice,
+  });
+  const answeredInWords = (task: Task, by: UserId): Task => {
+    const asked = task.putToAPerson(
+      run,
+      said('Which queue?', Voice.station(run)),
+    );
+
+    return asked.answerAs(
+      by,
+      TEAM,
+      openFrom(asked),
+      said('The main one.', Voice.person(by)),
+    );
+  };
+  const held = (): Task =>
+    answeredInWords(
+      opened('implementation')
+        .assignRun(RunId.of('run_line'), LINE)
+        .hold({
+          id: HoldId.of('hold_1'),
+          by: PEOPLE.maya,
+          members: TEAM,
+          line: LINE,
+          currentRunStarted: true,
+          at: START,
+        })
+        .addMessage(said('Use a bounded queue.', Voice.person(PEOPLE.maya)))
+        .assignRun(run, LINE),
+      PEOPLE.maya,
+    );
+
+  it('lets the person the new approval names give it, on a task held by another person', () => {
+    const asked = askingApproval(held(), run, PEOPLE.leon, START);
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      said('Go ahead.', Voice.person(PEOPLE.leon)),
+      'approved',
+    );
+
+    expect(
+      asked.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('asked');
+    expect(approved.openAsk?.approval?.status).toBe('approved');
+    expect(approved.assignee).toEqual(PEOPLE.maya);
+    expect(loadable(approved)).toBe(true);
+  });
+
+  it('lets the assignee give a new approval that names them', () => {
+    const asked = askingApproval(
+      answeredInWords(
+        opened('implementation').assignRun(run, LINE),
+        PEOPLE.leon,
+      ),
+      run,
+      PEOPLE.leon,
+      START,
+    );
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      said('Go ahead.', Voice.person(PEOPLE.leon)),
+      'approved',
+    );
+
+    expect(approved.openAsk?.approval?.status).toBe('approved');
+  });
+
+  it('refuses a decision on an older approval once the turn asks for a newer one', () => {
+    const first = askingApproval(
+      opened('implementation').assignRun(run, LINE),
+      run,
+      PEOPLE.leon,
+      START,
+    );
+    const older = first.openAsk?.position ?? NotePosition.of(0);
+    const second = askingApproval(
+      first.answerAs(
+        PEOPLE.leon,
+        TEAM,
+        openFrom(first),
+        said('Not that issue.', Voice.person(PEOPLE.leon)),
+      ),
+      run,
+      PEOPLE.leon,
+      START,
+    );
+    const decide = (at: NotePosition) =>
+      second.answerAs(
+        PEOPLE.leon,
+        TEAM,
+        openFrom(second),
+        said('Go ahead.', Voice.person(PEOPLE.leon)),
+        'approved',
+        null,
+        at,
+      );
+
+    expect(() => decide(older)).toThrow(InvalidApprovalAnswerError);
+    expect(
+      decide(second.openAsk?.position ?? NotePosition.of(0)).openAsk?.approval
+        ?.status,
+    ).toBe('approved');
+    expect(first.openAsk?.approval?.open).toBe(true);
+  });
+
+  it('tells the run what a newer approval runs with, as the person changed it', () => {
+    const asked = askingApproval(held(), run, PEOPLE.leon, START);
+
+    expect(
+      asked.changesAt(openFrom(asked), 'approved', { body: 'y' })?.inputs
+        .values,
+    ).toEqual({ body: 'y' });
+  });
+
+  it('counts a newer connection ask as asked already, and only for that connection', () => {
+    const asking = held().askToConnect(
+      run,
+      said('Connect Linear.', Voice.station(run)),
+      connectionOf(PEOPLE.leon),
+    ).task;
+    const again = (of: UserId) =>
+      asking.askToConnect(
+        run,
+        said('Connect Linear.', Voice.station(run)),
+        connectionOf(of),
+      ).asked;
+
+    expect(again(PEOPLE.leon)).toBe(true);
+    expect(again(PEOPLE.maya)).toBe(false);
+  });
+
+  it('answers a new connection ask once the person it names connects', () => {
+    const asked = held().askToConnect(
+      run,
+      said('Connect Linear.', Voice.station(run)),
+      connectionOf(PEOPLE.leon),
+    ).task;
+    const connected = asked.connectionMade(TEAM_ID, LINEAR, PEOPLE.leon, {
+      line: LINE,
+      at: START,
+    });
+
+    expect(
+      asked.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('asked');
+    expect(connected?.openAsk?.connectionAsk?.met).toBe(true);
+    expect(connected?.awaitingReview).toBe(false);
+    expect(connected?.assignee).toEqual(PEOPLE.maya);
+  });
+});
+
+describe('a task unassigned while its turn asks a person on its team', () => {
+  const asked = (): Task =>
+    askingApproval(
+      opened('implementation').assignRun(RunId.of('run_turn'), LINE),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    ).unassign();
+  const note = (body: string) => ({
+    line: LINE,
+    body: TaskNoteBody.of(body),
+    at: START,
+    voice: Voice.person(PEOPLE.leon),
+  });
+
+  it('gives the person asked the team standing, so they may resolve it', () => {
+    const task = asked();
+
+    expect(task.assignee).toBeNull();
+    expect(
+      task.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('team');
+  });
+
+  it('assigns the person asked when they resolve it', () => {
+    const task = asked();
+    const resolved = task.resolveAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(task),
+      note('Not needed.'),
+    );
+
+    expect(resolved.assignee).toEqual(PEOPLE.leon);
+    expect(resolved.openConversation).toBeNull();
+  });
+
+  it('assigns the person asked when they answer in words', () => {
+    const task = asked();
+    const answered = task.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(task),
+      note('Use the staging key.'),
+    );
+
+    expect(answered.assignee).toEqual(PEOPLE.leon);
+    expect(loadable(answered)).toBe(true);
   });
 });

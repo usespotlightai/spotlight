@@ -101,13 +101,14 @@ export function InboxItemConversation({
           worked={worked}
           deciding={{
             pending: answer.isPending,
-            onDecide: ({ approve, body, inputs }) =>
+            onDecide: ({ approve, ask, body, inputs }) =>
               answer.mutate({
                 slug,
                 itemId: item.id,
                 body,
                 attachments: [],
                 approve,
+                ask,
                 inputs,
               }),
           }}

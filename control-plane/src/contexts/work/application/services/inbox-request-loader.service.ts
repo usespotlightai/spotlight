@@ -24,7 +24,8 @@ export class InboxRequestLoader {
   async putTo(inboxRequestId: string, them: string): Promise<InboxRequest> {
     const { inboxRequest, standing } = await this.seen(inboxRequestId, them);
 
-    standing.assertActsOnTasks(
+    InboxRequest.assertActedOnBy(
+      standing,
       () => new UnknownInboxRequestError(inboxRequestId),
     );
 

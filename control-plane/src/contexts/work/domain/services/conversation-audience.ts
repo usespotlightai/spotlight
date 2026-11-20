@@ -22,7 +22,7 @@ export interface ConversationViewer {
   readonly onTeam: boolean;
 }
 
-export interface OpeningAsk {
+export interface OpenAsk {
   readonly approval: {
     readonly open: boolean;
     readonly askedOf: UserId | null;
@@ -33,7 +33,7 @@ export interface OpeningAsk {
   } | null;
 }
 
-const awaits = (ask: OpeningAsk, person: UserId): boolean =>
+const awaits = (ask: OpenAsk, person: UserId): boolean =>
   (ask.approval?.open === true &&
     (ask.approval.askedOf?.equals(person) ?? false)) ||
   (ask.connectionAsk?.met === false &&
@@ -45,8 +45,8 @@ export interface ConversationReader extends ConversationViewer {
 }
 
 export const ConversationAudience = {
-  asks(opening: OpeningAsk | null, person: UserId): boolean {
-    return opening !== null && awaits(opening, person);
+  asks(ask: OpenAsk | null, person: UserId): boolean {
+    return ask !== null && awaits(ask, person);
   },
 
   standingOf(
@@ -57,12 +57,12 @@ export const ConversationAudience = {
       return 'assignee';
     }
 
-    if (reader.asked) {
-      return 'asked';
-    }
-
     if (assignee === null && reader.onTeam) {
       return 'team';
+    }
+
+    if (reader.asked) {
+      return 'asked';
     }
 
     return assignee !== null && reader.wroteIn ? 'following' : null;

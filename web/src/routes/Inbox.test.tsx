@@ -103,6 +103,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   unread: true,
   resolved: false,
   section: 'open',
+  resolvable: true,
   reopenable: false,
   ...over,
 });
@@ -260,6 +261,7 @@ describe('Inbox', () => {
           resolved: true,
           unread: false,
           section: 'resolved',
+          resolvable: false,
           reopenable: true,
         }),
       ]);
@@ -710,6 +712,7 @@ describe('Inbox', () => {
           resolved: true,
           unread: false,
           section: 'resolved',
+          resolvable: false,
           reopenable: true,
         }),
         item(),

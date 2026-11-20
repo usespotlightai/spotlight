@@ -67,6 +67,18 @@ export const reopenable = (
   closing?.form === 'resolved' &&
   closing.byAPerson;
 
+export const openAskIn = <T extends { readonly kind: TaskNoteKind }>(
+  notes: readonly T[],
+): T | null => {
+  const open = openIn(conversationsOf(notes.map((each) => each.kind)));
+
+  return open
+    ? ([...notesIn(open, notes)]
+        .reverse()
+        .find((each) => each.kind === OPENS_A_CONVERSATION) ?? null)
+    : null;
+};
+
 export const notesIn = <T>(
   conversation: Conversation,
   trail: readonly T[],

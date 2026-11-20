@@ -15,12 +15,14 @@ type ConnectionCardProps = {
   connection: InboxConnectionResponseDto;
   teamId: string | undefined;
   viewer: string | null;
+  outdated?: boolean;
 };
 
 export function ConnectionCard({
   connection,
   teamId,
   viewer,
+  outdated = false,
 }: ConnectionCardProps) {
   const { pathname } = useLocation();
   const connect = useConnectIntegration(teamId);
@@ -29,7 +31,7 @@ export function ConnectionCard({
   const docked = use(DockedContext) !== null;
   const Action = docked ? DecisionButton : PillButton;
   const action =
-    !connection.met && theirs && teamId ? (
+    !connection.met && !outdated && theirs && teamId ? (
       <Action
         variant="default"
         disabled={connect.isPending}
@@ -66,9 +68,11 @@ export function ConnectionCard({
           ? theirs
             ? `You connected ${connection.integrationName}. The run carried on.`
             : `${who} connected ${connection.integrationName}. The run carried on.`
-          : theirs
-            ? `If you connect your ${connection.integrationName} account, the run carries on.`
-            : `The run is waiting for ${who} to connect ${connection.integrationName}.`}
+          : outdated
+            ? 'The run asked for something newer since.'
+            : theirs
+              ? `If you connect your ${connection.integrationName} account, the run carries on.`
+              : `The run is waiting for ${who} to connect ${connection.integrationName}.`}
       </p>
 
       {docked && action && <DecisionControls>{action}</DecisionControls>}
