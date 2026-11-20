@@ -66,6 +66,7 @@ import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import {
   chatResolvedWhere,
   chatUnresolvedWhere,
@@ -102,7 +103,6 @@ import {
   type ApprovalRow,
   type ConnectionAskRow,
   task,
-  taskHold,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -200,8 +200,6 @@ const inTeamsSeen = (scope: InboxScope): SQL =>
 const wroteInBy = (viewer: UserId): SQL =>
   sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and ${taskNote.voice} = 'person' and (${taskNote.authorId} = ${viewer.value} or ${viewer.value} = any(${taskNote.coAuthorIds})))`;
 
-const heldNow = sql`exists (select 1 from ${taskHold} where ${taskHold.taskId} = ${task.id} and ${taskHold.endedAt} is null)`;
-
 const namedInBy = (viewer: UserId): SQL =>
   sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and (${taskNote.approval}->>'askedOf' = ${viewer.value} or ${taskNote.connectionAsk}->>'personId' = ${viewer.value}))`;
 
@@ -268,13 +266,18 @@ const inTeamsJoined = (scope: InboxScope): SQL =>
     ? inArray(workStation.teamId, [...scope.teamsJoined])
     : sql`false`;
 
+const teamStandingOf = (scope: InboxScope, teamId: string): TeamStanding =>
+  TeamStanding.of({
+    seesTeam: scope.teamsSeen.has(teamId),
+    actsOnTeam: scope.teamsActedOn.has(teamId),
+  });
+
 const standingOf = (
   scope: InboxScope,
   row: {
     readonly teamId: string;
     readonly assigneeId: string | null;
     readonly wroteIn: boolean;
-    readonly held: boolean;
   },
   opening: OpeningAsk | null,
 ): ConversationStanding | null =>
@@ -284,11 +287,7 @@ const standingOf = (
       person: scope.viewer,
       onTeam: scope.teamsJoined.has(row.teamId),
       wroteIn: row.wroteIn,
-      asked: ConversationAudience.asksWhileHeld(
-        row.held,
-        opening,
-        scope.viewer,
-      ),
+      asked: ConversationAudience.asks(opening, scope.viewer),
     },
   );
 
@@ -306,7 +305,6 @@ const taskRowsWhere = (
       taskId: task.id,
       assigneeId: task.assigneeId,
       wroteIn: sql<boolean>`${wroteIn}`,
-      held: sql<boolean>`${heldNow}`,
       namedIn: sql<boolean>`${namedIn}`,
       teamId: workStation.teamId,
       title: task.title,
@@ -334,7 +332,7 @@ const taskRowsWhere = (
           eq(task.assigneeId, scope.viewer.value),
           and(isNull(task.assigneeId), inTeamsJoined(scope)),
           wroteIn,
-          and(heldNow, namedIn),
+          namedIn,
         ),
         inTeamsSeen(scope),
         narrowedTo,
@@ -360,7 +358,7 @@ const tasksWhere = async (
   const openings = await openingAsksOf(
     db,
     rows.flatMap((row) =>
-      row.held && row.namedIn && row.assigneeId !== scope.viewer.value
+      row.namedIn && row.assigneeId !== scope.viewer.value
         ? [row.taskId]
         : [],
     ),
@@ -375,7 +373,7 @@ const tasksWhere = async (
           {
             ...row,
             standing,
-            actsOnTeam: scope.teamsActedOn.has(row.teamId),
+            team: teamStandingOf(scope, row.teamId),
             workingReading: RunReadingMapper.reading(working ?? null),
             workingSince: working?.queuedAt ?? null,
           },
@@ -605,11 +603,10 @@ const conversationItem = (
       following: row.standing === 'following',
     }),
     standing: row.standing,
-    resolvable:
-      open && row.actsOnTeam && ConversationAudience.resolves(row.standing),
+    answerable: open && ConversationAudience.mayAnswer(row.team, row.standing),
+    resolvable: open && ConversationAudience.mayResolve(row.team, row.standing),
     reopenable:
-      row.actsOnTeam &&
-      ConversationAudience.answers(row.standing) &&
+      ConversationAudience.mayAnswer(row.team, row.standing) &&
       reopenable(
         NotePosition.of(opening.position),
         latest,
@@ -1217,12 +1214,13 @@ export class DrizzleInboxReader implements InboxReaderPort {
             following: false,
           }),
           standing: InboxRequest.standingOf(requestVisibilityOf(scope, row)),
+          answerable: false,
           resolvable: InboxRequest.resolvableBy(
-            scope.teamsActedOn.has(row.teamId),
+            teamStandingOf(scope, row.teamId),
             row.resolvedAt,
           ),
           reopenable: InboxRequest.reopenableBy(
-            scope.teamsActedOn.has(row.teamId),
+            teamStandingOf(scope, row.teamId),
             row.resolvedAt,
           ),
           progress: null,

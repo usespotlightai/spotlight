@@ -1361,4 +1361,33 @@ describe('a task held by one person whose turn asks another person', () => {
       }),
     ).toThrow(AssignedToAnotherPersonError);
   });
+
+  it('lets the person asked still approve after the task moves to someone else, when it is not on hold', () => {
+    const asked = askingApproval(
+      opened('implementation').assignRun(RunId.of('run_turn'), LINE),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const moved = asked.assign(PEOPLE.maya, TEAM);
+    const approved = moved.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(moved),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Go ahead.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      },
+      'approved',
+    );
+
+    expect(asked.assignee).toEqual(PEOPLE.leon);
+    expect(
+      moved.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('asked');
+    expect(approved.assignee).toEqual(PEOPLE.maya);
+    expect(loadable(approved)).toBe(true);
+  });
 });

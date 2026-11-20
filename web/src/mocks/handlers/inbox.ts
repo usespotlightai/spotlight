@@ -328,6 +328,9 @@ const conversationHandlers = [
     if (item.notes[item.notes.length - 1]?.form !== 'resolved') {
       return problem(409, 'Nobody resolved this conversation.');
     }
+    if (!shown(item).reopenable) {
+      return problem(403, 'Another person is the assignee.');
+    }
     notedBySam(item, 'reopened', 'Reopened.');
     item.resolved = false;
 

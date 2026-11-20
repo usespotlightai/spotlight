@@ -24,6 +24,14 @@ export function InboxItemFooter({
     );
   }
 
+  if (!item.resolved && !item.answerable) {
+    return (
+      <p className="pb-5 text-center text-muted-foreground text-xs">
+        Its assignee answers here.
+      </p>
+    );
+  }
+
   if (!item.resolved) {
     return (
       <InboxComposer

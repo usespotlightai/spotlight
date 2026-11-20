@@ -84,6 +84,7 @@ const item = (over: Record<string, unknown> = {}) => ({
     author: null,
   },
   standing: 'assignee',
+  answerable: true,
   resolvable: true,
   ...over,
 });

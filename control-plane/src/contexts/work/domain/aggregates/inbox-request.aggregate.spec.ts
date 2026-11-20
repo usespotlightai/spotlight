@@ -11,6 +11,7 @@ import { inboxRequestForm } from '@work/domain/value-objects/inbox-request-form'
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
@@ -260,19 +261,22 @@ describe('InboxRequest', () => {
   });
 
   describe('who can resolve or reopen it', () => {
+    const ACTS = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+    const SEES = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+
     it('lets a person who acts on the team resolve it while it is open', () => {
-      expect(InboxRequest.resolvableBy(true, null)).toBe(true);
-      expect(InboxRequest.resolvableBy(true, NOW)).toBe(false);
+      expect(InboxRequest.resolvableBy(ACTS, null)).toBe(true);
+      expect(InboxRequest.resolvableBy(ACTS, NOW)).toBe(false);
     });
 
     it('lets a person who acts on the team reopen it once it is resolved', () => {
-      expect(InboxRequest.reopenableBy(true, NOW)).toBe(true);
-      expect(InboxRequest.reopenableBy(true, null)).toBe(false);
+      expect(InboxRequest.reopenableBy(ACTS, NOW)).toBe(true);
+      expect(InboxRequest.reopenableBy(ACTS, null)).toBe(false);
     });
 
     it('lets nobody resolve or reopen it who only sees the team', () => {
-      expect(InboxRequest.resolvableBy(false, null)).toBe(false);
-      expect(InboxRequest.reopenableBy(false, NOW)).toBe(false);
+      expect(InboxRequest.resolvableBy(SEES, null)).toBe(false);
+      expect(InboxRequest.reopenableBy(SEES, NOW)).toBe(false);
     });
   });
 });

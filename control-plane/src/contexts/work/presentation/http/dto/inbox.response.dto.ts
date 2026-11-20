@@ -607,9 +607,16 @@ export class InboxItemResponseDto {
     type: String,
     example: 'assignee',
     description:
-      'How it reaches the person: assignee when they are its assignee, asked when the task is on hold with another person and its open conversation waits on them to approve or connect, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one in a team the person only sees',
+      'How it reaches the person: assignee when they are its assignee, asked when another person is its assignee and its open conversation waits on them to approve or connect, team when it has no assignee and they are a member of its team (for an inbox request: when they act on the tasks of its team), following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of, or one with no assignee in a team whose tasks the person does not act on',
   })
   readonly standing: InboxStanding | null;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'True when the person can answer the conversation now. It must be open, the person must act on the tasks of its team, and they must be its assignee, the person its open ask names, or a member of its team when it has no assignee. Always false for an inbox request, which has its own actions',
+  })
+  readonly answerable: boolean;
 
   @ApiProperty({
     example: true,
@@ -621,7 +628,7 @@ export class InboxItemResponseDto {
   @ApiProperty({
     example: false,
     description:
-      'True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee, is asked in it or answers for the team',
+      'True when the person can open it again. The person must act on the tasks of its team. A conversation can open again when a person resolved it, it is the last conversation of the task, and the person is its assignee or, when it has no assignee, a member of its team',
   })
   readonly reopenable: boolean;
 
@@ -697,6 +704,7 @@ export class InboxItemResponseDto {
     this.resolved = item.resolved;
     this.section = item.section;
     this.standing = item.standing;
+    this.answerable = item.answerable;
     this.resolvable = item.resolvable;
     this.reopenable = item.reopenable;
     this.progress = item.progress;

@@ -6,6 +6,7 @@ import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   InboxEntrySummary,
@@ -13,6 +14,8 @@ import type {
   InboxScope,
 } from '@work/application/ports/inbox-reader.port';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
@@ -22,6 +25,8 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -164,6 +169,52 @@ const conversationIn = (entries: readonly InboxEntrySummary[], task: Task) =>
       each.kind === 'task' && each.taskId === task.id.value,
   );
 
+const MEMBERS = () => TeamMembers.of([holder, asked]);
+
+const added = (): Task => {
+  const implementation = line.stationKeyed(StationKey.of('implementation'));
+
+  if (!implementation) {
+    throw new Error('the delivery line has no implementation station');
+  }
+
+  return Task.add({
+    line,
+    at: implementation.id,
+    title: TaskTitle.of('Retry uploads'),
+    rank: TaskRank.of('i'),
+    createdBy: holder,
+    now: NOW,
+    newId: () => randomUUID(),
+  });
+};
+
+const said = (body: string, voice: Voice) => ({
+  line,
+  body: TaskNoteBody.of(body),
+  at: NOW,
+  voice,
+});
+
+const askingApproval = (task: Task, turn: RunId, of: UserId): Task =>
+  task.clearFor(
+    ApprovalSubject.toolCall(
+      ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+    ),
+    ApprovalNeeded.of('linear.comment', 'It posts publicly.', of),
+    said('Approve linear.comment?', Voice.station(turn)),
+    turn,
+    null,
+  ).task;
+
+const entryWithId = (
+  entries: readonly InboxEntrySummary[],
+  id: string,
+): InboxItemSummary | undefined =>
+  entries.find(
+    (each): each is InboxItemSummary => each.kind === 'task' && each.id === id,
+  );
+
 const standingIn = (
   entries: readonly InboxEntrySummary[],
   task: Task,
@@ -283,5 +334,137 @@ describe('a held task whose turn asks another person (e2e)', () => {
     expect(standingIn(await reader.open(scopeOf(holder)), task)).toBe(
       'assignee',
     );
+  });
+
+  it('lets a member of the team answer and resolve a task with no assignee, only while they act on the team', async () => {
+    const turn = RunId.of(randomUUID());
+    const task = added()
+      .assignRun(turn, line)
+      .askedAbout(said('Which queue?', Voice.station(turn)), turn)
+      .unassign();
+
+    await tasks.add(task);
+
+    const entry = conversationIn(await reader.open(scopeOf(holder)), task);
+    const seenOnly = conversationIn(
+      await reader.open(scopeOf(holder, false)),
+      task,
+    );
+
+    expect(entry).toMatchObject({
+      standing: 'team',
+      answerable: true,
+      resolvable: true,
+    });
+    expect(seenOnly).toMatchObject({ answerable: false, resolvable: false });
+  });
+
+  it('keeps an ask with the person it names after the task moves to someone else, when it is not on hold', async () => {
+    const turn = RunId.of(randomUUID());
+    const asking = askingApproval(added().assignRun(turn, line), turn, asked);
+    const moved = asking.assign(holder, MEMBERS());
+
+    await tasks.add(moved);
+
+    expect(asking.assignee).toEqual(asked);
+    expect(
+      conversationIn(await reader.open(scopeOf(asked)), moved),
+    ).toMatchObject({ standing: 'asked', answerable: true, resolvable: false });
+  });
+
+  it('asks nobody again when a person reopens a conversation whose approval is decided', async () => {
+    const turn = RunId.of(randomUUID());
+    const asking = askingApproval(
+      added()
+        .assignRun(RunId.of(randomUUID()), line)
+        .hold({
+          id: HoldId.of(randomUUID()),
+          by: holder,
+          members: MEMBERS(),
+          line,
+          currentRunStarted: true,
+          at: NOW,
+        })
+        .addMessage(said('Use a bounded queue.', Voice.person(holder)))
+        .assignRun(turn, line),
+      turn,
+      asked,
+    );
+    const from = asking.openConversation?.from;
+
+    if (!from) {
+      throw new Error('the ask opened no conversation');
+    }
+
+    const reopened = asking
+      .answerAs(
+        asked,
+        MEMBERS(),
+        from,
+        said('Go ahead.', Voice.person(asked)),
+        'approved',
+      )
+      .resolveAs(
+        holder,
+        MEMBERS(),
+        from,
+        said('Resolved without an answer.', Voice.person(holder)),
+      )
+      .reopenAt(from, said('Reopened.', Voice.person(holder)));
+
+    await tasks.add(reopened);
+
+    expect(
+      conversationIn(await reader.open(scopeOf(asked)), reopened),
+    ).toMatchObject({ standing: 'following', answerable: false });
+  });
+
+  it('lets only a person who acts on the team resolve or reopen an inbox request', async () => {
+    const task = await heldAndAsking();
+    const open = randomUUID();
+    const resolved = randomUUID();
+
+    await database.db.insert(schema.inboxRequest).values([
+      {
+        id: open,
+        workspaceId,
+        taskId: task.id.value,
+        form: 'memories',
+        about: open,
+        createdAt: NOW,
+        openedAt: NOW,
+        resolvedAt: null,
+      },
+      {
+        id: resolved,
+        workspaceId,
+        taskId: task.id.value,
+        form: 'memories',
+        about: resolved,
+        createdAt: NOW,
+        openedAt: NOW,
+        resolvedAt: NOW,
+      },
+    ]);
+
+    const resolvedFor = async (actsOnTeam: boolean) =>
+      entryWithId(
+        (
+          await reader.resolved(scopeOf(holder, actsOnTeam), {
+            before: null,
+            limit: 50,
+          })
+        ).items,
+        resolved,
+      );
+
+    expect(entryWithId(await reader.open(scopeOf(holder)), open)).toMatchObject(
+      { answerable: false, resolvable: true },
+    );
+    expect(
+      entryWithId(await reader.open(scopeOf(holder, false)), open),
+    ).toMatchObject({ resolvable: false });
+    expect((await resolvedFor(true))?.reopenable).toBe(true);
+    expect((await resolvedFor(false))?.reopenable).toBe(false);
   });
 });

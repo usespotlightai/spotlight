@@ -1916,12 +1916,8 @@ export class Task extends EventRecorder {
     });
   }
 
-  private asksWhileHeld(person: UserId): boolean {
-    return ConversationAudience.asksWhileHeld(
-      this.openHold !== null,
-      this.openConversationNote,
-      person,
-    );
+  private asks(person: UserId): boolean {
+    return ConversationAudience.asks(this.openConversationNote, person);
   }
 
   private answersItsOwnAsk(from: NotePosition, voice: Voice): boolean {
@@ -1929,7 +1925,7 @@ export class Task extends EventRecorder {
       voice.isPerson &&
       voice.author !== null &&
       this.isWaitingAt(from) &&
-      this.asksWhileHeld(voice.author)
+      this.asks(voice.author)
     );
   }
 
@@ -2121,7 +2117,7 @@ export class Task extends EventRecorder {
     return ConversationAudience.standingOf(this.assignee, {
       ...viewer,
       wroteIn: this.wroteIn(viewer.person),
-      asked: this.asksWhileHeld(viewer.person),
+      asked: this.asks(viewer.person),
     });
   }
 

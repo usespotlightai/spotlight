@@ -46,8 +46,10 @@ export class ConversationLoader {
   async putTo(
     itemId: string,
     them: string,
-    acts: (standing: ConversationStanding) => boolean = (standing) =>
-      ConversationAudience.answers(standing),
+    may: (team: TeamStanding, standing: ConversationStanding) => boolean = (
+      team,
+      standing,
+    ) => ConversationAudience.mayAnswer(team, standing),
   ): Promise<ActedOnConversation> {
     const { item, task, standing, team } = await this.seen(itemId, them);
     const unknown = () => new UnknownTaskError(task.id.value);
@@ -58,7 +60,7 @@ export class ConversationLoader {
 
     team.standing.assertActsOnTasks(unknown);
 
-    if (!acts(standing)) {
+    if (!may(team.standing, standing)) {
       throw new AssignedToAnotherPersonError(task.id.value);
     }
 

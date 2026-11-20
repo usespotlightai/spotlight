@@ -5,7 +5,7 @@ import type {
   LineSearchPolicy,
   StationSearchOverride,
 } from '@lines/domain/value-objects/search-policy.vo';
-import { distinct, repeatedIn } from '@shared-kernel/domain/distinct';
+import { repeatedIn } from '@shared-kernel/domain/distinct';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -103,7 +103,13 @@ export const stationsProblem = <R extends Reference<R>>(
       };
     }
 
-    for (const to of station.passesTo) {
+    for (const [at, to] of station.passesTo.entries()) {
+      if (among(station.passesTo, to) !== at) {
+        return {
+          reason: `cannot pass to one station twice, but ${station.name.value} does`,
+          flaw: routing(station),
+        };
+      }
       if (to.equals(station.at)) {
         return {
           reason: `cannot pass to themselves, but ${station.name.value} does`,
@@ -116,13 +122,6 @@ export const stationsProblem = <R extends Reference<R>>(
           flaw: routing(station),
         };
       }
-    }
-
-    if (distinct(station.passesTo).length < station.passesTo.length) {
-      return {
-        reason: `cannot pass to one station twice, but ${station.name.value} does`,
-        flaw: routing(station),
-      };
     }
   }
 

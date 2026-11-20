@@ -26,7 +26,7 @@ export class ResolveConversationHandler implements CommandHandlerPort<
       const { item, task, line, members } = await this.conversations.putTo(
         command.conversationId,
         command.resolvedBy,
-        (standing) => ConversationAudience.resolves(standing),
+        (team, standing) => ConversationAudience.mayResolve(team, standing),
       );
       const resolvedBy = UserId.of(command.resolvedBy);
 

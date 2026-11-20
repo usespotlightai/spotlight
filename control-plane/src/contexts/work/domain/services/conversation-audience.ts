@@ -1,4 +1,5 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
 export const CONVERSATION_STANDINGS = [
   'assignee',
@@ -44,12 +45,8 @@ export interface ConversationReader extends ConversationViewer {
 }
 
 export const ConversationAudience = {
-  asksWhileHeld(
-    held: boolean,
-    opening: OpeningAsk | null,
-    person: UserId,
-  ): boolean {
-    return held && opening !== null && awaits(opening, person);
+  asks(opening: OpeningAsk | null, person: UserId): boolean {
+    return opening !== null && awaits(opening, person);
   },
 
   standingOf(
@@ -79,6 +76,20 @@ export const ConversationAudience = {
 
   resolves(standing: ConversationStanding | null): boolean {
     return standing === 'assignee' || standing === 'team';
+  },
+
+  mayAnswer(
+    team: TeamStanding,
+    standing: ConversationStanding | null,
+  ): boolean {
+    return team.actsOnTasks && ConversationAudience.answers(standing);
+  },
+
+  mayResolve(
+    team: TeamStanding,
+    standing: ConversationStanding | null,
+  ): boolean {
+    return team.actsOnTasks && ConversationAudience.resolves(standing);
   },
 
   notifies(standing: ConversationStanding | null): boolean {

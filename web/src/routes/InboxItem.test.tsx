@@ -149,6 +149,7 @@ const item = (
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
     resolved: false,
+    answerable: true,
     progress: null,
     unread: false,
     briefing: null,
@@ -809,11 +810,27 @@ describe('InboxItem', () => {
     });
   });
 
+  describe('when the server says the person cannot answer it', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([{ ...only, answerable: false }]);
+    });
+
+    it('shows the conversation without a way to answer it', () => {
+      renderItem();
+
+      expect(
+        screen.queryByRole('textbox', { name: /Answer/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/Its assignee answers here/)).toBeInTheDocument();
+    });
+  });
+
   describe('followed by the viewer', () => {
     beforeEach(() => {
       const [only] = item([note()]);
       waiting.mockReturnValue([
-        { ...only, standing: 'following', unread: true },
+        { ...only, standing: 'following', answerable: false, unread: true },
       ]);
     });
 

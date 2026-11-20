@@ -1,5 +1,6 @@
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { ConversationAudience } from '@work/domain/services/conversation-audience';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it } from 'vitest';
 
 const ANA = UserId.of('user_1');
@@ -117,7 +118,19 @@ describe('ConversationAudience', () => {
     expect(ConversationAudience.resolves(null)).toBe(false);
   });
 
-  describe('asksWhileHeld', () => {
+  it('lets only a person who acts on the tasks of the team answer, resolve or reopen', () => {
+    const acts = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+    const sees = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+
+    expect(ConversationAudience.mayAnswer(acts, 'asked')).toBe(true);
+    expect(ConversationAudience.mayAnswer(sees, 'assignee')).toBe(false);
+    expect(ConversationAudience.mayAnswer(sees, 'asked')).toBe(false);
+    expect(ConversationAudience.mayResolve(acts, 'team')).toBe(true);
+    expect(ConversationAudience.mayResolve(acts, 'asked')).toBe(false);
+    expect(ConversationAudience.mayResolve(sees, 'assignee')).toBe(false);
+  });
+
+  describe('asks', () => {
     const approval = (open: boolean, askedOf: UserId | null) => ({
       approval: { open, askedOf },
       connectionAsk: null,
@@ -127,42 +140,26 @@ describe('ConversationAudience', () => {
       connectionAsk: { met, personId },
     });
 
-    it('asks the person a pending approval or an unmet connection names, while the task is on hold', () => {
-      expect(
-        ConversationAudience.asksWhileHeld(true, approval(true, ANA), ANA),
-      ).toBe(true);
-      expect(
-        ConversationAudience.asksWhileHeld(true, connection(false, ANA), ANA),
-      ).toBe(true);
+    it('asks the person a pending approval or an unmet connection names', () => {
+      expect(ConversationAudience.asks(approval(true, ANA), ANA)).toBe(true);
+      expect(ConversationAudience.asks(connection(false, ANA), ANA)).toBe(true);
     });
 
     it('asks nobody once the approval is decided or the connection is made', () => {
-      expect(
-        ConversationAudience.asksWhileHeld(true, approval(false, ANA), ANA),
-      ).toBe(false);
-      expect(
-        ConversationAudience.asksWhileHeld(true, connection(true, ANA), ANA),
-      ).toBe(false);
+      expect(ConversationAudience.asks(approval(false, ANA), ANA)).toBe(false);
+      expect(ConversationAudience.asks(connection(true, ANA), ANA)).toBe(false);
     });
 
-    it('asks nobody while the task is not on hold, or when the open conversation asks nothing', () => {
+    it('asks nobody when the open conversation asks nothing', () => {
+      expect(ConversationAudience.asks(null, ANA)).toBe(false);
       expect(
-        ConversationAudience.asksWhileHeld(false, approval(true, ANA), ANA),
-      ).toBe(false);
-      expect(ConversationAudience.asksWhileHeld(true, null, ANA)).toBe(false);
-      expect(
-        ConversationAudience.asksWhileHeld(
-          true,
-          { approval: null, connectionAsk: null },
-          ANA,
-        ),
+        ConversationAudience.asks({ approval: null, connectionAsk: null }, ANA),
       ).toBe(false);
     });
 
     it('asks the person an unmet connection names, though the approval on the same note names nobody', () => {
       expect(
-        ConversationAudience.asksWhileHeld(
-          true,
+        ConversationAudience.asks(
           {
             approval: { open: true, askedOf: null },
             connectionAsk: { met: false, personId: ANA },
@@ -173,15 +170,11 @@ describe('ConversationAudience', () => {
     });
 
     it('asks only the person named', () => {
-      expect(
-        ConversationAudience.asksWhileHeld(true, approval(true, BEN), ANA),
-      ).toBe(false);
-      expect(
-        ConversationAudience.asksWhileHeld(true, approval(true, null), ANA),
-      ).toBe(false);
-      expect(
-        ConversationAudience.asksWhileHeld(true, connection(false, BEN), ANA),
-      ).toBe(false);
+      expect(ConversationAudience.asks(approval(true, BEN), ANA)).toBe(false);
+      expect(ConversationAudience.asks(approval(true, null), ANA)).toBe(false);
+      expect(ConversationAudience.asks(connection(false, BEN), ANA)).toBe(
+        false,
+      );
     });
   });
 });

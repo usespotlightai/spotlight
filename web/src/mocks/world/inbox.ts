@@ -40,12 +40,17 @@ type Shown = 'section' | 'reopenable';
 
 export type InboxConversation = Omit<
   InboxItemViewResponseDto,
-  'lastNote' | 'resolvable' | Shown
+  'lastNote' | 'answerable' | 'resolvable' | Shown
 >;
 
-type ShownResolvable<T> = T extends InboxConversation
-  ? Pick<InboxItemViewResponseDto, 'resolvable'>
+type ShownConversation<T> = T extends InboxConversation
+  ? Pick<InboxItemViewResponseDto, 'answerable' | 'resolvable'>
   : unknown;
+
+const answers = (entry: InboxConversation): boolean =>
+  entry.standing === 'assignee' ||
+  entry.standing === 'asked' ||
+  entry.standing === 'team';
 
 type StoredNotice = Omit<InboxNoticeResponseDto, Shown>;
 
@@ -91,10 +96,7 @@ const reopenableOf = (entry: InboxEntry): boolean => {
   const closing = entry.notes[entry.notes.length - 1];
 
   return (
-    entry.standing !== 'following' &&
-    entry.standing !== null &&
-    closing?.form === 'resolved' &&
-    closing.voice === 'person'
+    answers(entry) && closing?.form === 'resolved' && closing.voice === 'person'
   );
 };
 
@@ -104,15 +106,20 @@ const resolvableOf = (entry: InboxConversation): boolean =>
     entry.standing === 'assignee' ||
     entry.standing === 'team');
 
+const answerableOf = (entry: InboxConversation): boolean =>
+  !entry.resolved && entry.inboxRequest === null && answers(entry);
+
 export const shown = <T extends InboxEntry>(
   entry: T,
-): T & Pick<InboxNoticeResponseDto, Shown> & ShownResolvable<T> =>
+): T & Pick<InboxNoticeResponseDto, Shown> & ShownConversation<T> =>
   ({
     ...entry,
     section: sectionOf(entry),
     reopenable: reopenableOf(entry),
-    ...(entry.kind === 'task' ? { resolvable: resolvableOf(entry) } : {}),
-  }) as T & Pick<InboxNoticeResponseDto, Shown> & ShownResolvable<T>;
+    ...(entry.kind === 'task'
+      ? { answerable: answerableOf(entry), resolvable: resolvableOf(entry) }
+      : {}),
+  }) as T & Pick<InboxNoticeResponseDto, Shown> & ShownConversation<T>;
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';
 export const ALERT_REQUEST_ID = 'request_sent_back_alert';
