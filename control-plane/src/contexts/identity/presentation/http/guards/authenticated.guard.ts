@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { basicPasswordIn, bearerIn } from '@platform/http/bearer';
+import { ADMIN_ONLY } from '@platform/http/decorators/admin-only.decorator';
 import {
   ALLOW_ANONYMOUS,
   READS_SESSION_IF_ANY,
@@ -66,7 +67,7 @@ export class AuthenticatedGuard implements CanActivate {
       return true;
     }
 
-    if (marked(ALLOW_ANONYMOUS) || marked(MACHINE_ONLY)) {
+    if (marked(ALLOW_ANONYMOUS) || marked(MACHINE_ONLY) || marked(ADMIN_ONLY)) {
       return true;
     }
 

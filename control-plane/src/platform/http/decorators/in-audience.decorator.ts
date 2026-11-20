@@ -6,6 +6,7 @@ export const AUDIENCES = [
   'automation',
   'hosts',
   'public',
+  'admin',
 ] as const;
 
 export type Audience = (typeof AUDIENCES)[number];

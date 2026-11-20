@@ -1,6 +1,6 @@
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
+import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
-import { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,10 +10,10 @@ const NOW = new Date('2026-09-23T12:00:00.000Z');
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const entitlements = (plan: WorkspacePlan) => ({
+const entitlements = (plan: PlanTerm) => ({
   service: new CatalogEntitlements(
     new StaticCatalog(CATALOG_ITEMS),
-    { of: async () => plan },
+    { of: async () => plan, ofEach: async () => new Map() },
     { now: () => NOW, sleep: async () => {} },
   ),
 });
@@ -22,7 +22,7 @@ const tools = (...ids: string[]) => ({ tools: ids, skills: [] });
 
 describe('CatalogEntitlements', () => {
   it('entitles what the workspace’s plan includes', async () => {
-    const { service } = entitlements(WorkspacePlan.of(Plan.team));
+    const { service } = entitlements(PlanTerm.of(Plan.team));
 
     const entitled = await service.entitledTo(
       WORKSPACE,
@@ -36,7 +36,7 @@ describe('CatalogEntitlements', () => {
   });
 
   it('denies what the plan does not include, naming the plan it requires', async () => {
-    const { service } = entitlements(WorkspacePlan.free);
+    const { service } = entitlements(PlanTerm.free);
 
     const entitled = await service.entitledTo(
       WORKSPACE,
@@ -57,7 +57,7 @@ describe('CatalogEntitlements', () => {
   });
 
   it('entitles a skill with the tools it uses, once each', async () => {
-    const { service } = entitlements(WorkspacePlan.of(Plan.team));
+    const { service } = entitlements(PlanTerm.of(Plan.team));
 
     const entitled = await service.entitledTo(WORKSPACE, {
       tools: ['catalog.web-search@1.1.0'],

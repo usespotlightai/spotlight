@@ -1,5 +1,5 @@
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
-import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
+import type { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 
 export type Entitlement =
   | { readonly entitled: true }
@@ -11,7 +11,7 @@ export type Entitlement =
 
 export const entitlementTo = (
   item: CatalogItem,
-  plan: WorkspacePlan,
+  plan: PlanTerm,
   now: Date,
 ): Entitlement => {
   const requiredPlan = item.metadata.requiredPlan;

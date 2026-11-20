@@ -71,6 +71,11 @@ export const envSchema = databaseSchema
       .string()
       .regex(/^[A-Za-z0-9._~-]{32,255}$/)
       .optional(),
+    // Turns on the admin API under /api/admin. Without it, every admin route answers 404.
+    SPOTLIGHT_ADMIN_TOKEN: z
+      .string()
+      .regex(/^[A-Za-z0-9._~-]{32,255}$/)
+      .optional(),
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),

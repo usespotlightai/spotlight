@@ -229,12 +229,6 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/work/infrastructure/persistence/drizzle/station-deletion.guard.ts',
     ],
   },
-  workspace_plan: {
-    why: 'Catalog plan record of a workspace, removed with the workspace',
-    writers: [
-      'contexts/catalog/infrastructure/persistence/drizzle/workspace-plan-deletion.ts',
-    ],
-  },
 };
 
 const LIBRARY_TABLES: Readonly<Record<string, string>> = {
