@@ -69,17 +69,16 @@ const seeing = (sees = true, acts = sees): WorkAccess =>
     ),
   }) as unknown as WorkAccess;
 
-const held = (chatId: string | null): TaskSummary =>
-  ({
-    ...summaries[0],
-    hold: {
-      by: { id: 'user_2', name: 'Maya Chen', image: null },
-      startedAt: created,
-      runId: 'run_1',
-      heldMoveTo: null,
-      chatId,
-    },
-  }) as TaskSummary;
+const held = (chatId: string | null): TaskSummary => ({
+  ...summaries[0],
+  hold: {
+    by: { id: 'user_2', name: 'Maya Chen', image: null },
+    startedAt: created,
+    runId: 'run_1',
+    heldMoveTo: null,
+    chatId,
+  },
+});
 
 const holdOf = async (summary: TaskSummary, access: WorkAccess) =>
   (await handle(reader([summary]), access))?.items[0]?.hold;
