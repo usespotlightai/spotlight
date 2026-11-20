@@ -4,6 +4,7 @@ import {
   type Conversation,
   conversationsOf,
   notesIn,
+  openIn,
   pendingIn,
   stillOpen,
 } from '@work/domain/services/conversations';
@@ -25,10 +26,7 @@ export class Trail {
   }
 
   get open(): Conversation | null {
-    const cut = conversationsOf(this.notes.map((each) => each.kind));
-    const last = cut[cut.length - 1];
-
-    return last && stillOpen(last) ? last : null;
+    return openIn(conversationsOf(this.notes.map((each) => each.kind)));
   }
 
   get lastClosed(): Conversation | null {

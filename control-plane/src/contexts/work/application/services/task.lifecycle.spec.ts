@@ -382,9 +382,6 @@ const payloadOf = (which: Which, closes: Repo | null): HappeningPayload => ({
 const actorOf = (task: Task, by: Actor): UserId =>
   by === 'holder' ? (task.openHold?.by ?? PEOPLE.leon) : PEOPLE[by];
 
-const personAsked = (task: Task, of: Person): UserId =>
-  task.openHold?.by ?? PEOPLE[of];
-
 const askingApproval = (task: Task, run: RunId, of: UserId | null, at: Date) =>
   task.clearFor(
     ApprovalSubject.toolCall(
@@ -627,12 +624,7 @@ const applied = async (world: World, each: Step): Promise<Task> => {
       const run = task.currentRunId;
 
       return run
-        ? askingApproval(
-            task,
-            run,
-            each.of ? personAsked(task, each.of) : null,
-            world.now,
-          )
+        ? askingApproval(task, run, each.of ? PEOPLE[each.of] : null, world.now)
         : task;
     }
     case 'ask-connection': {
@@ -642,7 +634,7 @@ const applied = async (world: World, each: Step): Promise<Task> => {
         ? task.askToConnect(
             run,
             said(world, 'Connect Linear.', Voice.station(run)),
-            connectionOf(personAsked(task, each.of)),
+            connectionOf(PEOPLE[each.of]),
           ).task
         : task;
     }
@@ -1182,7 +1174,7 @@ describe('a task held by one person whose turn asks another person', () => {
       })
       .assignRun(RunId.of('run_turn'), LINE);
 
-  it.fails('stays loadable when the turn asks the person who opened the task to connect', () => {
+  it('stays loadable when the turn asks the person who opened the task to connect', () => {
     const asked = heldByMaya().askToConnect(
       RunId.of('run_turn'),
       {
@@ -1197,7 +1189,7 @@ describe('a task held by one person whose turn asks another person', () => {
     expect(loadable(asked)).toBe(true);
   });
 
-  it.fails('stays loadable when the turn asks that person to approve a tool call', () => {
+  it('stays loadable when the turn asks that person to approve a tool call', () => {
     const asked = askingApproval(
       heldByMaya(),
       RunId.of('run_turn'),
@@ -1206,5 +1198,196 @@ describe('a task held by one person whose turn asks another person', () => {
     );
 
     expect(loadable(asked)).toBe(true);
+  });
+
+  it('shows the ask to the person it names, and only while it is open', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Go ahead.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      },
+      'approved',
+    );
+
+    expect(
+      asked.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('asked');
+    expect(
+      asked.conversationStandingOf({ person: PEOPLE.maya, onTeam: true }),
+    ).toBe('assignee');
+    expect(
+      approved.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('following');
+  });
+
+  it('lets the person asked connect, and stays with its holder', () => {
+    const connected = heldByMaya()
+      .askToConnect(
+        RunId.of('run_turn'),
+        {
+          line: LINE,
+          body: TaskNoteBody.of('Connect Linear.'),
+          at: START,
+          voice: Voice.station(RunId.of('run_turn')),
+        },
+        connectionOf(PEOPLE.leon),
+      )
+      .task.connectionMade(TEAM_ID, LINEAR, PEOPLE.leon, {
+        line: LINE,
+        at: START,
+      });
+
+    expect(connected?.assignee).toEqual(PEOPLE.maya);
+    expect(connected && loadable(connected)).toBe(true);
+  });
+
+  it('lets the person asked approve the tool call, and stays with its holder', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Go ahead.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      },
+      'approved',
+    );
+    const approval = approved.approvalFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+      ),
+    )?.approval;
+
+    expect(approval?.grantedFor(PEOPLE.leon)).toBe(true);
+    expect(approved.assignee).toEqual(PEOPLE.maya);
+    expect(loadable(approved)).toBe(true);
+  });
+
+  it('leaves any further answer to its holder once the person asked has decided', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const words = {
+      line: LINE,
+      body: TaskNoteBody.of('Also drain the queue.'),
+      at: START,
+      voice: Voice.person(PEOPLE.leon),
+    };
+    const approved = asked.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(asked),
+      { ...words, body: TaskNoteBody.of('Go ahead.') },
+      'approved',
+    );
+
+    expect(() =>
+      approved.answerAs(PEOPLE.leon, TEAM, openFrom(approved), words),
+    ).toThrow(AssignedToAnotherPersonError);
+  });
+
+  it('leaves the answer to its holder when the ask names another person', () => {
+    const asked = askingApproval(
+      heldByMaya(),
+      RunId.of('run_turn'),
+      PEOPLE.maya,
+      START,
+    );
+
+    expect(() =>
+      asked.answerAs(
+        PEOPLE.leon,
+        TEAM,
+        openFrom(asked),
+        {
+          line: LINE,
+          body: TaskNoteBody.of('Go ahead.'),
+          at: START,
+          voice: Voice.person(PEOPLE.leon),
+        },
+        'approved',
+      ),
+    ).toThrow(AssignedToAnotherPersonError);
+  });
+
+  it('leaves the answer to its holder once the person asked has connected', () => {
+    const asked = heldByMaya().askToConnect(
+      RunId.of('run_turn'),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Connect Linear.'),
+        at: START,
+        voice: Voice.station(RunId.of('run_turn')),
+      },
+      connectionOf(PEOPLE.leon),
+    ).task;
+    const connected = asked.connectionMade(TEAM_ID, LINEAR, PEOPLE.leon, {
+      line: LINE,
+      at: START,
+    });
+
+    if (!connected?.openConversation) {
+      throw new Error('the connection closed the conversation');
+    }
+
+    expect(() =>
+      connected.answerAs(PEOPLE.leon, TEAM, openFrom(connected), {
+        line: LINE,
+        body: TaskNoteBody.of('Done.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      }),
+    ).toThrow(AssignedToAnotherPersonError);
+  });
+
+  it('lets the person asked still approve after the task moves to someone else, when it is not on hold', () => {
+    const asked = askingApproval(
+      opened('implementation').assignRun(RunId.of('run_turn'), LINE),
+      RunId.of('run_turn'),
+      PEOPLE.leon,
+      START,
+    );
+    const moved = asked.assign(PEOPLE.maya, TEAM);
+    const approved = moved.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(moved),
+      {
+        line: LINE,
+        body: TaskNoteBody.of('Go ahead.'),
+        at: START,
+        voice: Voice.person(PEOPLE.leon),
+      },
+      'approved',
+    );
+
+    expect(asked.assignee).toEqual(PEOPLE.leon);
+    expect(
+      moved.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+    ).toBe('asked');
+    expect(approved.assignee).toEqual(PEOPLE.maya);
+    expect(loadable(approved)).toBe(true);
   });
 });

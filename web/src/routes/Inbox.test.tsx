@@ -83,6 +83,9 @@ const item = (over: Record<string, unknown> = {}) => ({
     at: '2026-08-29T12:00:00.000Z',
     author: null,
   },
+  standing: 'assignee',
+  answerable: true,
+  resolvable: true,
   ...over,
 });
 
@@ -242,6 +245,15 @@ describe('Inbox', () => {
       });
     });
 
+    it('offers no resolve when the server says the person cannot resolve it', () => {
+      waiting.mockReturnValue([item({ resolvable: false })]);
+      renderAt('/w/acme/inbox');
+
+      expect(
+        screen.queryByRole('button', { name: 'Resolve' }),
+      ).not.toBeInTheDocument();
+    });
+
     it('unresolves what is resolved on request', async () => {
       waiting.mockReturnValue([
         notice({
@@ -263,7 +275,9 @@ describe('Inbox', () => {
     });
 
     it('does not offer to unresolve a conversation that moved on by itself', () => {
-      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
+      waiting.mockReturnValue([
+        item({ resolved: true, section: 'resolved', resolvable: false }),
+      ]);
       renderAt('/w/acme/inbox');
 
       expect(
@@ -341,6 +355,7 @@ describe('Inbox', () => {
           taskId: 'task_2',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
       renderAt('/w/acme/inbox');
@@ -376,7 +391,9 @@ describe('Inbox', () => {
     });
 
     it('stays, counting none, when nothing is open', () => {
-      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
+      waiting.mockReturnValue([
+        item({ resolved: true, section: 'resolved', resolvable: false }),
+      ]);
       renderAt('/w/acme/inbox');
 
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
@@ -396,6 +413,7 @@ describe('Inbox', () => {
           standing: 'following',
           section: 'following',
           unread: true,
+          resolvable: false,
         }),
       ]);
     });
@@ -545,6 +563,7 @@ describe('Inbox', () => {
           resolved: true,
           progress: 'in-progress',
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
       renderAt('/w/acme/inbox');
@@ -568,6 +587,7 @@ describe('Inbox', () => {
           title: 'Cap the retries',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
     });
@@ -610,12 +630,14 @@ describe('Inbox', () => {
           taskId: 'task_3',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
         item({
           id: 'task_4:0',
           taskId: 'task_4',
           resolved: true,
           section: 'resolved',
+          resolvable: false,
         }),
       ]);
       moreResolved.mockReturnValue(true);

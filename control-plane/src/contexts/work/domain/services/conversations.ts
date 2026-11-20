@@ -36,6 +36,16 @@ export const stillOpen = <T>(conversation: {
   readonly to: T | null;
 }): boolean => conversation.to === null;
 
+export const openIn = <
+  T extends { readonly from: unknown; readonly to: unknown },
+>(
+  cut: readonly T[],
+): T | null => {
+  const last = cut[cut.length - 1];
+
+  return last && stillOpen(last) ? last : null;
+};
+
 export const listedAsOpen = <T>(
   conversation: {
     readonly from: T;
@@ -179,10 +189,7 @@ export const pendingIn = <T extends { kind: TaskNoteKind }>(
     return null;
   }
 
-  const cut = conversationsOf(notes.map((each) => each.kind));
-  const last = cut[cut.length - 1];
-
-  return last && stillOpen(last) ? last : null;
+  return openIn(conversationsOf(notes.map((each) => each.kind)));
 };
 
 export const worksOn = <T extends { kind: TaskNoteKind }>(

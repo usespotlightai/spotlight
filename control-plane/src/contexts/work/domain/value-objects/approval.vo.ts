@@ -107,8 +107,12 @@ export class Approval {
     );
   }
 
+  static isPending(status: ApprovalStatus): boolean {
+    return status === 'pending';
+  }
+
   get open(): boolean {
-    return this.status === 'pending';
+    return Approval.isPending(this.status);
   }
 
   get grants(): boolean {

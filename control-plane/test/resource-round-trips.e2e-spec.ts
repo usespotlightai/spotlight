@@ -911,15 +911,15 @@ describe('a line definition sent through the resource API (e2e)', () => {
       ),
   );
 
-  it.fails(
-    'answers a route written twice with the line or a problem, never a server error',
+  it(
+    'refuses a line that writes a route twice',
     async () => {
       await fc.assert(
         fc.asyncProperty(repeatingARoute, async (draft) => {
           const api = await opened(LINES);
           const created = await api.create(draft.body);
 
-          return created.status === 201 || created.status === 422;
+          return created.status === 422;
         }),
         RUNS,
       );

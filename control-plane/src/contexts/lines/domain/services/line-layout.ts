@@ -103,7 +103,13 @@ export const stationsProblem = <R extends Reference<R>>(
       };
     }
 
-    for (const to of station.passesTo) {
+    for (const [at, to] of station.passesTo.entries()) {
+      if (among(station.passesTo, to) !== at) {
+        return {
+          reason: `cannot pass to one station twice, but ${station.name.value} does`,
+          flaw: routing(station),
+        };
+      }
       if (to.equals(station.at)) {
         return {
           reason: `cannot pass to themselves, but ${station.name.value} does`,

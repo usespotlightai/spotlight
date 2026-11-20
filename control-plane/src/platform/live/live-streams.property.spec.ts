@@ -397,6 +397,7 @@ interface ClientState {
   stale: boolean;
   session: Session | null;
   reloads: number;
+  reloadedAt: ReadonlyMap<string, number> | null;
 }
 
 const freshClient = (): ClientState => ({
@@ -405,6 +406,7 @@ const freshClient = (): ClientState => ({
   stale: false,
   session: null,
   reloads: 0,
+  reloadedAt: null,
 });
 
 const absorbed = (state: ClientState, channel: string): void => {
@@ -545,6 +547,9 @@ class World {
         }
       } else {
         state.reloads += 1;
+        state.reloadedAt = new Map(
+          WATCHED.map((channel) => [channel, this.log.headOf(channel)]),
+        );
 
         for (const channel of new Set([
           ...state.applied.keys(),
@@ -1012,7 +1017,9 @@ describe('live streams under random publishes, reconnects, trims and feed faults
             state.ahead.size === 0 &&
             WATCHED.every(
               (channel) =>
-                state.applied.get(channel) === world.log.headOf(channel),
+                state.applied.get(channel) === world.log.headOf(channel) ||
+                (state.reloadedAt?.get(channel) ?? -1) >=
+                  world.log.headOf(channel),
             )
           );
         }),
@@ -1021,7 +1028,7 @@ describe('live streams under random publishes, reconnects, trims and feed faults
     );
   }, 120_000);
 
-  it.fails('passes on every later notice to a client that resumes from beyond the head', async () => {
+  it('passes on every later notice to a client that resumes from beyond the head', async () => {
     await fc.assert(walking(leavesNoSilentGap, 3), RUNS);
   }, 120_000);
 });

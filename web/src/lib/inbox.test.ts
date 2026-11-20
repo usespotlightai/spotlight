@@ -522,3 +522,23 @@ describe('chatPreviewOf', () => {
     expect(reopenable(chat({ resolved: true, reopenable: true }))).toBe(true);
   });
 });
+
+describe('resolvable', () => {
+  const conversation = (over: Partial<InboxItem>) =>
+    ({
+      kind: 'task',
+      id: 'task_1:3',
+      resolved: false,
+      standing: 'assignee',
+      resolvable: true,
+      ...over,
+    }) as InboxItem;
+
+  it('follows the server for a conversation', () => {
+    expect(resolvable(conversation({}))).toBe(true);
+    expect(resolvable(conversation({ resolvable: false }))).toBe(false);
+    expect(
+      resolvable(conversation({ standing: 'asked', resolvable: false })),
+    ).toBe(false);
+  });
+});

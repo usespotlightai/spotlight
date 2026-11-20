@@ -786,12 +786,11 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    return this.heldBy(answerer, members).answer(
-      from,
-      newNote,
-      decision,
-      edits,
-    );
+    return (
+      this.answersItsOwnAsk(from, Voice.person(answerer))
+        ? this
+        : this.heldBy(answerer, members)
+    ).answer(from, newNote, decision, edits);
   }
 
   resolveAs(
@@ -1917,6 +1916,19 @@ export class Task extends EventRecorder {
     });
   }
 
+  private asks(person: UserId): boolean {
+    return ConversationAudience.asks(this.openConversationNote, person);
+  }
+
+  private answersItsOwnAsk(from: NotePosition, voice: Voice): boolean {
+    return (
+      voice.isPerson &&
+      voice.author !== null &&
+      this.isWaitingAt(from) &&
+      this.asks(voice.author)
+    );
+  }
+
   private holdsAside(voice: Voice): boolean {
     const hold = this.openHold;
 
@@ -2105,6 +2117,7 @@ export class Task extends EventRecorder {
     return ConversationAudience.standingOf(this.assignee, {
       ...viewer,
       wroteIn: this.wroteIn(viewer.person),
+      asked: this.asks(viewer.person),
     });
   }
 
@@ -2527,16 +2540,17 @@ export class Task extends EventRecorder {
     const askedOf = needed.askedOf;
 
     return {
-      task: (askedOf ? this.with({ assignee: askedOf }) : this).putToAPerson(
-        by,
-        {
-          ...asking,
-          form: 'approval',
-          approval: Approval.request(subject, this.stationId, needed, intent),
-        },
-      ),
+      task: (askedOf ? this.askingOf(askedOf) : this).putToAPerson(by, {
+        ...asking,
+        form: 'approval',
+        approval: Approval.request(subject, this.stationId, needed, intent),
+      }),
       check: { kind: 'pending' },
     };
+  }
+
+  private askingOf(person: UserId): Task {
+    return this.openHold ? this : this.with({ assignee: person });
   }
 
   askToConnect(by: RunId, asking: NewNote, ask: ConnectionAsk): AskedToConnect {
@@ -2555,7 +2569,7 @@ export class Task extends EventRecorder {
     }
 
     return {
-      task: this.with({ assignee: ask.personId }).putToAPerson(by, {
+      task: this.askingOf(ask.personId).putToAPerson(by, {
         ...asking,
         form: 'connection',
         connectionAsk: ask,
@@ -2630,7 +2644,9 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    this.assertDrivenBy(newNote.voice, 'answer it');
+    if (!this.answersItsOwnAsk(from, newNote.voice)) {
+      this.assertDrivenBy(newNote.voice, 'answer it');
+    }
 
     if (!this.isWaitingAt(from)) {
       throw new InvalidTaskTransitionError(

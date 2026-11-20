@@ -16,6 +16,7 @@ import {
 import type { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import type { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
+import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
 export type InboxRequestAccess = 'seesTeam' | 'actsOnTeam';
 
@@ -154,6 +155,14 @@ export class InboxRequest extends EventRecorder {
 
   static reopenable(resolvedAt: Date | null): boolean {
     return resolvedAt !== null;
+  }
+
+  static resolvableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
+    return team.actsOnTasks && resolvedAt === null;
+  }
+
+  static reopenableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
+    return team.actsOnTasks && InboxRequest.reopenable(resolvedAt);
   }
 
   static requiredAccess(form: InboxRequestForm): InboxRequestAccess {
