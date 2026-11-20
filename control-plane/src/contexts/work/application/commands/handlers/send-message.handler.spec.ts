@@ -250,7 +250,7 @@ describe('SendMessageHandler', () => {
     expect(saved?.currentRunId?.value).toBe('run_2');
   });
 
-  it('keeps a teammate’s message for the agent while someone else holds the task, starting nothing', async () => {
+  it('makes a teammate’s message the next turn while someone else holds the task', async () => {
     const held = handed().hold({
       id: HoldId.of('hold_0'),
       by: OWNER,
@@ -263,8 +263,9 @@ describe('SendMessageHandler', () => {
     await sendMessage(held, 'Also the docs.', 'teammate');
 
     expect(saved?.openHold?.by).toEqual(OWNER);
-    expect(dispatched).toEqual([]);
-    expect(saved?.running).toBe(false);
+    expect(saved?.assignee).toEqual(OWNER);
+    expect(dispatched).toHaveLength(1);
+    expect(saved?.currentRunId?.value).toBe('run_2');
   });
 
   it('takes the words as the answer a paused run waits on, resuming that run', async () => {

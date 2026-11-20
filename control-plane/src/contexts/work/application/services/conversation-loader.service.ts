@@ -53,7 +53,10 @@ export class ConversationLoader {
 
     team.standing.assertActsOnTasks(unknown);
 
-    if (!ConversationAudience.answers(standing)) {
+    if (
+      !ConversationAudience.answers(standing) &&
+      !(team.joined && task.takesTurnsFrom(UserId.of(them)))
+    ) {
       throw new AssignedToAnotherPersonError(task.id.value);
     }
 

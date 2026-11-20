@@ -6,7 +6,7 @@ import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
-import { heldByMe } from '@/lib/hold';
+import { drivesHold } from '@/lib/hold';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
 import { holdsOnMessage, startsAgainOnMessage } from '@/lib/task';
 
@@ -78,7 +78,7 @@ export function RunComposer({
   const me = useMe();
   const mode = modeOf({
     answering,
-    driving: heldByMe(task?.hold, me?.id),
+    driving: drivesHold(task?.hold, me?.id),
     holds: holdsOnMessage(task, currentStation, stationId),
     restarts: startsAgainOnMessage(task, currentStation, stationId),
   });

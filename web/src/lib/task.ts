@@ -91,7 +91,7 @@ export const mayLand = (
     from &&
     to &&
     (from.id === to.id ||
-      ((!task.hold || task.hold.by.id === viewerId) &&
+      ((!task.hold?.chatId || task.hold.by.id === viewerId) &&
         movableByHand(from, to))),
   );
 };

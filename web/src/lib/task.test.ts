@@ -137,13 +137,20 @@ describe('mayLand', () => {
     },
   };
 
-  it('keeps a task on hold at its station for everyone but the person who holds it', () => {
-    expect(mayLand(stations, held, 'backlog', 'user_2')).toBe(false);
-    expect(mayLand(stations, held, 'spec', 'user_2')).toBe(true);
+  it('lets any person move a task on hold, which resumes the line', () => {
+    expect(mayLand(stations, held, 'backlog', 'user_1')).toBe(true);
+    expect(mayLand(stations, held, 'backlog', 'user_2')).toBe(true);
   });
 
-  it('lets the person who holds the task move it, which resumes the line', () => {
-    expect(mayLand(stations, held, 'backlog', 'user_1')).toBe(true);
+  it('keeps a task an agent chat holds at its station for everyone but the person whose chat it is', () => {
+    const chatHeld: Task = {
+      ...held,
+      hold: held.hold && { ...held.hold, chatId: 'chat_1' },
+    };
+
+    expect(mayLand(stations, chatHeld, 'backlog', 'user_2')).toBe(false);
+    expect(mayLand(stations, chatHeld, 'spec', 'user_2')).toBe(true);
+    expect(mayLand(stations, chatHeld, 'backlog', 'user_1')).toBe(true);
   });
 
   it('lands nothing at a station off the line', () => {

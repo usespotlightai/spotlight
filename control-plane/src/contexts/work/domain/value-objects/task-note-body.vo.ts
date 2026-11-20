@@ -41,14 +41,14 @@ export const drivenByAPerson = (
   options: readonly HandoverOption[],
 ): string =>
   [
-    '## A person drives this session',
-    'A person put the task on hold. The line waits. Each of their messages is one turn.',
+    '## People drive this session',
+    'A person put the task on hold. The line waits. People on the team now send the messages. Each message is one turn.',
     driverRules(here, options),
   ].join('\n\n');
 
 export class TaskNoteBody {
   private static readonly TURNS_ARE_OVER =
-    "The rules for the person's turns no longer apply.";
+    "The rules for people's turns no longer apply.";
 
   private constructor(readonly value: string) {}
 
@@ -118,7 +118,7 @@ export class TaskNoteBody {
     options: readonly HandoverOption[],
   ): TaskNoteBody {
     return TaskNoteBody.of(
-      `A person put the task on hold at ${at.value}. The line waits. From now on they drive this session, turn by turn.\n${driverRules(at, options)}`,
+      `A person put the task on hold at ${at.value}. The line waits. From now on people on the team drive this session, turn by turn.\n${driverRules(at, options)}`,
     );
   }
 

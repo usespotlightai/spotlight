@@ -552,8 +552,8 @@ export class Task extends EventRecorder {
   ): Task {
     const hold = this.openHold;
 
-    if (hold && !hold.by.equals(handMove.mover)) {
-      throw new TaskOnHoldError(this.id, hold.by);
+    if (hold) {
+      this.assertMayEnd(hold, handMove.mover);
     }
 
     if (hold && this.stationId.equals(to)) {
@@ -911,6 +911,16 @@ export class Task extends EventRecorder {
   }
 
   private heldBy(person: UserId, members: TeamMembers): Task {
+    const hold = this.openHold;
+
+    if (hold && Task.drives(hold, Voice.person(person))) {
+      if (!members.includes(person)) {
+        throw new NotOnTheTeamAskedError(this.id.value);
+      }
+
+      return this;
+    }
+
     if (!this.assignee && !members.includes(person)) {
       throw new NotOnTheTeamAskedError(this.id.value);
     }
@@ -1776,7 +1786,7 @@ export class Task extends EventRecorder {
     return (
       this.idle &&
       Boolean(line.stationAt(this.stationId)?.harness) &&
-      (hold === null || (hold.chat === null && this.hasMessageFrom(hold.by)))
+      (hold === null || this.hasMessageToDrive(hold))
     );
   }
 
@@ -1903,9 +1913,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    if (!hold.by.equals(input.by)) {
-      throw new TaskOnHoldError(this.id, hold.by);
-    }
+    this.assertMayEnd(hold, input.by);
 
     if (this.working) {
       throw new InvalidTaskTransitionError(
@@ -2142,9 +2150,12 @@ export class Task extends EventRecorder {
       putOnHold !== null &&
       note.position.value > putOnHold.value &&
       !note.voice.isStation &&
-      (hold.chat !== null ||
-        !(note.voice.isPerson && (note.voice.author?.equals(hold.by) ?? false)))
+      !Task.drives(hold, note.voice)
     );
+  }
+
+  private static drives(hold: Hold, voice: Voice): boolean {
+    return hold.chat === null && voice.isPerson && voice.author !== null;
   }
 
   private withHeldNotesFor(hold: Hold): Task {
@@ -2158,19 +2169,12 @@ export class Task extends EventRecorder {
   private holdsAside(voice: Voice): boolean {
     const hold = this.openHold;
 
-    return (
-      hold !== null &&
-      (hold.chat !== null ||
-        !(voice.isPerson && (voice.author?.equals(hold.by) ?? false)))
-    );
+    return hold !== null && !Task.drives(hold, voice);
   }
 
-  private hasMessageFrom(person: UserId): boolean {
+  private hasMessageToDrive(hold: Hold): boolean {
     return this.unacknowledged.some(
-      (note) =>
-        note.form === 'words' &&
-        note.voice.isPerson &&
-        (note.voice.author?.equals(person) ?? false),
+      (note) => note.form === 'words' && Task.drives(hold, note.voice),
     );
   }
 
@@ -2238,8 +2242,16 @@ export class Task extends EventRecorder {
   private assertDrivenBy(voice: Voice, doing: string): void {
     if (this.holdsAside(voice)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is on hold. Only the person who holds it can ${doing} until the line resumes.`,
+        this.openHold?.chat
+          ? `Task ${this.id.value} is on hold for an agent chat. Nobody can ${doing} until the line resumes.`
+          : `Task ${this.id.value} is on hold. Only a person can ${doing} until the line resumes.`,
       );
+    }
+  }
+
+  private assertMayEnd(hold: Hold, person: UserId): void {
+    if (hold.chat && !hold.by.equals(person)) {
+      throw new TaskOnHoldError(this.id, hold.by);
     }
   }
 
@@ -2358,8 +2370,16 @@ export class Task extends EventRecorder {
   ): ConversationStanding | null {
     return ConversationAudience.standingOf(this.assignee, {
       ...viewer,
-      wroteIn: this.wroteIn(viewer.person),
+      follows:
+        this.wroteIn(viewer.person) ||
+        (viewer.onTeam && this.takesTurnsFrom(viewer.person)),
     });
+  }
+
+  takesTurnsFrom(person: UserId): boolean {
+    const hold = this.openHold;
+
+    return hold !== null && Task.drives(hold, Voice.person(person));
   }
 
   assignedToThem(userId: UserId): boolean {

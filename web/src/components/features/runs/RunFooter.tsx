@@ -3,7 +3,7 @@ import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNot
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
-import { heldByOther } from '@/lib/hold';
+import { chatHeldByOther } from '@/lib/hold';
 import { runPath, type TeamRun, waitsOnPerson, stoppable } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
@@ -31,13 +31,13 @@ export function RunFooter({
     conversation?.taskId,
   );
   const me = useMe();
-  const heldByTeammate = heldByOther(task?.hold, me?.id);
+  const chatHeld = chatHeldByOther(task?.hold, me?.id);
 
-  if (heldByTeammate) {
+  if (chatHeld) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
-        {heldByTeammate.by.name} put the task on hold. The agent reads new
-        messages after they resume the line.
+        An agent chat of {chatHeld.by.name} holds the task. The agent reads new
+        messages after they hand the task to the line.
       </p>
     );
   }

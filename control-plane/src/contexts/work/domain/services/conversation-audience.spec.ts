@@ -11,7 +11,7 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(ANA, {
         person: ANA,
         onTeam: true,
-        wroteIn: true,
+        follows: true,
       }),
     ).toBe('assignee');
   });
@@ -21,7 +21,7 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(null, {
         person: ANA,
         onTeam: true,
-        wroteIn: true,
+        follows: true,
       }),
     ).toBe('team');
   });
@@ -31,7 +31,7 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(BEN, {
         person: ANA,
         onTeam: true,
-        wroteIn: true,
+        follows: true,
       }),
     ).toBe('following');
   });
@@ -41,14 +41,14 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(BEN, {
         person: ANA,
         onTeam: true,
-        wroteIn: false,
+        follows: false,
       }),
     ).toBeNull();
     expect(
       ConversationAudience.standingOf(null, {
         person: ANA,
         onTeam: false,
-        wroteIn: false,
+        follows: false,
       }),
     ).toBeNull();
   });
@@ -58,7 +58,7 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(null, {
         person: ANA,
         onTeam: false,
-        wroteIn: true,
+        follows: true,
       }),
     ).toBeNull();
   });

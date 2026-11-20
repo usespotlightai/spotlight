@@ -18,6 +18,7 @@ import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event
 import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
+import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
@@ -254,6 +255,31 @@ describe('a task a chat opens a pull request for', () => {
       ['chat_1', false],
     ]);
     expect(told[0]?.body).toMatch(/handed the task to the line/);
+  });
+
+  it('goes back to the line only when the person whose chat holds it says so', () => {
+    expect(() =>
+      opened().resumeLine({
+        by: MAYA,
+        line,
+        next: 'continue',
+        to: null,
+        rank: null,
+        verdict: null,
+        summary: null,
+        turnHeads: [],
+        at: LATER,
+      }),
+    ).toThrow(TaskOnHoldError);
+    expect(() =>
+      opened().moveTo(
+        line,
+        BACKLOG,
+        TaskRank.of('m'),
+        said('Not now.', Voice.person(MAYA)),
+        { mover: MAYA },
+      ),
+    ).toThrow(TaskOnHoldError);
   });
 
   it('tells the chat when the person moves the task on by hand', () => {

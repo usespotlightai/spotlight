@@ -21,7 +21,7 @@ export interface ConversationViewer {
 }
 
 export interface ConversationReader extends ConversationViewer {
-  readonly wroteIn: boolean;
+  readonly follows: boolean;
 }
 
 export const ConversationAudience = {
@@ -37,7 +37,7 @@ export const ConversationAudience = {
       return 'team';
     }
 
-    return assignee !== null && reader.wroteIn ? 'following' : null;
+    return assignee !== null && reader.follows ? 'following' : null;
   },
 
   answers(standing: ConversationStanding | null): boolean {

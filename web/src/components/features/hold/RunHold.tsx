@@ -6,7 +6,7 @@ import { ResumeDialog } from '@/components/features/hold/ResumeDialog';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useCommands } from '@/hooks/useCommands';
 import { useMe } from '@/hooks/useMe';
-import { heldMoveOf, moveOnTargets } from '@/lib/hold';
+import { drivesHold, heldMoveOf, moveOnTargets } from '@/lib/hold';
 import { runPath } from '@/lib/run';
 
 type RunHoldProps = {
@@ -21,16 +21,18 @@ export function RunHold({ slug, teamId, taskId, runId }: RunHoldProps) {
   const me = useMe();
   const [resuming, setResuming] = useState(false);
   const hold = task?.hold;
-  const mine = Boolean(hold && hold.by.id === me?.id);
+  const driving = drivesHold(hold, me?.id);
   useCommands(
-    mine ? [{ id: 'task.resume' as const, run: () => setResuming(true) }] : [],
+    driving
+      ? [{ id: 'task.resume' as const, run: () => setResuming(true) }]
+      : [],
   );
 
   if (!task || !station || !hold) {
     return null;
   }
 
-  if (!mine) {
+  if (!driving) {
     return (
       <OnHoldPill
         hold={hold}

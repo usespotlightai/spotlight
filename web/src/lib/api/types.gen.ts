@@ -3645,7 +3645,7 @@ export type AssignTaskRequestDto = {
 export type HoldEnd = 'continue' | 'move-on' | 'finish';
 
 /**
- * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+ * Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
  */
 export type HoldVerdict = 'not-right' | 'exploring';
 
@@ -3659,7 +3659,7 @@ export type ResumeLineRequestDto = {
    */
   stationId?: string;
   /**
-   * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+   * Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
    */
   verdict?: HoldVerdict;
   /**
@@ -16581,7 +16581,7 @@ export type ResumeLineErrors = {
    */
   404: unknown;
   /**
-   * The task is not on hold, someone else put it on hold, or it cannot move on to that station
+   * The task is not on hold, an agent chat of another person holds it, or it cannot move on to that station
    */
   409: unknown;
 };

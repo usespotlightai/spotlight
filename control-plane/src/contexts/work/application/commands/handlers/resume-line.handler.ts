@@ -34,7 +34,7 @@ export class ResumeLineHandler implements CommandHandlerPort<
     } catch (error) {
       if (error instanceof TaskOnHoldError) {
         throw new HoldConflictError(
-          `${await nameOf(this.people, error.by)} put this task on hold. Only they can resume the line.`,
+          `An agent chat of ${await nameOf(this.people, error.by)} holds this task. Only they can hand it to the line.`,
         );
       }
 

@@ -208,7 +208,7 @@ describe('TaskBriefing', () => {
       drivenByAPerson: true,
     });
 
-    expect(briefing).toContain('## A person drives this session');
+    expect(briefing).toContain('## People drive this session');
     expect(briefing).not.toContain('Sort it.');
     expect(briefing).not.toContain('## When you are done');
     expect(briefing).toContain('`"triage"`: Triage continues the work.');

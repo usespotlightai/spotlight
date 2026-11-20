@@ -23,7 +23,7 @@ export class ResumeLineRequestDto {
     enum: HOLD_VERDICT_NAMES,
     enumName: 'HoldVerdict',
     description:
-      'Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.',
+      'Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.',
   })
   readonly verdict?: (typeof HOLD_VERDICT_NAMES)[number];
 

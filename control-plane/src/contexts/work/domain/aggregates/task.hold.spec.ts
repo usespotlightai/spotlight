@@ -20,6 +20,7 @@ import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskHeld } from '@work/domain/events/task-held.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
+import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
@@ -172,18 +173,21 @@ describe('a task a person puts on hold', () => {
     expect(note?.body.value).toContain('Commit your changes');
   });
 
-  it('starts no run until the person who holds it says something', () => {
+  it('starts no run until a person says something', () => {
     const task = onHold();
 
     expect(task.wantsRun(line)).toBe(false);
     expect(
-      task
-        .addMessage(said('Try this instead.', Voice.person(MAYA)))
-        .wantsRun(line),
+      task.addMessage(said('The checks passed.', Voice.world())).wantsRun(line),
     ).toBe(false);
     expect(
       task
         .addMessage(said('Use a bounded queue.', Voice.person(LEON)))
+        .wantsRun(line),
+    ).toBe(true);
+    expect(
+      task
+        .addMessage(said('Try this instead.', Voice.person(MAYA)))
         .wantsRun(line),
     ).toBe(true);
   });
@@ -233,40 +237,36 @@ describe('a task a person puts on hold', () => {
     expect(lastOf(back)?.deferredMove?.to.equals(SHIP)).toBe(true);
   });
 
-  it('lets only the person who holds it answer its turn', () => {
+  it('lets any member of its team answer its turn, and keeps its assignee', () => {
     const asked = turnDone();
-    const members = TeamMembers.of([LEON, MAYA]);
     const fromMaya = asked.receiveMessage(
       TURN,
-      said('Ship it as it is.', Voice.person(MAYA)),
+      said('Now add a test.', Voice.person(MAYA)),
       BUILD,
-      members,
+      TEAM,
     );
 
-    expect(fromMaya.pendingConversation).not.toBeNull();
-    expect(lastOf(fromMaya)?.unacknowledged).toBe(false);
-    expect(fromMaya.wantsRun(line)).toBe(false);
-
-    const fromLeon = asked.receiveMessage(
-      TURN,
-      said('Now add a test.', Voice.person(LEON)),
-      BUILD,
-      members,
-    );
-
-    expect(fromLeon.pendingConversation).toBeNull();
+    expect(fromMaya.pendingConversation).toBeNull();
+    expect(fromMaya.assignee?.equals(LEON)).toBe(true);
+    expect(() =>
+      asked.receiveMessage(
+        TURN,
+        said('Ship it.', Voice.person(UserId.of('user_guest'))),
+        BUILD,
+        TEAM,
+      ),
+    ).toThrow(NotOnTheTeamAskedError);
   });
 
-  it('holds aside what others say while it is on hold', () => {
+  it('holds aside what the world says, and gives the agent what people say', () => {
     const task = onHold()
-      .addMessage(said('Ship it as it is.', Voice.person(MAYA)))
-      .addMessage(said('The checks passed.', Voice.world()));
+      .addMessage(said('The checks passed.', Voice.world()))
+      .addMessage(said('Ship it as it is.', Voice.person(MAYA)));
 
     expect(task.notes.slice(-2).map((note) => note.unacknowledged)).toEqual([
       false,
-      false,
+      true,
     ]);
-    expect(task.wantsRun(line)).toBe(false);
   });
 
   it('keeps a failure the line reports while it is on hold, without a move', () => {
@@ -295,7 +295,7 @@ describe('a task a person drives', () => {
     expect(() => task.unassign()).toThrow(InvalidTaskTransitionError);
   });
 
-  it('takes answers to its turns from the person who holds it only', () => {
+  it('takes answers to its turns from people only', () => {
     const asked = turnDone(driving2(running().assign(MAYA, members)));
     const from = asked.pendingConversation?.from;
 
@@ -305,19 +305,15 @@ describe('a task a person drives', () => {
       return;
     }
 
-    expect(() =>
-      asked.answer(from, said('Ship it.', Voice.person(MAYA))),
-    ).toThrow('Only the person who holds it can answer it');
-    expect(() =>
-      asked.resolveAt(from, said('Done.', Voice.person(MAYA))),
-    ).toThrow('Only the person who holds it can resolve it');
+    expect(() => asked.answer(from, said('Ship it.', Voice.world()))).toThrow(
+      'Only a person can answer it',
+    );
+    expect(() => asked.resolveAt(from, said('Done.', Voice.world()))).toThrow(
+      'Only a person can resolve it',
+    );
     expect(
-      asked.receiveMessage(
-        TURN,
-        said('Now add a test.', Voice.person(LEON)),
-        BUILD,
-        members,
-      ).pendingConversation,
+      asked.resolveAs(MAYA, members, from, said('Done.', Voice.person(MAYA)))
+        .pendingConversation,
     ).toBeNull();
   });
 
@@ -429,7 +425,7 @@ describe('a task a person drives', () => {
     );
   });
 
-  it('is reopened only by the person who holds it', () => {
+  it('is reopened by any person who drives it', () => {
     const asked = turnDone();
     const from = asked.pendingConversation?.from;
 
@@ -441,9 +437,13 @@ describe('a task a person drives', () => {
 
     const resolved = asked.resolveAt(from, said('Done.', Voice.person(LEON)));
 
+    expect(
+      resolved.reopenAt(from, said('Not yet.', Voice.person(MAYA)))
+        .pendingConversation,
+    ).not.toBeNull();
     expect(() =>
-      resolved.reopenAt(from, said('Not yet.', Voice.person(MAYA))),
-    ).toThrow('Only the person who holds it can reopen it');
+      resolved.reopenAt(from, said('Not yet.', Voice.world())),
+    ).toThrow('Only a person can reopen it');
   });
 
   it('holds a failure a hook reports, telling the line nothing', () => {
@@ -733,20 +733,22 @@ describe('a task whose line resumes', () => {
     expect(onHold(back, MAYA).openHold?.from).toBeNull();
   });
 
-  it('resumes the line only for the person who holds it', () => {
-    expect(() =>
-      turnDone().resumeLine({
-        by: MAYA,
-        line,
-        next: 'continue',
-        to: null,
-        rank: null,
-        verdict: 'exploring',
-        summary: null,
-        turnHeads: [],
-        at: LATER,
-      }),
-    ).toThrow(TaskOnHoldError);
+  it('resumes the line for any person, and keeps who put it on hold', () => {
+    const resumed = turnDone().resumeLine({
+      by: MAYA,
+      line,
+      next: 'continue',
+      to: null,
+      rank: null,
+      verdict: 'exploring',
+      summary: null,
+      turnHeads: [],
+      at: LATER,
+    });
+
+    expect(resumed.onHold).toBe(false);
+    expect(resumed.holds[0]?.by.equals(LEON)).toBe(true);
+    expect(lastOf(resumed)?.voice.author?.equals(MAYA)).toBe(true);
   });
 
   it('keeps what arrived while it was on hold away from the next station', () => {
@@ -939,8 +941,11 @@ describe('a hand move of a task on hold', () => {
     expect(moved.onHold).toBe(false);
   });
 
-  it('refuses a move by anyone but the person who holds it', () => {
-    expect(() => move(turnDone(), COMPLETED, MAYA)).toThrow(TaskOnHoldError);
+  it('resumes the line where a teammate moves it', () => {
+    const moved = move(turnDone(), COMPLETED, MAYA);
+
+    expect(moved.onHold).toBe(false);
+    expect(moved.holds[0]?.end).toBe('finish');
   });
 });
 

@@ -210,7 +210,7 @@ const standingOf = (
     {
       person: scope.viewer,
       onTeam: scope.teamsJoined.has(row.teamId),
-      wroteIn: row.wroteIn,
+      follows: row.wroteIn,
     },
   );
 

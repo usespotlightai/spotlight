@@ -58,25 +58,23 @@ export const heldUntilResumed = (
     ? hold.by.id === viewerId
       ? `Your agent chat opened the pull request of this task ${since(hold.startedAt)}. The line continues when you hand the task to the line.`
       : `The agent chat of ${hold.by.name} opened the pull request of this task ${since(hold.startedAt)}. The line continues when they hand the task to the line.`
-    : hold.by.id === viewerId
-      ? `You put the task on hold ${since(hold.startedAt)}. The line continues when you resume it.`
-      : `${hold.by.name} put the task on hold ${since(hold.startedAt)}. The line continues when they resume it.`;
+    : `${hold.by.id === viewerId ? 'You' : hold.by.name} put the task on hold ${since(hold.startedAt)}. The line continues when a person on the team resumes it.`;
 
-export const heldByOther = (
+export const chatHeldByOther = (
   hold: TaskHoldResponseDto | null | undefined,
   viewerId: string | undefined,
 ): TaskHoldResponseDto | null =>
-  hold && hold.by.id !== viewerId ? hold : null;
+  hold?.chatId && hold.by.id !== viewerId ? hold : null;
 
-export const heldByMe = (
+export const drivesHold = (
   hold: TaskHoldResponseDto | null | undefined,
   viewerId: string | undefined,
-): boolean => Boolean(hold && hold.by.id === viewerId);
+): boolean => Boolean(hold && !chatHeldByOther(hold, viewerId));
 
 export const heldBecause = (verdict: HoldVerdict): string =>
   verdict === 'exploring'
-    ? 'You put the task on hold to try something.'
-    : 'You put the task on hold because the line got it wrong.';
+    ? 'The task is on hold to try something.'
+    : 'The task is on hold because the line got it wrong.';
 
 export const resumedTo = (
   next: HoldEnd,
