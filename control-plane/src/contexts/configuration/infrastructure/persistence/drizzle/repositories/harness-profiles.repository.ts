@@ -39,6 +39,7 @@ const columnsOf = (profile: HarnessProfile) => ({
   permissions: profile.settings.permissions,
   mcpServers: HarnessProfileMapper.servers(profile.settings),
   native: { ...profile.settings.native },
+  secrets: profile.settings.secrets.map((each) => each.value),
 });
 
 @Injectable()

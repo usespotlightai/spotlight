@@ -1,7 +1,7 @@
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import {
   type ReadyProfile,
-  withoutServers,
+  withoutServersOrSecrets,
 } from '@work/domain/value-objects/ready-profile';
 import type { Station } from '@work/domain/value-objects/station.vo';
 
@@ -23,7 +23,7 @@ const asATrial: RunReadying = {
     denied.filter(
       (each) => !station.tools.some((tool) => tool.value === each.id),
     ),
-  profile: withoutServers,
+  profile: withoutServersOrSecrets,
 };
 
 export const RunReadying = { asATaskRun, asATrial };

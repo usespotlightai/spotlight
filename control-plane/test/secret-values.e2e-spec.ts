@@ -4,6 +4,10 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
+  BOUND_SECRETS,
+  type BoundSecretsPort,
+} from '@secrets/application/ports/bound-secrets.port';
+import {
   SECRET_INJECTION,
   type SecretInjectionPort,
 } from '@secrets/application/ports/secret-injection.port';
@@ -362,5 +366,43 @@ describe('secret values set outside Terraform (e2e)', () => {
         .get<SecretReadinessPort>(SECRET_READINESS)
         .awaitingValue(workspaceId, [LINEAR.name, STAGING.name, 'NOT_DEFINED']),
     ).toEqual([STAGING.name]);
+  });
+
+  it('tells for each named secret what a request sends to its hosts, and whether it awaits a value', async () => {
+    await defined(STAGING);
+    await defined(LINEAR);
+
+    expect(
+      await app
+        .get<BoundSecretsPort>(BOUND_SECRETS)
+        .boundIn(workspaceId, [LINEAR.name, STAGING.name, 'NOT_DEFINED']),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          name: LINEAR.name,
+          bindings: [
+            {
+              host: 'api.linear.app',
+              location: 'header',
+              name: 'authorization',
+              sent: `Bearer spotlight-egress:${LINEAR.name}`,
+            },
+          ],
+          awaitingValue: false,
+        },
+        {
+          name: STAGING.name,
+          bindings: [
+            {
+              host: 'staging.example.com',
+              location: 'header',
+              name: 'authorization',
+              sent: `Bearer spotlight-egress:${STAGING.name}`,
+            },
+          ],
+          awaitingValue: true,
+        },
+      ]),
+    );
   });
 });

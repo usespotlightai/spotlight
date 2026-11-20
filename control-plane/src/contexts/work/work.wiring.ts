@@ -134,9 +134,9 @@ import {
 } from '@runs/application/ports/run-viewers.port';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
 import {
-  SECRET_READINESS,
-  type SecretReadinessPort,
-} from '@secrets/application/ports/secret-readiness.port';
+  BOUND_SECRETS,
+  type BoundSecretsPort,
+} from '@secrets/application/ports/bound-secrets.port';
 import {
   CLOCK,
   type ClockPort,
@@ -1642,7 +1642,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       LOGGER,
       SAVEPOINT,
       CONTENT_HASH,
-      SECRET_READINESS,
+      BOUND_SECRETS,
     ],
     useFactory: (
       ids: IdGeneratorPort,
@@ -1660,7 +1660,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       logger: LoggerPort,
       savepoint: SavepointPort,
       hash: ContentHashPort,
-      readiness: SecretReadinessPort,
+      bound: BoundSecretsPort,
     ) =>
       new DispatchTask(
         ids,
@@ -1678,7 +1678,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         logger,
         savepoint,
         hash,
-        readiness,
+        bound,
       ),
   },
 
@@ -1696,7 +1696,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunCatalog,
       STATION_PROFILES,
       CONTENT_HASH,
-      SECRET_READINESS,
+      BOUND_SECRETS,
       TeamIntegrations,
       MEMORIES_BRIEFED_BEFORE,
       ATTACHMENT_STORE,
@@ -1716,7 +1716,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       catalog: RunCatalog,
       profiles: StationProfilesPort,
       hash: ContentHashPort,
-      readiness: SecretReadinessPort,
+      bound: BoundSecretsPort,
       integrations: TeamIntegrations,
       memories: MemoriesBriefedBeforePort,
       files: AttachmentStorePort,
@@ -1737,7 +1737,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           catalog,
           profiles,
           hash,
-          readiness,
+          bound,
         ),
         integrations,
         memories,
@@ -1759,7 +1759,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       StationSkills,
       STATION_PROFILES,
       CONTENT_HASH,
-      SECRET_READINESS,
+      BOUND_SECRETS,
     ],
     useFactory: (
       lines: LineMapsPort,
@@ -1770,7 +1770,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       teamSkills: StationSkills,
       profiles: StationProfilesPort,
       hash: ContentHashPort,
-      readiness: SecretReadinessPort,
+      bound: BoundSecretsPort,
     ) =>
       new CandidateLines(
         lines,
@@ -1782,7 +1782,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           catalog,
           profiles,
           hash,
-          readiness,
+          bound,
         ),
       ),
   },

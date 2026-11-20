@@ -20,6 +20,7 @@ const profile = (
     permissions: { allow: [], ask: [], deny: [] },
     mcpServers: [{ name: 'linear', command: 'npx', args: [], env }],
     native: {},
+    secrets: [],
   }),
   version: 1,
 });

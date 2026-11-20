@@ -292,7 +292,15 @@ export class BuiltInHarnesses
   }
 
   readyProfile(shape: HarnessProfileShape): ReadyProfileShape {
-    return readyProfile(ProfileKey.of(shape.key), shape);
+    return readyProfile(
+      ProfileKey.of(shape.key),
+      {
+        rules: shape.rules,
+        mcpServers: shape.mcpServers,
+        native: shape.native,
+      },
+      shape.secrets,
+    );
   }
 
   review(profile: HarnessProfileShape): ProfileReview {
