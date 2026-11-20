@@ -1,6 +1,8 @@
-import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import { $convertFromMarkdownString } from '@lexical/markdown';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { useEffect, useRef } from 'react';
+
+import { MARKDOWN } from '@/lib/markdown-table';
 
 export function useShownMarkdown(value: string, shortLines: boolean) {
   const [editor] = useLexicalComposerContext();
@@ -15,7 +17,7 @@ export function useShownMarkdown(value: string, shortLines: boolean) {
       () =>
         $convertFromMarkdownString(
           value,
-          TRANSFORMERS,
+          MARKDOWN,
           undefined,
           false,
           shortLines,

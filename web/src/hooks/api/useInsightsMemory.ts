@@ -1,19 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { readInsightsMemory } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsMemory } from '@/lib/insights-memory';
+import { keepTeamPeriod } from '@/lib/query';
 
 const insightsMemoryKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'memory', teamId ?? null, period] as const,
 };
 
-export function useInsightsMemory(
+export const insightsMemoryQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
-) {
-  return useQuery({
+) =>
+  queryOptions({
     queryKey: insightsMemoryKeys.forTeam(teamId, period),
     enabled: Boolean(teamId),
     queryFn: async (): Promise<InsightsMemory> => {
@@ -24,5 +25,14 @@ export function useInsightsMemory(
       });
       return data;
     },
+  });
+
+export function useInsightsMemory(
+  teamId: string | undefined,
+  period: InsightsPeriod,
+) {
+  return useQuery({
+    ...insightsMemoryQuery(teamId, period),
+    placeholderData: keepTeamPeriod(teamId),
   });
 }

@@ -1,4 +1,7 @@
 import { AuthoredText } from '@/components/features/stations/config/AuthoredText';
+import { ImprovementProperties } from '@/components/features/stations/config/ImprovementProperties';
+import { LineProperties } from '@/components/features/stations/config/LineProperties';
+import { PromptSection } from '@/components/features/stations/config/PromptSection';
 import { PROPERTY_GRID } from '@/components/features/stations/config/PropertyList';
 import {
   CONFIG_LAYOUT,
@@ -7,6 +10,7 @@ import {
 import { PROPERTIES_LAYOUT } from '@/components/features/stations/config/StationProperties';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 
 const PROMPT_LINES = [
   ['first', 'w-full'],
@@ -50,19 +54,39 @@ const GROUPS = [
   ],
 ] as const;
 
-export function StationConfigSkeleton() {
+type StationConfigSkeletonProps = {
+  line?: LineResponseDto;
+  station?: StationResponseDto;
+};
+
+// What the line already says shows as is; the rest waits as low-fidelity rows.
+const GROUPS_BEFORE_LINE = [
+  ['Live config', [['Since', 'w-14']]],
+  GROUPS[1],
+] as const;
+
+export function StationConfigSkeleton({
+  line,
+  station,
+}: StationConfigSkeletonProps) {
+  const groups = line && station ? GROUPS_BEFORE_LINE : GROUPS;
+
   return (
     <div className={CONFIG_LAYOUT}>
       <div className={CONFIG_MAIN}>
-        <TabSection title="Prompt">
-          <AuthoredText>
-            <div className="text-sm leading-5">
-              {PROMPT_LINES.map(([key, width]) => (
-                <SkeletonLine key={key} className={width} />
-              ))}
-            </div>
-          </AuthoredText>
-        </TabSection>
+        {station ? (
+          <PromptSection stationId={station.id} prompt={station.agentPrompt} />
+        ) : (
+          <TabSection title="Prompt">
+            <AuthoredText>
+              <div className="text-sm leading-5">
+                {PROMPT_LINES.map(([key, width]) => (
+                  <SkeletonLine key={key} className={width} />
+                ))}
+              </div>
+            </AuthoredText>
+          </TabSection>
+        )}
         <TabSection title="Judge">
           <dl className={PROPERTY_GRID}>
             <dt className="text-muted-foreground">Judged</dt>
@@ -86,7 +110,7 @@ export function StationConfigSkeleton() {
       </div>
 
       <div className={PROPERTIES_LAYOUT}>
-        {GROUPS.map(([title, rows]) => (
+        {groups.map(([title, rows]) => (
           <TabSection key={title} level={3} title={title}>
             <dl className={PROPERTY_GRID}>
               {rows.map(([label, width]) => (
@@ -100,6 +124,18 @@ export function StationConfigSkeleton() {
             </dl>
           </TabSection>
         ))}
+        {line && station && (
+          <>
+            <LineProperties
+              line={line}
+              skills={station.skills}
+              tools={station.tools}
+            />
+            {station.search && (
+              <ImprovementProperties policy={station.search} />
+            )}
+          </>
+        )}
       </div>
     </div>
   );

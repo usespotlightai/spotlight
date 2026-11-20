@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -535,7 +535,10 @@ describe('InboxItem', () => {
           query: { from: 0, to: 2 },
         }),
       );
-      expect(screen.getAllByText('Per token.')).toHaveLength(1);
+      // The reply under the row folds away as the visit opens, then only the visit's own copy is left.
+      await waitFor(() =>
+        expect(screen.getAllByText('Per token.')).toHaveLength(1),
+      );
       expect(screen.getByLabelText('Sam wrote this')).toBeInTheDocument();
     });
 

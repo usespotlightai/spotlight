@@ -26,7 +26,8 @@ export function AddEmailDialog({ open, onOpenChange }: AddEmailDialogProps) {
   const [email, setEmail] = useState('');
 
   const written = email.trim();
-  const busy = add.isPending;
+  // Still busy once it succeeds, so the closing dialog keeps its last state.
+  const busy = add.isPending || add.isSuccess;
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();

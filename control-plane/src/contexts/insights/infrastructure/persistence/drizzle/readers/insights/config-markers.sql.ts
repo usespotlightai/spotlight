@@ -8,8 +8,9 @@ import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/in
 import { type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+// A row comparison, so that an index on (began_at, run_id collate "C") can use it.
 export const precedes = (at: SQL, run: SQL, thenAt: SQL, thenRun: SQL): SQL =>
-  sql`(${at} < ${thenAt} or (${at} = ${thenAt} and ${run} collate "C" < ${thenRun} collate "C"))`;
+  sql`((${at}, ${run} collate "C") < (${thenAt}, ${thenRun} collate "C"))`;
 
 export const configMarkers = (team: TeamInPeriod, began: Window): SQL => {
   const earlier = alias(runFact, 'earlier');

@@ -33,6 +33,7 @@ export const stationVisitsOfOpened = (team: TeamInPeriod): SQL => {
   const runningMs = msOf(sql`facts.ended_at - facts.started_at`);
   const answerMs = msOf(sql`waits.answered_at - waits.asked_at`);
 
+  // Materialized, because the planner estimates one row for ran and runs answered again for each row.
   return sql`
     with ran as (
       select
@@ -43,7 +44,7 @@ export const stationVisitsOfOpened = (team: TeamInPeriod): SQL => {
       from (${ranOfOpened(team)}) as facts
       group by facts.task_id, facts.station_id
     ),
-    answered as (
+    answered as materialized (
       select waits.task_id, waits.station_id, sum(${answerMs}) as inbox
       from ${inboxWaits(team, lookback.from, lookback.to)}
       where waits.task_id in (select opened.task_id from opened)

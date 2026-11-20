@@ -350,7 +350,9 @@ describe('the Changes tab', () => {
       within(row).getByRole('list', { name: 'What changed' }),
     ).toBeInTheDocument();
 
-    await userEvent.click(within(row).getByRole('button', { name: 'Impact' }));
+    await userEvent.click(
+      within(row).getByRole('button', { name: /^Impact of the / }),
+    );
 
     const panel = screen.getByRole('complementary', {
       name: 'Impact of the change',
@@ -382,6 +384,37 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
   });
 
+  it('opens a change from its row, marks it, and closes it with Esc', async () => {
+    showing();
+
+    const row = within(screen.getByRole('list', { name: 'Config changes' }))
+      .getByRole('link', { name: 'Implementation' })
+      .closest('[data-slot="change-marker"]') as HTMLElement;
+    const opener = within(row).getByRole('button', {
+      name: /^Impact of the Implementation change, first run /,
+    });
+
+    await userEvent.click(opener);
+
+    expect(opener).toHaveAttribute('aria-pressed', 'true');
+    const panel = screen.getByRole('complementary', {
+      name: 'Impact of the change',
+    });
+    expect(panel).toHaveTextContent(/· first run /);
+
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'Close the change' }),
+    );
+
+    expect(opener).toHaveAttribute('aria-pressed', 'false');
+    expect(opener).toHaveFocus();
+
+    await userEvent.click(opener);
+    await userEvent.keyboard('{Escape}');
+
+    expect(opener).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('leaves the judge pass rate out of the impact of a change to the judge’s claims', async () => {
     answer.changes = queried({
       ...CHANGES,
@@ -405,7 +438,9 @@ describe('the Changes tab', () => {
     const row = within(screen.getByRole('list', { name: 'Config changes' }))
       .getByRole('link', { name: 'Implementation' })
       .closest('[data-slot="change-marker"]') as HTMLElement;
-    await userEvent.click(within(row).getByRole('button', { name: 'Impact' }));
+    await userEvent.click(
+      within(row).getByRole('button', { name: /^Impact of the / }),
+    );
 
     const table = screen.getByRole('table', {
       name: 'Runs before and after the change',
@@ -646,13 +681,13 @@ describe('the Changes tab', () => {
     ] as HTMLElement[];
     const newest = rows[0];
     await userEvent.click(
-      within(newest).getByRole('button', { name: 'Impact' }),
+      within(newest).getByRole('button', { name: /^Impact of the / }),
     );
 
     expect(
       rows.map((row) =>
         within(row)
-          .getByRole('button', { name: 'Impact' })
+          .getByRole('button', { name: /^Impact of the / })
           .getAttribute('aria-pressed'),
       ),
     ).toEqual(['true', 'false', 'false']);
@@ -730,35 +765,47 @@ describe('the Changes tab render cost', () => {
     showing();
     expect(vi.mocked(configPlan).mock.calls).toHaveLength(3);
 
-    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[0]);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /^Impact of the / })[0],
+    );
     const planCalls = vi.mocked(configPlan).mock.calls.length;
-    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[0]);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /^Impact of the / })[0],
+    );
 
     expect(vi.mocked(configPlan).mock.calls).toHaveLength(planCalls);
   });
 
-  it('re-renders only the rows whose pressed state changes when the panel opens and closes', async () => {
+  it('re-renders no row whose pressed state stays the same when the panel opens and closes', async () => {
     showing();
     const rows = entriesOfRows();
     const before = rendersOf(rows);
     expect(rows).toHaveLength(3);
+    const untouched = (now: number[], was: number[], changed: number[]) =>
+      now.filter((count, i) => !changed.includes(i) && count > was[i]);
 
-    const buttons = screen.getAllByRole('button', { name: 'Impact' });
-    await userEvent.click(buttons[0]);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /^Impact of the / })[0],
+    );
     const opened = rendersOf(rows);
-    expect(opened.filter((count, i) => count > before[i])).toHaveLength(1);
+    expect(untouched(opened, before, [0])).toHaveLength(0);
 
-    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[1]);
-    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[1]);
-    const closed = rendersOf(rows);
-    expect(closed.filter((count, i) => count > opened[i])).toHaveLength(2);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /^Impact of the / })[1],
+    );
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /^Impact of the / })[1],
+    );
+    expect(untouched(rendersOf(rows), opened, [0, 1])).toHaveLength(0);
   });
 
   it('does not request the changes again when the panel opens', async () => {
     showing();
     const requests = answer.requested.length;
 
-    await userEvent.click(screen.getAllByRole('button', { name: 'Impact' })[0]);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: /^Impact of the / })[0],
+    );
 
     expect(answer.requested).toHaveLength(requests);
   });

@@ -98,7 +98,10 @@ export function LineBoard() {
         }}
       />
 
-      {!line || loading(tasks) ? (
+      {/* The Completed view waits for its own list, so its count never shows 0 first. */}
+      {!line ||
+      loading(tasks) ||
+      (view === 'completed' && loading(completed)) ? (
         <BoardSkeleton />
       ) : (
         <Board

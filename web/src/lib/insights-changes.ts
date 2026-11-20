@@ -41,6 +41,8 @@ export type OutcomeMeasure = AgentConfigOutcome['frontier'][number];
 export type ChangeAt = {
   readonly stationId: string;
   readonly runId: string;
+  // Known when the change is opened from its row, not from a chart marker.
+  readonly firstRunAt?: string;
 };
 
 export const changeKey = (change: ChangeAt): string =>
@@ -252,7 +254,7 @@ export const CHANGE_HEADINGS: readonly NestedHeading[] = [
   { label: 'First run', indent: 'edge' },
   { label: 'Line', size: 'minmax(6rem,10rem)' },
   { label: 'Station', size: 'minmax(8rem,14rem)' },
-  { label: 'What changed', size: 'minmax(16rem,3fr)' },
+  { label: 'What changed', size: 'minmax(10rem,3fr)' },
   { label: 'Runs before', numeric: true, size: SPREAD },
   { label: 'Runs after', numeric: true, size: SPREAD },
 ];

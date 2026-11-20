@@ -1,12 +1,16 @@
 import type { ReactNode } from 'react';
 
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
-import { Collapsible } from '@/components/shared/Collapsible';
+import { COLLAPSE_MS, Collapsible } from '@/components/shared/Collapsible';
 import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
 import { FadingScroll } from '@/components/shared/FadingScroll';
+import { useMountedFor } from '@/hooks/useMountedFor';
 import { useOpenWhenFocused } from '@/hooks/useOpenWhenFocused';
 import type { JournalStep } from '@/lib/inbox';
 import { useStepAnchors } from '@/lib/step-anchors';
+
+// Enough rows to fill the scroll box; the rest follow once the list has opened, so a long list opens without a stall.
+const FIRST_STEPS = 16;
 
 type StepsDisclosureProps = {
   label: ReactNode;
@@ -43,14 +47,32 @@ export function StepsDisclosure({
 
       <Collapsible open={open} appear={false} lazy>
         <FadingScroll className="max-h-[min(18rem,50dvh)]">
-          <ol className="flex flex-col gap-px pt-1">
-            {steps.map((step, at) => (
-              // oxlint-disable-next-line react/no-array-index-key -- the position of a step identifies it, because new steps go only at the end
-              <InboxStep key={at} step={step} live={live} />
-            ))}
-          </ol>
+          <StepList steps={steps} live={live} whole={hasFocus} />
         </FadingScroll>
       </Collapsible>
     </div>
+  );
+}
+
+function StepList({
+  steps,
+  live,
+  whole,
+}: {
+  steps: readonly JournalStep[];
+  live: boolean;
+  // A cited step is scrolled to as soon as the list opens, so it must be drawn.
+  whole: boolean;
+}) {
+  const opened = useMountedFor(COLLAPSE_MS);
+  const drawn = opened || whole ? steps.length : FIRST_STEPS;
+
+  return (
+    <ol className="flex flex-col gap-px pt-1">
+      {steps.slice(0, drawn).map((step, at) => (
+        // oxlint-disable-next-line react/no-array-index-key -- the position of a step identifies it, because new steps go only at the end
+        <InboxStep key={at} step={step} live={live} />
+      ))}
+    </ol>
   );
 }

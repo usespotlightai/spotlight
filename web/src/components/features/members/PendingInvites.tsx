@@ -20,7 +20,8 @@ export function PendingInvites({
   alone,
   action,
 }: PendingInvitesProps) {
-  if (!alone && invites.data?.length === 0) {
+  // Shown once there are invites to list, so the page does not lose a section.
+  if (!alone && (loading(invites) || invites.data?.length === 0)) {
     return null;
   }
 

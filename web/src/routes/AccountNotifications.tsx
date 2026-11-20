@@ -61,14 +61,6 @@ export function AccountNotifications() {
         </SettingsSection>
       )}
 
-      {state === null && !notifications.key.isError && (
-        <SettingsSection>
-          <div role="status" aria-label="Loading your notification settings">
-            <IconRowSkeleton nameWidth="w-32" aboutWidth="w-64" />
-          </div>
-        </SettingsSection>
-      )}
-
       {!desktopApp() && (
         <SettingsSection title="Links">
           <SettingsRow
@@ -86,6 +78,14 @@ export function AccountNotifications() {
               }}
             />
           </SettingsRow>
+        </SettingsSection>
+      )}
+
+      {state === null && !notifications.key.isError && (
+        <SettingsSection title={desktopApp() ? 'This app' : 'This browser'}>
+          <div role="status" aria-label="Loading your notification settings">
+            <IconRowSkeleton nameWidth="w-32" aboutWidth="w-64" />
+          </div>
         </SettingsSection>
       )}
 

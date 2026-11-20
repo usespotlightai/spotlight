@@ -1,5 +1,7 @@
 import {
+  type QueryClient,
   type QueryKey,
+  type QueryPersister,
   type UseQueryResult,
   useQueries,
   useQuery,
@@ -8,7 +10,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { JournalledRun, RunJournal } from '@/lib/inbox';
 import type { JournalDemand } from '@/lib/journal-demand';
-import { storedJournals } from '@/lib/query-cache';
+import { CACHE_MAX_AGE_MS, storedJournals } from '@/lib/query-cache';
 
 export const journalKeys = {
   runsOfTask: (taskId?: string) =>
@@ -40,10 +42,11 @@ const shownOf = (
   runs: readonly JournalledRun[],
   eager: ReadonlySet<string>,
   wanted: ReadonlySet<string>,
+  newestFirst: number,
 ): Shown[] => {
-  const newest = runs.at(-1)?.runId;
+  const newest = new Set(runs.slice(-newestFirst).map((run) => run.runId));
   const indexed = runs.flatMap(({ runId }) => {
-    const first = runId === newest || eager.has(runId);
+    const first = newest.has(runId) || eager.has(runId);
     return first || wanted.has(runId) ? [{ runId, eager: first }] : [];
   });
   const unindexed = [...eager]
@@ -54,7 +57,58 @@ const shownOf = (
 };
 
 const NONE: readonly JournalledRun[] = [];
-const JOURNAL_GC_MS = 5 * 60 * 1000;
+
+const journalQuery = (
+  source: JournalSource,
+  runId: string,
+  first: boolean,
+) => ({
+  queryKey: journalKeys.ofRun(runId),
+  queryFn: () => source.journal(runId),
+  gcTime: CACHE_MAX_AGE_MS,
+  meta: { persist: false },
+  persister: storedJournals.persister,
+  ...(first ? {} : { staleTime: Number.POSITIVE_INFINITY }),
+});
+
+// Loads the journals a page shows first, so they are in memory when it opens.
+export const prefetchJournals = async (
+  client: QueryClient,
+  source: JournalSource,
+  eagerIds: readonly (string | null | undefined)[],
+  newestFirst = 1,
+): Promise<void> => {
+  if (!source.enabled) {
+    return;
+  }
+
+  // Which runs are newest is known only from the list, so fetch it first when it is not cached.
+  const runs =
+    client.getQueryData<JournalledRun[]>(source.runsKey) ??
+    (await client
+      .query({ queryKey: source.runsKey, queryFn: source.runs })
+      .catch(() => undefined));
+  const eager = new Set(eagerIds.filter((id): id is string => Boolean(id)));
+
+  for (const { runId } of shownOf(
+    runs ?? NONE,
+    eager,
+    new Set(),
+    newestFirst,
+  )) {
+    client
+      .query({
+        ...journalQuery(source, runId, true),
+        // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsc needs it: query() takes the general persister shape, useQuery's is narrower
+        persister: storedJournals.persister as QueryPersister<
+          RunJournal[],
+          ReturnType<typeof journalKeys.ofRun>
+        >,
+        staleTime: Number.POSITIVE_INFINITY,
+      })
+      .catch(() => undefined);
+  }
+};
 
 const settled = (query: UseQueryResult): boolean =>
   !query.isPending || query.errorUpdateCount > 0;
@@ -62,6 +116,8 @@ const settled = (query: UseQueryResult): boolean =>
 export function useRunJournals(
   source: JournalSource,
   eagerIds: readonly (string | null | undefined)[],
+  // How many of the newest runs a page waits for, because they show when it opens.
+  newestFirst = 1,
 ): RunJournals {
   const runs = useQuery({
     queryKey: source.runsKey,
@@ -75,17 +131,14 @@ export function useRunJournals(
     [eagerKey],
   );
   const known = runs.data ?? NONE;
-  const shown = source.enabled ? shownOf(known, eager, wanted) : [];
+  const shown = source.enabled
+    ? shownOf(known, eager, wanted, newestFirst)
+    : [];
 
   const journals = useQueries({
-    queries: shown.map(({ runId, eager: first }) => ({
-      queryKey: journalKeys.ofRun(runId),
-      queryFn: () => source.journal(runId),
-      gcTime: JOURNAL_GC_MS,
-      meta: { persist: false },
-      persister: storedJournals.persister,
-      ...(first ? {} : { staleTime: Number.POSITIVE_INFINITY }),
-    })),
+    queries: shown.map(({ runId, eager: first }) =>
+      journalQuery(source, runId, first),
+    ),
   });
 
   const want = useCallback((runIds: readonly string[]) => {

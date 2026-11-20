@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 import { Link } from 'react-router';
 
+import { useOpenIntent } from '@/hooks/useOpenIntent';
+import { useSlidingLine } from '@/hooks/useSlidingLine';
 import { useTabIndicator } from '@/hooks/useTabIndicator';
 import { useTabStrip } from '@/hooks/useTabStrip';
 import { cn } from '@/lib/utils';
@@ -17,6 +19,8 @@ type TabLinksProps<T extends string> = {
   current: T;
   variant?: 'pills' | 'underline';
   className?: string;
+  // Called when a tab is about to be opened, to start loading what it shows.
+  onIntent?: (id: T) => void;
 };
 
 const LOOKS = {
@@ -36,6 +40,7 @@ export function TabLinks<T extends string>({
   current,
   variant = 'pills',
   className,
+  onIntent,
 }: TabLinksProps<T>) {
   const look = LOOKS[variant];
   const nav = useRef<HTMLElement>(null);
@@ -53,33 +58,59 @@ export function TabLinks<T extends string>({
       )}
     >
       {tabs.map((tab) => (
-        <Link
+        <TabLink
           key={tab.id}
-          to={tab.to}
-          replace
-          data-tab={tab.id}
-          aria-current={tab.id === current ? 'page' : undefined}
+          tab={tab}
+          current={tab.id === current}
           className={cn(look.tab, tab.id === current && look.current)}
-        >
-          <span data-tab-label>{tab.label}</span>
-        </Link>
+          onIntent={onIntent && tab.id !== current ? onIntent : undefined}
+        />
       ))}
 
       {variant === 'underline' && indicator && (
-        <span
-          aria-hidden
-          data-slot="tab-indicator"
-          className={cn(
-            'pointer-events-none absolute bottom-0 left-0 h-[3px] rounded-full bg-primary',
-            indicator.ready &&
-              'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
-          )}
-          style={{
-            width: indicator.width,
-            transform: `translateX(${indicator.left}px)`,
-          }}
-        />
+        <TabUnderline left={indicator.left} width={indicator.width} />
       )}
     </nav>
+  );
+}
+
+function TabUnderline({ left, width }: { left: number; width: number }) {
+  const line = useRef<HTMLSpanElement>(null);
+  useSlidingLine(line, left, width);
+
+  return (
+    <span
+      ref={line}
+      aria-hidden
+      data-slot="tab-indicator"
+      className="pointer-events-none absolute bottom-0 h-[3px] origin-left rounded-full bg-primary"
+    />
+  );
+}
+
+function TabLink<T extends string>({
+  tab,
+  current,
+  className,
+  onIntent,
+}: {
+  tab: TabLink<T>;
+  current: boolean;
+  className: string;
+  onIntent: ((id: T) => void) | undefined;
+}) {
+  const intent = useOpenIntent(onIntent && (() => onIntent(tab.id)));
+
+  return (
+    <Link
+      to={tab.to}
+      replace
+      data-tab={tab.id}
+      aria-current={current ? 'page' : undefined}
+      className={className}
+      {...intent}
+    >
+      <span data-tab-label>{tab.label}</span>
+    </Link>
   );
 }

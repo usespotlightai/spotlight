@@ -229,39 +229,61 @@ const reviewDaysIn = async (
   team: TeamInPeriod,
   repositories: readonly string[],
 ): Promise<readonly ReviewDay[]> => {
-  const firstReviewedBetween = (from: SQL, to: SQL): SQL =>
-    sql`first_unblocking_review_at >= ${from} and first_unblocking_review_at < ${to}`;
+  const spreadFrom = (from: SQL): SQL => sql`(
+    select days.at, ${percentilesOver(sql`reviewed.to_first_review`, sql`true`)} as spread
+    from days
+    left join reviewed
+      on reviewed.first_unblocking_review_at >= ${from}
+      and reviewed.first_unblocking_review_at < days.day_to
+    group by days.at
+  )`;
+  // Each day aggregates only the rows that it joins, not all reviewed rows.
   const result = await db.execute<ReviewDaysRow>(sql`
     with covered as (${coveredOf(team, repositories)}),
     reviewed as (
-      select *, ${toFirstReviewMs} as to_first_review
+      select
+        pull_request,
+        ready_for_review_at,
+        first_unblocking_review_at,
+        closed_at,
+        draft_periods,
+        human_reviewed_at,
+        ${toFirstReviewMs} as to_first_review
       from covered
       where made_by <> 'bots'
+    ),
+    days as (select * from ${days(team)}),
+    daily as ${spreadFrom(sql`days.day_from`)},
+    rolling as ${spreadFrom(sql`days.rolling_from`)},
+    awaiting as (
+      select days.at, count(reviewed.pull_request)::int as awaiting
+      from days
+      left join reviewed on ${awaitingAt(sql`days.day_to`)}
+      group by days.at
+    ),
+    human_reviews as (
+      select days.at, count(reviews.reviewed_at)::int as human_reviews
+      from days
+      left join (
+        select reviewed_at
+        from reviewed
+        cross join lateral unnest(reviewed.human_reviewed_at) as reviewed_at
+      ) as reviews
+        on reviews.reviewed_at >= days.day_from
+        and reviews.reviewed_at < days.day_to
+      group by days.at
     )
     select json_agg(json_build_object(
       'day', days.day,
       'toFirstReview', json_build_object('daily', daily.spread, 'rolling', rolling.spread),
-      'awaiting', counted.awaiting,
-      'humanReviews', counted.human_reviews
+      'awaiting', awaiting.awaiting,
+      'humanReviews', human_reviews.human_reviews
     ) order by days.at) as review_days
-    from ${days(team)}
-    cross join lateral (
-      select ${percentilesOver(sql`to_first_review`, firstReviewedBetween(sql`days.day_from`, sql`days.day_to`))} as spread
-      from reviewed
-    ) as daily
-    cross join lateral (
-      select ${percentilesOver(sql`to_first_review`, firstReviewedBetween(sql`days.rolling_from`, sql`days.day_to`))} as spread
-      from reviewed
-    ) as rolling
-    cross join lateral (
-      select
-        (count(*) filter (where ${awaitingAt(sql`days.day_to`)}))::int as awaiting,
-        coalesce(sum((
-          select count(*) from unnest(human_reviewed_at) as reviewed_at
-          where reviewed_at >= days.day_from and reviewed_at < days.day_to
-        )), 0)::int as human_reviews
-      from reviewed
-    ) as counted
+    from days
+    join daily on daily.at = days.at
+    join rolling on rolling.at = days.at
+    join awaiting on awaiting.at = days.at
+    join human_reviews on human_reviews.at = days.at
   `);
 
   const [row] = result.rows;
@@ -323,9 +345,10 @@ const stagesIn = async (
   repositories: readonly string[],
 ): Promise<readonly StageRow[]> => {
   const none = sql.raw('null::float8');
+  // Materialized, so that the join with made does not run station_visits again for each row.
   const result = await db.execute<StageRow>(sql`
     with ${shippedOf(team, repositories)},
-    station_visits as (${stationVisitsOfOpened(team)}),
+    station_visits as materialized (${stationVisitsOfOpened(team)}),
     stages as (
       select 'coding' as kind, null::text as station_id, type,
         ${lasted('task_opened_at', sql.raw('opened_at'))} as total,

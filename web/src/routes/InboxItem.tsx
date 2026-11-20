@@ -14,7 +14,7 @@ import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useClearedParam } from '@/hooks/useClearedParam';
 import { useInboxItemTrail } from '@/hooks/useInboxItemTrail';
 import { notFound } from '@/lib/error';
-import { inboxPath } from '@/lib/inbox';
+import { inboxPath, runsShownFirst } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { useTrail } from '@/lib/trail';
@@ -27,7 +27,7 @@ export function InboxItem() {
   const journal = useTaskJournal(
     slug,
     item?.inboxRequest ? undefined : item?.taskId,
-    [item?.runId],
+    item ? runsShownFirst(item) : [],
   );
 
   useInboxItemRefresh(slug, item);

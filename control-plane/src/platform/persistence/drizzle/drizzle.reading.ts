@@ -19,8 +19,9 @@ export class DrizzleReading {
   read<T>(work: (db: DrizzleDatabase) => Promise<T>): Promise<T> {
     return this.db.transaction(
       async (tx) => {
+        // JIT off: the planner estimates 100 rows for each jsonb array, so it compiles JIT code for small reads.
         await tx.execute(
-          sql`select set_config('statement_timeout', ${this.#timeoutMs}, true)`,
+          sql`select set_config('statement_timeout', ${this.#timeoutMs}, true), set_config('jit', 'off', true)`,
         );
 
         return work(tx);

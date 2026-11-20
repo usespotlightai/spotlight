@@ -32,6 +32,7 @@ import {
   type RunJournal,
   STICKY_AT_TOP,
 } from '@/lib/inbox';
+import { TURNS_SHOWN_FIRST } from '@/lib/turns';
 import { cn } from '@/lib/utils';
 
 const ARRIVING =
@@ -106,6 +107,7 @@ export function ChatThread({
                 }
                 ref={sight(runsOfTurn(turn))}
                 className={cn(at > 0 && 'mt-6')}
+                shownFirst={at >= turns.length - TURNS_SHOWN_FIRST}
                 head={
                   turn.message &&
                   (turn.message.kind === 'happened' ? (

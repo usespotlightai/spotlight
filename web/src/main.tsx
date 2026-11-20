@@ -29,9 +29,10 @@ import { keepAppShell } from '@/lib/service-worker';
 import { reloadOnStaleBuild } from '@/lib/stale-build';
 
 import App from './App.tsx';
-import { preloadVisiblePages } from './visible-pages.ts';
+import { keepRecentJournals } from './lib/journal-memory.ts';
 
 import './index.css';
+import { preloadEveryPage, preloadVisiblePages } from './visible-pages.ts';
 
 const root = document.getElementById('root');
 if (!root) {
@@ -56,6 +57,7 @@ const queryClient = new QueryClient({
     },
   },
 });
+keepRecentJournals(queryClient);
 
 const render = () =>
   createRoot(root, {
@@ -95,6 +97,7 @@ void Promise.all([
   atMost(preloadVisiblePages(window.location.pathname), PAGE_WAIT_MS),
 ]).finally(() => {
   render();
+  preloadEveryPage();
   void storedJournals.prune();
   if (import.meta.env.PROD) {
     keepAppShell();
