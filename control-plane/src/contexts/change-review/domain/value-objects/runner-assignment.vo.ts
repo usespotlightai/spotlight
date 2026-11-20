@@ -127,11 +127,7 @@ export class RunnerAssignment {
   }
 
   restarted(): RunnerAssignment {
-    return new RunnerAssignment(
-      this.claim.released(),
-      null,
-      Provisioning.none(),
-    );
+    return new RunnerAssignment(RunnerClaim.none(), null, Provisioning.none());
   }
 
   private withClaim(claim: RunnerClaim): RunnerAssignment {

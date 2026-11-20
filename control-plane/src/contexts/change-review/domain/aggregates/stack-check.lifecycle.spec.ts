@@ -730,19 +730,8 @@ describe(
               visit.after.redraftCount === visit.before.redraftCount + 1 &&
               visit.after.waitingSince.getTime() === visit.now.getTime() &&
               !visit.after.assignment.holdsRunner &&
-              visit.after.provisioning.attempts === 0),
-        ),
-        RUNS,
-      );
-    });
-
-    it.fails('lets a runner claim it again once its layers are redrafted', () => {
-      fc.assert(
-        lifecycle(
-          (visit) =>
-            visit.step.kind !== 'redraft' ||
-            !changed(visit) ||
-            visit.after.claim.attempts === 0,
+              visit.after.provisioning.attempts === 0 &&
+              visit.after.claim.attempts === 0),
         ),
         RUNS,
       );

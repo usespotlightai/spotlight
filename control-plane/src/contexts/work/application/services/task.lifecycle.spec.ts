@@ -1182,7 +1182,7 @@ describe('a task held by one person whose turn asks another person', () => {
       })
       .assignRun(RunId.of('run_turn'), LINE);
 
-  it.fails('stays loadable when the turn asks the person who opened the task to connect', () => {
+  it('stays loadable when the turn asks the person who opened the task to connect', () => {
     const asked = heldByMaya().askToConnect(
       RunId.of('run_turn'),
       {
@@ -1197,7 +1197,7 @@ describe('a task held by one person whose turn asks another person', () => {
     expect(loadable(asked)).toBe(true);
   });
 
-  it.fails('stays loadable when the turn asks that person to approve a tool call', () => {
+  it('stays loadable when the turn asks that person to approve a tool call', () => {
     const asked = askingApproval(
       heldByMaya(),
       RunId.of('run_turn'),

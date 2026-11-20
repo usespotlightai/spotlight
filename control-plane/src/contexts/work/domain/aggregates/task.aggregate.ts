@@ -2527,16 +2527,17 @@ export class Task extends EventRecorder {
     const askedOf = needed.askedOf;
 
     return {
-      task: (askedOf ? this.with({ assignee: askedOf }) : this).putToAPerson(
-        by,
-        {
-          ...asking,
-          form: 'approval',
-          approval: Approval.request(subject, this.stationId, needed, intent),
-        },
-      ),
+      task: (askedOf ? this.askingOf(askedOf) : this).putToAPerson(by, {
+        ...asking,
+        form: 'approval',
+        approval: Approval.request(subject, this.stationId, needed, intent),
+      }),
       check: { kind: 'pending' },
     };
+  }
+
+  private askingOf(person: UserId): Task {
+    return this.openHold ? this : this.with({ assignee: person });
   }
 
   askToConnect(by: RunId, asking: NewNote, ask: ConnectionAsk): AskedToConnect {
@@ -2555,7 +2556,7 @@ export class Task extends EventRecorder {
     }
 
     return {
-      task: this.with({ assignee: ask.personId }).putToAPerson(by, {
+      task: this.askingOf(ask.personId).putToAPerson(by, {
         ...asking,
         form: 'connection',
         connectionAsk: ask,

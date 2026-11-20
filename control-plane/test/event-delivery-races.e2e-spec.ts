@@ -68,7 +68,7 @@ class Answered implements DomainEvent {
 
 class RolledBack extends Error {}
 
-type Failure = 'error' | 'long message' | 'at once';
+type Failure = 'error' | 'long message' | 'NUL byte' | 'at once';
 
 type CallStyle = 'quick' | 'slow' | 'stall';
 
@@ -115,7 +115,12 @@ const plan: fc.Arbitrary<Plan> = fc.record({
     { arbitrary: fc.constant<CallStyle>('slow'), weight: 2 },
     { arbitrary: fc.constant<CallStyle>('stall'), weight: 1 },
   ),
-  failure: fc.constantFrom<Failure>('error', 'long message', 'at once'),
+  failure: fc.constantFrom<Failure>(
+    'error',
+    'long message',
+    'NUL byte',
+    'at once',
+  ),
   slowMs: fc.integer({ min: 0, max: 30 }),
 });
 
@@ -317,7 +322,9 @@ const failed = (failure: Failure, subscriber: string): Promise<never> =>
     new Error(
       failure === 'long message'
         ? `${subscriber} failed: ${'output '.repeat(500)}`
-        : `${subscriber} failed`,
+        : failure === 'NUL byte'
+          ? `${subscriber} failed reading \u0000`
+          : `${subscriber} failed`,
     ),
   );
 

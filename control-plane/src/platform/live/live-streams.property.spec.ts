@@ -1021,7 +1021,7 @@ describe('live streams under random publishes, reconnects, trims and feed faults
     );
   }, 120_000);
 
-  it.fails('passes on every later notice to a client that resumes from beyond the head', async () => {
+  it('passes on every later notice to a client that resumes from beyond the head', async () => {
     await fc.assert(walking(leavesNoSilentGap, 3), RUNS);
   }, 120_000);
 });

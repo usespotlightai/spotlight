@@ -96,6 +96,12 @@ export class LiveStreams implements BeforeApplicationShutdown {
             return;
           }
 
+          for (const [channel, head] of Object.entries(replay.heads)) {
+            if ((sent.get(channel) ?? 0) > head) {
+              sent.set(channel, head);
+            }
+          }
+
           for (const notice of replay.notices) {
             subscriber.next(messageOfNotice(notice));
             sent.set(
