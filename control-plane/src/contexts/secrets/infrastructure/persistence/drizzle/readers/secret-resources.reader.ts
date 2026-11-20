@@ -8,24 +8,29 @@ import type {
   SecretResourcesPort,
 } from '@secrets/application/ports/secret-resources.port';
 import { RESERVED_SECRET_PREFIX } from '@secrets/domain/value-objects/reserved-secret-name';
-import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
+import {
+  secret,
+  secretValue,
+} from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, not, like, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, not, like, type SQL } from 'drizzle-orm';
 
 const visible = not(like(secret.name, `${RESERVED_SECRET_PREFIX}%`));
 
-const recordOf = (row: typeof secret.$inferSelect): SecretRecord => ({
+const recordOf = ({
+  row,
+  valueOf,
+}: {
+  row: typeof secret.$inferSelect;
+  valueOf: string | null;
+}): SecretRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
   name: row.name,
-  source: {
-    kind: row.source,
-    secretId: row.sourceSecretId,
-    field: row.sourceField,
-  },
   bindings: row.bindings.map((each) => ({ ...each })),
   valueVersion: row.valueVersion,
+  holdsValue: valueOf !== null,
   rotatedAt: row.rotatedAt,
 });
 
@@ -49,12 +54,32 @@ export class DrizzleSecretResources
     );
   }
 
+  async namedIn(
+    workspaceId: WorkspaceId,
+    names: readonly string[],
+  ): Promise<readonly SecretRecord[]> {
+    if (names.length === 0) {
+      return [];
+    }
+
+    return (
+      await this.held()
+        .where(
+          and(
+            eq(secret.workspaceId, workspaceId.value),
+            inArray(secret.name, [...names]),
+            visible,
+          ),
+        )
+        .orderBy(asc(secret.name))
+    ).map(recordOf);
+  }
+
   async secretsIn(workspaceId: WorkspaceId): Promise<readonly SecretRecord[]> {
     return (
-      await this.context.db
-        .select()
-        .from(secret)
+      await this.held()
         .where(and(eq(secret.workspaceId, workspaceId.value), visible))
+        .orderBy(asc(secret.name))
     ).map(recordOf);
   }
 
@@ -76,12 +101,15 @@ export class DrizzleSecretResources
   }
 
   private async first(where: SQL | undefined): Promise<SecretRecord | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(secret)
-      .where(where)
-      .limit(1);
+    const [found] = await this.held().where(where).limit(1);
 
     return found ? recordOf(found) : null;
+  }
+
+  private held() {
+    return this.context.db
+      .select({ row: secret, valueOf: secretValue.secretId })
+      .from(secret)
+      .leftJoin(secretValue, eq(secretValue.secretId, secret.id));
   }
 }

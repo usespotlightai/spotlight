@@ -2,20 +2,26 @@ import { SecretCreated } from '@secrets/domain/events/secret-created.event';
 import { SecretDeleted } from '@secrets/domain/events/secret-deleted.event';
 import { SecretUpdated } from '@secrets/domain/events/secret-updated.event';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
+import { ReservedSecretValueError } from '@secrets/domain/exceptions/reserved-secret-value.error';
+import { SecretAwaitingValueError } from '@secrets/domain/exceptions/secret-awaiting-value.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
+import { isReservedSecretName } from '@secrets/domain/value-objects/reserved-secret-name';
 import type {
   InjectedSecret,
   SecretBinding,
 } from '@secrets/domain/value-objects/secret-binding.vo';
 import type { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
-import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
+import {
+  type SecretValueChange,
+  SecretChangeDetail,
+} from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import type { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import type { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
+import { SecretValueOrigin } from '@secrets/domain/value-objects/secret-value-origin.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -29,7 +35,6 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export interface SecretDefinition {
   readonly name: SecretName;
-  readonly source: SecretSource;
   readonly bindings: SecretBindings;
   readonly value: SecretValue | null;
   readonly valueVersion: ValueVersion | null;
@@ -39,9 +44,9 @@ interface Props {
   readonly id: SecretId;
   readonly workspaceId: WorkspaceId;
   readonly name: SecretName;
-  readonly source: SecretSource;
   readonly bindings: SecretBindings;
   readonly valueVersion: ValueVersion | null;
+  readonly holdsValue: boolean;
   readonly rotatedAt: Date;
   readonly version: number;
 }
@@ -50,16 +55,15 @@ interface State extends Props {
   readonly stored: boolean;
   readonly deleted: boolean;
   readonly valueToStore: SecretValue | null;
-  readonly deletingValue: boolean;
 }
 
 const VALUE_FIELD = 'valueWo';
 
-const assertValueAllowedFor = (source: SecretSource): void => {
-  if (!source.isBuiltIn) {
+const assertVersionedValue = (definition: SecretDefinition): void => {
+  if (definition.value && !definition.valueVersion) {
     throw new InvalidSecretError(
       VALUE_FIELD,
-      'cannot be set on a secret read from AWS Secrets Manager',
+      'is set only together with valueWoVersion. Leave both out to set the value outside Terraform',
     );
   }
 };
@@ -70,6 +74,25 @@ const valueFor = (definition: SecretDefinition, because: string) => {
   }
 
   return definition.value;
+};
+
+const versionedValueOf = (definition: SecretDefinition): SecretValue | null =>
+  definition.valueVersion
+    ? valueFor(definition, 'is required when valueWoVersion is set')
+    : null;
+
+const assertSendable = (
+  name: SecretName,
+  bindings: SecretBindings,
+  value: SecretValue | null,
+  field: string,
+): void => {
+  if (value && !bindings.isEmpty && !value.fitsOneLine) {
+    throw new InvalidSecretError(
+      field,
+      `must be one line, since Spotlight sends ${name.value} in a request header or query parameter`,
+    );
+  }
 };
 
 export interface SecretValueWrites<T> {
@@ -92,27 +115,29 @@ export class Secret extends EventRecorder {
       at: Date;
     },
   ): Secret {
-    const valueToStore = definition.source.isBuiltIn
-      ? valueFor(definition, 'is required for a secret stored by Spotlight')
-      : null;
+    assertVersionedValue(definition);
 
-    if (definition.value && !valueToStore) {
-      assertValueAllowedFor(definition.source);
-    }
+    const valueToStore = versionedValueOf(definition);
+
+    assertSendable(
+      definition.name,
+      definition.bindings,
+      valueToStore,
+      VALUE_FIELD,
+    );
 
     const created = new Secret({
       id: input.id,
       workspaceId: input.workspaceId,
       name: definition.name,
-      source: definition.source,
       bindings: definition.bindings,
       valueVersion: definition.valueVersion,
+      holdsValue: valueToStore !== null,
       rotatedAt: input.at,
       version: 0,
       stored: false,
       deleted: false,
       valueToStore,
-      deletingValue: false,
     });
 
     created.record(
@@ -123,10 +148,11 @@ export class Secret extends EventRecorder {
         ConfigurationChange.created(
           created.whatChanged,
           input.by,
-          SecretChangeDetail.created(
-            created.valueVersion?.value ?? null,
-            created.bindings.hosts,
-          ),
+          SecretChangeDetail.created({
+            origin: created.valueOrigin,
+            valueVersion: created.valueVersion?.value ?? null,
+            targets: created.bindings.hosts,
+          }),
         ),
       ),
     );
@@ -142,12 +168,18 @@ export class Secret extends EventRecorder {
       );
     }
 
+    if (input.valueVersion !== null && !input.holdsValue) {
+      throw new InconsistentStateError(
+        'secret',
+        `has value_wo_version ${input.valueVersion.value} but no stored value`,
+      );
+    }
+
     return new Secret({
       ...input,
       stored: true,
       deleted: false,
       valueToStore: null,
-      deletingValue: false,
     });
   }
 
@@ -170,46 +202,41 @@ export class Secret extends EventRecorder {
       );
     }
 
-    const rotating = !ValueVersion.same(
-      definition.valueVersion,
-      this.valueVersion,
-    );
-    const becomingBuiltIn =
-      definition.source.isBuiltIn && !this.source.isBuiltIn;
+    const rotating =
+      definition.valueVersion !== null &&
+      !ValueVersion.same(definition.valueVersion, this.valueVersion);
+    const handedOver =
+      definition.valueVersion === null && this.valueVersion !== null;
 
-    if (!definition.source.isBuiltIn && definition.value) {
-      assertValueAllowedFor(definition.source);
-    }
+    assertVersionedValue(definition);
 
-    const valueToStore =
-      definition.source.isBuiltIn && (rotating || becomingBuiltIn)
-        ? valueFor(
-            definition,
-            rotating
-              ? 'is required when valueWoVersion changes'
-              : 'is required once Spotlight stores the secret',
-          )
-        : null;
+    const valueToStore = rotating
+      ? valueFor(definition, 'is required when valueWoVersion changes')
+      : null;
+    const rebound = !definition.bindings.equals(this.bindings);
 
-    const rebound =
-      !definition.source.equals(this.source) ||
-      !definition.bindings.equals(this.bindings);
+    assertSendable(this.name, definition.bindings, valueToStore, VALUE_FIELD);
 
-    if (!rotating && !rebound) {
+    if (!rotating && !rebound && !handedOver) {
       return this;
     }
 
     const updated = this.with({
-      source: definition.source,
       bindings: definition.bindings,
       valueVersion: definition.valueVersion,
-      rotatedAt: valueToStore || rotating ? at : this.rotatedAt,
+      holdsValue: valueToStore !== null || this.state.holdsValue,
+      rotatedAt: valueToStore ? at : this.rotatedAt,
       valueToStore,
-      deletingValue: this.source.isBuiltIn && !definition.source.isBuiltIn,
     });
 
+    const valueChange: SecretValueChange | null = valueToStore
+      ? 'stored'
+      : handedOver
+        ? 'handed-over'
+        : null;
     const moved = SecretChangeDetail.updated({
-      valueMoved: valueToStore !== null || rotating,
+      valueChange,
+      origin: updated.valueOrigin,
       valueVersion: definition.valueVersion?.value ?? null,
       rebound,
       targets: definition.bindings.hosts,
@@ -221,6 +248,44 @@ export class Secret extends EventRecorder {
         this.id,
         this.name,
         ConfigurationChange.updated(this.whatChanged, by, moved),
+      ),
+    );
+
+    return updated;
+  }
+
+  setValue(value: SecretValue, by: ChangeActor, at: Date): Secret {
+    this.assertNotDeleted();
+
+    if (isReservedSecretName(this.name.value)) {
+      throw new ReservedSecretValueError(this.name.value);
+    }
+
+    this.valueOrigin.assertSettable(this.name.value);
+    assertSendable(this.name, this.bindings, value, 'value');
+
+    const updated = this.with({
+      valueToStore: value,
+      holdsValue: true,
+      rotatedAt: at,
+    });
+
+    updated.record(
+      new SecretUpdated(
+        this.workspaceId,
+        this.id,
+        this.name,
+        ConfigurationChange.updated(
+          this.whatChanged,
+          by,
+          SecretChangeDetail.updated({
+            valueChange: 'stored',
+            origin: updated.valueOrigin,
+            valueVersion: null,
+            rebound: false,
+            targets: this.bindings.hosts,
+          }),
+        ),
       ),
     );
 
@@ -277,6 +342,14 @@ export class Secret extends EventRecorder {
     }
 
     return binding;
+  }
+
+  assertHoldsValue(): void {
+    this.assertNotDeleted();
+
+    if (!this.state.holdsValue) {
+      throw new SecretAwaitingValueError(this.name.value);
+    }
   }
 
   injectedFor(url: string, value: SecretValue): InjectedSecret {
@@ -354,16 +427,23 @@ export class Secret extends EventRecorder {
     return this.state.name;
   }
 
-  get source(): SecretSource {
-    return this.state.source;
-  }
-
   get bindings(): SecretBindings {
     return this.state.bindings;
   }
 
   get valueVersion(): ValueVersion | null {
     return this.state.valueVersion;
+  }
+
+  get holdsValue(): boolean {
+    return this.state.holdsValue;
+  }
+
+  get valueOrigin(): SecretValueOrigin {
+    return SecretValueOrigin.of({
+      valueVersion: this.valueVersion?.value ?? null,
+      holdsValue: this.state.holdsValue,
+    });
   }
 
   get rotatedAt(): Date {
@@ -382,12 +462,14 @@ export class Secret extends EventRecorder {
     return this.state.deleted;
   }
 
-  valueChange<T>(writes: SecretValueWrites<T>): T {
+  valueWrite<T>(writes: SecretValueWrites<T>): T {
     if (this.state.valueToStore) {
       return writes.store(this.state.valueToStore);
     }
 
-    return this.state.deletingValue ? writes.delete() : writes.keep();
+    return this.state.deleted && this.state.holdsValue
+      ? writes.delete()
+      : writes.keep();
   }
 
   private get whatChanged() {
@@ -410,7 +492,6 @@ export class Secret extends EventRecorder {
     return this.with({
       deleted: true,
       valueToStore: null,
-      deletingValue: this.source.isBuiltIn,
     });
   }
 

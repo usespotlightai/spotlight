@@ -6720,7 +6720,7 @@
     },
     "/hosts/harness-keys": {
       "post": {
-        "description": "Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Values that Spotlight stores come back sealed to the recipient, bound to an empty run id. For a value in an external store, the response gives the external reference that egress reads. Spotlight grants nothing to a run.",
+        "description": "Called by a host before it probes an image for models, with the credential it claims runs with. The response holds each harness key that the workspace holds as a secret, for each host it is bound to. Each value comes back sealed to the recipient, bound to an empty run id. Spotlight grants nothing to a run.",
         "operationId": "fetchHarnessKeys",
         "parameters": [
           {
@@ -6945,7 +6945,7 @@
     },
     "/hosts/calls/{id}/secrets": {
       "post": {
-        "description": "Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Values that Spotlight stores come back sealed to the recipient for this call alone. For a value in an external store, the response gives the external reference that egress reads.",
+        "description": "Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Each value comes back sealed to the recipient for this call alone.",
         "operationId": "redeemCallSecrets",
         "parameters": [
           {
@@ -6999,7 +6999,7 @@
     },
     "/egress/secrets": {
       "post": {
-        "description": "Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.",
+        "description": "Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Each value comes back sealed to the recipient.",
         "operationId": "fetchRunSecrets",
         "parameters": [],
         "requestBody": {
@@ -7306,28 +7306,6 @@
                     "type": "string",
                     "example": "LINEAR_API_KEY"
                   },
-                  "source": {
-                    "type": "object",
-                    "required": [
-                      "kind"
-                    ],
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "built-in",
-                          "aws-secrets-manager"
-                        ],
-                        "default": "built-in"
-                      },
-                      "secretId": {
-                        "type": "string"
-                      },
-                      "field": {
-                        "type": "string"
-                      }
-                    }
-                  },
                   "bindings": {
                     "type": "array",
                     "items": {
@@ -7364,13 +7342,13 @@
                   "valueWo": {
                     "type": "string",
                     "writeOnly": true,
-                    "description": "The value to store; accepted on create and whenever valueWoVersion changes, and never returned"
+                    "description": "The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform"
                   },
                   "valueWoVersion": {
                     "type": "integer",
                     "minimum": 0,
                     "example": 1,
-                    "description": "Change it to rotate the value to the valueWo sent with it"
+                    "description": "Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform"
                   }
                 }
               }
@@ -7736,28 +7714,6 @@
                     "type": "string",
                     "example": "LINEAR_API_KEY"
                   },
-                  "source": {
-                    "type": "object",
-                    "required": [
-                      "kind"
-                    ],
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "built-in",
-                          "aws-secrets-manager"
-                        ],
-                        "default": "built-in"
-                      },
-                      "secretId": {
-                        "type": "string"
-                      },
-                      "field": {
-                        "type": "string"
-                      }
-                    }
-                  },
                   "bindings": {
                     "type": "array",
                     "items": {
@@ -7794,13 +7750,13 @@
                   "valueWo": {
                     "type": "string",
                     "writeOnly": true,
-                    "description": "The value to store; accepted on create and whenever valueWoVersion changes, and never returned"
+                    "description": "The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform"
                   },
                   "valueWoVersion": {
                     "type": "integer",
                     "minimum": 0,
                     "example": 1,
-                    "description": "Change it to rotate the value to the valueWo sent with it"
+                    "description": "Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform"
                   }
                 }
               }
@@ -8148,6 +8104,116 @@
           "kind": "secret",
           "operation": "import"
         }
+      }
+    },
+    "/workspaces/{slug}/secrets": {
+      "get": {
+        "operationId": "listWorkspaceSecrets",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceSecretResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The workspace’s secrets, with the hosts each one is sent to and where its value comes from. Never the values",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/secrets/{name}/value": {
+      "put": {
+        "operationId": "setWorkspaceSecretValue",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "STAGING_LOGIN_PASSWORD",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSecretValueRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Spotlight stores the new value"
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "403": {
+            "description": "You do not manage secrets"
+          },
+          "404": {
+            "description": "No such secret for this caller"
+          },
+          "409": {
+            "description": "Terraform sets this value, or the secret changed meanwhile"
+          },
+          "422": {
+            "description": "The value is not text, is empty, is too long, or is more than one line for a bound secret"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the value of a secret that Spotlight stores and Terraform does not set. Spotlight encrypts it and never returns it",
+        "tags": [
+          "workspaces"
+        ]
       }
     },
     "/hosts/{hostId}": {
@@ -25584,12 +25650,14 @@
             "type": "object",
             "additionalProperties": true,
             "example": {
+              "valueChange": "stored",
+              "valueOrigin": "terraform",
               "valueVersion": 2,
               "targets": [
                 "api.linear.app"
               ]
             },
-            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value"
+            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value"
           },
           "at": {
             "type": "string"
@@ -27057,36 +27125,11 @@
           "recipient": {
             "type": "string",
             "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
-            "description": "The X25519 public key that the egress of the host’s image probe holds, in base64; values Spotlight stores are sealed to it"
+            "description": "The X25519 public key that the egress of the host’s image probe holds, in base64; Spotlight seals each value to it"
           }
         },
         "required": [
           "recipient"
-        ]
-      },
-      "ExternalSecretRefResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "aws-secrets-manager"
-            ]
-          },
-          "secretId": {
-            "type": "string",
-            "example": "arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key"
-          },
-          "field": {
-            "type": "string",
-            "nullable": true,
-            "example": "token"
-          }
-        },
-        "required": [
-          "kind",
-          "secretId",
-          "field"
         ]
       },
       "FetchedSecretResponseDto": {
@@ -27121,18 +27164,7 @@
           },
           "sealed": {
             "type": "string",
-            "nullable": true,
-            "description": "The value, sealed to the recipient for this run; null when egress reads it in its own network"
-          },
-          "externalRef": {
-            "nullable": true,
-            "description": "Where egress reads the value with its host’s own identity; null when Spotlight sealed it",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ExternalSecretRefResponseDto"
-              }
-            ]
+            "description": "The value, sealed to the recipient for this run"
           }
         },
         "required": [
@@ -27141,8 +27173,7 @@
           "location",
           "name",
           "prefix",
-          "sealed",
-          "externalRef"
+          "sealed"
         ]
       },
       "DeniedSecretResponseDto": {
@@ -27184,7 +27215,7 @@
             }
           },
           "secrets": {
-            "description": "Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id",
+            "description": "Each harness key the workspace holds, for each host it is bound to, sealed to the recipient with an empty run id",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FetchedSecretResponseDto"
@@ -27505,7 +27536,7 @@
           "recipient": {
             "type": "string",
             "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
-            "description": "The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it"
+            "description": "The X25519 public key that egress holds for this run alone, in base64; Spotlight seals each value to it"
           },
           "proxyCredential": {
             "type": "string",
@@ -27852,37 +27883,6 @@
           "efforts"
         ]
       },
-      "SecretSourceResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "built-in",
-              "aws-secrets-manager"
-            ],
-            "example": "built-in",
-            "description": "Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used"
-          },
-          "secretId": {
-            "type": "string",
-            "nullable": true,
-            "example": null,
-            "description": "The name or ARN of the secret in AWS Secrets Manager"
-          },
-          "field": {
-            "type": "string",
-            "nullable": true,
-            "example": null,
-            "description": "The key to read when that secret contains JSON"
-          }
-        },
-        "required": [
-          "kind",
-          "secretId",
-          "field"
-        ]
-      },
       "SecretBindingResponseDto": {
         "type": "object",
         "properties": {
@@ -27953,9 +27953,6 @@
             "example": "LINEAR_API_KEY",
             "description": "What integrations call it. Immutable: changing it means replacing the secret"
           },
-          "source": {
-            "$ref": "#/components/schemas/SecretSourceResponseDto"
-          },
           "bindings": {
             "description": "The only hosts the secret is ever sent to, and how; a request anywhere else goes without it",
             "type": "array",
@@ -27982,7 +27979,6 @@
           "warnings",
           "workspaceId",
           "name",
-          "source",
           "bindings",
           "valueWoVersion",
           "rotatedAt"
@@ -28001,6 +27997,74 @@
         },
         "required": [
           "items"
+        ]
+      },
+      "SecretValueOrigin": {
+        "type": "string",
+        "enum": [
+          "awaiting",
+          "spotlight",
+          "terraform"
+        ],
+        "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)"
+      },
+      "WorkspaceSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "STAGING_LOGIN_PASSWORD"
+          },
+          "hosts": {
+            "example": [
+              "staging.example.com"
+            ],
+            "description": "The hosts egress sends the value to",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "valueOrigin": {
+            "example": "awaiting",
+            "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretValueOrigin"
+              }
+            ]
+          },
+          "valueSetAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When Spotlight last stored a value; null when it holds none"
+          },
+          "settable": {
+            "type": "boolean",
+            "description": "True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets"
+          }
+        },
+        "required": [
+          "name",
+          "hosts",
+          "valueOrigin",
+          "valueSetAt",
+          "settable"
+        ]
+      },
+      "SetSecretValueRequestDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "example": "correct-horse-battery-staple",
+            "description": "The new value, on one line if the secret is bound to a host. Spotlight encrypts it and never returns it",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "value"
         ]
       },
       "HostHeartbeatRequestDto": {

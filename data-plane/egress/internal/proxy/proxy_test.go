@@ -334,14 +334,14 @@ func (opener) Open(sealed, _, _ string) (string, error) {
 func TestInjectsWhatEgressFetchedByReplacingTheStandInTheSandboxSent(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 	list, _ := allowlist.Parse(nil)
-	injector := inject.From(context.Background(), protocol.EgressSecrets{
+	injector := inject.From(protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
 			{Secret: "LINEAR_API_KEY", Host: "mcp.example.com", Location: "header", Name: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
 			{Secret: "LINEAR_ORG", Host: "mcp.example.com", Location: "header", Name: "x-org", Sealed: "sealed:acme"},
 			{Secret: "MCP_KEY", Host: "mcp.example.com", Location: "query", Name: "key", Sealed: "sealed:k/1"},
 		},
-	}, nil, inject.Limits{Hosts: list}, opener{}, func() (inject.Reader, error) { return nil, nil }, quiet)
+	}, nil, list, opener{}, quiet)
 	r := riggedWith(t, nil, injector, injector.Hosts())
 
 	response, body := r.get(t, "https://mcp.example.com/", http.Header{
@@ -411,12 +411,12 @@ func TestTellsTheDialWhetherTheListNamesTheHostOnEveryPath(t *testing.T) {
 func TestSaysACallFailedWithoutEchoingTheAddressItInjectedASecretIn(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 	list, _ := allowlist.Parse(nil)
-	injector := inject.From(context.Background(), protocol.EgressSecrets{
+	injector := inject.From(protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
 			{Secret: "MAPS_KEY", Host: "maps.example.com", Location: "query", Name: "key", Sealed: "sealed:AIza-secret"},
 		},
-	}, nil, inject.Limits{Hosts: list}, opener{}, func() (inject.Reader, error) { return nil, nil }, quiet)
+	}, nil, list, opener{}, quiet)
 	r := riggedWith(t, nil, injector, injector.Hosts())
 	var logged strings.Builder
 	r.proxy.log = slog.New(slog.NewTextHandler(&logged, nil))
@@ -439,12 +439,12 @@ func TestSaysACallFailedWithoutEchoingTheAddressItInjectedASecretIn(t *testing.T
 func TestHandsTheSandboxBackTheStandInWhereTheHostEchoesTheSecret(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 	list, _ := allowlist.Parse(nil)
-	injector := inject.From(context.Background(), protocol.EgressSecrets{
+	injector := inject.From(protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
 			{Secret: "MAPS_KEY", Host: "maps.example.com", Location: "query", Name: "key", Sealed: "sealed:AIza/secret"},
 		},
-	}, nil, inject.Limits{Hosts: list}, opener{}, func() (inject.Reader, error) { return nil, nil }, quiet)
+	}, nil, list, opener{}, quiet)
 	r := riggedWith(t, nil, injector, injector.Hosts())
 	client := *r.client
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }

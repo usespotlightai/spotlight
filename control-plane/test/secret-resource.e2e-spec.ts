@@ -180,7 +180,6 @@ describe('a secret, created through the resource API (e2e)', () => {
 
     expect(made.body).toMatchObject({
       name: 'LINEAR_API_KEY',
-      source: { kind: 'built-in', secretId: null, field: null },
       bindings: [
         {
           host: 'api.linear.app',
@@ -330,7 +329,12 @@ describe('a secret, created through the resource API (e2e)', () => {
         'secret',
         'created',
         { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
-        { valueVersion: 1, targets: ['api.linear.app'] },
+        {
+          valueChange: 'stored',
+          valueOrigin: 'terraform',
+          valueVersion: 1,
+          targets: ['api.linear.app'],
+        },
       ],
       [
         'secret',
@@ -342,7 +346,7 @@ describe('a secret, created through the resource API (e2e)', () => {
         'secret',
         'updated',
         { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
-        { valueVersion: 2 },
+        { valueChange: 'stored', valueOrigin: 'terraform', valueVersion: 2 },
       ],
       [
         'secret',

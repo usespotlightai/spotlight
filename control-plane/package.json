@@ -33,7 +33,6 @@
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1170.0",
     "@aws-sdk/client-s3": "^3.1170.0",
-    "@aws-sdk/client-secrets-manager": "^3.1170.0",
     "@aws-sdk/s3-request-presigner": "^3.1170.0",
     "@hocuspocus/extension-redis": "^4.8.0",
     "@hocuspocus/server": "^4.7.1",

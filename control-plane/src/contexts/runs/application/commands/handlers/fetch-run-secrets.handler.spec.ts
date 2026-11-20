@@ -41,7 +41,6 @@ const FETCHED = {
       name: 'authorization',
       prefix: 'Bearer ',
       sealed: 'v1.sealed',
-      externalRef: null,
     },
   ],
   denied: [{ secret: 'GONE', reason: 'no such secret' }],

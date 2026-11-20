@@ -5,12 +5,13 @@ import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-ve
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
-import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
-import type { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
+import {
+  secret,
+  secretValue,
+} from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
+import type { EncryptedSecretStore } from '@secrets/infrastructure/store/encrypted-secret.store';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
@@ -26,33 +27,20 @@ const collided = (error: unknown): boolean =>
 
 type Row = typeof secret.$inferSelect;
 
-const sourceOf = (row: Row): SecretSource => {
-  if (row.source !== 'aws-secrets-manager') {
-    return SecretSource.builtIn();
-  }
+interface Held {
+  readonly row: Row;
+  readonly valueOf: string | null;
+}
 
-  if (row.sourceSecretId === null) {
-    throw new InconsistentStateError(
-      'secret',
-      'reads from AWS Secrets Manager without naming the secret there',
-    );
-  }
-
-  return SecretSource.awsSecretsManager({
-    secretId: row.sourceSecretId,
-    field: row.sourceField,
-  });
-};
-
-const rehydrated = (row: Row): Secret =>
+const rehydrated = ({ row, valueOf }: Held): Secret =>
   Secret.rehydrate({
     id: SecretId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     name: SecretName.of(row.name),
-    source: sourceOf(row),
     bindings: SecretBindings.of(row.bindings),
     valueVersion:
       row.valueVersion === null ? null : ValueVersion.of(row.valueVersion),
+    holdsValue: valueOf !== null,
     rotatedAt: row.rotatedAt,
     version: row.version,
   });
@@ -64,7 +52,7 @@ export class DrizzleSecrets implements SecretRepository {
   constructor(
     private readonly context: DrizzleContext,
     private readonly events: DomainEventDispatcher,
-    private readonly values: BuiltInSecretStore,
+    private readonly values: EncryptedSecretStore,
   ) {}
 
   withId(id: SecretId): Promise<Secret | null> {
@@ -81,18 +69,15 @@ export class DrizzleSecrets implements SecretRepository {
   }
 
   async inWorkspace(workspaceId: WorkspaceId): Promise<readonly Secret[]> {
-    return (
-      await this.context.db
-        .select()
-        .from(secret)
-        .where(eq(secret.workspaceId, workspaceId.value))
-    ).map(rehydrated);
+    return (await this.held(eq(secret.workspaceId, workspaceId.value))).map(
+      rehydrated,
+    );
   }
 
   async save(record: Secret): Promise<void> {
     await this.context.inTransaction(async () => {
       await this.stored(record);
-      await this.applyValueChange(record);
+      await this.applyValueWrite(record);
 
       await this.events.dispatch(record.pullEvents());
     });
@@ -100,9 +85,6 @@ export class DrizzleSecrets implements SecretRepository {
 
   private async stored(record: Secret): Promise<void> {
     const fields = {
-      source: record.source.kind,
-      sourceSecretId: record.source.secretId,
-      sourceField: record.source.field,
       bindings: record.bindings.all.map((each) => ({
         host: each.host.value,
         location: each.target.location,
@@ -149,8 +131,8 @@ export class DrizzleSecrets implements SecretRepository {
     }
   }
 
-  private async applyValueChange(record: Secret): Promise<void> {
-    await record.valueChange({
+  private async applyValueWrite(record: Secret): Promise<void> {
+    await record.valueWrite({
       store: (value) => this.values.store(record, value),
       delete: () => this.values.delete(record),
       keep: async () => {},
@@ -158,12 +140,16 @@ export class DrizzleSecrets implements SecretRepository {
   }
 
   private async first(where: SQL | undefined): Promise<Secret | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(secret)
-      .where(where)
-      .limit(1);
+    const [found] = await this.held(where).limit(1);
 
     return found ? rehydrated(found) : null;
+  }
+
+  private held(where: SQL | undefined) {
+    return this.context.db
+      .select({ row: secret, valueOf: secretValue.secretId })
+      .from(secret)
+      .leftJoin(secretValue, eq(secretValue.secretId, secret.id))
+      .where(where);
   }
 }

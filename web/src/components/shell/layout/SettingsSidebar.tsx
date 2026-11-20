@@ -2,6 +2,7 @@ import {
   Bell,
   ChevronLeft,
   KeyRound,
+  LockKeyhole,
   Mail,
   Server,
   Settings2,
@@ -20,6 +21,7 @@ import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
 import {
   apiAccessPath,
+  secretsPath,
   TEAM_SETTINGS_PAGES,
   teamSettingsPath,
   workspaceGeneralPath,
@@ -97,6 +99,11 @@ export function SettingsSidebar({
                 }
               >
                 Runners
+              </SidebarLink>
+            </li>
+            <li>
+              <SidebarLink to={secretsPath(slug)} icon={LockKeyhole}>
+                Secrets
               </SidebarLink>
             </li>
             {isAdmin(workspace.role) && (

@@ -5,6 +5,9 @@ export const settingsPath = (slug: string): string => `/w/${slug}/settings`;
 export const apiAccessPath = (slug: string): string =>
   `${settingsPath(slug)}/api-access`;
 
+export const secretsPath = (slug: string): string =>
+  `${settingsPath(slug)}/secrets`;
+
 export const workspaceGeneralPath = (slug: string): string =>
   `${settingsPath(slug)}/general`;
 

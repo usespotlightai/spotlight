@@ -6,10 +6,8 @@ import type {
 } from '@secrets/application/ports/secret-sealing.port';
 import { HostSecretFetches } from '@secrets/application/services/host-secret-fetches.service';
 import { SealedSecrets } from '@secrets/application/services/sealed-secrets';
-import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import {
   BY,
@@ -17,7 +15,6 @@ import {
   InMemorySecrets,
   InMemoryStore,
   NOW,
-  readingFrom,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
@@ -44,8 +41,6 @@ const FETCHING = {
 const setUp = async () => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
-  const aws = readingFrom({ 'openai-key': 'sk-openai-1' });
-  vi.spyOn(aws, 'read');
   const logger = {
     debug: vi.fn(),
     info: vi.fn(),
@@ -70,31 +65,22 @@ const setUp = async () => {
   });
   await saved('secret_openai', {
     name: 'OPENAI_API_KEY',
-    source: SecretSource.awsSecretsManager({
-      secretId: 'openai-key',
-      field: null,
-    }),
-    value: null,
+    value: 'sk-openai-1',
     bindings: [{ host: 'api.openai.com', prefix: 'Bearer ' }],
   });
   await saved('secret_loose', { name: 'CURSOR_API_KEY', bindings: [] });
 
   return {
     fetches: new HostSecretFetches(
-      new SealedSecrets(
-        secrets,
-        new SecretSources(store, aws),
-        new SealedInTheOpen(),
-      ),
+      new SealedSecrets(secrets, store, new SealedInTheOpen()),
       logger,
     ),
-    aws,
     logger,
   };
 };
 
 describe('HostSecretFetches', () => {
-  it('seals a value Spotlight stores to the host’s recipient, bound to no run', async () => {
+  it('seals the value to the host’s recipient, bound to no run', async () => {
     const { fetches } = await setUp();
 
     await expect(
@@ -108,33 +94,10 @@ describe('HostSecretFetches', () => {
           name: 'x-api-key',
           prefix: '',
           sealed: 'sealed(sk-ant-1|recipient-key||ANTHROPIC_API_KEY)',
-          externalRef: null,
         },
       ],
       denied: [],
     });
-  });
-
-  it('says where egress reads a value an external store holds, and never reads it itself', async () => {
-    const { fetches, aws } = await setUp();
-
-    const fetched = await fetches.sealedForHost({
-      ...FETCHING,
-      secrets: ['OPENAI_API_KEY'],
-    });
-
-    expect(fetched.secrets).toEqual([
-      expect.objectContaining({
-        secret: 'OPENAI_API_KEY',
-        sealed: null,
-        externalRef: {
-          kind: 'aws-secrets-manager',
-          secretId: 'openai-key',
-          field: null,
-        },
-      }),
-    ]);
-    expect(aws.read).not.toHaveBeenCalled();
   });
 
   it('says why it seals no secret that is missing or bound nowhere', async () => {

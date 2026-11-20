@@ -4,20 +4,23 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
 
 	"usespotlight.ai/data-plane/console"
+	"usespotlight.ai/data-plane/flagset"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 )
 
 func restart(version string, args []string) error {
 	flags := flag.NewFlagSet("restart", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
 	now := flags.Bool("now", false, "")
-	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
+	if rest, err := flagset.Interspersed(flags, args); err != nil || len(rest) > 0 {
 		return fmt.Errorf("%s", restartHelp.Synopsis())
 	}
 
@@ -62,10 +65,11 @@ func reload(version string, args []string) error {
 
 func logs(args []string) error {
 	flags := flag.NewFlagSet("logs", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
 	follow := flags.Bool("f", false, "")
 	flags.BoolVar(follow, "follow", false, "")
 	lines := flags.Int("n", 100, "")
-	if rest, err := parse(flags, args); err != nil || len(rest) > 0 || *lines < 0 {
+	if rest, err := flagset.Interspersed(flags, args); err != nil || len(rest) > 0 || *lines < 0 {
 		return fmt.Errorf("%s", logsHelp.Synopsis())
 	}
 
@@ -86,9 +90,10 @@ func logs(args []string) error {
 
 func uninstall(version string, args []string) error {
 	flags := flag.NewFlagSet("uninstall", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
 	purge := flags.Bool("purge", false, "")
 	yes := flags.Bool("yes", false, "")
-	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
+	if rest, err := flagset.Interspersed(flags, args); err != nil || len(rest) > 0 {
 		return fmt.Errorf("%s", uninstallHelp.Synopsis())
 	}
 

@@ -5,6 +5,7 @@ import type {
   IntegrationViewResponseDto,
   MyConnectionResponseDto,
   OidcTrustSummaryResponseDto,
+  WorkspaceSecretResponseDto,
   PersonConnectionResponseDto,
   RunnerPoolResourceResponseDto,
   SetupCiResponseDto,
@@ -357,6 +358,30 @@ const OIDC_TRUSTS: OidcTrustSummaryResponseDto[] = [
   }),
 ];
 
+const SECRETS: WorkspaceSecretResponseDto[] = [
+  {
+    name: 'LINEAR_API_KEY',
+    hosts: ['api.linear.app'],
+    valueOrigin: 'terraform',
+    valueSetAt: daysAgo(30),
+    settable: false,
+  },
+  {
+    name: 'STAGING_LOGIN_PASSWORD',
+    hosts: ['staging.acme.dev'],
+    valueOrigin: 'awaiting',
+    valueSetAt: null,
+    settable: true,
+  },
+  {
+    name: 'STAGING_VIEWER_TOKEN',
+    hosts: ['staging.acme.dev', 'api.staging.acme.dev'],
+    valueOrigin: 'spotlight',
+    valueSetAt: daysAgo(2),
+    settable: true,
+  },
+];
+
 export const inferenceEndpoint = (
   over: Partial<InferenceEndpointResourceResponseDto> = {},
 ): InferenceEndpointResourceResponseDto => ({
@@ -379,6 +404,7 @@ export type SettingsWorld = {
   skills: Record<string, TeamSkillResponseDto[]>;
   tokens: WorkspaceTokenResourceResponseDto[];
   oidcTrusts: OidcTrustSummaryResponseDto[];
+  secrets: WorkspaceSecretResponseDto[];
   pools: RunnerPoolResourceResponseDto[];
   inferenceEndpoints: InferenceEndpointResourceResponseDto[];
   fleet: Fleet;
@@ -401,6 +427,7 @@ export const settingsWorld = perWorld((kind): SettingsWorld =>
         skills: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
         tokens: [],
         oidcTrusts: [],
+        secrets: [],
         pools: [],
         inferenceEndpoints: [],
         fleet: structuredClone(NO_FLEET),
@@ -415,6 +442,7 @@ export const settingsWorld = perWorld((kind): SettingsWorld =>
         skills: structuredClone(SKILLS),
         tokens: structuredClone(TOKENS),
         oidcTrusts: structuredClone(OIDC_TRUSTS),
+        secrets: structuredClone(SECRETS),
         pools: structuredClone(RUNNER_POOLS),
         inferenceEndpoints: [inferenceEndpoint()],
         fleet: structuredClone(FLEET),

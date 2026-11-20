@@ -160,10 +160,10 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
     writers: ['contexts/secrets/infrastructure/crypto/workspace-keys.ts'],
   },
   secret_value: {
-    why: 'vault of the built-in secret source, written by the store and not by the Secret aggregate (DECISIONS r2-review-seams RS-16)',
+    why: 'the encrypted secret values, written by the store and not by the Secret aggregate (DECISIONS r2-review-seams RS-16)',
     childOf: 'secret',
     writers: [
-      'contexts/secrets/infrastructure/sources/built-in-secret.store.ts',
+      'contexts/secrets/infrastructure/store/encrypted-secret.store.ts',
     ],
   },
   signup_survey: {

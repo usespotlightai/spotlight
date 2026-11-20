@@ -41,7 +41,6 @@ const handler = () => {
         name: 'authorization',
         prefix: 'Bearer ',
         sealed: `sealed(${each})`,
-        externalRef: null,
       })),
     denied: request.secrets
       .filter((each) => each === 'OPENAI_API_KEY')

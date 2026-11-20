@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 
 	"usespotlight.ai/data-plane/control"
+	"usespotlight.ai/data-plane/flagset"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 	"usespotlight.ai/data-plane/host/internal/pool"
@@ -53,8 +54,9 @@ type report struct {
 
 func status(version string, args []string) error {
 	flags := flag.NewFlagSet("status", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
 	asJSON := flags.Bool("json", false, "")
-	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
+	if rest, err := flagset.Interspersed(flags, args); err != nil || len(rest) > 0 {
 		return fmt.Errorf("%s", statusHelp.Synopsis())
 	}
 

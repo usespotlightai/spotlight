@@ -78,9 +78,7 @@ const secretOf = (id: string, name: string) => ({
   address: name,
   workspaceId: WORKSPACE,
   name,
-  source: { kind: 'built-in', secretId: null, field: null },
   bindings: [],
-  storesValue: true,
   valueVersion: 1,
 });
 

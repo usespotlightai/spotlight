@@ -144,7 +144,6 @@ func (s *egressSidecar) start(ctx context.Context, credential egressCredential) 
 		Host:         credential.host,
 		Credential:   s.credential,
 		Allow:        h.now().Egress.Allow,
-		SecretAllow:  h.now().Egress.SecretAllow,
 		HarnessKeys:  s.keys,
 		SandboxHosts: s.sandboxHosts,
 	}, []sandbox.Join{{Network: s.network, Aliases: []string{EgressAlias}}}, takeover)
