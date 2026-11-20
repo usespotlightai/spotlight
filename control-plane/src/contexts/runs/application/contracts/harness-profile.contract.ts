@@ -50,10 +50,7 @@ export interface ProfileReview {
   readonly warnings: readonly HarnessNote[];
 }
 
-export interface ReadyProfileShape extends Omit<
-  HarnessProfileShape,
-  'key' | 'secrets'
-> {
+export interface ReadyProfileShape extends Omit<HarnessProfileShape, 'key'> {
   readonly key: ProfileKey;
   readonly injectedSecrets: readonly SecretName[];
 }

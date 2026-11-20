@@ -2,7 +2,7 @@ import type { SecretLocation } from '@secrets/application/contracts/injected-sec
 
 export const BOUND_SECRETS = Symbol('BOUND_SECRETS');
 
-export interface BoundSecretBindingShape {
+interface BoundSecretBindingShape {
   readonly host: string;
   readonly location: SecretLocation;
   readonly name: string;

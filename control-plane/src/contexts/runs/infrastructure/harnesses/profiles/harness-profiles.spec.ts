@@ -543,5 +543,9 @@ describe('the secrets a ready profile has egress inject', () => {
       'LINEAR_API_KEY',
       'STAGING_VIEWER',
     ]);
+    expect(ready.secrets.map((each) => each.value)).toEqual([
+      'STAGING_VIEWER',
+      'LINEAR_API_KEY',
+    ]);
   });
 });

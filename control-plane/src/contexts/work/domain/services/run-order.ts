@@ -113,6 +113,7 @@ export const orderAt = ({
 
   const { station, launch } = launched;
   const injected = launch.enabled.profile?.injectedSecrets ?? [];
+  const named = launch.enabled.profile?.secrets ?? [];
   const bound = boundSecrets.filter((each) =>
     injected.some((name) => name.equals(each.name)),
   );
@@ -136,7 +137,9 @@ export const orderAt = ({
     diffs: station.diffs,
     check: station.diffs ? station.check : null,
     refusals,
-    boundSecrets: bound,
+    boundSecrets: bound.filter((each) =>
+      named.some((name) => name.equals(each.name)),
+    ),
   };
 };
 

@@ -30,6 +30,7 @@ export interface HarnessSettings {
 
 export interface ReadyProfile extends HarnessSettings {
   readonly key: ProfileKey;
+  readonly secrets: readonly SecretName[];
   readonly injectedSecrets: readonly SecretName[];
 }
 
@@ -50,6 +51,7 @@ export const readyProfile = (
       ...server,
       env: injected.env,
     })),
+    secrets: [...secrets],
     injectedSecrets: distinct([
       ...servers.flatMap(({ injected }) => injected.injectedSecrets),
       ...secrets,

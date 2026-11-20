@@ -120,6 +120,7 @@ describe('enabledAt, for a station that names a harness profile', () => {
     rules: [],
     mcpServers: [],
     native: {},
+    secrets: [],
     injectedSecrets: [],
   };
 

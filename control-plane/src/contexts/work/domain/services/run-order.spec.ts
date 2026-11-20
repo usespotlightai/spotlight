@@ -83,6 +83,7 @@ const orderWith = (boundSecrets: readonly BoundSecret[]) =>
         rules: [],
         mcpServers: [],
         native: {},
+        secrets: [SecretName.of('STAGING_VIEWER')],
         injectedSecrets: [
           SecretName.of('LINEAR_API_KEY'),
           SecretName.of('STAGING_VIEWER'),
@@ -106,12 +107,12 @@ describe('orderAt', () => {
     expect(refusalsWith([known('SENTRY_TOKEN', true)])).toEqual([]);
   });
 
-  it('orders the secrets the profile injects, with where each is bound', () => {
+  it('orders the secrets the profile names, with where each is bound, and not those its MCP servers get', () => {
     const viewer = known('STAGING_VIEWER', false, ['staging.example.com']);
     const linear = known('LINEAR_API_KEY', false, ['api.linear.app']);
 
     expect(
       orderWith([viewer, known('SENTRY_TOKEN', false), linear])?.boundSecrets,
-    ).toEqual([viewer, linear]);
+    ).toEqual([viewer]);
   });
 });
