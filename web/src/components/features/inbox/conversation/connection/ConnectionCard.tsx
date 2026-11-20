@@ -18,6 +18,26 @@ type ConnectionCardProps = {
   outdated?: boolean;
 };
 
+const connectionText = (
+  connection: InboxConnectionResponseDto,
+  theirs: boolean,
+  who: string,
+  outdated: boolean,
+): string => {
+  const name = connection.integrationName;
+  if (connection.met) {
+    return theirs
+      ? `You connected ${name}. The run carried on.`
+      : `${who} connected ${name}. The run carried on.`;
+  }
+  if (outdated) {
+    return 'The run asked for something newer since.';
+  }
+  return theirs
+    ? `If you connect your ${name} account, the run carries on.`
+    : `The run is waiting for ${who} to connect ${name}.`;
+};
+
 export function ConnectionCard({
   connection,
   teamId,
@@ -64,15 +84,7 @@ export function ConnectionCard({
       />
 
       <p className="text-muted-foreground text-xs leading-5">
-        {connection.met
-          ? theirs
-            ? `You connected ${connection.integrationName}. The run carried on.`
-            : `${who} connected ${connection.integrationName}. The run carried on.`
-          : outdated
-            ? 'The run asked for something newer since.'
-            : theirs
-              ? `If you connect your ${connection.integrationName} account, the run carries on.`
-              : `The run is waiting for ${who} to connect ${connection.integrationName}.`}
+        {connectionText(connection, theirs, who, outdated)}
       </p>
 
       {docked && action && <DecisionControls>{action}</DecisionControls>}
