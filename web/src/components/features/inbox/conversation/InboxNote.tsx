@@ -122,6 +122,7 @@ export function InboxNote({
             connection={connection}
             teamId={teamId}
             viewer={session?.user.id ?? null}
+            outdated={outdated}
           />
         </Dockable>
       )}

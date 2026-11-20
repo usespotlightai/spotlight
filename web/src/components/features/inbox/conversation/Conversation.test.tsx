@@ -284,6 +284,12 @@ describe('Conversation', () => {
     expect(
       screen.queryByRole('button', { name: 'Show Connect Linear' }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Connect' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('The run asked for something newer since.'),
+    ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Show Approval' })).toBeVisible();
   });
 
