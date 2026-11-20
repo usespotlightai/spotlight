@@ -1,6 +1,7 @@
-import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import { THREAD_GUTTER } from '@/components/shared/thread-column';
+import { useTextBarTop } from '@/hooks/useTextBarTop';
 import { cn } from '@/lib/utils';
 
 export function ComposerFooter({
@@ -11,30 +12,7 @@ export function ComposerFooter({
   children: ReactNode;
 }) {
   const footer = useRef<HTMLDivElement>(null);
-  const [textBarTop, setTextBarTop] = useState(0);
-
-  useLayoutEffect(() => {
-    const element = footer.current;
-
-    if (!floating || !element) {
-      return;
-    }
-
-    const measure = () => {
-      const form = element.querySelector('[data-slot=chat-input-form]');
-      setTextBarTop(
-        form
-          ? form.getBoundingClientRect().top -
-              element.getBoundingClientRect().top
-          : 0,
-      );
-    };
-    const resized = new ResizeObserver(measure);
-    resized.observe(element);
-    measure();
-
-    return () => resized.disconnect();
-  }, [floating]);
+  const textBarTop = useTextBarTop(footer, floating);
 
   return (
     <div
