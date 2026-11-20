@@ -105,6 +105,9 @@ export function useConversationScroll(
 
       const was = box.scrollTop;
       toLatest(box, inside, setup);
+      if (box.scrollTop < was) {
+        box.scrollTop = was;
+      }
       ours.current = box.scrollTop !== was || ours.current;
     });
     grew.observe(inside);

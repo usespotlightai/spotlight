@@ -285,6 +285,7 @@ export class StationTrials implements StationTrialsPort {
       memories: memories.briefed,
       memoryFolder: memories.folder,
       tools: described,
+      boundSecrets: order.boundSecrets,
     });
     const briefing = followedUp ? `${briefed}\n\n${followedUp}` : briefed;
     const configuredAs = this.ordering.configuredAs(laidOut, candidate);

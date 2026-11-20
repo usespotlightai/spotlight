@@ -1,4 +1,5 @@
 import type { StationResponseDto, TaskResponseDto } from '@/lib/api';
+import { formatDate } from '@/lib/date-format';
 import { stationShare } from '@/lib/station';
 import { teamPath } from '@/lib/team';
 
@@ -31,7 +32,7 @@ export const createdOn = (createdAt: string): string => {
   const created = new Date(createdAt);
   const thisYear = created.getFullYear() === new Date().getFullYear();
 
-  return created.toLocaleDateString(undefined, {
+  return formatDate(created, {
     month: 'short',
     day: 'numeric',
     ...(thisYear ? {} : { year: 'numeric' }),

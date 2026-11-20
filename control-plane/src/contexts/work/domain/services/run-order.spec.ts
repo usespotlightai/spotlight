@@ -10,6 +10,7 @@ import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { orderAt } from '@work/domain/services/run-order';
+import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import {
   lineMapOf,
@@ -55,7 +56,22 @@ const LINE = lineMapOf({
   ],
 });
 
-const refusalsWith = (secretsAwaitingValue: readonly string[]) =>
+const known = (
+  name: string,
+  awaitingValue: boolean,
+  hosts: readonly string[] = [],
+): BoundSecret => ({
+  name: SecretName.of(name),
+  bindings: hosts.map((host) => ({
+    host,
+    location: 'header',
+    name: 'authorization',
+    sent: `Bearer ${SecretName.of(name).standIn}`,
+  })),
+  awaitingValue,
+});
+
+const orderWith = (boundSecrets: readonly BoundSecret[]) =>
   orderAt({
     at: { stationId: TRIAGE, resume: Resume.of({}), checkouts: [] },
     line: LINE,
@@ -67,22 +83,36 @@ const refusalsWith = (secretsAwaitingValue: readonly string[]) =>
         rules: [],
         mcpServers: [],
         native: {},
-        injectedSecrets: [SecretName.of('LINEAR_API_KEY')],
+        secrets: [SecretName.of('STAGING_VIEWER')],
+        injectedSecrets: [
+          SecretName.of('LINEAR_API_KEY'),
+          SecretName.of('STAGING_VIEWER'),
+        ],
       },
     ],
-    secretsAwaitingValue: secretsAwaitingValue.map((each) =>
-      SecretName.of(each),
-    ),
-  })?.refusals.map((each) => each.description);
+    boundSecrets,
+  });
+
+const refusalsWith = (boundSecrets: readonly BoundSecret[]) =>
+  orderWith(boundSecrets)?.refusals.map((each) => each.description);
 
 describe('orderAt', () => {
   it('refuses the run where a secret the profile injects has no value', () => {
-    expect(refusalsWith(['LINEAR_API_KEY'])).toEqual([
+    expect(refusalsWith([known('LINEAR_API_KEY', true)])).toEqual([
       'secret_awaiting_value: Secret LINEAR_API_KEY has no value. Station: Triage',
     ]);
   });
 
   it('does not refuse the run for a secret the profile does not inject', () => {
-    expect(refusalsWith(['SENTRY_TOKEN'])).toEqual([]);
+    expect(refusalsWith([known('SENTRY_TOKEN', true)])).toEqual([]);
+  });
+
+  it('orders the secrets the profile names, with where each is bound, and not those its MCP servers get', () => {
+    const viewer = known('STAGING_VIEWER', false, ['staging.example.com']);
+    const linear = known('LINEAR_API_KEY', false, ['api.linear.app']);
+
+    expect(
+      orderWith([viewer, known('SENTRY_TOKEN', false), linear])?.boundSecrets,
+    ).toEqual([viewer]);
   });
 });

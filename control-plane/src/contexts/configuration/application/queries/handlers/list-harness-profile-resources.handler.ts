@@ -35,13 +35,17 @@ export class ListHarnessProfileResourcesHandler implements QueryHandlerPort<
       const teams = await this.teams.inWorkspace(workspace.workspaceId);
       const perTeam = await Promise.all(
         teams.map(async (team) =>
-          (await this.resources.ofTeam(team.id)).map((each) =>
-            this.views.onTeam(each, team.key),
-          ),
+          (await this.resources.ofTeam(team.id)).map((record) => ({
+            record,
+            teamKey: team.key,
+          })),
         ),
       );
 
-      return perTeam.flat();
+      return await this.views.inWorkspace(
+        workspace.workspaceId,
+        perTeam.flat(),
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }

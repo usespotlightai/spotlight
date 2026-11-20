@@ -1,3 +1,5 @@
+import { formatDate } from '@/lib/date-format';
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -15,7 +17,7 @@ export const since = (at: string): string => {
     return `${Math.floor(ago / HOUR)}h ago`;
   }
 
-  return new Date(at).toLocaleDateString(undefined, {
+  return formatDate(new Date(at), {
     month: 'short',
     day: 'numeric',
   });

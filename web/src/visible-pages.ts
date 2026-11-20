@@ -60,3 +60,38 @@ export const preloadVisiblePages = (pathname: string): Promise<unknown> =>
   Promise.all(
     pagesAt(visiblePaths(pathname)).map((page) => page.preload()),
   ).catch(() => undefined);
+
+const everyPage = (routes: RouteObject[]): unknown[] =>
+  routes.flatMap((route) => [
+    route.element,
+    ...everyPage(route.children ?? []),
+  ]);
+
+const whenIdle = (work: () => void) =>
+  typeof requestIdleCallback === 'function'
+    ? requestIdleCallback(work, { timeout: 2000 })
+    : setTimeout(work, 200);
+
+export const preloadEveryPage = (routes: RouteObject[] = workspaceRoutes()) => {
+  const pages = [
+    ...new Set(
+      everyPage(routes).flatMap((element) =>
+        isValidElement(element) && isLazyPage(element.type)
+          ? [element.type]
+          : [],
+      ),
+    ),
+  ];
+  const next = () => {
+    const page = pages.shift();
+
+    if (page) {
+      void page
+        .preload()
+        .catch(() => undefined)
+        .finally(() => whenIdle(next));
+    }
+  };
+
+  whenIdle(next);
+};

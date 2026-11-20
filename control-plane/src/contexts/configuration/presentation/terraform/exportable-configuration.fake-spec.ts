@@ -542,9 +542,14 @@ export const CONFIGURATION: ExportableConfigurationDto = {
         },
       ],
       native: { 'claude-code': { includeCoAuthoredBy: false } },
+      secrets: ['LINEAR_SIGNING'],
       secretReferences: [
         {
-          path: FieldPath.of([0, 'env', 'LINEAR_API_KEY']),
+          path: FieldPath.of(['mcpServers', 0, 'env', 'LINEAR_API_KEY']),
+          name: 'LINEAR_SIGNING',
+        },
+        {
+          path: FieldPath.of(['secrets', 0]),
           name: 'LINEAR_SIGNING',
         },
       ],

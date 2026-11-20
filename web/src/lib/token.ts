@@ -1,4 +1,5 @@
 import type { WorkspaceTokenResourceResponseDto } from '@/lib/api';
+import { formatDate } from '@/lib/date-format';
 
 export type WorkspaceToken = WorkspaceTokenResourceResponseDto;
 
@@ -88,7 +89,7 @@ export const expiryAfter = (
   days === null ? null : new Date(now + Number(days) * DAY).toISOString();
 
 const dayOf = (at: Date, now: number): string =>
-  at.toLocaleDateString(undefined, {
+  formatDate(at, {
     month: 'short',
     day: 'numeric',
     ...(at.getFullYear() === new Date(now).getFullYear()

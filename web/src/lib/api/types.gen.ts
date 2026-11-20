@@ -4283,6 +4283,10 @@ export type HarnessProfileResourceResponseDto = {
   native: {
     [key: string]: unknown;
   };
+  /**
+   * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
+   */
+  secrets: Array<string>;
 };
 
 export type HarnessProfileResourceListResponseDto = {
@@ -18126,6 +18130,10 @@ export type CreateHarnessProfileData = {
     native?: {
       [key: string]: unknown;
     };
+    /**
+     * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
+     */
+    secrets?: Array<string>;
   };
   headers: {
     /**
@@ -18314,6 +18322,10 @@ export type UpdateHarnessProfileData = {
     native?: {
       [key: string]: unknown;
     };
+    /**
+     * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
+     */
+    secrets?: Array<string>;
   };
   headers: {
     /**

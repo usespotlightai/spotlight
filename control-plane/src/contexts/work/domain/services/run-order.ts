@@ -2,7 +2,6 @@ import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -14,6 +13,7 @@ import {
   checkoutsOf,
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
+import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
@@ -41,6 +41,7 @@ export interface RunOrder {
   readonly diffs: boolean;
   readonly check: string | null;
   readonly refusals: readonly RefusalReason[];
+  readonly boundSecrets: readonly BoundSecret[];
 }
 
 export interface OrderedAt {
@@ -69,7 +70,7 @@ interface Launching {
 
 interface Ordering extends Launching {
   denied?: readonly DeniedCatalogItem[];
-  secretsAwaitingValue: readonly SecretName[];
+  boundSecrets: readonly BoundSecret[];
 }
 
 export const launchAt = ({
@@ -101,7 +102,7 @@ export const orderAt = ({
   at,
   line,
   denied = [],
-  secretsAwaitingValue,
+  boundSecrets,
   ...launching
 }: Ordering & { at: OrderedAt }): RunOrder | null => {
   const launched = launchAt({ ...launching, line, stationId: at.stationId });
@@ -111,12 +112,17 @@ export const orderAt = ({
   }
 
   const { station, launch } = launched;
+  const injected = launch.enabled.profile?.injectedSecrets ?? [];
+  const named = launch.enabled.profile?.secrets ?? [];
+  const bound = boundSecrets.filter((each) =>
+    injected.some((name) => name.equals(each.name)),
+  );
   const refusals = [
     ...denied,
     ...launch.enabled.refusals,
-    ...(launch.enabled.profile?.injectedSecrets ?? [])
-      .filter((each) => secretsAwaitingValue.some((name) => name.equals(each)))
-      .map((each) => SecretAwaitingValue.at(station.name, each)),
+    ...bound
+      .filter((each) => each.awaitingValue)
+      .map((each) => SecretAwaitingValue.at(station.name, each.name)),
   ];
 
   return {
@@ -131,6 +137,9 @@ export const orderAt = ({
     diffs: station.diffs,
     check: station.diffs ? station.check : null,
     refusals,
+    boundSecrets: bound.filter((each) =>
+      named.some((name) => name.equals(each.name)),
+    ),
   };
 };
 

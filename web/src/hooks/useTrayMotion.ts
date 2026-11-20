@@ -144,8 +144,8 @@ const play = (
       { opacity: collapsing ? [1, 0] : [0, 1] },
       {
         ...MORPHING,
-        duration: collapsing ? 120 : 160,
-        delay: collapsing ? 0 : 80,
+        duration: collapsing ? 180 : 200,
+        delay: collapsing ? 0 : 40,
       },
     );
   }

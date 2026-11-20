@@ -4,10 +4,10 @@ import type {
   PreparedHarness,
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
-import type { SecretReadinessPort } from '@secrets/application/ports/secret-readiness.port';
-import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import type { BoundSecretsPort } from '@secrets/application/ports/bound-secrets.port';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
+import { BoundSecretMapper } from '@work/application/mappers/bound-secret.mapper';
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
@@ -30,6 +30,7 @@ import {
 import { RunReadying } from '@work/domain/services/run-readying';
 import { stationConfigOf } from '@work/domain/services/station-config-of';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
@@ -84,7 +85,7 @@ export class StationOrdering {
     private readonly catalog: RunCatalog,
     private readonly profiles: StationProfilesPort,
     private readonly hash: ContentHashPort,
-    private readonly readiness: SecretReadinessPort,
+    private readonly bound: BoundSecretsPort,
   ) {}
 
   ordered(
@@ -127,7 +128,7 @@ export class StationOrdering {
       denied:
         station && catalog ? readying.denied(station, catalog.denied) : [],
       toolsOnMarks,
-      secretsAwaitingValue: await this.secretsAwaitingValue(
+      boundSecrets: await this.boundSecrets(
         line,
         profiles.map((each) => readying.profile(each)),
       ),
@@ -180,22 +181,18 @@ export class StationOrdering {
       : [];
   }
 
-  private async secretsAwaitingValue(
+  private async boundSecrets(
     line: LineMap,
     profiles: readonly ReadyProfile[],
-  ): Promise<readonly SecretName[]> {
-    const injected = profiles.flatMap((each) => each.injectedSecrets);
-
-    if (injected.length === 0) {
-      return [];
-    }
-
+  ): Promise<readonly BoundSecret[]> {
     return (
-      await this.readiness.awaitingValue(
+      await this.bound.boundIn(
         line.workspaceId.value,
-        injected.map((each) => each.value),
+        profiles
+          .flatMap((each) => each.injectedSecrets)
+          .map((each) => each.value),
       )
-    ).map((each) => SecretName.of(each));
+    ).map((each) => BoundSecretMapper.toBound(each));
   }
 
   prepared(runLaunch: RunLaunch): PreparedHarness | null {

@@ -377,8 +377,12 @@ const dispatch = async (
     { inSavepoint: (work) => work() },
     new Sha256ContentHash(),
     {
-      awaitingValue: async (_workspace, names) =>
-        names.filter((each) => awaitingValue.includes(each)),
+      boundIn: async (_workspace, names) =>
+        names.map((name) => ({
+          name,
+          bindings: [],
+          awaitingValue: awaitingValue.includes(name),
+        })),
     },
   );
   const working = existing ?? task(station.id.value);
@@ -666,6 +670,7 @@ describe('DispatchTask', () => {
       rules: [],
       mcpServers: [],
       native: {},
+      secrets: [],
     };
 
     const naming = (profile: string) =>
@@ -709,6 +714,7 @@ describe('DispatchTask', () => {
             },
           ],
           native: {},
+          secrets: [],
         },
       };
       readyAs = {
@@ -740,6 +746,7 @@ describe('DispatchTask', () => {
           rules: [],
           mcpServers: [],
           native: {},
+          secrets: [],
         },
       };
       readyAs = { injectedSecrets: [SecretName.of('LINEAR_API_KEY')] };
@@ -1393,6 +1400,7 @@ describe('DispatchTask, the tools a run is told about', () => {
             },
           ],
           native: {},
+          secrets: [],
         },
       };
 

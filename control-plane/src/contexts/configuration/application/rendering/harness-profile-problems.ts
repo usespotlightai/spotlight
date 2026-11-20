@@ -46,4 +46,18 @@ export const HarnessProfileProblems = {
       }),
     );
   },
+
+  awaitingValue(
+    key: string,
+    awaiting: readonly SecretReference[],
+  ): ConfigurationProblem[] {
+    return awaiting.map((reference) =>
+      ConfigurationProblem.of({
+        path: profileAt(key),
+        at: reference.path,
+        reason: `names secret ${reference.name.value}, which has no value. Runs with this profile do not start until a person sets it`,
+        severity: 'warning',
+      }),
+    );
+  },
 };

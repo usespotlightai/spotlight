@@ -35,6 +35,7 @@ import {
 import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 import { showsMessage } from '@/lib/thread-message';
+import { TURNS_SHOWN_FIRST } from '@/lib/turns';
 import { cn } from '@/lib/utils';
 
 interface NoteTurn {
@@ -192,6 +193,14 @@ export function Conversation({
     turn.notes.length > 0 ||
     (at === 0 && Boolean(briefing));
   const firstShown = turns.findIndex(rendered);
+  const openTurn =
+    openAt === undefined || openAt === null
+      ? -1
+      : turns.findIndex(
+          (turn) =>
+            turn.prompt?.position === openAt ||
+            turn.notes.some((note) => note.position === openAt),
+        );
   const runClosing = afterRun?.content
     ? closingPlaceOf(turns, item.notes, afterRun.runId)
     : null;
@@ -235,6 +244,10 @@ export function Conversation({
 
                 <Turn
                   className={cn(afterAnother && 'mt-6')}
+                  shownFirst={
+                    at >= all.length - TURNS_SHOWN_FIRST ||
+                    (openTurn >= 0 && Math.abs(at - openTurn) <= 1)
+                  }
                   head={
                     <>
                       {head &&

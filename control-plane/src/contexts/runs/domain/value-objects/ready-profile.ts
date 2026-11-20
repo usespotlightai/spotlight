@@ -30,12 +30,14 @@ export interface HarnessSettings {
 
 export interface ReadyProfile extends HarnessSettings {
   readonly key: ProfileKey;
+  readonly secrets: readonly SecretName[];
   readonly injectedSecrets: readonly SecretName[];
 }
 
 export const readyProfile = (
   key: ProfileKey,
   settings: HarnessSettings,
+  secrets: readonly SecretName[],
 ): ReadyProfile => {
   const servers = settings.mcpServers.map((server) => ({
     server,
@@ -49,8 +51,10 @@ export const readyProfile = (
       ...server,
       env: injected.env,
     })),
-    injectedSecrets: distinct(
-      servers.flatMap(({ injected }) => injected.injectedSecrets),
-    ),
+    secrets: [...secrets],
+    injectedSecrets: distinct([
+      ...servers.flatMap(({ injected }) => injected.injectedSecrets),
+      ...secrets,
+    ]),
   };
 };

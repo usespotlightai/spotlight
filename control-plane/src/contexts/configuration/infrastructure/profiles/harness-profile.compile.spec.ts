@@ -65,6 +65,7 @@ describe('HarnessProfileCompiler', () => {
         permissions: { allow: [], ask: ['execute(git push *)'], deny: [] },
         mcpServers: [],
         native: {},
+        secrets: [],
       }),
     });
 

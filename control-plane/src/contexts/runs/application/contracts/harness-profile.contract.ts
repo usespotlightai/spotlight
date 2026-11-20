@@ -23,6 +23,7 @@ export interface HarnessProfileShape {
   readonly rules: readonly PermissionRuleShape[];
   readonly mcpServers: readonly McpServerShape[];
   readonly native: Readonly<Record<string, unknown>>;
+  readonly secrets: readonly SecretName[];
 }
 
 export type HarnessNote =

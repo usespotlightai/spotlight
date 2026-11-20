@@ -154,6 +154,7 @@ export type ExportableResourceDto =
         readonly env: Readonly<Record<string, string>>;
       }[];
       readonly native: Readonly<Record<string, unknown>>;
+      readonly secrets: readonly string[];
       readonly secretReferences: readonly SecretReferenceAt[];
     });
 

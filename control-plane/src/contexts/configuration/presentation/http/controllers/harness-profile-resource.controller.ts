@@ -8,6 +8,7 @@ import { ReadHarnessProfileQuery } from '@configuration/application/queries/read
 import {
   HarnessProfileResourceResponseDto,
   MCP_SERVER_ENV,
+  PROFILE_SECRETS,
 } from '@configuration/presentation/http/dto/harness-profile-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -81,6 +82,11 @@ const DEFINITION = ApiBody({
         type: 'object',
         additionalProperties: true,
         example: { 'claude-code': { includeCoAuthoredBy: false } },
+      },
+      secrets: {
+        ...rules,
+        example: ['STAGING_VIEWER'],
+        description: PROFILE_SECRETS,
       },
     },
   },
