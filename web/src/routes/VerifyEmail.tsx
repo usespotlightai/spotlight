@@ -5,7 +5,7 @@ import { AuthTitle } from '@/components/shell/auth/AuthTitle';
 import { SignInToContinue } from '@/components/shell/auth/SignInToContinue';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useSession } from '@/hooks/api/useSession';
-import { useVerifyMyEmail } from '@/hooks/api/useVerifyMyEmail';
+import { useVerifyOnSignIn } from '@/hooks/useVerifyOnSignIn';
 import { verifyEmailPath } from '@/lib/emails';
 import { messageOf } from '@/lib/error';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ export function VerifyEmail() {
   const { token } = useParams();
   const { data: session, isPending: reading } = useSession();
   const signedIn = Boolean(session?.user);
-  const verify = useVerifyMyEmail(token, signedIn);
+  const verify = useVerifyOnSignIn(token, signedIn);
 
   if (reading || !token) {
     return null;

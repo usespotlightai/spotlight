@@ -1,6 +1,7 @@
-import { type ReactNode, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import { COLLAPSE_MS } from '@/components/shared/Collapsible';
+import { useTimeout } from '@/hooks/useTimeout';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { StepAnchorsContext, stepAnchor } from '@/lib/step-anchors';
 
@@ -16,7 +17,7 @@ export function StepAnchorsProvider({
   children,
 }: StepAnchorsProviderProps) {
   const [focused, setFocused] = useState<string | null>(null);
-  const settling = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const later = useTimeout();
 
   const places = useMemo(
     () =>
@@ -41,8 +42,7 @@ export function StepAnchorsProvider({
         const anchor = stepAnchor(runId, index);
 
         setFocused(anchor);
-        clearTimeout(settling.current);
-        settling.current = setTimeout(
+        later(
           () =>
             document
               .getElementById(anchor)
@@ -51,7 +51,7 @@ export function StepAnchorsProvider({
         );
       },
     }),
-    [focused, places, runId],
+    [focused, places, runId, later],
   );
 
   return <StepAnchorsContext value={value}>{children}</StepAnchorsContext>;

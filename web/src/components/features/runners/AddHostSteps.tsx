@@ -8,6 +8,7 @@ import { Step } from '@/components/shared/steps/Step';
 import { Steps } from '@/components/shared/steps/Steps';
 import { useCreateRunnerPool } from '@/hooks/api/useCreateRunnerPool';
 import { useRunnerPools } from '@/hooks/api/useRunnerPools';
+import { useTimeout } from '@/hooks/useTimeout';
 import { installCommand, suggestedPoolName } from '@/lib/runner';
 
 const MOVE_ON_MS = 2_000;
@@ -22,6 +23,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
   const created = creating.data;
   const pools = useRunnerPools(workspaceId);
   const [movedOn, setMovedOn] = useState(false);
+  const later = useTimeout();
 
   const at = !created ? 1 : movedOn ? 3 : 2;
 
@@ -72,7 +74,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
             text={installCommand(created.token)}
             label="Copy command"
             focused
-            onCopy={() => setTimeout(() => setMovedOn(true), MOVE_ON_MS)}
+            onCopy={() => later(() => setMovedOn(true), MOVE_ON_MS)}
           />
         )}
       </Step>
