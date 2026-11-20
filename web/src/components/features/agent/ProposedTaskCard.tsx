@@ -12,7 +12,6 @@ import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import { FoldToggle } from '@/components/shared/FoldToggle';
 import { IconAction } from '@/components/shared/IconAction';
 import { OverflowFade } from '@/components/shared/OverflowFade';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Attachment } from '@/lib/attachment';
 import {
   type Proposal,
@@ -21,7 +20,6 @@ import {
   proposalTitleOf,
 } from '@/lib/chat';
 import { DockedContext } from '@/lib/decision-tray';
-import { taskPath } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
 type ProposedTaskCardProps = {
@@ -35,8 +33,6 @@ type ProposedTaskCardProps = {
   onRestore: () => void;
   ref?: Ref<HTMLElement>;
 };
-
-const OUTCOME = 'flex h-7 items-center justify-end text-sm pointer-coarse:h-9';
 
 export function ProposedTaskCard({
   slug,
@@ -129,8 +125,6 @@ export function ProposedTaskCard({
           )}
 
           <ProposalOutcome
-            slug={slug}
-            teamId={teamId}
             proposal={proposal}
             pending={pending}
             titleId={titleId}
@@ -145,12 +139,10 @@ export function ProposedTaskCard({
 
 type ProposalOutcomeProps = Pick<
   ProposedTaskCardProps,
-  'slug' | 'teamId' | 'proposal' | 'pending' | 'onCreate' | 'onDismiss'
+  'proposal' | 'pending' | 'onCreate' | 'onDismiss'
 > & { titleId: string };
 
 function ProposalOutcome({
-  slug,
-  teamId,
   proposal,
   pending,
   titleId,
@@ -176,28 +168,6 @@ function ProposalOutcome({
         >
           Create task
         </DecisionButton>
-      </DecisionControls>
-    );
-  }
-
-  if (proposal.state === 'created' && proposal.taskId) {
-    return (
-      <div className={OUTCOME}>
-        <TrailLink
-          data-focus-next
-          to={taskPath(slug, teamId, proposal.taskId)}
-          className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Open task
-        </TrailLink>
-      </div>
-    );
-  }
-
-  if (proposal.state === 'accepted' || proposal.state === 'created') {
-    return (
-      <DecisionControls>
-        <div aria-hidden className={OUTCOME} />
       </DecisionControls>
     );
   }
