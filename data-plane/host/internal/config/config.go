@@ -52,41 +52,39 @@ type Config struct {
 }
 
 type Egress struct {
-	Image       string
-	Allow       []string
-	SecretAllow []string
-	Env         []string
-	CABundle    []byte
+	Image    string
+	Allow    []string
+	Env      []string
+	CABundle []byte
 }
 
 const (
 	EnvConfig = "SPOTLIGHT_HOST_CONFIG"
 
-	envURL         = "SPOTLIGHT_URL"
-	envPoolToken   = "SPOTLIGHT_POOL_TOKEN"
-	envTrust       = "SPOTLIGHT_TRUST"
-	envTokenFile   = "SPOTLIGHT_OIDC_TOKEN_FILE"
-	envCapacity    = "SPOTLIGHT_CAPACITY"
-	envMemory      = "SPOTLIGHT_SANDBOX_MEMORY"
-	envImage       = "SPOTLIGHT_RUNNER_IMAGE"
-	envRegistry    = "SPOTLIGHT_REGISTRY_CONFIG"
-	envRunTimeout  = protocol.RunTimeoutVar
-	envSandboxURL  = "SPOTLIGHT_SANDBOX_URL"
-	envSandboxEnv  = "SPOTLIGHT_SANDBOX_ENV"
-	envPass        = "SPOTLIGHT_SANDBOX_PASS"
-	envNetwork     = "SPOTLIGHT_SANDBOX_NETWORK"
-	envHosts       = "SPOTLIGHT_SANDBOX_HOSTS"
-	envEgressImg   = "SPOTLIGHT_EGRESS_IMAGE"
-	envEgressOK    = "SPOTLIGHT_EGRESS_ALLOW"
-	envEgressEnv   = "SPOTLIGHT_EGRESS_ENV"
-	envEgressPass  = "SPOTLIGHT_EGRESS_PASS"
-	envCABundle    = "SPOTLIGHT_EGRESS_CA_BUNDLE"
-	envSecretAllow = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
-	envState       = "SPOTLIGHT_STATE"
-	envName        = "SPOTLIGHT_HOST_NAME"
-	envDocker      = "DOCKER_HOST"
-	envAutoUpdate  = "SPOTLIGHT_AUTO_UPDATE"
-	envReleases    = "SPOTLIGHT_RELEASES_URL"
+	envURL        = "SPOTLIGHT_URL"
+	envPoolToken  = "SPOTLIGHT_POOL_TOKEN"
+	envTrust      = "SPOTLIGHT_TRUST"
+	envTokenFile  = "SPOTLIGHT_OIDC_TOKEN_FILE"
+	envCapacity   = "SPOTLIGHT_CAPACITY"
+	envMemory     = "SPOTLIGHT_SANDBOX_MEMORY"
+	envImage      = "SPOTLIGHT_RUNNER_IMAGE"
+	envRegistry   = "SPOTLIGHT_REGISTRY_CONFIG"
+	envRunTimeout = protocol.RunTimeoutVar
+	envSandboxURL = "SPOTLIGHT_SANDBOX_URL"
+	envSandboxEnv = "SPOTLIGHT_SANDBOX_ENV"
+	envPass       = "SPOTLIGHT_SANDBOX_PASS"
+	envNetwork    = "SPOTLIGHT_SANDBOX_NETWORK"
+	envHosts      = "SPOTLIGHT_SANDBOX_HOSTS"
+	envEgressImg  = "SPOTLIGHT_EGRESS_IMAGE"
+	envEgressOK   = "SPOTLIGHT_EGRESS_ALLOW"
+	envEgressEnv  = "SPOTLIGHT_EGRESS_ENV"
+	envEgressPass = "SPOTLIGHT_EGRESS_PASS"
+	envCABundle   = "SPOTLIGHT_EGRESS_CA_BUNDLE"
+	envState      = "SPOTLIGHT_STATE"
+	envName       = "SPOTLIGHT_HOST_NAME"
+	envDocker     = "DOCKER_HOST"
+	envAutoUpdate = "SPOTLIGHT_AUTO_UPDATE"
+	envReleases   = "SPOTLIGHT_RELEASES_URL"
 )
 
 const (
@@ -288,7 +286,7 @@ func withReporting(allow []string) []string {
 }
 
 func egressOf(get func(string) string, version, poolToken string) (Egress, error) {
-	egress := Egress{Image: get(envEgressImg), Allow: list(get(envEgressOK)), SecretAllow: list(get(envSecretAllow))}
+	egress := Egress{Image: get(envEgressImg), Allow: list(get(envEgressOK))}
 	if egress.Image == "" {
 		egress.Image = DefaultImage(version)
 	}

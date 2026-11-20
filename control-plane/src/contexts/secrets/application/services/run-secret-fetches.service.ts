@@ -12,9 +12,10 @@ import type {
   SealingRecipient,
   SecretSealingPort,
 } from '@secrets/application/ports/secret-sealing.port';
+import type { SecretStorePort } from '@secrets/application/ports/secret-store.port';
 import { deniedFor } from '@secrets/application/services/denied-secrets';
 import type { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
-import type { SecretSources } from '@secrets/application/services/secret-sources.service';
+import { storedValueOf } from '@secrets/application/services/stored-value';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
@@ -38,7 +39,7 @@ export class RunSecretFetches implements RunSecretFetchesPort {
   constructor(
     private readonly secrets: SecretRepository,
     private readonly changes: RunGrantsChanges,
-    private readonly sources: SecretSources,
+    private readonly store: SecretStorePort,
     private readonly sealing: SecretSealingPort,
   ) {}
 
@@ -129,20 +130,13 @@ export class RunSecretFetches implements RunSecretFetchesPort {
       name: binding.target.name,
       prefix: binding.prefix,
     };
-    const externalRef = secret.source.externalRef;
-
-    if (externalRef) {
-      return { ...injection, sealed: null, externalRef };
-    }
-
     return {
       ...injection,
       sealed: this.sealing.seal(
-        secret.injectable(await this.sources.read(secret)),
+        secret.injectable(await storedValueOf(this.store, secret)),
         recipient,
         { subject: runId.value, secretName: secret.name.value },
       ),
-      externalRef: null,
     };
   }
 }

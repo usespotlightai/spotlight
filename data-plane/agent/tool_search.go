@@ -9,6 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"usespotlight.ai/data-plane/flagset"
 	"usespotlight.ai/data-plane/protocol"
 )
 
@@ -180,16 +181,9 @@ func searchTools(args []string, out io.Writer) error {
 	flags.SetOutput(io.Discard)
 	limit := flags.Int("limit", foundAtMost, "how many tools to show at most")
 
-	var words []string
-	for {
-		if err := flags.Parse(args); err != nil {
-			return fmt.Errorf("%v\n%s", err, toolsSearchHelp.Synopsis())
-		}
-		if flags.NArg() == 0 {
-			break
-		}
-		words = append(words, flags.Arg(0))
-		args = flags.Args()[1:]
+	words, err := flagset.Interspersed(flags, args)
+	if err != nil {
+		return fmt.Errorf("%v\n%s", err, toolsSearchHelp.Synopsis())
 	}
 
 	query := strings.TrimSpace(strings.Join(words, " "))

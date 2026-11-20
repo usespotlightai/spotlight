@@ -65,7 +65,6 @@ export const envSchema = databaseSchema
     GITHUB_WEBHOOK_SECRET: z.string().default(''),
     SPOTLIGHT_SECRETS_KEY: z.string().min(1).optional(),
     SPOTLIGHT_SECRETS_KMS_KEY_ID: z.string().min(1).optional(),
-    SECRETS_AWS_SECRETS_MANAGER: z.stringbool().default(false),
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
     SPOTLIGHT_PLATFORM_EGRESS_URL: z.url({ protocol: /^https?$/ }).optional(),
     SPOTLIGHT_PLATFORM_EGRESS_TOKEN: z

@@ -3,12 +3,10 @@ package host
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -29,27 +27,6 @@ func noArgs(args []string, shown help.Command, do func() error) error {
 		return fmt.Errorf("%s", shown.Synopsis())
 	}
 	return do()
-}
-
-// parse lets flags come after the arguments, as in `config set capacity=8 --now`. Everything after `--` is an argument.
-func parse(flags *flag.FlagSet, args []string) ([]string, error) {
-	flags.SetOutput(io.Discard)
-	var rest []string
-	if at := slices.Index(args, "--"); at >= 0 {
-		args, rest = args[:at], args[at+1:]
-	}
-
-	var positional []string
-	for {
-		if err := flags.Parse(args); err != nil {
-			return nil, err
-		}
-		if flags.NArg() == 0 {
-			return append(positional, rest...), nil
-		}
-		positional = append(positional, flags.Arg(0))
-		args = flags.Args()[1:]
-	}
 }
 
 const (

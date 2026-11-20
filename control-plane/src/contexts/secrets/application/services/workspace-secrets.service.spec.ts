@@ -1,10 +1,8 @@
-import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { WorkspaceSecrets } from '@secrets/application/services/workspace-secrets.service';
 import {
   clockAt,
   InMemorySecrets,
   InMemoryStore,
-  readingFrom,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -18,7 +16,7 @@ const storing = () => {
   let next = 0;
   const service = new WorkspaceSecrets(
     secrets,
-    new SecretSources(values, readingFrom({})),
+    values,
     { generate: () => `secret_${++next}` },
     clockAt(),
   );

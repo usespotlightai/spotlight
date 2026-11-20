@@ -28,6 +28,7 @@ const HOST = 'host-egress-e2e-1';
 const IMAGE = 'ghcr.io/acme/runner:main';
 
 const VALUE = 'lin_api_e2e_egress';
+const SENTRY_VALUE = 'sntrys_e2e_egress';
 
 const ANTHROPIC = 'sk-ant-e2e-harness-key';
 
@@ -162,12 +163,9 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     });
     await setSecret({
       name: 'SENTRY_TOKEN',
-      source: {
-        kind: 'aws-secrets-manager',
-        secretId: 'sentry-token',
-        field: 'token',
-      },
       bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
+      valueWo: SENTRY_VALUE,
+      valueWoVersion: 1,
     });
   });
 
@@ -261,7 +259,6 @@ describe('egress fetching a run’s secrets (e2e)', () => {
           host: 'api.anthropic.com',
           location: 'header',
           name: 'x-api-key',
-          externalRef: null,
         }),
         expect.objectContaining({
           secret: 'OPENROUTER_API_KEY',
@@ -305,7 +302,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     await fetchSecrets(work.token, recipient().written).expect(401);
   });
 
-  it('fetches the secrets of the run: a value that Spotlight stores sealed to egress, and an external reference for a value stored elsewhere', async () => {
+  it('fetches the secrets of the run, each sealed to egress, and denies a secret the workspace does not have', async () => {
     const runId = await queue(['LINEAR_API_KEY', 'SENTRY_TOKEN', 'NOWHERE']);
     const work = await claimed();
     const to = recipient();
@@ -333,7 +330,6 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       location: 'header',
       name: 'authorization',
       prefix: 'Bearer ',
-      externalRef: null,
     });
     expect(JSON.stringify(fetched.body)).not.toContain(VALUE);
     expect(opened(linear.sealed, to, runId, 'LINEAR_API_KEY')).toBe(VALUE);
@@ -342,13 +338,8 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       host: 'sentry.io',
       location: 'header',
       name: 'x-sentry-token',
-      sealed: null,
-      externalRef: {
-        kind: 'aws-secrets-manager',
-        secretId: 'sentry-token',
-        field: 'token',
-      },
     });
+    expect(opened(sentry.sealed, to, runId, 'SENTRY_TOKEN')).toBe(SENTRY_VALUE);
 
     const grants = await db
       .select({ host: schema.secretGrant.host })

@@ -21,7 +21,6 @@ import (
 
 	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/egresskit/guard"
-	"usespotlight.ai/data-plane/egresskit/inject"
 	"usespotlight.ai/data-plane/egresskit/seal"
 	"usespotlight.ai/data-plane/egresskit/tunnel"
 	"usespotlight.ai/data-plane/protocol"
@@ -43,7 +42,6 @@ type Egress struct {
 	settings Settings
 	control  ControlPlane
 	key      *seal.Key
-	reader   func() (inject.Reader, error)
 	limits   *limits
 	records  *records
 	log      *slog.Logger
@@ -61,7 +59,7 @@ type Egress struct {
 	tunnelled  sync.WaitGroup
 }
 
-func New(settings Settings, control ControlPlane, reader func() (inject.Reader, error), log *slog.Logger) (*Egress, error) {
+func New(settings Settings, control ControlPlane, log *slog.Logger) (*Egress, error) {
 	key, err := seal.NewKey()
 	if err != nil {
 		return nil, err
@@ -76,7 +74,6 @@ func New(settings Settings, control ControlPlane, reader func() (inject.Reader, 
 		settings:        settings,
 		control:         control,
 		key:             key,
-		reader:          reader,
 		limits:          newLimits(settings.Rate, settings.Connections, time.Now),
 		records:         &records{control: control, log: log},
 		log:             log,

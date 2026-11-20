@@ -775,7 +775,7 @@ export type ConfigurationChangeResponseDto = {
    */
   client: string | null;
   /**
-   * What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value
+   * What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value
    */
   details: {
     [key: string]: unknown;
@@ -1418,15 +1418,9 @@ export type HostRequirementsResponseDto = {
 
 export type HarnessKeysRequestDto = {
   /**
-   * The X25519 public key that the egress of the host’s image probe holds, in base64; values Spotlight stores are sealed to it
+   * The X25519 public key that the egress of the host’s image probe holds, in base64; Spotlight seals each value to it
    */
   recipient: string;
-};
-
-export type ExternalSecretRefResponseDto = {
-  kind: 'aws-secrets-manager';
-  secretId: string;
-  field: string | null;
 };
 
 export type FetchedSecretResponseDto = {
@@ -1445,13 +1439,9 @@ export type FetchedSecretResponseDto = {
   name: string;
   prefix: string;
   /**
-   * The value, sealed to the recipient for this run; null when egress reads it in its own network
+   * The value, sealed to the recipient for this run
    */
-  sealed: string | null;
-  /**
-   * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
-   */
-  externalRef: ExternalSecretRefResponseDto | null;
+  sealed: string;
 };
 
 export type DeniedSecretResponseDto = {
@@ -1469,7 +1459,7 @@ export type HarnessKeysResponseDto = {
    */
   bound: Array<string>;
   /**
-   * Each harness key the workspace holds, for each host it is bound to. A value Spotlight stores is sealed to the recipient with an empty run id
+   * Each harness key the workspace holds, for each host it is bound to, sealed to the recipient with an empty run id
    */
   secrets: Array<FetchedSecretResponseDto>;
   /**
@@ -1642,7 +1632,7 @@ export type EgressSecretsResponseDto = {
 
 export type FetchRunSecretsRequestDto = {
   /**
-   * The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it
+   * The X25519 public key that egress holds for this run alone, in base64; Spotlight seals each value to it
    */
   recipient: string;
   /**
@@ -1791,21 +1781,6 @@ export type HarnessResponseDto = {
   efforts: Array<string>;
 };
 
-export type SecretSourceResponseDto = {
-  /**
-   * Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used
-   */
-  kind: 'built-in' | 'aws-secrets-manager';
-  /**
-   * The name or ARN of the secret in AWS Secrets Manager
-   */
-  secretId: string | null;
-  /**
-   * The key to read when that secret contains JSON
-   */
-  field: string | null;
-};
-
 export type SecretBindingResponseDto = {
   /**
    * A host the secret may be sent to, over HTTPS only
@@ -1850,7 +1825,6 @@ export type SecretResourceResponseDto = {
    * What integrations call it. Immutable: changing it means replacing the secret
    */
   name: string;
-  source: SecretSourceResponseDto;
   /**
    * The only hosts the secret is ever sent to, and how; a request anywhere else goes without it
    */
@@ -1870,6 +1844,38 @@ export type SecretResourceListResponseDto = {
    * Every one there is, each as a read returns it, in address order
    */
   items: Array<SecretResourceResponseDto>;
+};
+
+/**
+ * Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)
+ */
+export type SecretValueOrigin = 'awaiting' | 'spotlight' | 'terraform';
+
+export type WorkspaceSecretResponseDto = {
+  name: string;
+  /**
+   * The hosts egress sends the value to
+   */
+  hosts: Array<string>;
+  /**
+   * Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)
+   */
+  valueOrigin: SecretValueOrigin;
+  /**
+   * When Spotlight last stored a value; null when it holds none
+   */
+  valueSetAt: string | null;
+  /**
+   * True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets
+   */
+  settable: boolean;
+};
+
+export type SetSecretValueRequestDto = {
+  /**
+   * The new value, on one line if the secret is bound to a host. Spotlight encrypts it and never returns it
+   */
+  value: string;
 };
 
 export type HostHeartbeatRequestDto = {
@@ -13213,11 +13219,6 @@ export type ListSecretsResponse = ListSecretsResponses[keyof ListSecretsResponse
 export type CreateSecretData = {
   body: {
     name: string;
-    source?: {
-      kind: 'built-in' | 'aws-secrets-manager';
-      secretId?: string;
-      field?: string;
-    };
     bindings?: Array<{
       host: string;
       location?: 'header' | 'query';
@@ -13228,11 +13229,11 @@ export type CreateSecretData = {
       prefix?: string;
     }>;
     /**
-     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
+     * The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform
      */
     valueWo?: string;
     /**
-     * Change it to rotate the value to the valueWo sent with it
+     * Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform
      */
     valueWoVersion?: number;
   };
@@ -13404,11 +13405,6 @@ export type ReadSecretResponse = ReadSecretResponses[keyof ReadSecretResponses];
 export type UpdateSecretData = {
   body: {
     name: string;
-    source?: {
-      kind: 'built-in' | 'aws-secrets-manager';
-      secretId?: string;
-      field?: string;
-    };
     bindings?: Array<{
       host: string;
       location?: 'header' | 'query';
@@ -13419,11 +13415,11 @@ export type UpdateSecretData = {
       prefix?: string;
     }>;
     /**
-     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
+     * The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform
      */
     valueWo?: string;
     /**
-     * Change it to rotate the value to the valueWo sent with it
+     * Change it to rotate the value to the valueWo sent with it. Remove it to let a person set the value outside Terraform
      */
     valueWoVersion?: number;
   };
@@ -13539,6 +13535,74 @@ export type ImportSecretResponses = {
 };
 
 export type ImportSecretResponse = ImportSecretResponses[keyof ImportSecretResponses];
+
+export type ListWorkspaceSecretsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/secrets';
+};
+
+export type ListWorkspaceSecretsErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListWorkspaceSecretsResponses = {
+  200: Array<WorkspaceSecretResponseDto>;
+};
+
+export type ListWorkspaceSecretsResponse = ListWorkspaceSecretsResponses[keyof ListWorkspaceSecretsResponses];
+
+export type SetWorkspaceSecretValueData = {
+  body: SetSecretValueRequestDto;
+  path: {
+    slug: string;
+    name: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/secrets/{name}/value';
+};
+
+export type SetWorkspaceSecretValueErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * You do not manage secrets
+   */
+  403: unknown;
+  /**
+   * No such secret for this caller
+   */
+  404: unknown;
+  /**
+   * Terraform sets this value, or the secret changed meanwhile
+   */
+  409: unknown;
+  /**
+   * The value is not text, is empty, is too long, or is more than one line for a bound secret
+   */
+  422: unknown;
+};
+
+export type SetWorkspaceSecretValueResponses = {
+  /**
+   * Spotlight stores the new value
+   */
+  204: void;
+};
+
+export type SetWorkspaceSecretValueResponse = SetWorkspaceSecretValueResponses[keyof SetWorkspaceSecretValueResponses];
 
 export type DeregisterHostData = {
   body?: never;

@@ -6,18 +6,12 @@ import type {
 } from '@secrets/application/ports/secret-sealing.port';
 import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
 import { SealedSecrets } from '@secrets/application/services/sealed-secrets';
-import { SecretSources } from '@secrets/application/services/secret-sources.service';
-import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
-import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import {
-  BY,
-  definition,
+  bindStored,
   InMemorySecrets,
   InMemoryStore,
-  NOW,
-  readingFrom,
+  saveSecret,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
@@ -45,8 +39,6 @@ const FETCHING = {
 const setUp = async () => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
-  const aws = readingFrom({ 'sentry-token': 'sntrys_1' });
-  vi.spyOn(aws, 'read');
   const logger = {
     debug: vi.fn(),
     info: vi.fn(),
@@ -54,17 +46,7 @@ const setUp = async () => {
     error: vi.fn(),
   };
 
-  const saved = async (id: string, secret: Parameters<typeof definition>[0]) =>
-    secrets.save(
-      Secret.create(definition(secret), {
-        id: SecretId.of(id),
-        workspaceId: WORKSPACE,
-        by: BY,
-        at: NOW,
-      }),
-    );
-
-  await saved('secret_slack', {
+  await saveSecret(secrets, 'secret_slack', {
     name: 'SLACK_BOT_TOKEN',
     value: 'xoxb-1',
     bindings: [
@@ -72,22 +54,24 @@ const setUp = async () => {
       { host: 'files.slack.com', name: 'x-slack-token' },
     ],
   });
-  await saved('secret_sentry', {
+  await saveSecret(secrets, 'secret_sentry', {
     name: 'SENTRY_TOKEN',
-    source: SecretSource.awsSecretsManager({
-      secretId: 'sentry-token',
-      field: 'token',
-    }),
-    value: null,
+    value: 'sntrys_1',
     bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
   });
-  await saved('secret_loose', { name: 'LOOSE', bindings: [] });
-  await saved('secret_slack_user', {
+  await saveSecret(secrets, 'secret_loose', { name: 'LOOSE', bindings: [] });
+  await saveSecret(secrets, 'secret_staging', {
+    name: 'STAGING_LOGIN_PASSWORD',
+    value: null,
+    valueVersion: null,
+    bindings: [{ host: 'staging.example.com' }],
+  });
+  await saveSecret(secrets, 'secret_slack_user', {
     name: 'SLACK_USER_TOKEN',
     value: 'xoxp-1',
     bindings: [{ host: 'slack.com', prefix: 'Bearer ' }],
   });
-  await saved('secret_lines', {
+  await bindStored(secrets, 'secret_lines', {
     name: 'MULTI_LINE',
     value: 'one\ntwo',
     bindings: [{ host: 'pem.example.com' }],
@@ -95,14 +79,9 @@ const setUp = async () => {
 
   return {
     fetches: new CallSecretFetches(
-      new SealedSecrets(
-        secrets,
-        new SecretSources(store, aws),
-        new SealedInTheOpen(),
-      ),
+      new SealedSecrets(secrets, store, new SealedInTheOpen()),
       logger,
     ),
-    aws,
     logger,
   };
 };
@@ -129,7 +108,7 @@ describe('CallSecretFetches', () => {
     ]);
   });
 
-  it('seals a value Spotlight stores for each host it is bound to, bound to the call', async () => {
+  it('seals the value for each host it is bound to, bound to the call', async () => {
     const { fetches } = await setUp();
 
     await expect(
@@ -143,7 +122,6 @@ describe('CallSecretFetches', () => {
           name: 'authorization',
           prefix: 'Bearer ',
           sealed: 'sealed(xoxb-1|recipient-key|call_1|SLACK_BOT_TOKEN)',
-          externalRef: null,
         },
         {
           secret: 'SLACK_BOT_TOKEN',
@@ -152,45 +130,18 @@ describe('CallSecretFetches', () => {
           name: 'x-slack-token',
           prefix: '',
           sealed: 'sealed(xoxb-1|recipient-key|call_1|SLACK_BOT_TOKEN)',
-          externalRef: null,
         },
       ],
       denied: [],
     });
   });
 
-  it('says where egress reads a value an external store holds, and never reads it itself', async () => {
-    const { fetches, aws } = await setUp();
-
-    const fetched = await fetches.sealedForCall({
-      ...FETCHING,
-      secrets: ['SENTRY_TOKEN'],
-    });
-
-    expect(fetched.secrets).toEqual([
-      {
-        secret: 'SENTRY_TOKEN',
-        host: 'sentry.io',
-        location: 'header',
-        name: 'x-sentry-token',
-        prefix: '',
-        sealed: null,
-        externalRef: {
-          kind: 'aws-secrets-manager',
-          secretId: 'sentry-token',
-          field: 'token',
-        },
-      },
-    ]);
-    expect(aws.read).not.toHaveBeenCalled();
-  });
-
-  it('says why it seals no secret that is missing, bound nowhere, or more than one line', async () => {
+  it('says why it seals no secret that is missing, bound nowhere, more than one line, or awaiting a value', async () => {
     const { fetches } = await setUp();
 
     const fetched = await fetches.sealedForCall({
       ...FETCHING,
-      secrets: ['NOWHERE', 'LOOSE', 'MULTI_LINE'],
+      secrets: ['NOWHERE', 'LOOSE', 'MULTI_LINE', 'STAGING_LOGIN_PASSWORD'],
     });
 
     expect(fetched.secrets).toEqual([]);
@@ -198,10 +149,14 @@ describe('CallSecretFetches', () => {
       'NOWHERE',
       'LOOSE',
       'MULTI_LINE',
+      'STAGING_LOGIN_PASSWORD',
     ]);
     expect(fetched.denied[0]?.reason).toContain('Secret NOWHERE not found');
     expect(fetched.denied[1]?.reason).toContain('not bound to any host');
     expect(fetched.denied[2]?.reason).toContain('more than one line');
+    expect(fetched.denied[3]?.reason).toContain(
+      'Secret STAGING_LOGIN_PASSWORD has no value',
+    );
   });
 
   it('seals nothing to what is not a key', async () => {

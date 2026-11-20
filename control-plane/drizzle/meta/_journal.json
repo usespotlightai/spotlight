@@ -15,6 +15,20 @@
       "when": 1795176785224,
       "tag": "20261120121305_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795178084290,
+      "tag": "20261120123444_drop_secret_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795184139503,
+      "tag": "20261120141539_backfill_awaiting_secret_values",
+      "breakpoints": true
     }
   ]
 }

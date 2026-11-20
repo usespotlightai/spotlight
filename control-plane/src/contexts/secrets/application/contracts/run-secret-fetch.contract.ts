@@ -7,20 +7,13 @@ export interface RunSecretFetch {
   readonly sharedEgress: string | null;
 }
 
-interface ExternalSecretRef {
-  readonly kind: 'aws-secrets-manager';
-  readonly secretId: string;
-  readonly field: string | null;
-}
-
 export interface FetchedSecret {
   readonly secret: string;
   readonly host: string;
   readonly location: string;
   readonly name: string;
   readonly prefix: string;
-  readonly sealed: string | null;
-  readonly externalRef: ExternalSecretRef | null;
+  readonly sealed: string;
 }
 
 export interface DeniedSecret {

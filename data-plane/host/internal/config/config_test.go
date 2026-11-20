@@ -31,7 +31,7 @@ func isolated(t *testing.T) string {
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
-		"SPOTLIGHT_EGRESS_CA_BUNDLE", "SPOTLIGHT_EGRESS_SECRET_ALLOW", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
+		"SPOTLIGHT_EGRESS_CA_BUNDLE", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
 		"SPOTLIGHT_HEALTH_ADDR", "LOG_LEVEL",
 	} {
 		t.Setenv(name, "")
@@ -279,10 +279,9 @@ func TestReadsWhatHostsSandboxesMayConnectToAndWhatEgressRunsWith(t *testing.T) 
 	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 	t.Setenv("SPOTLIGHT_EGRESS_IMAGE", "spotlight-runner:dev")
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "api.anthropic.com, *.internal.acme.com")
-	t.Setenv("SPOTLIGHT_EGRESS_SECRET_ALLOW", "arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*")
-	t.Setenv("AWS_PROFILE", "egress")
-	t.Setenv("SPOTLIGHT_EGRESS_PASS", "AWS_PROFILE")
-	write(t, filepath.Join(dir, "egress.env"), "AWS_REGION=eu-west-1\n")
+	t.Setenv("ACME_PROFILE", "egress")
+	t.Setenv("SPOTLIGHT_EGRESS_PASS", "ACME_PROFILE")
+	write(t, filepath.Join(dir, "egress.env"), "ACME_REGION=eu-west-1\n")
 
 	cfg, err := config.Load("dev")
 	if err != nil {
@@ -290,11 +289,10 @@ func TestReadsWhatHostsSandboxesMayConnectToAndWhatEgressRunsWith(t *testing.T) 
 	}
 	if cfg.Egress.Image != "spotlight-runner:dev" ||
 		!slices.Equal(cfg.Egress.Allow, []string{"api.anthropic.com", "*.internal.acme.com"}) ||
-		!slices.Equal(cfg.Egress.SecretAllow, []string{"arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*"}) ||
-		!slices.Equal(cfg.Egress.Env, []string{"AWS_PROFILE=egress", "AWS_REGION=eu-west-1"}) {
+		!slices.Equal(cfg.Egress.Env, []string{"ACME_PROFILE=egress", "ACME_REGION=eu-west-1"}) {
 		t.Errorf("egress %+v", cfg.Egress)
 	}
-	if slices.Contains(cfg.SandboxEnv, "AWS_REGION=eu-west-1") {
+	if slices.Contains(cfg.SandboxEnv, "ACME_REGION=eu-west-1") {
 		t.Error("sent the sandbox what only egress has")
 	}
 }
