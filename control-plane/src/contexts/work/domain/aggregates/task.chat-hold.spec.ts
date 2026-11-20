@@ -17,7 +17,12 @@ import { LineResumed } from '@work/domain/events/line-resumed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
+import { HeldForAgentChatError } from '@work/domain/exceptions/held-for-agent-chat.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
+import {
+  ConversationAudience,
+  type ConversationViewer,
+} from '@work/domain/services/conversation-audience';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
@@ -29,6 +34,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -105,6 +111,12 @@ const wordsFor = (task: Task) =>
       (each): each is TaskNotedForChat => each instanceof TaskNotedForChat,
     );
 
+const answers = (task: Task, viewer: ConversationViewer): boolean =>
+  ConversationAudience.mayAnswer(
+    TeamStanding.of({ seesTeam: true, actsOnTeam: viewer.actsOnTasks }),
+    task.conversantOf(viewer),
+  );
+
 describe('a task a chat opens a pull request for', () => {
   it('waits on hold for the chat at the station it opened at, with the chat’s branch', () => {
     const task = opened();
@@ -121,6 +133,18 @@ describe('a task a chat opens a pull request for', () => {
     expect(task.pullEvents().some((each) => each instanceof TaskHeld)).toBe(
       true,
     );
+  });
+
+  it('lets nobody drive it while the chat holds it, not even a person who acts on the team', () => {
+    const task = opened();
+    const maya = { person: MAYA, onTeam: true, actsOnTasks: true };
+
+    expect(task.conversantOf(maya)).toEqual({ standing: null, drives: false });
+    expect(answers(task, maya)).toBe(false);
+    expect(
+      task.conversantOf({ person: LEON, onTeam: true, actsOnTasks: true })
+        .drives,
+    ).toBe(false);
   });
 
   it('keeps the pull request its chat opened, once', () => {
@@ -254,6 +278,31 @@ describe('a task a chat opens a pull request for', () => {
       ['chat_1', false],
     ]);
     expect(told[0]?.body).toMatch(/handed the task to the line/);
+  });
+
+  it('goes back to the line only when the person whose chat holds it says so', () => {
+    expect(() =>
+      opened().resumeLine({
+        by: MAYA,
+        line,
+        next: 'continue',
+        to: null,
+        rank: null,
+        verdict: null,
+        summary: null,
+        turnHeads: [],
+        at: LATER,
+      }),
+    ).toThrow(HeldForAgentChatError);
+    expect(() =>
+      opened().moveTo(
+        line,
+        BACKLOG,
+        TaskRank.of('m'),
+        said('Not now.', Voice.person(MAYA)),
+        { mover: MAYA },
+      ),
+    ).toThrow(HeldForAgentChatError);
   });
 
   it('tells the chat when the person moves the task on by hand', () => {

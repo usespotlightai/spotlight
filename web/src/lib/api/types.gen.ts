@@ -3343,6 +3343,14 @@ export type TaskHoldResponseDto = {
    * The agent chat that holds the task while it works on the pull request itself
    */
   chatId: string | null;
+  /**
+   * Whether the caller can send the agent turns while the task is on hold
+   */
+  viewerDrives: boolean;
+  /**
+   * Whether the caller can resume the line or move the task while it is on hold
+   */
+  viewerEnds: boolean;
 };
 
 export type TaskRunNotStartedResponseDto = {
@@ -3677,7 +3685,7 @@ export type AssignTaskRequestDto = {
 export type HoldEnd = 'continue' | 'move-on' | 'finish';
 
 /**
- * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+ * Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
  */
 export type HoldVerdict = 'not-right' | 'exploring';
 
@@ -3691,7 +3699,7 @@ export type ResumeLineRequestDto = {
    */
   stationId?: string;
   /**
-   * Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
+   * Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.
    */
   verdict?: HoldVerdict;
   /**
@@ -16644,7 +16652,7 @@ export type ResumeLineErrors = {
    */
   404: unknown;
   /**
-   * The task is not on hold, someone else put it on hold, or it cannot move on to that station
+   * The task is not on hold, an agent chat of another person holds it, or it cannot move on to that station
    */
   409: unknown;
 };

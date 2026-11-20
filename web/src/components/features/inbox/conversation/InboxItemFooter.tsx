@@ -18,7 +18,7 @@ export function InboxItemFooter({
 }: InboxItemFooterProps) {
   const { station, task } = useTaskStation(item.teamId, item.taskId);
 
-  if (!item.resolved && followed(item)) {
+  if (!item.resolved && !item.answerable && followed(item)) {
     return (
       <ClosedTaskComposer
         slug={slug}

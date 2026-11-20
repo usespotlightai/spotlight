@@ -917,6 +917,8 @@ describe('Run', () => {
           runId: 'run_1',
           heldMoveTo: null,
           chatId: null,
+          viewerDrives: true,
+          viewerEnds: true,
         },
         ...over,
       },
@@ -1029,7 +1031,7 @@ describe('Run', () => {
       ).toBeInTheDocument();
     });
 
-    it('lets only the person who put the task on hold resume the line', () => {
+    it('lets a teammate resume the line and send the next turn', () => {
       const theirs = mine();
       taskStation.mockReturnValue({
         ...theirs,
@@ -1044,10 +1046,40 @@ describe('Run', () => {
 
       renderRun();
 
-      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Resume' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-placeholder', 'Tell the agent what to do next…');
     });
 
-    it('tells a teammate that the agent reads their message after the line resumes', () => {
+    it('tells a person who only sees the team that they cannot send turns', () => {
+      const theirs = mine();
+      taskStation.mockReturnValue({
+        ...theirs,
+        task: {
+          ...theirs.task,
+          hold: {
+            ...theirs.task.hold,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+            viewerDrives: false,
+            viewerEnds: false,
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+      expect(
+        screen.getByText(
+          "Maya Chen put the task on hold. Only people who act on the team's tasks can send it turns.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('tells a teammate that the agent reads their message after an agent chat hands the task to the line', () => {
       taskStation.mockReturnValue({
         ...working,
         task: {
@@ -1055,9 +1087,11 @@ describe('Run', () => {
           hold: {
             by: { id: 'user_2', name: 'Maya Chen', image: null },
             startedAt: '2026-08-29T09:00:00.000Z',
-            runId: 'run_1',
+            runId: null,
             heldMoveTo: null,
-            chatId: null,
+            chatId: 'chat_1',
+            viewerDrives: false,
+            viewerEnds: false,
           },
         },
       });
@@ -1066,7 +1100,7 @@ describe('Run', () => {
 
       expect(
         screen.getByText(
-          'Maya Chen put the task on hold. The agent reads new messages after they resume the line.',
+          'An agent chat of Maya Chen holds the task. The agent reads new messages after they hand the task to the line.',
         ),
       ).toBeInTheDocument();
       expect(

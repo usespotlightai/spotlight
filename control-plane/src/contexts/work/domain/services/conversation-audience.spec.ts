@@ -129,6 +129,44 @@ describe('ConversationAudience', () => {
     expect(ConversationAudience.notifies('following')).toBe(false);
   });
 
+  it('lets a person who drives a hold answer and resolve, though they stand nowhere', () => {
+    const acts = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+    const standing = ConversationAudience.standingOf(BEN, {
+      person: ANA,
+      onTeam: true,
+      wroteIn: false,
+      asked: false,
+    });
+
+    expect(standing).toBeNull();
+    expect(
+      ConversationAudience.mayAnswer(acts, { standing, drives: true }),
+    ).toBe(true);
+    expect(
+      ConversationAudience.mayResolve(acts, { standing, drives: true }),
+    ).toBe(true);
+    expect(
+      ConversationAudience.mayAnswer(acts, { standing, drives: false }),
+    ).toBe(false);
+  });
+
+  it('lets nobody who only sees the team drive', () => {
+    const sees = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+
+    expect(
+      ConversationAudience.mayAnswer(sees, {
+        standing: 'following',
+        drives: true,
+      }),
+    ).toBe(false);
+    expect(
+      ConversationAudience.mayResolve(sees, {
+        standing: 'following',
+        drives: true,
+      }),
+    ).toBe(false);
+  });
+
   it('lets only the assignee and the team resolve without an answer', () => {
     expect(ConversationAudience.resolves('assignee')).toBe(true);
     expect(ConversationAudience.resolves('team')).toBe(true);
@@ -141,12 +179,42 @@ describe('ConversationAudience', () => {
     const acts = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
     const sees = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
 
-    expect(ConversationAudience.mayAnswer(acts, 'asked')).toBe(true);
-    expect(ConversationAudience.mayAnswer(sees, 'assignee')).toBe(false);
-    expect(ConversationAudience.mayAnswer(sees, 'asked')).toBe(false);
-    expect(ConversationAudience.mayResolve(acts, 'team')).toBe(true);
-    expect(ConversationAudience.mayResolve(acts, 'asked')).toBe(false);
-    expect(ConversationAudience.mayResolve(sees, 'assignee')).toBe(false);
+    expect(
+      ConversationAudience.mayAnswer(acts, {
+        standing: 'asked',
+        drives: false,
+      }),
+    ).toBe(true);
+    expect(
+      ConversationAudience.mayAnswer(sees, {
+        standing: 'assignee',
+        drives: false,
+      }),
+    ).toBe(false);
+    expect(
+      ConversationAudience.mayAnswer(sees, {
+        standing: 'asked',
+        drives: false,
+      }),
+    ).toBe(false);
+    expect(
+      ConversationAudience.mayResolve(acts, {
+        standing: 'team',
+        drives: false,
+      }),
+    ).toBe(true);
+    expect(
+      ConversationAudience.mayResolve(acts, {
+        standing: 'asked',
+        drives: false,
+      }),
+    ).toBe(false);
+    expect(
+      ConversationAudience.mayResolve(sees, {
+        standing: 'assignee',
+        drives: false,
+      }),
+    ).toBe(false);
   });
 
   describe('asks', () => {

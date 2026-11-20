@@ -34,6 +34,7 @@ import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,
   stationOf,
@@ -41,6 +42,7 @@ import {
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -135,6 +137,52 @@ const asking = () =>
         at: NOW,
       },
       RunId.of('run_1'),
+      null,
+    ).task;
+
+const TURN = RunId.of('run_turn');
+
+const askingInATurn = () =>
+  Task.add({
+    line: line(),
+    at: StationId.of('station_1'),
+    title: TaskTitle.of('Fix the queue'),
+    rank: TaskRank.of('i'),
+    createdBy: UserId.of('user_1'),
+    now: NOW,
+    newId: () => 'task_1',
+  })
+    .assignRun(RunId.of('run_1'), line())
+    .hold({
+      id: HoldId.of('hold_1'),
+      by: UserId.of('user_1'),
+      members: TeamMembers.of([UserId.of('user_1'), UserId.of('user_2')]),
+      line: line(),
+      currentRunStarted: true,
+      at: NOW,
+    })
+    .addMessage({
+      line: line(),
+      body: TaskNoteBody.of('Comment on the issue.'),
+      at: NOW,
+      voice: Voice.person(UserId.of('user_1')),
+    })
+    .assignRun(TURN, line())
+    .clearFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
+      ),
+      NEEDS_APPROVAL,
+      {
+        voice: Voice.station(TURN),
+        line: null,
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+      },
+      TURN,
       null,
     ).task;
 
@@ -350,6 +398,72 @@ describe('AnswerConversation', () => {
     expect(decided?.decided?.by.value).toBe('user_1');
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+  });
+
+  it('grants the approval a teammate gives in a turn of a task someone else put on hold', async () => {
+    const team = workAccessSeeing(() => true, {
+      members: [UserId.of('user_1'), UserId.of('user_2')],
+    });
+    const held = askingInATurn().pendingConversation;
+
+    await answer(
+      askingInATurn(),
+      new AnswerConversationCommand(
+        `task_1:${held?.from.value ?? 0}`,
+        'user_2',
+        '',
+        [],
+        'approved',
+      ),
+      team,
+    );
+
+    const decided = saved?.notes.find((note) => note.approval)?.approval;
+    expect(decided?.decided?.by.value).toBe('user_2');
+    expect(saved?.assignee?.value).toBe('user_1');
+    expect(saved?.currentRunId).toEqual(TURN);
+  });
+
+  it('grants the approval of a person who acts on the team’s tasks without joining the team, in a turn of a task on hold', async () => {
+    const held = askingInATurn().pendingConversation;
+
+    await answer(
+      askingInATurn(),
+      new AnswerConversationCommand(
+        `task_1:${held?.from.value ?? 0}`,
+        'user_9',
+        '',
+        [],
+        'approved',
+      ),
+      workAccessSeeing(() => true, { members: [UserId.of('user_1')] }),
+    );
+
+    expect(
+      saved?.notes.find((note) => note.approval)?.approval?.decided?.by.value,
+    ).toBe('user_9');
+  });
+
+  it('refuses a person who only sees the team in a turn of a task on hold, saving nothing', async () => {
+    const held = askingInATurn().pendingConversation;
+
+    await expect(
+      answer(
+        askingInATurn(),
+        new AnswerConversationCommand(
+          `task_1:${held?.from.value ?? 0}`,
+          'user_9',
+          '',
+          [],
+          'approved',
+        ),
+        workAccessSeeing(() => true, {
+          members: [UserId.of('user_1')],
+          onTeam: (_, viewer) => viewer.value !== 'user_9',
+        }),
+      ),
+    ).rejects.toMatchObject({ kind: 'not-found' });
+    expect(saved).toBeUndefined();
   });
 
   it('decides the ask the person saw, and refuses one the conversation has moved past', async () => {

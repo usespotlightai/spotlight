@@ -61,8 +61,10 @@ import {
   TURNING_NOTE_KINDS,
   worksOn,
 } from '@work/domain/services/conversations';
+import { HoldRights } from '@work/domain/services/hold-rights';
 import { anyUnread } from '@work/domain/services/unread';
 import { Approval } from '@work/domain/value-objects/approval.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
@@ -103,6 +105,7 @@ import {
   type ApprovalRow,
   type ConnectionAskRow,
   task,
+  taskHold,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -272,6 +275,23 @@ const teamStandingOf = (scope: InboxScope, teamId: string): TeamStanding =>
     actsOnTeam: scope.teamsActedOn.has(teamId),
   });
 
+const drivesHold = (
+  scope: InboxScope,
+  row: {
+    readonly teamId: string;
+    readonly heldBy: string | null;
+    readonly heldForChat: string | null;
+  },
+): boolean =>
+  row.heldBy !== null &&
+  HoldRights.drives(
+    { chat: row.heldForChat ? ChatId.of(row.heldForChat) : null },
+    {
+      person: scope.viewer,
+      actsOnTasks: scope.teamsActedOn.has(row.teamId),
+    },
+  );
+
 const standingOf = (
   scope: InboxScope,
   row: {
@@ -305,6 +325,8 @@ const taskRowsWhere = (
       taskId: task.id,
       assigneeId: task.assigneeId,
       wroteIn: sql<boolean>`${wroteIn}`,
+      heldBy: taskHold.heldBy,
+      heldForChat: taskHold.chatId,
       openlyAsked: sql<boolean>`${openlyAsked}`,
       teamId: workStation.teamId,
       title: task.title,
@@ -325,6 +347,10 @@ const taskRowsWhere = (
     .from(task)
     .innerJoin(workStation, eq(workStation.stationId, task.stationId))
     .leftJoin(origin, eq(origin.stationId, task.originStationId))
+    .leftJoin(
+      taskHold,
+      and(eq(taskHold.taskId, task.id), isNull(taskHold.endedAt)),
+    )
     .where(
       and(
         eq(task.workspaceId, scope.workspaceId),
@@ -373,6 +399,7 @@ const tasksWhere = async (
           {
             ...row,
             standing,
+            drives: drivesHold(scope, row),
             team: teamStandingOf(scope, row.teamId),
             workingReading: RunReadingMapper.reading(working ?? null),
             workingSince: working?.queuedAt ?? null,
@@ -603,10 +630,10 @@ const conversationItem = (
       following: row.standing === 'following',
     }),
     standing: row.standing,
-    answerable: open && ConversationAudience.mayAnswer(row.team, row.standing),
-    resolvable: open && ConversationAudience.mayResolve(row.team, row.standing),
+    answerable: open && ConversationAudience.mayAnswer(row.team, row),
+    resolvable: open && ConversationAudience.mayResolve(row.team, row),
     reopenable:
-      ConversationAudience.mayAnswer(row.team, row.standing) &&
+      ConversationAudience.mayAnswer(row.team, row) &&
       reopenable(
         NotePosition.of(opening.position),
         latest,

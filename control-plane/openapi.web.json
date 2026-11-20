@@ -3346,7 +3346,7 @@
     },
     "/teams/{teamId}/tasks/{taskId}/resume": {
       "post": {
-        "description": "Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.",
+        "description": "Sending a message to a station run that is not an answer puts the task on hold. While it is on hold, every member of the team can send the agent turns. The line waits until a member resumes it here, until a member moves the task, or until the agent resumes it because a member asked it to. A task that an agent chat holds resumes only for the person whose chat it is.",
         "operationId": "resumeLine",
         "parameters": [
           {
@@ -3399,10 +3399,10 @@
             "description": "No such task for this caller"
           },
           "409": {
-            "description": "The task is not on hold, someone else put it on hold, or it cannot move on to that station"
+            "description": "The task is not on hold, an agent chat of another person holds it, or it cannot move on to that station"
           }
         },
-        "summary": "Resume the line on a task that you put on hold",
+        "summary": "Resume the line on a task that is on hold",
         "tags": [
           "tasks"
         ]
@@ -10862,6 +10862,14 @@
             "type": "string",
             "nullable": true,
             "description": "The agent chat that holds the task while it works on the pull request itself"
+          },
+          "viewerDrives": {
+            "type": "boolean",
+            "description": "Whether the caller can send the agent turns while the task is on hold"
+          },
+          "viewerEnds": {
+            "type": "boolean",
+            "description": "Whether the caller can resume the line or move the task while it is on hold"
           }
         },
         "required": [
@@ -10869,7 +10877,9 @@
           "startedAt",
           "runId",
           "heldMoveTo",
-          "chatId"
+          "chatId",
+          "viewerDrives",
+          "viewerEnds"
         ]
       },
       "TaskRunNotStartedResponseDto": {
@@ -11808,7 +11818,7 @@
           "not-right",
           "exploring"
         ],
-        "description": "Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right."
+        "description": "Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right."
       },
       "ResumeLineRequestDto": {
         "type": "object",
@@ -11827,7 +11837,7 @@
             "description": "With move-on: a station the task’s station passes work to"
           },
           "verdict": {
-            "description": "Why you put the task on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.",
+            "description": "Why the task is on hold. not-right counts against the last line run at the station; exploring does not. Without it, the hold counts as not-right.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/HoldVerdict"

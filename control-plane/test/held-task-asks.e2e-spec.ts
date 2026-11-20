@@ -231,7 +231,7 @@ describe('a held task whose turn asks another person (e2e)', () => {
     );
   });
 
-  it('lets the holder resolve the ask, and not the person it names', async () => {
+  it('lets the holder and every person who acts on the team resolve the ask, and nobody who only sees the team', async () => {
     const task = await heldAndAsking();
 
     expect(
@@ -239,6 +239,10 @@ describe('a held task whose turn asks another person (e2e)', () => {
     ).toBe(true);
     expect(
       conversationIn(await reader.open(scopeOf(asked)), task)?.resolvable,
+    ).toBe(true);
+    expect(
+      conversationIn(await reader.open(scopeOf(asked, false)), task)
+        ?.resolvable,
     ).toBe(false);
     expect(
       conversationIn(await reader.open(scopeOf(holder, false)), task)
@@ -415,10 +419,10 @@ describe('a held task whose turn asks another person (e2e)', () => {
 
     expect(
       conversationIn(await reader.open(scopeOf(asked)), task),
-    ).toMatchObject({ standing: 'asked', answerable: true, resolvable: false });
+    ).toMatchObject({ standing: 'asked', answerable: true, resolvable: true });
   });
 
-  it('asks nobody again when a person reopens a conversation whose approval is decided', async () => {
+  it('asks nobody again when a person reopens a conversation whose approval is decided, leaving it to the people who drive the task', async () => {
     const turn = RunId.of(randomUUID());
     const asking = askingApproval(
       added()
@@ -462,6 +466,9 @@ describe('a held task whose turn asks another person (e2e)', () => {
 
     expect(
       conversationIn(await reader.open(scopeOf(asked)), reopened),
+    ).toMatchObject({ standing: 'following', answerable: true });
+    expect(
+      conversationIn(await reader.open(scopeOf(asked, false)), reopened),
     ).toMatchObject({ standing: 'following', answerable: false });
   });
 

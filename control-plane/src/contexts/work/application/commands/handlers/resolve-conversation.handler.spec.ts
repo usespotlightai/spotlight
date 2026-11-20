@@ -156,9 +156,13 @@ describe('ResolveConversation', () => {
   it('refuses the person an ask names who has not joined the team, though they may answer it', async () => {
     const task = askingAndUnassigned();
 
-    expect(task.conversationStandingOf({ person: ASKED, onTeam: false })).toBe(
-      'asked',
-    );
+    expect(
+      task.conversationStandingOf({
+        person: ASKED,
+        onTeam: false,
+        actsOnTasks: true,
+      }),
+    ).toBe('asked');
     await expect(resolve(task, ASKED, [OPENER])).rejects.toMatchObject({
       refusal: expect.any(AssignedToAnotherPersonError) as unknown,
     });

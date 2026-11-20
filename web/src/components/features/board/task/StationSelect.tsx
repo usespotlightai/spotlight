@@ -18,7 +18,7 @@ import {
 import { useCommands } from '@/hooks/useCommands';
 import { useMe } from '@/hooks/useMe';
 import type { StationResponseDto, TaskHoldResponseDto } from '@/lib/api';
-import { heldByOther, heldUntilResumed } from '@/lib/hold';
+import { heldUntilResumed, lockedHold } from '@/lib/hold';
 import { stationShare } from '@/lib/station';
 import { movableByHand } from '@/lib/task';
 import { cn } from '@/lib/utils';
@@ -55,7 +55,7 @@ export function StationSelect({
     : [];
   const [open, setOpen] = useState(false);
   const me = useMe();
-  const locked = heldByOther(held, me?.id);
+  const locked = lockedHold(held);
   useCommands(
     offered.length > 1
       ? [

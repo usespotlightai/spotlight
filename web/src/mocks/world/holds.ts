@@ -31,6 +31,8 @@ export const onHoldBy = (
             runId: turn?.id ?? null,
             heldMoveTo: null,
             chatId: null,
+            viewerDrives: true,
+            viewerEnds: true,
           },
         }
       : each,

@@ -27,6 +27,8 @@ interface TaskHoldDto {
   readonly runId: string | null;
   readonly heldMoveTo: string | null;
   readonly chatId: string | null;
+  readonly viewerDrives: boolean;
+  readonly viewerEnds: boolean;
 }
 
 interface TaskReviewDto {

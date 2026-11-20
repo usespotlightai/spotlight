@@ -777,11 +777,14 @@ describe('InboxItem', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('offers no close while another person holds the task', () => {
+    it('offers no close while an agent chat of another person holds the task', () => {
       taskStation.mockReturnValue({
         line,
         station: line.stations[0],
-        task: { ...task, hold: { by: { id: 'user_9' } } },
+        task: {
+          ...task,
+          hold: { by: { id: 'user_9' }, chatId: 'chat_1', viewerEnds: false },
+        },
       });
 
       renderItem();
@@ -812,6 +815,23 @@ describe('InboxItem', () => {
       expect(
         screen.getByRole('textbox', { name: 'Answer Implementation' }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('followed by a viewer who drives the task a person holds', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([
+        { ...only, standing: 'following', answerable: true },
+      ]);
+    });
+
+    it('can be answered by them', () => {
+      renderItem();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Answer Implementation' }),
+      ).not.toHaveAttribute('aria-disabled', 'true');
     });
   });
 

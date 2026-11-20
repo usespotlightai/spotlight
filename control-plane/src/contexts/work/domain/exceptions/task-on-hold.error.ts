@@ -9,7 +9,7 @@ export class TaskOnHoldError extends DomainError {
     taskId: TaskId,
     readonly by: UserId,
   ) {
-    super(`Task ${taskId.value} is on hold for another person.`);
+    super(`Task ${taskId.value} is already on hold.`);
     this.name = 'TaskOnHoldError';
   }
 }

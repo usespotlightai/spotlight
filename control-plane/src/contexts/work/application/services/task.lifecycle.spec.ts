@@ -1080,17 +1080,17 @@ describe('a task under any order of runs, people and happenings on its line', ()
     );
   });
 
-  it('keeps its station while it is on hold, unless the person holding it moves it on', async () => {
+  it('keeps its station while it is on hold, unless a person who may end the hold moves it on', async () => {
     await fc.assert(
       lifecycle(({ before, after, step: each }) => {
-        const holder = before.openHold?.by ?? null;
-        const byHolder =
+        const hold = before.openHold;
+        const byEnder =
           (each.kind === 'move' || each.kind === 'resume') &&
-          holder !== null &&
-          actorOf(before, each.by).equals(holder);
+          hold !== null &&
+          (hold.chat === null || actorOf(before, each.by).equals(hold.by));
 
         return (
-          !before.onHold || byHolder || after.stationId.equals(before.stationId)
+          !before.onHold || byEnder || after.stationId.equals(before.stationId)
         );
       }),
       RUNS,
@@ -1131,15 +1131,16 @@ describe('a task under any order of runs, people and happenings on its line', ()
         }
 
         const person = PEOPLE[visit.step.by];
-        const standing = visit.before.conversationStandingOf({
+        const conversant = visit.before.conversantOf({
           person,
           onTeam: TEAM.includes(person),
+          actsOnTasks: true,
         });
         const offered =
           visit.before.openConversation !== null &&
           (visit.step.kind === 'resolve'
-            ? ConversationAudience.mayResolve(acting, standing)
-            : ConversationAudience.mayAnswer(acting, standing));
+            ? ConversationAudience.mayResolve(acting, conversant)
+            : ConversationAudience.mayAnswer(acting, conversant));
         const approval = visit.before.openAsk?.approval ?? null;
         const decidedOnlyBySomeoneElse =
           visit.step.kind === 'answer' &&
@@ -1329,13 +1330,25 @@ describe('a task held by one person whose turn asks another person', () => {
     );
 
     expect(
-      asked.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+      asked.conversationStandingOf({
+        person: PEOPLE.leon,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
     ).toBe('asked');
     expect(
-      asked.conversationStandingOf({ person: PEOPLE.maya, onTeam: true }),
+      asked.conversationStandingOf({
+        person: PEOPLE.maya,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
     ).toBe('assignee');
     expect(
-      approved.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+      approved.conversationStandingOf({
+        person: PEOPLE.leon,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
     ).toBe('following');
   });
 
@@ -1390,7 +1403,7 @@ describe('a task held by one person whose turn asks another person', () => {
     expect(loadable(approved)).toBe(true);
   });
 
-  it('leaves any further answer to its holder once the person asked has decided', () => {
+  it('takes a further answer from a person on the team once the person asked has decided, and stays with its holder', () => {
     const asked = askingApproval(
       heldByMaya(),
       RunId.of('run_turn'),
@@ -1411,12 +1424,18 @@ describe('a task held by one person whose turn asks another person', () => {
       'approved',
     );
 
-    expect(() =>
-      approved.answerAs(PEOPLE.leon, TEAM, openFrom(approved), words),
-    ).toThrow(AssignedToAnotherPersonError);
+    const answered = approved.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(approved),
+      words,
+    );
+
+    expect(answered.assignee).toEqual(PEOPLE.maya);
+    expect(loadable(answered)).toBe(true);
   });
 
-  it('leaves the answer to its holder when the ask names another person', () => {
+  it('leaves the decision to the person the ask names, though a person on the team drives the task', () => {
     const asked = askingApproval(
       heldByMaya(),
       RunId.of('run_turn'),
@@ -1437,10 +1456,10 @@ describe('a task held by one person whose turn asks another person', () => {
         },
         'approved',
       ),
-    ).toThrow(AssignedToAnotherPersonError);
+    ).toThrow(InvalidApprovalAnswerError);
   });
 
-  it('leaves the answer to its holder once the person asked has connected', () => {
+  it('takes a further answer from a person on the team once the person asked has connected, and stays with its holder', () => {
     const asked = heldByMaya().askToConnect(
       RunId.of('run_turn'),
       {
@@ -1460,14 +1479,20 @@ describe('a task held by one person whose turn asks another person', () => {
       throw new Error('the connection closed the conversation');
     }
 
-    expect(() =>
-      connected.answerAs(PEOPLE.leon, TEAM, openFrom(connected), {
+    const answered = connected.answerAs(
+      PEOPLE.leon,
+      TEAM,
+      openFrom(connected),
+      {
         line: LINE,
         body: TaskNoteBody.of('Done.'),
         at: START,
         voice: Voice.person(PEOPLE.leon),
-      }),
-    ).toThrow(AssignedToAnotherPersonError);
+      },
+    );
+
+    expect(answered.assignee).toEqual(PEOPLE.maya);
+    expect(loadable(answered)).toBe(true);
   });
 
   it('lets the person asked still approve after the task moves to someone else, when it is not on hold', () => {
@@ -1493,7 +1518,11 @@ describe('a task held by one person whose turn asks another person', () => {
 
     expect(asked.assignee).toEqual(PEOPLE.leon);
     expect(
-      moved.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+      moved.conversationStandingOf({
+        person: PEOPLE.leon,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
     ).toBe('asked');
     expect(approved.assignee).toEqual(PEOPLE.maya);
     expect(loadable(approved)).toBe(true);
@@ -1549,7 +1578,11 @@ describe('a turn that asks again after a question was answered in words', () => 
     );
 
     expect(
-      asked.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+      asked.conversationStandingOf({
+        person: PEOPLE.leon,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
     ).toBe('asked');
     expect(approved.openAsk?.approval?.status).toBe('approved');
     expect(approved.assignee).toEqual(PEOPLE.maya);
@@ -1653,7 +1686,11 @@ describe('a turn that asks again after a question was answered in words', () => 
     });
 
     expect(
-      asked.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+      asked.conversationStandingOf({
+        person: PEOPLE.leon,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
     ).toBe('asked');
     expect(connected?.openAsk?.connectionAsk?.met).toBe(true);
     expect(connected?.awaitingReview).toBe(false);
@@ -1681,7 +1718,11 @@ describe('a task unassigned while its turn asks a person on its team', () => {
 
     expect(task.assignee).toBeNull();
     expect(
-      task.conversationStandingOf({ person: PEOPLE.leon, onTeam: true }),
+      task.conversationStandingOf({
+        person: PEOPLE.leon,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
     ).toBe('team');
   });
 

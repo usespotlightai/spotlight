@@ -1628,9 +1628,9 @@ export const assignTask = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Resume the line on a task that you put on hold
+ * Resume the line on a task that is on hold
  *
- * Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.
+ * Sending a message to a station run that is not an answer puts the task on hold. While it is on hold, every member of the team can send the agent turns. The line waits until a member resumes it here, until a member moves the task, or until the agent resumes it because a member asked it to. A task that an agent chat holds resumes only for the person whose chat it is.
  */
 export const resumeLine = <ThrowOnError extends boolean = false>(options: Options<ResumeLineData, ThrowOnError>): RequestResult<ResumeLineResponses, ResumeLineErrors, ThrowOnError> => (options.client ?? client).post<ResumeLineResponses, ResumeLineErrors, ThrowOnError>({
   url: '/teams/{teamId}/tasks/{taskId}/resume',

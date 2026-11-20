@@ -10,7 +10,7 @@ import { HoldConflictError } from '@work/application/errors/hold-conflict.error'
 import type { LineLoader } from '@work/application/services/line-loader.service';
 import type { LineResuming } from '@work/application/services/line-resuming.service';
 import { nameOf } from '@work/application/services/person-name';
-import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
+import { HeldForAgentChatError } from '@work/domain/exceptions/held-for-agent-chat.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { holdEndOf } from '@work/domain/value-objects/hold-end';
@@ -32,9 +32,9 @@ export class ResumeLineHandler implements CommandHandlerPort<
     try {
       await this.transaction.inTransaction(() => this.resumeLine(command));
     } catch (error) {
-      if (error instanceof TaskOnHoldError) {
+      if (error instanceof HeldForAgentChatError) {
         throw new HoldConflictError(
-          `${await nameOf(this.people, error.by)} put this task on hold. Only they can resume the line.`,
+          `An agent chat of ${await nameOf(this.people, error.by)} holds this task. Only they can hand it to the line.`,
         );
       }
 

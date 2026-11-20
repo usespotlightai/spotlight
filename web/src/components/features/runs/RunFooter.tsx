@@ -6,8 +6,7 @@ import {
 } from '@/components/features/runs/RunComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { useMe } from '@/hooks/useMe';
-import { heldByOther } from '@/lib/hold';
+import { lockedHold } from '@/lib/hold';
 import { stoppable, type TeamRun, waitsOnPerson } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
@@ -34,10 +33,9 @@ export function RunFooter({
     teamId,
     conversation?.taskId,
   );
-  const me = useMe();
-  const heldByTeammate = heldByOther(task?.hold, me?.id);
+  const locked = lockedHold(task?.hold);
 
-  if (heldByTeammate) {
+  if (locked) {
     return (
       <ClosedTaskComposer
         slug={slug}
@@ -46,7 +44,11 @@ export function RunFooter({
         station={run.station?.name ?? 'the agent'}
         label={`Message ${run.station?.name ?? 'the agent'}`}
         placeholder={WRITE_A_MESSAGE}
-        because={`${heldByTeammate.by.name} put the task on hold. The agent reads new messages after they resume the line.`}
+        because={
+          locked.chatId
+            ? `An agent chat of ${locked.by.name} holds the task. The agent reads new messages after they hand the task to the line.`
+            : `${locked.by.name} put the task on hold. Only people who act on the team's tasks can send it turns.`
+        }
       />
     );
   }

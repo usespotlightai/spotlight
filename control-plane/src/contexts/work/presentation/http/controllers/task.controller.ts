@@ -624,9 +624,9 @@ export class TaskController {
   @Post('tasks/:taskId/resume')
   @ApiOperation({
     operationId: 'resumeLine',
-    summary: 'Resume the line on a task that you put on hold',
+    summary: 'Resume the line on a task that is on hold',
     description:
-      'Sending a message to a station run that is not an answer puts the task on hold. The line waits until you resume it here, until you move the task, or until the agent resumes it because you asked it to.',
+      'Sending a message to a station run that is not an answer puts the task on hold. While it is on hold, every member of the team can send the agent turns. The line waits until a member resumes it here, until a member moves the task, or until the agent resumes it because a member asked it to. A task that an agent chat holds resumes only for the person whose chat it is.',
   })
   @ApiParam({
     name: 'taskId',
@@ -636,7 +636,7 @@ export class TaskController {
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   @ApiConflictResponse({
     description:
-      'The task is not on hold, someone else put it on hold, or it cannot move on to that station',
+      'The task is not on hold, an agent chat of another person holds it, or it cannot move on to that station',
   })
   @HttpCode(HttpStatus.OK)
   @ApiForbiddenResponse({

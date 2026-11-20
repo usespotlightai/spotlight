@@ -1,9 +1,7 @@
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { useMe } from '@/hooks/useMe';
 import { mayLand } from '@/lib/task';
 
 export function useClosableTask(teamId: string, taskId: string) {
-  const me = useMe();
   const { line, task } = useTaskStation(teamId, taskId);
   const completed = line?.stations.find((each) => each.kind === 'completed');
 
@@ -11,7 +9,7 @@ export function useClosableTask(teamId: string, taskId: string) {
     !line ||
     !task ||
     !completed ||
-    !mayLand(line.stations, task, completed.id, me?.id)
+    !mayLand(line.stations, task, completed.id)
   ) {
     return null;
   }

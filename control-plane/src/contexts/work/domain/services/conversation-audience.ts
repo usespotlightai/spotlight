@@ -20,6 +20,7 @@ export type RunStanding = (typeof RUN_STANDINGS)[number];
 export interface ConversationViewer {
   readonly person: UserId;
   readonly onTeam: boolean;
+  readonly actsOnTasks: boolean;
 }
 
 export interface OpenAsk {
@@ -39,9 +40,16 @@ const awaits = (ask: OpenAsk, person: UserId): boolean =>
   (ask.connectionAsk?.met === false &&
     ask.connectionAsk.personId.equals(person));
 
-export interface ConversationReader extends ConversationViewer {
+export interface ConversationReader {
+  readonly person: UserId;
+  readonly onTeam: boolean;
   readonly wroteIn: boolean;
   readonly asked: boolean;
+}
+
+export interface Conversant {
+  readonly standing: ConversationStanding | null;
+  readonly drives: boolean;
 }
 
 export const ConversationAudience = {
@@ -78,18 +86,18 @@ export const ConversationAudience = {
     return standing === 'assignee' || standing === 'team';
   },
 
-  mayAnswer(
-    team: TeamStanding,
-    standing: ConversationStanding | null,
-  ): boolean {
-    return team.actsOnTasks && ConversationAudience.answers(standing);
+  mayAnswer(team: TeamStanding, conversant: Conversant): boolean {
+    return (
+      team.actsOnTasks &&
+      (conversant.drives || ConversationAudience.answers(conversant.standing))
+    );
   },
 
-  mayResolve(
-    team: TeamStanding,
-    standing: ConversationStanding | null,
-  ): boolean {
-    return team.actsOnTasks && ConversationAudience.resolves(standing);
+  mayResolve(team: TeamStanding, conversant: Conversant): boolean {
+    return (
+      team.actsOnTasks &&
+      (conversant.drives || ConversationAudience.resolves(conversant.standing))
+    );
   },
 
   notifies(standing: ConversationStanding | null): boolean {

@@ -4,6 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidHoldTransitionError } from '@work/domain/exceptions/invalid-hold-transition.error';
+import { HoldRights, type HoldViewer } from '@work/domain/services/hold-rights';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { HoldEnd } from '@work/domain/value-objects/hold-end';
 import type { HoldId } from '@work/domain/value-objects/hold-id.vo';
@@ -12,6 +13,7 @@ import {
   UNSAID_HOLD_VERDICT,
 } from '@work/domain/value-objects/hold-verdict';
 import type { TurnHeads } from '@work/domain/value-objects/turn-heads.vo';
+import type { Voice } from '@work/domain/value-objects/voice.vo';
 
 interface HoldState {
   readonly id: HoldId;
@@ -206,8 +208,24 @@ export class Hold {
     return this.state.endedAt === null;
   }
 
-  drives(runId: RunId): boolean {
+  countsTurn(runId: RunId): boolean {
     return this.state.turns.some((each) => each.equals(runId));
+  }
+
+  get takesTurns(): boolean {
+    return HoldRights.takesTurns(this.state);
+  }
+
+  takesTurnsFrom(voice: Voice): boolean {
+    return this.takesTurns && voice.isPerson && voice.author !== null;
+  }
+
+  endableBy(person: UserId): boolean {
+    return HoldRights.endableBy(this.state, person);
+  }
+
+  drivenBy(viewer: HoldViewer): boolean {
+    return HoldRights.drives(this.state, viewer);
   }
 
   withTurn(runId: RunId): Hold {
@@ -225,7 +243,7 @@ export class Hold {
       );
     }
 
-    return this.drives(runId)
+    return this.countsTurn(runId)
       ? this
       : this.with({ turns: [...this.state.turns, runId] });
   }

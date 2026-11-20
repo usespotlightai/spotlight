@@ -74,11 +74,11 @@ describe('TaskNoteBody.resumed', () => {
 
   it('ends the rules for the person’s turns wherever the task goes on', () => {
     expect(resumed(null)).toContain(
-      "The rules for the person's turns no longer apply.",
+      "The rules for people's turns no longer apply.",
     );
     expect(
       resumed({ name: StationName.of('Review'), completed: false }),
-    ).toContain("The rules for the person's turns no longer apply.");
+    ).toContain("The rules for people's turns no longer apply.");
   });
 });
 
