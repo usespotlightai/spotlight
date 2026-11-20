@@ -254,6 +254,17 @@ const RUNS = { numRuns: 2_000 };
 const lifecycle = (holds: (visit: Visit) => boolean) =>
   fc.property(ordering, steps, (kind, each) => walk(kind, each).every(holds));
 
+const NEW_ATTEMPT: readonly Acting['kind'][] = [
+  'expire-lease',
+  'time-out',
+  'resume',
+];
+
+const sameOutcome = (before: Run, after: Run): boolean =>
+  before.outcome === null || after.outcome === null
+    ? before.outcome === after.outcome
+    : before.outcome.equals(after.outcome);
+
 const heldAlike = (before: Run, after: Run): boolean =>
   before.claimedBy !== null &&
   after.claimedBy !== null &&
@@ -316,8 +327,8 @@ describe('a run under any order of runner, sweeper and person actions', () => {
         ({ before, after }) =>
           !before.hasEnded ||
           (after.state === before.state &&
-            after.outcome === before.outcome &&
-            after.endedAt === before.endedAt &&
+            sameOutcome(before, after) &&
+            after.endedAt?.getTime() === before.endedAt?.getTime() &&
             after.leaseExpiresAt === null),
       ),
       RUNS,
@@ -358,11 +369,16 @@ describe('a run under any order of runner, sweeper and person actions', () => {
     );
   });
 
-  it('counts attempts up one at a time', () => {
+  it('starts a new attempt only when it loses its lease or resumes a turn', () => {
     fc.assert(
-      lifecycle(({ before, after }) =>
-        [0, 1].includes(after.attempt.number - before.attempt.number),
-      ),
+      lifecycle(({ before, after, step: each, accepted }) => {
+        const added = after.attempt.number - before.attempt.number;
+
+        return (
+          added === 0 ||
+          (added === 1 && accepted && NEW_ATTEMPT.includes(each.kind))
+        );
+      }),
       RUNS,
     );
   });
