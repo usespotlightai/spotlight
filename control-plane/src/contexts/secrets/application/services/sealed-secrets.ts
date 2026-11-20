@@ -7,13 +7,13 @@ import type {
   SealingRecipient,
   SecretSealingPort,
 } from '@secrets/application/ports/secret-sealing.port';
+import type { SecretStorePort } from '@secrets/application/ports/secret-store.port';
 import { deniedFor } from '@secrets/application/services/denied-secrets';
-import type { SecretSources } from '@secrets/application/services/secret-sources.service';
+import { storedValueOf } from '@secrets/application/services/stored-value';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretTargets } from '@secrets/domain/value-objects/secret-targets.vo';
-import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -27,7 +27,7 @@ export interface SealedSecretsRequest {
 export class SealedSecrets {
   constructor(
     private readonly secrets: SecretRepository,
-    private readonly sources: SecretSources,
+    private readonly store: SecretStorePort,
     private readonly sealing: SecretSealingPort,
   ) {}
 
@@ -67,10 +67,7 @@ export class SealedSecrets {
     subject: string,
   ): Promise<readonly FetchedSecret[]> {
     const bindings = secret.injectedBindings();
-    const externalRef = secret.source.externalRef;
-    const value: SecretValue | null = externalRef
-      ? null
-      : secret.injectable(await this.sources.read(secret));
+    const value = secret.injectable(await storedValueOf(this.store, secret));
 
     return bindings.map((binding) => ({
       secret: secret.name.value,
@@ -78,13 +75,10 @@ export class SealedSecrets {
       location: binding.target.location,
       name: binding.target.name,
       prefix: binding.prefix,
-      sealed: value
-        ? this.sealing.seal(value, recipient, {
-            subject,
-            secretName: secret.name.value,
-          })
-        : null,
-      externalRef: externalRef ?? null,
+      sealed: this.sealing.seal(value, recipient, {
+        subject,
+        secretName: secret.name.value,
+      }),
     }));
   }
 }

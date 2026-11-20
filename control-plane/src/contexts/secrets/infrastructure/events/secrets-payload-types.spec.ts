@@ -36,9 +36,9 @@ const everyEvent = (): readonly DomainEvent[] => {
     id: created.id,
     workspaceId: created.workspaceId,
     name: created.name,
-    source: created.source,
     bindings: created.bindings,
     valueVersion: created.valueVersion,
+    holdsValue: created.holdsValue,
     rotatedAt: created.rotatedAt,
     version: 1,
   });

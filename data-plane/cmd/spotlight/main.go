@@ -16,6 +16,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/replay"
 	"usespotlight.ai/data-plane/runner"
+	"usespotlight.ai/data-plane/secret"
 	"usespotlight.ai/data-plane/ssh"
 	"usespotlight.ai/data-plane/telemetry"
 )
@@ -40,7 +41,7 @@ var versionHelp = help.Command{
 }
 
 var commands = help.NewRegistry(
-	agent.Commands, host.Commands, replay.Commands, login.Commands, ssh.Commands, egress.Commands, runner.Commands,
+	agent.Commands, host.Commands, replay.Commands, login.Commands, secret.Commands, ssh.Commands, egress.Commands, runner.Commands,
 	[]help.Command{helpHelp, versionHelp},
 )
 
@@ -54,6 +55,7 @@ var agentSections = []help.Section{
 
 var operatorSections = []help.Section{
 	{Title: "Your login", Paths: []string{"login", "logout", "token"}},
+	{Title: "Secrets for your runs", Paths: []string{"secret list", "secret set"}},
 	{Title: "Open tasks in VS Code or Cursor", Paths: []string{"ssh setup", "ssh proxy"}},
 	{Title: "Run agents on this computer", Paths: []string{"host init", "host", "host status", "host config", "host logs"}},
 	{Title: "Check station changes", Paths: []string{"replay", "replay check"}},
@@ -166,6 +168,8 @@ func run(args []string, out, errs io.Writer) int {
 		return login.Logout(args[1:], version)
 	case "token":
 		return login.Token(args[1:], version)
+	case "secret":
+		return secret.Main(args[1:], version)
 	case "ssh":
 		return ssh.Main(args[1:], version)
 	case "version":
@@ -257,7 +261,7 @@ func roleOf(command string) string {
 	switch command {
 	case "host", "runner", "egress", "replay":
 		return command
-	case "login", "logout", "token", "ssh", "update", "status":
+	case "login", "logout", "token", "secret", "ssh", "update", "status":
 		return "login"
 	default:
 		return "agent"

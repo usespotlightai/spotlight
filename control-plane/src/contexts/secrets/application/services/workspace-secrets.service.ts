@@ -1,13 +1,13 @@
+import type { SecretStorePort } from '@secrets/application/ports/secret-store.port';
 import type {
   WorkspaceSecretsPort,
   WorkspaceSecretStore,
 } from '@secrets/application/ports/workspace-secrets.port';
-import type { SecretSources } from '@secrets/application/services/secret-sources.service';
+import { storedValueOf } from '@secrets/application/services/stored-value';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
-import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
@@ -20,7 +20,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 export class WorkspaceSecrets implements WorkspaceSecretsPort {
   constructor(
     private readonly secrets: SecretRepository,
-    private readonly sources: SecretSources,
+    private readonly values: SecretStorePort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -34,7 +34,6 @@ export class WorkspaceSecrets implements WorkspaceSecretsPort {
     const value = request.value === null ? null : SecretValue.of(request.value);
     const definition = {
       name,
-      source: SecretSource.builtIn(),
       bindings: SecretBindings.none(),
       value,
     };
@@ -66,7 +65,9 @@ export class WorkspaceSecrets implements WorkspaceSecretsPort {
       SecretName.of(name),
     );
 
-    return existing ? (await this.sources.read(existing)).revealed() : null;
+    return existing
+      ? (await storedValueOf(this.values, existing)).revealed()
+      : null;
   }
 
   async remove(workspaceId: string, name: string): Promise<void> {

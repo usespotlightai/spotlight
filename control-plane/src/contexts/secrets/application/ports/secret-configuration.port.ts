@@ -7,18 +7,12 @@ export interface SecretView {
   readonly address: string;
   readonly workspaceId: WorkspaceId;
   readonly name: string;
-  readonly source: {
-    readonly kind: string;
-    readonly secretId: string | null;
-    readonly field: string | null;
-  };
   readonly bindings: readonly {
     readonly host: string;
     readonly location: string;
     readonly name: string;
     readonly prefix: string;
   }[];
-  readonly storesValue: boolean;
   readonly valueVersion: number | null;
 }
 

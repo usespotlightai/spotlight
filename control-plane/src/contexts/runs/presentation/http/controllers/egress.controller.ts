@@ -119,7 +119,7 @@ export class EgressController {
     summary:
       'The secrets that egress injects into the run’s requests, for their bound hosts',
     description:
-      'Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.',
+      'Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Each value comes back sealed to the recipient.',
   })
   @ApiOkResponse({ type: EgressSecretsResponseDto })
   @ApiUnprocessableEntityResponse({

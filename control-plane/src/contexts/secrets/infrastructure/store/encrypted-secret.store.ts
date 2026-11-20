@@ -2,8 +2,8 @@ import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.conte
 import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import type {
   SecretReference,
-  SecretSourcePort,
-} from '@secrets/application/ports/secret-source.port';
+  SecretStorePort,
+} from '@secrets/application/ports/secret-store.port';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import {
   DecryptionFailedError,
@@ -19,7 +19,7 @@ const aadFor = (secret: SecretReference): string =>
     '\u0000',
   );
 
-export class BuiltInSecretStore implements SecretSourcePort {
+export class EncryptedSecretStore implements SecretStorePort {
   constructor(
     private readonly context: DrizzleContext,
     private readonly keys: WorkspaceKeys,

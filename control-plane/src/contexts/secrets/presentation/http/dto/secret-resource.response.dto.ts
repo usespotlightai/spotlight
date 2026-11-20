@@ -2,42 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
 import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
-import {
-  SECRET_SOURCE_KINDS,
-  type SecretSourceKind,
-} from '@secrets/domain/value-objects/secret-source.vo';
-
-class SecretSourceResponseDto {
-  @ApiProperty({
-    enum: SECRET_SOURCE_KINDS,
-    example: 'built-in',
-    description:
-      'Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used',
-  })
-  readonly kind: SecretSourceKind;
-
-  @ApiProperty({
-    type: String,
-    nullable: true,
-    example: null,
-    description: 'The name or ARN of the secret in AWS Secrets Manager',
-  })
-  readonly secretId: string | null;
-
-  @ApiProperty({
-    type: String,
-    nullable: true,
-    example: null,
-    description: 'The key to read when that secret contains JSON',
-  })
-  readonly field: string | null;
-
-  constructor(source: SecretResourceDto['source']) {
-    this.kind = source.kind;
-    this.secretId = source.secretId;
-    this.field = source.field;
-  }
-}
 
 class SecretBindingResponseDto {
   @ApiProperty({
@@ -88,9 +52,6 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
   })
   readonly name: string;
 
-  @ApiProperty({ type: SecretSourceResponseDto })
-  readonly source: SecretSourceResponseDto;
-
   @ApiProperty({
     type: SecretBindingResponseDto,
     isArray: true,
@@ -118,7 +79,6 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
     super(secret);
     this.workspaceId = secret.workspaceId;
     this.name = secret.name;
-    this.source = new SecretSourceResponseDto(secret.source);
     this.bindings = secret.bindings.map(
       (each) => new SecretBindingResponseDto(each),
     );
