@@ -880,7 +880,7 @@ export const storyNoteOf = (
     deferredTo: script.deferredTo ?? null,
     approval: script.approval ? structuredClone(script.approval) : null,
     failure: script.failure ?? null,
-    connection: null,
+    connection: script.connection ?? null,
     resumption: null,
     suggestsClosing: script.suggestsClosing ?? false,
   };

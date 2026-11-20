@@ -1,10 +1,14 @@
-import { RunComposer } from '@/components/features/runs/RunComposer';
+import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
+import { MovedOnFooter } from '@/components/features/runs/MovedOnFooter';
+import {
+  RunComposer,
+  WRITE_A_MESSAGE,
+} from '@/components/features/runs/RunComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
 import { chatHeldByOther } from '@/lib/hold';
-import { runPath, type TeamRun, waitsOnPerson, stoppable } from '@/lib/run';
+import { stoppable, type TeamRun, waitsOnPerson } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
@@ -35,10 +39,15 @@ export function RunFooter({
 
   if (chatHeld) {
     return (
-      <p className="pb-5 text-center text-muted-foreground text-xs">
-        An agent chat of {chatHeld.by.name} holds the task. The agent reads new
-        messages after they hand the task to the line.
-      </p>
+      <ClosedTaskComposer
+        slug={slug}
+        teamId={teamId}
+        taskId={conversation?.taskId}
+        station={run.station?.name ?? 'the agent'}
+        label={`Message ${run.station?.name ?? 'the agent'}`}
+        placeholder={WRITE_A_MESSAGE}
+        because={`An agent chat of ${chatHeld.by.name} holds the task. The agent reads new messages after they hand the task to the line.`}
+      />
     );
   }
 
@@ -68,20 +77,14 @@ export function RunFooter({
 
   if (current && run.station && current.id !== run.station.id) {
     return (
-      <p className="pb-5 text-center text-muted-foreground text-xs">
-        The task has moved to{' '}
-        {latest.id === run.id ? (
-          <strong>{current.name}</strong>
-        ) : (
-          <TrailLink
-            to={runPath(slug, teamId, latest.id)}
-            className="font-semibold underline-offset-4 hover:text-foreground hover:underline"
-          >
-            {current.name}
-          </TrailLink>
-        )}
-        . Messages here reach no one.
-      </p>
+      <MovedOnFooter
+        slug={slug}
+        teamId={teamId}
+        taskId={conversation?.taskId}
+        current={current}
+        station={run.station.name}
+        onSent={onSent}
+      />
     );
   }
 

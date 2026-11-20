@@ -3575,6 +3575,14 @@ export type SendMessageRequestDto = {
   draftGeneration?: number | null;
 };
 
+export type TaskPullRequestResponseDto = {
+  url: string;
+  /**
+   * Draft, open, merged or closed; null when Spotlight holds no state for it: not seen on GitHub yet, or removed after the retention period
+   */
+  state: 'draft' | 'open' | 'merged' | 'closed' | null;
+};
+
 export type TaskRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
@@ -16373,6 +16381,33 @@ export type StopRunResponses = {
 };
 
 export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
+
+export type ListTaskPullRequestsData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/pull-requests';
+};
+
+export type ListTaskPullRequestsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ListTaskPullRequestsResponses = {
+  200: Array<TaskPullRequestResponseDto>;
+};
+
+export type ListTaskPullRequestsResponse = ListTaskPullRequestsResponses[keyof ListTaskPullRequestsResponses];
 
 export type ListTaskRunsData = {
   body?: never;

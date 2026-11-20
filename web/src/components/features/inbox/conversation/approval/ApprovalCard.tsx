@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { use, useState } from 'react';
 
 import { ApprovalAction } from '@/components/features/inbox/conversation/approval/ApprovalAction';
 import { ApprovalControls } from '@/components/features/inbox/conversation/approval/ApprovalControls';
@@ -15,6 +15,7 @@ import {
   blanked,
   differs,
 } from '@/lib/approval';
+import { DockedContext } from '@/lib/decision-tray';
 
 type ApprovalCardProps = {
   approval: Approval;
@@ -59,6 +60,7 @@ export function ApprovalCard({
 
   const { handlers, keyed } = useApproveKey({
     mode,
+    docked: use(DockedContext)?.active ?? false,
     ready: Boolean(deciding) && !pending,
     blank,
     onlyFor,

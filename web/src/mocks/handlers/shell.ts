@@ -3,6 +3,7 @@ import { pageOf } from '@/mocks/paging';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import { avatars, WORKSPACE_AVATAR } from '@/mocks/world/avatars';
+import { pullRequestStateOf } from '@/mocks/world/pull-request-states';
 import { runsOfAnyTask } from '@/mocks/world/run-stories';
 import { settingsWorld } from '@/mocks/world/settings';
 
@@ -85,4 +86,18 @@ export const shellHandlers = [
   api.get('/teams/:teamId/tasks/:taskId/runs', ({ params }) =>
     json(runsOfAnyTask(String(params.taskId))),
   ),
+
+  api.get('/teams/:teamId/tasks/:taskId/pull-requests', ({ params }) => {
+    const task = world().tasks[String(params.teamId)]?.find(
+      (each) => each.id === String(params.taskId),
+    );
+    return task
+      ? json(
+          task.pullRequests.map((url) => ({
+            url,
+            state: pullRequestStateOf(url, task.finished),
+          })),
+        )
+      : notFound();
+  }),
 ];

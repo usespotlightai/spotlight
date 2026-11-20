@@ -84,6 +84,9 @@ export const claimCardTitleOf = (
 export const claimCardLabel = (claim: number): string =>
   `Disagreement on claim ${claim + 1}`;
 
+export const claimDecisionId = (claim: number): string =>
+  `judge-disagreement:claim-${claim}`;
+
 const factOf = (disagreement: JudgeDisagreement): string => {
   switch (disagreement.labelFrom) {
     case 'accepted':
