@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as pause } from 'node:timers/promises';
 
 import { CauseCarrier } from '@platform/events/cause-carrier';
 import {
@@ -212,9 +213,6 @@ const keyOf = (subscriber: string, marker: string): string =>
 const bumped = (counts: Map<string, number>, key: string): void => {
   counts.set(key, (counts.get(key) ?? 0) + 1);
 };
-
-const pause = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 let database: TestDatabase;
 let context: DrizzleContext;

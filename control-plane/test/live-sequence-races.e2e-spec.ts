@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { setTimeout as waited } from 'node:timers/promises';
 
 import type { MessageEvent } from '@nestjs/common';
 import { CauseCarrier } from '@platform/events/cause-carrier';
@@ -216,9 +217,6 @@ const positionIn = (
     ? { channel, sequence }
     : null;
 };
-
-const waited = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const writing = async (
   outbox: EventOutbox,
