@@ -1,17 +1,10 @@
+import { MovedOnFooter } from '@/components/features/runs/MovedOnFooter';
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
 import { heldByOther } from '@/lib/hold';
-import {
-  newestRunAt,
-  runPath,
-  stoppable,
-  type TeamRun,
-  waitsOnPerson,
-} from '@/lib/run';
+import { stoppable, type TeamRun, waitsOnPerson } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
@@ -37,13 +30,8 @@ export function RunFooter({
     teamId,
     conversation?.taskId,
   );
-  const { data: runs } = useTaskRuns(teamId, conversation?.taskId);
   const me = useMe();
   const heldByTeammate = heldByOther(task?.hold, me?.id);
-  const movedOn = Boolean(
-    current && run.station && current.id !== run.station.id,
-  );
-  const there = movedOn && current ? newestRunAt(runs ?? [], current.id) : null;
 
   if (heldByTeammate) {
     return (
@@ -78,38 +66,17 @@ export function RunFooter({
     );
   }
 
-  if (current && there) {
+  if (current && run.station && current.id !== run.station.id) {
     return (
-      <RunComposer
+      <MovedOnFooter
         slug={slug}
         teamId={teamId}
-        runId={there.id}
         taskId={conversation?.taskId}
-        station={current.name}
-        stationId={current.id}
-        running={stoppable(there)}
-        answering={waitsOnPerson(there)}
+        runId={run.id}
+        latest={latest}
+        current={current}
         onSent={onSent}
       />
-    );
-  }
-
-  if (current && movedOn) {
-    return (
-      <p className="pb-5 text-center text-muted-foreground text-xs">
-        The task has moved to{' '}
-        {latest.id === run.id ? (
-          <strong>{current.name}</strong>
-        ) : (
-          <TrailLink
-            to={runPath(slug, teamId, latest.id)}
-            className="font-semibold underline-offset-4 hover:text-foreground hover:underline"
-          >
-            {current.name}
-          </TrailLink>
-        )}
-        . Messages here reach no one.
-      </p>
     );
   }
 

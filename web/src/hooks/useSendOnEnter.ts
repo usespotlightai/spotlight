@@ -15,8 +15,9 @@ export function useSendOnEnter(send: () => void, blank = false) {
           if (event?.shiftKey) {
             return false;
           }
-          // An empty text bar leaves Mod+Enter to the page, so it can approve a docked approval.
-          if (event && (event.metaKey || event.ctrlKey) && empty()) {
+          const leavesToPage =
+            event !== null && (event.metaKey || event.ctrlKey) && empty();
+          if (leavesToPage) {
             return true;
           }
           event?.preventDefault();

@@ -179,6 +179,18 @@ describe('DecisionTray', () => {
     expect(trayShows('Decide connection')).toBeVisible();
   });
 
+  it('opens again on a decision that comes back, and shows it', async () => {
+    const user = userEvent.setup();
+    const shown = render(<Docking decisions={[APPROVAL, CONNECTION]} />);
+    shown.rerender(<Docking decisions={[CONNECTION]} />);
+    await user.click(screen.getByRole('button', { name: 'Collapse' }));
+
+    shown.rerender(<Docking decisions={[APPROVAL, CONNECTION]} />);
+
+    expect(tray()).toBeVisible();
+    expect(trayShows('Decide approval')).toBeVisible();
+  });
+
   it('moves a decided decision back to the thread', () => {
     const shown = render(<Docking decisions={[APPROVAL, CONNECTION]} />);
 

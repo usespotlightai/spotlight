@@ -9,10 +9,15 @@ export function useDecisionTray(
   const [open, setOpen] = useState(true);
   const [at, setAt] = useState<string | null>(null);
   const [cover, setCover] = useState(0);
+  const ids = new Set(decisions.map((decision) => decision.id));
   const fresh = decisions.find((decision) => !known.has(decision.id));
+  const left = [...known].some((id) => !ids.has(id));
+
+  if (fresh || left) {
+    setKnown(ids);
+  }
 
   if (fresh) {
-    setKnown(new Set([...known, ...decisions.map((decision) => decision.id)]));
     setOpen(true);
     setAt(fresh.id);
   }

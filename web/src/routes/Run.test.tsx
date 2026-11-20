@@ -227,7 +227,7 @@ const renderRun = (client = new QueryClient()) =>
 describe('Run', () => {
   beforeEach(() => {
     taskStation.mockReturnValue({});
-    taskRuns.mockReturnValue(undefined);
+    taskRuns.mockReturnValue([]);
     triedToStart.mockReturnValue(false);
     resumption.mockReset();
     send.mockReset();
@@ -764,6 +764,21 @@ describe('Run', () => {
       ).toHaveTextContent('The task has moved to Review. Messages here');
       expect(
         screen.queryByRole('textbox', { name: 'Message Implementation' }),
+      ).toBeNull();
+    });
+
+    it('says nothing about the station the task moved to until its runs load', () => {
+      taskStation.mockReturnValue(left);
+      taskRuns.mockReturnValue(undefined);
+
+      renderRun();
+
+      expect(screen.queryByText(/Messages here reach no one./)).toBeNull();
+      expect(
+        screen.queryByRole('textbox', { name: 'Message Implementation' }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole('textbox', { name: 'Send it back to Review' }),
       ).toBeNull();
     });
 
