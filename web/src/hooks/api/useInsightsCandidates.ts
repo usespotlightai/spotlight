@@ -1,19 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { readReplayedCandidates } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';
+import { keepTeamPeriod } from '@/lib/query';
 
 const insightsCandidatesKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'candidates', teamId ?? null, period] as const,
 };
 
-export function useInsightsCandidates(
+const insightsCandidatesQuery = (
   teamId: string | undefined,
   period: InsightsPeriod,
-) {
-  return useQuery({
+) =>
+  queryOptions({
     queryKey: insightsCandidatesKeys.forTeam(teamId, period),
     enabled: Boolean(teamId),
     queryFn: async (): Promise<InsightsCandidates> => {
@@ -24,5 +25,14 @@ export function useInsightsCandidates(
       });
       return data;
     },
+  });
+
+export function useInsightsCandidates(
+  teamId: string | undefined,
+  period: InsightsPeriod,
+) {
+  return useQuery({
+    ...insightsCandidatesQuery(teamId, period),
+    placeholderData: keepTeamPeriod(teamId),
   });
 }

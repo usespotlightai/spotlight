@@ -43,7 +43,7 @@ export const stationVisitsOfOpened = (team: TeamInPeriod): SQL => {
       from (${ranOfOpened(team)}) as facts
       group by facts.task_id, facts.station_id
     ),
-    answered as (
+    answered as materialized (
       select waits.task_id, waits.station_id, sum(${answerMs}) as inbox
       from ${inboxWaits(team, lookback.from, lookback.to)}
       where waits.task_id in (select opened.task_id from opened)

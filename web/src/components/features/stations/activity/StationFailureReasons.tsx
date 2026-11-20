@@ -12,7 +12,7 @@ import {
 } from '@/lib/insights';
 import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
 
-const FAILURES_TITLE = 'Why runs failed';
+export const FAILURES_TITLE = 'Why runs failed';
 
 type StationFailureReasonsProps = {
   slug: string;

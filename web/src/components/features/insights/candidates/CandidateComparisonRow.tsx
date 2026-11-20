@@ -73,7 +73,11 @@ export function CandidateComparisonRow({
             </div>
           </div>
 
-          <ClampedCell expansion={expansion} pinned={wide}>
+          <ClampedCell
+            expansion={expansion}
+            pinned={wide}
+            preview={<ConfigPlan entries={entries} firstLine />}
+          >
             {changes.length > 0 && <ConfigPlan entries={entries} />}
           </ClampedCell>
 
@@ -131,7 +135,7 @@ export function CandidateComparisonRow({
           )}
 
           {wide && (
-            <RowDetail className="col-[2/-1]">
+            <RowDetail expansion={expansion} className="col-[2/-1]">
               <ConfigPlan entries={entries} />
             </RowDetail>
           )}

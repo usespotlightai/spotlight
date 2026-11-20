@@ -1,14 +1,40 @@
-import { useId, useState } from 'react';
+import { use, useId, useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { FoldedVisitNotes } from '@/components/features/inbox/conversation/FoldedVisitNotes';
 import { ThreadMessage } from '@/components/features/inbox/conversation/ThreadMessage';
 import { Collapsible } from '@/components/shared/Collapsible';
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
+import { usePrefetchTaskNotes } from '@/hooks/api/useTaskNotes';
+import { useOpenIntent } from '@/hooks/useOpenIntent';
 import { previewOf } from '@/lib/folded-visit';
-import type { ConversationItem, FoldedVisit, RunJournal } from '@/lib/inbox';
+import type {
+  ConversationItem,
+  FoldedVisit,
+  JournalledRun,
+  RunJournal,
+} from '@/lib/inbox';
+import { JournalDemandContext } from '@/lib/journal-demand';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
+
+const AVATAR_ROOM = '-mr-2 pr-2';
+
+const runsDuring = (
+  runs: readonly JournalledRun[],
+  visit: FoldedVisit,
+): string[] => {
+  const from = Date.parse(visit.first.at);
+  const until = Date.parse(visit.endedAt);
+  const during = runs
+    .filter((run) => {
+      const at = Date.parse(run.createdAt);
+      return at >= from && at <= until;
+    })
+    .map((run) => run.runId);
+
+  return visit.first.runId ? [visit.first.runId, ...during] : during;
+};
 
 type FoldedVisitRowProps = {
   visit: FoldedVisit;
@@ -20,12 +46,24 @@ export function FoldedVisitRow({ visit, item, worked }: FoldedVisitRowProps) {
   const [open, setOpen] = useState(false);
   const shown = useId();
   const { first, answer } = visit;
+  const prefetch = usePrefetchTaskNotes();
+  const journals = use(JournalDemandContext);
+  const intent = useOpenIntent(() => {
+    prefetch({
+      teamId: item.teamId,
+      taskId: item.taskId,
+      from: first.position,
+      to: visit.to,
+    });
+    journals.want(runsDuring(journals.runs, visit));
+  });
 
   return (
     <div data-slot="folded-visit" className="flex flex-col">
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        {...intent}
         aria-expanded={open}
         aria-controls={shown}
         className="-mx-2 flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-10"
@@ -49,17 +87,19 @@ export function FoldedVisitRow({ visit, item, worked }: FoldedVisitRowProps) {
         <ExpandChevron open={open} className="shrink-0 text-muted-foreground" />
       </button>
 
-      {answer && !open && (
-        <div className="pt-2 pb-3 pl-6">
-          <ThreadMessage note={answer} teamId={item.teamId} />
-        </div>
-      )}
-
-      <Collapsible open={open} appear={false} lazy>
+      <Collapsible open={open} appear={false} lazy className={AVATAR_ROOM}>
         <div id={shown}>
           <FoldedVisitNotes visit={visit} item={item} worked={worked} />
         </div>
       </Collapsible>
+
+      {answer && (
+        <Collapsible open={!open} appear={false} lazy className={AVATAR_ROOM}>
+          <div className="pt-2 pb-3 pl-6">
+            <ThreadMessage note={answer} teamId={item.teamId} />
+          </div>
+        </Collapsible>
+      )}
     </div>
   );
 }

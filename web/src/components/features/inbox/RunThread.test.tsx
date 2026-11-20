@@ -7,6 +7,9 @@ import type { RunNotes } from '@/lib/run-notes';
 
 const inFlight = vi.fn((): unknown[] => []);
 
+vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
+  useTaskFooterLoading: () => false,
+}));
 vi.mock('@/hooks/api/useSendMessage', () => ({
   useMessagesInFlight: () => inFlight(),
 }));

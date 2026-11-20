@@ -2,30 +2,26 @@ import { memo, useMemo } from 'react';
 
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
-import { ClampedCell } from '@/components/shared/nested-table/ClampedCell';
-import { ExpandingRow } from '@/components/shared/nested-table/ExpandingRow';
-import { ExpandToggle } from '@/components/shared/nested-table/ExpandToggle';
 import {
   EDGE_INDENT,
+  LEAD_CELL,
   ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { RowDetail } from '@/components/shared/nested-table/RowDetail';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useBeforeAfterActions } from '@/lib/before-after-panel';
-import { configPlan, hasTextDiff } from '@/lib/config-plan';
+import { configPlan } from '@/lib/config-plan';
 import { formatCount, formatStation, type StationNames } from '@/lib/insights';
 import type { ChangeMarker } from '@/lib/insights-changes';
 import { formatDay } from '@/lib/judge';
-import { pillClass } from '@/lib/pill';
 import { configChangesOf } from '@/lib/station-config';
 import { linePath } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
 const LINK_TOUCH_TARGET = 'pointer-coarse:-my-2 pointer-coarse:py-2';
 
-const PILL_TOUCH_TARGET =
-  'relative pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:-inset-y-2';
+const ABOVE_ROW = 'relative z-10';
 
 type ChangeMarkerRowProps = {
   slug: string;
@@ -47,81 +43,70 @@ export const ChangeMarkerRow = memo(function ChangeMarkerRow({
     () => configPlan(configChangesOf(marker.changes)),
     [marker.changes],
   );
-  const wide = hasTextDiff(entries);
+  const station = formatStation(names, marker.stationId);
+  const day = formatDay(marker.firstRunAt.slice(0, 10));
 
   return (
-    <ExpandingRow slot="change-marker" className={ROW_DIVIDER}>
-      {(expansion) => (
-        <>
-          <div
-            className={cn(
-              'col-span-full flex min-w-0 tabular-nums @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
-              EDGE_INDENT,
-            )}
-          >
-            <ExpandToggle expansion={expansion}>
-              {formatDay(marker.firstRunAt.slice(0, 10))}
-            </ExpandToggle>
-          </div>
-
-          <TrailLink
-            to={linePath(slug, teamId, marker.lineId)}
-            className={cn(
-              'min-w-0 truncate text-muted-foreground hover:text-foreground hover:underline',
-              LINK_TOUCH_TARGET,
-            )}
-          >
-            {names.get(marker.stationId)?.lineName ?? 'Removed line'}
-          </TrailLink>
-
-          <InsightsLink
-            tab="stations"
-            filter={{ stationId: marker.stationId }}
-            className={cn(
-              'min-w-0 truncate text-foreground hover:underline',
-              LINK_TOUCH_TARGET,
-            )}
-          >
-            {formatStation(names, marker.stationId)}
-          </InsightsLink>
-
-          <ClampedCell expansion={expansion} pinned={wide}>
-            {marker.changes.length > 0 ? (
-              <ConfigPlan entries={entries} />
-            ) : (
-              <p className="text-muted-foreground">Config not on record</p>
-            )}
-          </ClampedCell>
-
-          <NestedCell heading="Runs before">
-            {formatCount(marker.before.runs)}
-          </NestedCell>
-          <NestedCell heading="Runs after">
-            {formatCount(marker.after.runs)}
-          </NestedCell>
-
-          <button
-            type="button"
-            aria-pressed={shown}
-            onClick={() => (shown ? close() : show(marker))}
-            className={pillClass(
-              shown ? 'default' : 'outline',
-              cn(
-                '-my-0.5 justify-self-start whitespace-nowrap @4xl:justify-self-end @lg:group-data-compact/nested:justify-self-end',
-                PILL_TOUCH_TARGET,
-              ),
-            )}
-          >
-            Impact
-          </button>
-
-          {wide && (
-            <RowDetail className="col-[4/-1]">
-              <ConfigPlan entries={entries} />
-            </RowDetail>
-          )}
-        </>
+    <li
+      data-slot="change-marker"
+      className={cn(
+        TABLE_ROW,
+        ROW_DIVIDER,
+        'cursor-pointer pointer-coarse:min-h-11',
+        'has-[[data-pick]:focus-visible]:ring-1 has-[[data-pick]:focus-visible]:ring-primary has-[[data-pick]:focus-visible]:ring-inset',
+        shown && 'bg-selected hover:bg-selected dark:hover:bg-selected',
       )}
-    </ExpandingRow>
+    >
+      <div className={cn(LEAD_CELL, EDGE_INDENT)}>
+        <button
+          type="button"
+          data-pick
+          aria-pressed={shown}
+          aria-label={`Impact of the ${station} change, first run ${day}`}
+          onClick={() => (shown ? close() : show(marker))}
+          className="text-left text-foreground tabular-nums outline-none after:absolute after:inset-0"
+        >
+          {day}
+        </button>
+      </div>
+
+      <TrailLink
+        to={linePath(slug, teamId, marker.lineId)}
+        className={cn(
+          'min-w-0 truncate text-muted-foreground hover:text-foreground hover:underline',
+          ABOVE_ROW,
+          LINK_TOUCH_TARGET,
+        )}
+      >
+        {names.get(marker.stationId)?.lineName ?? 'Removed line'}
+      </TrailLink>
+
+      <InsightsLink
+        tab="stations"
+        filter={{ stationId: marker.stationId }}
+        className={cn(
+          'min-w-0 truncate text-foreground hover:underline',
+          ABOVE_ROW,
+          LINK_TOUCH_TARGET,
+        )}
+      >
+        {station}
+      </InsightsLink>
+
+      <div className="col-span-full max-h-4 min-w-0 overflow-hidden @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
+        {marker.changes.length > 0 ? (
+          <ConfigPlan entries={entries} firstLine />
+        ) : (
+          <p className="text-muted-foreground">Config not on record</p>
+        )}
+      </div>
+
+      <NestedCell heading="Runs before">
+        {formatCount(marker.before.runs)}
+      </NestedCell>
+      <NestedCell heading="Runs after">
+        {formatCount(marker.after.runs)}
+      </NestedCell>
+    </li>
   );
 });

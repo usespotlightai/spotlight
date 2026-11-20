@@ -355,8 +355,7 @@ describe('the Candidates tab', () => {
     const detail = row('sonnet-terse-prompt').querySelector(
       '[data-slot="row-detail"]',
     ) as HTMLElement;
-    expect(within(detail).getByText('Be thorough.')).toBeInTheDocument();
-    expect(within(detail).getByText('Be brief.')).toBeInTheDocument();
+    expect(within(detail).queryByText('Be thorough.')).toBeNull();
     expect(
       row('opus-with-migrations-skill').querySelector(
         '[data-slot="row-detail"]',
@@ -366,6 +365,8 @@ describe('the Candidates tab', () => {
     const name = screen.getByRole('button', { name: 'sonnet-terse-prompt' });
     await userEvent.click(name);
     expect(row('sonnet-terse-prompt')).toHaveAttribute('data-expanded', 'true');
+    expect(within(detail).getByText('Be thorough.')).toBeInTheDocument();
+    expect(within(detail).getByText('Be brief.')).toBeInTheDocument();
 
     await userEvent.click(name);
     expect(name).toHaveAttribute('aria-expanded', 'false');

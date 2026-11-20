@@ -18,6 +18,9 @@ const refetchConversation = vi.fn();
 const journal = vi.fn<(...args: unknown[]) => unknown>();
 const journalFailing = vi.fn();
 
+vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
+  useTaskFooterLoading: () => false,
+}));
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   teamRunKeys: { forTeam: () => ['runs'] },
   useTeamRun: (_teamId: string, runId: string) => ({

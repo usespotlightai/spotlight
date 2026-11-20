@@ -1,6 +1,7 @@
 import { MessageSquare } from 'lucide-react';
 
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
+import { usePrefetchChatJournal } from '@/hooks/api/useChatJournal';
 import { useMarkInboxChatRead } from '@/hooks/api/useMarkInboxChatRead';
 import { useResolveAction } from '@/hooks/useResolveAction';
 import { chatPreviewOf, type InboxChat, inboxChatPath } from '@/lib/inbox';
@@ -13,11 +14,13 @@ type ChatRowProps = {
 export function ChatRow({ slug, chat }: ChatRowProps) {
   const resolve = useResolveAction(slug, chat);
   const markRead = useMarkInboxChatRead();
+  const prefetch = usePrefetchChatJournal();
 
   return (
     <InboxRowFrame
       to={inboxChatPath(slug, chat.teamId, chat.id)}
       onOpen={() => markRead.mutate({ slug, chatId: chat.id })}
+      onIntent={() => prefetch(chat.teamId, chat.id)}
       icon={
         <MessageSquare
           aria-hidden

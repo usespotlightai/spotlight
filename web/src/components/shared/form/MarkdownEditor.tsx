@@ -20,6 +20,12 @@ import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPl
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { HeadingNode, QuoteNode, RichTextExtension } from '@lexical/rich-text';
 import {
+  TableCellNode,
+  TableExtension,
+  TableNode,
+  TableRowNode,
+} from '@lexical/table';
+import {
   configExtension,
   defineExtension,
   type EditorThemeClasses,
@@ -27,6 +33,7 @@ import {
 import { useState } from 'react';
 
 import { useShownMarkdown } from '@/hooks/useShownMarkdown';
+import { MARKDOWN } from '@/lib/markdown-table';
 import { cn } from '@/lib/utils';
 
 const NODES = [
@@ -38,6 +45,9 @@ const NODES = [
   CodeHighlightNode,
   LinkNode,
   AutoLinkNode,
+  TableNode,
+  TableRowNode,
+  TableCellNode,
 ];
 
 const URL_MATCHERS = [
@@ -67,6 +77,11 @@ const SM: EditorThemeClasses = {
   },
   paragraph: 'text-foreground text-sm leading-5',
   quote: 'my-2 border-border border-l-2 pl-3 text-muted-foreground text-sm',
+  table: 'border-collapse text-sm',
+  tableCell:
+    'border-[0.5px] border-border px-2 py-1 text-left align-top font-normal',
+  tableCellHeader: 'bg-muted font-medium',
+  tableScrollableWrapper: 'my-2 overflow-x-auto',
   text: TEXT,
 };
 
@@ -87,6 +102,11 @@ const XS: EditorThemeClasses = {
   paragraph: 'text-xs leading-5',
   quote:
     'border-border border-l-2 pl-2 text-muted-foreground text-xs leading-5',
+  table: 'border-collapse text-xs',
+  tableCell:
+    'border-[0.5px] border-border px-1.5 py-0.5 text-left align-top font-normal',
+  tableCellHeader: 'bg-muted font-medium',
+  tableScrollableWrapper: 'my-1 overflow-x-auto',
   text: TEXT,
 };
 
@@ -142,11 +162,16 @@ export function MarkdownEditor({
         configExtension(AutoLinkExtension, { matchers: URL_MATCHERS }),
         configExtension(ClickableLinkExtension, { newTab: true }),
         HistoryExtension,
+        configExtension(TableExtension, {
+          hasCellMerge: false,
+          hasCellBackgroundColor: false,
+          hasTabHandler: !readOnly,
+        }),
       ],
       $initialEditorState: () =>
         $convertFromMarkdownString(
           initialValue,
-          TRANSFORMERS,
+          MARKDOWN,
           undefined,
           false,
           Boolean(readOnly && !keepLineBreaks),
@@ -190,7 +215,7 @@ export function MarkdownEditor({
           <OnChangePlugin
             ignoreSelectionChange
             onChange={(state) =>
-              state.read(() => onChange($convertToMarkdownString(TRANSFORMERS)))
+              state.read(() => onChange($convertToMarkdownString(MARKDOWN)))
             }
           />
         )}

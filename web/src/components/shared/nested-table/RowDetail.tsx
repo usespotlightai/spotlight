@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
 
+import type { Expansion } from '@/hooks/useExpandingRow';
 import { cn } from '@/lib/utils';
 
 type RowDetailProps = {
+  expansion: Expansion;
   className?: string;
   children: ReactNode;
 };
 
-export function RowDetail({ className, children }: RowDetailProps) {
+export function RowDetail({ expansion, className, children }: RowDetailProps) {
   return (
     <div
       data-slot="row-detail"
@@ -16,7 +18,7 @@ export function RowDetail({ className, children }: RowDetailProps) {
         className,
       )}
     >
-      {children}
+      {!expansion.clamped && children}
     </div>
   );
 }

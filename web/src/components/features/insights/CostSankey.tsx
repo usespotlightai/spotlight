@@ -46,7 +46,7 @@ const nodeFor =
           x={x}
           y={y}
           width={width}
-          height={height}
+          height={Math.max(0, height)}
           fill="var(--chart-primary)"
           rx={1}
         />

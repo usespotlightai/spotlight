@@ -11,6 +11,7 @@ import type {
   TrendPointResponseDto,
 } from '@/lib/api';
 import type { LineRange } from '@/lib/changes';
+import { formatDate } from '@/lib/date-format';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
@@ -215,7 +216,7 @@ export const scoreVisibility = (
       };
 
 export const formatDay = (day: string): string =>
-  new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
+  formatDate(new Date(`${day}T00:00:00Z`), {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',

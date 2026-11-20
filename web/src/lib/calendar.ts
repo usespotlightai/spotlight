@@ -1,3 +1,5 @@
+import { formatDate } from '@/lib/date-format';
+
 export type CalendarPage = {
   readonly month: string;
   readonly day: string;
@@ -7,7 +9,7 @@ export type CalendarPage = {
 export const calendarPage = (day: string): CalendarPage => {
   const at = new Date(`${day}T00:00:00Z`);
   const format = (options: Intl.DateTimeFormatOptions): string =>
-    at.toLocaleDateString(undefined, { ...options, timeZone: 'UTC' });
+    formatDate(at, { ...options, timeZone: 'UTC' });
 
   return {
     month: format({ month: 'short' }).toUpperCase(),
