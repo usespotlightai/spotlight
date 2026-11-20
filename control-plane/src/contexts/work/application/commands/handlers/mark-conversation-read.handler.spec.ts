@@ -97,6 +97,7 @@ const tasks = (found: Task | null) =>
     settingUp: vi.fn(async () => []),
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>

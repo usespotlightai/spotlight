@@ -132,6 +132,7 @@ describe('mayLand', () => {
       startedAt: '2026-08-04T09:15:00.000Z',
       runId: null,
       heldMoveTo: null,
+      chatId: null,
     },
   };
 
@@ -261,6 +262,7 @@ describe('holdsOnMessage', () => {
             startedAt: '2026-08-04T09:15:00.000Z',
             runId: null,
             heldMoveTo: null,
+            chatId: null,
           },
         },
         worked,

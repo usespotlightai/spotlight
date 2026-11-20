@@ -46,6 +46,10 @@ export class TaskViews implements TaskViewsPort {
     );
   }
 
+  async ofNew(task: Task): Promise<TaskViewDto | null> {
+    return this.viewOf(task, null, task.stationId);
+  }
+
   async ofPullRequest(
     workspaceId: string,
     pullRequest: string,

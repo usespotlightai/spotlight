@@ -37,6 +37,7 @@ describe('TaskState', () => {
             startedAt: '2026-08-28T10:00:00.000Z',
             runId: 'run_1',
             heldMoveTo: null,
+            chatId: null,
           },
         })}
       />,

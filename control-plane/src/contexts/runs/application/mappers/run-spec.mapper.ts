@@ -271,9 +271,15 @@ const parsedResume = (raw: unknown): RunResume => {
           'whether it takes up a paused conversation',
         );
 
+  const followUp = optionalStringAt(
+    input.followUp,
+    'what a carried-on conversation hears',
+  );
+
   return {
     ...(sessionId !== undefined ? { sessionId } : {}),
     ...(resumeSession ? { resumeSession } : {}),
+    ...(followUp ? { followUp } : {}),
   };
 };
 

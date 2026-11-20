@@ -43,6 +43,7 @@ interface OpenHoldRow {
   readonly startedAt: Date;
   readonly turnRunIds: readonly string[];
   readonly heldMoveTo: string | null;
+  readonly chatId: string | null;
 }
 
 type HoldPerson = TaskHoldSummary['by'];
@@ -57,6 +58,7 @@ const holdOf = (
         startedAt: row.startedAt,
         runId: row.turnRunIds[row.turnRunIds.length - 1] ?? null,
         heldMoveTo: row.heldMoveTo,
+        chatId: row.chatId,
       }
     : null;
 
@@ -137,6 +139,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
           startedAt: taskHold.startedAt,
           turnRunIds: taskHold.turnRunIds,
           heldMoveTo: taskHold.heldMoveTo,
+          chatId: taskHold.chatId,
         },
       })
       .from(task)

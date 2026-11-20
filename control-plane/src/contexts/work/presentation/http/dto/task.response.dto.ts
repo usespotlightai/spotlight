@@ -64,16 +64,26 @@ export class TaskHoldResponseDto {
   })
   readonly heldMoveTo: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The agent chat that holds the task while it works on the pull request itself',
+  })
+  readonly chatId: string | null;
+
   constructor(
     by: TaskPersonResponseDto,
     startedAt: string,
     runId: string | null,
     heldMoveTo: string | null,
+    chatId: string | null,
   ) {
     this.by = by;
     this.startedAt = startedAt;
     this.runId = runId;
     this.heldMoveTo = heldMoveTo;
+    this.chatId = chatId;
   }
 }
 

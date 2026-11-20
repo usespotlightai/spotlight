@@ -11,7 +11,7 @@ export interface ChatActivity {
 
 export interface ChatReading {
   readonly readAt: Date | null;
-  readonly lastProposedAt: Date | null;
+  readonly lastNoticeAt: Date | null;
 }
 
 export interface ChatInboxFacts extends ChatActivity, ChatReading {
@@ -28,8 +28,8 @@ export const chatRunning = (activity: ChatActivity): boolean =>
   activity.hasCurrentRun || activity.waiting;
 
 export const chatUnread = (reading: ChatReading): boolean =>
-  reading.lastProposedAt !== null &&
-  (reading.readAt === null || reading.lastProposedAt > reading.readAt);
+  reading.lastNoticeAt !== null &&
+  (reading.readAt === null || reading.lastNoticeAt > reading.readAt);
 
 const chatResolved = (
   facts: ChatActivity & { readonly resolvedAt: Date | null },
