@@ -45,7 +45,7 @@ export class HostCallSecretsController {
     summary:
       'The secrets of a claimed call, sealed to the egress that sends it',
     description:
-      'Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Values that Spotlight stores come back sealed to the recipient for this call alone. For a value in an external store, the response gives the external reference that egress reads.',
+      'Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Each value comes back sealed to the recipient for this call alone.',
   })
   @ApiOkResponse({ type: EgressSecretsResponseDto })
   @ApiUnauthorizedResponse({ description: WRONG_SECRETS_TOKEN })

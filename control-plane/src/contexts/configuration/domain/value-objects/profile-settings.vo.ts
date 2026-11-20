@@ -7,8 +7,9 @@ import {
 } from '@configuration/domain/value-objects/permission-rule.vo';
 import { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
+import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type RawPermissions = Readonly<Record<PermissionDecision, readonly string[]>>;
 
@@ -21,7 +22,23 @@ export interface RawSettings {
     readonly env: Readonly<Record<string, string>>;
   }[];
   readonly native: Readonly<Record<string, unknown>>;
+  readonly secrets: readonly string[];
 }
+
+const secretAt = (raw: string, at: number): SecretName => {
+  try {
+    return SecretName.of(raw);
+  } catch (error) {
+    if (error instanceof InvalidIdentifierError) {
+      throw new InvalidHarnessProfileError(
+        ['secrets', at],
+        `names secret ${raw}, but a secret name ${error.because}`,
+      );
+    }
+
+    throw error;
+  }
+};
 
 export class ProfileSettings {
   private readonly kind = 'profile-settings';
@@ -30,6 +47,7 @@ export class ProfileSettings {
     readonly rules: readonly PermissionRule[],
     readonly mcpServers: readonly McpServer[],
     readonly native: Readonly<Record<string, unknown>>,
+    readonly secrets: readonly SecretName[],
   ) {}
 
   static fromRaw(settings: RawSettings): ProfileSettings {
@@ -43,6 +61,7 @@ export class ProfileSettings {
         McpServer.of(server, at),
       ),
       native: settings.native,
+      secrets: settings.secrets.map((raw, at) => secretAt(raw, at)),
     });
   }
 
@@ -50,6 +69,7 @@ export class ProfileSettings {
     rules: readonly PermissionRule[];
     mcpServers: readonly McpServer[];
     native: Readonly<Record<string, unknown>>;
+    secrets: readonly SecretName[];
   }): ProfileSettings {
     input.rules.forEach((rule, at) => {
       const earlier = input.rules
@@ -77,12 +97,22 @@ export class ProfileSettings {
       }
     });
 
+    input.secrets.forEach((secret, at) => {
+      if (input.secrets.slice(0, at).some((each) => each.equals(secret))) {
+        throw new InvalidHarnessProfileError(
+          ['secrets', at],
+          `lists secret ${secret.value} twice`,
+        );
+      }
+    });
+
     return new ProfileSettings(
       Object.freeze([...input.rules]),
       Object.freeze([...input.mcpServers]),
       deepFrozen(
         JSON.parse(JSON.stringify(input.native)) as Record<string, unknown>,
       ),
+      Object.freeze([...input.secrets]),
     );
   }
 
@@ -95,14 +125,19 @@ export class ProfileSettings {
   }
 
   get secretReferences(): readonly SecretReference[] {
-    return this.mcpServers.flatMap((server, at) =>
-      server.injectedSecrets.map(({ variable, secret }) =>
-        SecretReference.at(
-          FieldPath.of(['mcpServers', at, 'env', variable]),
-          secret,
+    return [
+      ...this.mcpServers.flatMap((server, at) =>
+        server.injectedSecrets.map(({ variable, secret }) =>
+          SecretReference.at(
+            FieldPath.of(['mcpServers', at, 'env', variable]),
+            secret,
+          ),
         ),
       ),
-    );
+      ...this.secrets.map((secret, at) =>
+        SecretReference.at(FieldPath.of(['secrets', at]), secret),
+      ),
+    ];
   }
 
   uses(secret: SecretName): boolean {
@@ -127,6 +162,7 @@ export class ProfileSettings {
       ...this.permissions,
       mcpServers: this.mcpServers,
       native: this.native,
+      secrets: this.secrets.map((each) => each.value),
     };
   }
 }

@@ -1,6 +1,7 @@
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import type { LexicalEditor } from 'lexical';
-import { type RefObject, useEffect } from 'react';
+import type { RefObject } from 'react';
+
+import { useEditorHandle } from '@/hooks/useEditorHandle';
 
 type EditorHandleProps = {
   editorRef: RefObject<LexicalEditor | null>;
@@ -8,18 +9,7 @@ type EditorHandleProps = {
 };
 
 export function EditorHandle({ editorRef, editable }: EditorHandleProps) {
-  const [editor] = useLexicalComposerContext();
-
-  useEffect(() => {
-    editorRef.current = editor;
-    return () => {
-      editorRef.current = null;
-    };
-  }, [editor, editorRef]);
-
-  useEffect(() => {
-    editor.setEditable(editable);
-  }, [editor, editable]);
+  useEditorHandle(editorRef, editable);
 
   return null;
 }

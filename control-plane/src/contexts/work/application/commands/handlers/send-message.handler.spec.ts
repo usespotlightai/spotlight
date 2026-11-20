@@ -20,6 +20,7 @@ import type { LiveTaskDraftsPort } from '@work/application/ports/live-task-draft
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import { MessageSending } from '@work/application/services/message-sending.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
@@ -136,6 +137,20 @@ const sendMessage = (
     },
   };
 
+  const files = {
+    handedOver: async () => [],
+    takenIn: async () => undefined,
+  } as unknown as FilesLoader;
+  const drafts = new DraftSending(access, live, {
+    warn: () => undefined,
+  } as unknown as LoggerPort);
+  const tasks = {
+    find: vi.fn(async () => task),
+    save: vi.fn(async (each: Task) => {
+      saved = each;
+    }),
+  } as unknown as TaskRepository;
+
   return new SendMessageHandler(
     {
       find: vi.fn(async () => ({
@@ -148,26 +163,20 @@ const sendMessage = (
         },
       })),
     } as unknown as DispatchRepository,
-    {
-      find: vi.fn(async () => task),
-      save: vi.fn(async (each: Task) => {
-        saved = each;
-      }),
-    } as unknown as TaskRepository,
-    { findByStation: vi.fn(async () => line) } as unknown as LineMapsPort,
     { inTransaction: (work) => work() } satisfies TransactionPort,
-    dispatch,
-    { now: () => NOW } as ClockPort,
-    {
-      handedOver: async () => [],
-      takenIn: async () => undefined,
-    } as unknown as FilesLoader,
-    access,
-    new DraftSending(access, live, {
-      warn: () => undefined,
-    } as unknown as LoggerPort),
-    { of: async () => [] },
-    { generate: () => 'hold_1' },
+    files,
+    drafts,
+    new MessageSending(
+      tasks,
+      { findByStation: vi.fn(async () => line) } as unknown as LineMapsPort,
+      dispatch,
+      { now: () => NOW } as ClockPort,
+      files,
+      access,
+      drafts,
+      { of: async () => [] },
+      { generate: () => 'hold_1' },
+    ),
   ).execute(
     new SendMessageCommand(
       RUN.value,

@@ -24,6 +24,7 @@ import type {
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
+import { PullRequestOpeningHook } from '@work/application/services/pull-request-opening-hook';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
@@ -172,23 +173,26 @@ const opening = (
     { findByStation: async () => line } as unknown as LineMapsPort,
     pullRequests,
     { inTransaction: (work) => work() } satisfies TransactionPort,
-    {
-      of: async (taskId: string, runId: string | null) =>
-        over.viewed === false
-          ? null
-          : ({ taskId, runId, teamId: 'team_1' } as unknown as TaskViewDto),
-    } as unknown as TaskViewsPort,
-    {
-      listens: async (teamId, on) => {
-        listened.push([teamId, on]);
-        return over.listening ?? true;
+    new PullRequestOpeningHook(
+      {
+        of: async (taskId: string, runId: string | null) =>
+          over.viewed === false
+            ? null
+            : ({ taskId, runId, teamId: 'team_1' } as unknown as TaskViewDto),
+      } as unknown as TaskViewsPort,
+      {
+        listens: async (teamId, on) => {
+          listened.push([teamId, on]);
+          return over.listening ?? true;
+        },
+        before: async (_task, event) => {
+          hookCalls.push(event);
+          return over.decision ?? { kind: 'allowed' };
+        },
+        after: async () => {},
       },
-      before: async (_task, event) => {
-        hookCalls.push(event);
-        return over.decision ?? { kind: 'allowed' };
-      },
-      after: async () => {},
-    },
+      pullRequests,
+    ),
     { now: () => NOW, sleep: async () => {} },
   );
 

@@ -414,7 +414,7 @@ describe('WorkspaceMembers', () => {
     expect(requestedMembers).not.toHaveBeenCalledWith('acme');
   });
 
-  it('keeps the shape of the list while it loads', () => {
+  it('shows the members while they load, and pending invites only once there are some', () => {
     members.mockReturnValue(undefined);
     invites.mockReturnValue(undefined);
     showing();
@@ -423,8 +423,8 @@ describe('WorkspaceMembers', () => {
       screen.getByRole('status', { name: 'Loading the members' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('status', { name: 'Loading the pending invites' }),
-    ).toBeInTheDocument();
+      screen.queryByRole('status', { name: 'Loading the pending invites' }),
+    ).toBeNull();
   });
 
   it('says the members could not be loaded, and tries again on request', async () => {

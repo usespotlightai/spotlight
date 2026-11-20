@@ -340,6 +340,7 @@ let briefedAt: BriefingContext[] = [];
 let remembered: BriefingSelection = { briefed: [], omitted: [], folder: null };
 let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
+let awaitingValue: readonly string[] = [];
 
 const dispatch = async (
   station: Station,
@@ -375,6 +376,14 @@ const dispatch = async (
     },
     { inSavepoint: (work) => work() },
     new Sha256ContentHash(),
+    {
+      boundIn: async (_workspace, names) =>
+        names.map((name) => ({
+          name,
+          bindings: [],
+          awaitingValue: awaitingValue.includes(name),
+        })),
+    },
   );
   const working = existing ?? task(station.id.value);
   const line = lineWith(station, repositories);
@@ -398,6 +407,7 @@ const dispatch = async (
 
 describe('DispatchTask', () => {
   beforeEach(() => {
+    awaitingValue = [];
     readyAs = {};
     briefedAt = [];
     remembered = { briefed: [], omitted: [], folder: null };
@@ -660,6 +670,7 @@ describe('DispatchTask', () => {
       rules: [],
       mcpServers: [],
       native: {},
+      secrets: [],
     };
 
     const naming = (profile: string) =>
@@ -703,6 +714,7 @@ describe('DispatchTask', () => {
             },
           ],
           native: {},
+          secrets: [],
         },
       };
       readyAs = {
@@ -724,6 +736,28 @@ describe('DispatchTask', () => {
         [{ name: 'LINEAR_API_KEY', value: 'spotlight-egress:LINEAR_API_KEY' }],
       ]);
       expect(spec.injectedSecrets).toEqual(['LINEAR_API_KEY']);
+    });
+
+    it('fails the run, saying why, where a secret it injects has no value yet', async () => {
+      teamProfiles = {
+        careful,
+        linear: {
+          key: 'linear',
+          rules: [],
+          mcpServers: [],
+          native: {},
+          secrets: [],
+        },
+      };
+      readyAs = { injectedSecrets: [SecretName.of('LINEAR_API_KEY')] };
+      awaitingValue = ['LINEAR_API_KEY'];
+
+      const id = await dispatch(naming('linear'));
+
+      expect(id).not.toBeNull();
+      expect(refusedAs(queued[0])).toEqual([
+        'secret_awaiting_value: Secret LINEAR_API_KEY has no value. Station: Triage',
+      ]);
     });
 
     it('fails the run, saying why, where the team has no such profile', async () => {
@@ -1366,6 +1400,7 @@ describe('DispatchTask, the tools a run is told about', () => {
             },
           ],
           native: {},
+          secrets: [],
         },
       };
 

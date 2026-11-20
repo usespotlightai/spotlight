@@ -12,6 +12,7 @@ import { ViewPills } from '@/components/shared/ViewPills';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { usePrefetchTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { useListKeys } from '@/hooks/useListKeys';
@@ -32,6 +33,7 @@ const STORAGE_KEY = 'spotlight.collapsed-run-ages';
 const FILTER_KEY = 'spotlight.run-filter';
 
 export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
+  const prefetch = usePrefetchTaskJournal(slug);
   const runs = useTeamRuns(teamId);
   const ages = useCollapsed(STORAGE_KEY);
   const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUN_FILTER);
@@ -109,6 +111,9 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
                       teamId={teamId}
                       gutter
                       to={runPath(slug, teamId, run.id)}
+                      onIntent={() =>
+                        run.taskId && prefetch(run.taskId, [run.id])
+                      }
                       taskTitle={run.taskTitle}
                       reviewTo={
                         run.review

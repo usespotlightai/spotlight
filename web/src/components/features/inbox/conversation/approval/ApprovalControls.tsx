@@ -31,7 +31,7 @@ export function ApprovalControls({
   onDecide,
 }: ApprovalControlsProps) {
   if (!onDecide) {
-    return <ApprovalDecision approval={approval} pending={false} />;
+    return null;
   }
 
   if (mode === 'editing') {

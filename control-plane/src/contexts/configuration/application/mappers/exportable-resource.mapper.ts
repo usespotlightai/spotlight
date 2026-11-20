@@ -47,9 +47,7 @@ export const ExportableResourceMapper = {
       id: secret.id,
       address: secret.address,
       name: secret.name,
-      source: { ...secret.source },
       bindings: secret.bindings.map((each) => ({ ...each })),
-      storesValue: secret.storesValue,
       valueVersion: secret.valueVersion,
     };
   },
@@ -185,6 +183,7 @@ export const ExportableResourceMapper = {
         env: { ...each.env },
       })),
       native: profile.native,
+      secrets: [...profile.secrets],
       secretReferences: profile.secretReferences.map((each) => ({
         path: each.path,
         name: each.name,

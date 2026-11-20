@@ -196,7 +196,7 @@ func sharedEgress(t *testing.T) *shared {
 			return (&net.Dialer{}).DialContext(ctx, network, target.Listener.Addr().String())
 		},
 		RootCAs: certificates(target.Certificate()),
-	}, client, nil, quiet)
+	}, client, quiet)
 	if err != nil {
 		t.Fatal(err)
 	}

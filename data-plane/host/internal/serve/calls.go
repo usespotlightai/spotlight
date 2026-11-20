@@ -107,11 +107,10 @@ func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logge
 	}
 
 	config := protocol.EgressConfig{
-		URL:         h.now().SandboxURL,
-		Credential:  rand.Text(),
-		Allow:       h.now().Egress.Allow,
-		SecretAllow: h.now().Egress.SecretAllow,
-		Send:        &call,
+		URL:        h.now().SandboxURL,
+		Credential: rand.Text(),
+		Allow:      h.now().Egress.Allow,
+		Send:       &call,
 	}
 	if call.SecretsToken != "" {
 		config.SendSecrets = &protocol.CallSecrets{CallID: call.ID, Host: h.opts.HostID, Token: call.SecretsToken}

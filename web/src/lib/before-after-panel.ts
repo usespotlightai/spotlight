@@ -2,6 +2,8 @@ import { createContext, useContext, useMemo } from 'react';
 
 import type { ChangeAt } from '@/lib/insights-changes';
 
+export const PANEL_SLOT = 'before-after-panel';
+
 export interface BeforeAfterActions {
   show: (change: ChangeAt) => void;
   close: () => void;

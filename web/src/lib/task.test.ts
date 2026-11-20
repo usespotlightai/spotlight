@@ -27,6 +27,7 @@ const task = (id: string, stationId: string): Task => ({
   note: null,
   source: null,
   hold: null,
+  runNotStarted: null,
 });
 
 const board = [task('a', 'triage'), task('b', 'triage'), task('c', 'spec')];
@@ -132,6 +133,7 @@ describe('mayLand', () => {
       startedAt: '2026-08-04T09:15:00.000Z',
       runId: null,
       heldMoveTo: null,
+      chatId: null,
     },
   };
 
@@ -261,6 +263,7 @@ describe('holdsOnMessage', () => {
             startedAt: '2026-08-04T09:15:00.000Z',
             runId: null,
             heldMoveTo: null,
+            chatId: null,
           },
         },
         worked,

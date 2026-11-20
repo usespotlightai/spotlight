@@ -36,12 +36,7 @@ export function ChangeMarkerList({
           No station changed its config in this period.
         </p>
       ) : (
-        <NestedTable
-          label="Config changes"
-          headings={CHANGE_HEADINGS}
-          trailing
-          compact
-        >
+        <NestedTable label="Config changes" headings={CHANGE_HEADINGS} compact>
           {latestFirst.map((marker) => (
             <ChangeMarkerRow
               key={changeKey(marker)}

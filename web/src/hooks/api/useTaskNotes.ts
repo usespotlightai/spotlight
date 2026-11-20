@@ -1,4 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import {
+  QueryClientContext,
+  queryOptions,
+  useQuery,
+} from '@tanstack/react-query';
+import { useCallback, useContext } from 'react';
 
 import { listTaskNotes } from '@/lib/api';
 
@@ -14,8 +19,8 @@ type TaskNotesRange = {
   readonly to: number;
 };
 
-export function useTaskNotes({ teamId, taskId, from, to }: TaskNotesRange) {
-  return useQuery({
+const taskNotesQuery = ({ teamId, taskId, from, to }: TaskNotesRange) =>
+  queryOptions({
     queryKey: taskNoteKeys.between(taskId, from, to),
     enabled: Boolean(teamId),
     staleTime: Number.POSITIVE_INFINITY,
@@ -28,4 +33,20 @@ export function useTaskNotes({ teamId, taskId, from, to }: TaskNotesRange) {
       return data;
     },
   });
+
+export function useTaskNotes(range: TaskNotesRange) {
+  return useQuery(taskNotesQuery(range));
+}
+
+export function usePrefetchTaskNotes() {
+  const client = useContext(QueryClientContext);
+
+  return useCallback(
+    (range: TaskNotesRange) => {
+      if (client && range.teamId) {
+        client.query(taskNotesQuery(range)).catch(() => undefined);
+      }
+    },
+    [client],
+  );
 }

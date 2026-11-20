@@ -97,30 +97,34 @@ export class DispatchChat implements ChatDispatching {
       return null;
     }
 
-    const memories = resume.session
-      ? NOTHING_REMEMBERED
-      : await this.savepoint
-          .inSavepoint(() =>
-            this.memories.forBriefing({
-              teamId: chat.teamId,
-              lineId: null,
-              stationId: null,
-              repositories: chat.repositories,
-              about: chatWords(chat),
-              touched: async () => [],
-            }),
-          )
-          .catch((error: unknown) => {
-            this.logger.warn(
-              { err: error, chatId: chat.id.value },
-              'Briefing the chat without what the team remembers, which could not be read',
-            );
-            return NOTHING_REMEMBERED;
-          });
+    const memories = await this.savepoint
+      .inSavepoint(() =>
+        this.memories.forBriefing({
+          teamId: chat.teamId,
+          lineId: null,
+          stationId: null,
+          repositories: chat.repositories,
+          about: chatWords(chat),
+          touched: async () => [],
+        }),
+      )
+      .catch((error: unknown) => {
+        this.logger.warn(
+          { err: error, chatId: chat.id.value },
+          'Briefing the chat without what the team remembers, which could not be read',
+        );
+        return NOTHING_REMEMBERED;
+      });
     const offered = await this.extensions.offeredTo(chat);
-    const briefing = resume.session
+    const briefing = await this.briefed(
+      chat,
+      memories.briefed,
+      memories.folder,
+      offered,
+    );
+    const followUp = resume.session
       ? ChatBriefing.followUp(chat, handed)
-      : await this.briefed(chat, memories.briefed, memories.folder, offered);
+      : null;
 
     const order = runOrderOf({
       id,
@@ -159,7 +163,7 @@ export class DispatchChat implements ChatDispatching {
         ),
         briefing,
         handover: { options: [], noteLimit: 0 },
-        resume: RunSpecPartsMapper.resume(resume),
+        resume: RunSpecPartsMapper.resume(resume, followUp),
         manifest: [
           ...builtInToolsForChat({ settingUp: chat.setup !== null }).map(
             (each) => each.declared,

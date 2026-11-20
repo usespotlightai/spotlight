@@ -28,6 +28,7 @@ const summaries: TaskSummary[] = [
     note: null,
     source: null,
     hold: null,
+    runNotStarted: null,
   },
   {
     id: 'task_2',
@@ -46,6 +47,7 @@ const summaries: TaskSummary[] = [
     note: null,
     source: null,
     hold: null,
+    runNotStarted: null,
   },
 ];
 

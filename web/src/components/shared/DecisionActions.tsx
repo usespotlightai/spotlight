@@ -1,7 +1,9 @@
 import { Pencil, Undo2 } from 'lucide-react';
+import { use } from 'react';
 
 import { CopyIconAction } from '@/components/shared/CopyIconAction';
 import { IconAction } from '@/components/shared/IconAction';
+import { DockedContext } from '@/lib/decision-tray';
 
 type DecisionActionsProps = {
   copy: { text: string; label: string };
@@ -20,6 +22,8 @@ export function DecisionActions({
   restoreLabel,
   onRestore,
 }: DecisionActionsProps) {
+  const docked = use(DockedContext) !== null;
+
   return (
     <div className="flex items-center gap-0.5">
       {onRestore && (
@@ -45,7 +49,7 @@ export function DecisionActions({
         </IconAction>
       )}
 
-      <CopyIconAction text={copy.text} label={copy.label} />
+      {!docked && <CopyIconAction text={copy.text} label={copy.label} />}
     </div>
   );
 }

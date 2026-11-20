@@ -1,4 +1,8 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useQuery,
+} from '@tanstack/react-query';
 
 import { listInsightsTraces } from '@/lib/api';
 import type {
@@ -18,16 +22,14 @@ const insightsTraceKeys = {
 
 const POLL_MS = 10_000;
 
-export function useInsightsTraces(
+export const insightsTracesQuery = (
   teamId: string | undefined,
   range: string,
   filter: RunFilter,
-) {
-  return useQuery({
+) =>
+  queryOptions({
     queryKey: insightsTraceKeys.forTeam(teamId, range, filter),
     enabled: Boolean(teamId),
-    placeholderData: keepPreviousData,
-    refetchInterval: POLL_MS,
     queryFn: async (): Promise<InsightsTraces> => {
       const { data } = await listInsightsTraces({
         path: { teamId: teamId as string },
@@ -46,5 +48,16 @@ export function useInsightsTraces(
       });
       return data;
     },
+  });
+
+export function useInsightsTraces(
+  teamId: string | undefined,
+  range: string,
+  filter: RunFilter,
+) {
+  return useQuery({
+    ...insightsTracesQuery(teamId, range, filter),
+    placeholderData: keepPreviousData,
+    refetchInterval: POLL_MS,
   });
 }

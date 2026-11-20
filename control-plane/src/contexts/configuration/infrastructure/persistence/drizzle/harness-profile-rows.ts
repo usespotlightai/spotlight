@@ -20,6 +20,7 @@ const rawSettingsOf = (row: Row): RawSettings => ({
     env: server.env,
   })),
   native: row.native,
+  secrets: row.secrets,
 });
 
 export const storedProfileOf = (

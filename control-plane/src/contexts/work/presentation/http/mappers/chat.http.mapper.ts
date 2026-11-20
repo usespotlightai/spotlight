@@ -2,6 +2,7 @@ import type { ChatDto, ChatSummaryDto } from '@work/application/dto/chat.dto';
 import {
   ChatMessageResponseDto,
   ChatProposalResponseDto,
+  ChatPullRequestResponseDto,
   ChatResponseDto,
   ChatSetupResponseDto,
   ChatSummaryResponseDto,
@@ -70,6 +71,18 @@ export const ChatHttpMapper = {
                   message.proposal.description,
                   message.proposal.state,
                   message.proposal.taskId,
+                )
+              : null,
+            message.pullRequest
+              ? new ChatPullRequestResponseDto(
+                  message.pullRequest.taskId,
+                  message.pullRequest.url,
+                  message.pullRequest.state,
+                  message.pullRequest.lineName,
+                  message.pullRequest.stationName,
+                  message.pullRequest.stationColor,
+                  message.pullRequest.stationPosition,
+                  message.pullRequest.stationCount,
                 )
               : null,
           ),

@@ -12,6 +12,7 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { PULL_REQUEST } from '@work/domain/value-objects/built-in-tools';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type {
   MoveDenial,
@@ -145,6 +146,16 @@ export class LineMap {
 
   names(repository: Repository): boolean {
     return this.repositories.names(repository);
+  }
+
+  get pullRequestStation(): Station | null {
+    return (
+      this.stations.find(
+        (each) =>
+          each.isAgentStation &&
+          each.tools.some((tool) => tool.equals(PULL_REQUEST)),
+      ) ?? null
+    );
   }
 
   opening(name: RepositoryName | null): Repository {

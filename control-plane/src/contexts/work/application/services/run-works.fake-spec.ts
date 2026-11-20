@@ -1,3 +1,4 @@
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type {
   RunPolicyContract,
   RunRequesterContract,
@@ -166,5 +167,11 @@ export const runWorksOver = (
   dispatches: DispatchRepository,
   clock: ClockPort,
   runs: RunsPort = recordingRuns(),
+  settings: RepositorySettingsPort = defaultBranchIs('main'),
 ): RunWorks =>
-  new RunWorks(leases, runs, tasks, chats, lines, dispatches, clock);
+  new RunWorks(leases, runs, tasks, chats, lines, dispatches, settings, clock);
+
+export const defaultBranchIs = (name: string): RepositorySettingsPort =>
+  ({
+    defaultBranchNameOf: async () => name,
+  }) as unknown as RepositorySettingsPort;

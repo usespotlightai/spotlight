@@ -1,3 +1,4 @@
+import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -6,6 +7,7 @@ const fromRaw = (native: Record<string, unknown>) =>
     permissions: { allow: [], ask: [], deny: [] },
     mcpServers: [],
     native,
+    secrets: [],
   });
 
 describe('ProfileSettings', () => {
@@ -33,6 +35,66 @@ describe('ProfileSettings', () => {
     expect(() => harness.hooks.push({ run: 'test' })).toThrow(TypeError);
     expect(settings.native).toEqual({
       'claude-code': { env: { DEBUG: '1' }, hooks: [{ run: 'lint' }] },
+    });
+  });
+
+  describe('the secrets it names', () => {
+    const naming = (secrets: string[]) =>
+      ProfileSettings.fromRaw({
+        permissions: { allow: [], ask: [], deny: [] },
+        mcpServers: [
+          {
+            name: 'linear',
+            command: 'linear-mcp',
+            args: [],
+            env: { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' },
+          },
+        ],
+        native: {},
+        secrets,
+      });
+
+    const refusal = (secrets: string[]) => {
+      try {
+        naming(secrets);
+      } catch (error) {
+        return error instanceof InvalidHarnessProfileError
+          ? { field: error.field, because: error.because }
+          : error;
+      }
+
+      return null;
+    };
+
+    it('refers to each, beside the secrets its MCP servers refer to', () => {
+      expect(
+        naming(['STAGING_VIEWER']).secretReferences.map((each) => ({
+          path: each.path.segments,
+          name: each.name.value,
+        })),
+      ).toEqual([
+        {
+          path: ['mcpServers', 0, 'env', 'LINEAR_API_KEY'],
+          name: 'LINEAR_API_KEY',
+        },
+        { path: ['secrets', 0], name: 'STAGING_VIEWER' },
+      ]);
+    });
+
+    it('rejects a name that is not a secret name, and says where', () => {
+      expect(refusal(['STAGING_VIEWER', 'staging viewer'])).toEqual({
+        field: ['secrets', 1],
+        because: expect.stringMatching(
+          /^names secret staging viewer, but a secret name /,
+        ) as unknown,
+      });
+    });
+
+    it('rejects a secret it lists twice', () => {
+      expect(refusal(['STAGING_VIEWER', 'STAGING_VIEWER'])).toEqual({
+        field: ['secrets', 1],
+        because: 'lists secret STAGING_VIEWER twice',
+      });
     });
   });
 });

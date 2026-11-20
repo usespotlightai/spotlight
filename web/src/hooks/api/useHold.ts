@@ -15,7 +15,7 @@ type HoldEndInput = {
   taskId: string;
   next: HoldEnd;
   stationId?: string;
-  verdict: HoldVerdict;
+  verdict?: HoldVerdict;
   summary?: string;
 };
 

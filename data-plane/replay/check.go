@@ -14,6 +14,8 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"usespotlight.ai/data-plane/flagset"
 )
 
 const (
@@ -148,7 +150,7 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 	pullRequest := set.Int("pull-request", 0, "the pull request that plans the change")
 	repeats := set.Int("repeats", 1, "how many times to replay each run")
 
-	positional, err := parsed(set, args)
+	positional, err := flagset.Interspersed(set, args)
 	if err != nil {
 		return checkOptions{}, fmt.Errorf("%w\n%s", err, checkHelp.Synopsis())
 	}

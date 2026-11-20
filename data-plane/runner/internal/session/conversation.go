@@ -87,11 +87,14 @@ func described(tasks []workspace.LostTask) string {
 
 func (c *conversation) request(ctx context.Context) string {
 	briefing := c.run.Spec.Briefing
+	resumed := c.sessionID == c.run.Spec.Resume.SessionID
 	if !c.run.Spec.Resume.ResumeSession {
+		if followUp := c.run.Spec.Resume.FollowUp; followUp != "" && resumed {
+			return followUp
+		}
 		return briefing
 	}
 
-	resumed := c.sessionID == c.run.Spec.Resume.SessionID
 	message, received := c.pollMessages(ctx)
 	switch {
 	case received && resumed:

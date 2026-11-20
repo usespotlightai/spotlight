@@ -1,4 +1,5 @@
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type { BoundSecretsPort } from '@secrets/application/ports/bound-secrets.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -30,7 +31,7 @@ import type { TouchedFiles } from '@work/application/services/touched-files';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { describedTools } from '@work/domain/services/enabled-for-run';
-import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
+import { launchAt, taskOrderedAt } from '@work/domain/services/run-order';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -58,6 +59,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly logger: LoggerPort,
     private readonly savepoint: SavepointPort,
     hash: ContentHashPort,
+    bound: BoundSecretsPort,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -67,6 +69,7 @@ export class DispatchTask implements TaskDispatching {
       catalog,
       profiles,
       hash,
+      bound,
     );
   }
 
@@ -79,22 +82,22 @@ export class DispatchTask implements TaskDispatching {
   }): Promise<RunId | null> {
     const station = line.stationAt(task.stationId);
     const ready = station ? await this.teamSkills.readyAt(line, station) : [];
-    const order = orderFor({
-      task,
+    const launched = launchAt({
+      stationId: task.stationId,
       line,
       harnesses: this.harnesses.current(),
       ready: ready.map((each) => ReadySkillMapper.toReady(each)),
       profiles: await this.ordering.profilesAt(line, station ?? null),
     });
 
-    if (!order) {
+    if (!launched) {
       this.notDispatched(task, line, 'station-has-no-harness');
       return null;
     }
 
-    const prepared = this.ordering.prepared(order);
+    const prepared = this.ordering.prepared(launched.launch);
 
-    if (!prepared || !this.launch.skillsFor(order.harness)) {
+    if (!prepared || !this.launch.skillsFor(launched.launch.harness)) {
       this.notDispatched(task, line, 'harness-not-prepared');
       return null;
     }
@@ -163,6 +166,7 @@ export class DispatchTask implements TaskDispatching {
       memories: memories.briefed,
       memoryFolder: memories.folder,
       tools: described,
+      boundSecrets: order.boundSecrets,
       drivenByAPerson,
     });
     const injected = (order.enabled.profile?.injectedSecrets ?? []).map(

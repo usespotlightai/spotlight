@@ -1,5 +1,6 @@
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
+import { StationTag } from '@/components/features/inbox/conversation/StationTag';
 import { ThreadMessage } from '@/components/features/inbox/conversation/ThreadMessage';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -12,17 +13,22 @@ import {
   workedOn,
 } from '@/lib/inbox';
 import { showsMessage } from '@/lib/thread-message';
+import { cn } from '@/lib/utils';
 
 type FoldedVisitNotesProps = {
   visit: FoldedVisit;
   item: ConversationItem;
   worked: readonly RunJournal[];
+  className?: string;
+  named?: boolean;
 };
 
 export function FoldedVisitNotes({
   visit,
   item,
   worked,
+  className,
+  named = false,
 }: FoldedVisitNotesProps) {
   const notes = useTaskNotes({
     teamId: item.teamId,
@@ -37,7 +43,7 @@ export function FoldedVisitNotes({
         what="The notes of this visit"
         retrying={notes.isFetching}
         onRetry={() => void notes.refetch()}
-        className="items-start pt-3 pb-4 pl-6"
+        className={cn('items-start pt-3 pb-4 pl-6', className)}
       />
     );
   }
@@ -46,7 +52,7 @@ export function FoldedVisitNotes({
     return (
       <div
         aria-hidden
-        className="flex flex-col gap-1.5 pt-3 pb-4 pl-6"
+        className={cn('flex flex-col gap-1.5 pt-3 pb-4 pl-6', className)}
         data-slot="folded-visit-loading"
       >
         <StationNameSkeleton />
@@ -56,10 +62,21 @@ export function FoldedVisitNotes({
   }
 
   const all = notes.data;
+  const shown = all.filter(showsInThread);
 
   return (
-    <ol className="flex flex-col gap-6 pt-3 pb-4 pl-6">
-      {all.filter(showsInThread).map((note) =>
+    <ol className={cn('flex flex-col gap-6 pt-3 pb-4 pl-6', className)}>
+      {named && shown[0]?.voice !== 'station' && (
+        <li>
+          <StationTag
+            name={visit.first.station}
+            color={visit.first.stationColor}
+            position={visit.first.stationPosition}
+            count={item.station.count}
+          />
+        </li>
+      )}
+      {shown.map((note, at) =>
         note.voice === 'station' ? (
           <InboxNote
             key={note.position}
@@ -72,7 +89,10 @@ export function FoldedVisitNotes({
           />
         ) : (
           showsMessage(note) && (
-            <li key={note.position}>
+            <li
+              key={note.position}
+              className={cn(named && at === 0 && '-mx-3')}
+            >
               <ThreadMessage note={note} teamId={item.teamId} />
             </li>
           )

@@ -11,7 +11,6 @@ export const SecretResourceMapper = {
       address: secret.name,
       workspaceId: secret.workspaceId.value,
       name: secret.name,
-      source: { ...secret.source },
       bindings: secret.bindings.map((each) => ({ ...each })),
       valueWoVersion: secret.valueVersion,
       rotatedAt: secret.rotatedAt.toISOString(),
@@ -25,18 +24,12 @@ export const SecretResourceMapper = {
       address: secret.name.value,
       workspaceId: secret.workspaceId,
       name: secret.name.value,
-      source: {
-        kind: secret.source.kind,
-        secretId: secret.source.secretId,
-        field: secret.source.field,
-      },
       bindings: secret.bindings.all.map((each) => ({
         host: each.host.value,
         location: each.target.location,
         name: each.target.name,
         prefix: each.prefix,
       })),
-      storesValue: secret.source.isBuiltIn,
       valueVersion: secret.valueVersion?.value ?? null,
     };
   },

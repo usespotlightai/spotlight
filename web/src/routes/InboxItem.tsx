@@ -10,14 +10,28 @@ import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { useInboxItem } from '@/hooks/api/useInbox';
 import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
 import { useMarkReadOnView } from '@/hooks/api/useMarkReadOnView';
+import { useTaskFooterLoading } from '@/hooks/api/useTaskFooterLoading';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useClearedParam } from '@/hooks/useClearedParam';
 import { useInboxItemTrail } from '@/hooks/useInboxItemTrail';
 import { notFound } from '@/lib/error';
-import { inboxPath } from '@/lib/inbox';
+import {
+  type InboxItem as InboxItemData,
+  inboxPath,
+  runsShownFirst,
+} from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
-import { failed, loading } from '@/lib/query';
+import { failed, type Loadable, loading } from '@/lib/query';
 import { useTrail } from '@/lib/trail';
+
+const itemLoading = (
+  found: Loadable,
+  item: InboxItemData | undefined,
+  journal: Loadable,
+  footerLoading: boolean,
+): boolean =>
+  loading(found) ||
+  Boolean(item && !item.inboxRequest && (loading(journal) || footerLoading));
 
 export function InboxItem() {
   const { slug, itemId } = useParams();
@@ -27,7 +41,7 @@ export function InboxItem() {
   const journal = useTaskJournal(
     slug,
     item?.inboxRequest ? undefined : item?.taskId,
-    [item?.runId],
+    item ? runsShownFirst(item) : [],
   );
 
   useInboxItemRefresh(slug, item);
@@ -35,7 +49,12 @@ export function InboxItem() {
 
   const { trail } = useTrail(useInboxItemTrail(slug, item));
 
-  if (loading(found) || (item && !item.inboxRequest && loading(journal))) {
+  const footerLoading = useTaskFooterLoading(
+    item?.teamId,
+    item?.inboxRequest ? undefined : item?.taskId,
+  );
+
+  if (itemLoading(found, item, journal, footerLoading)) {
     return <InboxItemSkeleton />;
   }
 

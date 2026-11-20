@@ -214,6 +214,34 @@ const resourceHandlers = [
       : notFound(),
   ),
 
+  api.get('/workspaces/:slug/secrets', ({ params }) =>
+    ofWorkspace(params.slug)
+      ? json(
+          settingsWorld().secrets.map((secret) => ({
+            ...secret,
+            settable: secret.settable && scenario().account !== 'member',
+          })),
+        )
+      : notFound(),
+  ),
+
+  api.put('/workspaces/:slug/secrets/:name/value', ({ params }) => {
+    const secret = settingsWorld().secrets.find(
+      (each) => each.name === params.name,
+    );
+
+    if (!ofWorkspace(params.slug) || !secret) {
+      return notFound();
+    }
+    if (!secret.settable) {
+      return problem(409, `Terraform sets the value of secret ${secret.name}.`);
+    }
+
+    secret.valueOrigin = 'spotlight';
+    secret.valueSetAt = daysAgo(0);
+    return noContent();
+  }),
+
   api.post(
     '/v1/resources/workspaces/:workspaceId/tokens',
     async ({ params, request }) => {

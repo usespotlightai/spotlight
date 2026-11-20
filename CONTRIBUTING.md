@@ -85,10 +85,10 @@ see.
 
 | Term | Meaning |
 |---|---|
-| Built-in secret source | The secret source `built-in`: Spotlight stores the value encrypted in its own database (`secret_value`). The other sources read the value from outside. |
 | Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). |
-| Event delivery | One outbox event for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |
 | Error kind | The class of a domain or application error (`ErrorKind`), such as `invalid` or `conflict`. The HTTP filters map it to a status code. |
+| Event delivery | One outbox event for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |
+| Hand-over | Terraform removes `valueWoVersion` from a secret. Spotlight keeps the stored value, and from then on a person sets it (`valueChange: handed-over` in the change history). |
 | Job loop | The loop that processes the due pending jobs of one kind (`JobLoop`, `PendingJobsPort.processDue`). |
 | Ledger | A table gateway that is not an aggregate repository (`*.ledger.ts`). |
 | Metered call | One usage row for each catalog tool call (`MeteredCall`). |
@@ -96,8 +96,11 @@ see.
 | Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
 | Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
 | Recipient | The public key that Spotlight seals a run's secrets to: one key for each run in an egress sidecar, one key for each process in a shared egress. |
+| Refused run | A run that Spotlight creates and ends failed before it starts, because the station needs something that is missing (`RefusalReason`, such as `SecretAwaitingValue`). A reply to its inbox item orders a new run. Compare run not started. |
 | Resume key | The key of a working copy archive (`task-<id>` or `chat-<id>`). A run restores the archive of its resume key. |
+| Run not started | A task that has no run, because Spotlight cannot start the station's harness (`RunNotStarted`). Try again or a message starts it. Compare refused run. |
 | Tombstone | A row that Spotlight keeps after it deletes data, so that it does not restore the data (`deleted_*` tables). |
+| Value origin | Where a secret's value comes from (`SecretValueOrigin`): `awaiting` (no value yet), `spotlight` (a person set it, or Terraform handed it over) or `terraform` (`valueWoVersion` is set). |
 | Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |
 
 ## Releases

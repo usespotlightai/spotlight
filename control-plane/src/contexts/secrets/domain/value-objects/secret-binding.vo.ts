@@ -92,13 +92,21 @@ export class SecretBinding {
     return this.injected(secret.standIn);
   }
 
+  standInSent(secret: SecretName): string {
+    return this.sent(secret.standIn);
+  }
+
   private injected(bare: string): InjectedSecret {
     return new InjectedSecret(
       this.target.location,
       this.target.name,
-      `${this.prefix}${bare}`,
+      this.sent(bare),
       bare,
     );
+  }
+
+  private sent(bare: string): string {
+    return `${this.prefix}${bare}`;
   }
 
   equals(other: SecretBinding): boolean {

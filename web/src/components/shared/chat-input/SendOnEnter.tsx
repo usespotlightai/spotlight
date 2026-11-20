@@ -1,27 +1,12 @@
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { COMMAND_PRIORITY_HIGH, KEY_ENTER_COMMAND } from 'lexical';
-import { useEffect, useEffectEvent } from 'react';
+import { useSendOnEnter } from '@/hooks/useSendOnEnter';
 
-export function SendOnEnter({ send }: { send: () => void }) {
-  const [editor] = useLexicalComposerContext();
-  const sent = useEffectEvent(send);
+type SendOnEnterProps = {
+  send: () => void;
+  blank: boolean;
+};
 
-  useEffect(
-    () =>
-      editor.registerCommand(
-        KEY_ENTER_COMMAND,
-        (event) => {
-          if (event?.shiftKey) {
-            return false;
-          }
-          event?.preventDefault();
-          sent();
-          return true;
-        },
-        COMMAND_PRIORITY_HIGH,
-      ),
-    [editor],
-  );
+export function SendOnEnter({ send, blank }: SendOnEnterProps) {
+  useSendOnEnter(send, blank);
 
   return null;
 }

@@ -51,6 +51,10 @@
   --destructive: oklch(0.64 0.18 25);
   --outcome-done: var(--chart-primary);
   --outcome-sent-back: oklch(0.62 0.03 260);
+  --pull-request-draft: #757578;
+  --pull-request-open: #1f883d;
+  --pull-request-merged: #8250df;
+  --pull-request-closed: #cf222e;
 
   --border: #e4e4e6;
 
@@ -189,6 +193,10 @@
   --color-destructive: var(--destructive);
   --color-outcome-done: var(--outcome-done);
   --color-outcome-sent-back: var(--outcome-sent-back);
+  --color-pull-request-draft: var(--pull-request-draft);
+  --color-pull-request-open: var(--pull-request-open);
+  --color-pull-request-merged: var(--pull-request-merged);
+  --color-pull-request-closed: var(--pull-request-closed);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -236,6 +244,10 @@
   --destructive: oklch(0.7 0.16 25);
   --outcome-done: oklch(0.68 0.14 277);
   --outcome-sent-back: oklch(0.6 0.03 260);
+  --pull-request-draft: #9198a1;
+  --pull-request-open: #3fb950;
+  --pull-request-merged: #a371f7;
+  --pull-request-closed: #f85149;
   --border: #3a3a42;
   --input: #3f3f47;
   --selected: #24252f;

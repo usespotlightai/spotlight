@@ -13,6 +13,7 @@ export const HarnessProfileShapeMapper = {
       })),
       mcpServers: HarnessProfileMapper.servers(parsed.settings),
       native: parsed.settings.native,
+      secrets: parsed.settings.secrets,
     };
   },
 };

@@ -57,10 +57,7 @@ export class GitHubRepositorySettings implements RepositorySettingsPort {
     repository: Repository,
   ): Promise<DefaultBranchDto> {
     const token = await this.tokenFor(workspaceId);
-    const found = await answered<RepositoryAnswer>(
-      await call(this.at(repository), token),
-      `GitHub would not return the default branch of ${repository.value}`,
-    );
+    const found = await this.repositoryAnswer(repository, token);
     const name = found.default_branch;
     const branch = encodeURIComponent(name);
 
@@ -88,6 +85,25 @@ export class GitHubRepositorySettings implements RepositorySettingsPort {
       repositoryId: String(found.id),
       ownerId: String(found.owner.id),
     };
+  }
+
+  async defaultBranchNameOf(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+  ): Promise<string> {
+    return (
+      await this.repositoryAnswer(repository, await this.tokenFor(workspaceId))
+    ).default_branch;
+  }
+
+  private async repositoryAnswer(
+    repository: Repository,
+    token: string,
+  ): Promise<RepositoryAnswer> {
+    return answered<RepositoryAnswer>(
+      await call(this.at(repository), token),
+      `GitHub would not return the default branch of ${repository.value}`,
+    );
   }
 
   async oidcSubjectPrefixOf(

@@ -4,7 +4,6 @@ import type { RedeemedCallSecrets } from '@runs/application/dto/host-call.dto';
 import {
   DeniedSecretResponseDto,
   EgressSecretsResponseDto,
-  ExternalSecretRefResponseDto,
   FetchedSecretResponseDto,
   HarnessKeysResponseDto,
   SpotlightApiResponseDto,
@@ -22,13 +21,6 @@ const fetchedOf = (each: FetchedSecret): FetchedSecretResponseDto =>
     each.name,
     each.prefix,
     each.sealed,
-    each.externalRef
-      ? new ExternalSecretRefResponseDto(
-          each.externalRef.kind,
-          each.externalRef.secretId,
-          each.externalRef.field,
-        )
-      : null,
   );
 
 const deniedOf = (each: DeniedSecret): DeniedSecretResponseDto =>

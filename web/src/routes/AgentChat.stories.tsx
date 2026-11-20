@@ -23,6 +23,7 @@ const meta = {
         chat_long: 'Long conversation',
         chat_steps_unloaded: 'Older steps still loading',
         chat_proposal_states: 'Every proposal state',
+        chat_pull_request: 'A pull request of its own',
         chat_setting_up: 'Setting up the workspace',
       }),
     },
@@ -55,6 +56,10 @@ export const LongConversation: StoryObj<typeof meta> = {
 
 export const ProposalStates: StoryObj<typeof meta> = {
   args: { chat: 'chat_proposal_states' },
+};
+
+export const PullRequest: StoryObj<typeof meta> = {
+  args: { chat: 'chat_pull_request' },
 };
 
 export const ReplacedProposalOpened: StoryObj<typeof meta> = {

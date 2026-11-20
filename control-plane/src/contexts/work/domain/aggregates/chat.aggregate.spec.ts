@@ -17,8 +17,10 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.event';
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
+import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -42,6 +44,7 @@ import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
@@ -1234,7 +1237,6 @@ describe('Chat', () => {
       expect(chat.repositoryNamed('api')?.value).toBe('acme/api');
       expect(chat.pushableNamed('api')).toBeNull();
       expect(chat.pushableNamed('infra')?.value).toBe('acme/infra');
-      expect(started().pushableNamed('api')).toBeNull();
     });
 
     it('lets the run working it open the setup pull request, in its repository', () => {
@@ -1388,6 +1390,169 @@ describe('Chat', () => {
         accepted.recordAcceptanceFailure(SECOND, LATER).pullEvents(),
       ).toEqual([
         new ProposalAcceptanceFailed(accepted.id, WORKSPACE, LEON, SECOND),
+      ]);
+    });
+  });
+  describe('opening a pull request of its own', () => {
+    const URL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+    const opened = () =>
+      working().openedPullRequest({
+        runId: RunId.of('run_1'),
+        title: 'Show video icons',
+        repository: Repository.of('acme/api'),
+        pullRequest: ChatPullRequest.of({
+          task: TaskId.of('task_1'),
+          url: URL,
+        }),
+        at: LATER,
+      });
+
+    it('pushes to each repository it checked out', () => {
+      expect(working().pushableNamed('api')?.value).toBe('acme/api');
+      expect(working().pushableNamed('billing')).toBeNull();
+    });
+
+    it('opens one only from its current run, and only in a repository it checked out', () => {
+      expect(() =>
+        working().mayOpenPullRequestFrom(RunId.of('run_2'), 'api'),
+      ).toThrow(InvalidChatTransitionError);
+      expect(() =>
+        working().mayOpenPullRequestFrom(RunId.of('run_1'), 'acme/billing'),
+      ).toThrow(/has no checkout of acme\/billing/);
+      expect(
+        working().mayOpenPullRequestFrom(RunId.of('run_1'), 'api').value,
+      ).toBe('acme/api');
+    });
+
+    it('takes its only repository when the agent names none', () => {
+      expect(
+        working().mayOpenPullRequestFrom(RunId.of('run_1'), null).value,
+      ).toBe('acme/api');
+    });
+
+    it('keeps the pull request and its task, and says so once', () => {
+      const chat = opened();
+      const message = chat.messages.slice(-1)[0];
+
+      expect(message?.kind).toBe('opened');
+      expect(message?.unacknowledged).toBe(false);
+      expect(chat.pullRequests.map((each) => each.task.value)).toEqual([
+        'task_1',
+      ]);
+      expect(chat.pullEvents().slice(-1)).toEqual([
+        new ChatPullRequestOpened(
+          chat.id,
+          chat.workspaceId,
+          LEON,
+          TaskId.of('task_1'),
+        ),
+      ]);
+    });
+
+    it('keeps a pull request whose address names the repository another way, after its run ended', () => {
+      const ended = working().runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
+      }).chat;
+      const kept = ended.openedPullRequest({
+        runId: RunId.of('run_1'),
+        title: 'Show video icons',
+        repository: Repository.of('acme/api'),
+        pullRequest: ChatPullRequest.of({
+          task: TaskId.of('task_1'),
+          url: PullRequestUrl.of('https://github.com/acme/api-renamed/pull/7'),
+        }),
+        at: LATEST,
+      });
+
+      expect(kept.pullRequests).toHaveLength(1);
+    });
+
+    it('keeps no pull request from a repository it did not check out', () => {
+      expect(() =>
+        working().openedPullRequest({
+          runId: RunId.of('run_1'),
+          title: 'Elsewhere',
+          repository: Repository.of('acme/billing'),
+          pullRequest: ChatPullRequest.of({
+            task: TaskId.of('task_1'),
+            url: PullRequestUrl.of('https://github.com/acme/billing/pull/1'),
+          }),
+          at: LATER,
+        }),
+      ).toThrow(/is not a repository of chat/);
+    });
+
+    it('answers the same pull request again without a second message', () => {
+      const chat = opened();
+      chat.pullEvents();
+      const again = chat.openedPullRequest({
+        runId: RunId.of('run_1'),
+        title: 'Show video icons',
+        repository: Repository.of('acme/api'),
+        pullRequest: ChatPullRequest.of({
+          task: TaskId.of('task_1'),
+          url: URL,
+        }),
+        at: LATEST,
+      });
+
+      expect(again.messages).toHaveLength(chat.messages.length);
+      expect(again.pullEvents()).toEqual([]);
+    });
+
+    it('opens another pull request in the same repository for another task', () => {
+      const twice = opened().openedPullRequest({
+        runId: RunId.of('run_1'),
+        title: 'Show audio icons',
+        repository: Repository.of('acme/api'),
+        pullRequest: ChatPullRequest.of({
+          task: TaskId.of('task_2'),
+          url: PullRequestUrl.of('https://github.com/acme/api/pull/8'),
+        }),
+        at: LATEST,
+      });
+
+      expect(twice.pullRequests.map((each) => each.task.value)).toEqual([
+        'task_1',
+        'task_2',
+      ]);
+    });
+
+    it('wakes for what happens to the pull request, unless it is only told', () => {
+      const ended = opened().runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+        lastWordsAt: null,
+        endedAt: LATER,
+      }).chat;
+
+      const told = ended.heard({
+        task: TaskId.of('task_1'),
+        body: ChatMessageBody.of('The pull request was merged.'),
+        wakes: false,
+        at: LATEST,
+      });
+      const woken = ended.heard({
+        task: TaskId.of('task_1'),
+        body: ChatMessageBody.of('Checks failed on web.'),
+        wakes: true,
+        at: LATEST,
+      });
+
+      expect(told.wantsFollowUp).toBe(false);
+      expect(woken.wantsFollowUp).toBe(true);
+      expect(woken.messages.slice(-1)[0]?.kind).toBe('happened');
+      expect(woken.messages.slice(-1)[0]?.author).toBeNull();
+      expect(woken.pullEvents().slice(-1)).toEqual([
+        new ChatHeardFromTask(
+          woken.id,
+          woken.workspaceId,
+          LEON,
+          TaskId.of('task_1'),
+        ),
       ]);
     });
   });

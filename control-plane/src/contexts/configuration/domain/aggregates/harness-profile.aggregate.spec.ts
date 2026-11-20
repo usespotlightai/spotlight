@@ -31,6 +31,7 @@ const settings = (ask: string[] = []) =>
     permissions: { allow: ['read'], ask, deny: [] },
     mcpServers: [],
     native: {},
+    secrets: [],
   });
 
 const parsed = (key = 'careful', ask: string[] = []) => ({
@@ -183,6 +184,7 @@ describe('HarnessProfile', () => {
           },
         ],
         native: {},
+        secrets: [],
       }),
     };
     const existing = [SecretName.of('LINEAR_API_KEY')];

@@ -5,6 +5,7 @@ import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { ResponsiveChart } from '@/components/shared/chart/ResponsiveChart';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import type { TraceVolumeBucketResponseDto } from '@/lib/api';
+import { formatDate } from '@/lib/date-format';
 import { spanned } from '@/lib/trace-list';
 
 const HEIGHT = 180;
@@ -17,11 +18,11 @@ const DAY_MS = 86_400_000;
 
 const tickOf = (at: string, spanMs: number): string =>
   spanMs <= DAY_MS
-    ? new Date(at).toLocaleTimeString(undefined, {
+    ? formatDate(new Date(at), {
         hour: '2-digit',
         minute: '2-digit',
       })
-    : new Date(at).toLocaleDateString(undefined, {
+    : formatDate(new Date(at), {
         month: 'short',
         day: 'numeric',
       });

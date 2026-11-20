@@ -53,6 +53,9 @@ export const stationConfigOf = (
                 ),
               })),
               native: profile.native,
+              injectedSecrets: profile.injectedSecrets.map(
+                (each) => each.value,
+              ),
             },
           }
         : null,

@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useStickToBottom } from '@/hooks/useStickToBottom';
+import { SETTLE_MS, useStickToBottom } from '@/hooks/useStickToBottom';
 
 let grow: () => void = () => {};
 let observed: Element[] = [];
@@ -63,7 +63,11 @@ describe('useStickToBottom', () => {
   });
 
   it('shows the top of a big new block instead of jumping past it', () => {
+    vi.useFakeTimers();
     render(<Log />);
+    act(() => {
+      vi.advanceTimersByTime(SETTLE_MS);
+    });
     const box = screen.getByTestId('scroller');
     Object.defineProperty(box, 'clientHeight', {
       configurable: true,
@@ -79,6 +83,24 @@ describe('useStickToBottom', () => {
     expect(scrolled).toHaveBeenCalledWith(
       expect.objectContaining({ top: 700 }),
     );
+    vi.useRealTimers();
+  });
+
+  it('stays at the newest message while an opened thread fills in', () => {
+    render(<Log />);
+    const box = screen.getByTestId('scroller');
+    Object.defineProperty(box, 'clientHeight', {
+      configurable: true,
+      value: 500,
+    });
+    const scrolled = vi.fn();
+    box.scrollTo = scrolled as typeof box.scrollTo;
+    grown(box, 900);
+
+    grown(box, 2000);
+
+    expect(box.scrollTop).toBe(2000);
+    expect(scrolled).not.toHaveBeenCalled();
   });
 
   it('keeps following when its own scroll lands after the log grew again', () => {

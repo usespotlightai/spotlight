@@ -8,6 +8,9 @@ import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 export const MCP_SERVER_ENV =
   'Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.';
 
+export const PROFILE_SECRETS =
+  'Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.';
+
 class PermissionsResponseDto {
   @ApiProperty({
     type: String,
@@ -113,6 +116,14 @@ export class HarnessProfileResourceResponseDto extends ResourceResponseDto {
   })
   readonly native: Readonly<Record<string, unknown>>;
 
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['STAGING_VIEWER'],
+    description: PROFILE_SECRETS,
+  })
+  readonly secrets: readonly string[];
+
   constructor(profile: HarnessProfileResourceDto) {
     super(profile);
     this.teamId = profile.teamId;
@@ -122,5 +133,6 @@ export class HarnessProfileResourceResponseDto extends ResourceResponseDto {
       (each) => new McpServerResponseDto(each),
     );
     this.native = profile.native;
+    this.secrets = profile.secrets;
   }
 }

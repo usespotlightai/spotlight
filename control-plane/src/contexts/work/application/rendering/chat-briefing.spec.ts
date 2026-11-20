@@ -2,6 +2,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -20,6 +21,7 @@ import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -268,6 +270,77 @@ describe('ChatBriefing', () => {
     expect(brief(started())).not.toContain(
       'The rest of what the team remembers',
     );
+  });
+
+  describe('a chat that makes a change itself', () => {
+    const WEB = PullRequestUrl.of('https://github.com/acme/web/pull/7');
+    const withPullRequest = () =>
+      Chat.start({
+        lines: [],
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        startedBy: LEON,
+        harness: HarnessId.of('claude-code'),
+        repositories: [Repository.of('acme/web')],
+        body: ChatMessageBody.fromInput('Show icons for videos.'),
+        now: NOW,
+        newId: () => 'chat_1',
+      })
+        .assignRun(RunId.of('run_1'), NOW)
+        .openedPullRequest({
+          runId: RunId.of('run_1'),
+          title: 'Show video icons',
+          repository: Repository.of('acme/web'),
+          pullRequest: ChatPullRequest.of({
+            task: TaskId.of('task_1'),
+            url: WEB,
+          }),
+          at: NOW,
+        });
+
+    it('says when to make a change here and how to open its pull request', () => {
+      const briefing = brief(started());
+
+      expect(briefing).toMatch(/^You are working together with a person/);
+      expect(briefing).toContain('## Making a change here');
+      expect(briefing).toContain(
+        'spotlight tools call open-pull-request --repository <owner/name> --branch <branch>',
+      );
+      expect(briefing).not.toContain('## Your pull requests');
+    });
+
+    it('lists the pull requests it opened so far', () => {
+      expect(brief(withPullRequest())).toContain(
+        `## Your pull requests\n\n- ${WEB.value}`,
+      );
+    });
+
+    it('follows up with what happened to the pull request, saying where it came from', () => {
+      const handed = withPullRequest()
+        .runEnded(RunId.of('run_1'), {
+          session: HarnessSession.of('session_1'),
+          claimedBy: null,
+          lastWordsAt: null,
+          endedAt: NOW,
+        })
+        .chat.heard({
+          task: TaskId.of('task_1'),
+          body: ChatMessageBody.of('Checks failed on web.'),
+          wakes: true,
+          at: NOW,
+        })
+        .assignRun(RunId.of('run_2'), NOW);
+      const event = handed
+        .pullEvents()
+        .filter(
+          (each): each is ChatRunAssigned => each instanceof ChatRunAssigned,
+        )
+        .pop();
+
+      expect(ChatBriefing.followUp(handed, event?.acknowledged ?? [])).toBe(
+        "From the pull request's task:\n\nChecks failed on web.",
+      );
+    });
   });
 
   describe('a setup chat', () => {

@@ -1,5 +1,5 @@
 import { ErrorBoundary } from '@sentry/react';
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useLocation } from 'react-router';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -17,17 +17,19 @@ export function PageErrorBoundary({
   children,
 }: PageErrorBoundaryProps) {
   const { pathname } = useLocation();
-  const boundary = useRef<ErrorBoundary>(null);
+  const [failedAt, setFailedAt] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
-  useEffect(() => {
-    if (pathname && boundary.current?.state.error) {
-      boundary.current.resetErrorBoundary();
-    }
-  }, [pathname]);
+  if (failedAt !== null && failedAt !== pathname) {
+    setFailedAt(null);
+    setAttempt(attempt + 1);
+  }
 
   return (
     <ErrorBoundary
-      ref={boundary}
+      key={attempt}
+      onError={() => setFailedAt(pathname)}
+      onReset={() => setFailedAt(null)}
       fallback={(fallback) => (
         <CouldNotLoad
           what={what}

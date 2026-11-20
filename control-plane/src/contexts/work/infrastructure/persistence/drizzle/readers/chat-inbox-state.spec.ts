@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 const HAS_RUN = '"chat"."current_run_id" is not null';
 const WAITING =
-  'exists (select 1 from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = \'message\' and "chat_message"."acknowledged_at" is null)';
+  'exists (select 1 from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" in (\'message\', \'happened\') and "chat_message"."acknowledged_at" is null)';
 const RESOLVED_AT = '"chat"."resolved_at" is not null';
 const RUNNING = `(${HAS_RUN} or ${WAITING})`;
 
@@ -23,7 +23,7 @@ const FACTS = [false, true].flatMap((hasCurrentRun) =>
       waiting,
       resolvedAt,
       readAt: null,
-      lastProposedAt: null,
+      lastNoticeAt: null,
     })),
   ),
 );

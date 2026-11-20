@@ -244,7 +244,6 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       id: 'secret_linear',
       address: 'LINEAR_API_KEY',
       name: 'LINEAR_API_KEY',
-      source: { kind: 'built-in', secretId: null, field: null },
       bindings: [
         {
           host: 'api.linear.app',
@@ -253,7 +252,6 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
-      storesValue: true,
       valueVersion: 3,
     },
     {
@@ -262,7 +260,6 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       id: 'secret_sentry',
       address: 'SENTRY_TOKEN',
       name: 'SENTRY_TOKEN',
-      source: { kind: 'built-in', secretId: null, field: null },
       bindings: [
         {
           host: 'sentry.io',
@@ -271,7 +268,6 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
-      storesValue: true,
       valueVersion: null,
     },
     {
@@ -280,13 +276,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       id: 'secret_signing',
       address: 'LINEAR_SIGNING',
       name: 'LINEAR_SIGNING',
-      source: {
-        kind: 'aws-secrets-manager',
-        secretId: 'linear/signing',
-        field: 'secret',
-      },
       bindings: [],
-      storesValue: false,
       valueVersion: null,
     },
     {
@@ -552,9 +542,14 @@ export const CONFIGURATION: ExportableConfigurationDto = {
         },
       ],
       native: { 'claude-code': { includeCoAuthoredBy: false } },
+      secrets: ['LINEAR_SIGNING'],
       secretReferences: [
         {
-          path: FieldPath.of([0, 'env', 'LINEAR_API_KEY']),
+          path: FieldPath.of(['mcpServers', 0, 'env', 'LINEAR_API_KEY']),
+          name: 'LINEAR_SIGNING',
+        },
+        {
+          path: FieldPath.of(['secrets', 0]),
           name: 'LINEAR_SIGNING',
         },
       ],

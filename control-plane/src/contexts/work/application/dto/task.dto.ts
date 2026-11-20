@@ -26,6 +26,7 @@ interface TaskHoldDto {
   readonly startedAt: string;
   readonly runId: string | null;
   readonly heldMoveTo: string | null;
+  readonly chatId: string | null;
 }
 
 interface TaskReviewDto {
@@ -49,4 +50,9 @@ export interface TaskDto {
   readonly assignee: TaskPersonDto | null;
   readonly source: string | null;
   readonly hold: TaskHoldDto | null;
+  readonly runNotStarted: TaskRunNotStartedDto | null;
+}
+
+interface TaskRunNotStartedDto {
+  readonly harness: string;
 }

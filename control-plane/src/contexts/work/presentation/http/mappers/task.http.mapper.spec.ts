@@ -25,6 +25,7 @@ const dto: TaskDto = {
   },
   source: 'linear',
   hold: null,
+  runNotStarted: null,
 };
 
 describe('TaskHttpMapper', () => {

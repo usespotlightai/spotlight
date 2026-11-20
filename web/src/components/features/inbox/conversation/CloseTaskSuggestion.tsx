@@ -1,41 +1,53 @@
+import { use } from 'react';
+
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionCard } from '@/components/shared/DecisionCard';
+import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import { PillButton } from '@/components/shared/PillButton';
 import { useCloseTask } from '@/hooks/api/useCloseTask';
-import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { useMe } from '@/hooks/useMe';
-import { mayLand } from '@/lib/task';
+import type { ClosableTask } from '@/hooks/useClosableTask';
+import { DockedContext } from '@/lib/decision-tray';
 
 type CloseTaskSuggestionProps = {
   slug: string;
   teamId: string;
-  taskId: string;
   station: string;
+  closable: ClosableTask;
 };
 
 export function CloseTaskSuggestion({
   slug,
   teamId,
-  taskId,
   station,
+  closable: { line, task, completed },
 }: CloseTaskSuggestionProps) {
-  const me = useMe();
   const close = useCloseTask();
-  const { line, task } = useTaskStation(teamId, taskId);
-  const completed = line?.stations.find((each) => each.kind === 'completed');
-
-  if (
-    !line ||
-    !task ||
-    !completed ||
-    !mayLand(line.stations, task, completed.id, me?.id)
-  ) {
-    return null;
-  }
+  const docked = use(DockedContext) !== null;
+  const Action = docked ? DecisionButton : PillButton;
+  const action = (
+    <Action
+      variant="default"
+      disabled={close.isPending}
+      aria-label="Close the task"
+      onClick={() =>
+        close.mutate({
+          slug,
+          teamId,
+          lineId: line.id,
+          taskId: task.id,
+          revision: task.revision,
+          completedStationId: completed.id,
+        })
+      }
+    >
+      {close.isPending ? 'Closing…' : 'Close'}
+    </Action>
+  );
 
   return (
-    <DecisionCard aria-label="Close the task" className="mt-4.5 pb-2">
+    <DecisionCard aria-label="Close the task" className="pb-2">
       <DecisionHeader
         className="mb-0"
         title={
@@ -43,26 +55,9 @@ export function CloseTaskSuggestion({
             {`${station} suggests closing the task`}
           </DecisionTitle>
         }
-        trailing={
-          <PillButton
-            variant="default"
-            disabled={close.isPending}
-            aria-label="Close the task"
-            onClick={() =>
-              close.mutate({
-                slug,
-                teamId,
-                lineId: line.id,
-                taskId,
-                revision: task.revision,
-                completedStationId: completed.id,
-              })
-            }
-          >
-            {close.isPending ? 'Closing…' : 'Close'}
-          </PillButton>
-        }
+        trailing={docked ? null : action}
       />
+      {docked && <DecisionControls>{action}</DecisionControls>}
     </DecisionCard>
   );
 }

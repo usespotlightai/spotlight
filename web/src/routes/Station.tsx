@@ -78,7 +78,7 @@ export function Station() {
         }
       >
         {tabLoading && station.kind === 'work' ? (
-          <StationTabSkeleton tab={tab} />
+          <StationTabSkeleton tab={tab} line={line} station={station} />
         ) : (
           <StationBody
             slug={slug}

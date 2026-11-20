@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import {
@@ -13,7 +13,7 @@ import { ImageThumbs } from '@/components/shared/chat-input/ImageThumbs';
 import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
 import type { DraftHandle } from '@/hooks/useChatDraft';
 import { useChatMessage } from '@/hooks/useChatMessage';
-import { useChatSend } from '@/hooks/useChatSend';
+import { useChatSending } from '@/hooks/useChatSending';
 import { useFileDropTarget } from '@/hooks/useFileDropTarget';
 import { useOneLineFit } from '@/hooks/useOneLineFit';
 import { useReplyKey } from '@/hooks/useReplyKey';
@@ -51,81 +51,6 @@ type ChatInputProps = Sending & {
 
 const NO_REFERENCES: readonly Reference[] = [];
 
-const forwardSend = (
-  onSend: (message: Outgoing, restore: (error?: unknown) => void) => void,
-  outgoing: Outgoing,
-  shared: SharedDraft | null,
-  latestGeneration: { readonly current: number | undefined },
-  restore: () => void,
-) => {
-  const sentGeneration = shared?.synced ? shared.generation : undefined;
-
-  onSend(
-    shared
-      ? {
-          ...outgoing,
-          coAuthors: shared.coAuthors(),
-          ...(shared.synced && { draftGeneration: shared.generation }),
-        }
-      : outgoing,
-    () => {
-      if (
-        sentGeneration === undefined ||
-        latestGeneration.current === sentGeneration
-      ) {
-        restore();
-      }
-    },
-  );
-};
-
-type SendingOptions = {
-  message: ReturnType<typeof useChatMessage>;
-  shared: SharedDraft | null;
-  disabled: boolean;
-  pending: boolean;
-  running: boolean;
-  onStop?: () => void;
-  onSend?: (message: Outgoing, restore: (error?: unknown) => void) => void;
-};
-
-function useSending({
-  message,
-  shared,
-  disabled,
-  pending,
-  running,
-  onStop,
-  onSend,
-}: SendingOptions) {
-  const latestGeneration = useRef(shared?.generation);
-  const generation = shared?.generation;
-  useEffect(() => {
-    latestGeneration.current = generation;
-  }, [generation]);
-
-  return useChatSend({
-    outgoing: message.outgoing,
-    empty: message.blank,
-    uploading: message.uploading,
-    disabled,
-    pending,
-    running,
-    onStop,
-    onSend:
-      onSend &&
-      ((outgoing) =>
-        forwardSend(
-          onSend,
-          outgoing,
-          shared,
-          latestGeneration,
-          message.restore,
-        )),
-    clear: message.release,
-  });
-}
-
 export function ChatInput({
   slug,
   label,
@@ -160,7 +85,7 @@ export function ChatInput({
     lifted,
   );
 
-  const { send, unsendable, stopping } = useSending({
+  const { send, unsendable, stopping } = useChatSending({
     message,
     shared,
     disabled,
@@ -171,10 +96,13 @@ export function ChatInput({
   });
 
   return (
-    <div className="relative flex flex-col gap-1.5">
+    <div
+      className={cn('relative flex flex-col gap-1.5', disabled && 'opacity-70')}
+    >
       {/* Remote cursors sit outside the form, so their name labels are not cut off at its edge. */}
       <div ref={cursors} />
       <form
+        data-slot="chat-input-form"
         onSubmit={send}
         {...(!disabled && message.handlers)}
         style={height === null ? undefined : { height }}
@@ -216,6 +144,7 @@ export function ChatInput({
                 editable={!locked && !disabled}
                 disabled={disabled}
                 onEnter={send}
+                blank={message.blank}
                 onWritten={message.setWritten}
               />
             </ReferenceStates>
@@ -241,9 +170,9 @@ export function ChatInput({
             {settings}
           </ChatInputArea>
 
-          <div style={{ gridArea: 'send' }} className="flex">
+          <ChatInputArea disabled={disabled} area="send" className="flex">
             <SendOrStop onStop={stopping} unsendable={unsendable} />
-          </div>
+          </ChatInputArea>
         </div>
       </form>
 

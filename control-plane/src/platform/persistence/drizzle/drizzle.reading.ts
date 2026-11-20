@@ -16,12 +16,18 @@ export class DrizzleReading {
     this.#timeoutMs = String(env.DATABASE_READ_TIMEOUT_MS);
   }
 
-  read<T>(work: (db: DrizzleDatabase) => Promise<T>): Promise<T> {
+  read<T>(
+    work: (db: DrizzleDatabase) => Promise<T>,
+    { jit = true }: { jit?: boolean } = {},
+  ): Promise<T> {
     return this.db.transaction(
       async (tx) => {
         await tx.execute(
           sql`select set_config('statement_timeout', ${this.#timeoutMs}, true)`,
         );
+        if (!jit) {
+          await tx.execute(sql`select set_config('jit', 'off', true)`);
+        }
 
         return work(tx);
       },

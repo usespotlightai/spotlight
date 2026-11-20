@@ -9,6 +9,7 @@ import type {
   NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
+import { formatDate } from '@/lib/date-format';
 import { RESOLVED_PREVIEW, OPEN_PREVIEW } from '@/lib/judge-disagreement';
 import type { Person } from '@/lib/person';
 import type { ShownProgress } from '@/lib/run';
@@ -72,6 +73,19 @@ const closesOrReopens = (note: Note): boolean =>
   note.form === 'resolved' || note.kind === 'reopened';
 
 export const showsInThread = (note: Note): boolean => !closesOrReopens(note);
+
+const NOTES_IN_FIRST_VIEW = 4;
+
+export const runsShownFirst = (item: {
+  readonly runId: string | null;
+  readonly notes: readonly Note[];
+}): (string | null)[] => [
+  item.runId,
+  ...item.notes
+    .filter(showsInThread)
+    .slice(-NOTES_IN_FIRST_VIEW)
+    .map((note) => note.runId),
+];
 
 const answersTo = (notes: readonly Note[], runId: string): number[] => {
   const answers: number[] = [];
@@ -252,14 +266,14 @@ export const amountIn = (amount: number, currency: string | null): string =>
 export type JournalStep = RunJournalResponseDto['steps'][number];
 
 export const shortTimeOf = (at: string): string =>
-  new Date(at).toLocaleTimeString(undefined, {
+  formatDate(new Date(at), {
     hour: 'numeric',
     minute: '2-digit',
   });
 
 export const openedAt = (at: string): string => {
   const opened = new Date(at);
-  const time = opened.toLocaleTimeString(undefined, {
+  const time = formatDate(opened, {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -271,7 +285,7 @@ export const openedAt = (at: string): string => {
     return `Today ${time}`;
   }
 
-  const day = opened.toLocaleDateString(undefined, {
+  const day = formatDate(opened, {
     month: 'short',
     day: 'numeric',
     ...(opened.getFullYear() === today.getFullYear()
@@ -400,3 +414,6 @@ export const previewOf = (item: InboxItem): string => {
 
   return asked.form === 'setup' ? (item.description ?? '') : asked.body;
 };
+
+export const answerPlaceholder = (station: string): string =>
+  `${station} reads your answer and decides the next step…`;
