@@ -20,7 +20,6 @@ import {
 } from 'react';
 
 import { $spacedReferences } from '@/components/shared/chat-input/ReferenceNode';
-import { DRAFT_SENT } from '@/components/shared/chat-input/SharedWriting';
 import { useAttachments } from '@/hooks/useAttachments';
 import type { DraftHandle } from '@/hooks/useChatDraft';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
@@ -34,6 +33,7 @@ import {
 } from '@/lib/attachment';
 import { restoredAttachments } from '@/lib/chat-draft';
 import {
+  DRAFT_SENT,
   type Outgoing,
   type Reference,
   targetStationIdIn,

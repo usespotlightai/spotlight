@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
 import { TIMELINE } from '@/components/features/trace/view/TraceBar';
@@ -9,6 +9,7 @@ import { TraceScale } from '@/components/features/trace/view/TraceScale';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useDelayedValue } from '@/hooks/useDelayedValue';
+import { useDocumentListener } from '@/hooks/useDocumentListener';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import type { LineRange } from '@/lib/changes';
 import {
@@ -49,32 +50,26 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
   const listed = useRef<HTMLUListElement>(null);
   const panel = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    if (picked === null) {
-      return;
-    }
-
-    const away = (event: PointerEvent) => {
+  useDocumentListener(
+    'pointerdown',
+    (event) => {
       const on = event.target as Node;
 
       if (!listed.current?.contains(on) && !panel.current?.contains(on)) {
         setPicked(null);
       }
-    };
-
-    const escape = (event: KeyboardEvent) => {
+    },
+    picked !== null,
+  );
+  useDocumentListener(
+    'keydown',
+    (event) => {
       if (event.key === 'Escape' && !event.defaultPrevented) {
         setPicked(null);
       }
-    };
-
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('pointerdown', away);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [picked]);
+    },
+    picked !== null,
+  );
 
   const rows = useMemo(() => rowsOf(trace.roots, closed), [trace, closed]);
 

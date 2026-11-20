@@ -1,30 +1,11 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
-import {
-  desktopApp,
-  desktopLinkOf,
-  handOffOnce,
-  handoffSkipped,
-  openInDesktop,
-  opensInDesktop,
-  skipHandoff,
-} from '@/lib/desktop';
-
-const linkAtLoad = (): string | null =>
-  desktopApp() || !opensInDesktop() || handoffSkipped()
-    ? null
-    : desktopLinkOf(window.location);
+import { useDesktopHandoff } from '@/hooks/useDesktopHandoff';
+import { openInDesktop } from '@/lib/desktop';
 
 export function DesktopHandoff({ children }: { children: ReactNode }) {
-  const [link, setLink] = useState(linkAtLoad);
-  const [atLoad] = useState(link);
-
-  useEffect(() => {
-    if (atLoad) {
-      handOffOnce(atLoad);
-    }
-  }, [atLoad]);
+  const { link, stayHere } = useDesktopHandoff();
 
   if (!link) {
     return children;
@@ -44,13 +25,7 @@ export function DesktopHandoff({ children }: { children: ReactNode }) {
         <Button variant="outline" size="sm" onClick={() => openInDesktop(link)}>
           Open the app again
         </Button>
-        <Button
-          size="sm"
-          onClick={() => {
-            skipHandoff();
-            setLink(null);
-          }}
-        >
+        <Button size="sm" onClick={stayHere}>
           Open here instead
         </Button>
       </div>

@@ -285,6 +285,7 @@ export const taskHold = pgTable(
     taskId: text('task_id').notNull(),
     stationId: text('station_id').notNull(),
     heldBy: text('held_by').notNull(),
+    chatId: text('chat_id'),
     fromRunId: text('from_run_id'),
     verdict: holdVerdict('verdict').notNull(),
     turnRunIds: jsonb('turn_run_ids')
@@ -311,6 +312,10 @@ export const taskHold = pgTable(
       foreignColumns: [task.workspaceId, task.id],
     }).onDelete('cascade'),
     check(
+      'task_hold_for_a_chat_holds_from_no_run',
+      sql`${table.chatId} is null or ${table.fromRunId} is null`,
+    ),
+    check(
       'task_hold_ends_with_an_end',
       sql`(${table.endedAt} is null) = (${table.end} is null)`,
     ),
@@ -319,5 +324,8 @@ export const taskHold = pgTable(
       .where(sql`${table.endedAt} is null`),
     index('task_hold_task_idx').on(table.taskId, table.startedAt),
     index('task_hold_station_idx').on(table.stationId, table.startedAt),
+    index('task_hold_chat_idx')
+      .on(table.chatId)
+      .where(sql`${table.chatId} is not null`),
   ],
 );

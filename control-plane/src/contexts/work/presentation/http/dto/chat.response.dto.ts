@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   CHAT_MESSAGE_KIND_NAMES,
+  CHAT_PULL_REQUEST_STATE_NAMES,
   PROPOSAL_STATE_NAMES,
 } from '@work/application/dto/chat.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
@@ -231,6 +232,70 @@ export class ChatProposalResponseDto {
   }
 }
 
+export class ChatPullRequestResponseDto {
+  @ApiProperty({
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+    description: 'The task that tracks the pull request',
+  })
+  readonly taskId: string;
+
+  @ApiProperty({ example: 'https://github.com/acme/web/pull/7' })
+  readonly url: string;
+
+  @ApiProperty({
+    enum: CHAT_PULL_REQUEST_STATE_NAMES,
+    example: 'held',
+    description:
+      'held: the task waits on hold for this chat. line: the line has the task. completed: the task completed. gone: the task was deleted',
+  })
+  readonly state: string;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Default' })
+  readonly lineName: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Code review' })
+  readonly stationName: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: '#edc12b' })
+  readonly stationColor: string | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 3,
+    description: 'The position of the task’s station on its line, from 0',
+  })
+  readonly stationPosition: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 5,
+    description: 'How many stations its line has',
+  })
+  readonly stationCount: number | null;
+
+  constructor(
+    taskId: string,
+    url: string,
+    state: string,
+    lineName: string | null,
+    stationName: string | null,
+    stationColor: string | null,
+    stationPosition: number | null,
+    stationCount: number | null,
+  ) {
+    this.taskId = taskId;
+    this.url = url;
+    this.state = state;
+    this.lineName = lineName;
+    this.stationName = stationName;
+    this.stationColor = stationColor;
+    this.stationPosition = stationPosition;
+    this.stationCount = stationCount;
+  }
+}
+
 export class ChatTraceResponseDto {
   @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
   readonly taskId: string;
@@ -287,6 +352,13 @@ export class ChatMessageResponseDto {
   @ApiProperty({ type: ChatProposalResponseDto, nullable: true })
   readonly proposal: ChatProposalResponseDto | null;
 
+  @ApiProperty({
+    type: ChatPullRequestResponseDto,
+    nullable: true,
+    description: 'The pull request the agent opened, on an opened message',
+  })
+  readonly pullRequest: ChatPullRequestResponseDto | null;
+
   constructor(
     position: number,
     kind: string,
@@ -298,6 +370,7 @@ export class ChatMessageResponseDto {
     attachments: readonly AttachmentResponseDto[],
     traces: readonly ChatTraceResponseDto[],
     proposal: ChatProposalResponseDto | null,
+    pullRequest: ChatPullRequestResponseDto | null,
   ) {
     this.position = position;
     this.kind = kind;
@@ -309,6 +382,7 @@ export class ChatMessageResponseDto {
     this.attachments = attachments;
     this.traces = traces;
     this.proposal = proposal;
+    this.pullRequest = pullRequest;
   }
 }
 

@@ -9,6 +9,8 @@ export const ROW_TRANSITION = `height ${ROW_DURATION}ms ease-out`;
 
 export const ROW_SETTLED = ROW_DURATION + 50;
 
+export const DISCLOSURE_MS = 400;
+
 export const prefersReducedMotion = (): boolean =>
   typeof window !== 'undefined' &&
   (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);

@@ -6,11 +6,9 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { OpenedPullRequest } from '@work/application/dto/pull-request.dto';
-import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TaskViewsPort } from '@work/application/ports/task-views.port';
+import type { PullRequestOpeningHook } from '@work/application/services/pull-request-opening-hook';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request-hook-denied.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -35,8 +33,7 @@ export class OpenPullRequest {
     private readonly lines: LineMapsPort,
     private readonly pullRequests: PullRequestPort,
     private readonly transaction: TransactionPort,
-    private readonly taskViews: TaskViewsPort,
-    private readonly hooks: LifecycleHooksPort,
+    private readonly openingHook: PullRequestOpeningHook,
     private readonly clock: ClockPort,
   ) {}
 
@@ -67,31 +64,12 @@ export class OpenPullRequest {
       return { url: step.pullRequest.value };
     }
 
-    const taskView = await this.taskViews.of(
-      target.taskId.value,
-      target.runId.value,
-    );
-
-    if (
-      taskView &&
-      (await this.hooks.listens(taskView.teamId, 'pull-request.opening'))
-    ) {
-      const decision = await this.hooks.before(taskView, {
-        on: 'pull-request.opening',
-        repository: repository.value,
-        branch: task.branch.value,
-        title: input.title.value,
-        changed: await this.pullRequests.changedOn(
-          task.workspaceId,
-          repository,
-          task.branch.value,
-        ),
-      });
-
-      if (decision.kind === 'denied') {
-        throw new PullRequestHookDeniedError(decision.reason);
-      }
-    }
+    await this.openingHook.allows({
+      task,
+      runId: target.runId,
+      repository,
+      title: input.title.value,
+    });
 
     const opened = await this.pullRequests.open({
       workspaceId: task.workspaceId,

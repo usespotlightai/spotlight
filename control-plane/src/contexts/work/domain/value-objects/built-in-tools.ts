@@ -24,6 +24,7 @@ export const OPEN_TASKS = Tool.of('open-tasks');
 export const PROPOSE_TASK = Tool.of('propose-task');
 
 export const SETUP_PULL_REQUEST = Tool.of('setup-pull-request');
+export const OPEN_PULL_REQUEST = Tool.of('open-pull-request');
 
 export const REVIEW_COMMENT = Tool.of('review-comment');
 
@@ -269,13 +270,69 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
       ],
     }),
   },
+  {
+    worksOn: 'chat',
+    skill: null,
+    declared: DeclaredTool.of({
+      tool: OPEN_PULL_REQUEST,
+      readOnly: false,
+      description:
+        'Open the pull request of a change you made in this chat, from a branch you pushed. The task that tracks it waits on hold at the line’s pull request station.',
+      inputs: [
+        {
+          name: 'repository',
+          schema: InputSchema.ofType('string'),
+          description:
+            'The repository of the change, as in owner/name. Needed when the chat has more than one.',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'branch',
+          schema: InputSchema.ofType('string'),
+          description: 'The branch you pushed, as in fix/video-icons',
+          required: true,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'title',
+          schema: InputSchema.ofType('string'),
+          description: 'What the change does',
+          required: true,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'line',
+          schema: InputSchema.ofType('string'),
+          description:
+            'The key of the line that tracks the pull request. Needed when more than one line works on the repository.',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'body',
+          schema: InputSchema.ofType('string'),
+          description: 'What changed and why, as Markdown',
+          required: false,
+          defaulted: false,
+          stdin: true,
+        },
+      ],
+    }),
+  },
 ];
 
 export const builtInToolsForChat = (chat: {
   readonly settingUp: boolean;
 }): readonly BuiltInTool[] =>
-  builtInToolsFor('chat').filter(
-    (each) => chat.settingUp || !each.declared.tool.equals(SETUP_PULL_REQUEST),
+  builtInToolsFor('chat').filter((each) =>
+    chat.settingUp
+      ? !each.declared.tool.equals(OPEN_PULL_REQUEST)
+      : !each.declared.tool.equals(SETUP_PULL_REQUEST),
   );
 
 export const builtInTool = (tool: Tool): BuiltInTool | null =>

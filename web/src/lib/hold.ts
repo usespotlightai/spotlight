@@ -5,7 +5,9 @@ import type {
   StationResponseDto,
   HoldVerdict,
 } from '@/lib/api';
+import { chatPath } from '@/lib/chat';
 import type { Note } from '@/lib/inbox';
+import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
 import type { Task } from '@/lib/task';
 
@@ -37,13 +39,28 @@ export const moveOnTargets = (
   return stations.filter((each) => Boolean(each.harness) && next.has(each.id));
 };
 
+export const holdPathOf = (
+  slug: string,
+  teamId: string,
+  hold: TaskHoldResponseDto,
+): string | undefined =>
+  hold.chatId
+    ? chatPath(slug, teamId, hold.chatId)
+    : hold.runId
+      ? runPath(slug, teamId, hold.runId)
+      : undefined;
+
 export const heldUntilResumed = (
   hold: TaskHoldResponseDto,
   viewerId: string | undefined,
 ): string =>
-  hold.by.id === viewerId
-    ? `You put the task on hold ${since(hold.startedAt)}. The line continues when you resume it.`
-    : `${hold.by.name} put the task on hold ${since(hold.startedAt)}. The line continues when they resume it.`;
+  hold.chatId
+    ? hold.by.id === viewerId
+      ? `Your agent chat opened the pull request of this task ${since(hold.startedAt)}. The line continues when you hand the task to the line.`
+      : `The agent chat of ${hold.by.name} opened the pull request of this task ${since(hold.startedAt)}. The line continues when they hand the task to the line.`
+    : hold.by.id === viewerId
+      ? `You put the task on hold ${since(hold.startedAt)}. The line continues when you resume it.`
+      : `${hold.by.name} put the task on hold ${since(hold.startedAt)}. The line continues when they resume it.`;
 
 export const heldByOther = (
   hold: TaskHoldResponseDto | null | undefined,

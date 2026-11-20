@@ -57,6 +57,7 @@ import {
   type ProposalRow,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { and, asc, eq, or } from 'drizzle-orm';
+import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 
 type Row = typeof chat.$inferSelect;
 type MessageRow = typeof chatMessage.$inferSelect;
@@ -122,6 +123,12 @@ const toMessage = (
       }),
     ),
     proposal: toProposal(row.proposal ?? null, position),
+    pullRequest: row.pullRequest
+      ? ChatPullRequest.of({
+          task: TaskId.of(row.pullRequest.taskId),
+          url: PullRequestUrl.of(row.pullRequest.url),
+        })
+      : null,
     acknowledgedAt: row.acknowledgedAt,
     acknowledgedBy: row.acknowledgedByRunId
       ? RunId.of(row.acknowledgedByRunId)
@@ -433,6 +440,12 @@ export class DrizzleChatRepository implements ChatRepository {
             teamId: each.teamId.value,
           })),
           proposal,
+          pullRequest: message.pullRequest
+            ? {
+                taskId: message.pullRequest.task.value,
+                url: message.pullRequest.url.value,
+              }
+            : null,
           acknowledgedAt: message.acknowledgedAt,
           acknowledgedByRunId: message.acknowledgedBy?.value ?? null,
         })

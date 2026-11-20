@@ -68,7 +68,7 @@ export function AppTabItem({
           type="button"
           aria-label={`Close ${title}`}
           onClick={onClose}
-          className="absolute right-1 flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 outline-none transition-opacity hover:bg-border hover:text-foreground focus-visible:opacity-100 group-hover/tab:opacity-100 pointer-coarse:opacity-100"
+          className="absolute right-1 flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 outline-none transition-opacity hover:bg-border hover:text-foreground dark:hover:bg-foreground/15 focus-visible:opacity-100 group-hover/tab:opacity-100 pointer-coarse:opacity-100"
         >
           <X className="size-3" aria-hidden />
         </button>

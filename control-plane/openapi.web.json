@@ -10769,13 +10769,19 @@
             "type": "string",
             "nullable": true,
             "description": "The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station."
+          },
+          "chatId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The agent chat that holds the task while it works on the pull request itself"
           }
         },
         "required": [
           "by",
           "startedAt",
           "runId",
-          "heldMoveTo"
+          "heldMoveTo",
+          "chatId"
         ]
       },
       "TaskRunNotStartedResponseDto": {
@@ -12078,6 +12084,68 @@
           "taskId"
         ]
       },
+      "ChatPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "description": "The task that tracks the pull request"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/web/pull/7"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "held",
+              "line",
+              "completed",
+              "gone"
+            ],
+            "example": "held",
+            "description": "held: the task waits on hold for this chat. line: the line has the task. completed: the task completed. gone: the task was deleted"
+          },
+          "lineName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Default"
+          },
+          "stationName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Code review"
+          },
+          "stationColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#edc12b"
+          },
+          "stationPosition": {
+            "type": "number",
+            "nullable": true,
+            "example": 3,
+            "description": "The position of the task’s station on its line, from 0"
+          },
+          "stationCount": {
+            "type": "number",
+            "nullable": true,
+            "example": 5,
+            "description": "How many stations its line has"
+          }
+        },
+        "required": [
+          "taskId",
+          "url",
+          "state",
+          "lineName",
+          "stationName",
+          "stationColor",
+          "stationPosition",
+          "stationCount"
+        ]
+      },
       "ChatMessageResponseDto": {
         "type": "object",
         "properties": {
@@ -12089,7 +12157,9 @@
             "type": "string",
             "enum": [
               "message",
-              "proposed"
+              "proposed",
+              "opened",
+              "happened"
             ],
             "example": "message"
           },
@@ -12141,6 +12211,16 @@
                 "$ref": "#/components/schemas/ChatProposalResponseDto"
               }
             ]
+          },
+          "pullRequest": {
+            "nullable": true,
+            "description": "The pull request the agent opened, on an opened message",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatPullRequestResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -12153,7 +12233,8 @@
           "takenUpBy",
           "attachments",
           "traces",
-          "proposal"
+          "proposal",
+          "pullRequest"
         ]
       },
       "ChatResponseDto": {

@@ -58,6 +58,7 @@ export const TaskHttpMapper = {
             dto.hold.startedAt,
             dto.hold.runId,
             dto.hold.heldMoveTo,
+            dto.hold.chatId,
           )
         : null,
       dto.runNotStarted

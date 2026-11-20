@@ -22,6 +22,8 @@ export type ChatMessage = ChatMessageResponseDto;
 
 export type Proposal = NonNullable<ChatMessage['proposal']>;
 
+export type ChatPullRequest = NonNullable<ChatMessage['pullRequest']>;
+
 export type SharedTrace = ChatTraceResponseDto;
 
 const isSharedTrace = (value: unknown): value is SharedTrace =>
@@ -118,6 +120,13 @@ export type ChatMoment =
       readonly proposal: Proposal;
     }
   | {
+      readonly kind: 'opened';
+      readonly key: string;
+      readonly at: string;
+      readonly message: ChatMessage;
+      readonly pullRequest: ChatPullRequest;
+    }
+  | {
       readonly kind: 'answered';
       readonly key: string;
       readonly at: string;
@@ -156,12 +165,20 @@ const momentOf = (message: ChatMessage): ChatMoment =>
         message,
         proposal: message.proposal,
       }
-    : {
-        kind: 'message',
-        key: `message:${message.position}`,
-        at: message.at,
-        message,
-      };
+    : message.pullRequest
+      ? {
+          kind: 'opened',
+          key: `message:${message.position}`,
+          at: message.at,
+          message,
+          pullRequest: message.pullRequest,
+        }
+      : {
+          kind: 'message',
+          key: `message:${message.position}`,
+          at: message.at,
+          message,
+        };
 
 const later = (at: string, floor: string | null): string =>
   floor && Date.parse(floor) > Date.parse(at) ? floor : at;
@@ -179,7 +196,8 @@ const starterOf = (
   return messages
     .filter(
       (message) =>
-        message.kind === 'message' && Date.parse(message.at) <= queued,
+        (message.kind === 'message' || message.kind === 'happened') &&
+        Date.parse(message.at) <= queued,
     )
     .reduce<string | null>(
       (found, message) =>
@@ -293,6 +311,44 @@ export const proposedStationOf = (proposal: Proposal): string | null =>
     ? [proposal.lineName, proposal.stationName].filter(Boolean).join(' › ')
     : null;
 
+const PULL_REQUEST_STATUSES: Record<
+  Exclude<ChatPullRequest['state'], 'held'>,
+  ApprovalStatus
+> = {
+  line: 'working',
+  completed: 'approved',
+  gone: 'dismissed',
+};
+
+export const pullRequestStatusOf = (
+  state: Exclude<ChatPullRequest['state'], 'held'>,
+): ApprovalStatus => PULL_REQUEST_STATUSES[state];
+
+const PULL_REQUEST_TITLES: Record<ChatPullRequest['state'], string> = {
+  held: 'On hold for this chat',
+  line: 'Handed to the line',
+  completed: 'Task completed',
+  gone: 'Task deleted',
+};
+
+export const pullRequestTitleOf = (pullRequest: ChatPullRequest): string =>
+  PULL_REQUEST_TITLES[pullRequest.state];
+
+export const pullRequestNameOf = (url: string): string => {
+  const found = /github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/.exec(url);
+
+  return found ? `${found[1]}#${found[2]}` : url;
+};
+
+export const pullRequestStationOf = (
+  pullRequest: ChatPullRequest,
+): string | null =>
+  pullRequest.stationName
+    ? [pullRequest.lineName, pullRequest.stationName]
+        .filter(Boolean)
+        .join(' › ')
+    : null;
+
 export const proposalText = (proposal: Proposal): string =>
   proposal.description
     ? `${proposal.title}\n\n${proposal.description}`
@@ -314,6 +370,7 @@ export const sentTo = (chat: Chat, sent: SentMessage, at: string): Chat => ({
       takenUpBy: null,
       traces: [],
       proposal: null,
+      pullRequest: null,
     },
   ],
 });

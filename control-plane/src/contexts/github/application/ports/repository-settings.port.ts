@@ -18,6 +18,11 @@ export interface RepositorySettingsPort {
     repository: Repository,
   ): Promise<DefaultBranchDto>;
 
+  defaultBranchNameOf(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+  ): Promise<string>;
+
   oidcSubjectPrefixOf(
     workspaceId: WorkspaceId,
     repository: Repository,

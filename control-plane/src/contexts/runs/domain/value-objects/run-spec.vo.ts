@@ -44,6 +44,7 @@ interface RunHandover {
 export interface RunResume {
   readonly sessionId?: string;
   readonly resumeSession?: boolean;
+  readonly followUp?: string;
 }
 
 export interface RunToolInput {
@@ -227,6 +228,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
       ? { sessionId: parts.resume.sessionId }
       : {}),
     ...(parts.resume.resumeSession ? { resumeSession: true } : {}),
+    ...(parts.resume.followUp ? { followUp: parts.resume.followUp } : {}),
   },
   ...(parts.skills
     ? { skills: parts.skills.map(({ path, text }) => ({ path, text })) }
@@ -501,6 +503,9 @@ export class RunSpec {
               ? { sessionId: this.parts.resume.sessionId }
               : {}),
           resumeSession: true,
+          ...(this.parts.resume.followUp
+            ? { followUp: this.parts.resume.followUp }
+            : {}),
         },
       }),
     );

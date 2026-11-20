@@ -313,6 +313,7 @@ describe('LineBoard', () => {
           startedAt: '2026-08-04T10:00:00.000Z',
           runId: 'run_1',
           heldMoveTo: null,
+          chatId: null,
         },
       },
     ]);

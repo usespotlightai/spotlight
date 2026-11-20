@@ -3309,6 +3309,10 @@ export type TaskHoldResponseDto = {
    * The station an event asked to move the task to while it was on hold. The task moves there when the line resumes at its station.
    */
   heldMoveTo: string | null;
+  /**
+   * The agent chat that holds the task while it works on the pull request itself
+   */
+  chatId: string | null;
 };
 
 export type TaskRunNotStartedResponseDto = {
@@ -3789,9 +3793,32 @@ export type ChatProposalResponseDto = {
   taskId: string | null;
 };
 
+export type ChatPullRequestResponseDto = {
+  /**
+   * The task that tracks the pull request
+   */
+  taskId: string;
+  url: string;
+  /**
+   * held: the task waits on hold for this chat. line: the line has the task. completed: the task completed. gone: the task was deleted
+   */
+  state: 'held' | 'line' | 'completed' | 'gone';
+  lineName: string | null;
+  stationName: string | null;
+  stationColor: string | null;
+  /**
+   * The position of the task’s station on its line, from 0
+   */
+  stationPosition: number | null;
+  /**
+   * How many stations its line has
+   */
+  stationCount: number | null;
+};
+
 export type ChatMessageResponseDto = {
   position: number;
-  kind: 'message' | 'proposed';
+  kind: 'message' | 'proposed' | 'opened' | 'happened';
   body: string;
   at: string;
   author: InboxAuthorResponseDto | null;
@@ -3809,6 +3836,10 @@ export type ChatMessageResponseDto = {
    */
   traces: Array<ChatTraceResponseDto>;
   proposal: ChatProposalResponseDto | null;
+  /**
+   * The pull request the agent opened, on an opened message
+   */
+  pullRequest: ChatPullRequestResponseDto | null;
 };
 
 export type ChatResponseDto = {

@@ -1,6 +1,6 @@
 {
-  "id": "04c47eb9-d138-4e9a-91d6-d70ae13d6864",
-  "prevId": "575d842f-5e59-4baa-a449-1da0bd8b30b4",
+  "id": "93a1495b-91f7-4039-8c18-f1285958a9bd",
+  "prevId": "c2ccfa22-acb8-4b85-a869-5e5a0dca0be7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -18291,6 +18291,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "pull_request": {
+          "name": "pull_request",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "acknowledged_at": {
           "name": "acknowledged_at",
           "type": "timestamp (3) with time zone",
@@ -18351,6 +18357,10 @@
         "chat_message_position_not_negative": {
           "name": "chat_message_position_not_negative",
           "value": "\"chat_message\".\"position\" >= 0"
+        },
+        "chat_message_opened_names_a_pull_request": {
+          "name": "chat_message_opened_names_a_pull_request",
+          "value": "(\"chat_message\".\"kind\"::text = 'opened') = (\"chat_message\".\"pull_request\" is not null)"
         }
       },
       "isRLSEnabled": false
@@ -19638,6 +19648,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "chat_id": {
+          "name": "chat_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "from_run_id": {
           "name": "from_run_id",
           "type": "text",
@@ -19756,6 +19772,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "task_hold_chat_idx": {
+          "name": "task_hold_chat_idx",
+          "columns": [
+            {
+              "expression": "chat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"task_hold\".\"chat_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -19779,6 +19811,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "task_hold_for_a_chat_holds_from_no_run": {
+          "name": "task_hold_for_a_chat_holds_from_no_run",
+          "value": "\"task_hold\".\"chat_id\" is null or \"task_hold\".\"from_run_id\" is null"
+        },
         "task_hold_ends_with_an_end": {
           "name": "task_hold_ends_with_an_end",
           "value": "(\"task_hold\".\"ended_at\" is null) = (\"task_hold\".\"hold_end\" is null)"
@@ -21385,7 +21421,9 @@
       "schema": "public",
       "values": [
         "message",
-        "proposed"
+        "proposed",
+        "opened",
+        "happened"
       ]
     },
     "public.dispatch_driver": {

@@ -14,7 +14,6 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS,
 } from '@lexical/markdown';
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionComposer';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
@@ -25,8 +24,9 @@ import {
   defineExtension,
   type EditorThemeClasses,
 } from 'lexical';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
+import { useShownMarkdown } from '@/hooks/useShownMarkdown';
 import { cn } from '@/lib/utils';
 
 const NODES = [
@@ -98,26 +98,7 @@ type ShownTextProps = {
 };
 
 function ShownText({ value, shortLines }: ShownTextProps) {
-  const [editor] = useLexicalComposerContext();
-  const shown = useRef(value);
-
-  useEffect(() => {
-    if (shown.current === value) {
-      return;
-    }
-    shown.current = value;
-    editor.update(
-      () =>
-        $convertFromMarkdownString(
-          value,
-          TRANSFORMERS,
-          undefined,
-          false,
-          shortLines,
-        ),
-      { tag: 'history-merge' },
-    );
-  }, [editor, value, shortLines]);
+  useShownMarkdown(value, shortLines);
 
   return null;
 }
