@@ -184,6 +184,7 @@ export interface InboxNoticeDto {
   readonly unread: boolean;
   readonly resolved: boolean;
   readonly section: InboxSection;
+  readonly resolvable: boolean;
   readonly reopenable: boolean;
 }
 

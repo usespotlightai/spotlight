@@ -21,6 +21,7 @@ import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -387,6 +388,36 @@ describe('a held task whose turn asks another person (e2e)', () => {
     ).toMatchObject({ standing: 'team', answerable: true, resolvable: true });
   });
 
+  it('lists a new approval in a conversation already answered in words for the person it names', async () => {
+    const turn = RunId.of(randomUUID());
+    const question = added()
+      .assignRun(RunId.of(randomUUID()), line)
+      .hold({
+        id: HoldId.of(randomUUID()),
+        by: holder,
+        members: MEMBERS(),
+        line,
+        currentRunStarted: true,
+        at: NOW,
+      })
+      .addMessage(said('Use a bounded queue.', Voice.person(holder)))
+      .assignRun(turn, line)
+      .putToAPerson(turn, said('Which queue?', Voice.station(turn)));
+    const answered = question.answerAs(
+      holder,
+      MEMBERS(),
+      question.openConversation?.from ?? NotePosition.of(0),
+      said('The main one.', Voice.person(holder)),
+    );
+    const task = askingApproval(answered, turn, asked);
+
+    await tasks.add(task);
+
+    expect(
+      conversationIn(await reader.open(scopeOf(asked)), task),
+    ).toMatchObject({ standing: 'asked', answerable: true, resolvable: false });
+  });
+
   it('asks nobody again when a person reopens a conversation whose approval is decided', async () => {
     const turn = RunId.of(randomUUID());
     const asking = askingApproval(
@@ -481,5 +512,52 @@ describe('a held task whose turn asks another person (e2e)', () => {
     ).toMatchObject({ resolvable: false });
     expect((await resolvedFor(true))?.reopenable).toBe(true);
     expect((await resolvedFor(false))?.reopenable).toBe(false);
+  });
+
+  it('lets only a person who acts on the team resolve or reopen a notice', async () => {
+    const open = randomUUID();
+    const resolved = randomUUID();
+    const row = (id: string, resolvedAt: Date | null) => ({
+      id,
+      workspaceId,
+      teamId,
+      addresseeId: null,
+      form: 'ended' as const,
+      subject: id,
+      link: 'lines',
+      linkLabel: 'Open the lines',
+      headline: 'The search stalled',
+      points: ['Fix the claims.'],
+      createdAt: NOW,
+      resolvedAt,
+    });
+    const noticeIn = (
+      entries: readonly InboxEntrySummary[],
+      id: string,
+    ): InboxEntrySummary | undefined =>
+      entries.find((each) => each.kind === 'notice' && each.id === id);
+    const resolvedFor = async (actsOnTeam: boolean) =>
+      noticeIn(
+        (
+          await reader.resolved(scopeOf(holder, actsOnTeam), {
+            before: null,
+            limit: 50,
+          })
+        ).items,
+        resolved,
+      );
+
+    await database.db
+      .insert(schema.notice)
+      .values([row(open, null), row(resolved, NOW)]);
+
+    expect(noticeIn(await reader.open(scopeOf(holder)), open)).toMatchObject({
+      resolvable: true,
+    });
+    expect(
+      noticeIn(await reader.open(scopeOf(holder, false)), open),
+    ).toMatchObject({ resolvable: false });
+    expect(await resolvedFor(true)).toMatchObject({ reopenable: true });
+    expect(await resolvedFor(false)).toMatchObject({ reopenable: false });
   });
 });

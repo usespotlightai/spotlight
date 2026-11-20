@@ -31,6 +31,14 @@ export class AnswerInboxItemRequestDto {
   readonly approve?: boolean;
 
   @ApiPropertyOptional({
+    type: Number,
+    example: 3,
+    description:
+      'With approve, the note of the ask it decides, by its position in the trail, as the person saw it. Required with approve. Refused when the conversation now asks for something newer',
+  })
+  readonly ask?: number;
+
+  @ApiPropertyOptional({
     type: AnswerInboxItemInputRequestDto,
     isArray: true,
     description:

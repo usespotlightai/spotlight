@@ -56,7 +56,9 @@ export function useResolveInboxEntry() {
         unread: false,
         section: 'resolved',
         reopenable: true,
-        ...(entry.kind === 'task' ? { resolvable: false } : {}),
+        ...(entry.kind === 'task' || entry.kind === 'notice'
+          ? { resolvable: false }
+          : {}),
       }),
     }),
 

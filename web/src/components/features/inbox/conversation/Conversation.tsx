@@ -10,12 +10,13 @@ import { PaneScroller } from '@/components/shared/PaneScroller';
 import { THREAD_COLUMN } from '@/components/shared/thread-column';
 import { Turn } from '@/components/shared/Turn';
 import { useArrivals } from '@/hooks/useArrivals';
-import type { ApprovalAnswer } from '@/lib/approval';
+import type { AskDecision } from '@/lib/approval';
 import { changesInPlace } from '@/lib/disclosure';
 import { placeVisits } from '@/lib/folded-visit';
 import {
   ARRIVING,
   type ConversationItem,
+  latestAskPosition,
   type Note,
   openedAt,
   type RunJournal,
@@ -168,7 +169,7 @@ const put = (
 
 export type Deciding = {
   readonly pending: boolean;
-  readonly onDecide: (answer: ApprovalAnswer) => void;
+  readonly onDecide: (answer: AskDecision) => void;
 };
 
 type ConversationProps = {
@@ -230,6 +231,7 @@ export function Conversation({
   const ours = useRef(false);
   const setup = item.notes.filter(showsInThread).at(-1)?.form === 'setup';
   const latest = item.notes.at(-1)?.position;
+  const asking = latestAskPosition(item.notes);
 
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -391,7 +393,10 @@ export function Conversation({
                           teamId={item.teamId}
                           about={item.about}
                           resolved={item.resolved}
-                          deciding={deciding}
+                          deciding={
+                            note.position === asking ? deciding : undefined
+                          }
+                          outdated={asking !== null && note.position < asking}
                           suggestion={
                             note.position === latest ? suggestion : undefined
                           }

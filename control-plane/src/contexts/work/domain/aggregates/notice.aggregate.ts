@@ -12,6 +12,7 @@ import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import type { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
 import type { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import type { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
+import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
 interface NoticeState {
   readonly id: NoticeId;
@@ -78,6 +79,18 @@ export class Notice extends EventRecorder {
 
   static reopenable(resolvedAt: Date | null): boolean {
     return resolvedAt !== null;
+  }
+
+  static assertActedOnBy(team: TeamStanding, unseen: () => Error): void {
+    team.assertActsOnTasks(unseen);
+  }
+
+  static resolvableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
+    return team.actsOnTasks && resolvedAt === null;
+  }
+
+  static reopenableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
+    return team.actsOnTasks && Notice.reopenable(resolvedAt);
   }
 
   static unread(resolvedAt: Date | null): boolean {
