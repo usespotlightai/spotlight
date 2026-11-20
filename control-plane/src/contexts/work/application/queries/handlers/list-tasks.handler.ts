@@ -25,8 +25,11 @@ export class ListTasksHandler implements QueryHandlerPort<
   async execute(query: ListTasksQuery): Promise<Page<TaskDto> | null> {
     try {
       const teamId = TeamId.of(query.teamId);
+      const viewer = UserId.of(query.viewerId);
 
-      if (!(await this.access.seesTeam(teamId, UserId.of(query.viewerId)))) {
+      const standing = await this.access.standingOn(teamId, viewer);
+
+      if (!standing.seesTasks) {
         return null;
       }
 
@@ -41,7 +44,12 @@ export class ListTasksHandler implements QueryHandlerPort<
             },
       );
 
-      return mapPage(found, (each) => TaskMapper.summaryToDto(each));
+      return mapPage(found, (each) =>
+        TaskMapper.summaryToDto(each, {
+          id: query.viewerId,
+          actsOnTasks: standing.actsOnTasks,
+        }),
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -60,11 +68,18 @@ export class ReadTaskHandler implements QueryHandlerPort<
   async execute(query: ReadTaskQuery): Promise<TaskDto | null> {
     try {
       const teamId = TeamId.of(query.teamId);
+      const viewer = UserId.of(query.viewerId);
+      const standing = await this.access.standingOn(teamId, viewer);
       const found =
-        (await this.access.seesTeam(teamId, UserId.of(query.viewerId))) &&
+        standing.seesTasks &&
         (await this.tasks.findInTeam(teamId, TaskId.of(query.taskId)));
 
-      return found ? TaskMapper.summaryToDto(found) : null;
+      return found
+        ? TaskMapper.summaryToDto(found, {
+            id: query.viewerId,
+            actsOnTasks: standing.actsOnTasks,
+          })
+        : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

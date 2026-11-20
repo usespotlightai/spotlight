@@ -60,16 +60,13 @@ export const heldUntilResumed = (
       : `The agent chat of ${hold.by.name} opened the pull request of this task ${since(hold.startedAt)}. The line continues when they hand the task to the line.`
     : `${hold.by.id === viewerId ? 'You' : hold.by.name} put the task on hold ${since(hold.startedAt)}. The line continues when a person on the team resumes it.`;
 
-export const chatHeldByOther = (
+export const lockedHold = (
   hold: TaskHoldResponseDto | null | undefined,
-  viewerId: string | undefined,
-): TaskHoldResponseDto | null =>
-  hold?.chatId && hold.by.id !== viewerId ? hold : null;
+): TaskHoldResponseDto | null => (hold && !hold.viewerEnds ? hold : null);
 
 export const drivesHold = (
   hold: TaskHoldResponseDto | null | undefined,
-  viewerId: string | undefined,
-): boolean => Boolean(hold && !chatHeldByOther(hold, viewerId));
+): boolean => hold?.viewerDrives ?? false;
 
 export const heldBecause = (verdict: HoldVerdict): string =>
   verdict === 'exploring'

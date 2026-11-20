@@ -72,6 +72,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   resolved: false,
   section: 'open',
   standing: 'assignee',
+  viewerActs: true,
   reopenable: false,
   progress: null,
   runId: null,

@@ -129,6 +129,7 @@ const item = (
 ) => [
   {
     kind: 'task',
+    viewerActs: true,
     id: 'task_1:0',
     taskId: 'task_1',
     teamId: 'team_1',
@@ -775,7 +776,10 @@ describe('InboxItem', () => {
       taskStation.mockReturnValue({
         line,
         station: line.stations[0],
-        task: { ...task, hold: { by: { id: 'user_9' }, chatId: 'chat_1' } },
+        task: {
+          ...task,
+          hold: { by: { id: 'user_9' }, chatId: 'chat_1', viewerEnds: false },
+        },
       });
 
       renderItem();
@@ -809,11 +813,49 @@ describe('InboxItem', () => {
     });
   });
 
+  describe('followed by a viewer who drives the task a person holds', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([
+        { ...only, standing: 'following', viewerActs: true },
+      ]);
+    });
+
+    it('can be answered by them', () => {
+      renderItem();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Answer Implementation' }),
+      ).not.toHaveAttribute('aria-disabled', 'true');
+    });
+  });
+
+  describe('seen by a person who only sees the team', () => {
+    beforeEach(() => {
+      const [only] = item([note()]);
+      waiting.mockReturnValue([
+        { ...only, standing: 'team', viewerActs: false },
+      ]);
+    });
+
+    it('shows the conversation with the text bar disabled, and says who answers', () => {
+      renderItem();
+
+      expect(screen.getByRole('textbox', { name: /Answer/ })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
+      expect(
+        screen.getByText(/People who act on them answer here/),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe('followed by the viewer', () => {
     beforeEach(() => {
       const [only] = item([note()]);
       waiting.mockReturnValue([
-        { ...only, standing: 'following', unread: true },
+        { ...only, standing: 'following', viewerActs: false, unread: true },
       ]);
     });
 

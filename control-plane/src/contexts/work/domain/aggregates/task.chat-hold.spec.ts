@@ -17,8 +17,8 @@ import { LineResumed } from '@work/domain/events/line-resumed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
+import { HeldForAgentChatError } from '@work/domain/exceptions/held-for-agent-chat.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
-import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
@@ -122,6 +122,32 @@ describe('a task a chat opens a pull request for', () => {
     expect(task.pullEvents().some((each) => each instanceof TaskHeld)).toBe(
       true,
     );
+  });
+
+  it('lets only its assignee act on its conversations while the chat holds it', () => {
+    const task = opened();
+
+    expect(
+      task.actsOnConversation({
+        person: MAYA,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
+    ).toBe(false);
+    expect(
+      task.conversationStandingOf({
+        person: MAYA,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
+    ).toBeNull();
+    expect(
+      task.actsOnConversation({
+        person: LEON,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
+    ).toBe(true);
   });
 
   it('keeps the pull request its chat opened, once', () => {
@@ -270,7 +296,7 @@ describe('a task a chat opens a pull request for', () => {
         turnHeads: [],
         at: LATER,
       }),
-    ).toThrow(TaskOnHoldError);
+    ).toThrow(HeldForAgentChatError);
     expect(() =>
       opened().moveTo(
         line,
@@ -279,7 +305,7 @@ describe('a task a chat opens a pull request for', () => {
         said('Not now.', Voice.person(MAYA)),
         { mover: MAYA },
       ),
-    ).toThrow(TaskOnHoldError);
+    ).toThrow(HeldForAgentChatError);
   });
 
   it('tells the chat when the person moves the task on by hand', () => {

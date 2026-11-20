@@ -11,7 +11,8 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(ANA, {
         person: ANA,
         onTeam: true,
-        follows: true,
+        wroteIn: true,
+        drives: false,
       }),
     ).toBe('assignee');
   });
@@ -21,7 +22,8 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(null, {
         person: ANA,
         onTeam: true,
-        follows: true,
+        wroteIn: true,
+        drives: false,
       }),
     ).toBe('team');
   });
@@ -31,7 +33,8 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(BEN, {
         person: ANA,
         onTeam: true,
-        follows: true,
+        wroteIn: true,
+        drives: false,
       }),
     ).toBe('following');
   });
@@ -41,14 +44,16 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(BEN, {
         person: ANA,
         onTeam: true,
-        follows: false,
+        wroteIn: false,
+        drives: false,
       }),
     ).toBeNull();
     expect(
       ConversationAudience.standingOf(null, {
         person: ANA,
         onTeam: false,
-        follows: false,
+        wroteIn: false,
+        drives: false,
       }),
     ).toBeNull();
   });
@@ -58,7 +63,8 @@ describe('ConversationAudience', () => {
       ConversationAudience.standingOf(null, {
         person: ANA,
         onTeam: false,
-        follows: true,
+        wroteIn: true,
+        drives: false,
       }),
     ).toBeNull();
   });
@@ -74,5 +80,47 @@ describe('ConversationAudience', () => {
     expect(ConversationAudience.notifies('assignee')).toBe(true);
     expect(ConversationAudience.notifies('team')).toBe(true);
     expect(ConversationAudience.notifies('following')).toBe(false);
+  });
+
+  it('stands a person who drives a hold as following, and lets them act on it', () => {
+    const standing = ConversationAudience.standingOf(BEN, {
+      person: ANA,
+      onTeam: true,
+      wroteIn: false,
+      drives: true,
+    });
+
+    expect(standing).toBe('following');
+    expect(ConversationAudience.answers(standing)).toBe(false);
+    expect(
+      ConversationAudience.actsOn(standing, {
+        actsOnTasks: true,
+        drives: true,
+      }),
+    ).toBe(true);
+    expect(
+      ConversationAudience.actsOn(standing, {
+        actsOnTasks: true,
+        drives: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('lets nobody who only sees the team act, whatever their standing', () => {
+    expect(
+      ConversationAudience.actsOn('assignee', {
+        actsOnTasks: false,
+        drives: false,
+      }),
+    ).toBe(false);
+    expect(
+      ConversationAudience.actsOn('team', { actsOnTasks: false, drives: true }),
+    ).toBe(false);
+    expect(
+      ConversationAudience.actsOn('assignee', {
+        actsOnTasks: true,
+        drives: false,
+      }),
+    ).toBe(true);
   });
 });

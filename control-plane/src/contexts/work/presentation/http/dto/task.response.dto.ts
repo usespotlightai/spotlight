@@ -72,18 +72,34 @@ export class TaskHoldResponseDto {
   })
   readonly chatId: string | null;
 
+  @ApiProperty({
+    description:
+      'Whether the caller can send the agent turns while the task is on hold',
+  })
+  readonly viewerDrives: boolean;
+
+  @ApiProperty({
+    description:
+      'Whether the caller can resume the line or move the task while it is on hold',
+  })
+  readonly viewerEnds: boolean;
+
   constructor(
     by: TaskPersonResponseDto,
     startedAt: string,
     runId: string | null,
     heldMoveTo: string | null,
     chatId: string | null,
+    viewerDrives: boolean,
+    viewerEnds: boolean,
   ) {
     this.by = by;
     this.startedAt = startedAt;
     this.runId = runId;
     this.heldMoveTo = heldMoveTo;
     this.chatId = chatId;
+    this.viewerDrives = viewerDrives;
+    this.viewerEnds = viewerEnds;
   }
 }
 

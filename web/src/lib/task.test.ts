@@ -118,12 +118,8 @@ describe('movableByHand', () => {
 
 describe('mayLand', () => {
   it('lets a task land only where a person may move it', () => {
-    expect(mayLand(stations, task('a', 'spec'), 'backlog', undefined)).toBe(
-      true,
-    );
-    expect(mayLand(stations, task('a', 'spec'), 'build', undefined)).toBe(
-      false,
-    );
+    expect(mayLand(stations, task('a', 'spec'), 'backlog')).toBe(true);
+    expect(mayLand(stations, task('a', 'spec'), 'build')).toBe(false);
   });
 
   const held: Task = {
@@ -134,37 +130,39 @@ describe('mayLand', () => {
       runId: null,
       heldMoveTo: null,
       chatId: null,
+      viewerDrives: true,
+      viewerEnds: true,
     },
   };
 
-  it('lets any person move a task on hold, which resumes the line', () => {
-    expect(mayLand(stations, held, 'backlog', 'user_1')).toBe(true);
-    expect(mayLand(stations, held, 'backlog', 'user_2')).toBe(true);
+  it('lets a person who may end the hold move the task, which resumes the line', () => {
+    expect(mayLand(stations, held, 'backlog')).toBe(true);
   });
 
-  it('keeps a task an agent chat holds at its station for everyone but the person whose chat it is', () => {
-    const chatHeld: Task = {
+  it('keeps a task on hold at its station for a person who may not end the hold', () => {
+    const locked: Task = {
       ...held,
-      hold: held.hold && { ...held.hold, chatId: 'chat_1' },
+      hold: held.hold && {
+        ...held.hold,
+        viewerDrives: false,
+        viewerEnds: false,
+      },
     };
 
-    expect(mayLand(stations, chatHeld, 'backlog', 'user_2')).toBe(false);
-    expect(mayLand(stations, chatHeld, 'spec', 'user_2')).toBe(true);
-    expect(mayLand(stations, chatHeld, 'backlog', 'user_1')).toBe(true);
+    expect(mayLand(stations, locked, 'backlog')).toBe(false);
+    expect(mayLand(stations, locked, 'spec')).toBe(true);
   });
 
   it('lands nothing at a station off the line', () => {
-    expect(mayLand(stations, task('a', 'spec'), 'elsewhere', undefined)).toBe(
-      false,
-    );
+    expect(mayLand(stations, task('a', 'spec'), 'elsewhere')).toBe(false);
   });
 });
 
 describe('moveTargetFor', () => {
   it('starts work waiting in the backlog at the first work station', () => {
-    expect(
-      moveTargetFor(stations, [task('a', 'backlog')], ['a'], undefined)?.name,
-    ).toBe('Spec');
+    expect(moveTargetFor(stations, [task('a', 'backlog')], ['a'])?.name).toBe(
+      'Spec',
+    );
   });
 
   it('parks work further along back in the backlog', () => {
@@ -173,7 +171,6 @@ describe('moveTargetFor', () => {
         stations,
         [task('a', 'build'), task('b', 'backlog')],
         ['a', 'b'],
-        undefined,
       )?.name,
     ).toBe('Backlog');
   });
@@ -184,15 +181,12 @@ describe('moveTargetFor', () => {
         stations,
         [task('a', 'build'), task('b', 'completed')],
         ['a', 'b'],
-        undefined,
       ),
     ).toBeNull();
   });
 
   it('offers nothing until something is picked', () => {
-    expect(
-      moveTargetFor(stations, [task('a', 'build')], [], undefined),
-    ).toBeNull();
+    expect(moveTargetFor(stations, [task('a', 'build')], [])).toBeNull();
   });
 });
 
@@ -271,6 +265,8 @@ describe('holdsOnMessage', () => {
             runId: null,
             heldMoveTo: null,
             chatId: null,
+            viewerDrives: true,
+            viewerEnds: true,
           },
         },
         worked,

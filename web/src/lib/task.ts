@@ -82,7 +82,6 @@ export const mayLand = (
   stations: readonly Placed[],
   task: Task,
   stationId: string,
-  viewerId: string | undefined,
 ): boolean => {
   const from = stations.find((each) => each.id === task.stationId);
   const to = stations.find((each) => each.id === stationId);
@@ -91,8 +90,7 @@ export const mayLand = (
     from &&
     to &&
     (from.id === to.id ||
-      ((!task.hold?.chatId || task.hold.by.id === viewerId) &&
-        movableByHand(from, to))),
+      ((!task.hold || task.hold.viewerEnds) && movableByHand(from, to))),
   );
 };
 
@@ -104,7 +102,6 @@ export const moveTargetFor = (
   stations: readonly Station[],
   tasks: readonly Task[],
   selected: readonly string[],
-  viewerId: string | undefined,
 ): MoveTarget | null => {
   const backlog = stations.find((each) => each.kind === 'backlog');
   const start = stations.find((each) => each.kind === 'work');
@@ -118,7 +115,7 @@ export const moveTargetFor = (
   const waiting = picked.every((each) => each.stationId === backlog.id);
   const station = waiting ? start : backlog;
 
-  if (!picked.every((each) => mayLand(stations, each, station.id, viewerId))) {
+  if (!picked.every((each) => mayLand(stations, each, station.id))) {
     return null;
   }
 

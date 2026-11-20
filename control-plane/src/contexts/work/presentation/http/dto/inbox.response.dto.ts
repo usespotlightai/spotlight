@@ -612,6 +612,13 @@ export class InboxItemResponseDto {
   readonly standing: InboxStanding | null;
 
   @ApiProperty({
+    example: true,
+    description:
+      "True when the person can answer, resolve and open it again. The assignee, or the team while it has no assignee, acts on it. While a person holds its task, every person who acts on the team's tasks does too. Always false for a person who only sees the team",
+  })
+  readonly viewerActs: boolean;
+
+  @ApiProperty({
     example: false,
     description:
       'True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task',
@@ -690,6 +697,7 @@ export class InboxItemResponseDto {
     this.resolved = item.resolved;
     this.section = item.section;
     this.standing = item.standing;
+    this.viewerActs = item.viewerActs;
     this.reopenable = item.reopenable;
     this.progress = item.progress;
     this.runId = item.runId;

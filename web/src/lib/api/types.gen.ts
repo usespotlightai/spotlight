@@ -2930,6 +2930,10 @@ export type InboxItemResponseDto = {
    */
   standing: 'assignee' | 'team' | 'following' | null;
   /**
+   * True when the person can answer, resolve and open it again. The assignee, or the team while it has no assignee, acts on it. While a person holds its task, every person who acts on the team's tasks does too. Always false for a person who only sees the team
+   */
+  viewerActs: boolean;
+  /**
    * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
    */
   reopenable: boolean;
@@ -3147,6 +3151,10 @@ export type InboxItemViewResponseDto = {
    */
   standing: 'assignee' | 'team' | 'following' | null;
   /**
+   * True when the person can answer, resolve and open it again. The assignee, or the team while it has no assignee, acts on it. While a person holds its task, every person who acts on the team's tasks does too. Always false for a person who only sees the team
+   */
+  viewerActs: boolean;
+  /**
    * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
    */
   reopenable: boolean;
@@ -3319,6 +3327,14 @@ export type TaskHoldResponseDto = {
    * The agent chat that holds the task while it works on the pull request itself
    */
   chatId: string | null;
+  /**
+   * Whether the caller can send the agent turns while the task is on hold
+   */
+  viewerDrives: boolean;
+  /**
+   * Whether the caller can resume the line or move the task while it is on hold
+   */
+  viewerEnds: boolean;
 };
 
 export type TaskRunNotStartedResponseDto = {

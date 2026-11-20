@@ -914,6 +914,8 @@ describe('Run', () => {
           runId: 'run_1',
           heldMoveTo: null,
           chatId: null,
+          viewerDrives: true,
+          viewerEnds: true,
         },
         ...over,
       },
@@ -1049,6 +1051,31 @@ describe('Run', () => {
       ).toHaveAttribute('aria-placeholder', 'Tell the agent what to do next…');
     });
 
+    it('tells a person who only sees the team that they cannot send turns', () => {
+      const theirs = mine();
+      taskStation.mockReturnValue({
+        ...theirs,
+        task: {
+          ...theirs.task,
+          hold: {
+            ...theirs.task.hold,
+            by: { id: 'user_2', name: 'Maya Chen', image: null },
+            viewerDrives: false,
+            viewerEnds: false,
+          },
+        },
+      });
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+      expect(
+        screen.getByText(
+          "Maya Chen put the task on hold. Only people who act on the team's tasks can send it turns.",
+        ),
+      ).toBeInTheDocument();
+    });
+
     it('tells a teammate that the agent reads their message after an agent chat hands the task to the line', () => {
       taskStation.mockReturnValue({
         ...working,
@@ -1060,6 +1087,8 @@ describe('Run', () => {
             runId: null,
             heldMoveTo: null,
             chatId: 'chat_1',
+            viewerDrives: false,
+            viewerEnds: false,
           },
         },
       });

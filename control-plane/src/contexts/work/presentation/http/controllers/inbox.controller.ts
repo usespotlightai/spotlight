@@ -120,6 +120,7 @@ const taskItemFields = (
   resolved: item.resolved,
   section: item.section,
   standing: item.standing,
+  viewerActs: item.viewerActs,
   reopenable: item.reopenable,
   progress: item.progress,
   runId: item.runId,

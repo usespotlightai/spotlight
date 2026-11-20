@@ -119,6 +119,8 @@ const holdOnMessage = ({
       runId: world().runs[task.id]?.[0]?.id ?? null,
       heldMoveTo: null,
       chatId: null,
+      viewerDrives: true,
+      viewerEnds: true,
     },
   });
 };

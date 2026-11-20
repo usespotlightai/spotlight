@@ -50,6 +50,7 @@ import { TaskSessionKept } from '@work/domain/events/task-session-kept.event';
 import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-to-another-person.error';
 import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
+import { HeldForAgentChatError } from '@work/domain/exceptions/held-for-agent-chat.error';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
@@ -466,7 +467,7 @@ export class Task extends EventRecorder {
 
     const running = input.currentRunId;
 
-    if (open[0] && running && !open[0].drives(running)) {
+    if (open[0] && running && !open[0].countsTurn(running)) {
       throw new InconsistentStateError(
         'task',
         'is on hold yet runs a line run',
@@ -893,7 +894,7 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    return this.heldBy(answerer, members).answer(
+    return this.answerableBy(answerer, members).answer(
       from,
       newNote,
       decision,
@@ -907,17 +908,11 @@ export class Task extends EventRecorder {
     from: NotePosition,
     newNote: NewNote,
   ): Task {
-    return this.heldBy(resolver, members).resolveAt(from, newNote);
+    return this.answerableBy(resolver, members).resolveAt(from, newNote);
   }
 
-  private heldBy(person: UserId, members: TeamMembers): Task {
-    const hold = this.openHold;
-
-    if (hold && Task.drives(hold, Voice.person(person))) {
-      if (!members.includes(person)) {
-        throw new NotOnTheTeamAskedError(this.id.value);
-      }
-
+  private answerableBy(person: UserId, members: TeamMembers): Task {
+    if (this.openHold?.takesTurnsFrom(Voice.person(person))) {
       return this;
     }
 
@@ -1799,7 +1794,7 @@ export class Task extends EventRecorder {
   }
 
   drivenByAPerson(runId: RunId): boolean {
-    return this.holds.some((each) => each.drives(runId));
+    return this.holds.some((each) => each.countsTurn(runId));
   }
 
   driverOf(runId: RunId): RunDriver {
@@ -2150,12 +2145,8 @@ export class Task extends EventRecorder {
       putOnHold !== null &&
       note.position.value > putOnHold.value &&
       !note.voice.isStation &&
-      !Task.drives(hold, note.voice)
+      !hold.takesTurnsFrom(note.voice)
     );
-  }
-
-  private static drives(hold: Hold, voice: Voice): boolean {
-    return hold.chat === null && voice.isPerson && voice.author !== null;
   }
 
   private withHeldNotesFor(hold: Hold): Task {
@@ -2169,12 +2160,12 @@ export class Task extends EventRecorder {
   private holdsAside(voice: Voice): boolean {
     const hold = this.openHold;
 
-    return hold !== null && !Task.drives(hold, voice);
+    return hold !== null && !hold.takesTurnsFrom(voice);
   }
 
   private hasMessageToDrive(hold: Hold): boolean {
     return this.unacknowledged.some(
-      (note) => note.form === 'words' && Task.drives(hold, note.voice),
+      (note) => note.form === 'words' && hold.takesTurnsFrom(note.voice),
     );
   }
 
@@ -2242,16 +2233,16 @@ export class Task extends EventRecorder {
   private assertDrivenBy(voice: Voice, doing: string): void {
     if (this.holdsAside(voice)) {
       throw new InvalidTaskTransitionError(
-        this.openHold?.chat
-          ? `Task ${this.id.value} is on hold for an agent chat. Nobody can ${doing} until the line resumes.`
-          : `Task ${this.id.value} is on hold. Only a person can ${doing} until the line resumes.`,
+        this.openHold?.takesTurns
+          ? `Task ${this.id.value} is on hold. Only a person can ${doing} until the line resumes.`
+          : `Task ${this.id.value} is on hold for an agent chat. Nobody can ${doing} until the line resumes.`,
       );
     }
   }
 
   private assertMayEnd(hold: Hold, person: UserId): void {
-    if (hold.chat && !hold.by.equals(person)) {
-      throw new TaskOnHoldError(this.id, hold.by);
+    if (!hold.endableBy(person)) {
+      throw new HeldForAgentChatError(this.id, hold.by);
     }
   }
 
@@ -2369,17 +2360,22 @@ export class Task extends EventRecorder {
     viewer: ConversationViewer,
   ): ConversationStanding | null {
     return ConversationAudience.standingOf(this.assignee, {
-      ...viewer,
-      follows:
-        this.wroteIn(viewer.person) ||
-        (viewer.onTeam && this.takesTurnsFrom(viewer.person)),
+      person: viewer.person,
+      onTeam: viewer.onTeam,
+      wroteIn: this.wroteIn(viewer.person),
+      drives: this.drivenBy(viewer),
     });
   }
 
-  takesTurnsFrom(person: UserId): boolean {
-    const hold = this.openHold;
+  actsOnConversation(viewer: ConversationViewer): boolean {
+    return ConversationAudience.actsOn(this.conversationStandingOf(viewer), {
+      actsOnTasks: viewer.actsOnTasks,
+      drives: this.drivenBy(viewer),
+    });
+  }
 
-    return hold !== null && Task.drives(hold, Voice.person(person));
+  private drivenBy(viewer: ConversationViewer): boolean {
+    return this.openHold?.drivenBy(viewer) ?? false;
   }
 
   assignedToThem(userId: UserId): boolean {

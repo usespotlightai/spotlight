@@ -180,6 +180,8 @@ describe('Task', () => {
         runId: 'run_turn',
         heldMoveTo: null,
         chatId: null,
+        viewerDrives: true,
+        viewerEnds: true,
       },
     };
 
@@ -245,6 +247,8 @@ describe('Task', () => {
             ...taken.hold,
             by: { id: 'user_2', name: 'Maya Chen', image: null },
             chatId: 'chat_1',
+            viewerDrives: false,
+            viewerEnds: false,
           },
         },
       ]);

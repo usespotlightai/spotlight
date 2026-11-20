@@ -49,6 +49,7 @@ vi.mock('@/hooks/api/useReopenInboxEntry', () => ({
 
 const item = (over: Record<string, unknown> = {}) => ({
   kind: 'task',
+  viewerActs: true,
   id: 'task_1:0',
   taskId: 'task_1',
   teamId: 'team_1',
@@ -394,6 +395,7 @@ describe('Inbox', () => {
           taskId: 'task_3',
           title: 'Rotate the keys',
           standing: 'following',
+          viewerActs: false,
           section: 'following',
           unread: true,
         }),
@@ -423,6 +425,28 @@ describe('Inbox', () => {
       ).toBeInTheDocument();
       expect(screen.getAllByRole('button', { name: 'Resolve' })).toHaveLength(
         1,
+      );
+    });
+
+    it('offers resolve when the viewer drives the task a person holds', async () => {
+      waiting.mockReturnValue([
+        item(),
+        item({
+          id: 'task_3:0',
+          taskId: 'task_3',
+          title: 'Rotate the keys',
+          standing: 'following',
+          viewerActs: true,
+          section: 'following',
+        }),
+      ]);
+      const person = userEvent.setup();
+      renderAt('/w/acme/inbox');
+
+      await person.click(screen.getByRole('button', { name: /Following/ }));
+
+      expect(screen.getAllByRole('button', { name: 'Resolve' })).toHaveLength(
+        2,
       );
     });
 

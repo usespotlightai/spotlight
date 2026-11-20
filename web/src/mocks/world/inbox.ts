@@ -204,6 +204,7 @@ const conversation = ({
     notes: numberedNotes,
     folded: foldedAround(taskId, trail, numberedNotes),
     standing: 'assignee',
+    viewerActs: over.standing !== 'following',
     ...over,
   };
 };
@@ -261,6 +262,7 @@ const inboxRequestOf = ({
     notes: [],
     folded: [],
     standing: 'team',
+    viewerActs: true,
     ...over,
   };
 };
@@ -564,6 +566,7 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
     failure: null,
     inboxRequest: null,
     standing: 'assignee',
+    viewerActs: true,
     folded: [],
     notes: [
       {

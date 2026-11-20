@@ -38,6 +38,8 @@ describe('TaskState', () => {
             runId: 'run_1',
             heldMoveTo: null,
             chatId: null,
+            viewerDrives: true,
+            viewerEnds: true,
           },
         })}
       />,

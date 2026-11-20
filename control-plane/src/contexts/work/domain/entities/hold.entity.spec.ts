@@ -58,8 +58,8 @@ describe('Hold', () => {
     const hold = started().withTurn(TURN).withTurn(TURN);
 
     expect(hold.turns).toEqual([TURN]);
-    expect(hold.drives(TURN)).toBe(true);
-    expect(hold.drives(FROM)).toBe(false);
+    expect(hold.countsTurn(TURN)).toBe(true);
+    expect(hold.countsTurn(FROM)).toBe(false);
   });
 
   it('forgets the move it held when it ends, and keeps the new verdict and the commits', () => {

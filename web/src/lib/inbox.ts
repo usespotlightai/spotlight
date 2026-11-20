@@ -340,8 +340,11 @@ export const followed = (entry: InboxEntry): boolean =>
   (entry.kind === 'task' || entry.kind === 'run') &&
   entry.standing === 'following';
 
+export const actsOn = (entry: InboxEntry): boolean =>
+  entry.kind === 'task' ? entry.viewerActs : entry.kind !== 'run';
+
 export const resolvable = (entry: InboxEntry): entry is ResolvableEntry =>
-  entry.kind !== 'run' && !entry.resolved && !followed(entry);
+  entry.kind !== 'run' && !entry.resolved && actsOn(entry);
 
 export const reopenable = (entry: InboxEntry): entry is ResolvableEntry =>
   entry.reopenable;

@@ -18,10 +18,19 @@ export type RunStanding = (typeof RUN_STANDINGS)[number];
 export interface ConversationViewer {
   readonly person: UserId;
   readonly onTeam: boolean;
+  readonly actsOnTasks: boolean;
 }
 
-export interface ConversationReader extends ConversationViewer {
-  readonly follows: boolean;
+export interface ConversationReader {
+  readonly person: UserId;
+  readonly onTeam: boolean;
+  readonly wroteIn: boolean;
+  readonly drives: boolean;
+}
+
+export interface ConversationActor {
+  readonly actsOnTasks: boolean;
+  readonly drives: boolean;
 }
 
 export const ConversationAudience = {
@@ -37,11 +46,23 @@ export const ConversationAudience = {
       return 'team';
     }
 
-    return assignee !== null && reader.follows ? 'following' : null;
+    return assignee !== null && (reader.wroteIn || reader.drives)
+      ? 'following'
+      : null;
   },
 
   answers(standing: ConversationStanding | null): boolean {
     return standing === 'assignee' || standing === 'team';
+  },
+
+  actsOn(
+    standing: ConversationStanding | null,
+    actor: ConversationActor,
+  ): boolean {
+    return (
+      actor.actsOnTasks &&
+      (actor.drives || ConversationAudience.answers(standing))
+    );
   },
 
   notifies(standing: ConversationStanding | null): boolean {

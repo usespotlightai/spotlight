@@ -59,6 +59,8 @@ export const TaskHttpMapper = {
             dto.hold.runId,
             dto.hold.heldMoveTo,
             dto.hold.chatId,
+            dto.hold.viewerDrives,
+            dto.hold.viewerEnds,
           )
         : null,
       dto.runNotStarted

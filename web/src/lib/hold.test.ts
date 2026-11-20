@@ -47,6 +47,8 @@ describe('heldUntilResumed', () => {
     runId: null,
     heldMoveTo: null,
     chatId: null,
+    viewerDrives: true,
+    viewerEnds: true,
   };
 
   it('names who put the task on hold and since when, and speaks to them as you', () => {

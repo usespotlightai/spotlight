@@ -44,6 +44,7 @@ const ITEM = {
   station: 'Build',
   resolved: false,
   standing: 'assignee',
+  viewerActs: true,
   runId: null,
 } as InboxItem;
 

@@ -20,7 +20,6 @@ import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskHeld } from '@work/domain/events/task-held.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
-import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
@@ -237,7 +236,7 @@ describe('a task a person puts on hold', () => {
     expect(lastOf(back)?.deferredMove?.to.equals(SHIP)).toBe(true);
   });
 
-  it('lets any member of its team answer its turn, and keeps its assignee', () => {
+  it('lets any person answer its turn, and keeps its assignee', () => {
     const asked = turnDone();
     const fromMaya = asked.receiveMessage(
       TURN,
@@ -248,14 +247,6 @@ describe('a task a person puts on hold', () => {
 
     expect(fromMaya.pendingConversation).toBeNull();
     expect(fromMaya.assignee?.equals(LEON)).toBe(true);
-    expect(() =>
-      asked.receiveMessage(
-        TURN,
-        said('Ship it.', Voice.person(UserId.of('user_guest'))),
-        BUILD,
-        TEAM,
-      ),
-    ).toThrow(NotOnTheTeamAskedError);
   });
 
   it('holds aside what the world says, and gives the agent what people say', () => {
@@ -293,6 +284,27 @@ describe('a task a person drives', () => {
       InvalidTaskTransitionError,
     );
     expect(() => task.unassign()).toThrow(InvalidTaskTransitionError);
+  });
+
+  it('lets every person who acts on the team act on its conversations, and nobody who only sees it', () => {
+    const task = onHold(running().assign(MAYA, members));
+    const viewer = (actsOnTasks: boolean) => ({
+      person: MAYA,
+      onTeam: true,
+      actsOnTasks,
+    });
+
+    expect(task.conversationStandingOf(viewer(true))).toBe('following');
+    expect(task.actsOnConversation(viewer(true))).toBe(true);
+    expect(task.conversationStandingOf(viewer(false))).toBeNull();
+    expect(task.actsOnConversation(viewer(false))).toBe(false);
+    expect(
+      task.actsOnConversation({
+        person: LEON,
+        onTeam: true,
+        actsOnTasks: true,
+      }),
+    ).toBe(true);
   });
 
   it('takes answers to its turns from people only', () => {

@@ -30684,6 +30684,11 @@
             "example": "assignee",
             "description": "How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of"
           },
+          "viewerActs": {
+            "type": "boolean",
+            "example": true,
+            "description": "True when the person can answer, resolve and open it again. The assignee, or the team while it has no assignee, acts on it. While a person holds its task, every person who acts on the team's tasks does too. Always false for a person who only sees the team"
+          },
           "reopenable": {
             "type": "boolean",
             "example": false,
@@ -30766,6 +30771,7 @@
           "resolved",
           "section",
           "standing",
+          "viewerActs",
           "reopenable",
           "progress",
           "runId",
@@ -31187,6 +31193,11 @@
             "example": "assignee",
             "description": "How it reaches the person: assignee when they are its assignee, team when it has no assignee and they are a member of the team who acts on it, following when they wrote in its task and someone else is the assignee. Null for an inbox request that another person is the assignee of"
           },
+          "viewerActs": {
+            "type": "boolean",
+            "example": true,
+            "description": "True when the person can answer, resolve and open it again. The assignee, or the team while it has no assignee, acts on it. While a person holds its task, every person who acts on the team's tasks does too. Always false for a person who only sees the team"
+          },
           "reopenable": {
             "type": "boolean",
             "example": false,
@@ -31283,6 +31294,7 @@
           "resolved",
           "section",
           "standing",
+          "viewerActs",
           "reopenable",
           "progress",
           "runId",
@@ -31636,6 +31648,14 @@
             "type": "string",
             "nullable": true,
             "description": "The agent chat that holds the task while it works on the pull request itself"
+          },
+          "viewerDrives": {
+            "type": "boolean",
+            "description": "Whether the caller can send the agent turns while the task is on hold"
+          },
+          "viewerEnds": {
+            "type": "boolean",
+            "description": "Whether the caller can resume the line or move the task while it is on hold"
           }
         },
         "required": [
@@ -31643,7 +31663,9 @@
           "startedAt",
           "runId",
           "heldMoveTo",
-          "chatId"
+          "chatId",
+          "viewerDrives",
+          "viewerEnds"
         ]
       },
       "TaskRunNotStartedResponseDto": {

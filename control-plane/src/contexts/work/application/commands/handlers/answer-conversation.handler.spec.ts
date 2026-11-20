@@ -424,7 +424,27 @@ describe('AnswerConversation', () => {
     expect(saved?.currentRunId).toEqual(TURN);
   });
 
-  it('refuses a person off the team in a turn of a task on hold, saving nothing', async () => {
+  it('grants the approval of a person who acts on the team’s tasks without joining the team, in a turn of a task on hold', async () => {
+    const held = askingInATurn().pendingConversation;
+
+    await answer(
+      askingInATurn(),
+      new AnswerConversationCommand(
+        `task_1:${held?.from.value ?? 0}`,
+        'user_9',
+        '',
+        [],
+        'approved',
+      ),
+      workAccessSeeing(() => true, { members: [UserId.of('user_1')] }),
+    );
+
+    expect(
+      saved?.notes.find((note) => note.approval)?.approval?.decided?.by.value,
+    ).toBe('user_9');
+  });
+
+  it('refuses a person who only sees the team in a turn of a task on hold, saving nothing', async () => {
     const held = askingInATurn().pendingConversation;
 
     await expect(
@@ -437,9 +457,12 @@ describe('AnswerConversation', () => {
           [],
           'approved',
         ),
-        workAccessSeeing(() => true, { members: [UserId.of('user_1')] }),
+        workAccessSeeing(() => true, {
+          members: [UserId.of('user_1')],
+          onTeam: (_, viewer) => viewer.value !== 'user_9',
+        }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ kind: 'not-found' });
     expect(saved).toBeUndefined();
   });
 

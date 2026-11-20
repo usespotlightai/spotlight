@@ -58,7 +58,9 @@ import {
   stillOpen,
   worksOn,
 } from '@work/domain/services/conversations';
+import { HoldRights } from '@work/domain/services/hold-rights';
 import { anyUnread } from '@work/domain/services/unread';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
@@ -96,6 +98,7 @@ import {
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 import {
   task,
+  taskHold,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -197,22 +200,38 @@ const inTeamsJoined = (scope: InboxScope): SQL =>
     ? inArray(workStation.teamId, [...scope.teamsJoined])
     : sql`false`;
 
-const standingOf = (
+const audienceOf = (
   scope: InboxScope,
   row: {
     readonly teamId: string;
     readonly assigneeId: string | null;
     readonly wroteIn: boolean;
+    readonly heldBy: string | null;
+    readonly heldForChat: string | null;
   },
-): ConversationStanding | null =>
-  ConversationAudience.standingOf(
+): { standing: ConversationStanding | null; acts: boolean } => {
+  const actsOnTasks = scope.teamsActedOn.has(row.teamId);
+  const drives =
+    row.heldBy !== null &&
+    HoldRights.drives(
+      { chat: row.heldForChat ? ChatId.of(row.heldForChat) : null },
+      { person: scope.viewer, actsOnTasks },
+    );
+  const standing = ConversationAudience.standingOf(
     row.assigneeId ? UserId.of(row.assigneeId) : null,
     {
       person: scope.viewer,
       onTeam: scope.teamsJoined.has(row.teamId),
-      follows: row.wroteIn,
+      wroteIn: row.wroteIn,
+      drives,
     },
   );
+
+  return {
+    standing,
+    acts: ConversationAudience.actsOn(standing, { actsOnTasks, drives }),
+  };
+};
 
 const taskRowsWhere = (
   db: DrizzleDatabase,
@@ -227,6 +246,8 @@ const taskRowsWhere = (
       taskId: task.id,
       assigneeId: task.assigneeId,
       wroteIn: sql<boolean>`${wroteIn}`,
+      heldBy: taskHold.heldBy,
+      heldForChat: taskHold.chatId,
       teamId: workStation.teamId,
       title: task.title,
       description: task.description,
@@ -246,6 +267,10 @@ const taskRowsWhere = (
     .from(task)
     .innerJoin(workStation, eq(workStation.stationId, task.stationId))
     .leftJoin(origin, eq(origin.stationId, task.originStationId))
+    .leftJoin(
+      taskHold,
+      and(eq(taskHold.taskId, task.id), isNull(taskHold.endedAt)),
+    )
     .where(
       and(
         eq(task.workspaceId, scope.workspaceId),
@@ -278,13 +303,14 @@ const tasksWhere = async (
 
   return rows.flatMap((row) => {
     const working = row.working ? facts.get(row.working) : undefined;
-    const standing = standingOf(scope, row);
+    const { standing, acts } = audienceOf(scope, row);
 
     return standing
       ? [
           {
             ...row,
             standing,
+            viewerActs: acts,
             workingReading: RunReadingMapper.reading(working ?? null),
             workingSince: working?.queuedAt ?? null,
           },
@@ -514,11 +540,14 @@ const conversationItem = (
       following: row.standing === 'following',
     }),
     standing: row.standing,
-    reopenable: reopenable(
-      NotePosition.of(opening.position),
-      latest,
-      closingOf(conversation, lastNote),
-    ),
+    viewerActs: row.viewerActs,
+    reopenable:
+      row.viewerActs &&
+      reopenable(
+        NotePosition.of(opening.position),
+        latest,
+        closingOf(conversation, lastNote),
+      ),
     progress,
     runId: open ? row.working : null,
     unread,
@@ -1121,7 +1150,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
             following: false,
           }),
           standing: InboxRequest.standingOf(requestVisibilityOf(scope, row)),
-          reopenable: InboxRequest.reopenable(row.resolvedAt),
+          viewerActs: scope.teamsActedOn.has(row.teamId),
+          reopenable:
+            scope.teamsActedOn.has(row.teamId) &&
+            InboxRequest.reopenable(row.resolvedAt),
           progress: null,
           runId: null,
           unread: InboxRequest.unread(row),

@@ -18,7 +18,7 @@ export function InboxItemFooter({
 }: InboxItemFooterProps) {
   const { station, task } = useTaskStation(item.teamId, item.taskId);
 
-  if (!item.resolved && followed(item)) {
+  if (!item.resolved && !item.viewerActs) {
     return (
       <ClosedTaskComposer
         slug={slug}
@@ -27,7 +27,11 @@ export function InboxItemFooter({
         station={item.station}
         label={`Answer ${item.station}`}
         placeholder={answerPlaceholder(item.station)}
-        because="You follow this task. Its assignee answers here."
+        because={
+          followed(item)
+            ? 'You follow this task. Its assignee answers here.'
+            : 'You see this team’s tasks. People who act on them answer here.'
+        }
       />
     );
   }
