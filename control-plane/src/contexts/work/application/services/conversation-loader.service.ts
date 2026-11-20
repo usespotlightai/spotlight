@@ -43,7 +43,14 @@ export class ConversationLoader {
     private readonly access: WorkAccess,
   ) {}
 
-  async putTo(itemId: string, them: string): Promise<ActedOnConversation> {
+  async putTo(
+    itemId: string,
+    them: string,
+    may: (team: TeamStanding, standing: ConversationStanding) => boolean = (
+      team,
+      standing,
+    ) => ConversationAudience.mayAnswer(team, standing),
+  ): Promise<ActedOnConversation> {
     const { item, task, standing, team } = await this.seen(itemId, them);
     const unknown = () => new UnknownTaskError(task.id.value);
 
@@ -53,7 +60,7 @@ export class ConversationLoader {
 
     team.standing.assertActsOnTasks(unknown);
 
-    if (!ConversationAudience.answers(standing)) {
+    if (!may(team.standing, standing)) {
       throw new AssignedToAnotherPersonError(task.id.value);
     }
 

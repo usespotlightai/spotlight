@@ -13,6 +13,7 @@ type AnswerInboxItemInput = {
   body: string;
   attachments: string[];
   approve?: boolean;
+  ask?: number;
   inputs?: readonly ApprovalInput[];
   coAuthors?: string[];
   draftGeneration?: number;
@@ -28,6 +29,7 @@ export function useAnswerInboxItem() {
       body,
       attachments,
       approve,
+      ask,
       inputs,
       coAuthors,
       draftGeneration,
@@ -40,6 +42,7 @@ export function useAnswerInboxItem() {
           coAuthors,
           draftGeneration,
           ...(approve === undefined ? {} : { approve }),
+          ...(ask === undefined ? {} : { ask }),
           ...(inputs ? { inputs: [...inputs] } : {}),
         },
         throwOnError: true,

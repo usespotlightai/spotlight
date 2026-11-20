@@ -22,7 +22,7 @@ export class IntegrationTaskViews {
     }
 
     const open = task.openConversation;
-    const asked = task.openConversationNote;
+    const asked = task.openAsk;
 
     return {
       ...(await this.seen(task, line, task.stationId)),

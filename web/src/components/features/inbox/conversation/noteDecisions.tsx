@@ -14,16 +14,21 @@ type NoteDecisionsOptions = {
   teamId: string | undefined;
   viewer: string | null;
   deciding: Deciding | undefined;
+  asking: number | null;
 };
 
 export const noteDecisions = (
   notes: readonly Note[],
-  { teamId, viewer, deciding }: NoteDecisionsOptions,
+  { teamId, viewer, deciding, asking }: NoteDecisionsOptions,
 ): DockedDecision[] =>
   notes.flatMap((note): DockedDecision[] => {
     const { approval, connection } = note;
 
-    if (approval?.status === 'pending' && deciding) {
+    if (
+      approval?.status === 'pending' &&
+      deciding &&
+      note.position === asking
+    ) {
       return [
         {
           id: approvalDecisionId(note),
@@ -35,14 +40,16 @@ export const noteDecisions = (
               approval={approval}
               viewerId={viewer}
               pending={deciding.pending}
-              onDecide={deciding.onDecide}
+              onDecide={(answer) =>
+                deciding.onDecide({ ...answer, ask: note.position })
+              }
             />
           ),
         },
       ];
     }
 
-    if (connection && !connection.met) {
+    if (connection && !connection.met && note.position === asking) {
       return [
         {
           id: connectionDecisionId(note),

@@ -17,12 +17,13 @@ import { useSession } from '@/hooks/api/useSession';
 import { useArrivals } from '@/hooks/useArrivals';
 import { useConversationScroll } from '@/hooks/useConversationScroll';
 import { useDecisionTray } from '@/hooks/useDecisionTray';
-import type { ApprovalAnswer } from '@/lib/approval';
+import type { AskDecision } from '@/lib/approval';
 import { DecisionTrayContext, type DockedDecision } from '@/lib/decision-tray';
 import { placeVisits } from '@/lib/folded-visit';
 import {
   ARRIVING,
   type ConversationItem,
+  latestAskPosition,
   type Note,
   openedAt,
   type RunJournal,
@@ -109,7 +110,7 @@ const marksIn = (item: ConversationItem): Set<number> => {
 
 export type Deciding = {
   readonly pending: boolean;
-  readonly onDecide: (answer: ApprovalAnswer) => void;
+  readonly onDecide: (answer: AskDecision) => void;
 };
 
 type ConversationProps = {
@@ -148,11 +149,13 @@ export function Conversation({
   const shownNotes = item.notes.filter(showsInThread);
   const placed = placeVisits(item.folded, shownNotes);
   const { data: session } = useSession();
+  const asking = latestAskPosition(item.notes);
   const tray = useDecisionTray([
     ...noteDecisions(shownNotes, {
       teamId: item.teamId,
       viewer: session?.user.id ?? null,
       deciding,
+      asking,
     }),
     ...docked,
   ]);
@@ -304,7 +307,15 @@ export function Conversation({
                             teamId={item.teamId}
                             about={item.about}
                             resolved={item.resolved}
-                            deciding={deciding}
+                            deciding={
+                              note.position === asking ? deciding : undefined
+                            }
+                            outdated={
+                              (note.approval?.status === 'pending' ||
+                                note.connection?.met === false) &&
+                              asking !== null &&
+                              note.position < asking
+                            }
                             suggestion={
                               note.position === latest ? suggestion : undefined
                             }

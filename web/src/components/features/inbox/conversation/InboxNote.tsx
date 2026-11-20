@@ -33,6 +33,7 @@ type InboxNoteProps = {
   about: ConversationItem['about'];
   resolved: ConversationItem['resolved'];
   deciding?: Deciding;
+  outdated?: boolean;
   suggestion?: ReactNode;
   arrived?: boolean;
   prompt?: string;
@@ -46,6 +47,7 @@ export function InboxNote({
   about,
   resolved,
   deciding,
+  outdated = false,
   suggestion,
   arrived = false,
   prompt,
@@ -85,7 +87,13 @@ export function InboxNote({
             approval={approval}
             viewerId={session?.user.id ?? null}
             pending={deciding?.pending ?? false}
-            onDecide={deciding?.onDecide}
+            outdated={outdated}
+            onDecide={
+              deciding
+                ? (answer) =>
+                    deciding.onDecide({ ...answer, ask: note.position })
+                : undefined
+            }
           />
         </Dockable>
       ) : shows ? (
@@ -114,6 +122,7 @@ export function InboxNote({
             connection={connection}
             teamId={teamId}
             viewer={session?.user.id ?? null}
+            outdated={outdated}
           />
         </Dockable>
       )}

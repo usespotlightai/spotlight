@@ -32,6 +32,16 @@ export function InboxItemFooter({
     );
   }
 
+  if (!item.resolved && !item.answerable) {
+    return (
+      <p className="pb-5 text-center text-muted-foreground text-xs">
+        {item.standing === null
+          ? 'Its assignee answers here.'
+          : 'You see the tasks of this team, but do not act on them.'}
+      </p>
+    );
+  }
+
   if (!item.resolved) {
     return (
       <>

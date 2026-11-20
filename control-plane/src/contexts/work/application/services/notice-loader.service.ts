@@ -1,6 +1,6 @@
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import type { Notice } from '@work/domain/aggregates/notice.aggregate';
+import { Notice } from '@work/domain/aggregates/notice.aggregate';
 import { UnknownNoticeError } from '@work/domain/exceptions/unknown-notice.error';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -29,7 +29,8 @@ export class NoticeLoader {
       throw unknown();
     }
 
-    (await this.access.standingOn(notice.teamId, viewer)).assertActsOnTasks(
+    Notice.assertActedOnBy(
+      await this.access.standingOn(notice.teamId, viewer),
       unknown,
     );
 

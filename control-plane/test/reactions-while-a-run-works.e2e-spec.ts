@@ -213,7 +213,7 @@ const answered = (task: Task, from: number, body: string, approve?: boolean) =>
   served(app)
     .post(`/api/workspaces/${team.slug}/inbox/${task.id.value}:${from}/answer`)
     .set(TEST_USER_HEADER, team.owner.value)
-    .send({ body, approve })
+    .send({ body, approve, ask: approve === undefined ? undefined : from })
     .expect(204);
 
 const approvalRequested = async (task: Task, runId: RunId) => {

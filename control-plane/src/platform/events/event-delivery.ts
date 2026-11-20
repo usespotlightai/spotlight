@@ -42,7 +42,10 @@ const backoffMs = (attempts: number): number =>
   Math.min(2 ** attempts * 1000, 60 * 60 * 1000);
 
 const because = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+  (error instanceof Error ? error.message : String(error)).replaceAll(
+    '\u0000',
+    '',
+  );
 
 type Outcome = 'delivered' | 'retried' | 'dead_lettered' | 'lost';
 

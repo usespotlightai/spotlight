@@ -66,8 +66,14 @@ export type RunJournal = RunJournalResponseDto;
 
 export type JournalledRun = JournalledRunResponseDto;
 
+const latestAsk = (notes: readonly Note[]): Note | undefined =>
+  notes.findLast((note) => note.kind === 'asked');
+
 export const decisionPending = (notes: readonly Note[]): boolean =>
-  notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
+  latestAsk(notes)?.form === 'approval';
+
+export const latestAskPosition = (notes: readonly Note[]): number | null =>
+  latestAsk(notes)?.position ?? null;
 
 const closesOrReopens = (note: Note): boolean =>
   note.form === 'resolved' || note.kind === 'reopened';
@@ -355,7 +361,9 @@ export const followed = (entry: InboxEntry): boolean =>
   entry.standing === 'following';
 
 export const resolvable = (entry: InboxEntry): entry is ResolvableEntry =>
-  entry.kind !== 'run' && !entry.resolved && !followed(entry);
+  entry.kind === 'task' || entry.kind === 'notice'
+    ? entry.resolvable
+    : entry.kind !== 'run' && !entry.resolved;
 
 export const reopenable = (entry: InboxEntry): entry is ResolvableEntry =>
   entry.reopenable;

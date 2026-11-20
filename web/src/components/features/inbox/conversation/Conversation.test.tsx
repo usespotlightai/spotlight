@@ -196,7 +196,37 @@ describe('Conversation', () => {
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '', ask: 0 });
+  });
+
+  it('docks only the newest ask, and says why an older approval waits on nothing', async () => {
+    const onDecide = vi.fn();
+    showing(
+      [
+        { ...note(0, AT), form: 'approval', approval: APPROVAL },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        {
+          ...note(2, AT),
+          form: 'approval',
+          approval: { ...APPROVAL, name: 'github.merge' },
+        },
+      ],
+      { pending: false, onDecide },
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Approve linear.comment' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('The run asked for something newer since.'),
+    ).toBeVisible();
+
+    const tray = screen.getByRole('region', { name: 'Approval' });
+    await userEvent.click(
+      within(tray).getByRole('button', { name: 'Approve github.merge' }),
+    );
+
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '', ask: 2 });
   });
 
   it('docks an open approval above the text bar, with a pill where it was asked', () => {
@@ -209,6 +239,56 @@ describe('Conversation', () => {
     expect(tray).toHaveAttribute('data-slot', 'decision-tray');
     expect(
       within(tray).getByRole('button', { name: 'Approve linear.comment' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Show Approval' })).toBeVisible();
+  });
+
+  it('says nothing more on a decided approval once the run asks again', () => {
+    showing(
+      [
+        {
+          ...note(0, AT),
+          form: 'approval',
+          approval: { ...APPROVAL, status: 'approved' as const },
+        },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        { ...note(2, AT), form: 'approval', approval: APPROVAL },
+      ],
+      { pending: false, onDecide: vi.fn() },
+    );
+
+    expect(
+      screen.queryByText('The run asked for something newer since.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('docks only the connection of the newest ask', () => {
+    showing(
+      [
+        {
+          ...note(0, AT),
+          connection: {
+            integration: 'linear',
+            integrationName: 'Linear',
+            personId: 'user_1',
+            personName: 'Ola',
+            met: false,
+          },
+        },
+        { ...note(1, AT), kind: 'answered', voice: 'person' },
+        { ...note(2, AT), form: 'approval', approval: APPROVAL },
+      ],
+      { pending: false, onDecide: vi.fn() },
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Show Connect Linear' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Connect' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('The run asked for something newer since.'),
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Show Approval' })).toBeVisible();
   });

@@ -14,6 +14,7 @@ import { handedToRun } from '@work/application/services/handed-to-run';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -99,6 +100,7 @@ export class AnswerConversationHandler implements CommandHandlerPort<
       },
       command.decision,
       command.edits,
+      command.ask === null ? null : NotePosition.of(command.ask),
     );
 
     await this.tasks.save(await handedToRun(this.dispatch, answered, line));

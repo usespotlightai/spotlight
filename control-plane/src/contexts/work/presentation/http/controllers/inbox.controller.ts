@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -80,6 +81,7 @@ import {
   JournalledRunResponseDto,
   RunJournalResponseDto,
 } from '@work/presentation/http/dto/run-journal.response.dto';
+import { askInput } from '@work/presentation/http/mappers/ask-input';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { editsInput } from '@work/presentation/http/mappers/edits-input';
@@ -120,6 +122,8 @@ const taskItemFields = (
   resolved: item.resolved,
   section: item.section,
   standing: item.standing,
+  answerable: item.answerable,
+  resolvable: item.resolvable,
   reopenable: item.reopenable,
   progress: item.progress,
   runId: item.runId,
@@ -274,7 +278,7 @@ export class InboxController {
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({
     description:
-      'Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
+      'Another person is the assignee of the task and the caller is a member of the team who follows it, or only a conversation waiting on a tool call can be approved or rejected, only the ask it waits on now can be decided, and only an approved tool call can be changed, naming exactly the inputs it was called with',
   })
   @ApiForbiddenResponse({
     description:
@@ -285,6 +289,10 @@ export class InboxController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: AnswerInboxItemRequestDto,
   ): Promise<void> {
+    if (body.approve !== undefined && askInput(body.ask) === null) {
+      throw new BadRequestException('Field ask is required with approve.');
+    }
+
     await this.commandBus.execute(
       new AnswerConversationCommand(
         itemId,
@@ -299,6 +307,7 @@ export class InboxController {
         editsInput(body.inputs),
         idsInput(body.coAuthors),
         draftGenerationInput(body.draftGeneration),
+        askInput(body.ask),
       ),
     );
   }

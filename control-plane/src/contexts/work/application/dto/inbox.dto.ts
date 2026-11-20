@@ -139,6 +139,8 @@ export interface InboxItemDto {
   readonly resolved: boolean;
   readonly section: InboxSection;
   readonly standing: InboxStanding | null;
+  readonly answerable: boolean;
+  readonly resolvable: boolean;
   readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
@@ -182,6 +184,7 @@ export interface InboxNoticeDto {
   readonly unread: boolean;
   readonly resolved: boolean;
   readonly section: InboxSection;
+  readonly resolvable: boolean;
   readonly reopenable: boolean;
 }
 
