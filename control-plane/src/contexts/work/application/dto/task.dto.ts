@@ -49,4 +49,9 @@ export interface TaskDto {
   readonly assignee: TaskPersonDto | null;
   readonly source: string | null;
   readonly hold: TaskHoldDto | null;
+  readonly runNotStarted: TaskRunNotStartedDto | null;
+}
+
+export interface TaskRunNotStartedDto {
+  readonly harness: string;
 }

@@ -132,6 +132,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
         createdById: task.createdById,
         assigneeId: task.assigneeId,
         openedFrom: task.openedFrom,
+        notStartedStationId: task.notStartedStationId,
+        notStartedHarness: task.notStartedHarness,
         hold: {
           heldBy: taskHold.heldBy,
           startedAt: taskHold.startedAt,
@@ -189,6 +191,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
         reviewedPullRequest,
         openedFrom,
         hold,
+        notStartedStationId,
+        notStartedHarness,
         ...rest
       }) => ({
         ...rest,
@@ -206,6 +210,13 @@ export class DrizzleTaskReader implements TaskReaderPort {
         note: notes.get(rest.id) ?? null,
         source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
         hold: holdOf(hold, person),
+        runNotStarted:
+          notStartedHarness &&
+          notStartedStationId === rest.stationId &&
+          currentRunId === null &&
+          finishedAt === null
+            ? { harness: notStartedHarness }
+            : null,
       }),
     );
   }

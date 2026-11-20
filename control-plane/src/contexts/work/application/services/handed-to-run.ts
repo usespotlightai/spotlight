@@ -7,9 +7,11 @@ export const handedToRun = async (
   task: Task,
   line: LineMap,
 ): Promise<Task> => {
-  const runId = task.wantsRun(line)
-    ? await dispatch.runIdFor({ task, line })
-    : null;
+  if (!task.wantsRun(line)) {
+    return task;
+  }
 
-  return runId ? task.assignRun(runId, line) : task;
+  const runId = await dispatch.runIdFor({ task, line });
+
+  return runId ? task.assignRun(runId, line) : task.notStartedOn(line);
 };

@@ -95,6 +95,7 @@ const task = (
   finished: false,
   pullRequests: [],
   hold: null,
+  runNotStarted: null,
   createdBy: PRIYA,
   assignee: PRIYA,
   note: null,

@@ -3311,6 +3311,13 @@ export type TaskHoldResponseDto = {
   heldMoveTo: string | null;
 };
 
+export type TaskRunNotStartedResponseDto = {
+  /**
+   * The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start
+   */
+  harness: string;
+};
+
 export type TaskResponseDto = {
   id: string;
   stationId: string;
@@ -3364,6 +3371,10 @@ export type TaskResponseDto = {
    * The person who drives the task at its station in place of the line, or null where the line drives it
    */
   hold: TaskHoldResponseDto | null;
+  /**
+   * Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried
+   */
+  runNotStarted: TaskRunNotStartedResponseDto | null;
 };
 
 export type TaskPageResponseDto = {
@@ -16485,6 +16496,76 @@ export type ResumeLineResponses = {
 };
 
 export type ResumeLineResponse = ResumeLineResponses[keyof ResumeLineResponses];
+
+export type SendTaskMessageData = {
+  body: SendMessageRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/messages';
+};
+
+export type SendTaskMessageErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The message answers a question that another person is the assignee of
+   */
+  409: unknown;
+};
+
+export type SendTaskMessageResponses = {
+  200: TaskResponseDto;
+};
+
+export type SendTaskMessageResponse = SendTaskMessageResponses[keyof SendTaskMessageResponses];
+
+export type StartTaskRunData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/start';
+};
+
+export type StartTaskRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+  /**
+   * The task is not waiting for its run to start
+   */
+  409: unknown;
+};
+
+export type StartTaskRunResponses = {
+  200: TaskResponseDto;
+};
+
+export type StartTaskRunResponse = StartTaskRunResponses[keyof StartTaskRunResponses];
 
 export type ListChatsData = {
   body?: never;

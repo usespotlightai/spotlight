@@ -3359,6 +3359,124 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/messages": {
+      "post": {
+        "description": "For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.",
+        "operationId": "sendTaskMessage",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The message answers a question that another person is the assignee of"
+          }
+        },
+        "summary": "Send a message to a task at the station it stands at",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}/start": {
+      "post": {
+        "description": "Spotlight tries to start the agent of the task’s station again. When it still cannot, runNotStarted says why.",
+        "operationId": "startTaskRun",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          },
+          "409": {
+            "description": "The task is not waiting for its run to start"
+          }
+        },
+        "summary": "Try again to start the run of a task whose agent did not start",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/chats": {
       "get": {
         "operationId": "listChats",
@@ -10660,6 +10778,19 @@
           "heldMoveTo"
         ]
       },
+      "TaskRunNotStartedResponseDto": {
+        "type": "object",
+        "properties": {
+          "harness": {
+            "type": "string",
+            "example": "claude-code",
+            "description": "The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start"
+          }
+        },
+        "required": [
+          "harness"
+        ]
+      },
       "TaskResponseDto": {
         "type": "object",
         "properties": {
@@ -10778,6 +10909,16 @@
                 "$ref": "#/components/schemas/TaskHoldResponseDto"
               }
             ]
+          },
+          "runNotStarted": {
+            "nullable": true,
+            "description": "Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskRunNotStartedResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -10796,7 +10937,8 @@
           "assignee",
           "note",
           "source",
-          "hold"
+          "hold",
+          "runNotStarted"
         ]
       },
       "TaskPageResponseDto": {

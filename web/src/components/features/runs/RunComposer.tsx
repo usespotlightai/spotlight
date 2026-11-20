@@ -1,7 +1,7 @@
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
-import { useSendMessage } from '@/hooks/api/useSendMessage';
+import { useSendMessage, useSendTaskMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useMe } from '@/hooks/useMe';
@@ -13,7 +13,7 @@ import { holdsOnMessage, startsAgainOnMessage } from '@/lib/task';
 type RunComposerProps = {
   slug: string;
   teamId: string;
-  runId: string;
+  runId: string | null;
   taskId: string | undefined;
   station: string;
   stationId: string | undefined;
@@ -66,6 +66,7 @@ export function RunComposer({
   onSent,
 }: RunComposerProps) {
   const send = useSendMessage();
+  const sendToTask = useSendTaskMessage();
   const stop = useStopRun();
   const {
     line,
@@ -86,7 +87,7 @@ export function RunComposer({
       slug={slug}
       label={labelFor(mode, station)}
       placeholder={placeholderFor(mode, running)}
-      pending={send.isPending}
+      pending={send.isPending || sendToTask.isPending}
       running={running}
       shared={shared}
       settings={<FixedAgent agent={currentStation} />}
@@ -97,11 +98,22 @@ export function RunComposer({
           because={LINE_SETS_REPOSITORIES}
         />
       }
-      onStop={() => stop.mutate({ teamId, runId })}
+      onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
       onSend={(
         { body, attachments, files, coAuthors, draftGeneration },
         restore,
       ) => {
+        if (!runId) {
+          if (taskId) {
+            sendToTask.mutate(
+              { teamId, taskId, body, attachments, coAuthors, draftGeneration },
+              { onError: restore },
+            );
+            onSent?.();
+          }
+          return;
+        }
+
         send.mutate(
           {
             teamId,

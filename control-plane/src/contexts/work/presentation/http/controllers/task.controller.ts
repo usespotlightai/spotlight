@@ -36,6 +36,8 @@ import { DeleteTaskCommand } from '@work/application/commands/delete-task.comman
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
+import { SendTaskMessageCommand } from '@work/application/commands/send-task-message.command';
+import { StartTaskRunCommand } from '@work/application/commands/start-task-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { NoteDto } from '@work/application/dto/inbox.dto';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
@@ -627,6 +629,82 @@ export class TaskController {
         body.verdict ?? null,
         body.summary ?? null,
       ),
+    );
+
+    return this.readBack(teamId, taskId, user);
+  }
+
+  @Post('tasks/:taskId/messages')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'sendTaskMessage',
+    summary: 'Send a message to a task at the station it stands at',
+    description:
+      'For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.',
+  })
+  @ApiParam({
+    name: 'taskId',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  @ApiOkResponse({ type: TaskResponseDto })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  @ApiConflictResponse({
+    description:
+      'The message answers a question that another person is the assignee of',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
+  async sendTaskMessage(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @Body() body: SendMessageRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    await this.commandBus.execute<SendTaskMessageCommand, void>(
+      new SendTaskMessageCommand(
+        teamId,
+        taskId,
+        user.id,
+        body.body ?? '',
+        idsInput(body.attachments),
+        idsInput(body.coAuthors),
+        draftGenerationInput(body.draftGeneration),
+      ),
+    );
+
+    return this.readBack(teamId, taskId, user);
+  }
+
+  @Post('tasks/:taskId/start')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'startTaskRun',
+    summary: 'Try again to start the run of a task whose agent did not start',
+    description:
+      'Spotlight tries to start the agent of the task’s station again. When it still cannot, runNotStarted says why.',
+  })
+  @ApiParam({
+    name: 'taskId',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  @ApiOkResponse({ type: TaskResponseDto })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  @ApiConflictResponse({
+    description: 'The task is not waiting for its run to start',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
+  async startTaskRun(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    await this.commandBus.execute<StartTaskRunCommand, void>(
+      new StartTaskRunCommand(teamId, taskId, user.id),
     );
 
     return this.readBack(teamId, taskId, user);

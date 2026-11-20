@@ -77,6 +77,19 @@ export class TaskHoldResponseDto {
   }
 }
 
+export class TaskRunNotStartedResponseDto {
+  @ApiProperty({
+    example: 'claude-code',
+    description:
+      'The agent the station names, which Spotlight could not start. A different agent on the station, or a Spotlight version that knows this one, lets the run start',
+  })
+  readonly harness: string;
+
+  constructor(harness: string) {
+    this.harness = harness;
+  }
+}
+
 export class TaskReviewResponseDto {
   @ApiProperty({
     example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:5',
@@ -195,6 +208,14 @@ export class TaskResponseDto {
   })
   readonly hold: TaskHoldResponseDto | null;
 
+  @ApiProperty({
+    type: TaskRunNotStartedResponseDto,
+    nullable: true,
+    description:
+      'Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried',
+  })
+  readonly runNotStarted: TaskRunNotStartedResponseDto | null;
+
   constructor(
     id: string,
     stationId: string,
@@ -212,6 +233,7 @@ export class TaskResponseDto {
     note: TaskNoteResponseDto | null,
     source: string | null,
     hold: TaskHoldResponseDto | null,
+    runNotStarted: TaskRunNotStartedResponseDto | null,
   ) {
     this.id = id;
     this.stationId = stationId;
@@ -229,6 +251,7 @@ export class TaskResponseDto {
     this.note = note;
     this.source = source;
     this.hold = hold;
+    this.runNotStarted = runNotStarted;
   }
 }
 

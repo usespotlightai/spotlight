@@ -93,9 +93,23 @@ vi.mock('@/hooks/api/useHold', () => ({
 const send = vi.fn();
 const inFlight = vi.fn((): unknown[] => []);
 
+const sendToTask = vi.fn();
+const startRun = vi.fn();
+
 vi.mock('@/hooks/api/useSendMessage', () => ({
   useSendMessage: () => ({ mutate: send, isPending: false }),
+  useSendTaskMessage: () => ({ mutate: sendToTask, isPending: false }),
   useMessagesInFlight: () => inFlight(),
+}));
+
+vi.mock('@/hooks/api/useStartTaskRun', () => ({
+  useStartTaskRun: () => ({
+    mutate: startRun,
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    data: undefined,
+  }),
 }));
 
 const answer = vi.fn();
@@ -205,6 +219,8 @@ describe('Run', () => {
     taskStation.mockReturnValue({});
     resumption.mockReset();
     send.mockReset();
+    sendToTask.mockReset();
+    startRun.mockReset();
     stop.mockReset();
     inFlight.mockReturnValue([]);
     runs.mockReturnValue([run()]);
@@ -737,6 +753,58 @@ describe('Run', () => {
       expect(
         screen.queryByRole('textbox', { name: 'Message Implementation' }),
       ).toBeNull();
+    });
+
+    describe('where the agent of the station did not start', () => {
+      const stuck = {
+        ...left,
+        task: {
+          ...idle.task,
+          finished: false,
+          runNotStarted: { harness: 'gemini-cli' },
+        },
+      };
+
+      it('says which agent did not start, and tries it again on request', async () => {
+        taskStation.mockReturnValue(stuck);
+
+        renderRun();
+        await userEvent.click(
+          screen.getByRole('button', { name: 'Try again' }),
+        );
+
+        expect(
+          screen.getByRole('status', { name: 'The run did not start' }),
+        ).toHaveTextContent(
+          'Spotlight cannot start gemini-cli at Review. Change the station’s agent, then try again.',
+        );
+        expect(startRun).toHaveBeenCalledWith({
+          teamId: 'team_1',
+          taskId: 'task_1',
+        });
+        expect(screen.queryByText(/Messages here reach no one\./)).toBeNull();
+      });
+
+      it('sends a message to the task, which tries the agent again', async () => {
+        taskStation.mockReturnValue(stuck);
+
+        renderRun();
+        await write(
+          screen.getByRole('textbox', { name: 'Message Review' }),
+          'use the new image',
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+        expect(sendToTask).toHaveBeenCalledWith(
+          expect.objectContaining({
+            teamId: 'team_1',
+            taskId: 'task_1',
+            body: 'use the new image',
+          }),
+          expect.objectContaining({ onError: expect.any(Function) as unknown }),
+        );
+        expect(send).not.toHaveBeenCalled();
+      });
     });
 
     it('names the station without a link while no run has started there', () => {
