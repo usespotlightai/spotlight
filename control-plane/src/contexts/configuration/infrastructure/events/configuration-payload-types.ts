@@ -10,10 +10,12 @@ import { TerraformStateWritten } from '@configuration/domain/events/terraform-st
 import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
+import { KnownSecrets } from '@configuration/domain/value-objects/known-secrets.vo';
 import { McpServer } from '@configuration/domain/value-objects/mcp-server.vo';
 import { PermissionRule } from '@configuration/domain/value-objects/permission-rule.vo';
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
+import { SandboxVariable } from '@configuration/domain/value-objects/sandbox-variable.vo';
 import { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
@@ -34,6 +36,8 @@ export const CONFIGURATION_PAYLOAD_TYPES = [
   SkillFiles,
   DefinedSkillKey,
   StationUses,
+  KnownSecrets,
+  SandboxVariable,
   SkillCreated,
   SkillUpdated,
   SkillDeleted,

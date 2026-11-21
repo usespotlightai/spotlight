@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"usespotlight.ai/data-plane/egresskit/inject"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
 	"usespotlight.ai/data-plane/runner/internal/acp"
@@ -54,6 +56,7 @@ type Journal interface {
 	GrantAttachment(ctx context.Context, runID string, request protocol.AttachmentRequest) (protocol.AttachmentGrant, error)
 	CompleteArchive(ctx context.Context, runID, archiveID string) error
 	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
+	RevealSandboxEnv(ctx context.Context, runID string, attempt int) (protocol.SandboxEnv, error)
 }
 
 const (
@@ -97,9 +100,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	return new(Sandbox).Execute(ctx, run, opts)
 }
 
-func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) error {
+func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (err error) {
 	log := opts.Log.With("run", run.ID)
 	journal := &journalWriter{runID: run.ID, journal: opts.Journal}
+	defer func() { err = journal.redactedError(err) }()
 
 	if searches(run) {
 		run.Spec.Checkouts = nil
@@ -112,6 +116,20 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 
 	if opts.Unready != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, opts.Unready)
+	}
+
+	secrets, err := opts.sandboxEnv(ctx, run)
+	var lost lostRun
+	if errors.As(err, &lost) && lost.RunNoLongerLeased() {
+		log.Info("the run is no longer leased by this runner, so it does not start", "error", err)
+		return err
+	}
+	if err != nil {
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+	if secrets.redactor != nil {
+		journal.useRedactor(secrets.redactor)
+		opts.Journal = redactingJournal{Journal: opts.Journal, redactor: secrets.redactor}
 	}
 
 	if s.space == nil {
@@ -222,7 +240,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	if s.setUp == nil {
 		s.setUp = setUps{}
 	}
-	unready := opts.setUp(ctx, space.Dir, run.Spec.Checkouts, s.setUp, journal, log)
+	unready := opts.setUp(ctx, space.Dir, run.Spec.Checkouts, secrets, s.setUp, journal, log)
 
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -325,7 +343,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 
 	opts.checkEgress(ctx, journal)
 
-	env := granted(protocol.WithoutShadowedHarnessKeys(run.Spec.Command.Env, os.Getenv), channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane))
+	env := secrets.overlay(granted(protocol.WithoutShadowedHarnessKeys(run.Spec.Command.Env, os.Getenv), channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane)))
 	maps.Copy(env, opts.ProxyEnv)
 
 	harness, err := startHarness(ctx, run.Spec.Command.Protocol, acp.Options{
@@ -776,6 +794,8 @@ func failed(
 		log.Warn("could not mark the run failed", "error", err)
 	}
 
+	cause = journal.redactedError(cause)
+	message = journal.redactor().Text(message)
 	telemetry.Report(cause, telemetry.Tags{"run": runID})
 
 	journal.append(protocol.Event{
@@ -860,22 +880,23 @@ func (o Options) checkEgress(ctx context.Context, journal *journalWriter) {
 const parallelSetups = 4
 
 func (o Options) setUp(
-	ctx context.Context, dir string, checkouts []protocol.Checkout, done setUps, journal *journalWriter, log *slog.Logger,
+	ctx context.Context, dir string, checkouts []protocol.Checkout, secrets sandboxEnv, done setUps, journal *journalWriter, log *slog.Logger,
 ) []setupFailure {
 	var missed []protocol.Checkout
 	for _, checkout := range checkouts {
 		if checkout.Setup == "" {
 			continue
 		}
-		if done.unchanged(ctx, filepath.Join(dir, checkout.Path), checkout, log) {
+		if done.unchanged(ctx, filepath.Join(dir, checkout.Path), checkout, secrets.fingerprint(), log) {
 			journal.note(setupStep, false, fmt.Sprintf(
-				"Skipped setup for %s: the setup command and the dependency files did not change after the last setup in this sandbox.", checkout.Path,
+				"Skipped setup for %s: the setup command, the dependency files and the secrets in its environment did not change after the last setup in this sandbox.", checkout.Path,
 			))
 			continue
 		}
 		missed = append(missed, checkout)
 	}
 
+	env := secrets.overlay(o.ProxyEnv)
 	failed := make([]*setupFailure, len(missed))
 	slots := make(chan struct{}, parallelSetups)
 	var installing sync.WaitGroup
@@ -884,7 +905,7 @@ func (o Options) setUp(
 			slots <- struct{}{}
 			defer func() { <-slots }()
 			settingUp := journal.begin(ctx, setupStep)
-			output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.ProxyEnv)
+			output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, env)
 			if err != nil {
 				log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
 				failed[i] = &setupFailure{path: checkout.Path, command: checkout.Setup, err: err, output: output}
@@ -901,7 +922,7 @@ func (o Options) setUp(
 			failures = append(failures, *failed[i])
 			continue
 		}
-		done.record(ctx, filepath.Join(dir, checkout.Path), checkout, log)
+		done.record(ctx, filepath.Join(dir, checkout.Path), checkout, secrets.fingerprint(), log)
 	}
 	return failures
 }
@@ -918,6 +939,7 @@ type journalWriter struct {
 	seq     int
 	pending []protocol.Event
 	failed  int
+	streams *streamRedaction
 }
 
 const (
@@ -929,10 +951,46 @@ func (j *journalWriter) append(event protocol.Event) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
+	for _, each := range j.streams.events(event) {
+		j.add(each)
+	}
+}
+
+func (j *journalWriter) add(event protocol.Event) {
 	j.seq++
 	event.Seq = j.seq
 	event.At = time.Now().UTC()
 	j.pending = append(j.pending, event)
+}
+
+func (j *journalWriter) releaseHeld() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	for _, each := range j.streams.rest() {
+		j.add(each)
+	}
+}
+
+func (j *journalWriter) useRedactor(redactor *inject.Redactor) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	j.streams = redactingStreams(redactor)
+}
+
+func (j *journalWriter) redactor() *inject.Redactor {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if j.streams == nil {
+		return nil
+	}
+	return j.streams.redactor
+}
+
+func (j *journalWriter) redactedError(err error) error {
+	return redactedError(j.redactor(), err)
 }
 
 func (j *journalWriter) through(sink eventSink) {
@@ -949,6 +1007,7 @@ func (j *journalWriter) record(ctx context.Context, event protocol.Event) {
 }
 
 func (j *journalWriter) drain(ctx context.Context) {
+	j.releaseHeld()
 	for try := 1; !j.flush(ctx) && try < flushTries; try++ {
 		select {
 		case <-ctx.Done():

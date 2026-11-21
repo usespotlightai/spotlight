@@ -27,18 +27,22 @@ import { DeleteWorkspaceTokenHandler } from '@identity/application/commands/hand
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { ExchangeWorkloadTokenHandler } from '@identity/application/commands/handlers/exchange-workload-token.handler';
 import { InviteToWorkspaceHandler } from '@identity/application/commands/handlers/invite-to-workspace.handler';
+import { LeaveWorkspaceHandler } from '@identity/application/commands/handlers/leave-workspace.handler';
 import { RemoveAvatarHandler } from '@identity/application/commands/handlers/remove-avatar.handler';
 import { RemoveUserEmailHandler } from '@identity/application/commands/handlers/remove-user-email.handler';
 import { ResendInviteHandler } from '@identity/application/commands/handlers/resend-invite.handler';
 import { ResendUserEmailVerificationHandler } from '@identity/application/commands/handlers/resend-user-email-verification.handler';
 import { RevokeInviteHandler } from '@identity/application/commands/handlers/revoke-invite.handler';
 import { SetAvatarHandler } from '@identity/application/commands/handlers/set-avatar.handler';
+import { SuspendMemberHandler } from '@identity/application/commands/handlers/suspend-member.handler';
+import { UnsuspendMemberHandler } from '@identity/application/commands/handlers/unsuspend-member.handler';
 import { UpdateOidcTrustHandler } from '@identity/application/commands/handlers/update-oidc-trust.handler';
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
 import { UpdateWorkspaceTokenHandler } from '@identity/application/commands/handlers/update-workspace-token.handler';
 import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { VerifyUserEmailHandler } from '@identity/application/commands/handlers/verify-user-email.handler';
 import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
+import { LeaveWorkspaceCommand } from '@identity/application/commands/leave-workspace.command';
 import {
   CreateOidcTrustCommand,
   DeleteOidcTrustCommand,
@@ -48,6 +52,8 @@ import { RemoveUserEmailCommand } from '@identity/application/commands/remove-us
 import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
 import { ResendUserEmailVerificationCommand } from '@identity/application/commands/resend-user-email-verification.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
+import { SuspendMemberCommand } from '@identity/application/commands/suspend-member.command';
+import { UnsuspendMemberCommand } from '@identity/application/commands/unsuspend-member.command';
 import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
 import { VerifyUserEmailCommand } from '@identity/application/commands/verify-user-email.command';
@@ -79,6 +85,14 @@ import {
 } from '@identity/application/ports/invite-mail.port';
 import { INVITE_READER } from '@identity/application/ports/invite-reader.port';
 import { MEMBER_DIRECTORY } from '@identity/application/ports/member-directory.port';
+import {
+  MEMBER_LOOKUP,
+  type MemberLookupPort,
+} from '@identity/application/ports/member-lookup.port';
+import {
+  MEMBER_MAIL,
+  type MemberMailPort,
+} from '@identity/application/ports/member-mail.port';
 import { MEMBER_READER } from '@identity/application/ports/member-reader.port';
 import { OIDC_TRUST_CONFIGURATION } from '@identity/application/ports/oidc-trust-configuration.port';
 import { OIDC_TRUST_READER } from '@identity/application/ports/oidc-trust-reader.port';
@@ -179,6 +193,7 @@ import { GitHubActionsTrusts } from '@identity/application/services/github-actio
 import { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import { InviteSending } from '@identity/application/services/invite-sending.service';
 import { IssuedTokens } from '@identity/application/services/issued-tokens.service';
+import { MemberNotices } from '@identity/application/services/member-notices.service';
 import { OidcTrustConfiguration } from '@identity/application/services/oidc-trust-configuration.service';
 import { RunTokens } from '@identity/application/services/run-tokens.service';
 import { TeamAdministration } from '@identity/application/services/team-administration.service';
@@ -196,6 +211,7 @@ import { IDENTITY_PAYLOAD_TYPES } from '@identity/infrastructure/events/identity
 import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
 import { LogMailTransport } from '@identity/infrastructure/mail/log.transport';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
+import { MemberByMail } from '@identity/infrastructure/mail/member.mail';
 import { SmtpMail } from '@identity/infrastructure/mail/smtp.transport';
 import { UserEmailVerificationByMail } from '@identity/infrastructure/mail/user-email.mail';
 import { CachedWorkspaceOutboundHosts } from '@identity/infrastructure/outbound/cached-workspace-outbound-hosts';
@@ -352,6 +368,7 @@ const adapters: Provider[] = [
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
   { provide: OIDC_TRUST_READER, useClass: DrizzleOidcTrustReader },
   { provide: MEMBER_DIRECTORY, useClass: DrizzleMemberDirectory },
+  { provide: MEMBER_LOOKUP, useExisting: MEMBER_DIRECTORY },
   { provide: INVITE_READER, useClass: DrizzleInviteReader },
   { provide: USER_EMAIL_READER, useClass: DrizzleUserEmailReader },
   { provide: EMAIL_OWNERS, useClass: DrizzleEmailOwners },
@@ -390,6 +407,12 @@ const adapters: Provider[] = [
     inject: [MAIL_TRANSPORT, ENV],
     useFactory: (transport: MailTransport, env: Env) =>
       new InviteByMail(transport, env),
+  },
+  {
+    provide: MEMBER_MAIL,
+    inject: [MAIL_TRANSPORT, ENV],
+    useFactory: (transport: MailTransport, env: Env) =>
+      new MemberByMail(transport, env),
   },
   {
     provide: USER_EMAIL_MAIL,
@@ -692,7 +715,7 @@ const handlers: Provider[] = [
     WorkspaceAdministration,
     DrizzleWorkspaceInviteRepository,
     DrizzleTeamRepository,
-    MEMBER_DIRECTORY,
+    MEMBER_LOOKUP,
     InviteSending,
     TOKEN_ISSUER,
     ID_GENERATOR,
@@ -717,6 +740,21 @@ const handlers: Provider[] = [
   ]),
   ...bindCommandHandler(ChangeMemberRoleCommand, ChangeMemberRoleHandler, [
     DrizzleWorkspaceRepository,
+  ]),
+  ...bindCommandHandler(SuspendMemberCommand, SuspendMemberHandler, [
+    DrizzleWorkspaceRepository,
+    CLOCK,
+    LOGGER,
+  ]),
+  ...bindCommandHandler(UnsuspendMemberCommand, UnsuspendMemberHandler, [
+    DrizzleWorkspaceRepository,
+    CLOCK,
+    LOGGER,
+  ]),
+  ...bindCommandHandler(LeaveWorkspaceCommand, LeaveWorkspaceHandler, [
+    DrizzleWorkspaceRepository,
+    CLOCK,
+    LOGGER,
   ]),
   ...bindCommandHandler(AcceptInviteCommand, AcceptInviteHandler, [
     DrizzleWorkspaceInviteRepository,
@@ -779,6 +817,9 @@ const published: Provider[] = [
       DrizzleWorkspaceInviteRepository,
       DrizzleAvatarRepository,
       AVATAR_IMAGES,
+      MEMBER_LOOKUP,
+      MEMBER_MAIL,
+      LOGGER,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -796,6 +837,9 @@ const published: Provider[] = [
       invites: DrizzleWorkspaceInviteRepository,
       avatars: DrizzleAvatarRepository,
       avatarImages: AvatarImagesPort,
+      directory: MemberLookupPort,
+      memberMail: MemberMailPort,
+      logger: LoggerPort,
     ) => {
       types.register('identity', IDENTITY_PAYLOAD_TYPES);
       mappers.register(IDENTITY_EVENT_MAPPERS);
@@ -809,6 +853,7 @@ const published: Provider[] = [
           new WorkspaceInviteRemoval(invites),
           new WorkspaceSetup(workspaces),
           new AvatarRemoval(avatars, avatarImages),
+          new MemberNotices(workspaces, directory, people, memberMail, logger),
         ),
       );
       return true;

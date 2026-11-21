@@ -37,6 +37,7 @@ const everyEvent = (): readonly DomainEvent[] => {
     workspaceId: created.workspaceId,
     name: created.name,
     bindings: created.bindings,
+    sandbox: created.sandbox,
     valueVersion: created.valueVersion,
     holdsValue: created.holdsValue,
     rotatedAt: created.rotatedAt,
@@ -46,7 +47,12 @@ const everyEvent = (): readonly DomainEvent[] => {
   return [
     ...created.pullEvents(),
     ...stored
-      .update(definition({ value: 'lin_api_2', valueVersion: 2 }), BY, NOW)
+      .update(
+        definition({ value: 'lin_api_2', valueVersion: 2 }),
+        BY,
+        NOW,
+        SecretUses.none(),
+      )
       .pullEvents(),
     ...stored.delete(SecretUses.none(), BY).pullEvents(),
   ];

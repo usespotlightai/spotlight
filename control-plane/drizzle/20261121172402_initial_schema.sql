@@ -77,7 +77,6 @@ CREATE TYPE "public"."run_asks" AS ENUM('requester', 'recorded');--> statement-b
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'suspended', 'completed', 'failed', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."run_turn" AS ENUM('pending', 'kept');--> statement-breakpoint
 CREATE TYPE "public"."working_copy_restores" AS ENUM('always', 'when-continuing');--> statement-breakpoint
-CREATE TYPE "public"."secret_source" AS ENUM('built-in', 'aws-secrets-manager');--> statement-breakpoint
 CREATE TYPE "public"."chat_message_kind" AS ENUM('message', 'proposed', 'opened', 'happened');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_driver" AS ENUM('line', 'person');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_follow_up" AS ENUM('accepted', 'sent-back');--> statement-breakpoint
@@ -163,6 +162,7 @@ CREATE TABLE "change_stack" (
 	"team_id" text,
 	"trial" boolean NOT NULL,
 	"workspace_id" text NOT NULL,
+	"repository_owner" text NOT NULL,
 	"repository" text,
 	"base_commit" text,
 	"state" "change_stack_state" NOT NULL,
@@ -399,6 +399,8 @@ CREATE TABLE "harness_profile" (
 	"permissions" jsonb NOT NULL,
 	"mcp_servers" jsonb NOT NULL,
 	"native" jsonb NOT NULL,
+	"secrets" text[] DEFAULT '{}' NOT NULL,
+	"env" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "harness_profile_team_id_key_unique" UNIQUE("team_id","key")
@@ -475,6 +477,14 @@ CREATE TABLE "github_pull_request" (
 	"reverted_by" text,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "github_pull_request_workspace_id_url_pk" PRIMARY KEY("workspace_id","url")
+);
+--> statement-breakpoint
+CREATE TABLE "repository_visibility" (
+	"owner" text NOT NULL,
+	"name" text NOT NULL,
+	"visibility" text NOT NULL,
+	"checked_at" timestamp (3) with time zone NOT NULL,
+	CONSTRAINT "repository_visibility_owner_name_pk" PRIMARY KEY("owner","name")
 );
 --> statement-breakpoint
 CREATE TABLE "device_code" (
@@ -631,6 +641,7 @@ CREATE TABLE "workspace_member" (
 	"user_id" text NOT NULL,
 	"role" "workspace_role" NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"suspended_at" timestamp (3) with time zone,
 	CONSTRAINT "workspace_member_workspace_id_user_id_pk" PRIMARY KEY("workspace_id","user_id")
 );
 --> statement-breakpoint
@@ -2140,10 +2151,8 @@ CREATE TABLE "secret" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"name" text NOT NULL,
-	"source" "secret_source" NOT NULL,
-	"source_secret_id" text,
-	"source_field" text,
 	"bindings" jsonb NOT NULL,
+	"sandbox" text DEFAULT 'stand-in' NOT NULL,
 	"value_version" integer,
 	"rotated_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,

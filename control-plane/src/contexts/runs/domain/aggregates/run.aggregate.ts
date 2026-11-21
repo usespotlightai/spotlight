@@ -37,6 +37,7 @@ import {
   actsBeyondItselfIn,
   type RunCheckout,
   NO_TOOL_CHANGE,
+  type RunSandboxVariable,
   type RunToolChange,
   type RunSpec,
 } from '@runs/domain/value-objects/run-spec.vo';
@@ -1577,6 +1578,15 @@ export class Run extends EventRecorder {
 
   attemptClaimedBy(runner: RunnerId): RunAttempt | null {
     return this.wasClaimedBy(runner) ? this.attempt : null;
+  }
+
+  sandboxEnv(
+    attempt: RunAttempt,
+    runner: RunnerId,
+  ): readonly RunSandboxVariable[] {
+    this.assertStillOn(attempt, runner);
+
+    return this.spec.sandboxEnv;
   }
 
   injectedSecretsFor(runner: RunnerId): readonly SecretName[] {

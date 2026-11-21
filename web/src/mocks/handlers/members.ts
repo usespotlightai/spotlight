@@ -104,10 +104,43 @@ const assignableRolesOf = (person: WorkspacePerson): Role[] => {
   return assignable.length > 1 ? assignable : [];
 };
 
+const suspensionDenial = (
+  person: WorkspacePerson,
+): RoleAssignmentDenial | null => {
+  const mine = myRole();
+
+  if (RANK[mine] < RANK.admin) {
+    return [403, 'Only an owner or an admin can suspend or unsuspend people.'];
+  }
+  if (person.role === 'owner' && mine !== 'owner') {
+    return [403, 'Only an owner can suspend or unsuspend another owner.'];
+  }
+  if (lastOwner(person)) {
+    return [409, LAST_OWNER];
+  }
+  if (person.id === SIGNED_IN.id) {
+    return [403, 'You cannot suspend yourself. Leave the workspace instead.'];
+  }
+
+  return null;
+};
+
+const mayBeSuspended = (person: WorkspacePerson): boolean =>
+  person.suspendedAt === null && suspensionDenial(person) === null;
+
+const mayBeUnsuspended = (person: WorkspacePerson): boolean =>
+  person.suspendedAt !== null && suspensionDenial(person) === null;
+
+const mayLeave = (person: WorkspacePerson): boolean =>
+  person.id === SIGNED_IN.id && !lastOwner(person);
+
 const memberOf = (person: WorkspacePerson): WorkspaceMemberResponseDto => ({
   ...person,
   teams: teamsOf(person.id),
-  assignableRoles: assignableRolesOf(person),
+  assignableRoles: person.suspendedAt === null ? assignableRolesOf(person) : [],
+  mayBeSuspended: mayBeSuspended(person),
+  mayBeUnsuspended: mayBeUnsuspended(person),
+  mayLeave: mayLeave(person),
 });
 
 const inviter = () => ({
@@ -334,6 +367,58 @@ const memberHandlers = [
       return noContent();
     },
   ),
+
+  api.put('/workspaces/:slug/members/:userId/suspension', ({ params }) => {
+    const person = ofWorkspace(params.slug)
+      ? membersWorld().people.find((each) => each.id === params.userId)
+      : undefined;
+
+    if (!person) {
+      return notFound();
+    }
+
+    const denial = suspensionDenial(person);
+
+    if (denial) {
+      return problem(...denial);
+    }
+
+    person.suspendedAt ??= daysAgo(0);
+    return noContent();
+  }),
+
+  api.delete('/workspaces/:slug/members/:userId/suspension', ({ params }) => {
+    const person = ofWorkspace(params.slug)
+      ? membersWorld().people.find((each) => each.id === params.userId)
+      : undefined;
+
+    if (!person) {
+      return notFound();
+    }
+
+    const denial = suspensionDenial(person);
+
+    if (denial) {
+      return problem(...denial);
+    }
+
+    person.suspendedAt = null;
+    return noContent();
+  }),
+
+  api.post('/workspaces/:slug/leave', ({ params }) => {
+    const me = membersWorld().people.find((each) => each.id === SIGNED_IN.id);
+
+    if (!ofWorkspace(params.slug) || !me || me.suspendedAt !== null) {
+      return notFound();
+    }
+    if (lastOwner(me)) {
+      return problem(409, LAST_OWNER);
+    }
+
+    me.suspendedAt = daysAgo(0);
+    return noContent();
+  }),
 
   api.post('/teams/:teamId/members', async ({ params, request }) => {
     const teamId = String(params.teamId);

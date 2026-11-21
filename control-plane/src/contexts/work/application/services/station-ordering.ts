@@ -189,7 +189,10 @@ export class StationOrdering {
       await this.bound.boundIn(
         line.workspaceId.value,
         profiles
-          .flatMap((each) => each.injectedSecrets)
+          .flatMap((each) => [
+            ...each.injectedSecrets,
+            ...each.sandboxEnv.map(({ secret }) => secret),
+          ])
           .map((each) => each.value),
       )
     ).map((each) => BoundSecretMapper.toBound(each));

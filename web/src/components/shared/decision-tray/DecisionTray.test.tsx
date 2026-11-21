@@ -232,6 +232,21 @@ describe('DecisionTray', () => {
     expect(trayShows('Decide first')).toBeVisible();
   });
 
+  it('starts a new thread link where the type of decision changes', () => {
+    render(
+      <Grouping
+        decisions={[task('first'), decision('second', 'Hold'), task('third')]}
+      />,
+    );
+    const thread = screen.getByRole('list', { name: 'Thread' });
+
+    expect(
+      within(thread)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Task first', 'Hold', 'In the thread: between', 'Task third']);
+  });
+
   it('collapses decisions of one type into one pill, which opens the one shown', async () => {
     const user = userEvent.setup();
     render(

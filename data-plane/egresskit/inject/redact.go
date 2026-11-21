@@ -51,9 +51,10 @@ var spellings = []func(string) string{
 
 func (w *injected) swaps() []swap {
 	standIn := protocol.StandInPrefix + w.secret
-	pairs := [][2]string{{string(w.value), w.prefix + standIn}, {string(w.bare), standIn}}
+	return spelledSwaps(nil, [][2]string{{string(w.value), w.prefix + standIn}, {string(w.bare), standIn}})
+}
 
-	var swaps []swap
+func spelledSwaps(swaps []swap, pairs [][2]string) []swap {
 	for _, pair := range pairs {
 		for _, spelled := range spellings {
 			value := spelled(pair[0])
@@ -65,6 +66,56 @@ func (w *injected) swaps() []swap {
 	}
 
 	return swaps
+}
+
+type Redactor struct {
+	swaps []swap
+}
+
+func NewRedactor(secrets map[string]string) *Redactor {
+	var swaps []swap
+	for secret, value := range secrets {
+		standIn := protocol.StandInPrefix + secret
+		for _, written := range writtenForms(value) {
+			swaps = spelledSwaps(swaps, [][2]string{{written, standIn}})
+		}
+	}
+	slices.SortStableFunc(swaps, func(one, other swap) int { return len(other.injected) - len(one.injected) })
+
+	return &Redactor{swaps: swaps}
+}
+
+func writtenForms(value string) []string {
+	trimmed := strings.TrimSpace(value)
+	return []string{
+		value,
+		trimmed,
+		strings.Join(strings.Fields(value), " "),
+		strings.ReplaceAll(trimmed, "\n", "\r\n"),
+	}
+}
+
+func (r *Redactor) Bytes(text []byte) []byte {
+	if r == nil || len(r.swaps) == 0 {
+		return text
+	}
+	return swapped(text, r.swaps)
+}
+
+func (r *Redactor) Text(text string) string {
+	if r == nil || len(r.swaps) == 0 {
+		return text
+	}
+	return string(swapped([]byte(text), r.swaps))
+}
+
+func (r *Redactor) Partial(text string) (redacted, held string) {
+	if r == nil || len(r.swaps) == 0 {
+		return text, ""
+	}
+	var out bytes.Buffer
+	at := swapComplete(&out, []byte(text), r.swaps)
+	return out.String(), text[at:]
 }
 
 var echoedIn = []string{"Location", "Content-Location", "Link", "Refresh"}
@@ -234,21 +285,26 @@ func (u *redactingReader) Read(into []byte) (int, error) {
 }
 
 func (u *redactingReader) flush() {
+	at := swapComplete(&u.out, u.pending, u.swaps)
+	u.pending = append([]byte(nil), u.pending[at:]...)
+}
+
+func swapComplete(out *bytes.Buffer, text []byte, swaps []swap) int {
 	at := 0
-	for at < len(u.pending) {
-		if each, found := matching(u.pending[at:], u.swaps); found {
-			u.out.Write(each.standIn)
+	for at < len(text) {
+		if each, found := matching(text[at:], swaps); found {
+			out.Write(each.standIn)
 			at += len(each.injected)
 			continue
 		}
-		if startsOne(u.pending[at:], u.swaps) {
+		if startsOne(text[at:], swaps) {
 			break
 		}
-		u.out.WriteByte(u.pending[at])
+		out.WriteByte(text[at])
 		at++
 	}
 
-	u.pending = append([]byte(nil), u.pending[at:]...)
+	return at
 }
 
 func (u *redactingReader) Close() error {

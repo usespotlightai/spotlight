@@ -45,4 +45,32 @@ export class WorkspaceMemberResponseDto extends MemberResponseDto {
     example: '2026-09-12T09:00:00.000Z',
   })
   readonly joinedAt!: string;
+
+  @ApiProperty({
+    description:
+      'When they were suspended or left. It is null for a member with access.',
+    type: String,
+    nullable: true,
+    example: null,
+  })
+  readonly suspendedAt!: string | null;
+
+  @ApiProperty({
+    description: 'Whether the caller may suspend this member.',
+    example: true,
+  })
+  readonly mayBeSuspended!: boolean;
+
+  @ApiProperty({
+    description: 'Whether the caller may unsuspend this member.',
+    example: false,
+  })
+  readonly mayBeUnsuspended!: boolean;
+
+  @ApiProperty({
+    description:
+      'Whether this member is the caller and may leave the workspace.',
+    example: false,
+  })
+  readonly mayLeave!: boolean;
 }

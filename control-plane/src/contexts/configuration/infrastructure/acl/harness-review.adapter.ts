@@ -29,6 +29,8 @@ const fieldOf = (parsed: ParsedProfile, note: HarnessNote): FieldPath => {
       return FieldPath.of(['native', note.harness, ...note.path]);
     case 'mcp-servers':
       return FieldPath.of(['mcpServers']);
+    case 'env':
+      return FieldPath.of(['env', note.variable]);
   }
 };
 

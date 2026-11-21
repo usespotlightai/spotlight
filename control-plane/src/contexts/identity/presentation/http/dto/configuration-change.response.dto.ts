@@ -86,7 +86,7 @@ export class ConfigurationChangeResponseDto {
       targets: ['api.linear.app'],
     },
     description:
-      'What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value',
+      'What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, the hosts it is bound to once changed, and its sandbox when it is created or its sandbox changes, never the value',
   })
   readonly details: RecordedDetail;
 

@@ -52,7 +52,7 @@ func TestAWarmSandboxSetsUpOnceSoTheFirstRunSkipsSetup(t *testing.T) {
 	}
 
 	journal := &journalWriter{}
-	Options{}.setUp(context.Background(), space.Dir, []protocol.Checkout{{Path: "web", Setup: setup}}, sandbox.setUp, journal, log)
+	Options{}.setUp(context.Background(), space.Dir, []protocol.Checkout{{Path: "web", Setup: setup}}, sandboxEnv{}, sandbox.setUp, journal, log)
 
 	body, err := os.ReadFile(installs)
 	if err != nil {

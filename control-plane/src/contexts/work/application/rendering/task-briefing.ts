@@ -30,6 +30,7 @@ import type {
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { MAX_HANDOVER_ATTACHMENTS } from '@work/domain/value-objects/handover.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { SandboxVariable } from '@work/domain/value-objects/ready-profile';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
 import { drivenByAPerson } from '@work/domain/value-objects/task-note-body.vo';
 
@@ -143,6 +144,20 @@ const secretsOf = (secrets: readonly BoundSecret[]): string | null =>
       ].join('\n\n')
     : null;
 
+const environmentOf = (variables: readonly SandboxVariable[]): string | null =>
+  variables.length > 0
+    ? [
+        '## Secrets in your environment',
+        'These environment variables hold the real values of workspace secrets. Use them where the value must be in the sandbox, such as a key that signs a token. Do not print them, write them to a file that you commit, or send them to a host that does not need them. Spotlight replaces the values with stand-ins in your messages, tool output and tool calls, but not in files, attachments, commits or the workspace archive.',
+        variables
+          .map(
+            ({ variable, secret }) =>
+              `- \`${variable}\`: secret \`${secret.value}\``,
+          )
+          .join('\n'),
+      ].join('\n\n')
+    : null;
+
 const labelled = (kind: string): string => {
   const words = kind.replaceAll('-', ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -217,6 +232,7 @@ export const TaskBriefing = {
     memoryFolder: MemoryFolder | null;
     tools: readonly DeclaredTool[];
     boundSecrets: readonly BoundSecret[];
+    sandboxEnv: readonly SandboxVariable[];
     drivenByAPerson?: boolean;
   }): string {
     const driven = input.drivenByAPerson ?? false;
@@ -254,6 +270,7 @@ export const TaskBriefing = {
       ConfiguringSpotlight.section,
       toolsOf(input.tools),
       secretsOf(input.boundSecrets),
+      environmentOf(input.sandboxEnv),
       listing(input.skills, input.listedIn),
       replying(input.task),
       driven ? null : closing(input.line, input.task.stationId),

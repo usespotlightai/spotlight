@@ -59,6 +59,7 @@ export type ExportableResourceDto =
         readonly name: string;
         readonly prefix: string;
       }[];
+      readonly sandbox: string | null;
       readonly valueVersion: number | null;
     })
   | (WorkspaceOwned & {
@@ -155,6 +156,7 @@ export type ExportableResourceDto =
       }[];
       readonly native: Readonly<Record<string, unknown>>;
       readonly secrets: readonly string[];
+      readonly env: Readonly<Record<string, string>>;
       readonly secretReferences: readonly SecretReferenceAt[];
     });
 

@@ -334,6 +334,7 @@ describe('a secret, created through the resource API (e2e)', () => {
           valueOrigin: 'terraform',
           valueVersion: 1,
           targets: ['api.linear.app'],
+          sandbox: 'stand-in',
         },
       ],
       [

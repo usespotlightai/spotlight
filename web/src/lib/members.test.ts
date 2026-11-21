@@ -10,6 +10,7 @@ import {
   rolesOffered,
   sameAddress,
   showOf,
+  suspendedMembers,
   visibleMembers,
 } from '@/lib/members';
 
@@ -77,9 +78,9 @@ describe('sameAddress', () => {
 
 describe('the members filter', () => {
   const people = [
-    { role: 'owner' },
-    { role: 'admin' },
-    { role: 'member' },
+    { role: 'owner', suspendedAt: null },
+    { role: 'admin', suspendedAt: null },
+    { role: 'member', suspendedAt: null },
   ] as never[];
 
   it('reads only the filters it knows', () => {
@@ -88,9 +89,21 @@ describe('the members filter', () => {
     expect(showOf(new URLSearchParams('show=nobody'))).toBeNull();
   });
 
+  it('keeps suspended members out of the members', () => {
+    const suspended = { role: 'admin', suspendedAt: '2026-11-01' } as never;
+
+    expect(visibleMembers([...people, suspended], null)).toHaveLength(3);
+    expect(visibleMembers([...people, suspended], 'admin')).toEqual([
+      { role: 'admin', suspendedAt: null },
+    ]);
+    expect(suspendedMembers([...people, suspended])).toEqual([suspended]);
+  });
+
   it('shows everyone, one role, or no members at all for the invites', () => {
     expect(visibleMembers(people, null)).toHaveLength(3);
-    expect(visibleMembers(people, 'admin')).toEqual([{ role: 'admin' }]);
+    expect(visibleMembers(people, 'admin')).toEqual([
+      { role: 'admin', suspendedAt: null },
+    ]);
     expect(visibleMembers(people, 'invited')).toBeNull();
   });
 });

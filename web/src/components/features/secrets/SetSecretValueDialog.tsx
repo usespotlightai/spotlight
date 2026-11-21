@@ -13,7 +13,11 @@ import {
 } from '@/components/ui/dialog';
 import { useSetSecretValue } from '@/hooks/api/useSetSecretValue';
 import { useDelayedValue } from '@/hooks/useDelayedValue';
-import { setValueLabel, type WorkspaceSecret } from '@/lib/secret';
+import {
+  allowsSandbox,
+  setValueLabel,
+  type WorkspaceSecret,
+} from '@/lib/secret';
 
 const CLOSING_MS = 150;
 
@@ -66,8 +70,10 @@ export function SetSecretValueDialog({
             {shown && `${setValueLabel(shown)} of ${shown.name}`}
           </DialogTitle>
           <DialogDescription>
-            Spotlight encrypts the value and never shows it again. Egress sends
-            it only to the secret’s hosts.
+            Spotlight encrypts the value and never shows it again.{' '}
+            {shown && allowsSandbox(shown)
+              ? 'Egress sends it to the secret’s hosts, and runs whose harness profile names it in env get it in their sandbox.'
+              : 'Egress sends it only to the secret’s hosts.'}
           </DialogDescription>
         </DialogHeader>
 

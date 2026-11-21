@@ -1,6 +1,6 @@
 import type { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
 import type { InviteOutcomeDto } from '@identity/application/dto/invite.dto';
-import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
+import type { MemberLookupPort } from '@identity/application/ports/member-lookup.port';
 import type {
   InviteSending,
   InviteSent,
@@ -50,7 +50,7 @@ export class InviteToWorkspaceHandler implements CommandHandlerPort<
     private readonly administration: WorkspaceAdministration,
     private readonly invites: WorkspaceInviteRepository,
     private readonly teams: TeamRepository,
-    private readonly members: MemberDirectoryPort,
+    private readonly members: MemberLookupPort,
     private readonly sending: InviteSending,
     private readonly tokens: TokenIssuer,
     private readonly ids: IdGeneratorPort,
@@ -94,7 +94,7 @@ export class InviteToWorkspaceHandler implements CommandHandlerPort<
         {
           workspace,
           email,
-          holder: await this.members.byEmail(workspace.id, email.value),
+          holder: await this.members.listedByEmail(workspace.id, email.value),
           spec,
           by,
         },

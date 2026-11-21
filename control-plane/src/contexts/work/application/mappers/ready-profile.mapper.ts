@@ -19,6 +19,7 @@ export const ReadyProfileMapper = {
       native: ready.native,
       secrets: [...ready.secrets],
       injectedSecrets: [...ready.injectedSecrets],
+      sandboxEnv: ready.sandboxEnv.map((each) => ({ ...each })),
     };
   },
 };

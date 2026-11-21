@@ -45,7 +45,7 @@ func (s *Sandbox) Warm(ctx context.Context, warm protocol.WarmSandbox, opts Warm
 		s.setUp = setUps{}
 	}
 	setUp := Options{AgentUser: opts.AgentUser, ProxyEnv: opts.ProxyEnv}
-	for _, failure := range setUp.setUp(ctx, s.space.Dir, checkouts, s.setUp, &journalWriter{}, opts.Log) {
+	for _, failure := range setUp.setUp(ctx, s.space.Dir, checkouts, sandboxEnv{}, s.setUp, &journalWriter{}, opts.Log) {
 		opts.Log.Warn("a warm setup failed; the first run sets up again", "path", failure.path, "error", failure.err)
 	}
 

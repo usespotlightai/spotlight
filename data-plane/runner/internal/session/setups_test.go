@@ -31,7 +31,7 @@ func TestASandboxSkipsASetupWhoseInputsDidNotChange(t *testing.T) {
 	journal := &journalWriter{}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	setUp := func() []setupFailure {
-		return Options{}.setUp(context.Background(), dir, checkouts, done, journal, log)
+		return Options{}.setUp(context.Background(), dir, checkouts, sandboxEnv{}, done, journal, log)
 	}
 
 	count := func() int {
@@ -74,6 +74,38 @@ func TestASandboxSkipsASetupWhoseInputsDidNotChange(t *testing.T) {
 	}
 }
 
+func TestASetupRunsAgainWhenTheSecretsInItsEnvironmentChange(t *testing.T) {
+	dir := t.TempDir()
+	tree := filepath.Join(dir, "web")
+	if err := os.MkdirAll(tree, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if output, err := exec.Command("git", "-C", tree, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, output)
+	}
+	seen := filepath.Join(dir, "seen")
+
+	checkouts := []protocol.Checkout{{Path: "web", Setup: "echo \"[$APP_KEY]\" >> " + seen}}
+	done := setUps{}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	setUp := func(secrets sandboxEnv) {
+		Options{}.setUp(context.Background(), dir, checkouts, secrets, done, &journalWriter{}, log)
+	}
+
+	setUp(sandboxEnv{})
+	setUp(sandboxEnv{values: map[string]string{"APP_KEY": "one"}})
+	setUp(sandboxEnv{values: map[string]string{"APP_KEY": "one"}})
+	setUp(sandboxEnv{values: map[string]string{"APP_KEY": "two"}})
+
+	body, err := os.ReadFile(seen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(body); got != "[]\n[one]\n[two]\n" {
+		t.Errorf("the setup saw %q", got)
+	}
+}
+
 func writeFile(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
@@ -100,7 +132,7 @@ func TestSetupsThatMissRunAtTheSameTime(t *testing.T) {
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	failures := Options{}.setUp(context.Background(), dir, checkouts, setUps{}, &journalWriter{}, log)
+	failures := Options{}.setUp(context.Background(), dir, checkouts, sandboxEnv{}, setUps{}, &journalWriter{}, log)
 
 	if len(failures) != 2 || failures[0].path != "cli" || failures[1].path != "infra" {
 		t.Errorf("the setups that wait for each other did not overlap, or the failures are not in checkout order: %+v", failures)

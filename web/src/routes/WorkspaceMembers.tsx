@@ -5,6 +5,7 @@ import { InviteDialog } from '@/components/features/members/InviteDialog';
 import { MembersFilterMenu } from '@/components/features/members/MembersFilterMenu';
 import { MembersList } from '@/components/features/members/MembersList';
 import { PendingInvites } from '@/components/features/members/PendingInvites';
+import { SuspendedMembers } from '@/components/features/members/SuspendedMembers';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -75,6 +76,8 @@ export function WorkspaceMembers() {
             action={actions}
           />
         )}
+
+        {show === null && <SuspendedMembers slug={slug} members={members} />}
 
         {showsInvites(show) && (
           <PendingInvites

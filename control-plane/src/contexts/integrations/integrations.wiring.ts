@@ -174,6 +174,7 @@ import { IntegrationSpecs } from '@integrations/application/services/integration
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { IntegrationsUsingSecret } from '@integrations/application/services/integrations-using-secret.service';
 import { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
+import { MemberConnections } from '@integrations/application/services/member-connections.service';
 import { NotifyChannel } from '@integrations/application/services/notify-channel.service';
 import { NotifyTask } from '@integrations/application/services/notify-task.service';
 import { NotifyTeam } from '@integrations/application/services/notify-team.service';
@@ -437,6 +438,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       POLL_CURSORS,
       SCHEDULE_CURSORS,
       InboundDeliveryRetention,
+      LOGGER,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -454,6 +456,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       polls: PollCursorRepository,
       schedules: ScheduleCursorRepository,
       deliveries: InboundDeliveryRetention,
+      logger: LoggerPort,
     ) => {
       types.register('integrations', INTEGRATIONS_PAYLOAD_TYPES);
       subscribers.register(
@@ -472,6 +475,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
           connectionAsks,
           new IntegrationCursors(polls, schedules),
           deliveries,
+          new MemberConnections(connections, logger),
         ),
       );
       return true;

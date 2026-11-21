@@ -485,6 +485,27 @@ func (c *Client) RecordImage(ctx context.Context, runID, image string) error {
 	return nil
 }
 
+type leaseConflict struct{ error }
+
+func (leaseConflict) RunNoLongerLeased() bool { return true }
+
+func (l leaseConflict) Unwrap() error { return l.error }
+
+func (c *Client) RevealSandboxEnv(ctx context.Context, runID string, attempt int) (protocol.SandboxEnv, error) {
+	path := fmt.Sprintf("/api/runs/%s/sandbox-env", url.PathEscape(runID))
+
+	var fetched protocol.SandboxEnv
+	if err := c.do(ctx, http.MethodPost, path, protocol.SandboxEnvRequest{Attempt: attempt}, &fetched); err != nil {
+		var rejection *ResponseError
+		if errors.As(err, &rejection) && rejection.Status == http.StatusConflict {
+			err = leaseConflict{err}
+		}
+		return protocol.SandboxEnv{}, fmt.Errorf("reveal the sandbox env: %w", err)
+	}
+
+	return fetched, nil
+}
+
 func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) error {
 	path := fmt.Sprintf("/api/runs/%s/completion", url.PathEscape(runID))
 

@@ -732,6 +732,21 @@ const profile = (
             ),
           ]
         : []),
+      ...(Object.keys(resource.env).length > 0
+        ? [
+            attribute(
+              'env',
+              hclOf(
+                Object.fromEntries(
+                  Object.entries(resource.env).map(([variable, name]) => [
+                    variable,
+                    refer.secretName(name) ?? name,
+                  ]),
+                ),
+              ),
+            ),
+          ]
+        : []),
     ],
   );
 
@@ -868,6 +883,9 @@ const secret = (
       ...refer.owner(resource),
       attribute('name', resource.name),
       attribute('bindings', hclOf(resource.bindings)),
+      ...(resource.sandbox === null
+        ? []
+        : [attribute('sandbox', resource.sandbox)]),
       ...(resource.valueVersion === null
         ? []
         : [

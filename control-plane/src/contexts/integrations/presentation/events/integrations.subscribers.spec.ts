@@ -4,12 +4,17 @@ import type { InboundDeliveryRetention } from '@integrations/application/service
 import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import type { IntegrationCursors } from '@integrations/application/services/integration-cursors.service';
 import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
+import type { MemberConnections } from '@integrations/application/services/member-connections.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
+import {
+  WORKSPACE_MEMBER_ACCESS_ENDED,
+  type WorkspaceMemberAccessEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,6 +44,7 @@ const subscribersWith = (
     { answer },
     {} as IntegrationCursors,
     {} as InboundDeliveryRetention,
+    {} as MemberConnections,
   );
 
 const handledBy = async (
@@ -106,5 +112,32 @@ describe('integrationsSubscribers', () => {
 
   it('answers no ask when the team connects', async () => {
     expect(await asksAnsweredOn(ConnectionOwner.team())).not.toHaveBeenCalled();
+  });
+
+  it('disconnects a member once their access ends', async () => {
+    const disconnect = vi.fn(async () => {});
+    const subscriber = integrationsSubscribers(
+      {} as DeleteTeamIntegrations,
+      {} as LifecycleHookTriggers,
+      {} as RefreshIntegrationSpecHandler,
+      {} as InferOutputSchemas,
+      { answer: vi.fn() },
+      {} as IntegrationCursors,
+      {} as InboundDeliveryRetention,
+      { disconnect } as unknown as MemberConnections,
+    ).find((each) => each.kinds.includes(WORKSPACE_MEMBER_ACCESS_ENDED));
+
+    const ended: WorkspaceMemberAccessEndedIntegrationEvent = {
+      kind: WORKSPACE_MEMBER_ACCESS_ENDED,
+      workspaceId: 'ws_1',
+      userId: 'user_1',
+    };
+
+    await subscriber?.handle(ended);
+
+    expect(disconnect).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      UserId.of('user_1'),
+    );
   });
 });

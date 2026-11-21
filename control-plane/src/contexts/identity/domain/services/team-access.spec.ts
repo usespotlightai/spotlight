@@ -31,10 +31,10 @@ const ACME = Workspace.rehydrate({
   name: WorkspaceName.of('Acme Inc.'),
   slug: WorkspaceSlug.of('acme-inc'),
   members: [
-    { userId: OWNER, role: WorkspaceRole.owner },
-    { userId: ADMIN, role: WorkspaceRole.admin },
-    { userId: ON_PLATFORM, role: WorkspaceRole.member },
-    { userId: ON_PAYMENTS, role: WorkspaceRole.member },
+    { userId: OWNER, role: WorkspaceRole.owner, suspendedAt: null },
+    { userId: ADMIN, role: WorkspaceRole.admin, suspendedAt: null },
+    { userId: ON_PLATFORM, role: WorkspaceRole.member, suspendedAt: null },
+    { userId: ON_PAYMENTS, role: WorkspaceRole.member, suspendedAt: null },
   ],
   version: 0,
 });

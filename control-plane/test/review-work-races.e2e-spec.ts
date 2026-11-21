@@ -563,7 +563,10 @@ const renewalsHeld = (outcomes: readonly Outcome[]): boolean =>
 const HANDED_BACK: readonly LeaseAction['kind'][] = ['unclaim', 'fail'];
 
 const handedBack = (outcomes: readonly Outcome[]): boolean =>
-  fulfilled(outcomes).some((each) => HANDED_BACK.includes(each.action.kind));
+  fulfilled(outcomes).some((each) => HANDED_BACK.includes(each.action.kind)) ||
+  claimedByOther(outcomes).some(
+    (each) => each.action.kind === 'claim' && each.action.followedBy === 'fail',
+  );
 
 const claimsWaited = (outcomes: readonly Outcome[]): boolean =>
   claimedByOther(outcomes).every(
@@ -891,7 +894,8 @@ describe('a leased push diff raced by its runner, another runner, the sweeper an
           diff.status !== 'superseded' ||
           outcomes.some(
             (each) =>
-              each.action.kind === 'supersede' && each.action.when !== 'early',
+              each.action.kind === 'supersede' &&
+              (each.action.when !== 'early' || handedBack(outcomes)),
           ),
       ),
       RUNS,

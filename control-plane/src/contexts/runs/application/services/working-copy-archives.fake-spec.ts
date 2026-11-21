@@ -29,6 +29,7 @@ export const aLeasedRun = (
     session?: string | null;
     restoresWorkingCopy?: boolean;
     checkouts?: readonly string[];
+    sandboxEnv?: readonly { variable: string; secret: string }[];
   } = {},
 ): Run =>
   Run.enqueue({
@@ -53,6 +54,7 @@ export const aLeasedRun = (
       resume:
         over.session === null ? {} : { sessionId: over.session ?? 'session_1' },
       ...(over.restoresWorkingCopy === false ? {} : { startingPoint: true }),
+      ...(over.sandboxEnv ? { sandboxEnv: over.sandboxEnv } : {}),
     }),
   }).claim(claimer(RunnerId.of(over.runner ?? 'runner_1')), CLAIMED_AT);
 

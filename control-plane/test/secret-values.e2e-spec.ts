@@ -334,6 +334,7 @@ describe('secret values set outside Terraform (e2e)', () => {
           valueOrigin: 'terraform',
           valueVersion: 1,
           targets: ['api.linear.app'],
+          sandbox: 'stand-in',
         },
       },
       {
@@ -389,6 +390,7 @@ describe('secret values set outside Terraform (e2e)', () => {
             },
           ],
           awaitingValue: false,
+          allowsSandbox: false,
         },
         {
           name: STAGING.name,
@@ -401,6 +403,7 @@ describe('secret values set outside Terraform (e2e)', () => {
             },
           ],
           awaitingValue: true,
+          allowsSandbox: false,
         },
       ]),
     );

@@ -13,6 +13,7 @@ export const BoundSecretMapper = {
         sent,
       })),
       awaitingValue: bound.awaitingValue,
+      allowsSandbox: bound.allowsSandbox,
     };
   },
 };
