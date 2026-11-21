@@ -23,7 +23,7 @@ import {
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
-  DEFAULT_RETRIES,
+  DEFAULT_RETRY,
   type DomainEventSubscriber,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
@@ -102,8 +102,8 @@ const failures = fc.oneof(
   { arbitrary: fc.integer({ min: 1, max: 3 }), weight: 2 },
   {
     arbitrary: fc.integer({
-      min: DEFAULT_RETRIES.maxAttempts - 1,
-      max: DEFAULT_RETRIES.maxAttempts + 1,
+      min: DEFAULT_RETRY.maxAttempts - 1,
+      max: DEFAULT_RETRY.maxAttempts + 1,
     }),
     weight: 1,
   },
@@ -342,9 +342,8 @@ const hearing = (
 ): DomainEventSubscriber => ({
   name,
   kinds: [RANG],
-  integrationEventPrefixes: [],
   callsOut,
-  retries: DEFAULT_RETRIES,
+  retry: DEFAULT_RETRY,
   handle: (event) => {
     if (!(event instanceof Rang)) {
       throw new Error(`${name} heard ${event.kind}`);
@@ -417,9 +416,8 @@ const raceSubscribers = (): readonly DomainEventSubscriber[] => [
   {
     name: HEAR_ANSWER,
     kinds: [ANSWERED],
-    integrationEventPrefixes: [],
     callsOut: false,
-    retries: DEFAULT_RETRIES,
+    retry: DEFAULT_RETRY,
     handle: async (event) => {
       if (!(event instanceof Answered)) {
         throw new Error(`${HEAR_ANSWER} heard ${event.kind}`);
@@ -499,10 +497,14 @@ const performed = async (prefix: string, action: Action): Promise<void> => {
       now += action.byMs;
       return;
     case 'sweep':
-      await new OutboxRetention(context, {
-        now: () => new Date(now + action.aheadMs),
-        sleep: async () => {},
-      }).sweep();
+      await new OutboxRetention(
+        context,
+        {
+          now: () => new Date(now + action.aheadMs),
+          sleep: async () => {},
+        },
+        subscribers,
+      ).sweep();
       return;
   }
 };
@@ -579,7 +581,7 @@ const settled = async (paced: readonly number[]): Promise<void> => {
 
   for (
     let pass = 0;
-    pass <= DEFAULT_RETRIES.maxAttempts + 1 && (await pending()) > 0;
+    pass <= DEFAULT_RETRY.maxAttempts + 1 && (await pending()) > 0;
     pass += 1
   ) {
     now += SETTLE_MS;
@@ -612,7 +614,7 @@ const raced = async (
   const left = await pending();
 
   now += OUTBOX_RETENTION_MS + 1;
-  await new OutboxRetention(context, clock).sweep();
+  await new OutboxRetention(context, clock, subscribers).sweep();
 
   const kept = await database.db
     .select({ payload: eventOutbox.payload })
@@ -719,9 +721,9 @@ describe('domain events raced by delivery workers, failing subscribers, lost lea
         (result) =>
           result.rows.every(
             (each) =>
-              each.attempts <= DEFAULT_RETRIES.maxAttempts &&
+              each.attempts <= DEFAULT_RETRY.maxAttempts &&
               (!each.deadLettered ||
-                each.attempts === DEFAULT_RETRIES.maxAttempts),
+                each.attempts === DEFAULT_RETRY.maxAttempts),
           ) &&
           result.seen.committed.every((marker) =>
             HEARING_RANG.every(
@@ -802,10 +804,9 @@ describe('domain events raced by delivery workers, failing subscribers, lost lea
           const calls = result.seen.calls.get(keyOf(FLAKY, marker)) ?? [];
 
           return (
-            calls.length ===
-              Math.min(failing + 1, DEFAULT_RETRIES.maxAttempts) &&
+            calls.length === Math.min(failing + 1, DEFAULT_RETRY.maxAttempts) &&
             gaveUp(result, FLAKY, marker) ===
-              failing >= DEFAULT_RETRIES.maxAttempts &&
+              failing >= DEFAULT_RETRY.maxAttempts &&
             calls.every(
               (at, index) =>
                 index === 0 ||

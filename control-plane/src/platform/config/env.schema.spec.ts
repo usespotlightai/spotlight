@@ -197,16 +197,22 @@ describe('envSchema event webhook', () => {
     ).toBe(false);
   });
 
-  it('reads the kinds as a list of kinds or starts of kinds, and refuses another value', () => {
+  it('reads the kinds as a list of kinds or contexts, and refuses another value', () => {
     expect(
       envSchema.parse({
         ...webhook,
-        SPOTLIGHT_EVENTS_KINDS:
-          ' identity., runs.run-usage-recorded.v1 ,work.task-',
+        SPOTLIGHT_EVENTS_KINDS: ' identity., runs.run-usage-recorded.v1 ,',
       }).SPOTLIGHT_EVENTS_KINDS,
-    ).toEqual(['identity.', 'runs.run-usage-recorded.v1', 'work.task-']);
+    ).toEqual(['identity.', 'runs.run-usage-recorded.v1']);
 
-    for (const kinds of ['identity', 'Identity.', '*', 'runs.run-ended.v']) {
+    for (const kinds of [
+      'identity',
+      'Identity.',
+      '*',
+      'runs.run-ended.v',
+      'identity.workspace',
+      'work.task-',
+    ]) {
       expect(
         envSchema.safeParse({ ...webhook, SPOTLIGHT_EVENTS_KINDS: kinds })
           .success,

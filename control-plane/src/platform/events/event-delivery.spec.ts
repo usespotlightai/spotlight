@@ -1,6 +1,5 @@
 import { CauseCarrier } from '@platform/events/cause-carrier';
 import {
-  backoffMs,
   EventDelivery,
   LEASE_MS,
   LEASE_RENEWAL_MS,
@@ -11,9 +10,10 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   subscribing,
-  DEFAULT_RETRIES,
+  DEFAULT_RETRY,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-11-01T09:00:00.000Z');
@@ -153,15 +153,8 @@ const delivering = (
 ) => {
   const context = new FakeContext(attempts);
   const subscribers = new EventSubscribers();
-  const subscriber = subscribing('test.door', ['bell.rang'], handle, options);
   subscribers.register([
-    {
-      ...subscriber,
-      handle: async (event, envelope) => {
-        await handle(event, envelope);
-        return [];
-      },
-    },
+    subscribing('test.door', ['bell.rang'], handle, options),
   ]);
   const logger = {
     debug: vi.fn(),
@@ -268,13 +261,13 @@ describe('EventDelivery', () => {
   it('dead-letters the delivery in the same transaction on the last attempt, and reports it once it committed', async () => {
     const { delivery, context, reports } = delivering(async () => {
       throw new Error('nobody home');
-    }, DEFAULT_RETRIES.maxAttempts - 1);
+    }, DEFAULT_RETRY.maxAttempts - 1);
 
     await delivery.processDue();
 
     expect(context.updates).toEqual([
       expect.objectContaining({
-        attempts: DEFAULT_RETRIES.maxAttempts,
+        attempts: DEFAULT_RETRY.maxAttempts,
         deadLetteredAt: NOW,
       }),
     ]);
@@ -289,7 +282,7 @@ describe('EventDelivery', () => {
       async () => {
         throw new Error('nobody home');
       },
-      DEFAULT_RETRIES.maxAttempts - 1,
+      DEFAULT_RETRY.maxAttempts - 1,
     );
     context.failingUpdates = 1;
     context.settledElsewhere = true;
@@ -319,14 +312,18 @@ describe('EventDelivery', () => {
   });
 
   describe('with the retries of its subscriber', () => {
-    const RETRIES = { maxAttempts: 24, maxBackoffMs: 60 * 60 * 1000 };
+    const RETRY = Retry.backoff({
+      maxAttempts: 24,
+      initialDelayMs: 2_000,
+      maxDelayMs: 60 * 60 * 1000,
+    });
     const failing = async () => {
       throw new Error('nobody home');
     };
 
     it('waits 2^attempts seconds, but never longer than the longest backoff', async () => {
-      const early = delivering(failing, 2, { retries: RETRIES });
-      const late = delivering(failing, 20, { retries: RETRIES });
+      const early = delivering(failing, 2, { retry: RETRY });
+      const late = delivering(failing, 20, { retry: RETRY });
 
       await early.delivery.processDue();
       await late.delivery.processDue();
@@ -341,18 +338,18 @@ describe('EventDelivery', () => {
       expect(late.context.updates).toEqual([
         expect.objectContaining({
           attempts: 21,
-          dueAt: new Date(NOW.getTime() + RETRIES.maxBackoffMs),
+          dueAt: new Date(NOW.getTime() + RETRY.maxDelayMs),
           deadLetteredAt: null,
         }),
       ]);
     });
 
     it('tries after the default attempts, and dead-letters only after its own', async () => {
-      const retried = delivering(failing, DEFAULT_RETRIES.maxAttempts - 1, {
-        retries: RETRIES,
+      const retried = delivering(failing, DEFAULT_RETRY.maxAttempts - 1, {
+        retry: RETRY,
       });
-      const deadLettered = delivering(failing, RETRIES.maxAttempts - 1, {
-        retries: RETRIES,
+      const deadLettered = delivering(failing, RETRY.maxAttempts - 1, {
+        retry: RETRY,
       });
 
       await retried.delivery.processDue();
@@ -364,17 +361,11 @@ describe('EventDelivery', () => {
       expect(retried.reports.report).not.toHaveBeenCalled();
       expect(deadLettered.context.updates).toEqual([
         expect.objectContaining({
-          attempts: RETRIES.maxAttempts,
+          attempts: RETRY.maxAttempts,
           deadLetteredAt: NOW,
         }),
       ]);
       expect(deadLettered.reports.report).toHaveBeenCalledOnce();
-    });
-
-    it('computes the backoff from the policy', () => {
-      expect(backoffMs(DEFAULT_RETRIES, 3)).toBe(8000);
-      expect(backoffMs(RETRIES, 11)).toBe(2_048_000);
-      expect(backoffMs(RETRIES, 12)).toBe(RETRIES.maxBackoffMs);
     });
   });
 
@@ -494,7 +485,7 @@ describe('EventDelivery', () => {
         async () => {
           throw new Error('nobody home');
         },
-        DEFAULT_RETRIES.maxAttempts - 1,
+        DEFAULT_RETRY.maxAttempts - 1,
         CALLS_OUT,
       );
 
@@ -528,7 +519,7 @@ describe('EventDelivery', () => {
     it('counts a failed recording of a call that worked as an attempt, so it ends dead-lettered', async () => {
       const { delivery, context, logger, reports } = delivering(
         async () => undefined,
-        DEFAULT_RETRIES.maxAttempts - 1,
+        DEFAULT_RETRY.maxAttempts - 1,
         CALLS_OUT,
       );
       context.failingUpdateAt = 1;
@@ -538,7 +529,7 @@ describe('EventDelivery', () => {
       expect(context.updates).toEqual([
         LEASED,
         expect.objectContaining({
-          attempts: DEFAULT_RETRIES.maxAttempts,
+          attempts: DEFAULT_RETRY.maxAttempts,
           lastError: 'connection terminated',
           deadLetteredAt: NOW,
         }),

@@ -16,11 +16,11 @@ import {
 } from '@nestjs/swagger';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
-import { EventRedelivery } from '@platform/events/event-redelivery';
-import { EVENT_WEBHOOK } from '@platform/events/event-webhook';
+import { EventDelivery } from '@platform/events/event-delivery';
+import { EVENT_WEBHOOK_SUBSCRIBER } from '@platform/events/event-webhook';
 import { AdminController } from '@platform/http/decorators/admin-controller.decorator';
-import { EventRedeliveryRequestDto } from '@platform/http/dto/event-redelivery.request.dto';
-import { EventRedeliveryResponseDto } from '@platform/http/dto/event-redelivery.response.dto';
+import { EventWebhookRedeliveryRequestDto } from '@platform/http/dto/event-webhook-redelivery.request.dto';
+import { EventWebhookRedeliveryResponseDto } from '@platform/http/dto/event-webhook-redelivery.response.dto';
 import { isoTimeOf } from '@platform/http/iso-time';
 
 const sinceOf = (raw: unknown): Date => {
@@ -34,23 +34,23 @@ const sinceOf = (raw: unknown): Date => {
 };
 
 // The deployment event webhook, which SPOTLIGHT_EVENTS_URL sets.
-@AdminController('events')
-export class AdminEventController {
+@AdminController('event-webhook')
+export class AdminEventWebhookController {
   constructor(
     @Inject(ENV) private readonly env: Env,
-    private readonly redelivery: EventRedelivery,
+    private readonly delivery: EventDelivery,
   ) {}
 
   @Post('redeliver')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'redeliverEvents',
+    operationId: 'redeliverEventWebhook',
     summary: 'Send the dead letters of the event webhook again',
     description:
       'Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Spotlight deletes an event 7 days after it recorded it, but only when it is delivered, so a dead letter stays until it is delivered.',
   })
-  @ApiBody({ type: EventRedeliveryRequestDto })
-  @ApiOkResponse({ type: EventRedeliveryResponseDto })
+  @ApiBody({ type: EventWebhookRedeliveryRequestDto })
+  @ApiOkResponse({ type: EventWebhookRedeliveryResponseDto })
   @ApiBadRequestResponse({
     description: 'A body without since as an ISO 8601 time',
   })
@@ -58,16 +58,19 @@ export class AdminEventController {
     description: 'No event webhook is set, or no admin token is set',
   })
   async redeliver(
-    @Body() body: EventRedeliveryRequestDto | undefined,
-  ): Promise<EventRedeliveryResponseDto> {
+    @Body() body: EventWebhookRedeliveryRequestDto | undefined,
+  ): Promise<EventWebhookRedeliveryResponseDto> {
     if (!this.env.SPOTLIGHT_EVENTS_URL) {
       throw new NotFoundException(
         'Sorry, this deployment sends no events. Set SPOTLIGHT_EVENTS_URL and SPOTLIGHT_EVENTS_SECRET to send them.',
       );
     }
 
-    return new EventRedeliveryResponseDto(
-      await this.redelivery.redeliver(EVENT_WEBHOOK, sinceOf(body?.since)),
+    return new EventWebhookRedeliveryResponseDto(
+      await this.delivery.redeliver(
+        EVENT_WEBHOOK_SUBSCRIBER,
+        sinceOf(body?.since),
+      ),
     );
   }
 }

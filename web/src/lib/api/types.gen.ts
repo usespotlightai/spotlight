@@ -27,14 +27,14 @@ export type ErrorReportingResponseDto = {
   release: string | null;
 };
 
-export type EventRedeliveryRequestDto = {
+export type EventWebhookRedeliveryRequestDto = {
   /**
    * Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time
    */
   since: string;
 };
 
-export type EventRedeliveryResponseDto = {
+export type EventWebhookRedeliveryResponseDto = {
   /**
    * How many dead letters Spotlight queued again. Each gets all its attempts again
    */
@@ -9614,14 +9614,14 @@ export type GetErrorReportingResponses = {
 
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
 
-export type RedeliverEventsData = {
-  body: EventRedeliveryRequestDto;
+export type RedeliverEventWebhookData = {
+  body: EventWebhookRedeliveryRequestDto;
   path?: never;
   query?: never;
-  url: '/admin/events/redeliver';
+  url: '/admin/event-webhook/redeliver';
 };
 
-export type RedeliverEventsErrors = {
+export type RedeliverEventWebhookErrors = {
   /**
    * A body without since as an ISO 8601 time
    */
@@ -9636,11 +9636,11 @@ export type RedeliverEventsErrors = {
   404: unknown;
 };
 
-export type RedeliverEventsResponses = {
-  200: EventRedeliveryResponseDto;
+export type RedeliverEventWebhookResponses = {
+  200: EventWebhookRedeliveryResponseDto;
 };
 
-export type RedeliverEventsResponse = RedeliverEventsResponses[keyof RedeliverEventsResponses];
+export type RedeliverEventWebhookResponse = RedeliverEventWebhookResponses[keyof RedeliverEventWebhookResponses];
 
 export type ListTeamLinesData = {
   body?: never;

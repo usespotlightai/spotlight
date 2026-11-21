@@ -65,7 +65,6 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
     writers: [
       'platform/events/event-delivery.ts',
       'platform/events/event-outbox.ts',
-      'platform/events/event-redelivery.ts',
     ],
   },
   event_outbox: {

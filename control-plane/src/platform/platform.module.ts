@@ -17,11 +17,10 @@ import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventRedelivery } from '@platform/events/event-redelivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import {
   EventWebhook,
-  eventWebhookSubscriber,
+  eventWebhookSubscription,
 } from '@platform/events/event-webhook';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { OutboxRetention } from '@platform/events/outbox-retention';
@@ -35,7 +34,7 @@ import { PostgresReadiness } from '@platform/health/postgres-readiness';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { ReadinessGauges } from '@platform/health/readiness-gauges';
 import { ApiConventions } from '@platform/http/api-conventions';
-import { AdminEventController } from '@platform/http/controllers/admin-event.controller';
+import { AdminEventWebhookController } from '@platform/http/controllers/admin-event-webhook.controller';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
@@ -93,7 +92,8 @@ import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
-const EVENT_WEBHOOK_EVENTS = Symbol('EVENT_WEBHOOK_EVENTS');
+// Registers the event webhook subscriber when SPOTLIGHT_EVENTS_URL is set.
+const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
 
 @Global()
 @Module({
@@ -107,7 +107,7 @@ const EVENT_WEBHOOK_EVENTS = Symbol('EVENT_WEBHOOK_EVENTS');
   controllers: [
     HealthController,
     ErrorReportingController,
-    AdminEventController,
+    AdminEventWebhookController,
   ],
   providers: [
     {
@@ -223,9 +223,8 @@ const EVENT_WEBHOOK_EVENTS = Symbol('EVENT_WEBHOOK_EVENTS');
     EventDeliveryWorker,
     OutboxRetention,
     OutboxRetentionWorker,
-    EventRedelivery,
     {
-      provide: EVENT_WEBHOOK_EVENTS,
+      provide: EVENT_WEBHOOK_REGISTRATION,
       inject: [ENV, OutboundGuard, CLOCK, EventSubscribers],
       useFactory: (
         env: Env,
@@ -243,9 +242,12 @@ const EVENT_WEBHOOK_EVENTS = Symbol('EVENT_WEBHOOK_EVENTS');
             clock,
           );
 
-          subscribers.register([
-            eventWebhookSubscriber(webhook, env.SPOTLIGHT_EVENTS_KINDS),
-          ]);
+          const { subscriber, prefixes } = eventWebhookSubscription(
+            webhook,
+            env.SPOTLIGHT_EVENTS_KINDS,
+          );
+
+          subscribers.registerByPrefix(subscriber, prefixes);
         }
 
         return true;

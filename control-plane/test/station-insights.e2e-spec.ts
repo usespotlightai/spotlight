@@ -57,6 +57,7 @@ import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/tas
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { anEnvelope } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -176,7 +177,7 @@ const deliver = async (name: string, event: Record<string, unknown>) => {
     throw new Error(`no subscriber ${name}`);
   }
 
-  await subscriber.handle(event as never);
+  await subscriber.handle(event as never, anEnvelope());
 };
 
 const runEnded = async (

@@ -77,17 +77,17 @@
         ]
       }
     },
-    "/admin/events/redeliver": {
+    "/admin/event-webhook/redeliver": {
       "post": {
         "description": "Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Spotlight deletes an event 7 days after it recorded it, but only when it is delivered, so a dead letter stays until it is delivered.",
-        "operationId": "redeliverEvents",
+        "operationId": "redeliverEventWebhook",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EventRedeliveryRequestDto"
+                "$ref": "#/components/schemas/EventWebhookRedeliveryRequestDto"
               }
             }
           }
@@ -98,7 +98,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EventRedeliveryResponseDto"
+                  "$ref": "#/components/schemas/EventWebhookRedeliveryResponseDto"
                 }
               }
             }
@@ -24379,7 +24379,7 @@
           "release"
         ]
       },
-      "EventRedeliveryRequestDto": {
+      "EventWebhookRedeliveryRequestDto": {
         "type": "object",
         "properties": {
           "since": {
@@ -24392,7 +24392,7 @@
           "since"
         ]
       },
-      "EventRedeliveryResponseDto": {
+      "EventWebhookRedeliveryResponseDto": {
         "type": "object",
         "properties": {
           "count": {

@@ -1,15 +1,12 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
-// Spotlight tries a failed delivery again after 2^attempts seconds, but never waits longer than maxBackoffMs. After maxAttempts, the delivery is a dead letter.
-export interface RetryPolicy {
-  readonly maxAttempts: number;
-  readonly maxBackoffMs: number;
-}
-
-export const DEFAULT_RETRIES: RetryPolicy = {
+// The outbox tries a failed delivery 8 times. It waits 2 seconds after the first attempt, twice as long after each next one, and never longer than one hour.
+export const DEFAULT_RETRY = Retry.backoff({
   maxAttempts: 8,
-  maxBackoffMs: 60 * 60 * 1000,
-};
+  initialDelayMs: 2_000,
+  maxDelayMs: 60 * 60 * 1000,
+});
 
 // The outbox record of the event that a subscriber gets.
 export interface EventEnvelope {
@@ -22,35 +19,32 @@ export interface DomainEventSubscriber {
 
   readonly kinds: readonly string[];
 
-  // The subscriber also hears each integration event whose kind starts with one of these. An empty prefix matches every integration event. It never matches a domain event.
-  readonly integrationEventPrefixes: readonly string[];
-
   readonly callsOut: boolean;
 
-  readonly retries: RetryPolicy;
+  // How often the outbox tries a failed delivery, and how long it waits between attempts. After the last attempt, the delivery is a dead letter.
+  readonly retry: Retry;
 
   handle(
     event: DomainEvent,
-    envelope?: EventEnvelope,
+    envelope: EventEnvelope,
   ): Promise<readonly DomainEvent[]>;
 }
 
 export const subscribing = <E extends DomainEvent>(
   name: string,
   kinds: readonly string[],
-  handle: (event: E) => Promise<unknown>,
+  handle: (event: E, envelope: EventEnvelope) => Promise<unknown>,
   {
     callsOut = false,
-    retries = DEFAULT_RETRIES,
-  }: { readonly callsOut?: boolean; readonly retries?: RetryPolicy } = {},
+    retry = DEFAULT_RETRY,
+  }: { readonly callsOut?: boolean; readonly retry?: Retry } = {},
 ): DomainEventSubscriber => ({
   name,
   kinds,
-  integrationEventPrefixes: [],
   callsOut,
-  retries,
-  handle: async (event) => {
-    const raised = await handle(event as E);
+  retry,
+  handle: async (event, envelope) => {
+    const raised = await handle(event as E, envelope);
 
     return Array.isArray(raised) ? (raised as readonly DomainEvent[]) : [];
   },

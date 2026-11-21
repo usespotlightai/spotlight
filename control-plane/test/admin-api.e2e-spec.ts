@@ -136,7 +136,7 @@ describe('admin API (e2e)', () => {
       () => http().delete(`/api/admin/workspaces/${acme.id}/plan`),
       () =>
         http()
-          .post('/api/admin/events/redeliver')
+          .post('/api/admin/event-webhook/redeliver')
           .send({ since: '2026-11-01T00:00:00Z' }),
     ];
 

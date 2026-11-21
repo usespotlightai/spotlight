@@ -2,13 +2,12 @@ import { createHmac } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-import { backoffMs } from '@platform/events/event-delivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import {
-  EVENT_WEBHOOK,
-  EVENT_WEBHOOK_RETRIES,
+  EVENT_WEBHOOK_RETRY,
+  EVENT_WEBHOOK_SUBSCRIBER,
   EventWebhook,
-  eventWebhookSubscriber,
+  eventWebhookSubscription,
 } from '@platform/events/event-webhook';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
@@ -142,10 +141,11 @@ describe('EventWebhook', () => {
   });
 });
 
-describe('eventWebhookSubscriber', () => {
-  const listening = (filter: readonly string[]) => {
+describe('eventWebhookSubscription', () => {
+  const listening = (kinds: readonly string[]) => {
     const subscribers = new EventSubscribers();
-    subscribers.register([eventWebhookSubscriber(webhook(), filter)]);
+    const { subscriber, prefixes } = eventWebhookSubscription(webhook(), kinds);
+    subscribers.registerByPrefix(subscriber, prefixes);
 
     return (kind: string) =>
       subscribers.listeningTo(kind).map((each) => each.name);
@@ -154,40 +154,52 @@ describe('eventWebhookSubscriber', () => {
   it('hears every integration event and no domain event when no kinds are set', () => {
     const heard = listening([]);
 
-    expect(heard('identity.workspace-created.v1')).toEqual([EVENT_WEBHOOK]);
-    expect(heard('runs.run-usage-recorded.v1')).toEqual([EVENT_WEBHOOK]);
+    expect(heard('identity.workspace-created.v1')).toEqual([
+      EVENT_WEBHOOK_SUBSCRIBER,
+    ]);
+    expect(heard('runs.run-usage-recorded.v1')).toEqual([
+      EVENT_WEBHOOK_SUBSCRIBER,
+    ]);
     expect(heard('workspace.created')).toEqual([]);
   });
 
-  it('hears the kinds set in full, and the kinds that start with a prefix set', () => {
+  it('hears the kinds set in full, and the integration events of the contexts set', () => {
     const heard = listening(['identity.', 'runs.run-usage-recorded.v1']);
 
     expect(heard('identity.workspace-member-joined.v1')).toEqual([
-      EVENT_WEBHOOK,
+      EVENT_WEBHOOK_SUBSCRIBER,
     ]);
-    expect(heard('runs.run-usage-recorded.v1')).toEqual([EVENT_WEBHOOK]);
+    expect(heard('runs.run-usage-recorded.v1')).toEqual([
+      EVENT_WEBHOOK_SUBSCRIBER,
+    ]);
     expect(heard('runs.run-usage-recorded.v10')).toEqual([]);
     expect(heard('runs.run-ended.v1')).toEqual([]);
     expect(heard('workspace.member-joined')).toEqual([]);
   });
 
   it('calls out, and retries for about 13 hours with waits of at most one hour', () => {
-    const subscriber = eventWebhookSubscriber(webhook(), []);
+    const { subscriber } = eventWebhookSubscription(webhook(), []);
     const waits = Array.from(
-      { length: EVENT_WEBHOOK_RETRIES.maxAttempts - 1 },
-      (_, index) => backoffMs(EVENT_WEBHOOK_RETRIES, index + 1),
+      { length: EVENT_WEBHOOK_RETRY.maxAttempts - 1 },
+      (_, index) =>
+        (EVENT_WEBHOOK_RETRY.nextAttemptAt(index + 1, NOW)?.getTime() ?? 0) -
+        NOW.getTime(),
     );
     const hours = waits.reduce((sum, each) => sum + each, 0) / 3_600_000;
 
     expect(subscriber.callsOut).toBe(true);
-    expect(subscriber.retries).toBe(EVENT_WEBHOOK_RETRIES);
+    expect(subscriber.retry).toBe(EVENT_WEBHOOK_RETRY);
+    expect(waits[0]).toBe(2_000);
     expect(Math.max(...waits)).toBe(3_600_000);
     expect(hours).toBeGreaterThan(13);
     expect(hours).toBeLessThan(14);
+    expect(
+      EVENT_WEBHOOK_RETRY.nextAttemptAt(EVENT_WEBHOOK_RETRY.maxAttempts, NOW),
+    ).toBeNull();
   });
 
   it('sends the event with its outbox envelope, and raises nothing', async () => {
-    const subscriber = eventWebhookSubscriber(webhook(), []);
+    const { subscriber } = eventWebhookSubscription(webhook(), []);
 
     await expect(
       subscriber.handle(JOINED as unknown as DomainEvent, ENVELOPE),
