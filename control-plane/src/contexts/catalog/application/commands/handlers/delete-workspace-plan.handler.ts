@@ -1,6 +1,6 @@
 import type { DeleteWorkspacePlanCommand } from '@catalog/application/commands/workspace-plan.commands';
-import type { WorkspaceDirectoryPort } from '@catalog/application/ports/workspace-directory.port';
 import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
+import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
@@ -11,7 +11,7 @@ export class DeleteWorkspacePlanHandler implements CommandHandlerPort<
   boolean
 > {
   constructor(
-    private readonly directory: WorkspaceDirectoryPort,
+    private readonly workspaces: WorkspaceReaderPort,
     private readonly plans: WorkspacePlanRepository,
   ) {}
 
@@ -19,7 +19,7 @@ export class DeleteWorkspacePlanHandler implements CommandHandlerPort<
     try {
       const workspaceId = WorkspaceId.of(command.workspaceId);
 
-      if (!(await this.directory.find(workspaceId))) {
+      if (!(await this.workspaces.isOpen(workspaceId))) {
         return false;
       }
 

@@ -1,17 +1,12 @@
 import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
-import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
+import { termOf } from '@catalog/infrastructure/persistence/drizzle/plan-term-row';
 import { workspacePlan } from '@catalog/infrastructure/persistence/drizzle/schemas/catalog.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
-
-type PlanRow = Pick<typeof workspacePlan.$inferSelect, 'plan' | 'expiresAt'>;
-
-const termOf = (row: PlanRow): PlanTerm =>
-  PlanTerm.of(Plan.rehydrate(row.plan), row.expiresAt);
 
 @Injectable()
 export class DrizzleWorkspacePlans implements WorkspacePlansPort {
@@ -27,23 +22,23 @@ export class DrizzleWorkspacePlans implements WorkspacePlansPort {
     return row ? termOf(row) : PlanTerm.free;
   }
 
-  async storedOf(
+  async ofEach(
     workspaceIds: readonly WorkspaceId[],
-  ): Promise<ReadonlyMap<string, PlanTerm>> {
-    if (workspaceIds.length === 0) {
-      return new Map();
-    }
+  ): Promise<readonly PlanTerm[]> {
+    const rows =
+      workspaceIds.length === 0
+        ? []
+        : await this.db
+            .select()
+            .from(workspacePlan)
+            .where(
+              inArray(
+                workspacePlan.workspaceId,
+                workspaceIds.map((each) => each.value),
+              ),
+            );
+    const stored = new Map(rows.map((row) => [row.workspaceId, termOf(row)]));
 
-    const rows = await this.db
-      .select()
-      .from(workspacePlan)
-      .where(
-        inArray(
-          workspacePlan.workspaceId,
-          workspaceIds.map((each) => each.value),
-        ),
-      );
-
-    return new Map(rows.map((row) => [row.workspaceId, termOf(row)]));
+    return workspaceIds.map((each) => stored.get(each.value) ?? PlanTerm.free);
   }
 }

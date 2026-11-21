@@ -1,8 +1,7 @@
 import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
 import { WorkspacePlanVersionConflictError } from '@catalog/domain/exceptions/workspace-plan-version-conflict.error';
 import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
-import { Plan } from '@catalog/domain/value-objects/plan.vo';
-import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
+import { termOf } from '@catalog/infrastructure/persistence/drizzle/plan-term-row';
 import { workspacePlan } from '@catalog/infrastructure/persistence/drizzle/schemas/catalog.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -31,7 +30,7 @@ export class DrizzleWorkspacePlanRepository implements WorkspacePlanRepository {
     return found
       ? WorkspacePlan.rehydrate({
           workspaceId,
-          term: PlanTerm.of(Plan.rehydrate(found.plan), found.expiresAt),
+          term: termOf(found),
           version: found.version,
         })
       : null;

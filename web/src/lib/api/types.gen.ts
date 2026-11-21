@@ -392,7 +392,7 @@ export type LineResourceListResponseDto = {
   items: Array<LineResourceResponseDto>;
 };
 
-export type AdminMemberResponseDto = {
+export type AdminWorkspaceMemberResponseDto = {
   id: string;
   email: string;
   name: string;
@@ -1028,6 +1028,14 @@ export type CatalogSkillResponseDto = {
   tools: Array<string>;
 };
 
+export type PlanTermResponseDto = {
+  plan: 'free' | 'team' | 'enterprise';
+  /**
+   * When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan
+   */
+  expiresAt: string | null;
+};
+
 export type WorkspaceSummaryResponseDto = {
   id: string;
   slug: string;
@@ -1038,13 +1046,9 @@ export type WorkspaceSummaryResponseDto = {
    */
   memberCount: number;
   /**
-   * The plan set for the workspace; free when none is set
+   * The plan set for the workspace; the free plan when none is set
    */
-  plan: 'free' | 'team' | 'enterprise';
-  /**
-   * When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan
-   */
-  planExpiresAt: string | null;
+  plan: PlanTermResponseDto;
 };
 
 export type WorkspaceSummaryPageResponseDto = {
@@ -1064,14 +1068,6 @@ export type SetWorkspacePlanRequestDto = {
    * When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end. The free plan does not end, so Spotlight ignores an end on it
    */
   expiresAt?: string | null;
-};
-
-export type PlanTermResponseDto = {
-  plan: 'free' | 'team' | 'enterprise';
-  /**
-   * When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan
-   */
-  expiresAt: string | null;
 };
 
 export type EnqueueRunRequestDto = {
@@ -9944,7 +9940,7 @@ export type ListLinesResponses = {
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
-export type ListDirectoryMembersData = {
+export type ListAdminWorkspaceMembersData = {
   body?: never;
   path: {
     workspaceId: string;
@@ -9953,7 +9949,7 @@ export type ListDirectoryMembersData = {
   url: '/admin/workspaces/{workspaceId}/members';
 };
 
-export type ListDirectoryMembersErrors = {
+export type ListAdminWorkspaceMembersErrors = {
   /**
    * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
    */
@@ -9964,11 +9960,11 @@ export type ListDirectoryMembersErrors = {
   404: unknown;
 };
 
-export type ListDirectoryMembersResponses = {
-  200: Array<AdminMemberResponseDto>;
+export type ListAdminWorkspaceMembersResponses = {
+  200: Array<AdminWorkspaceMemberResponseDto>;
 };
 
-export type ListDirectoryMembersResponse = ListDirectoryMembersResponses[keyof ListDirectoryMembersResponses];
+export type ListAdminWorkspaceMembersResponse = ListAdminWorkspaceMembersResponses[keyof ListAdminWorkspaceMembersResponses];
 
 export type RemoveWorkspaceAvatarData = {
   body?: never;
@@ -12443,7 +12439,7 @@ export type SetWorkspacePlanErrors = {
    */
   409: unknown;
   /**
-   * No such plan
+   * No such plan, or an end that is not in the future
    */
   422: unknown;
 };

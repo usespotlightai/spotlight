@@ -2,8 +2,7 @@ import type {
   WorkspaceSummaryDto,
   WorkspaceSummaryPageDto,
 } from '@catalog/application/dto/workspace-summary.dto';
-import { PLANS } from '@catalog/domain/value-objects/plan.vo';
-import { PLAN_EXPIRY } from '@catalog/presentation/http/dto/plan-term.response.dto';
+import { PlanTermResponseDto } from '@catalog/presentation/http/dto/plan-term.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class WorkspaceSummaryResponseDto {
@@ -23,19 +22,11 @@ export class WorkspaceSummaryResponseDto {
   readonly memberCount: number;
 
   @ApiProperty({
-    enum: PLANS,
-    example: 'team',
-    description: 'The plan set for the workspace; free when none is set',
+    type: PlanTermResponseDto,
+    description:
+      'The plan set for the workspace; the free plan when none is set',
   })
-  readonly plan: string;
-
-  @ApiProperty({
-    type: String,
-    nullable: true,
-    example: '2027-01-01T00:00:00.000Z',
-    description: PLAN_EXPIRY,
-  })
-  readonly planExpiresAt: string | null;
+  readonly plan: PlanTermResponseDto;
 
   constructor(workspace: WorkspaceSummaryDto) {
     this.id = workspace.id;
@@ -43,8 +34,7 @@ export class WorkspaceSummaryResponseDto {
     this.name = workspace.name;
     this.createdAt = workspace.createdAt;
     this.memberCount = workspace.memberCount;
-    this.plan = workspace.plan;
-    this.planExpiresAt = workspace.planExpiresAt;
+    this.plan = new PlanTermResponseDto(workspace.plan);
   }
 }
 

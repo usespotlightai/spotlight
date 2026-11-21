@@ -4,15 +4,13 @@ import {
   DeleteWorkspacePlanCommand,
   SetWorkspacePlanCommand,
 } from '@catalog/application/commands/workspace-plan.commands';
-import type {
-  DirectoryWorkspace,
-  WorkspaceDirectoryPort,
-} from '@catalog/application/ports/workspace-directory.port';
 import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
+import { EndedPlanTermError } from '@catalog/domain/exceptions/ended-plan-term.error';
 import { InvalidPlanError } from '@catalog/domain/exceptions/invalid-plan.error';
 import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
+import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { TranslatedDomainError } from '@shared-kernel/application/errors/translated-domain-error';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,29 +18,18 @@ import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const ACME: DirectoryWorkspace = {
-  id: WORKSPACE,
-  slug: 'acme',
-  name: 'Acme',
-  createdAt: new Date('2026-09-01T00:00:00.000Z'),
-  memberCount: 3,
-};
+const NOW = new Date('2026-11-21T00:00:00.000Z');
 
 const END = new Date('2027-01-01T00:00:00.000Z');
 
 const TEAM = PlanTerm.of(Plan.team, END);
 
-const handling = (
-  options: { found?: DirectoryWorkspace | null; current?: PlanTerm } = {},
-) => {
+const handling = (options: { open?: boolean; current?: PlanTerm } = {}) => {
   const added: WorkspacePlan[] = [];
   const saved: WorkspacePlan[] = [];
-  const directory: WorkspaceDirectoryPort = {
-    list: vi.fn(),
-    find: vi
-      .fn()
-      .mockResolvedValue(options.found === undefined ? ACME : options.found),
-  };
+  const workspaces = {
+    isOpen: vi.fn().mockResolvedValue(options.open ?? true),
+  } as unknown as WorkspaceReaderPort;
   const plans: WorkspacePlanRepository = {
     find: async () =>
       options.current
@@ -57,8 +44,11 @@ const handling = (
   };
 
   return {
-    set: new SetWorkspacePlanHandler(directory, plans),
-    delete: new DeleteWorkspacePlanHandler(directory, plans),
+    set: new SetWorkspacePlanHandler(workspaces, plans, {
+      now: () => NOW,
+      sleep: async () => {},
+    }),
+    delete: new DeleteWorkspacePlanHandler(workspaces, plans),
     added,
     saved,
   };
@@ -110,7 +100,7 @@ describe('SetWorkspacePlanHandler', () => {
   });
 
   it('finds no workspace that does not exist', async () => {
-    const { set, added } = handling({ found: null });
+    const { set, added } = handling({ open: false });
 
     await expect(
       set.execute(new SetWorkspacePlanCommand('ws_gone', 'team', null)),
@@ -130,6 +120,18 @@ describe('SetWorkspacePlanHandler', () => {
     );
     expect(added).toEqual([]);
   });
+});
+
+it('refuses an end that is not in the future as invalid', async () => {
+  const { set, added } = handling();
+  const refused: unknown = await set
+    .execute(new SetWorkspacePlanCommand('ws_1', 'team', NOW))
+    .catch((error: unknown) => error);
+
+  expect((refused as TranslatedDomainError).refusal).toBeInstanceOf(
+    EndedPlanTermError,
+  );
+  expect(added).toEqual([]);
 });
 
 describe('DeleteWorkspacePlanHandler', () => {
@@ -153,7 +155,7 @@ describe('DeleteWorkspacePlanHandler', () => {
   });
 
   it('finds no workspace that does not exist', async () => {
-    const handled = handling({ found: null, current: TEAM });
+    const handled = handling({ open: false, current: TEAM });
 
     await expect(
       handled.delete.execute(new DeleteWorkspacePlanCommand('ws_gone')),

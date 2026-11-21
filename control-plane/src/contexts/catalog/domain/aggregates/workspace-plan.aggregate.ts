@@ -1,13 +1,20 @@
 import { WorkspacePlanCreated } from '@catalog/domain/events/workspace-plan-created.event';
 import { WorkspacePlanDeleted } from '@catalog/domain/events/workspace-plan-deleted.event';
 import { WorkspacePlanUpdated } from '@catalog/domain/events/workspace-plan-updated.event';
-import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
+import { EndedPlanTermError } from '@catalog/domain/exceptions/ended-plan-term.error';
+import type { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { WorkspacePlanChangeDetail } from '@catalog/domain/value-objects/workspace-plan-change-detail.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+const assertNotEnded = (term: PlanTerm, now: Date): void => {
+  if (term.expiresAt && term.isExpiredAt(now)) {
+    throw new EndedPlanTermError(term.expiresAt);
+  }
+};
 
 // A stored plan never holds the free plan: a workspace without one has the free plan.
 export class WorkspacePlan extends EventRecorder {
@@ -20,31 +27,34 @@ export class WorkspacePlan extends EventRecorder {
     super();
   }
 
-  // The plan to store after the change, or null when nothing is to be stored or changed.
-  static set(
-    current: WorkspacePlan | null,
-    input: { workspaceId: WorkspaceId; term: PlanTerm; by: ChangeActor },
-  ): WorkspacePlan | null {
-    if (current && !current.workspaceId.equals(input.workspaceId)) {
-      throw new InconsistentStateError(
-        'workspace plan',
-        `of ${current.workspaceId.value} was set for ${input.workspaceId.value}`,
-      );
+  // Null for the free plan, which needs no stored plan.
+  static create(input: {
+    workspaceId: WorkspaceId;
+    term: PlanTerm;
+    by: ChangeActor;
+    now: Date;
+  }): WorkspacePlan | null {
+    if (input.term.isFree) {
+      return null;
     }
 
-    if (!current) {
-      return input.term.isDefault
-        ? null
-        : WorkspacePlan.create(input.workspaceId, input.term, input.by);
-    }
+    assertNotEnded(input.term, input.now);
 
-    if (input.term.isDefault) {
-      return current.delete(input.by);
-    }
+    const created = new WorkspacePlan(input.workspaceId, input.term, 0, false);
 
-    return input.term.equals(current.term)
-      ? null
-      : current.update(input.term, input.by);
+    created.record(
+      new WorkspacePlanCreated(
+        input.workspaceId,
+        input.term,
+        ConfigurationChange.created(
+          created.whatChanged,
+          input.by,
+          WorkspacePlanChangeDetail.of(input.term),
+        ),
+      ),
+    );
+
+    return created;
   }
 
   static rehydrate(input: {
@@ -59,6 +69,10 @@ export class WorkspacePlan extends EventRecorder {
       );
     }
 
+    if (input.term.isFree) {
+      throw new InconsistentStateError('workspace plan', 'holds the free plan');
+    }
+
     return new WorkspacePlan(
       input.workspaceId,
       input.term,
@@ -67,46 +81,19 @@ export class WorkspacePlan extends EventRecorder {
     );
   }
 
-  delete(by: ChangeActor): WorkspacePlan {
+  // Deleted for the free plan, and null when the term does not change.
+  set(term: PlanTerm, by: ChangeActor, now: Date): WorkspacePlan | null {
     this.assertNotDeleted();
 
-    const deleted = this.with(this.term, true);
+    if (term.isFree) {
+      return this.delete(by);
+    }
 
-    deleted.record(
-      new WorkspacePlanDeleted(
-        this.workspaceId,
-        this.term,
-        ConfigurationChange.deleted(this.whatChanged, by),
-      ),
-    );
+    if (term.equals(this.term)) {
+      return null;
+    }
 
-    return deleted;
-  }
-
-  private static create(
-    workspaceId: WorkspaceId,
-    term: PlanTerm,
-    by: ChangeActor,
-  ): WorkspacePlan {
-    const created = new WorkspacePlan(workspaceId, term, 0, false);
-
-    created.record(
-      new WorkspacePlanCreated(
-        workspaceId,
-        term,
-        ConfigurationChange.created(
-          created.whatChanged,
-          by,
-          WorkspacePlanChangeDetail.of(term),
-        ),
-      ),
-    );
-
-    return created;
-  }
-
-  private update(term: PlanTerm, by: ChangeActor): WorkspacePlan {
-    this.assertNotDeleted();
+    assertNotEnded(term, now);
 
     const updated = this.with(term, false);
 
@@ -124,6 +111,22 @@ export class WorkspacePlan extends EventRecorder {
     );
 
     return updated;
+  }
+
+  delete(by: ChangeActor): WorkspacePlan {
+    this.assertNotDeleted();
+
+    const deleted = this.with(this.term, true);
+
+    deleted.record(
+      new WorkspacePlanDeleted(
+        this.workspaceId,
+        this.term,
+        ConfigurationChange.deleted(this.whatChanged, by),
+      ),
+    );
+
+    return deleted;
   }
 
   private get whatChanged() {

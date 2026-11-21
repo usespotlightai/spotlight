@@ -1,15 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
+import {
+  LONGEST_PAGE,
+  PAGE_LIMIT,
+} from '@shared-kernel/application/dto/page-limits.dto';
 
-export interface PageLimits {
-  readonly fallback: number;
-  readonly longest: number;
-}
-
-export const pageLimitOf = (
-  raw: string | undefined,
-  limits: PageLimits,
-): number => {
-  const asked = raw === undefined ? limits.fallback : Number(raw);
+export const pageLimitOf = (raw: string | undefined): number => {
+  const asked = raw === undefined ? PAGE_LIMIT : Number(raw);
 
   if (!Number.isInteger(asked) || asked < 1) {
     throw new BadRequestException(
@@ -17,5 +13,5 @@ export const pageLimitOf = (
     );
   }
 
-  return Math.min(asked, limits.longest);
+  return Math.min(asked, LONGEST_PAGE);
 };

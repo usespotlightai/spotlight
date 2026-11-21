@@ -1,19 +1,14 @@
-import type { WorkspaceMemberDto } from '@identity/application/dto/member.dto';
+import type { AdminWorkspaceMemberDto } from '@identity/application/dto/member.dto';
 import type { MemberReaderPort } from '@identity/application/ports/member-reader.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import type { ListDirectoryMembersQuery } from '@identity/application/queries/list-directory-members.query';
+import type { ListAdminWorkspaceMembersQuery } from '@identity/application/queries/list-admin-workspace-members.query';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-type DirectoryMember = Pick<
-  WorkspaceMemberDto,
-  'id' | 'email' | 'name' | 'role' | 'joinedAt'
->;
-
-export class ListDirectoryMembersHandler implements QueryHandlerPort<
-  ListDirectoryMembersQuery,
-  DirectoryMember[] | null
+export class ListAdminWorkspaceMembersHandler implements QueryHandlerPort<
+  ListAdminWorkspaceMembersQuery,
+  AdminWorkspaceMemberDto[] | null
 > {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
@@ -21,8 +16,8 @@ export class ListDirectoryMembersHandler implements QueryHandlerPort<
   ) {}
 
   async execute(
-    query: ListDirectoryMembersQuery,
-  ): Promise<DirectoryMember[] | null> {
+    query: ListAdminWorkspaceMembersQuery,
+  ): Promise<AdminWorkspaceMemberDto[] | null> {
     try {
       const workspaceId = WorkspaceId.of(query.workspaceId);
 

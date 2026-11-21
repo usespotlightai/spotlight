@@ -1,7 +1,7 @@
 import type { MemberReaderPort } from '@identity/application/ports/member-reader.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import { ListDirectoryMembersHandler } from '@identity/application/queries/handlers/list-directory-members.handler';
-import { ListDirectoryMembersQuery } from '@identity/application/queries/list-directory-members.query';
+import { ListAdminWorkspaceMembersHandler } from '@identity/application/queries/handlers/list-admin-workspace-members.handler';
+import { ListAdminWorkspaceMembersQuery } from '@identity/application/queries/list-admin-workspace-members.query';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -25,17 +25,17 @@ const listing = (open: boolean) => {
   };
 
   return {
-    handler: new ListDirectoryMembersHandler(workspaces, members),
+    handler: new ListAdminWorkspaceMembersHandler(workspaces, members),
     members,
   };
 };
 
-describe('ListDirectoryMembersHandler', () => {
+describe('ListAdminWorkspaceMembersHandler', () => {
   it('lists everyone in the workspace with their role', async () => {
     const { handler, members } = listing(true);
 
     await expect(
-      handler.execute(new ListDirectoryMembersQuery('ws_1')),
+      handler.execute(new ListAdminWorkspaceMembersQuery('ws_1')),
     ).resolves.toEqual([
       {
         id: 'user_1',
@@ -54,7 +54,7 @@ describe('ListDirectoryMembersHandler', () => {
     const { handler, members } = listing(false);
 
     await expect(
-      handler.execute(new ListDirectoryMembersQuery('ws_gone')),
+      handler.execute(new ListAdminWorkspaceMembersQuery('ws_gone')),
     ).resolves.toBeNull();
     expect(members.listForWorkspace).not.toHaveBeenCalled();
   });

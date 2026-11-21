@@ -36,10 +36,10 @@ describe('PlanTerm', () => {
     expect(PlanTerm.of(Plan.free, END).expiresAt).toBeNull();
   });
 
-  it('is the default only for the free plan', () => {
-    expect(PlanTerm.free.isDefault).toBe(true);
-    expect(PlanTerm.of(Plan.free).isDefault).toBe(true);
-    expect(PlanTerm.of(Plan.team).isDefault).toBe(false);
-    expect(PlanTerm.of(Plan.team, END).isDefault).toBe(false);
+  it('is free only for the free plan', () => {
+    expect(PlanTerm.free.isFree).toBe(true);
+    expect(PlanTerm.of(Plan.free).isFree).toBe(true);
+    expect(PlanTerm.of(Plan.team).isFree).toBe(false);
+    expect(PlanTerm.of(Plan.team, END).isFree).toBe(false);
   });
 });
