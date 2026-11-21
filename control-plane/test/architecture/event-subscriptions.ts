@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
 import ts from 'typescript';
 
 import { reachableFrom } from './context-dependencies';
 import {
   DOMAIN_EVENT_OWNERS,
-  INTEGRATION_EVENT_KIND,
   INTEGRATION_EVENT_KINDS,
   KIND_PATTERN,
   publisherOfKind,
@@ -273,6 +273,21 @@ const memberRegistrations = (file: SourceFile): Violation[] =>
       at: at(file, call),
     }));
 
+// A sink hears the integration events of every context it names, also downstream ones. Only the platform registers one.
+const sinkRegistrations = (file: SourceFile): Violation[] =>
+  descendants(file.tree, ts.isCallExpression)
+    .filter(
+      (call) =>
+        (ts.isPropertyAccessExpression(call.expression) &&
+          call.expression.name.text === 'registerSink') ||
+        (ts.isIdentifier(call.expression) &&
+          call.expression.text === 'registerSink'),
+    )
+    .map((call) => ({
+      key: `${file.path}: calls ${call.expression.getText()}, which only the platform may call`,
+      at: at(file, call),
+    }));
+
 export const eventSubscriptionsIn = (file: SourceFile): Violation[] => [
   ...registrationViolations(file, 'subscribing'),
   ...registrationViolations(file, 'projecting'),
@@ -280,6 +295,7 @@ export const eventSubscriptionsIn = (file: SourceFile): Violation[] => [
   ...handBuiltSubscribers(file),
   ...subscriberClasses(file),
   ...memberRegistrations(file),
+  ...sinkRegistrations(file),
 ];
 
 export const eventSubscriptionViolations = (): Violation[] =>
@@ -289,3 +305,9 @@ export const domainEventKindsDeclaredTwice = (): string[] =>
   [...DOMAIN_EVENT_OWNERS]
     .filter(([, owners]) => owners.length > 1)
     .map(([kind, owners]) => `${kind}: ${owners.join(', ')}`);
+
+// A subscriber can hear integration events by the start of their kind. Only the version tells them apart from domain events.
+export const domainEventKindsWithVersions = (): string[] =>
+  [...DOMAIN_EVENT_OWNERS.keys()].filter((kind) =>
+    INTEGRATION_EVENT_KIND.test(kind),
+  );

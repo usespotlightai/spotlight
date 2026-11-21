@@ -2,7 +2,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CauseCarrier } from '@platform/events/cause-carrier';
 import { idsOf } from '@platform/events/event-ids';
 import { EventOutbox } from '@platform/events/event-outbox';
-import { EventSubscribers } from '@platform/events/event-subscribers';
+import {
+  DELIVERY_LANES,
+  type DeliveryLane,
+  EventSubscribers,
+} from '@platform/events/event-subscribers';
+import { heardDeliveries } from '@platform/events/heard-deliveries';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -26,9 +32,28 @@ import {
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  gt,
+  lte,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
-export const MAX_ATTEMPTS = 8;
+// A subscriber that sets no retry gets 8 attempts. The outbox waits 2 seconds after the first attempt, twice as long after each next one, and never longer than one hour.
+export const DEFAULT_RETRY = Retry.backoff({
+  maxAttempts: 8,
+  initialDelayMs: 2_000,
+  maxDelayMs: 60 * 60 * 1000,
+});
 
 export const LEASE_MS = 5 * 60 * 1000;
 
@@ -38,8 +63,38 @@ export const LONGEST_LEASE_MS = 30 * 60 * 1000;
 
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
-const backoffMs = (attempts: number): number =>
-  Math.min(2 ** attempts * 1000, 60 * 60 * 1000);
+// How many deliveries one processDue call works at most.
+const DELIVERY_BATCH = 100;
+
+const REDELIVERY_PAGE = 1_000;
+
+// How many dead letters one redelivery queues again when it names no limit, and at most. A small default keeps the new events of the webhook from waiting behind a large batch; the caller asks again while the redelivery is truncated.
+export const REDELIVERY_LIMIT = 1_000;
+
+export const MAX_REDELIVERY_LIMIT = 100_000;
+
+export interface Redelivery {
+  readonly queued: number;
+  // The redelivery stopped at its limit, and more dead letters may wait.
+  readonly truncated: boolean;
+}
+
+// A delivery untouched since the time: no attempt, dead letter, lease or redelivery since then. Each of them sets its due time, so a dead letter's due time is when it became one.
+export const untouchedSince = (before: Date): SQL =>
+  sql`${eventDelivery.dueAt} < ${before.toISOString()}::timestamptz`;
+
+// Locks the deliveries that match, always in the order of their event and subscriber, so two instances that lock deliveries never wait on each other in a circle.
+export const lockDeliveries = async (
+  db: DrizzleDatabase,
+  where: SQL | undefined,
+): Promise<void> => {
+  await db
+    .select({ eventId: eventDelivery.eventId })
+    .from(eventDelivery)
+    .where(where)
+    .orderBy(asc(eventDelivery.eventId), asc(eventDelivery.subscriber))
+    .for('update');
+};
 
 const because = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).replaceAll(
@@ -69,6 +124,7 @@ interface Due {
   readonly payload: unknown;
   readonly cause: unknown;
   readonly traceparent: string | null;
+  readonly recordedAt: Date;
 }
 
 @Injectable()
@@ -84,10 +140,14 @@ export class EventDelivery {
     @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
-  async processDue(limit = 100): Promise<number> {
+  // Works the due deliveries of the lane, but only those that this instance hears: a subscriber it registers, and a kind that subscriber hears. During a deploy, an instance never settles a delivery that only a newer instance can handle. A delivery that no instance hears stays as it is, and retention deletes it once it has been untouched for the retention age.
+  async processDue(
+    lane: DeliveryLane,
+    limit = DELIVERY_BATCH,
+  ): Promise<number> {
     let worked = 0;
 
-    while (worked < limit && (await this.deliverOne())) {
+    while (worked < limit && (await this.deliverOne(lane))) {
       worked += 1;
     }
 
@@ -98,7 +158,9 @@ export class EventDelivery {
     const until = Date.now() + timeoutMs;
 
     for (;;) {
-      await this.processDue();
+      for (const lane of DELIVERY_LANES) {
+        await this.processDue(lane);
+      }
 
       if ((await this.stillDue()) === 0 || Date.now() > until) {
         return;
@@ -108,12 +170,102 @@ export class EventDelivery {
     }
   }
 
+  // Queues the dead letters of one subscriber again, for the events recorded at or after the time whose kind it still hears, at most limit of them. Each gets all its attempts again. While the result is truncated, a next call queues more.
+  async redeliver(
+    subscriber: string,
+    since: Date,
+    limit = REDELIVERY_LIMIT,
+  ): Promise<Redelivery> {
+    const db = this.context.db;
+    let after: string | null = null;
+    let queued = 0;
+    let skipped = 0;
+    let truncated = false;
+
+    for (;;) {
+      const dead = await db
+        .select({ eventId: eventDelivery.eventId, kind: eventOutbox.kind })
+        .from(eventDelivery)
+        .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
+        .where(
+          and(
+            eq(eventDelivery.subscriber, subscriber),
+            isNull(eventDelivery.deliveredAt),
+            isNotNull(eventDelivery.deadLetteredAt),
+            gte(eventOutbox.recordedAt, since),
+            after ? gt(eventDelivery.eventId, after) : undefined,
+          ),
+        )
+        .orderBy(asc(eventDelivery.eventId))
+        .limit(REDELIVERY_PAGE);
+      const heard = dead
+        .filter((each) => this.subscribers.hears(subscriber, each.kind))
+        .map((each) => each.eventId);
+      const taken = heard.slice(0, limit - queued);
+
+      skipped += dead.length - heard.length;
+
+      if (taken.length > 0) {
+        queued += await this.requeue(subscriber, taken);
+      }
+
+      if (queued >= limit) {
+        truncated =
+          taken.length < heard.length || dead.length === REDELIVERY_PAGE;
+        break;
+      }
+
+      if (dead.length < REDELIVERY_PAGE) {
+        break;
+      }
+
+      after = dead[dead.length - 1]?.eventId ?? null;
+    }
+
+    this.logger.info(
+      { subscriber, since: since.toISOString(), queued, skipped, truncated },
+      'Queued dead letters again',
+    );
+
+    return { queued, truncated };
+  }
+
+  // Locks the dead letters and queues them again. A row that retention deleted in the meantime is not written, so it is not counted.
+  private requeue(
+    subscriber: string,
+    eventIds: readonly string[],
+  ): Promise<number> {
+    return this.context.inTransaction(async () => {
+      const db = this.context.db;
+      const dead = and(
+        eq(eventDelivery.subscriber, subscriber),
+        isNull(eventDelivery.deliveredAt),
+        isNotNull(eventDelivery.deadLetteredAt),
+        inArray(eventDelivery.eventId, [...eventIds]),
+      );
+
+      await lockDeliveries(db, dead);
+
+      const written = await db
+        .update(eventDelivery)
+        .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
+        .where(dead)
+        .returning({ eventId: eventDelivery.eventId });
+
+      return written.length;
+    });
+  }
+
   private async stillDue(): Promise<number> {
     const [row] = await this.context.db
       .select({ due: count() })
       .from(eventDelivery)
+      .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
       .where(
         and(
+          heardDeliveries(
+            DELIVERY_LANES.flatMap((lane) => this.subscribers.lane(lane)),
+          ),
           isNull(eventDelivery.deliveredAt),
           isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
@@ -123,8 +275,8 @@ export class EventDelivery {
     return row?.due ?? 0;
   }
 
-  private async deliverOne(): Promise<boolean> {
-    const claim = await this.claimNext();
+  private async deliverOne(lane: DeliveryLane): Promise<boolean> {
+    const claim = await this.claimNext(lane);
 
     if (claim.kind === 'leased') {
       await this.deliverLeased(claim.due, claim.lease);
@@ -133,7 +285,7 @@ export class EventDelivery {
     return claim.kind !== 'none';
   }
 
-  private async claimNext(): Promise<Claim> {
+  private async claimNext(lane: DeliveryLane): Promise<Claim> {
     const claimed: { due: Due | null; failure: { error: unknown } | null } = {
       due: null,
       failure: null,
@@ -141,7 +293,7 @@ export class EventDelivery {
 
     try {
       const outcome = await this.context.inTransaction(async () => {
-        const due = await this.nextDue();
+        const due = await this.nextDue(lane);
         claimed.due = due;
 
         if (!due) {
@@ -414,7 +566,13 @@ export class EventDelivery {
     );
   }
 
-  private async nextDue(): Promise<Due | null> {
+  private async nextDue(lane: DeliveryLane): Promise<Due | null> {
+    const hearings = this.subscribers.lane(lane);
+
+    if (hearings.length === 0) {
+      return null;
+    }
+
     const [row] = await this.context.db
       .select({
         eventId: eventDelivery.eventId,
@@ -424,6 +582,7 @@ export class EventDelivery {
         payload: eventOutbox.payload,
         cause: eventOutbox.cause,
         traceparent: eventOutbox.traceparent,
+        recordedAt: eventOutbox.recordedAt,
       })
       .from(eventDelivery)
       .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
@@ -432,6 +591,7 @@ export class EventDelivery {
           isNull(eventDelivery.deliveredAt),
           isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
+          heardDeliveries(hearings),
         ),
       )
       .orderBy(asc(eventDelivery.dueAt), asc(eventOutbox.recordedAt))
@@ -448,7 +608,7 @@ export class EventDelivery {
     const subscriber = this.subscribers.named(due.subscriber);
 
     if (!subscriber) {
-      throw new Error(`No subscriber is called ${due.subscriber} any more`);
+      throw new Error(`No subscriber is called ${due.subscriber} here`);
     }
 
     return this.telemetry.inSpan(
@@ -464,6 +624,7 @@ export class EventDelivery {
         this.causes.runWith(due.cause, async () => {
           const raised = await subscriber.handle(
             this.outbox.decode(due.payload),
+            { id: due.eventId, recordedAt: due.recordedAt },
           );
 
           return then(raised);
@@ -479,15 +640,15 @@ export class EventDelivery {
   ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
-    const deadLettering = attempts >= MAX_ATTEMPTS;
+    const next = this.retryOf(due).nextAttemptAt(attempts, now);
 
     const written = await this.context.db
       .update(eventDelivery)
       .set({
         attempts,
         lastError: because(error).slice(0, 2000),
-        dueAt: new Date(now.getTime() + backoffMs(attempts)),
-        deadLetteredAt: deadLettering ? now : null,
+        dueAt: next ?? now,
+        deadLetteredAt: next ? null : now,
       })
       .where(this.open(due, lease))
       .returning({ eventId: eventDelivery.eventId });
@@ -496,12 +657,18 @@ export class EventDelivery {
       return 'lost';
     }
 
-    return deadLettering ? 'dead_lettered' : 'retried';
+    return next ? 'retried' : 'dead_lettered';
+  }
+
+  // A subscriber that sets no retry gets the default.
+  private retryOf(due: Due): Retry {
+    return this.subscribers.retryOf(due.subscriber) ?? DEFAULT_RETRY;
   }
 
   private reported(due: Due, error: unknown): void {
     const attempts = due.attempts + 1;
-    const deadLettering = attempts >= MAX_ATTEMPTS;
+
+    const deadLettering = this.retryOf(due).exhaustedAfter(attempts);
 
     this.logger.error(
       {

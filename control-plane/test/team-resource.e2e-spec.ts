@@ -12,6 +12,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -266,8 +267,10 @@ describe('a team, created through the resource API (e2e)', () => {
   };
 
   const delivered = async (event: DomainEvent): Promise<void> => {
-    for (const each of app.get(EventSubscribers).listeningTo(event.kind)) {
-      for (const raised of await each.handle(event)) {
+    for (const each of app
+      .get(EventSubscribers)
+      .subscribersHearing(event.kind)) {
+      for (const raised of await each.handle(event, anOutboxRecord())) {
         await delivered(raised);
       }
     }
@@ -309,7 +312,7 @@ describe('a team, created through the resource API (e2e)', () => {
     expect(
       app
         .get(EventSubscribers)
-        .listeningTo(TEAM_DELETED)
+        .subscribersHearing(TEAM_DELETED)
         .map((each) => each.name)
         .sort(),
     ).toEqual([

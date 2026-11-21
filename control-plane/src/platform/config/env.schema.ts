@@ -1,3 +1,8 @@
+import { SECRET_PATTERN } from '@platform/outbound/standard-webhooks';
+import {
+  isContextPrefix,
+  isIntegrationEventKind,
+} from '@shared-kernel/application/integration-events/integration-event';
 import {
   MAX_SLUG_LENGTH,
   SLUG_SHAPE,
@@ -85,7 +90,7 @@ export const envSchema = databaseSchema
       z.url({ protocol: /^https?$/ }),
     ),
     SPOTLIGHT_PLATFORM_POOL_SECRET: unsetWhenEmpty(
-      z.string().regex(/^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/),
+      z.string().regex(SECRET_PATTERN),
     ),
     // The labels that the platform pool serves, separated by commas. With no value, it serves only work that names no runners.
     SPOTLIGHT_PLATFORM_POOL_LABELS: z
@@ -113,6 +118,31 @@ export const envSchema = databaseSchema
           }),
       ),
     SPOTLIGHT_PLATFORM_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
+    // The deployment event webhook: Spotlight sends the integration events of every workspace to this URL, signed per Standard Webhooks. With no value, it sends none.
+    SPOTLIGHT_EVENT_WEBHOOK_URL: unsetWhenEmpty(z.url({ protocol: /^https$/ })),
+    SPOTLIGHT_EVENT_WEBHOOK_SECRET: unsetWhenEmpty(
+      z.string().regex(SECRET_PATTERN),
+    ),
+    // The integration event kinds to send in full, or the contexts whose integration events to send, separated by commas, as in identity.,runs.run-usage-recorded.v1. With no value, Spotlight sends every integration event.
+    SPOTLIGHT_EVENT_WEBHOOK_KINDS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((each) => each.trim())
+          .filter((each) => each !== ''),
+      )
+      .pipe(
+        z.array(
+          z
+            .string()
+            .refine(
+              (each) => isIntegrationEventKind(each) || isContextPrefix(each),
+              'is an integration event kind, such as runs.run-usage-recorded.v1, or a context, such as identity.',
+            ),
+        ),
+      ),
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
@@ -208,6 +238,26 @@ export const envSchema = databaseSchema
       path: ['SPOTLIGHT_PLATFORM_POOL_EGRESS'],
       message:
         'names the platform egress. Please set SPOTLIGHT_PLATFORM_EGRESS_URL and SPOTLIGHT_PLATFORM_EGRESS_TOKEN, or leave SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
+    },
+  )
+  .refine(
+    (env) =>
+      (env.SPOTLIGHT_EVENT_WEBHOOK_URL === undefined) ===
+      (env.SPOTLIGHT_EVENT_WEBHOOK_SECRET === undefined),
+    {
+      path: ['SPOTLIGHT_EVENT_WEBHOOK_SECRET'],
+      message:
+        'goes with SPOTLIGHT_EVENT_WEBHOOK_URL. Set both to send events to the deployment event webhook, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
+    },
+  )
+  .refine(
+    (env) =>
+      env.SPOTLIGHT_EVENT_WEBHOOK_URL !== undefined ||
+      env.SPOTLIGHT_EVENT_WEBHOOK_KINDS.length === 0,
+    {
+      path: ['SPOTLIGHT_EVENT_WEBHOOK_URL'],
+      message:
+        'is not set, so Spotlight sends no events. Please set it, or leave SPOTLIGHT_EVENT_WEBHOOK_KINDS empty',
     },
   )
   .refine(

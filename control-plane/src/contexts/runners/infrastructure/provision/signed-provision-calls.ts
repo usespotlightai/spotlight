@@ -1,4 +1,5 @@
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { failureOf } from '@platform/outbound/outbound-failure';
 import {
   OutboundBlockedError,
   type OutboundGuard,
@@ -80,16 +81,6 @@ const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
     },
   });
 
-const described = (error: unknown): string => {
-  const cause = (error as { cause?: unknown }).cause;
-
-  return error instanceof Error
-    ? cause instanceof Error
-      ? `${error.message}: ${cause.message || (cause as { code?: string }).code || cause.name}`
-      : error.message
-    : String(error);
-};
-
 export class SignedProvisionCalls implements ProvisionCallsPort {
   constructor(
     private readonly settings: ProvisionSettings,
@@ -148,7 +139,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
         return { outcome: 'not-allowed', detail: error.message };
       }
 
-      return { outcome: 'unreachable', detail: described(error) };
+      return { outcome: 'unreachable', detail: failureOf(error) };
     }
 
     const text = await answered.text().catch(() => '');

@@ -2,7 +2,10 @@ import { IDENTITY_EVENT_MAPPERS } from '@identity/application/integration-events
 import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
+import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
+import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
+import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { changed } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
@@ -73,6 +76,46 @@ describe('IDENTITY_EVENT_MAPPERS', () => {
         kind: 'identity.workspace-deleted.v1',
         workspaceId: 'ws_1',
         slug: 'acme',
+      },
+    ]);
+  });
+
+  it('publishes a member who joined a workspace by ids and role, with no email', () => {
+    expect(
+      published(
+        new WorkspaceMemberJoined(
+          WORKSPACE,
+          UserId.of('user_1'),
+          WorkspaceRole.member,
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'identity.workspace-member-joined.v1',
+        workspaceId: 'ws_1',
+        userId: 'user_1',
+        role: 'member',
+      },
+    ]);
+  });
+
+  it('publishes the new role of a member, and not who changed it', () => {
+    expect(
+      published(
+        new WorkspaceMemberRoleChanged(
+          WORKSPACE,
+          UserId.of('user_1'),
+          WorkspaceRole.member,
+          WorkspaceRole.admin,
+          UserId.of('user_2'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'identity.workspace-member-role-changed.v1',
+        workspaceId: 'ws_1',
+        userId: 'user_1',
+        role: 'admin',
       },
     ]);
   });

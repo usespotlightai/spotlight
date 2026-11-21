@@ -27,6 +27,28 @@ export type ErrorReportingResponseDto = {
   release: string | null;
 };
 
+export type RedeliverEventWebhookRequestDto = {
+  /**
+   * Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time
+   */
+  since: string;
+  /**
+   * At most this many dead letters, 1000 when left out, up to 100000. While the answer is truncated, send the same request again
+   */
+  limit?: number;
+};
+
+export type RedeliverEventWebhookResponseDto = {
+  /**
+   * How many dead letters Spotlight queued again. Each gets all its attempts again
+   */
+  queued: number;
+  /**
+   * Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them
+   */
+  truncated: boolean;
+};
+
 export type StationJudgeResponseDto = {
   /**
    * Checkable claims the judge marks met or not met, in order
@@ -9599,6 +9621,38 @@ export type GetErrorReportingResponses = {
 };
 
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
+
+export type RedeliverEventWebhookData = {
+  body: RedeliverEventWebhookRequestDto;
+  path?: never;
+  query?: never;
+  url: '/admin/event-webhook/redeliver';
+};
+
+export type RedeliverEventWebhookErrors = {
+  /**
+   * A body without since as an ISO 8601 time, or a limit that is not a whole number from 1 to 100000
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No admin token is set
+   */
+  404: unknown;
+  /**
+   * This deployment sets no event webhook
+   */
+  409: unknown;
+};
+
+export type RedeliverEventWebhookResponses = {
+  200: RedeliverEventWebhookResponseDto;
+};
+
+export type RedeliverEventWebhookResponse = RedeliverEventWebhookResponses[keyof RedeliverEventWebhookResponses];
 
 export type ListTeamLinesData = {
   body?: never;
