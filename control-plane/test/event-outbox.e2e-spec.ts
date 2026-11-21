@@ -510,7 +510,7 @@ describe('the rows the event outbox keeps', () => {
     ).toBe(before + 2);
   });
 
-  it('deletes delivered events after a week, and keeps pending ones and the dead letters of a registered subscriber', async () => {
+  it('deletes delivered events after a week, and keeps pending ones and the dead letters that a registered subscriber still hears', async () => {
     const at = new Date('2026-11-01T00:00:00.000Z');
     const old = new Date(at.getTime() - OUTBOX_RETENTION_MS - 1);
     const recent = new Date(at.getTime() - OUTBOX_RETENTION_MS + 60_000);
@@ -522,11 +522,12 @@ describe('the rows the event outbox keeps', () => {
         subscriber?: string;
       }[],
       subscriber = 'test.retained',
+      kind = 'bell.retained',
     ) => {
       const id = randomUUID();
       await database.db.insert(eventOutbox).values({
         id,
-        kind: 'bell.retained',
+        kind,
         payload: {},
         recordedAt,
       });
@@ -557,6 +558,12 @@ describe('the rows the event outbox keeps', () => {
       deadOfGone,
       { ...deadLettered, subscriber: 'test.retained-0' },
     ]);
+    const oldDeadOfUnheardKind = await event(
+      old,
+      [deadLettered],
+      'test.retained',
+      'bell.unheard',
+    );
     const recentDelivered = await event(recent, [delivered]);
     const registered = new EventSubscribers();
     registered.register([
@@ -580,6 +587,12 @@ describe('the rows the event outbox keeps', () => {
     expect(deleted).toBeGreaterThanOrEqual(1);
     expect(left).not.toContain(oldDelivered);
     expect(left).not.toContain(oldDeadOfGone);
+    expect(
+      await database.db
+        .select({ id: eventOutbox.id })
+        .from(eventOutbox)
+        .where(eq(eventOutbox.id, oldDeadOfUnheardKind)),
+    ).toEqual([]);
     expect(left).toEqual(
       expect.arrayContaining([
         oldPartly,
@@ -595,5 +608,88 @@ describe('the rows the event outbox keeps', () => {
         .from(eventDelivery)
         .where(eq(eventDelivery.eventId, oldDelivered)),
     ).toEqual([]);
+  });
+
+  it('queues again only the dead letters of the subscriber since the time, of the kinds it still hears', async () => {
+    const since = new Date('2026-11-02T00:00:00.000Z');
+    const queuedAt = new Date('2026-11-03T00:00:00.000Z');
+    const row = async (
+      kind: string,
+      recordedAt: Date,
+      subscriber: string,
+      state: { deliveredAt: Date | null; deadLetteredAt: Date | null },
+    ) => {
+      const id = randomUUID();
+      await database.db
+        .insert(eventOutbox)
+        .values({ id, kind, payload: {}, recordedAt });
+      await database.db.insert(eventDelivery).values({
+        eventId: id,
+        subscriber,
+        attempts: 8,
+        dueAt: recordedAt,
+        ...state,
+      });
+      return id;
+    };
+    const after = new Date(since.getTime() + 60_000);
+    const dead = { deliveredAt: null, deadLetteredAt: after };
+    const queued = await row('bell.kept', after, 'test.redeliver', dead);
+    const untouched = [
+      await row(
+        'bell.kept',
+        new Date(since.getTime() - 1),
+        'test.redeliver',
+        dead,
+      ),
+      await row('bell.dropped', after, 'test.redeliver', dead),
+      await row('bell.kept', after, 'test.other', dead),
+      await row('bell.kept', after, 'test.redeliver', {
+        deliveredAt: after,
+        deadLetteredAt: null,
+      }),
+      await row('bell.kept', after, 'test.redeliver', {
+        deliveredAt: null,
+        deadLetteredAt: null,
+      }),
+    ];
+    const registered = new EventSubscribers();
+    registered.register([
+      subscribing('test.redeliver', ['bell.kept'], async () => []),
+      subscribing('test.other', ['bell.kept'], async () => []),
+    ]);
+    const { outbox } = outboxWith();
+    const redelivery = new EventDelivery(
+      context,
+      outbox,
+      registered,
+      { now: () => queuedAt } as ClockPort,
+      logger,
+      causation,
+      { report: vi.fn() },
+      new OtelTelemetry(),
+    );
+    const stateOf = async (eventId: string) =>
+      (
+        await database.db
+          .select({
+            attempts: eventDelivery.attempts,
+            dueAt: eventDelivery.dueAt,
+            deadLetteredAt: eventDelivery.deadLetteredAt,
+            deliveredAt: eventDelivery.deliveredAt,
+          })
+          .from(eventDelivery)
+          .where(eq(eventDelivery.eventId, eventId))
+      )[0];
+    const before = await Promise.all(untouched.map(stateOf));
+
+    expect(await redelivery.redeliver('test.redeliver', since)).toBe(1);
+    expect(await stateOf(queued)).toEqual({
+      attempts: 0,
+      dueAt: queuedAt,
+      deadLetteredAt: null,
+      deliveredAt: null,
+    });
+    expect(await Promise.all(untouched.map(stateOf))).toEqual(before);
   });
 });

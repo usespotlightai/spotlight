@@ -1,0 +1,220 @@
+{
+  "change-checked.integration-event.ts": [
+    "export const CHANGE_CHECKED = 'change-review.change-checked.v1';",
+    "export type ChangeCheckedIntegrationEvent = { readonly kind: typeof CHANGE_CHECKED; readonly runId: string; readonly taskId: string | null; readonly workspaceId: string; readonly passed: boolean | null; readonly at: string; };"
+  ],
+  "change-stack-ready.integration-event.ts": [
+    "export const CHANGE_STACK_READY = 'change-review.change-stack-ready.v1';",
+    "export type ChangeStackReadyIntegrationEvent = { readonly kind: typeof CHANGE_STACK_READY; readonly runId: string; readonly taskId: string | null; readonly workspaceId: string; readonly changeTitles: readonly string[]; readonly changeIntents: readonly string[]; readonly at: string; };"
+  ],
+  "chat-started.integration-event.ts": [
+    "export const CHAT_STARTED = 'work.chat-started.v1';",
+    "export type ChatStartedIntegrationEvent = { readonly kind: typeof CHAT_STARTED; readonly chatId: string; readonly workspaceId: string; readonly teamId: string; readonly by: string; readonly at: string; };"
+  ],
+  "dispatch-briefed.integration-event.ts": [
+    "export const DISPATCH_BRIEFED = 'work.dispatch-briefed.v1';",
+    "export type DispatchBriefedIntegrationEvent = { readonly kind: typeof DISPATCH_BRIEFED; readonly runId: string; readonly workspaceId: string; readonly taskId: string | null; readonly memories: readonly string[]; readonly driver: 'line' | 'person'; };"
+  ],
+  "dispatch-ended.integration-event.ts": [
+    "export const DISPATCH_ENDED = 'work.dispatch-ended.v1';",
+    "export type DispatchOutcomePublished = 'completed' | 'failed' | 'exhausted' | 'cancelled';",
+    "export type DispatchEndedIntegrationEvent = { readonly kind: typeof DISPATCH_ENDED; readonly runId: string; readonly workspaceId: string; readonly taskId: string | null; readonly stationId: string | null; readonly driver: 'line' | 'person'; readonly outcome: DispatchOutcomePublished; readonly failure: string | null; readonly stopped: boolean; readonly asked: boolean; };"
+  ],
+  "dispatch-superseded.integration-event.ts": [
+    "export const DISPATCH_SUPERSEDED = 'work.dispatch-superseded.v1';",
+    "export type DispatchSupersededIntegrationEvent = { readonly kind: typeof DISPATCH_SUPERSEDED; readonly runId: string; readonly workspaceId: string; readonly taskId: string | null; readonly at: string; };"
+  ],
+  "host-became-ready.integration-event.ts": [
+    "export const HOST_BECAME_READY = 'runners.host-became-ready.v1';",
+    "export type HostBecameReadyIntegrationEvent = { readonly kind: typeof HOST_BECAME_READY; readonly workspaceId: string; };"
+  ],
+  "inbox-request-opened.integration-event.ts": [
+    "export const INBOX_REQUEST_OPENED = 'work.inbox-request-opened.v1';",
+    "export type InboxRequestOpenedIntegrationEvent = { readonly kind: typeof INBOX_REQUEST_OPENED; readonly inboxRequestId: string; readonly workspaceId: string; readonly taskId: string; readonly at: string; };"
+  ],
+  "integration-event.ts": [
+    "type Published = string | number | boolean | null | readonly Published[] | { readonly [field: string]: Published; };",
+    "export type IntegrationEvent = { readonly kind: string; readonly [field: string]: Published; };",
+    "export const INTEGRATION_EVENT_KIND = /^([a-z][a-z-]*)\\.[a-z][a-z-]*\\.v\\d+$/;",
+    "export const isIntegrationEventKind = (kind: string): boolean => INTEGRATION_EVENT_KIND.test(kind);",
+    "const CONTEXT_PREFIX = /^[a-z][a-z-]*\\.$/;",
+    "export const isContextPrefix = (prefix: string): boolean => CONTEXT_PREFIX.test(prefix);"
+  ],
+  "line-changed.integration-event.ts": [
+    "export const LINE_CHANGED = 'lines.line-changed.v1';",
+    "type LaidOutStationKind = 'backlog' | 'work' | 'completed';",
+    "export type LaidOutStation = { readonly id: string; readonly key: string; readonly name: string; readonly kind: LaidOutStationKind; readonly color: string; readonly position: number; readonly rubricVersion: string | null; readonly claimsChanged: boolean; };",
+    "export type LineSourceCommit = { readonly repository: string; readonly sha: string; };",
+    "export type LineChangedIntegrationEvent = { readonly kind: typeof LINE_CHANGED; readonly lineId: string; readonly workspaceId: string; readonly teamId: string; readonly version: number; readonly lineKey: string; readonly lineName: string; readonly deleted: boolean; readonly stations: readonly LaidOutStation[]; readonly stationIds: readonly string[]; readonly sourceCommit: LineSourceCommit | null; };"
+  ],
+  "line-resumed.integration-event.ts": [
+    "export const LINE_RESUMED = 'work.line-resumed.v1';",
+    "type HoldVerdictPublished = 'not-right' | 'exploring';",
+    "type HoldEndPublished = 'continue' | 'move-on' | 'finish';",
+    "type CheckoutHeadPublished = { readonly path: string; readonly commit: string; };",
+    "export type LineResumedIntegrationEvent = { readonly kind: typeof LINE_RESUMED; readonly taskId: string; readonly workspaceId: string; readonly teamId: string; readonly holdId: string; readonly stationId: string; readonly by: string; readonly fromRunId: string | null; readonly verdict: HoldVerdictPublished; readonly end: HoldEndPublished; readonly turnRunIds: readonly string[]; readonly fromHeads: readonly CheckoutHeadPublished[]; readonly toHeads: readonly CheckoutHeadPublished[]; readonly startedAt: string; readonly endedAt: string; };"
+  ],
+  "memories-used.integration-event.ts": [
+    "export const MEMORIES_USED = 'memory.memories-used.v1';",
+    "export type MemoriesUsedIntegrationEvent = { readonly kind: typeof MEMORIES_USED; readonly runId: string; readonly workspaceId: string; readonly taskId: string | null; readonly via: 'briefed' | 'recalled'; readonly memories: readonly string[]; };"
+  ],
+  "notice-raised.integration-event.ts": [
+    "export const NOTICE_RAISED = 'work.notice-raised.v1';",
+    "export type NoticeRaisedIntegrationEvent = { readonly kind: typeof NOTICE_RAISED; readonly noticeId: string; readonly workspaceId: string; readonly teamId: string; readonly addressee: string | null; readonly at: string; };"
+  ],
+  "pull-request-closed.integration-event.ts": [
+    "export const PULL_REQUEST_CLOSED = 'github.pull-request-closed.v1';",
+    "export type PullRequestClosedIntegrationEvent = { readonly kind: typeof PULL_REQUEST_CLOSED; readonly workspaceId: string; readonly pullRequest: string; readonly repository: string; readonly gitHubId: number | null; readonly closedAt: string | null; } & ({ readonly merged: true; readonly mergeCommit: string; } | { readonly merged: false; readonly mergeCommit: null; });"
+  ],
+  "pull-request-opened.integration-event.ts": [
+    "export const PULL_REQUEST_OPENED = 'work.pull-request-opened.v1';",
+    "export type PullRequestOpenedIntegrationEvent = { readonly kind: typeof PULL_REQUEST_OPENED; readonly taskId: string; readonly workspaceId: string; readonly teamId: string; readonly url: string; readonly at: string; };"
+  ],
+  "pull-request-purged.integration-event.ts": [
+    "export const PULL_REQUEST_PURGED = 'github.pull-request-purged.v1';",
+    "export type PullRequestPurgedIntegrationEvent = { readonly kind: typeof PULL_REQUEST_PURGED; readonly workspaceId: string; readonly pullRequest: string; readonly updatedAt: string; };"
+  ],
+  "pull-request-pushed.integration-event.ts": [
+    "export const PULL_REQUEST_PUSHED = 'github.pull-request-pushed.v1';",
+    "export type PullRequestPushedIntegrationEvent = { readonly kind: typeof PULL_REQUEST_PUSHED; readonly workspaceId: string; readonly pullRequest: string; readonly repository: string; readonly head: string; readonly baseTip: string; readonly pushedBy: string | null; readonly byBot: boolean; readonly pushedAt: string; };"
+  ],
+  "pull-request-reopened.integration-event.ts": [
+    "export const PULL_REQUEST_REOPENED = 'github.pull-request-reopened.v1';",
+    "export type PullRequestReopenedIntegrationEvent = { readonly kind: typeof PULL_REQUEST_REOPENED; readonly workspaceId: string; readonly pullRequest: string; readonly repository: string; readonly gitHubId: number | null; readonly reopenedAt: string | null; };"
+  ],
+  "pull-request-review-taken.integration-event.ts": [
+    "export const PULL_REQUEST_REVIEW_TAKEN = 'work.pull-request-review-taken.v1';",
+    "export type PullRequestReviewTakenIntegrationEvent = { readonly kind: typeof PULL_REQUEST_REVIEW_TAKEN; readonly taskId: string; readonly workspaceId: string; readonly teamId: string; readonly url: string; };"
+  ],
+  "pull-request-updated.integration-event.ts": [
+    "export const PULL_REQUEST_UPDATED = 'github.pull-request-updated.v1';",
+    "export type PullRequestUpdatedIntegrationEvent = { readonly kind: typeof PULL_REQUEST_UPDATED; readonly workspaceId: string; readonly pullRequest: string; readonly repository: string; readonly number: number; readonly title: string; readonly author: string | null; readonly authorIsBot: boolean; readonly branch: string | null; readonly additions: number | null; readonly deletions: number | null; readonly changedFiles: number | null; readonly openedAt: string; readonly state: 'open' | 'merged' | 'closed'; readonly closedAt: string | null; readonly updatedAt: string; readonly readyForReviewAt: string | null; readonly draftPeriods: readonly { readonly from: string; readonly to: string | null; }[]; readonly reviews: readonly { readonly id: number; readonly state: 'approved' | 'changes-requested' | 'commented'; readonly login: string | null; readonly byBot: boolean; readonly submittedAt: string | null; readonly dismissed: boolean; }[]; readonly reviewComments: number; readonly botComments: readonly { readonly id: number; readonly on: 'line' | 'conversation'; readonly login: string; readonly opensThread: boolean; readonly deleted: boolean; }[]; readonly threads: readonly { readonly id: string; readonly firstCommentId: number | null; readonly login: string | null; readonly byBot: boolean; readonly resolved: boolean; }[]; readonly isRevert: boolean; readonly revertedBy: string | null; readonly version: number; };"
+  ],
+  "review-comment-received.integration-event.ts": [
+    "export const REVIEW_COMMENT_RECEIVED = 'github.review-comment-received.v1';",
+    "export type ReviewCommentReceivedIntegrationEvent = { readonly kind: typeof REVIEW_COMMENT_RECEIVED; readonly workspaceId: string; readonly action: 'created' | 'edited' | 'deleted'; readonly pullRequest: string; readonly commentId: number; readonly url: string; readonly path: string; readonly body: string; readonly inReplyToId: number | null; readonly login: string | null; readonly writtenAt: string | null; } & ({ readonly subject: 'file'; } | { readonly subject: 'line'; readonly side: 'old' | 'new'; readonly line: number | null; readonly startLine: number | null; });"
+  ],
+  "run-ended.integration-event.ts": [
+    "export const RUN_ENDED = 'runs.run-ended.v1';",
+    "export type RunEndedByPublished = 'turn' | 'provision-failure' | 'stop' | 'refusal' | 'requeue-limit' | 'exhaustion' | 'cancellation';",
+    "export type RunOutcomePublished = 'completed' | 'failed' | 'exhausted' | 'cancelled';",
+    "export type RunRequesterPublished = { readonly owner: string; readonly kind: string; readonly id: string; readonly token: string | null; readonly team: string | null; };",
+    "type HandedOverFilePublished = { readonly id: string; readonly name: string; readonly contentType: string; readonly size: number; };",
+    "export type RunEndedIntegrationEvent = { readonly kind: typeof RUN_ENDED; readonly runId: string; readonly workspaceId: string; readonly requester: RunRequesterPublished; readonly attempt: number; readonly endedBy: RunEndedByPublished; readonly outcome: RunOutcomePublished; readonly failure: string | null; readonly exitCode: number | null; readonly message: string | null; readonly stopped: boolean; readonly started: boolean; readonly askedAPerson: boolean; readonly handsOver: boolean; readonly reported: boolean; readonly report: { readonly next: string | null; readonly note: string | null; readonly suggest: string | null; readonly files: readonly HandedOverFilePublished[]; } | null; readonly session: string | null; readonly claimedBy: string | null; readonly expiredLeases: number; readonly endedAt: string; };"
+  ],
+  "run-suspended.integration-event.ts": [
+    "export const RUN_SUSPENDED = 'runs.run-suspended.v1';",
+    "export type RunSuspendedIntegrationEvent = { readonly kind: typeof RUN_SUSPENDED; readonly runId: string; readonly workspaceId: string; readonly requester: RunRequesterPublished; readonly attempt: number; readonly at: string; };"
+  ],
+  "run-usage-recorded.integration-event.ts": [
+    "export const RUN_USAGE_RECORDED = 'runs.run-usage-recorded.v1';",
+    "type ServerCallsPublished = { readonly server: string; readonly calls: number; readonly failed: number; readonly latency: readonly number[]; readonly lastCallFailed: boolean; };",
+    "export type RunUsageRecordedIntegrationEvent = { readonly kind: typeof RUN_USAGE_RECORDED; readonly runId: string; readonly workspaceId: string; readonly requester: RunRequesterPublished; readonly listed: boolean; readonly ms: number | null; readonly steps: number; readonly errors: number; readonly changedLines: number; readonly contextTokens: number | null; readonly contextWindow: number | null; readonly cost: number | null; readonly currency: string | null; readonly spentCosts: readonly { readonly amount: number; readonly currency: string; }[]; readonly unpricedCalls: number; readonly inputTokens: number | null; readonly outputTokens: number | null; readonly cacheReadTokens: number | null; readonly cacheWriteTokens: number | null; readonly servers: readonly ServerCallsPublished[]; readonly skillsRead: readonly string[]; };"
+  ],
+  "runner-access-created.integration-event.ts": [
+    "export const RUNNER_ACCESS_CREATED = 'runners.runner-access-created.v1';",
+    "export type RunnerAccessCreatedIntegrationEvent = { readonly kind: typeof RUNNER_ACCESS_CREATED; readonly workspaceId: string; };"
+  ],
+  "station-alert-fired.integration-event.ts": [
+    "export const STATION_ALERT_FIRED = 'insights.station-alert-fired.v1';",
+    "export type StationAlertFiredIntegrationEvent = { readonly kind: typeof STATION_ALERT_FIRED; readonly alertId: string; readonly workspaceId: string; readonly teamId: string; readonly stationId: string; };"
+  ],
+  "task-acted-on.integration-event.ts": [
+    "export const TASK_ACTED_ON = 'work.task-acted-on.v1';",
+    "export type TaskActedOnIntegrationEvent = { readonly kind: typeof TASK_ACTED_ON; readonly taskId: string; readonly workspaceId: string; readonly stationId: string; readonly action: string; readonly by: string; readonly afterRunId: string | null; readonly at: string; readonly tool: string | null; readonly server: string | null; };"
+  ],
+  "task-asked.integration-event.ts": [
+    "export const TASK_ASKED = 'work.task-asked.v1';",
+    "export type TaskAskedIntegrationEvent = { readonly kind: typeof TASK_ASKED; readonly taskId: string; readonly workspaceId: string; readonly stationId: string; readonly at: string; readonly driver: 'line' | 'person'; };"
+  ],
+  "task-assigned.integration-event.ts": [
+    "export const TASK_ASSIGNED = 'work.task-assigned.v1';",
+    "export type TaskAssignedIntegrationEvent = { readonly kind: typeof TASK_ASSIGNED; readonly taskId: string; readonly workspaceId: string; readonly assignee: string | null; };"
+  ],
+  "task-conversation-reopened.integration-event.ts": [
+    "export const TASK_CONVERSATION_REOPENED = 'work.task-conversation-reopened.v1';",
+    "export type TaskConversationReopenedIntegrationEvent = { readonly kind: typeof TASK_CONVERSATION_REOPENED; readonly taskId: string; readonly workspaceId: string; readonly at: string; };"
+  ],
+  "task-deleted.integration-event.ts": [
+    "export const TASK_DELETED = 'work.task-deleted.v1';",
+    "export type TaskDeletedIntegrationEvent = { readonly kind: typeof TASK_DELETED; readonly taskId: string; readonly workspaceId: string; };"
+  ],
+  "task-failed.integration-event.ts": [
+    "export const TASK_FAILED = 'work.task-failed.v1';",
+    "export type TaskFailedIntegrationEvent = { readonly kind: typeof TASK_FAILED; readonly taskId: string; readonly workspaceId: string; readonly teamId: string; readonly stationId: string; readonly runId: string | null; readonly source: string; readonly code: string; readonly occurrences: number; readonly at: string; readonly driver: 'line' | 'person'; };"
+  ],
+  "task-held.integration-event.ts": [
+    "export const TASK_HELD = 'work.task-held.v1';",
+    "export type TaskHeldIntegrationEvent = { readonly kind: typeof TASK_HELD; readonly taskId: string; readonly workspaceId: string; readonly teamId: string; readonly holdId: string; readonly stationId: string; readonly by: string; readonly fromRunId: string | null; readonly at: string; };"
+  ],
+  "task-moved.integration-event.ts": [
+    "export const TASK_MOVED = 'work.task-moved.v1';",
+    "export type TaskMovedIntegrationEvent = { readonly kind: typeof TASK_MOVED; readonly taskId: string; readonly workspaceId: string; readonly from: string; readonly to: string; readonly at: string; };"
+  ],
+  "task-opened.integration-event.ts": [
+    "export const TASK_OPENED = 'work.task-opened.v1';",
+    "export type TaskOpenedIntegrationEvent = { readonly kind: typeof TASK_OPENED; readonly taskId: string; readonly workspaceId: string; readonly teamId: string; readonly lineId: string; readonly stationId: string; readonly by: string | null; readonly at: string; };"
+  ],
+  "task-passed.integration-event.ts": [
+    "export const TASK_PASSED = 'work.task-passed.v1';",
+    "export type TaskPassedIntegrationEvent = { readonly kind: typeof TASK_PASSED; readonly taskId: string; readonly workspaceId: string; readonly runId: string; readonly from: string; readonly to: string; readonly at: string; };"
+  ],
+  "task-run-assigned.integration-event.ts": [
+    "export const TASK_RUN_ASSIGNED = 'work.task-run-assigned.v1';",
+    "export type TaskRunAssignedIntegrationEvent = { readonly kind: typeof TASK_RUN_ASSIGNED; readonly taskId: string; readonly workspaceId: string; readonly runId: string; };"
+  ],
+  "team-created.integration-event.ts": [
+    "export const TEAM_CREATED = 'identity.team-created.v1';",
+    "export type TeamCreatedIntegrationEvent = { readonly kind: typeof TEAM_CREATED; readonly workspaceId: string; readonly teamId: string; readonly ownerId: string; readonly origin: 'sign-up' | 'configuration'; };"
+  ],
+  "team-deleted.integration-event.ts": [
+    "export const TEAM_DELETED = 'identity.team-deleted.v1';",
+    "export type TeamDeletedIntegrationEvent = { readonly kind: typeof TEAM_DELETED; readonly workspaceId: string; readonly teamId: string; readonly key: string; };"
+  ],
+  "trial-change-checked.integration-event.ts": [
+    "export const TRIAL_CHANGE_CHECKED = 'change-review.trial-change-checked.v1';",
+    "export type TrialChangeCheckedIntegrationEvent = { readonly kind: typeof TRIAL_CHANGE_CHECKED; readonly runId: string; readonly workspaceId: string; readonly passed: boolean | null; };"
+  ],
+  "trial-change-rechecked.integration-event.ts": [
+    "export const TRIAL_CHANGE_RECHECKED = 'change-review.trial-change-rechecked.v1';",
+    "export type TrialChangeRecheckedIntegrationEvent = { readonly kind: typeof TRIAL_CHANGE_RECHECKED; readonly runId: string; readonly workspaceId: string; readonly passed: boolean | null; };"
+  ],
+  "trial-stack-settled.integration-event.ts": [
+    "export const TRIAL_STACK_SETTLED = 'change-review.trial-stack-settled.v1';",
+    "export type TrialStackSettledIntegrationEvent = { readonly kind: typeof TRIAL_STACK_SETTLED; readonly runId: string; readonly workspaceId: string; };"
+  ],
+  "workspace-connected.integration-event.ts": [
+    "export const WORKSPACE_CONNECTED = 'github.workspace-connected.v1';",
+    "export type WorkspaceConnectedIntegrationEvent = { readonly kind: typeof WORKSPACE_CONNECTED; readonly workspaceId: string; };"
+  ],
+  "workspace-created.integration-event.ts": [
+    "export const WORKSPACE_CREATED = 'identity.workspace-created.v1';",
+    "export type WorkspaceCreatedIntegrationEvent = { readonly kind: typeof WORKSPACE_CREATED; readonly workspaceId: string; };"
+  ],
+  "workspace-deleted.integration-event.ts": [
+    "export const WORKSPACE_DELETED = 'identity.workspace-deleted.v1';",
+    "export type WorkspaceDeletedIntegrationEvent = { readonly kind: typeof WORKSPACE_DELETED; readonly workspaceId: string; readonly slug: string; };"
+  ],
+  "workspace-member-joined.integration-event.ts": [
+    "export const WORKSPACE_MEMBER_JOINED = 'identity.workspace-member-joined.v1';",
+    "export type WorkspaceRolePublished = 'owner' | 'admin' | 'member';",
+    "export type WorkspaceMemberJoinedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_JOINED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };"
+  ],
+  "workspace-member-role-changed.integration-event.ts": [
+    "export const WORKSPACE_MEMBER_ROLE_CHANGED = 'identity.workspace-member-role-changed.v1';",
+    "export type WorkspaceMemberRoleChangedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_ROLE_CHANGED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };"
+  ],
+  "workspace-plan-created.integration-event.ts": [
+    "export const WORKSPACE_PLAN_CREATED = 'catalog.workspace-plan-created.v1';",
+    "export type PlanPublished = 'free' | 'team' | 'enterprise';",
+    "export type WorkspacePlanCreatedIntegrationEvent = { readonly kind: typeof WORKSPACE_PLAN_CREATED; readonly workspaceId: string; readonly plan: PlanPublished; readonly expiresAt: string | null; };"
+  ],
+  "workspace-plan-deleted.integration-event.ts": [
+    "export const WORKSPACE_PLAN_DELETED = 'catalog.workspace-plan-deleted.v1';",
+    "export type WorkspacePlanDeletedIntegrationEvent = { readonly kind: typeof WORKSPACE_PLAN_DELETED; readonly workspaceId: string; };"
+  ],
+  "workspace-plan-updated.integration-event.ts": [
+    "export const WORKSPACE_PLAN_UPDATED = 'catalog.workspace-plan-updated.v1';",
+    "export type WorkspacePlanUpdatedIntegrationEvent = { readonly kind: typeof WORKSPACE_PLAN_UPDATED; readonly workspaceId: string; readonly plan: PlanPublished; readonly expiresAt: string | null; };"
+  ]
+}

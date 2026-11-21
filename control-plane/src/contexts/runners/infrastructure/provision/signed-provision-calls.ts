@@ -1,9 +1,10 @@
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { failureOf } from '@platform/outbound/outbound-failure';
 import {
   OutboundBlockedError,
   type OutboundGuard,
 } from '@platform/outbound/outbound-guard';
-import { failureOf, signatureOf } from '@platform/outbound/standard-webhooks';
+import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
   ProvisionAnswer,
   ProvisionCall,

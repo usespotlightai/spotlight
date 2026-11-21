@@ -54,6 +54,8 @@ export const LONGEST_LEASE_MS = 30 * 60 * 1000;
 
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
+const REDELIVERY_BATCH = 1_000;
+
 const because = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).replaceAll(
     '\u0000',
@@ -122,34 +124,57 @@ export class EventDelivery {
     }
   }
 
-  // Queues the dead letters of one subscriber again, for the events recorded at or after the time. Each gets all its attempts again. Returns how many it queued.
+  // Queues the dead letters of one subscriber again, for the events recorded at or after the time whose kind it still hears. Each gets all its attempts again. Returns how many it queued.
   async redeliver(subscriber: string, since: Date): Promise<number> {
     const db = this.context.db;
-    const queued = await db
-      .update(eventDelivery)
-      .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
+    const dead = await db
+      .select({ eventId: eventDelivery.eventId, kind: eventOutbox.kind })
+      .from(eventDelivery)
+      .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
       .where(
         and(
           eq(eventDelivery.subscriber, subscriber),
           isNull(eventDelivery.deliveredAt),
           isNotNull(eventDelivery.deadLetteredAt),
-          inArray(
-            eventDelivery.eventId,
-            db
-              .select({ id: eventOutbox.id })
-              .from(eventOutbox)
-              .where(gte(eventOutbox.recordedAt, since)),
-          ),
+          gte(eventOutbox.recordedAt, since),
         ),
-      )
-      .returning({ eventId: eventDelivery.eventId });
+      );
+    const heard = dead
+      .filter((each) => this.subscribers.hears(subscriber, each.kind))
+      .map((each) => each.eventId);
+    let queued = 0;
+
+    for (let at = 0; at < heard.length; at += REDELIVERY_BATCH) {
+      const written = await db
+        .update(eventDelivery)
+        .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
+        .where(
+          and(
+            eq(eventDelivery.subscriber, subscriber),
+            isNull(eventDelivery.deliveredAt),
+            isNotNull(eventDelivery.deadLetteredAt),
+            inArray(
+              eventDelivery.eventId,
+              heard.slice(at, at + REDELIVERY_BATCH),
+            ),
+          ),
+        )
+        .returning({ eventId: eventDelivery.eventId });
+
+      queued += written.length;
+    }
 
     this.logger.info(
-      { subscriber, since: since.toISOString(), queued: queued.length },
+      {
+        subscriber,
+        since: since.toISOString(),
+        queued,
+        skipped: dead.length - heard.length,
+      },
       'Queued dead letters again',
     );
 
-    return queued.length;
+    return queued;
   }
 
   private async stillDue(): Promise<number> {
@@ -494,6 +519,11 @@ export class EventDelivery {
 
     if (!subscriber) {
       throw new Error(`No subscriber is called ${due.subscriber} any more`);
+    }
+
+    // The subscriber does not hear the kind any more, as when the operator narrows SPOTLIGHT_EVENT_WEBHOOK_KINDS. It fails like a subscriber that is gone: retried, as another instance can still hear it during a deploy, and then a dead letter.
+    if (!this.subscribers.hears(due.subscriber, due.kind)) {
+      throw new Error(`${due.subscriber} does not hear ${due.kind} any more`);
     }
 
     return this.telemetry.inSpan(

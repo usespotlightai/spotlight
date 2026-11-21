@@ -8,6 +8,7 @@ import {
   sourceFiles,
 } from './source-index';
 
+// Any event kind: a domain event kind (<aggregate>.<name>, a different grammar), or an integration event kind as INTEGRATION_EVENT_KIND writes it (<context>.<name>.v<version>).
 export const KIND_PATTERN = /^[a-z][a-z-]*\.[a-z][a-z-]*(\.v\d+)?$/;
 const INTEGRATION_EVENTS = 'shared-kernel/application/integration-events/';
 
