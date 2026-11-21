@@ -1,4 +1,5 @@
 import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
+import { WorkspacePlanAlreadyExistsError } from '@catalog/domain/exceptions/workspace-plan-already-exists.error';
 import { WorkspacePlanVersionConflictError } from '@catalog/domain/exceptions/workspace-plan-version-conflict.error';
 import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
 import { termOf } from '@catalog/infrastructure/persistence/drizzle/plan-term-row';
@@ -50,7 +51,7 @@ export class DrizzleWorkspacePlanRepository implements WorkspacePlanRepository {
         .returning({ workspaceId: workspacePlan.workspaceId });
 
       if (inserted.length === 0) {
-        throw new WorkspacePlanVersionConflictError(added.workspaceId.value);
+        throw new WorkspacePlanAlreadyExistsError(added.workspaceId.value);
       }
 
       await this.events.dispatch(added.pullEvents());

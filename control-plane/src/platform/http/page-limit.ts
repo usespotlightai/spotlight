@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import {
   LONGEST_PAGE,
   PAGE_LIMIT,
-} from '@shared-kernel/application/dto/page-limits.dto';
+} from '@shared-kernel/application/dto/page.dto';
 
 export const pageLimitOf = (raw: string | undefined): number => {
   const asked = raw === undefined ? PAGE_LIMIT : Number(raw);

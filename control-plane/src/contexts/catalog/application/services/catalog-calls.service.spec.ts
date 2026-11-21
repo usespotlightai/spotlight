@@ -32,7 +32,7 @@ const catalogCalls = (
 
   const service = new CatalogCalls(
     new StaticCatalog(CATALOG_ITEMS),
-    { of: async () => term, ofEach: async () => [] },
+    { of: async () => term, ofWorkspaces: async (ids) => ids.map(() => term) },
     {
       record: async (call) => {
         recorded.push(call);

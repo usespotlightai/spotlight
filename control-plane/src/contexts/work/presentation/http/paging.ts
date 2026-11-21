@@ -9,8 +9,9 @@ import { pageLimitOf } from '@platform/http/page-limit';
 import {
   LONGEST_PAGE,
   PAGE_LIMIT,
-} from '@shared-kernel/application/dto/page-limits.dto';
-import type { Page, PageRequest } from '@work/application/dto/page.dto';
+} from '@shared-kernel/application/dto/page.dto';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 
 export const ApiPageQuery = () =>
   applyDecorators(

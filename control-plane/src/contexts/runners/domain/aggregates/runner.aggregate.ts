@@ -292,13 +292,13 @@ export class Runner extends EventRecorder {
   }
 
   register(installed: readonly InstalledHarness[], at: Date): Runner {
-    this.assertNotEnded();
+    this.assertNotExpired();
 
     return this.with({ installed: [...installed], lastHeartbeatAt: at });
   }
 
   heartbeat(at: Date): Runner {
-    this.assertNotEnded();
+    this.assertNotExpired();
 
     return this.with({ lastHeartbeatAt: at });
   }
@@ -338,7 +338,7 @@ export class Runner extends EventRecorder {
     return this.state.work === null ? this.release(at) : this;
   }
 
-  private assertNotEnded(): void {
+  private assertNotExpired(): void {
     if (this.hasEnded) {
       throw new RunnerEndedError(this.state.id.value);
     }

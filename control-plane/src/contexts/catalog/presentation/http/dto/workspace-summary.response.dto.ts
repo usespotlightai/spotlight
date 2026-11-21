@@ -1,9 +1,7 @@
-import type {
-  WorkspaceSummaryDto,
-  WorkspaceSummaryPageDto,
-} from '@catalog/application/dto/workspace-summary.dto';
+import type { WorkspaceSummaryDto } from '@catalog/application/dto/workspace-summary.dto';
 import { PlanTermResponseDto } from '@catalog/presentation/http/dto/plan-term.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 
 export class WorkspaceSummaryResponseDto {
   @ApiProperty({ example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57' })
@@ -24,9 +22,9 @@ export class WorkspaceSummaryResponseDto {
   @ApiProperty({
     type: PlanTermResponseDto,
     description:
-      'The plan set for the workspace; the free plan when none is set',
+      'The plan set for the workspace and when it ends; the free plan when none is set',
   })
-  readonly plan: PlanTermResponseDto;
+  readonly term: PlanTermResponseDto;
 
   constructor(workspace: WorkspaceSummaryDto) {
     this.id = workspace.id;
@@ -34,7 +32,7 @@ export class WorkspaceSummaryResponseDto {
     this.name = workspace.name;
     this.createdAt = workspace.createdAt;
     this.memberCount = workspace.memberCount;
-    this.plan = new PlanTermResponseDto(workspace.plan);
+    this.term = new PlanTermResponseDto(workspace.term);
   }
 }
 
@@ -53,7 +51,7 @@ export class WorkspaceSummaryPageResponseDto {
   })
   readonly next: string | null;
 
-  constructor(page: WorkspaceSummaryPageDto) {
+  constructor(page: Page<WorkspaceSummaryDto>) {
     this.items = page.items.map(
       (each) => new WorkspaceSummaryResponseDto(each),
     );

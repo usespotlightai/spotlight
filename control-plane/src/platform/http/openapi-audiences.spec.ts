@@ -137,6 +137,36 @@ describe('documentsByAudience', () => {
     expect(documents.web.paths).toEqual({});
   });
 
+  it('says in the admin document that the bearer token is the admin token', () => {
+    const documents = documentsByAudience(
+      {
+        ...document,
+        components: {
+          ...document.components,
+          securitySchemes: {
+            bearer: {
+              type: 'http',
+              scheme: 'bearer',
+              description: 'A workspace token',
+            },
+          },
+        },
+      },
+      routes,
+    );
+
+    expect(documents.admin.components?.securitySchemes?.bearer).toMatchObject({
+      type: 'http',
+      scheme: 'bearer',
+      description: expect.stringContaining('SPOTLIGHT_ADMIN_TOKEN') as string,
+    });
+    expect(documents.resources.components?.securitySchemes?.bearer).toEqual({
+      type: 'http',
+      scheme: 'bearer',
+      description: 'A workspace token',
+    });
+  });
+
   it('fails for an operation that matches no controller route', () => {
     expect(() => documentsByAudience(document, routes.slice(1))).toThrow(
       'GET /v1/resources/lines/{id} is in the document but matches no controller route.',

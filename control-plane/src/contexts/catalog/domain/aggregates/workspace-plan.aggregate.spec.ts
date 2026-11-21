@@ -2,7 +2,7 @@ import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggrega
 import type { WorkspacePlanCreated } from '@catalog/domain/events/workspace-plan-created.event';
 import type { WorkspacePlanDeleted } from '@catalog/domain/events/workspace-plan-deleted.event';
 import type { WorkspacePlanUpdated } from '@catalog/domain/events/workspace-plan-updated.event';
-import { EndedPlanTermError } from '@catalog/domain/exceptions/ended-plan-term.error';
+import { ExpiredPlanTermError } from '@catalog/domain/exceptions/expired-plan-term.error';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
@@ -66,7 +66,7 @@ describe('WorkspacePlan', () => {
 
     it('refuses a plan whose end is not in the future', () => {
       expect(() => create(PlanTerm.of(Plan.team, NOW))).toThrow(
-        EndedPlanTermError,
+        ExpiredPlanTermError,
       );
     });
   });
@@ -118,14 +118,14 @@ describe('WorkspacePlan', () => {
           BY,
           NOW,
         ),
-      ).toThrow(EndedPlanTermError);
+      ).toThrow(ExpiredPlanTermError);
     });
 
-    it('keeps a stored plan that has ended until it is set again', () => {
-      const ended = PlanTerm.of(Plan.team, new Date('2026-01-01T00:00:00Z'));
+    it('keeps a stored plan that has expired until it is set again', () => {
+      const expired = PlanTerm.of(Plan.team, new Date('2026-01-01T00:00:00Z'));
 
-      expect(stored(ended).set(ended, BY, NOW)).toBeNull();
-      expect(stored(ended).delete(BY).isDeleted).toBe(true);
+      expect(stored(expired).set(expired, BY, NOW)).toBeNull();
+      expect(stored(expired).delete(BY).isDeleted).toBe(true);
     });
   });
 

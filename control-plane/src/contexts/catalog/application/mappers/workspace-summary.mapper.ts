@@ -13,6 +13,6 @@ export const WorkspaceSummaryMapper = {
     name: workspace.name,
     createdAt: workspace.createdAt.toISOString(),
     memberCount: workspace.memberCount,
-    plan: PlanTermMapper.toDto(term),
+    term: PlanTermMapper.toDto(term),
   }),
 };

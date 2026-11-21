@@ -2,7 +2,7 @@ import type {
   CatalogItemDto,
   CatalogResolution,
 } from '@catalog/application/dto/catalog-item.dto';
-import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
+import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
 import type { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogProblems } from '@catalog/application/rendering/catalog-problems';
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
@@ -55,7 +55,7 @@ export class ResolveCatalogItemHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly catalog: CatalogItems,
-    private readonly plans: WorkspacePlansPort,
+    private readonly terms: PlanTermsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -101,7 +101,7 @@ export class ResolveCatalogItemHandler implements QueryHandlerPort<
 
       const result = resolveEntitledItem(
         match.item,
-        await this.plans.of(permissions.workspaceId),
+        await this.terms.of(permissions.workspaceId),
         this.clock.now(),
       );
 

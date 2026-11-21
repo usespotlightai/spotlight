@@ -4,7 +4,7 @@ import { CatalogCalls } from '@catalog/application/services/catalog-calls.servic
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
-import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
+import { DrizzlePlanTerms } from '@catalog/infrastructure/persistence/drizzle/readers/plan-terms.reader';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
@@ -410,7 +410,7 @@ describe('a catalog call (e2e)', () => {
   it('is recorded, by workspace, run and the version called', async () => {
     const calls = new CatalogCalls(
       new StaticCatalog(CATALOG_ITEMS),
-      new DrizzleWorkspacePlans(db),
+      new DrizzlePlanTerms(db),
       new DrizzleCatalogCallLedger(new DrizzleContext(db), {
         generate: () => randomUUID(),
       }),

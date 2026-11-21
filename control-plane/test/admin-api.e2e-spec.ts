@@ -1,8 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
+import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
+import { WorkspacePlanAlreadyExistsError } from '@catalog/domain/exceptions/workspace-plan-already-exists.error';
+import { WorkspacePlanVersionConflictError } from '@catalog/domain/exceptions/workspace-plan-version-conflict.error';
+import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
+import { Plan } from '@catalog/domain/value-objects/plan.vo';
+import { DrizzleWorkspacePlanRepository } from '@catalog/infrastructure/persistence/drizzle/repositories/workspace-plan.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -18,7 +26,7 @@ interface AdminWorkspace {
   readonly name: string;
   readonly createdAt: string;
   readonly memberCount: number;
-  readonly plan: { readonly plan: string; readonly expiresAt: string | null };
+  readonly term: { readonly plan: string; readonly expiresAt: string | null };
 }
 
 interface AdminPage {
@@ -174,7 +182,7 @@ describe('admin API (e2e)', () => {
       name: 'admin-acme',
       createdAt: at(1).toISOString(),
       memberCount: 2,
-      plan: { plan: 'free', expiresAt: null },
+      term: { plan: 'free', expiresAt: null },
     });
     expect(page.next).not.toBeNull();
 
@@ -213,7 +221,7 @@ describe('admin API (e2e)', () => {
     expect(answer.body).toMatchObject({
       id: globex.id,
       memberCount: 1,
-      plan: { plan: 'free', expiresAt: null },
+      term: { plan: 'free', expiresAt: null },
     });
     await admin().get(`/api/admin/workspaces/${randomUUID()}`).expect(404);
   });
@@ -253,7 +261,7 @@ describe('admin API (e2e)', () => {
     ).toEqual({ plan: 'team', expiresAt });
     expect(
       (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ plan: { plan: 'team', expiresAt } });
+    ).toMatchObject({ term: { plan: 'team', expiresAt } });
 
     await admin().put(plan, { plan: 'team', expiresAt }).expect(200);
     await admin()
@@ -261,13 +269,13 @@ describe('admin API (e2e)', () => {
       .expect(200);
     expect(
       (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ plan: { plan: 'enterprise', expiresAt: null } });
+    ).toMatchObject({ term: { plan: 'enterprise', expiresAt: null } });
 
     await admin().delete(plan).expect(204);
     await admin().delete(plan).expect(204);
     expect(
       (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ plan: { plan: 'free', expiresAt: null } });
+    ).toMatchObject({ term: { plan: 'free', expiresAt: null } });
     expect(
       await db
         .select()
@@ -307,8 +315,8 @@ describe('admin API (e2e)', () => {
     expect(
       page.items.map((each) => [
         each.slug,
-        each.plan.plan,
-        each.plan.expiresAt,
+        each.term.plan,
+        each.term.expiresAt,
       ]),
     ).toEqual([
       ['admin-acme', 'free', null],
@@ -361,5 +369,38 @@ describe('admin API (e2e)', () => {
       await eventually(async () => ((await planOf()).length === 0 ? [] : null)),
     ).toEqual([]);
     await admin().get(`/api/admin/workspaces/${initech.id}`).expect(404);
+  });
+
+  it('refuses a second plan created at the same time, and a change to a plan that changed since it was read', async () => {
+    const plans = app.get(DrizzleWorkspacePlanRepository);
+    const workspaceId = WorkspaceId.of(acme.id);
+    const by = ChangeActor.spotlight(workspaceId);
+    const now = new Date();
+    const create = (term: PlanTerm) =>
+      WorkspacePlan.create({ workspaceId, term, by, now }) as WorkspacePlan;
+
+    await plans.add(create(PlanTerm.of(Plan.team)));
+    await expect(
+      plans.add(create(PlanTerm.of(Plan.enterprise))),
+    ).rejects.toBeInstanceOf(WorkspacePlanAlreadyExistsError);
+
+    const first = (await plans.find(workspaceId)) as WorkspacePlan;
+    const second = (await plans.find(workspaceId)) as WorkspacePlan;
+
+    await plans.save(
+      first.set(PlanTerm.of(Plan.enterprise), by, now) as WorkspacePlan,
+    );
+    await expect(
+      plans.save(
+        second.set(
+          PlanTerm.of(Plan.team, new Date('2099-01-01T00:00:00Z')),
+          by,
+          now,
+        ) as WorkspacePlan,
+      ),
+    ).rejects.toBeInstanceOf(WorkspacePlanVersionConflictError);
+    expect(
+      (await admin().get(`/api/admin/workspaces/${acme.id}`).expect(200)).body,
+    ).toMatchObject({ term: { plan: 'enterprise', expiresAt: null } });
   });
 });

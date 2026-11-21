@@ -122,13 +122,13 @@ import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.q
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
 import { ImportTeamHandler } from '@identity/application/queries/handlers/import-team.handler';
 import { ImportWorkspaceHandler } from '@identity/application/queries/handlers/import-workspace.handler';
-import { ListAdminWorkspaceMembersHandler } from '@identity/application/queries/handlers/list-admin-workspace-members.handler';
 import { ListConfigurationChangesHandler } from '@identity/application/queries/handlers/list-configuration-changes.handler';
 import { ListMembersHandler } from '@identity/application/queries/handlers/list-members.handler';
 import { ListOidcTrustsHandler } from '@identity/application/queries/handlers/list-oidc-trusts.handler';
 import { ListTeamResourcesHandler } from '@identity/application/queries/handlers/list-team-resources.handler';
 import { ListUserEmailsHandler } from '@identity/application/queries/handlers/list-user-emails.handler';
 import { ListWorkspaceInvitesHandler } from '@identity/application/queries/handlers/list-workspace-invites.handler';
+import { ListWorkspaceMemberSummariesHandler } from '@identity/application/queries/handlers/list-workspace-member-summaries.handler';
 import { ListWorkspaceMembersHandler } from '@identity/application/queries/handlers/list-workspace-members.handler';
 import { ListWorkspaceResourcesHandler } from '@identity/application/queries/handlers/list-workspace-resources.handler';
 import { ListWorkspacesHandler } from '@identity/application/queries/handlers/list-workspaces.handler';
@@ -149,13 +149,13 @@ import {
 } from '@identity/application/queries/handlers/workspace-token.handlers';
 import { ImportTeamQuery } from '@identity/application/queries/import-team.query';
 import { ImportWorkspaceQuery } from '@identity/application/queries/import-workspace.query';
-import { ListAdminWorkspaceMembersQuery } from '@identity/application/queries/list-admin-workspace-members.query';
 import { ListConfigurationChangesQuery } from '@identity/application/queries/list-configuration-changes.query';
 import { ListMembersQuery } from '@identity/application/queries/list-members.query';
 import { ListOidcTrustsQuery } from '@identity/application/queries/list-oidc-trusts.query';
 import { ListTeamResourcesQuery } from '@identity/application/queries/list-team-resources.query';
 import { ListUserEmailsQuery } from '@identity/application/queries/list-user-emails.query';
 import { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-workspace-invites.query';
+import { ListWorkspaceMemberSummariesQuery } from '@identity/application/queries/list-workspace-member-summaries.query';
 import { ListWorkspaceMembersQuery } from '@identity/application/queries/list-workspace-members.query';
 import { ListWorkspaceResourcesQuery } from '@identity/application/queries/list-workspace-resources.query';
 import { ListWorkspacesQuery } from '@identity/application/queries/list-workspaces.query';
@@ -229,7 +229,6 @@ import { S3AvatarImages } from '@identity/infrastructure/storage/s3-avatar-image
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { identitySubscribers } from '@identity/presentation/events/identity.subscribers';
 import { IDENTITY_API_CONVENTIONS } from '@identity/presentation/http/api-conventions';
-import { AdminWorkspaceMemberController } from '@identity/presentation/http/controllers/admin-workspace-member.controller';
 import {
   TeamAvatarController,
   WorkspaceAvatarController,
@@ -246,6 +245,7 @@ import { TeamResourceController } from '@identity/presentation/http/controllers/
 import { TeamController } from '@identity/presentation/http/controllers/team.controller';
 import { UserEmailController } from '@identity/presentation/http/controllers/user-email.controller';
 import { WorkloadTokenExchangeController } from '@identity/presentation/http/controllers/workload-token-exchange.controller';
+import { WorkspaceMemberSummaryController } from '@identity/presentation/http/controllers/workspace-member-summary.controller';
 import { WorkspaceResourceController } from '@identity/presentation/http/controllers/workspace-resource.controller';
 import { WorkspaceTokenResourceController } from '@identity/presentation/http/controllers/workspace-token-resource.controller';
 import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
@@ -300,7 +300,7 @@ const IDENTITY_API_DOCUMENTATION = Symbol('IDENTITY_API_DOCUMENTATION');
 const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
 
 export const IDENTITY_CONTROLLERS: readonly Type[] = [
-  AdminWorkspaceMemberController,
+  WorkspaceMemberSummaryController,
   WorkspaceAvatarController,
   TeamAvatarController,
   WorkspaceResourceController,
@@ -517,8 +517,8 @@ const handlers: Provider[] = [
     MEMBER_READER,
   ]),
   ...bindQueryHandler(
-    ListAdminWorkspaceMembersQuery,
-    ListAdminWorkspaceMembersHandler,
+    ListWorkspaceMemberSummariesQuery,
+    ListWorkspaceMemberSummariesHandler,
     [WORKSPACE_READER, MEMBER_READER],
   ),
   ...bindQueryHandler(ListWorkspaceInvitesQuery, ListWorkspaceInvitesHandler, [

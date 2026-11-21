@@ -85,6 +85,7 @@ see.
 
 | Term | Meaning |
 |---|---|
+| Admin token | The token for the whole deployment, `SPOTLIGHT_ADMIN_TOKEN`, that gives access to `/api/admin` (`AdminOnly`, `AdminGuard`). It is not the workspace admin role. |
 | Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). A change made with the admin token shows as Spotlight. |
 | Error kind | The class of a domain or application error (`ErrorKind`), such as `invalid` or `conflict`. The HTTP filters map it to a status code. |
 | Event delivery | One outbox event for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |

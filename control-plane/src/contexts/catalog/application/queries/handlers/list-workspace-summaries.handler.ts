@@ -1,32 +1,35 @@
-import type { WorkspaceSummaryPageDto } from '@catalog/application/dto/workspace-summary.dto';
+import type { WorkspaceSummaryDto } from '@catalog/application/dto/workspace-summary.dto';
 import { WorkspaceSummaryMapper } from '@catalog/application/mappers/workspace-summary.mapper';
-import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
+import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
 import type { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-workspace-summaries.query';
 import type { WorkspaceDirectoryPort } from '@identity/application/ports/workspace-directory.port';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListWorkspaceSummariesHandler implements QueryHandlerPort<
   ListWorkspaceSummariesQuery,
-  WorkspaceSummaryPageDto
+  Page<WorkspaceSummaryDto>
 > {
   constructor(
     private readonly directory: WorkspaceDirectoryPort,
-    private readonly plans: WorkspacePlansPort,
+    private readonly terms: PlanTermsPort,
   ) {}
 
   async execute(
     query: ListWorkspaceSummariesQuery,
-  ): Promise<WorkspaceSummaryPageDto> {
+  ): Promise<Page<WorkspaceSummaryDto>> {
     const page = await this.directory.list({
       after: query.after,
       limit: query.limit,
       createdAfter: query.createdAfter,
     });
-    const terms = await this.plans.ofEach(page.items.map((each) => each.id));
+    const pageTerms = await this.terms.ofWorkspaces(
+      page.items.map((each) => each.id),
+    );
 
     return {
       items: page.items.map((workspace, at) =>
-        WorkspaceSummaryMapper.toDto(workspace, terms[at]),
+        WorkspaceSummaryMapper.toDto(workspace, pageTerms[at]),
       ),
       next: page.next,
     };

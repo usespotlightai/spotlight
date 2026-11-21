@@ -15,7 +15,7 @@ export interface WorkspaceMemberDto extends MemberDto {
   readonly joinedAt: string;
 }
 
-export type AdminWorkspaceMemberDto = Pick<
+export type WorkspaceMemberSummaryDto = Pick<
   WorkspaceMemberDto,
   'id' | 'email' | 'name' | 'role' | 'joinedAt'
 >;

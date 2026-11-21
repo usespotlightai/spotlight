@@ -1,7 +1,7 @@
 import { WorkspacePlanCreated } from '@catalog/domain/events/workspace-plan-created.event';
 import { WorkspacePlanDeleted } from '@catalog/domain/events/workspace-plan-deleted.event';
 import { WorkspacePlanUpdated } from '@catalog/domain/events/workspace-plan-updated.event';
-import { EndedPlanTermError } from '@catalog/domain/exceptions/ended-plan-term.error';
+import { ExpiredPlanTermError } from '@catalog/domain/exceptions/expired-plan-term.error';
 import type { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { WorkspacePlanChangeDetail } from '@catalog/domain/value-objects/workspace-plan-change-detail.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -10,9 +10,9 @@ import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-act
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const assertNotEnded = (term: PlanTerm, now: Date): void => {
+const assertNotExpired = (term: PlanTerm, now: Date): void => {
   if (term.expiresAt && term.isExpiredAt(now)) {
-    throw new EndedPlanTermError(term.expiresAt);
+    throw new ExpiredPlanTermError(term.expiresAt);
   }
 };
 
@@ -38,7 +38,7 @@ export class WorkspacePlan extends EventRecorder {
       return null;
     }
 
-    assertNotEnded(input.term, input.now);
+    assertNotExpired(input.term, input.now);
 
     const created = new WorkspacePlan(input.workspaceId, input.term, 0, false);
 
@@ -93,7 +93,7 @@ export class WorkspacePlan extends EventRecorder {
       return null;
     }
 
-    assertNotEnded(term, now);
+    assertNotExpired(term, now);
 
     const updated = this.with(term, false);
 
