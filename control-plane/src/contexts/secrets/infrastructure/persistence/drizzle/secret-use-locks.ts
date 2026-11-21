@@ -8,7 +8,7 @@ import { sql } from 'drizzle-orm';
 export class DrizzleSecretUseLocks implements SecretUseLocksPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async lockUsesIn(workspaceId: WorkspaceId): Promise<void> {
+  async lock(workspaceId: WorkspaceId): Promise<void> {
     if (!this.context.transacting) {
       throw new Error('A lock on the uses of secrets needs a transaction');
     }

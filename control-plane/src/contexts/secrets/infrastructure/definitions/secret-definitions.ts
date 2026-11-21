@@ -13,7 +13,10 @@ import {
   RESERVED_SECRET_PREFIX,
 } from '@secrets/domain/value-objects/reserved-secret-name';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
-import { SECRET_SANDBOXES } from '@secrets/domain/value-objects/secret-sandbox.vo';
+import {
+  DEFAULT_SECRET_SANDBOX,
+  SECRET_SANDBOXES,
+} from '@secrets/domain/value-objects/secret-sandbox.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -33,7 +36,7 @@ const secretSchema = z.object({
   bindings: z.array(bindingSchema).default([]),
   sandbox: z
     .enum(SECRET_SANDBOXES, { error: 'is stand-in or env' })
-    .default('stand-in'),
+    .default(DEFAULT_SECRET_SANDBOX),
   valueWo: z.string({ error: 'is the value, as text' }).nullish(),
   valueWoVersion: z
     .number({ error: 'is a whole number that changes to rotate the value' })

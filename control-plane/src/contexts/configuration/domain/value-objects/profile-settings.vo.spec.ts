@@ -1,5 +1,6 @@
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
+import { SandboxVariable } from '@configuration/domain/value-objects/sandbox-variable.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -123,6 +124,26 @@ describe('ProfileSettings', () => {
       return null;
     };
 
+    it('refuses the same variable twice, at the variable', () => {
+      const twice = SandboxVariable.of('DATABASE_URL', 'DEV_DATABASE_URL');
+
+      expect(() =>
+        ProfileSettings.of({
+          rules: [],
+          mcpServers: [],
+          native: {},
+          secrets: [],
+          sandboxEnv: [twice, twice],
+        }),
+      ).toThrow(
+        expect.objectContaining({
+          constructor: InvalidHarnessProfileError,
+          field: ['env', 'DATABASE_URL'],
+          because: 'sets DATABASE_URL twice',
+        }),
+      );
+    });
+
     it('refers to each at its variable, and puts only those in the sandbox', () => {
       const settings = putting({
         GITHUB_APP_PRIVATE_KEY: 'DEV_GITHUB_APP_KEY',
@@ -140,15 +161,11 @@ describe('ProfileSettings', () => {
           name: 'DEV_GITHUB_APP_KEY',
         },
       ]);
-      expect(settings.environment).toEqual({
+      expect(settings.env).toEqual({
         GITHUB_APP_PRIVATE_KEY: 'DEV_GITHUB_APP_KEY',
       });
-      expect(settings.putsInSandbox(SecretName.of('DEV_GITHUB_APP_KEY'))).toBe(
-        true,
-      );
-      expect(settings.putsInSandbox(SecretName.of('STAGING_VIEWER'))).toBe(
-        false,
-      );
+      expect(settings.exposes(SecretName.of('DEV_GITHUB_APP_KEY'))).toBe(true);
+      expect(settings.exposes(SecretName.of('STAGING_VIEWER'))).toBe(false);
     });
 
     it('rejects a variable name a shell cannot set', () => {

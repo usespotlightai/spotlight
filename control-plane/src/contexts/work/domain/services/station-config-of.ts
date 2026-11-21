@@ -56,16 +56,10 @@ export const stationConfigOf = (
               injectedSecrets: profile.injectedSecrets.map(
                 (each) => each.value,
               ),
-              ...(profile.sandboxEnv.length > 0
-                ? {
-                    sandboxEnv: profile.sandboxEnv.map(
-                      ({ variable, secret }) => ({
-                        variable,
-                        secret: secret.value,
-                      }),
-                    ),
-                  }
-                : {}),
+              sandboxEnv: profile.sandboxEnv.map(({ variable, secret }) => ({
+                variable,
+                secret: secret.value,
+              })),
             },
           }
         : null,

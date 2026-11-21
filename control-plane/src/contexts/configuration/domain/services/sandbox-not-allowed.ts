@@ -2,12 +2,12 @@ import type { KnownSecrets } from '@configuration/domain/value-objects/known-sec
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 
-export const keptOutOfSandbox = (
+export const sandboxNotAllowed = (
   settings: ProfileSettings,
   known: KnownSecrets,
 ): readonly SecretReference[] =>
   settings.sandboxReferences.filter(
     (reference) =>
       reference.isToAnyOf(known.existing) &&
-      !reference.isToAnyOf(known.allowedInSandbox),
+      !reference.isToAnyOf(known.sandboxSecrets),
   );

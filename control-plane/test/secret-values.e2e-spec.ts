@@ -390,7 +390,7 @@ describe('secret values set outside Terraform (e2e)', () => {
             },
           ],
           awaitingValue: false,
-          entersSandbox: false,
+          allowsSandbox: false,
         },
         {
           name: STAGING.name,
@@ -403,7 +403,7 @@ describe('secret values set outside Terraform (e2e)', () => {
             },
           ],
           awaitingValue: true,
-          entersSandbox: false,
+          allowsSandbox: false,
         },
       ]),
     );

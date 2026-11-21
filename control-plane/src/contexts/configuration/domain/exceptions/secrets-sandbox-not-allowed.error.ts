@@ -1,7 +1,7 @@
 import type { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
-export class SecretsKeptOutOfSandboxError extends DomainError {
+export class SecretsSandboxNotAllowedError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(
@@ -11,6 +11,6 @@ export class SecretsKeptOutOfSandboxError extends DomainError {
     super(
       `Harness profile ${key} puts secrets in the sandbox that do not allow it: ${refused.map((each) => each.name.value).join(', ')}`,
     );
-    this.name = 'SecretsKeptOutOfSandboxError';
+    this.name = 'SecretsSandboxNotAllowedError';
   }
 }

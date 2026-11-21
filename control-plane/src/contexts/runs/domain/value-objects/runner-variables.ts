@@ -1,4 +1,4 @@
-export const RUNNER_SET_VARIABLES: readonly string[] = [
+export const RUNNER_VARIABLES: readonly string[] = [
   'ALL_PROXY',
   'COLORTERM',
   'CURL_CA_BUNDLE',
@@ -21,11 +21,10 @@ export const RUNNER_SET_VARIABLES: readonly string[] = [
 
 export const RUNNER_VARIABLE_PREFIX = 'SPOTLIGHT_';
 
-export const isSetByTheRunner = (variable: string): boolean => {
+export const isRunnerVariable = (variable: string): boolean => {
   const upper = variable.toUpperCase();
 
   return (
-    RUNNER_SET_VARIABLES.includes(upper) ||
-    upper.startsWith(RUNNER_VARIABLE_PREFIX)
+    RUNNER_VARIABLES.includes(upper) || upper.startsWith(RUNNER_VARIABLE_PREFIX)
   );
 };

@@ -281,7 +281,7 @@ func (j *journal) RecordStartingPoint(_ context.Context, _ string, point protoco
 	return nil
 }
 
-func (j *journal) SandboxEnv(_ context.Context, _ string, attempt int) (protocol.SandboxEnv, error) {
+func (j *journal) RevealSandboxEnv(_ context.Context, _ string, attempt int) (protocol.SandboxEnv, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.calls = append(j.calls, "sandbox-env")
@@ -433,7 +433,7 @@ type runOptions struct {
 	frames        bool
 	protocol      string
 	log           *slog.Logger
-	sandboxEnv    []protocol.SandboxEnvVariable
+	sandboxEnv    []protocol.SandboxVariable
 	fetched       protocol.SandboxEnv
 	fetchErr      error
 	wantErr       bool

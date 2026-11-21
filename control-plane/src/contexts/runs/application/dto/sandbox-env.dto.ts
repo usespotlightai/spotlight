@@ -1,12 +1,3 @@
-import type { Credential } from '@secrets/application/contracts/credential.contract';
+import type { RevealedSandboxEnv } from '@secrets/application/contracts/sandbox-env.contract';
 
-export interface SandboxEnvDto {
-  readonly variables: readonly {
-    readonly name: string;
-    readonly value: Credential;
-  }[];
-  readonly denied: readonly {
-    readonly secret: string;
-    readonly reason: string;
-  }[];
-}
+export type SandboxEnvDto = RevealedSandboxEnv;

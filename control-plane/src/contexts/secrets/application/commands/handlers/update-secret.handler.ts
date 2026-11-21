@@ -64,7 +64,7 @@ export class UpdateSecretHandler implements CommandHandlerPort<
       }
 
       await this.transaction.inTransaction(async () => {
-        await this.locks.lockUsesIn(existing.workspaceId);
+        await this.locks.lock(existing.workspaceId);
 
         const updated = existing.update(
           compiled,

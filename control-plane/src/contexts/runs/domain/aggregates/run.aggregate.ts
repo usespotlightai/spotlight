@@ -1580,7 +1580,7 @@ export class Run extends EventRecorder {
     return this.wasClaimedBy(runner) ? this.attempt : null;
   }
 
-  sandboxEnvOn(
+  sandboxEnv(
     attempt: RunAttempt,
     runner: RunnerId,
   ): readonly RunSandboxVariable[] {

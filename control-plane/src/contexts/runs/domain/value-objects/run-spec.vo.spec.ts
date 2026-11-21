@@ -43,12 +43,16 @@ describe('RunSpec', () => {
       RunSpec.of(
         parts({ sandboxEnv: [{ variable: 'GITHUB-KEY', secret: key.secret }] }),
       ),
-    ).toThrow(InvalidRunSpecError);
+    ).toThrow(
+      'Run spec must name each environment variable and the secret it holds.',
+    );
     expect(() =>
       RunSpec.of(parts({ sandboxEnv: [{ ...key, secret: 'dev key' }] })),
-    ).toThrow(InvalidRunSpecError);
+    ).toThrow(
+      'Run spec must name each environment variable and the secret it holds.',
+    );
     expect(() => RunSpec.of(parts({ sandboxEnv: [key, key] }))).toThrow(
-      InvalidRunSpecError,
+      'Run spec must set environment variable GITHUB_APP_PRIVATE_KEY once.',
     );
     expect(() =>
       RunSpec.of(
@@ -57,7 +61,9 @@ describe('RunSpec', () => {
         }),
       ),
     ).toThrow('which the runner sets in every sandbox');
-    expect(actsBeyondItselfIn(parts({ sandboxEnv: [key] }))).not.toBeNull();
+    expect(actsBeyondItselfIn(parts({ sandboxEnv: [key] }))).toBe(
+      'puts secrets in its sandbox',
+    );
   });
 
   it('keeps the variables the harness command sets, harness keys among them, out of the sandbox env', () => {
@@ -80,6 +86,16 @@ describe('RunSpec', () => {
         SecretName.of('ANTHROPIC_API_KEY'),
       ]),
     ).toThrow('which the harness command sets');
+  });
+
+  it('takes a variable named like a property every object has, which no harness command sets', () => {
+    const spec = RunSpec.of(
+      parts({ sandboxEnv: [{ variable: 'toString', secret: 'DEV_KEY' }] }),
+    );
+
+    expect(spec.sandboxEnv).toEqual([
+      { variable: 'toString', secret: 'DEV_KEY' },
+    ]);
   });
 
   it('gives the harness a stand-in for each harness key it wears, and has egress inject each', () => {

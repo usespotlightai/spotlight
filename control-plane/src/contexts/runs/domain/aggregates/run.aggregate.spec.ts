@@ -577,7 +577,7 @@ describe('Run', () => {
       variable: 'GITHUB_APP_PRIVATE_KEY',
       secret: 'DEV_GITHUB_APP_KEY',
     };
-    const inSandbox = () =>
+    const sandboxed = () =>
       Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
@@ -593,23 +593,23 @@ describe('Run', () => {
       });
 
     it('names them to the runner on the attempt it leases', () => {
-      const leased = inSandbox().claim(claimer(runner()), noon);
+      const leased = sandboxed().claim(claimer(runner()), noon);
 
-      expect(leased.sandboxEnvOn(leased.attempt, runner())).toEqual([appKey]);
+      expect(leased.sandboxEnv(leased.attempt, runner())).toEqual([appKey]);
     });
 
     it('names them to no other runner, and on no attempt it has left behind', () => {
-      const leased = inSandbox().claim(claimer(runner()), noon);
+      const leased = sandboxed().claim(claimer(runner()), noon);
       const first = leased.attempt;
       const reclaimed = lostAndRequeued(leased).claim(
         claimer(runner()),
         at('2026-08-28T12:00:00.000Z'),
       );
 
-      expect(() => leased.sandboxEnvOn(first, runner('runner_2'))).toThrow(
+      expect(() => leased.sandboxEnv(first, runner('runner_2'))).toThrow(
         RunAttemptOverError,
       );
-      expect(() => reclaimed.sandboxEnvOn(first, runner())).toThrow(
+      expect(() => reclaimed.sandboxEnv(first, runner())).toThrow(
         RunAttemptOverError,
       );
     });

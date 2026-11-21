@@ -3,7 +3,7 @@ import type { DeniedSecret } from '@secrets/application/contracts/run-secret-fet
 import type {
   RevealedSandboxEnv,
   RevealedVariable,
-  SandboxEnvRequest,
+  SandboxEnvReveal,
 } from '@secrets/application/contracts/sandbox-env.contract';
 import type { SandboxEnvRevealsPort } from '@secrets/application/ports/sandbox-env-reveals.port';
 import type { SecretStorePort } from '@secrets/application/ports/secret-store.port';
@@ -22,12 +22,12 @@ export class SandboxEnvReveals implements SandboxEnvRevealsPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async revealFor(request: SandboxEnvRequest): Promise<RevealedSandboxEnv> {
+  async reveal(request: SandboxEnvReveal): Promise<RevealedSandboxEnv> {
     const workspaceId = WorkspaceId.of(request.workspaceId);
     const variables: RevealedVariable[] = [];
     const denied: DeniedSecret[] = [];
 
-    for (const { variable, secret: name } of request.variables) {
+    for (const { variable, secret: name } of request.sandboxEnv) {
       try {
         const secret = await this.secrets.named(
           workspaceId,
@@ -38,7 +38,7 @@ export class SandboxEnvReveals implements SandboxEnvRevealsPort {
           throw new NoSuchSecretError(name);
         }
 
-        secret.assertEntersSandbox();
+        secret.assertAllowsSandbox();
 
         variables.push({
           name: variable,
@@ -58,7 +58,7 @@ export class SandboxEnvReveals implements SandboxEnvRevealsPort {
         {
           workspaceId: request.workspaceId,
           runId: request.runId,
-          secrets: request.variables
+          secrets: request.sandboxEnv
             .filter((each) =>
               variables.some((revealed) => revealed.name === each.variable),
             )

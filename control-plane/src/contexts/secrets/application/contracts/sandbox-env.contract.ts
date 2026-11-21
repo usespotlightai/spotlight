@@ -6,10 +6,10 @@ interface SandboxVariable {
   readonly secret: string;
 }
 
-export interface SandboxEnvRequest {
+export interface SandboxEnvReveal {
   readonly workspaceId: string;
   readonly runId: string;
-  readonly variables: readonly SandboxVariable[];
+  readonly sandboxEnv: readonly SandboxVariable[];
 }
 
 export interface RevealedVariable {

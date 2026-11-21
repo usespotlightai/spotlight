@@ -22,17 +22,17 @@ export class WorkspaceSecrets implements SecretNamesPort {
       : [];
   }
 
-  async knownTo(teamId: TeamId): Promise<KnownSecrets> {
+  async known(teamId: TeamId): Promise<KnownSecrets> {
     const team = await this.teams.find(teamId);
 
     if (!team) {
-      return KnownSecrets.of({ existing: [], allowedInSandbox: [] });
+      return KnownSecrets.of({ existing: [], sandboxSecrets: [] });
     }
 
     return KnownSecrets.of({
       existing: named(await this.secrets.namesIn(team.workspaceId.value)),
-      allowedInSandbox: named(
-        await this.secrets.namesInSandboxIn(team.workspaceId.value),
+      sandboxSecrets: named(
+        await this.secrets.sandboxSecrets(team.workspaceId.value),
       ),
     });
   }

@@ -50,7 +50,7 @@ export class ProfileSettings {
     readonly mcpServers: readonly McpServer[],
     readonly native: Readonly<Record<string, unknown>>,
     readonly secrets: readonly SecretName[],
-    readonly env: readonly SandboxVariable[],
+    readonly sandboxEnv: readonly SandboxVariable[],
   ) {}
 
   static fromRaw(settings: RawSettings): ProfileSettings {
@@ -65,7 +65,7 @@ export class ProfileSettings {
       ),
       native: settings.native,
       secrets: settings.secrets.map((raw, at) => secretAt(raw, at)),
-      env: Object.entries(settings.env).map(([variable, secret]) =>
+      sandboxEnv: Object.entries(settings.env).map(([variable, secret]) =>
         SandboxVariable.of(variable, secret),
       ),
     });
@@ -76,7 +76,7 @@ export class ProfileSettings {
     mcpServers: readonly McpServer[];
     native: Readonly<Record<string, unknown>>;
     secrets: readonly SecretName[];
-    env: readonly SandboxVariable[];
+    sandboxEnv: readonly SandboxVariable[];
   }): ProfileSettings {
     input.rules.forEach((rule, at) => {
       const earlier = input.rules
@@ -113,9 +113,11 @@ export class ProfileSettings {
       }
     });
 
-    input.env.forEach((each, at) => {
+    input.sandboxEnv.forEach((each, at) => {
       if (
-        input.env.slice(0, at).some((other) => other.variable === each.variable)
+        input.sandboxEnv
+          .slice(0, at)
+          .some((other) => other.variable === each.variable)
       ) {
         throw new InvalidHarnessProfileError(
           ['env', each.variable],
@@ -131,7 +133,7 @@ export class ProfileSettings {
         JSON.parse(JSON.stringify(input.native)) as Record<string, unknown>,
       ),
       Object.freeze([...input.secrets]),
-      Object.freeze([...input.env]),
+      Object.freeze([...input.sandboxEnv]),
     );
   }
 
@@ -161,7 +163,7 @@ export class ProfileSettings {
   }
 
   get sandboxReferences(): readonly SecretReference[] {
-    return this.env.map(({ variable, secret }) =>
+    return this.sandboxEnv.map(({ variable, secret }) =>
       SecretReference.at(FieldPath.of(['env', variable]), secret),
     );
   }
@@ -170,7 +172,7 @@ export class ProfileSettings {
     return this.secretReferences.some((each) => each.isTo(secret));
   }
 
-  putsInSandbox(secret: SecretName): boolean {
+  exposes(secret: SecretName): boolean {
     return this.sandboxReferences.some((each) => each.isTo(secret));
   }
 
@@ -181,9 +183,9 @@ export class ProfileSettings {
     );
   }
 
-  get environment(): Record<string, string> {
+  get env(): Record<string, string> {
     return Object.fromEntries(
-      this.env.map((each) => [each.variable, each.secret.value]),
+      this.sandboxEnv.map((each) => [each.variable, each.secret.value]),
     );
   }
 
@@ -199,7 +201,7 @@ export class ProfileSettings {
       mcpServers: this.mcpServers,
       native: this.native,
       secrets: this.secrets.map((each) => each.value),
-      env: this.environment,
+      env: this.env,
     };
   }
 }

@@ -1,13 +1,13 @@
 import type { CreateHarnessProfileCommand } from '@configuration/application/commands/create-harness-profile.command';
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
-import type { SecretUseLockPort } from '@configuration/application/ports/secret-use-lock.port';
+import type { SecretUseLocksPort } from '@configuration/application/ports/secret-use-locks.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileAlreadyExistsError } from '@configuration/domain/exceptions/harness-profile-already-exists.error';
 import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
-import { SecretsKeptOutOfSandboxError } from '@configuration/domain/exceptions/secrets-kept-out-of-sandbox.error';
+import { SecretsSandboxNotAllowedError } from '@configuration/domain/exceptions/secrets-sandbox-not-allowed.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
@@ -39,7 +39,7 @@ export class CreateHarnessProfileHandler implements CommandHandlerPort<
     private readonly teams: TeamDirectoryPort,
     private readonly compiler: HarnessProfileCompilerPort,
     private readonly secrets: SecretNamesPort,
-    private readonly locks: SecretUseLockPort,
+    private readonly locks: SecretUseLocksPort,
     private readonly profiles: HarnessProfileRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
@@ -87,7 +87,7 @@ export class CreateHarnessProfileHandler implements CommandHandlerPort<
       try {
         return await this.transaction.inTransaction(() =>
           createIdempotently(this.creates, create, async () => {
-            await this.locks.lockUsesBy(team.id);
+            await this.locks.lock(team.id);
 
             const created = HarnessProfile.create({
               key: compiled.key,
@@ -95,7 +95,7 @@ export class CreateHarnessProfileHandler implements CommandHandlerPort<
               id: HarnessProfileId.of(this.ids.generate()),
               teamId: team.id,
               by: ChangeActor.of(command.actor, team.workspaceId),
-              knownSecrets: await this.secrets.knownTo(team.id),
+              knownSecrets: await this.secrets.known(team.id),
               harnesses: this.compiler,
             });
 
@@ -122,10 +122,10 @@ export class CreateHarnessProfileHandler implements CommandHandlerPort<
           };
         }
 
-        if (error instanceof SecretsKeptOutOfSandboxError) {
+        if (error instanceof SecretsSandboxNotAllowedError) {
           return {
             outcome: 'invalid',
-            problems: HarnessProfileProblems.keptOutOfSandbox(
+            problems: HarnessProfileProblems.sandboxNotAllowed(
               error.key,
               error.refused,
             ),

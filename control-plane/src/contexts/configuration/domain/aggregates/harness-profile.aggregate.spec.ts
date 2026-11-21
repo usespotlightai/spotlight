@@ -6,7 +6,7 @@ import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harne
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
-import { SecretsKeptOutOfSandboxError } from '@configuration/domain/exceptions/secrets-kept-out-of-sandbox.error';
+import { SecretsSandboxNotAllowedError } from '@configuration/domain/exceptions/secrets-sandbox-not-allowed.error';
 import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { KnownSecrets } from '@configuration/domain/value-objects/known-secrets.vo';
@@ -59,7 +59,7 @@ const harnessesFinding = (compatibility: HarnessCompatibility) => ({
 
 const COMPATIBLE = harnessesFinding(HarnessCompatibility.of([]));
 
-const NONE = KnownSecrets.of({ existing: [], allowedInSandbox: [] });
+const NONE = KnownSecrets.of({ existing: [], sandboxSecrets: [] });
 
 const CAREFUL = {
   resource: 'harness-profile' as const,
@@ -213,7 +213,7 @@ describe('HarnessProfile', () => {
         .update(
           referring,
           BY,
-          KnownSecrets.of({ existing, allowedInSandbox: [] }),
+          KnownSecrets.of({ existing, sandboxSecrets: [] }),
           COMPATIBLE,
         )
         .settings.uses(existing[0]),
@@ -241,23 +241,31 @@ describe('HarnessProfile', () => {
         by: BY,
         knownSecrets: KnownSecrets.of({
           existing: [key],
-          allowedInSandbox: [],
+          sandboxSecrets: [],
         }),
         harnesses: COMPATIBLE,
       }),
-    ).toThrow(SecretsKeptOutOfSandboxError);
+    ).toThrow(SecretsSandboxNotAllowedError);
     expect(() => stored().update(putting, BY, NONE, COMPATIBLE)).toThrow(
       MissingSecretsError,
     );
+    expect(() =>
+      stored().update(
+        putting,
+        BY,
+        KnownSecrets.of({ existing: [key], sandboxSecrets: [] }),
+        COMPATIBLE,
+      ),
+    ).toThrow(SecretsSandboxNotAllowedError);
     expect(
       stored()
         .update(
           putting,
           BY,
-          KnownSecrets.of({ existing: [key], allowedInSandbox: [key] }),
+          KnownSecrets.of({ existing: [key], sandboxSecrets: [key] }),
           COMPATIBLE,
         )
-        .settings.putsInSandbox(key),
+        .settings.exposes(key),
     ).toBe(true);
   });
 

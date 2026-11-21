@@ -1,6 +1,11 @@
 import { SandboxEnvReveals } from '@secrets/application/services/sandbox-env-reveals.service';
+import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
+import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import {
+  BY,
+  definition,
   InMemorySecrets,
+  NOW,
   InMemoryStore,
   RecordingLogger,
   saveSecret,
@@ -24,8 +29,26 @@ const setUp = async () => {
     name: 'DEV_PIN',
     value: '1234',
     bindings: [],
-    sandbox: 'env',
   });
+  const pin = await secrets.withId(SecretId.of('secret_pin'));
+
+  if (!pin) {
+    throw new Error('DEV_PIN was not saved');
+  }
+
+  await secrets.save(
+    pin.update(
+      definition({
+        name: 'DEV_PIN',
+        value: '1234',
+        bindings: [],
+        sandbox: 'env',
+      }),
+      BY,
+      NOW,
+      SecretUses.none(),
+    ),
+  );
   await saveSecret(secrets, 'secret_waiting', {
     name: 'DEV_DATABASE_URL',
     value: null,
@@ -37,17 +60,17 @@ const setUp = async () => {
   return { reveals: new SandboxEnvReveals(secrets, store, logger), logger };
 };
 
-const revealing = (variables: { variable: string; secret: string }[]) => ({
+const revealing = (sandboxEnv: { variable: string; secret: string }[]) => ({
   workspaceId: WORKSPACE.value,
   runId: 'run_1',
-  variables,
+  sandboxEnv,
 });
 
 describe('SandboxEnvReveals', () => {
   it('gives each variable the value of a secret that allows the sandbox, and logs which secrets it gave', async () => {
     const { reveals, logger } = await setUp();
 
-    const revealed = await reveals.revealFor(
+    const revealed = await reveals.reveal(
       revealing([
         { variable: 'GITHUB_APP_PRIVATE_KEY', secret: 'DEV_GITHUB_APP_KEY' },
       ]),
@@ -68,10 +91,10 @@ describe('SandboxEnvReveals', () => {
     ]);
   });
 
-  it('denies a value too short to replace with its stand-in', async () => {
+  it('denies a value stored before the secret allowed sandboxes that does not fit the sandbox', async () => {
     const { reveals, logger } = await setUp();
 
-    const revealed = await reveals.revealFor(
+    const revealed = await reveals.reveal(
       revealing([{ variable: 'PIN', secret: 'DEV_PIN' }]),
     );
 
@@ -79,18 +102,17 @@ describe('SandboxEnvReveals', () => {
     expect(revealed.denied).toEqual([
       {
         secret: 'DEV_PIN',
-        reason: expect.stringContaining(
-          'is shorter than 8 characters',
-        ) as unknown,
+        reason:
+          'The value of secret DEV_PIN must have at least 8 characters that are not whitespace, and no NUL byte, since a run gets DEV_PIN in its sandbox. Set a new value.',
       },
     ]);
     expect(logger.informed).toEqual([]);
   });
 
-  it('denies a secret kept out of sandboxes, one without a value and one the workspace does not have', async () => {
+  it('denies a secret that does not allow the sandbox, one without a value and one the workspace does not have', async () => {
     const { reveals, logger } = await setUp();
 
-    const revealed = await reveals.revealFor(
+    const revealed = await reveals.reveal(
       revealing([
         { variable: 'LINEAR_API_KEY', secret: 'LINEAR_API_KEY' },
         { variable: 'DATABASE_URL', secret: 'DEV_DATABASE_URL' },
@@ -99,14 +121,22 @@ describe('SandboxEnvReveals', () => {
     );
 
     expect(revealed.variables).toEqual([]);
-    expect(revealed.denied.map((each) => each.secret)).toEqual([
-      'LINEAR_API_KEY',
-      'DEV_DATABASE_URL',
-      'GONE',
+    expect(revealed.denied).toEqual([
+      {
+        secret: 'LINEAR_API_KEY',
+        reason:
+          'Secret LINEAR_API_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret.',
+      },
+      {
+        secret: 'DEV_DATABASE_URL',
+        reason:
+          'Secret DEV_DATABASE_URL has no value. Set it on the Secrets settings page, with spotlight secret set DEV_DATABASE_URL, or with value_wo and value_wo_version in Terraform.',
+      },
+      {
+        secret: 'GONE',
+        reason: 'Secret GONE not found. Please create it first.',
+      },
     ]);
-    expect(revealed.denied[0]?.reason).toMatch(
-      /does not allow its value in a sandbox/,
-    );
     expect(logger.informed).toEqual([]);
   });
 });

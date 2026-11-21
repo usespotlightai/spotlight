@@ -315,7 +315,7 @@ const trialsOf = () =>
             name,
             bindings: [],
             awaitingValue: true,
-            entersSandbox: false,
+            allowsSandbox: false,
           }));
         },
       },

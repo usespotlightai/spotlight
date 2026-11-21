@@ -155,6 +155,50 @@ describe('stationConfigOf', () => {
     });
   });
 
+  describe('the secrets its profile puts in the sandbox', () => {
+    const profiled = (
+      sandboxEnv: readonly { variable: string; secret: string }[],
+    ) =>
+      configured(station(), {
+        ...ORDER,
+        enabled: {
+          profile: {
+            key: ProfileKey.of('careful'),
+            rules: [],
+            mcpServers: [],
+            native: {},
+            injectedSecrets: [],
+            sandboxEnv: sandboxEnv.map(({ variable, secret }) => ({
+              variable,
+              secret: SecretName.of(secret),
+            })),
+          },
+          stationTools: [],
+          toolsOnMarks: [],
+          tools: [],
+        },
+      } as unknown as RunOrder);
+    const APP_KEY = {
+      variable: 'GITHUB_APP_PRIVATE_KEY',
+      secret: 'DEV_GITHUB_APP_KEY',
+    };
+
+    it('are part of the profile’s settings, even where it names none', () => {
+      expect(profiled([APP_KEY]).parts.profile?.settings).toEqual(
+        expect.objectContaining({ sandboxEnv: [APP_KEY] }),
+      );
+      expect(profiled([]).parts.profile?.settings).toEqual(
+        expect.objectContaining({ sandboxEnv: [] }),
+      );
+    });
+
+    it('change the station’s config when they change', () => {
+      expect(profiled([APP_KEY]).fingerprint).not.toBe(
+        profiled([]).fingerprint,
+      );
+    });
+  });
+
   it('configures no judge on a station without one', () => {
     expect(configured(station()).parts).not.toHaveProperty('judge');
   });

@@ -1,6 +1,9 @@
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { isEnvironmentVariableName } from '@shared-kernel/domain/value-objects/environment-variable-name';
+import {
+  ENVIRONMENT_VARIABLE_NAME_RULE,
+  isEnvironmentVariableName,
+} from '@shared-kernel/domain/value-objects/environment-variable-name';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 export class SandboxVariable {
@@ -13,10 +16,7 @@ export class SandboxVariable {
     const at = ['env', variable];
 
     if (!isEnvironmentVariableName(variable)) {
-      throw new InvalidHarnessProfileError(
-        at,
-        'environment variable names must use letters, digits and underscores',
-      );
+      throw new InvalidHarnessProfileError(at, ENVIRONMENT_VARIABLE_NAME_RULE);
     }
 
     try {

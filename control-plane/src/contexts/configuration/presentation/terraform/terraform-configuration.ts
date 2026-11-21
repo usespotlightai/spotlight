@@ -883,7 +883,9 @@ const secret = (
       ...refer.owner(resource),
       attribute('name', resource.name),
       attribute('bindings', hclOf(resource.bindings)),
-      ...(resource.sandbox === 'env' ? [attribute('sandbox', 'env')] : []),
+      ...(resource.sandbox === null
+        ? []
+        : [attribute('sandbox', resource.sandbox)]),
       ...(resource.valueVersion === null
         ? []
         : [

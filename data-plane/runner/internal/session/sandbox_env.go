@@ -18,15 +18,15 @@ import (
 
 func variableProblem(name string) string {
 	switch {
-	case name == "" || strings.ContainsAny(name, "=\x00"):
-		return fmt.Sprintf("%q is not a name an environment variable can have", name)
-	case protocol.SetByTheRunner(name):
-		return fmt.Sprintf("the runner sets %s itself, so no secret may take its place", name)
+	case !protocol.IsEnvironmentVariableName(name):
+		return fmt.Sprintf("sets %q, but environment variable names must use letters, digits and underscores", name)
+	case protocol.IsRunnerVariable(name):
+		return fmt.Sprintf("sets %s, which the runner sets in every sandbox", name)
 	}
 	return ""
 }
 
-func secretRefused(secret, reason string) error {
+func refusal(secret, reason string) error {
 	return fmt.Errorf("Secret %s could not be put in the sandbox: %s", secret, reason)
 }
 
@@ -43,8 +43,15 @@ func (o Options) sandboxEnv(ctx context.Context, run protocol.Run) (sandboxEnv, 
 	secretOf := make(map[string]string, len(run.Spec.SandboxEnv))
 	var refused []error
 	for _, each := range run.Spec.SandboxEnv {
-		if problem := variableProblem(each.Variable); problem != "" {
-			refused = append(refused, secretRefused(each.Secret, problem))
+		problem := variableProblem(each.Variable)
+		if _, twice := secretOf[each.Variable]; problem == "" && twice {
+			problem = fmt.Sprintf("sets %s twice", each.Variable)
+		}
+		if _, set := run.Spec.Command.Env[each.Variable]; problem == "" && set {
+			problem = fmt.Sprintf("sets %s, which the harness command sets", each.Variable)
+		}
+		if problem != "" {
+			refused = append(refused, refusal(each.Secret, problem))
 			continue
 		}
 		secretOf[each.Variable] = each.Secret
@@ -53,35 +60,48 @@ func (o Options) sandboxEnv(ctx context.Context, run protocol.Run) (sandboxEnv, 
 		return sandboxEnv{}, errors.Join(refused...)
 	}
 
-	fetched, err := o.Journal.SandboxEnv(ctx, run.ID, run.Attempt)
+	fetched, err := o.Journal.RevealSandboxEnv(ctx, run.ID, run.Attempt)
 	if err != nil {
 		return sandboxEnv{}, err
 	}
 
-	for _, denied := range fetched.Denied {
-		refused = append(refused, secretRefused(denied.Secret, denied.Reason))
+	denied := make(map[string]bool, len(fetched.Denied))
+	for _, each := range fetched.Denied {
+		refused = append(refused, refusal(each.Secret, each.Reason))
+		denied[each.Secret] = true
 	}
 
 	values := make(map[string]string, len(fetched.Variables))
-	standIns := make(map[string]string, len(fetched.Variables))
+	secretValues := make(map[string]string, len(fetched.Variables))
+	sent := make(map[string]bool, len(fetched.Variables))
 	for _, variable := range fetched.Variables {
+		sent[variable.Name] = true
 		secret, asked := secretOf[variable.Name]
 		if !asked {
 			refused = append(refused, fmt.Errorf("Spotlight sent a value for %s, which the run did not ask for", variable.Name))
 			continue
 		}
 		if strings.Contains(variable.Value, "\x00") {
-			refused = append(refused, secretRefused(secret, "its value holds a NUL byte, which no environment variable can hold"))
+			refused = append(refused, refusal(secret, "its value holds a NUL byte, which no environment variable can hold"))
+			continue
+		}
+		if !protocol.FitsSandbox(variable.Value) {
+			refused = append(refused, refusal(secret, fmt.Sprintf("its value has fewer than %d characters that are not whitespace", protocol.SandboxValueMinLength)))
 			continue
 		}
 		values[variable.Name] = variable.Value
-		standIns[secret] = variable.Value
+		secretValues[secret] = variable.Value
+	}
+	for _, name := range slices.Sorted(maps.Keys(secretOf)) {
+		if secret := secretOf[name]; !sent[name] && !denied[secret] {
+			refused = append(refused, refusal(secret, fmt.Sprintf("Spotlight sent no value for %s", name)))
+		}
 	}
 	if len(refused) > 0 {
 		return sandboxEnv{}, errors.Join(refused...)
 	}
 
-	return sandboxEnv{values: values, redactor: inject.RedactorOf(standIns)}, nil
+	return sandboxEnv{values: values, redactor: inject.NewRedactor(secretValues)}, nil
 }
 
 func (s sandboxEnv) fingerprint() string {
@@ -95,7 +115,7 @@ func (s sandboxEnv) fingerprint() string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func (s sandboxEnv) over(env map[string]string) map[string]string {
+func (s sandboxEnv) overlay(env map[string]string) map[string]string {
 	with := make(map[string]string, len(s.values)+len(env))
 	maps.Copy(with, s.values)
 	maps.Copy(with, env)

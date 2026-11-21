@@ -669,7 +669,7 @@ const bodyOf = (
       return {
         name: resource.name,
         bindings: resource.bindings,
-        sandbox: resource.sandbox,
+        ...(resource.sandbox === null ? {} : { sandbox: resource.sandbox }),
         ...(resource.valueVersion !== null ? { valueWo: VALUE } : {}),
         ...(resource.valueVersion === null
           ? {}

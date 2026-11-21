@@ -40,7 +40,7 @@ import {
   SECRET_NAMES,
   type SecretNamesPort,
 } from '@configuration/application/ports/secret-names.port';
-import { SECRET_USE_LOCK } from '@configuration/application/ports/secret-use-lock.port';
+import { SECRET_USE_LOCKS } from '@configuration/application/ports/secret-use-locks.port';
 import {
   SECRETS_AWAITING_VALUE,
   type SecretsAwaitingValuePort,
@@ -112,7 +112,7 @@ import { HarnessReviewOfRuns } from '@configuration/infrastructure/acl/harness-r
 import { StationProfiles } from '@configuration/infrastructure/acl/station-profiles.adapter';
 import { StationSkillTools } from '@configuration/infrastructure/acl/station-skill-tools.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
-import { WorkspaceSecretUseLock } from '@configuration/infrastructure/acl/workspace-secret-use-lock.adapter';
+import { WorkspaceSecretUseLocks } from '@configuration/infrastructure/acl/workspace-secret-use-locks.adapter';
 import { WorkspaceSecretsAwaitingValue } from '@configuration/infrastructure/acl/workspace-secrets-awaiting-value.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/infrastructure/events/configuration-payload-types';
@@ -192,8 +192,8 @@ import {
   type SecretReadinessPort,
 } from '@secrets/application/ports/secret-readiness.port';
 import {
-  SECRET_USE_LOCKS,
-  type SecretUseLocksPort,
+  SECRET_USE_LOCKS as SECRETS_SECRET_USE_LOCKS,
+  type SecretUseLocksPort as SecretsSecretUseLocksPort,
 } from '@secrets/application/ports/secret-use-locks.port';
 import {
   SECRET_USES,
@@ -245,10 +245,10 @@ const adapters: Provider[] = [
       new WorkspaceSecrets(teams, secrets),
   },
   {
-    provide: SECRET_USE_LOCK,
-    inject: [TEAM_DIRECTORY, SECRET_USE_LOCKS],
-    useFactory: (teams: TeamDirectoryPort, locks: SecretUseLocksPort) =>
-      new WorkspaceSecretUseLock(teams, locks),
+    provide: SECRET_USE_LOCKS,
+    inject: [TEAM_DIRECTORY, SECRETS_SECRET_USE_LOCKS],
+    useFactory: (teams: TeamDirectoryPort, locks: SecretsSecretUseLocksPort) =>
+      new WorkspaceSecretUseLocks(teams, locks),
   },
   {
     provide: SECRETS_AWAITING_VALUE,
@@ -416,7 +416,7 @@ const handlers: Provider[] = [
       TEAM_DIRECTORY,
       HARNESS_PROFILE_COMPILER,
       SECRET_NAMES,
-      SECRET_USE_LOCK,
+      SECRET_USE_LOCKS,
       HARNESS_PROFILES,
       IDEMPOTENT_CREATES,
       ID_GENERATOR,
@@ -430,7 +430,7 @@ const handlers: Provider[] = [
       WORKSPACE_ACCESS,
       HARNESS_PROFILE_COMPILER,
       SECRET_NAMES,
-      SECRET_USE_LOCK,
+      SECRET_USE_LOCKS,
       HARNESS_PROFILES,
       TRANSACTION,
     ],

@@ -43,7 +43,7 @@ describe('ProfileSecretUses', () => {
     await expect(
       uses.usesOf({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
     ).resolves.toEqual([
-      { kind: 'harness-profile', key: 'core/careful', inSandbox: false },
+      { kind: 'harness-profile', key: 'core/careful', exposes: false },
     ]);
   });
 

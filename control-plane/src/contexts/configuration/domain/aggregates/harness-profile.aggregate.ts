@@ -5,10 +5,10 @@ import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harne
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
-import { SecretsKeptOutOfSandboxError } from '@configuration/domain/exceptions/secrets-kept-out-of-sandbox.error';
+import { SecretsSandboxNotAllowedError } from '@configuration/domain/exceptions/secrets-sandbox-not-allowed.error';
 import type { HarnessCompatibilityCheck } from '@configuration/domain/services/harness-compatibility-check';
-import { keptOutOfSandbox } from '@configuration/domain/services/kept-out-of-sandbox';
 import { missingSecrets } from '@configuration/domain/services/missing-secrets';
+import { sandboxNotAllowed } from '@configuration/domain/services/sandbox-not-allowed';
 import type { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { KnownSecrets } from '@configuration/domain/value-objects/known-secrets.vo';
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
@@ -58,10 +58,10 @@ const rejectUnusable = (
     throw new MissingSecretsError(parsed.key.value, missing);
   }
 
-  const refused = keptOutOfSandbox(parsed.settings, known);
+  const refused = sandboxNotAllowed(parsed.settings, known);
 
   if (refused.length > 0) {
-    throw new SecretsKeptOutOfSandboxError(parsed.key.value, refused);
+    throw new SecretsSandboxNotAllowedError(parsed.key.value, refused);
   }
 };
 

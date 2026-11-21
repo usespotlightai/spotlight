@@ -1,11 +1,21 @@
 package protocol
 
 import (
+	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 )
 
-var RunnerSetVariables = []string{
+const EnvironmentVariableNamePattern = `^[A-Za-z_][A-Za-z0-9_]*$`
+
+var environmentVariableName = regexp.MustCompile(EnvironmentVariableNamePattern)
+
+func IsEnvironmentVariableName(name string) bool {
+	return environmentVariableName.MatchString(name)
+}
+
+var RunnerVariables = []string{
 	"ALL_PROXY",
 	"COLORTERM",
 	"CURL_CA_BUNDLE",
@@ -28,7 +38,22 @@ var RunnerSetVariables = []string{
 
 const RunnerVariablePrefix = "SPOTLIGHT_"
 
-func SetByTheRunner(variable string) bool {
+const SandboxValueMinLength = 8
+
+func FitsSandbox(value string) bool {
+	if strings.Contains(value, "\x00") {
+		return false
+	}
+	length := 0
+	for _, r := range value {
+		if !unicode.IsSpace(r) {
+			length++
+		}
+	}
+	return length >= SandboxValueMinLength
+}
+
+func IsRunnerVariable(variable string) bool {
 	upper := strings.ToUpper(variable)
-	return slices.Contains(RunnerSetVariables, upper) || strings.HasPrefix(upper, RunnerVariablePrefix)
+	return slices.Contains(RunnerVariables, upper) || strings.HasPrefix(upper, RunnerVariablePrefix)
 }

@@ -328,6 +328,9 @@
           },
           "409": {
             "description": "The run is not leased by this runner on that attempt"
+          },
+          "422": {
+            "description": "An attempt that is not a whole number from 1"
           }
         },
         "summary": "Get the secrets that the run’s harness profile puts in its sandbox as environment variables",

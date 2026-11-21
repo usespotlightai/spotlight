@@ -94,8 +94,8 @@ func TestNoSecretMayTakeTheNameOfAVariableTheAccountSets(t *testing.T) {
 		if inherited, ok := os.LookupEnv(name); ok && inherited == value {
 			continue
 		}
-		if !protocol.SetByTheRunner(name) {
-			t.Errorf("the agent's account sets %s, which protocol.RunnerSetVariables does not list", name)
+		if !protocol.IsRunnerVariable(name) {
+			t.Errorf("the agent's account sets %s, which protocol.RunnerVariables does not list", name)
 		}
 	}
 }

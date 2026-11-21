@@ -1,4 +1,5 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
+import { SANDBOX_VALUE_MIN_LENGTH } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import {
   SECRET,
   type Secret,
@@ -35,8 +36,12 @@ export class SecretValue implements Secret {
     return !/[\r\n\0]/.test(this.#value);
   }
 
-  isShorterThan(characters: number): boolean {
-    return this.#value.length < characters;
+  get fitsSandbox(): boolean {
+    return (
+      !this.#value.includes('\0') &&
+      Array.from(this.#value.replace(/\p{White_Space}/gu, '')).length >=
+        SANDBOX_VALUE_MIN_LENGTH
+    );
   }
 
   revealed(): string {

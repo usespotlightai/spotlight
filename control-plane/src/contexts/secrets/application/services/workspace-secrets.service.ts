@@ -8,6 +8,7 @@ import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
+import { DEFAULT_SECRET_SANDBOX } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
@@ -36,7 +37,7 @@ export class WorkspaceSecrets implements WorkspaceSecretsPort {
       name,
       bindings: SecretBindings.none(),
       value,
-      sandbox: existing?.sandbox ?? ('stand-in' as const),
+      sandbox: existing?.sandbox ?? DEFAULT_SECRET_SANDBOX,
     };
 
     if (!existing) {

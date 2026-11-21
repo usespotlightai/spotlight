@@ -1083,7 +1083,7 @@ func TestFetchesTheSandboxEnvironmentForTheRunsAttempt(t *testing.T) {
 		_, _ = w.Write([]byte(`{"variables":[{"name":"GITHUB_APP_PRIVATE_KEY","value":"the-key"}],"denied":[{"secret":"DEV_GITHUB_APP_KEY","reason":"the secret does not allow it"}]}`))
 	})
 
-	fetched, err := client.SandboxEnv(context.Background(), "run_1", 3)
+	fetched, err := client.RevealSandboxEnv(context.Background(), "run_1", 3)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
@@ -1104,7 +1104,7 @@ func TestTheSandboxEnvironmentOfARunLeasedElsewhereIsALostLease(t *testing.T) {
 		http.Error(w, `{"message":"Run run_1 is not leased by that runner"}`, http.StatusConflict)
 	})
 
-	_, err := client.SandboxEnv(context.Background(), "run_1", 1)
+	_, err := client.RevealSandboxEnv(context.Background(), "run_1", 1)
 
 	var lost interface{ RunNoLongerLeased() bool }
 	if !errors.As(err, &lost) || !lost.RunNoLongerLeased() {

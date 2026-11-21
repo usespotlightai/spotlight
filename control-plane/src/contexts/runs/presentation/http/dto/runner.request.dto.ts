@@ -2,6 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MAX_HANDOVER_ATTACHMENTS } from '@runs/domain/value-objects/handover.vo';
 import { MAX_STARTED_CHECKOUTS } from '@runs/domain/value-objects/starting-point.vo';
 
+const ASSIGNED_ATTEMPT =
+  'The attempt of the run assigned to the runner, as the claim named it';
+
 export class RunEventRequestDto {
   @ApiProperty({ example: 1, description: 'Assigned by the runner, gapless' })
   readonly seq!: number;
@@ -167,8 +170,7 @@ export class CheckoutHeadRequestDto {
 export class RevealSandboxEnvRequestDto {
   @ApiProperty({
     example: 1,
-    description:
-      'The attempt of the run assigned to the runner, as the claim named it',
+    description: ASSIGNED_ATTEMPT,
   })
   readonly attempt!: number;
 }
@@ -176,8 +178,7 @@ export class RevealSandboxEnvRequestDto {
 export class RecordStartingPointRequestDto {
   @ApiProperty({
     example: 1,
-    description:
-      'The attempt of the run assigned to the runner, as the claim named it',
+    description: ASSIGNED_ATTEMPT,
   })
   readonly attempt!: number;
 

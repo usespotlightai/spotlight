@@ -5,10 +5,10 @@ import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.
 import {
   SECRET_SANDBOXES,
   type SecretSandbox,
+  SANDBOX_VALUE_MIN_LENGTH,
 } from '@secrets/domain/value-objects/secret-sandbox.vo';
 
-export const SECRET_SANDBOX =
-  'Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it';
+export const SECRET_SANDBOX = `Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least ${SANDBOX_VALUE_MIN_LENGTH} characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env`;
 
 class SecretBindingResponseDto {
   @ApiProperty({

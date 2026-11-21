@@ -3,5 +3,5 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export const SECRET_USE_LOCKS = Symbol('SECRET_USE_LOCKS');
 
 export interface SecretUseLocksPort {
-  lockUsesIn(workspaceId: WorkspaceId): Promise<void>;
+  lock(workspaceId: WorkspaceId): Promise<void>;
 }

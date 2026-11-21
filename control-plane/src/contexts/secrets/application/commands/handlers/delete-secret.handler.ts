@@ -51,7 +51,7 @@ export class DeleteSecretHandler implements CommandHandlerPort<
       existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(async () => {
-        await this.locks.lockUsesIn(existing.workspaceId);
+        await this.locks.lock(existing.workspaceId);
 
         const uses = SecretUses.of(
           await this.uses.of({

@@ -509,20 +509,33 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         .where(eq(schema.secret.workspaceId, teamId));
     });
 
-    it('rejects a secret that keeps its value out of sandboxes, where it is named', async () => {
+    it('rejects a secret that keeps its value out of sandboxes, where it is named, on create and on update', async () => {
       expect((await secretWith('stand-in')).status).toBe(201);
-
-      const rejected = await create(PUTTING);
-
-      expect(rejected.status).toBe(422);
-      expect(rejected.body.errors).toEqual([
+      const refusal = [
         expect.objectContaining({
           path: 'env.GITHUB_APP_PRIVATE_KEY',
           message: expect.stringContaining(
             'names secret DEV_GITHUB_APP_KEY, which does not allow its value in a sandbox',
           ) as unknown,
         }),
-      ]);
+      ];
+
+      const rejected = await create(PUTTING);
+
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual(refusal);
+
+      const made = await create(CAREFUL);
+      expect(made.status).toBe(201);
+
+      const updated = (await served(app)
+        .put(fixture.item(made.body.id))
+        .set(TEST_USER_HEADER, fixture.admin)
+        .set('If-Match', `"${made.body.version}"`)
+        .send(PUTTING)) as Answer<Problem>;
+
+      expect(updated.status).toBe(422);
+      expect(updated.body.errors).toEqual(refusal);
     });
 
     it('puts it in the spec of its runs, and keeps the secret in sandboxes while it does', async () => {
@@ -563,6 +576,36 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       expect(reverted.body.detail).toContain(
         'Secret DEV_GITHUB_APP_KEY is in the sandbox env of: harness profile team/careful',
       );
+    });
+
+    it('never lets a profile put the secret in the sandbox while the secret leaves sandboxes at the same time', async () => {
+      for (const round of [1, 2, 3, 4, 5]) {
+        const name = `DEV_RACING_KEY_${round}`;
+        const secret = (await as(fixture.admin).create(
+          `/api/v1/resources/workspaces/${teamId}/secrets`,
+          { name, sandbox: 'env' },
+        )) as Answer<{ id: string; version: number }>;
+        expect(secret.status).toBe(201);
+
+        const [profile, reverted] = await Promise.all([
+          create({
+            ...CAREFUL,
+            key: `racing-${round}`,
+            env: { APP_KEY: name },
+          }),
+          served(app)
+            .put(`/api/v1/resources/secrets/${secret.body.id}`)
+            .set(TEST_USER_HEADER, fixture.admin)
+            .set('If-Match', `"${secret.body.version}"`)
+            .send({ name, sandbox: 'stand-in' }),
+        ]);
+
+        const statuses = [profile.status, reverted.status]
+          .sort((one, other) => one - other)
+          .join(' ');
+
+        expect(['200 422', '201 409']).toContain(statuses);
+      }
     });
   });
 

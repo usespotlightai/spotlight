@@ -30,23 +30,23 @@ func redactingStreams(redactor *inject.Redactor) *streamRedaction {
 	return &streamRedaction{redactor: redactor, held: map[streamKey]heldTail{}}
 }
 
-type streamed struct {
+type streamEvent struct {
 	key      streamKey
 	fields   map[string]any
 	chunk    bool
 	replaces bool
 }
 
-func streamOf(event protocol.Event) (streamed, bool) {
+func streamOf(event protocol.Event) (streamEvent, bool) {
 	if event.Type != protocol.EventMessage && event.Type != protocol.EventToolOutput && event.Type != protocol.EventToolChanged {
-		return streamed{}, false
+		return streamEvent{}, false
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(event.Data))
 	decoder.UseNumber()
 	var fields map[string]any
 	if decoder.Decode(&fields) != nil || fields == nil {
-		return streamed{}, false
+		return streamEvent{}, false
 	}
 
 	session, _ := fields["session"].(string)
@@ -54,7 +54,7 @@ func streamOf(event protocol.Event) (streamed, bool) {
 	_, text := fields["text"].(string)
 	replaces, _ := fields["replace"].(bool)
 
-	return streamed{
+	return streamEvent{
 		key:      streamKey{kind: event.Type, session: session, id: id},
 		fields:   fields,
 		chunk:    event.Type != protocol.EventToolChanged && text && !replaces,
@@ -106,7 +106,7 @@ func endsTurn(event protocol.Event) bool {
 	return event.Type == protocol.EventTurnEnded || event.Type == protocol.EventAgentStopped
 }
 
-func ends(held streamKey, next streamed) bool {
+func ends(held streamKey, next streamEvent) bool {
 	return held.kind == protocol.EventToolOutput && next.key.kind == protocol.EventToolChanged && next.key.session == held.session && next.key.id == held.id &&
 		(next.fields["status"] == string(protocol.ToolCompleted) || next.fields["status"] == string(protocol.ToolFailed))
 }
@@ -149,11 +149,4 @@ func (s *streamRedaction) encoded(fields map[string]any, text string) json.RawMe
 	encoder.SetEscapeHTML(false)
 	_ = encoder.Encode(redacted)
 	return bytes.TrimSuffix(written.Bytes(), []byte("\n"))
-}
-
-func (s *streamRedaction) redactorOrNil() *inject.Redactor {
-	if s == nil {
-		return nil
-	}
-	return s.redactor
 }

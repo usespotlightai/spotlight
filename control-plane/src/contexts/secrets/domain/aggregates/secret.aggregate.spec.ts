@@ -2,12 +2,10 @@ import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { ReservedSecretValueError } from '@secrets/domain/exceptions/reserved-secret-value.error';
 import { SecretAwaitingValueError } from '@secrets/domain/exceptions/secret-awaiting-value.error';
-import { SecretInSandboxError } from '@secrets/domain/exceptions/secret-in-sandbox.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
-import { SecretKeptOutOfSandboxError } from '@secrets/domain/exceptions/secret-kept-out-of-sandbox.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
-import { SecretTooShortForSandboxError } from '@secrets/domain/exceptions/secret-too-short-for-sandbox.error';
+import { SecretSandboxNotAllowedError } from '@secrets/domain/exceptions/secret-sandbox-not-allowed.error';
 import { SecretValueFromTerraformError } from '@secrets/domain/exceptions/secret-value-from-terraform.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type { InjectedSecret } from '@secrets/domain/value-objects/secret-binding.vo';
@@ -145,6 +143,34 @@ describe('Secret', () => {
           },
         ],
       ]);
+    });
+
+    it('refuses a value too short to replace with its stand-in where runs get it in their sandbox', () => {
+      const tooShort: unknown = expect.objectContaining({
+        constructor: InvalidSecretError,
+        because: expect.stringMatching(
+          /must have at least 8 characters that are not whitespace, and no NUL byte, since a run gets LINEAR_API_KEY in its sandbox/,
+        ) as unknown,
+      });
+
+      expect(() => set({ sandbox: 'env', value: 'hunter2' })).toThrow(tooShort);
+      expect(() =>
+        stored({ sandbox: 'env' }).update(
+          definition({ sandbox: 'env', value: 'hunter2', valueVersion: 2 }),
+          BY,
+          LATER,
+          SecretUses.none(),
+        ),
+      ).toThrow(tooShort);
+      expect(() =>
+        unmanaged({ sandbox: 'env', value: null }).setValue(
+          SecretValue.of('hunter2'),
+          BY,
+          LATER,
+        ),
+      ).toThrow(tooShort);
+      expect(set({ value: 'hunter2' }).sandbox).toBe('stand-in');
+      expect(set({ sandbox: 'env', value: 'hunter22' }).sandbox).toBe('env');
     });
 
     it('refuses a value of more than one line for a bound secret', () => {
@@ -501,16 +527,16 @@ describe('Secret', () => {
 
   describe('sandbox', () => {
     const IN_SANDBOX = SecretUses.of([
-      { kind: 'harness-profile', key: 'core/full-app', inSandbox: true },
+      { kind: 'harness-profile', key: 'core/full-app', exposes: true },
     ]);
     const NAMED = SecretUses.of([
-      { kind: 'harness-profile', key: 'core/full-app', inSandbox: false },
+      { kind: 'harness-profile', key: 'core/full-app', exposes: false },
     ]);
 
     it('keeps its value out of every sandbox unless it says otherwise', () => {
       expect(set().sandbox).toBe('stand-in');
-      expect(() => stored().assertEntersSandbox()).toThrow(
-        SecretKeptOutOfSandboxError,
+      expect(() => stored().assertAllowsSandbox()).toThrow(
+        SecretSandboxNotAllowedError,
       );
     });
 
@@ -523,14 +549,31 @@ describe('Secret', () => {
       );
 
       expect(updated.sandbox).toBe('env');
-      expect(() => updated.assertEntersSandbox()).not.toThrow();
-      expect(recorded(updated)).not.toEqual([]);
+      expect(() => updated.assertAllowsSandbox()).not.toThrow();
+      expect(recorded(updated)).toEqual([
+        ['secret', 'LINEAR_API_KEY', 'updated', BY, { sandbox: 'env' }],
+      ]);
+
+      const rotated = stored({ sandbox: 'env' }).update(
+        definition({
+          sandbox: 'env',
+          value: 'lin_api_rotated',
+          valueVersion: 2,
+        }),
+        BY,
+        LATER,
+        SecretUses.none(),
+      );
+
+      expect(recorded(rotated)[0]?.[4]).not.toHaveProperty('sandbox');
     });
 
     it('is not set back to stand-in while a harness profile puts it in a sandbox', () => {
       expect(() =>
         stored({ sandbox: 'env' }).update(definition(), BY, LATER, IN_SANDBOX),
-      ).toThrow(SecretInSandboxError);
+      ).toThrow(
+        'Secret LINEAR_API_KEY is in the sandbox env of: harness profile core/full-app. Remove it from env there before sandbox = "stand-in"',
+      );
     });
 
     it('is set back to stand-in when its uses only name it', () => {
@@ -540,13 +583,17 @@ describe('Secret', () => {
       ).toBe('stand-in');
     });
 
-    it('gives a sandbox a value only when the secret allows it and the value is long enough to replace', () => {
+    it('gives a sandbox a value only when the secret allows it and the value fits the sandbox', () => {
       expect(() =>
         stored().sandboxValue(SecretValue.of('ghp_long_enough')),
-      ).toThrow(SecretKeptOutOfSandboxError);
-      expect(() =>
-        stored({ sandbox: 'env' }).sandboxValue(SecretValue.of('hunter2')),
-      ).toThrow(SecretTooShortForSandboxError);
+      ).toThrow(SecretSandboxNotAllowedError);
+      for (const value of ['hunter2', 'hunter22\0']) {
+        expect(() =>
+          stored({ sandbox: 'env' }).sandboxValue(SecretValue.of(value)),
+        ).toThrow(
+          'The value of secret LINEAR_API_KEY must have at least 8 characters that are not whitespace, and no NUL byte, since a run gets LINEAR_API_KEY in its sandbox. Set a new value.',
+        );
+      }
       expect(
         stored({ sandbox: 'env' })
           .sandboxValue(SecretValue.of('hunter22'))
@@ -558,7 +605,7 @@ describe('Secret', () => {
       expect(() =>
         stored({ sandbox: 'env' })
           .delete(SecretUses.none(), BY)
-          .assertEntersSandbox(),
+          .assertAllowsSandbox(),
       ).toThrow(/after it was deleted/);
     });
   });
@@ -606,7 +653,7 @@ describe('Secret', () => {
       expect(() =>
         stored().delete(
           SecretUses.of([
-            { kind: 'integration', key: 'core/linear', inSandbox: false },
+            { kind: 'integration', key: 'core/linear', exposes: false },
           ]),
           BY,
         ),

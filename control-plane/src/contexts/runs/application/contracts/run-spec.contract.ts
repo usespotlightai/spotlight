@@ -100,6 +100,11 @@ export interface AttachmentShape {
   readonly path: string;
 }
 
+export interface RunSandboxVariableShape {
+  readonly variable: string;
+  readonly secret: string;
+}
+
 export interface RunSpecShape {
   readonly checkouts?: readonly RunCheckoutShape[];
   readonly command: RunCommandShape;
@@ -117,10 +122,7 @@ export interface RunSpecShape {
   readonly harnessSetup?: HarnessSetupShape;
   readonly settingFiles?: readonly string[];
   readonly injectedSecrets?: readonly string[];
-  readonly sandboxEnv?: readonly {
-    readonly variable: string;
-    readonly secret: string;
-  }[];
+  readonly sandboxEnv?: readonly RunSandboxVariableShape[];
   readonly harnessKeys?: readonly string[];
   readonly spotlightApi?: boolean;
 }

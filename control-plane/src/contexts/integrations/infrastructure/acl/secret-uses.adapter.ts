@@ -19,7 +19,7 @@ export class IntegrationSecretUses implements SecretUser {
     return addresses.map((address) => ({
       kind: 'integration',
       key: address.toString(),
-      inSandbox: false,
+      exposes: false,
     }));
   }
 }

@@ -8,7 +8,7 @@ import type {
   SecretResourcesPort,
 } from '@secrets/application/ports/secret-resources.port';
 import { RESERVED_SECRET_PREFIX } from '@secrets/domain/value-objects/reserved-secret-name';
-import { allowsSandboxes } from '@secrets/domain/value-objects/secret-sandbox.vo';
+import { allowsSandbox } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import {
   secret,
   secretValue,
@@ -95,7 +95,7 @@ export class DrizzleSecretResources
     ).map((each) => each.name);
   }
 
-  async namesInSandboxIn(workspaceId: string): Promise<readonly string[]> {
+  async sandboxSecrets(workspaceId: string): Promise<readonly string[]> {
     return (
       await this.context.db
         .select({ name: secret.name, sandbox: secret.sandbox })
@@ -103,7 +103,7 @@ export class DrizzleSecretResources
         .where(and(eq(secret.workspaceId, workspaceId), visible))
         .orderBy(asc(secret.name))
     )
-      .filter((each) => allowsSandboxes(each.sandbox))
+      .filter((each) => allowsSandbox(each.sandbox))
       .map((each) => each.name);
   }
 

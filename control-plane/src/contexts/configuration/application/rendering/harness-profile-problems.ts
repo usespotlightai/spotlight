@@ -47,7 +47,7 @@ export const HarnessProfileProblems = {
     );
   },
 
-  keptOutOfSandbox(
+  sandboxNotAllowed(
     key: string,
     refused: readonly SecretReference[],
   ): ConfigurationProblem[] {

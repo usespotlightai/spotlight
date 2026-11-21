@@ -22,7 +22,10 @@ import { ImportSecretQuery } from '@secrets/application/queries/import-secret.qu
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
-import { SECRET_SANDBOXES } from '@secrets/domain/value-objects/secret-sandbox.vo';
+import {
+  DEFAULT_SECRET_SANDBOX,
+  SECRET_SANDBOXES,
+} from '@secrets/domain/value-objects/secret-sandbox.vo';
 import {
   SECRET_SANDBOX,
   SecretResourceResponseDto,
@@ -76,7 +79,7 @@ const DEFINITION = ApiBody({
       sandbox: {
         type: 'string',
         enum: [...SECRET_SANDBOXES],
-        default: 'stand-in',
+        default: DEFAULT_SECRET_SANDBOX,
         description: SECRET_SANDBOX,
       },
       valueWo: {
@@ -149,7 +152,7 @@ export class SecretResourceController {
 
   @SecretResource.Update(
     'secrets/:id',
-    'Rebind a secret, or rotate its value by changing valueWoVersion',
+    'Rebind a secret, change its sandbox, or rotate its value by changing valueWoVersion',
   )
   @ID
   @DEFINITION

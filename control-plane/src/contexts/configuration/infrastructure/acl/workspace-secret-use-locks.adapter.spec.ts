@@ -1,4 +1,4 @@
-import { WorkspaceSecretUseLock } from '@configuration/infrastructure/acl/workspace-secret-use-lock.adapter';
+import { WorkspaceSecretUseLocks } from '@configuration/infrastructure/acl/workspace-secret-use-locks.adapter';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { SecretUseLocksPort } from '@secrets/application/ports/secret-use-locks.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -8,11 +8,11 @@ import { describe, expect, it, vi } from 'vitest';
 const TEAM = TeamId.of('team_1');
 
 const setUp = (team: boolean) => {
-  const lockUsesIn = vi.fn(async () => {});
+  const lockWorkspace = vi.fn(async () => {});
 
   return {
-    lockUsesIn,
-    lock: new WorkspaceSecretUseLock(
+    lockWorkspace,
+    lock: new WorkspaceSecretUseLocks(
       {
         find: vi.fn(async () =>
           team
@@ -27,25 +27,25 @@ const setUp = (team: boolean) => {
         ),
         inWorkspace: vi.fn(),
       } satisfies TeamDirectoryPort,
-      { lockUsesIn } satisfies SecretUseLocksPort,
+      { lock: lockWorkspace } satisfies SecretUseLocksPort,
     ),
   };
 };
 
-describe('WorkspaceSecretUseLock', () => {
+describe('WorkspaceSecretUseLocks', () => {
   it('locks the uses of the secrets in the team’s workspace', async () => {
-    const { lock, lockUsesIn } = setUp(true);
+    const { lock, lockWorkspace } = setUp(true);
 
-    await lock.lockUsesBy(TEAM);
+    await lock.lock(TEAM);
 
-    expect(lockUsesIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+    expect(lockWorkspace).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
   });
 
   it('locks nothing for a team that no workspace has', async () => {
-    const { lock, lockUsesIn } = setUp(false);
+    const { lock, lockWorkspace } = setUp(false);
 
-    await lock.lockUsesBy(TEAM);
+    await lock.lock(TEAM);
 
-    expect(lockUsesIn).not.toHaveBeenCalled();
+    expect(lockWorkspace).not.toHaveBeenCalled();
   });
 });

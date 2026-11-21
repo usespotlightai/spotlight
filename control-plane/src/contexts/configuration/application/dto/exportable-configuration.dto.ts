@@ -59,7 +59,7 @@ export type ExportableResourceDto =
         readonly name: string;
         readonly prefix: string;
       }[];
-      readonly sandbox: 'stand-in' | 'env';
+      readonly sandbox: string | null;
       readonly valueVersion: number | null;
     })
   | (WorkspaceOwned & {

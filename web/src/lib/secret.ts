@@ -30,7 +30,7 @@ export const awaitsValue = (secret: WorkspaceSecret): boolean =>
 export const setValueLabel = (secret: WorkspaceSecret): string =>
   awaitsValue(secret) ? 'Set value' : 'Replace value';
 
-export const entersSandboxes = (secret: WorkspaceSecret): boolean =>
+export const allowsSandbox = (secret: WorkspaceSecret): boolean =>
   secret.sandbox === 'env';
 
 export const SANDBOX_NOTE =

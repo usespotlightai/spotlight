@@ -232,7 +232,7 @@ export const TaskBriefing = {
     memoryFolder: MemoryFolder | null;
     tools: readonly DeclaredTool[];
     boundSecrets: readonly BoundSecret[];
-    sandboxEnv?: readonly SandboxVariable[];
+    sandboxEnv: readonly SandboxVariable[];
     drivenByAPerson?: boolean;
   }): string {
     const driven = input.drivenByAPerson ?? false;
@@ -270,7 +270,7 @@ export const TaskBriefing = {
       ConfiguringSpotlight.section,
       toolsOf(input.tools),
       secretsOf(input.boundSecrets),
-      environmentOf(input.sandboxEnv ?? []),
+      environmentOf(input.sandboxEnv),
       listing(input.skills, input.listedIn),
       replying(input.task),
       driven ? null : closing(input.line, input.task.stationId),

@@ -1,6 +1,6 @@
 import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
-import { isSetByTheRunner } from '@runs/domain/value-objects/runner-set-variables';
+import { isRunnerVariable } from '@runs/domain/value-objects/runner-variables';
 import type { WarmCheckout } from '@runs/domain/value-objects/warm-line.vo';
 import { distinct } from '@shared-kernel/domain/distinct';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
@@ -456,13 +456,13 @@ export class RunSpec {
         );
       }
 
-      if (isSetByTheRunner(variable)) {
+      if (isRunnerVariable(variable)) {
         throw new InvalidRunSpecError(
           `must not put a secret in ${variable}, which the runner sets in every sandbox`,
         );
       }
 
-      if (variable in (parts.command.env ?? {})) {
+      if (Object.keys(parts.command.env ?? {}).includes(variable)) {
         throw new InvalidRunSpecError(
           `must not put a secret in ${variable}, which the harness command sets`,
         );

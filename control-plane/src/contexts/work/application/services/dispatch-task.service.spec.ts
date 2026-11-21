@@ -341,6 +341,7 @@ let remembered: BriefingSelection = { briefed: [], omitted: [], folder: null };
 let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 let awaitingValue: readonly string[] = [];
+let sandboxNotAllowed: readonly string[] = [];
 
 const dispatch = async (
   station: Station,
@@ -382,7 +383,7 @@ const dispatch = async (
           name,
           bindings: [],
           awaitingValue: awaitingValue.includes(name),
-          entersSandbox: true,
+          allowsSandbox: !sandboxNotAllowed.includes(name),
         })),
     },
   );
@@ -409,6 +410,7 @@ const dispatch = async (
 describe('DispatchTask', () => {
   beforeEach(() => {
     awaitingValue = [];
+    sandboxNotAllowed = [];
     readyAs = {};
     briefedAt = [];
     remembered = { briefed: [], omitted: [], folder: null };
@@ -764,6 +766,58 @@ describe('DispatchTask', () => {
       ]);
     });
 
+    describe('the secrets it puts in the sandbox', () => {
+      beforeEach(() => {
+        teamProfiles = {
+          careful,
+          app: {
+            ...careful,
+            key: 'app',
+            sandboxEnv: [
+              {
+                variable: 'GITHUB_APP_PRIVATE_KEY',
+                secret: SecretName.of('DEV_GITHUB_APP_KEY'),
+              },
+            ],
+          },
+        };
+      });
+
+      it('names each variable and its secret in the run spec and the briefing', async () => {
+        await dispatch(naming('app'));
+
+        const spec = written(queued[0]);
+        expect(spec.sandboxEnv).toEqual([
+          { variable: 'GITHUB_APP_PRIVATE_KEY', secret: 'DEV_GITHUB_APP_KEY' },
+        ]);
+        expect(spec.briefing).toContain('## Secrets in your environment');
+        expect(spec.briefing).toContain(
+          '- `GITHUB_APP_PRIVATE_KEY`: secret `DEV_GITHUB_APP_KEY`',
+        );
+        expect(refusedAs(queued[0])).toEqual([]);
+      });
+
+      it('fails the run, saying why, where the secret does not allow its value in a sandbox', async () => {
+        sandboxNotAllowed = ['DEV_GITHUB_APP_KEY'];
+
+        await dispatch(naming('app'));
+
+        expect(refusedAs(queued[0])).toEqual([
+          'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+        ]);
+      });
+
+      it('fails the run, saying why, where the secret has no value yet', async () => {
+        awaitingValue = ['DEV_GITHUB_APP_KEY'];
+
+        await dispatch(naming('app'));
+
+        expect(refusedAs(queued[0])).toEqual([
+          'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
+        ]);
+      });
+    });
+
     it('fails the run, saying why, where the team has no such profile', async () => {
       const id = await dispatch(naming('reckless'));
 
@@ -779,6 +833,10 @@ describe('DispatchTask', () => {
 
       expect(written(queued[0]).harnessSetup).toBeUndefined();
       expect(written(queued[0]).injectedSecrets).toBeUndefined();
+      expect(written(queued[0]).sandboxEnv).toBeUndefined();
+      expect(written(queued[0]).briefing).not.toContain(
+        'Secrets in your environment',
+      );
       expect(queued[0]?.placement).toEqual({ labelGroups: [], image: null });
     });
   });

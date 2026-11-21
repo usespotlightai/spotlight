@@ -14,12 +14,12 @@ describe('BoundSecretMapper', () => {
         },
       ],
       awaitingValue: true,
-      entersSandbox: true,
+      allowsSandbox: true,
     });
 
     expect(bound.name.value).toBe('STAGING_VIEWER');
     expect(bound.awaitingValue).toBe(true);
-    expect(bound.entersSandbox).toBe(true);
+    expect(bound.allowsSandbox).toBe(true);
     expect(bound.bindings).toEqual([
       {
         host: 'staging.example.com',

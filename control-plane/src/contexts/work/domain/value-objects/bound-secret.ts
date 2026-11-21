@@ -11,5 +11,5 @@ export interface BoundSecret {
   readonly name: SecretName;
   readonly bindings: readonly BoundSecretBinding[];
   readonly awaitingValue: boolean;
-  readonly entersSandbox: boolean;
+  readonly allowsSandbox: boolean;
 }

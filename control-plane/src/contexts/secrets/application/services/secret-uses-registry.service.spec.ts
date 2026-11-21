@@ -9,14 +9,14 @@ describe('SecretUsesRegistry', () => {
         {
           kind: 'integration',
           key: `core/linear uses ${name}`,
-          inSandbox: false,
+          exposes: false,
         },
       ],
     });
     registry.register({ usesOf: async () => [] });
     registry.register({
       usesOf: async ({ workspaceId }) => [
-        { kind: 'harness-profile', key: `in ${workspaceId}`, inSandbox: true },
+        { kind: 'harness-profile', key: `in ${workspaceId}`, exposes: true },
       ],
     });
 
@@ -26,9 +26,9 @@ describe('SecretUsesRegistry', () => {
       {
         kind: 'integration',
         key: 'core/linear uses LINEAR_API_KEY',
-        inSandbox: false,
+        exposes: false,
       },
-      { kind: 'harness-profile', key: 'in ws_1', inSandbox: true },
+      { kind: 'harness-profile', key: 'in ws_1', exposes: true },
     ]);
   });
 

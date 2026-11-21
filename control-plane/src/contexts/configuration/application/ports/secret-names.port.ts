@@ -6,5 +6,5 @@ export const SECRET_NAMES = Symbol('SECRET_NAMES');
 
 export interface SecretNamesPort {
   ofTeam(teamId: TeamId): Promise<readonly SecretName[]>;
-  knownTo(teamId: TeamId): Promise<KnownSecrets>;
+  known(teamId: TeamId): Promise<KnownSecrets>;
 }

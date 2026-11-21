@@ -775,7 +775,7 @@ export type ConfigurationChangeResponseDto = {
    */
   client: string | null;
   /**
-   * What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value
+   * What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, the hosts it is bound to once changed, and its sandbox when it is created or its sandbox changes, never the value
    */
   details: {
     [key: string]: unknown;
@@ -1824,7 +1824,7 @@ export type SecretBindingResponseDto = {
 };
 
 /**
- * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+ * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env
  */
 export type SecretSandbox = 'stand-in' | 'env';
 
@@ -1858,7 +1858,7 @@ export type SecretResourceResponseDto = {
    */
   bindings: Array<SecretBindingResponseDto>;
   /**
-   * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+   * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env
    */
   sandbox: SecretSandbox;
   /**
@@ -1890,7 +1890,7 @@ export type WorkspaceSecretResponseDto = {
    */
   hosts: Array<string>;
   /**
-   * stand-in keeps the value out of every sandbox; env lets a harness profile give the value to its runs as an environment variable
+   * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env
    */
   sandbox: SecretSandbox;
   /**
@@ -4332,7 +4332,7 @@ export type HarnessProfileResourceResponseDto = {
    */
   secrets: Array<string>;
   /**
-   * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused.
+   * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". The runner sets PATH, HOME, USER, LOGNAME, SHELL, TERM, COLORTERM, the SPOTLIGHT_ variables, the proxy variables and the CA variables, so these are refused, in any case. A variable that a harness sets itself, such as ANTHROPIC_API_KEY, and TRACEPARENT, which the harness command sets on every run, are refused too.
    */
   env: {
     [key: string]: string;
@@ -12487,6 +12487,10 @@ export type RevealSandboxEnvErrors = {
    * The run is not leased by this runner on that attempt
    */
   409: unknown;
+  /**
+   * An attempt that is not a whole number from 1
+   */
+  422: unknown;
 };
 
 export type RevealSandboxEnvResponses = {
@@ -13345,7 +13349,7 @@ export type CreateSecretData = {
       prefix?: string;
     }>;
     /**
-     * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+     * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env
      */
     sandbox?: 'stand-in' | 'env';
     /**
@@ -13535,7 +13539,7 @@ export type UpdateSecretData = {
       prefix?: string;
     }>;
     /**
-     * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+     * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env
      */
     sandbox?: 'stand-in' | 'env';
     /**
@@ -14285,7 +14289,7 @@ export type CreateRunnerPoolData = {
        */
       secretVersion?: number | null;
       /**
-       * The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool
+       * The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs whose secrets egress injects, or that use the Spotlight API, do not go to the pool
        */
       egress?: string | null;
       /**
@@ -14491,7 +14495,7 @@ export type UpdateRunnerPoolData = {
        */
       secretVersion?: number | null;
       /**
-       * The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool
+       * The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs whose secrets egress injects, or that use the Spotlight API, do not go to the pool
        */
       egress?: string | null;
       /**
@@ -18223,7 +18227,7 @@ export type CreateHarnessProfileData = {
      */
     secrets?: Array<string>;
     /**
-     * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused.
+     * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". The runner sets PATH, HOME, USER, LOGNAME, SHELL, TERM, COLORTERM, the SPOTLIGHT_ variables, the proxy variables and the CA variables, so these are refused, in any case. A variable that a harness sets itself, such as ANTHROPIC_API_KEY, and TRACEPARENT, which the harness command sets on every run, are refused too.
      */
     env?: {
       [key: string]: string;
@@ -18421,7 +18425,7 @@ export type UpdateHarnessProfileData = {
      */
     secrets?: Array<string>;
     /**
-     * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused.
+     * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". The runner sets PATH, HOME, USER, LOGNAME, SHELL, TERM, COLORTERM, the SPOTLIGHT_ variables, the proxy variables and the CA variables, so these are refused, in any case. A variable that a harness sets itself, such as ANTHROPIC_API_KEY, and TRACEPARENT, which the harness command sets on every run, are refused too.
      */
     env?: {
       [key: string]: string;

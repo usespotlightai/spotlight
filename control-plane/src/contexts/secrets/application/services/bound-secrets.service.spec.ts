@@ -91,7 +91,7 @@ describe('BoundSecrets', () => {
           },
         ],
         awaitingValue: true,
-        entersSandbox: false,
+        allowsSandbox: false,
       },
       {
         name: 'LINEAR_API_KEY',
@@ -104,13 +104,13 @@ describe('BoundSecrets', () => {
           },
         ],
         awaitingValue: false,
-        entersSandbox: false,
+        allowsSandbox: false,
       },
       {
         name: 'VIEWER_TOKEN',
         bindings: [],
         awaitingValue: false,
-        entersSandbox: false,
+        allowsSandbox: false,
       },
     ]);
   });

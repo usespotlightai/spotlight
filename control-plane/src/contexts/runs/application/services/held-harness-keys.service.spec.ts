@@ -24,7 +24,7 @@ const held = (names: readonly string[]) => {
     namesIn,
     subject: new HeldHarnessKeys(launch, {
       namesIn,
-      namesInSandboxIn: async () => [],
+      sandboxSecrets: async () => [],
     }),
   };
 };

@@ -294,6 +294,9 @@ export class RunnerController {
   @ApiConflictResponse({
     description: 'The run is not leased by this runner on that attempt',
   })
+  @ApiUnprocessableEntityResponse({
+    description: 'An attempt that is not a whole number from 1',
+  })
   async revealSandboxEnv(
     @Param('runId') runId: string,
     @CurrentMachine() runnerId: string,

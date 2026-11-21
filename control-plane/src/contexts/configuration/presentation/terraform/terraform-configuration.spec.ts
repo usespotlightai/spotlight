@@ -444,6 +444,17 @@ describe('workspaceTerraform', () => {
     );
   });
 
+  it('writes sandbox only for a secret that gives runs its value in their sandbox', () => {
+    const main = mainOf(CONFIGURATION);
+
+    expect(
+      blockOf(main, 'resource "spotlight_secret" "linear_signing"'),
+    ).toMatch(/\n {2}sandbox += "env"\n/);
+    expect(
+      blockOf(main, 'resource "spotlight_secret" "linear_api_key"'),
+    ).not.toContain('sandbox');
+  });
+
   it('writes exactly the value version each secret has, so importing it plans no rotation', () => {
     const main = mainOf(CONFIGURATION);
 

@@ -61,7 +61,7 @@ const known = (
   name: string,
   awaitingValue: boolean,
   hosts: readonly string[] = [],
-  entersSandbox = false,
+  allowsSandbox = false,
 ): BoundSecret => ({
   name: SecretName.of(name),
   bindings: hosts.map((host) => ({
@@ -71,7 +71,7 @@ const known = (
     sent: `Bearer ${SecretName.of(name).standIn}`,
   })),
   awaitingValue,
-  entersSandbox,
+  allowsSandbox,
 });
 
 const orderWith = (
@@ -122,11 +122,15 @@ describe('orderAt', () => {
     ];
 
     expect(refusalsWith([known('DEV_GITHUB_APP_KEY', false)], appKey)).toEqual([
-      'secret_kept_out_of_sandbox: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
     ]);
     expect(
       refusalsWith([known('DEV_GITHUB_APP_KEY', false, [], true)], appKey),
     ).toEqual([]);
+    expect(refusalsWith([known('DEV_GITHUB_APP_KEY', true)], appKey)).toEqual([
+      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+      'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
+    ]);
   });
 
   it('does not refuse the run for a secret the profile does not inject', () => {

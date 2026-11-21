@@ -252,7 +252,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
-      sandbox: 'stand-in',
+      sandbox: null,
       valueVersion: 3,
     },
     {
@@ -269,7 +269,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
-      sandbox: 'stand-in',
+      sandbox: null,
       valueVersion: null,
     },
     {

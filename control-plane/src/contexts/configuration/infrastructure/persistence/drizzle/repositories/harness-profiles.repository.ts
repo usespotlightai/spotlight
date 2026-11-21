@@ -40,7 +40,7 @@ const columnsOf = (profile: HarnessProfile) => ({
   mcpServers: HarnessProfileMapper.servers(profile.settings),
   native: { ...profile.settings.native },
   secrets: profile.settings.secrets.map((each) => each.value),
-  env: profile.settings.environment,
+  env: profile.settings.env,
 });
 
 @Injectable()

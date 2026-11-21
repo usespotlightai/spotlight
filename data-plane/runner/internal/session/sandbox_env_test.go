@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ const appKey = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-
 
 func withAppKey(o *runOptions) {
 	o.attempt = 2
-	o.sandboxEnv = []protocol.SandboxEnvVariable{{Variable: "GITHUB_APP_PRIVATE_KEY", Secret: "DEV_GITHUB_APP_KEY"}}
+	o.sandboxEnv = []protocol.SandboxVariable{{Variable: "GITHUB_APP_PRIVATE_KEY", Secret: "DEV_GITHUB_APP_KEY"}}
 	o.fetched = protocol.SandboxEnv{Variables: []protocol.EnvVariable{{Name: "GITHUB_APP_PRIVATE_KEY", Value: appKey}}}
 }
 
@@ -66,13 +67,48 @@ func TestARunWithNoSandboxEnvironmentFetchesNone(t *testing.T) {
 	}
 }
 
-func TestTheHarnessCommandKeepsAVariableItSetsItself(t *testing.T) {
-	written := run(t, harness(t, `output = process.env.GITHUB_APP_PRIVATE_KEY;`, "end_turn"), withAppKey, func(o *runOptions) {
+func TestAVariableTheHarnessCommandSetsIsRefusedBeforeAnyValueIsFetched(t *testing.T) {
+	written := run(t, harness(t, `output = "started";`, "end_turn"), withAppKey, func(o *runOptions) {
 		o.env = map[string]string{"GITHUB_APP_PRIVATE_KEY": "set by the harness"}
+		o.wantErr = true
 	})
 
-	if got := agentOutput(t, written); got != "set by the harness" {
-		t.Errorf("the harness read %q", got)
+	if written.done == nil || !written.done.SetupFailed ||
+		!strings.Contains(written.done.Message, "Secret DEV_GITHUB_APP_KEY could not be put in the sandbox: sets GITHUB_APP_PRIVATE_KEY, which the harness command sets") {
+		t.Errorf("completion %+v", written.done)
+	}
+	if len(written.sandboxEnvAsked) != 0 {
+		t.Error("fetched values for a variable it refuses")
+	}
+}
+
+func TestAVariableSetTwiceIsRefusedBeforeAnyValueIsFetched(t *testing.T) {
+	written := run(t, harness(t, `output = "started";`, "end_turn"), withAppKey, func(o *runOptions) {
+		o.sandboxEnv = append(o.sandboxEnv, protocol.SandboxVariable{Variable: "GITHUB_APP_PRIVATE_KEY", Secret: "OTHER_APP_KEY"})
+		o.wantErr = true
+	})
+
+	if written.done == nil || !written.done.SetupFailed ||
+		!strings.Contains(written.done.Message, "Secret OTHER_APP_KEY could not be put in the sandbox: sets GITHUB_APP_PRIVATE_KEY twice") {
+		t.Errorf("completion %+v", written.done)
+	}
+	if len(written.sandboxEnvAsked) != 0 {
+		t.Error("fetched values for a variable it refuses")
+	}
+}
+
+func TestAValueWithTooFewCharactersBesideWhitespaceIsRefusedBeforeTheAgentStarts(t *testing.T) {
+	written := run(t, harness(t, `output = "started";`, "end_turn"), withAppKey, func(o *runOptions) {
+		o.fetched = protocol.SandboxEnv{Variables: []protocol.EnvVariable{{Name: "GITHUB_APP_PRIVATE_KEY", Value: "a\n       "}}}
+		o.wantErr = true
+	})
+
+	if written.done == nil || !written.done.SetupFailed ||
+		!strings.Contains(written.done.Message, "Secret DEV_GITHUB_APP_KEY could not be put in the sandbox: its value has fewer than 8 characters that are not whitespace") {
+		t.Errorf("completion %+v", written.done)
+	}
+	if agentOutput(t, written) != "" {
+		t.Error("the agent started")
 	}
 }
 
@@ -122,17 +158,64 @@ func TestARunFailsBeforeItsSetupWhenASecretIsDenied(t *testing.T) {
 func TestAVariableTheRunnerOwnsIsRefusedBeforeAnyValueIsFetched(t *testing.T) {
 	for _, owned := range []string{"PATH", "HOME", "SPOTLIGHT_RUN_TOKEN", "https_proxy", "NO_PROXY", "SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS"} {
 		written := run(t, harness(t, `output = "started";`, "end_turn"), withAppKey, func(o *runOptions) {
-			o.sandboxEnv = []protocol.SandboxEnvVariable{{Variable: owned, Secret: "SNEAKY"}}
+			o.sandboxEnv = []protocol.SandboxVariable{{Variable: owned, Secret: "SNEAKY"}}
 			o.wantErr = true
 		})
 
 		if written.done == nil || !written.done.SetupFailed ||
-			!strings.Contains(written.done.Message, "Secret SNEAKY could not be put in the sandbox: the runner sets "+owned+" itself") {
+			!strings.Contains(written.done.Message, "Secret SNEAKY could not be put in the sandbox: sets "+owned+", which the runner sets in every sandbox") {
 			t.Errorf("%s: completion %+v", owned, written.done)
 		}
 		if len(written.sandboxEnvAsked) != 0 {
 			t.Errorf("%s: fetched values for a variable it refuses", owned)
 		}
+	}
+}
+
+func TestANameNoEnvironmentVariableCanHaveIsRefusedBeforeAnyValueIsFetched(t *testing.T) {
+	for _, name := range []string{"", "1KEY", "APP-KEY", "APP=KEY", "APP\x00KEY"} {
+		written := run(t, harness(t, `output = "started";`, "end_turn"), withAppKey, func(o *runOptions) {
+			o.sandboxEnv = []protocol.SandboxVariable{{Variable: name, Secret: "DEV_GITHUB_APP_KEY"}}
+			o.wantErr = true
+		})
+
+		if written.done == nil || !written.done.SetupFailed ||
+			!strings.Contains(written.done.Message, "Secret DEV_GITHUB_APP_KEY could not be put in the sandbox: sets "+strconv.Quote(name)+", but environment variable names must use letters, digits and underscores") {
+			t.Errorf("%q: completion %+v", name, written.done)
+		}
+		if len(written.sandboxEnvAsked) != 0 {
+			t.Errorf("%q: fetched values for a variable it refuses", name)
+		}
+	}
+}
+
+func TestAValueWithANulByteIsRefusedBeforeTheAgentStarts(t *testing.T) {
+	written := run(t, harness(t, `output = "started";`, "end_turn"), withAppKey, func(o *runOptions) {
+		o.fetched = protocol.SandboxEnv{Variables: []protocol.EnvVariable{{Name: "GITHUB_APP_PRIVATE_KEY", Value: "key\x00value"}}}
+		o.wantErr = true
+	})
+
+	if written.done == nil || !written.done.SetupFailed ||
+		!strings.Contains(written.done.Message, "Secret DEV_GITHUB_APP_KEY could not be put in the sandbox: its value holds a NUL byte, which no environment variable can hold") {
+		t.Errorf("completion %+v", written.done)
+	}
+	if agentOutput(t, written) != "" {
+		t.Error("the agent started")
+	}
+}
+
+func TestAVariableSpotlightSendsNoValueForIsRefusedBeforeTheAgentStarts(t *testing.T) {
+	written := run(t, harness(t, `output = "started";`, "end_turn"), withAppKey, func(o *runOptions) {
+		o.fetched = protocol.SandboxEnv{}
+		o.wantErr = true
+	})
+
+	if written.done == nil || !written.done.SetupFailed ||
+		!strings.Contains(written.done.Message, "Secret DEV_GITHUB_APP_KEY could not be put in the sandbox: Spotlight sent no value for GITHUB_APP_PRIVATE_KEY") {
+		t.Errorf("completion %+v", written.done)
+	}
+	if agentOutput(t, written) != "" {
+		t.Error("the agent started")
 	}
 }
 

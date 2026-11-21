@@ -41,7 +41,7 @@ var listHelp = help.Command{
 
 var setHelp = help.Command{
 	Path:    "secret set",
-	Summary: "Set the value of a secret. Spotlight encrypts it and sends it only to the secret's hosts.",
+	Summary: "Set the value of a secret. Spotlight encrypts it and sends it to the secret's hosts. With sandbox = \"env\", the runs whose harness profile names it in env also get it in their sandbox.",
 	Usage:   []string{"spotlight secret set <NAME> [--workspace <slug>] [--url <address>]"},
 	Flags:   []help.Flag{workspaceFlag, urlFlag},
 	Env:     env,

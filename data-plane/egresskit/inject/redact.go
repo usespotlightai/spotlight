@@ -72,7 +72,7 @@ type Redactor struct {
 	swaps []swap
 }
 
-func RedactorOf(secrets map[string]string) *Redactor {
+func NewRedactor(secrets map[string]string) *Redactor {
 	var swaps []swap
 	for secret, value := range secrets {
 		standIn := protocol.StandInPrefix + secret
@@ -86,10 +86,6 @@ func RedactorOf(secrets map[string]string) *Redactor {
 }
 
 func writtenForms(value string) []string {
-	if !strings.Contains(value, "\n") {
-		return []string{value}
-	}
-
 	trimmed := strings.TrimSpace(value)
 	return []string{
 		value,
@@ -118,7 +114,7 @@ func (r *Redactor) Partial(text string) (redacted, held string) {
 		return text, ""
 	}
 	var out bytes.Buffer
-	at := swappedUntilPartial(&out, []byte(text), r.swaps)
+	at := swapComplete(&out, []byte(text), r.swaps)
 	return out.String(), text[at:]
 }
 
@@ -289,11 +285,11 @@ func (u *redactingReader) Read(into []byte) (int, error) {
 }
 
 func (u *redactingReader) flush() {
-	at := swappedUntilPartial(&u.out, u.pending, u.swaps)
+	at := swapComplete(&u.out, u.pending, u.swaps)
 	u.pending = append([]byte(nil), u.pending[at:]...)
 }
 
-func swappedUntilPartial(out *bytes.Buffer, text []byte, swaps []swap) int {
+func swapComplete(out *bytes.Buffer, text []byte, swaps []swap) int {
 	at := 0
 	for at < len(text) {
 		if each, found := matching(text[at:], swaps); found {

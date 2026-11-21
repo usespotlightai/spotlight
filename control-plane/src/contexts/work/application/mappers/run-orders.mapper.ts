@@ -15,6 +15,7 @@ import {
   type RunCheckoutShape,
   type RunCommandShape,
   type RunResumeShape,
+  type RunSandboxVariableShape,
   type RunSpecShape,
   type SkillFileShape,
   type ToolManifestShape,
@@ -239,9 +240,7 @@ const manifestOf = (value: JsonValue): ToolManifestShape => {
   };
 };
 
-const sandboxVariableOf = (
-  value: JsonValue,
-): { variable: string; secret: string } => {
+const sandboxVariableOf = (value: JsonValue): RunSandboxVariableShape => {
   const variable = objectAt(value, 'spec sandbox variable');
 
   return {

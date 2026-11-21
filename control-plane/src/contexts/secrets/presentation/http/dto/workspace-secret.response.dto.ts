@@ -8,6 +8,7 @@ import {
   SECRET_VALUE_ORIGINS,
   type SecretValueOriginKind,
 } from '@secrets/domain/value-objects/secret-value-origin.vo';
+import { SECRET_SANDBOX } from '@secrets/presentation/http/dto/secret-resource.response.dto';
 
 export class WorkspaceSecretResponseDto {
   @ApiProperty({ example: 'STAGING_LOGIN_PASSWORD' })
@@ -25,8 +26,7 @@ export class WorkspaceSecretResponseDto {
     enum: SECRET_SANDBOXES,
     enumName: 'SecretSandbox',
     example: 'stand-in',
-    description:
-      'stand-in keeps the value out of every sandbox; env lets a harness profile give the value to its runs as an environment variable',
+    description: SECRET_SANDBOX,
   })
   readonly sandbox: SecretSandbox;
 

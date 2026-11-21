@@ -61,7 +61,7 @@ const setUp = (managesSecrets = true) => {
     },
   };
   const locks = {
-    lockUsesIn: async (workspaceId: WorkspaceId) => {
+    lock: async (workspaceId: WorkspaceId) => {
       steps.push(`locked ${workspaceId.value}`);
     },
   };
@@ -288,7 +288,7 @@ describe('DeleteSecretHandler', () => {
   it('will not delete a secret an integration still uses, and says which', async () => {
     const { remove, storedValue, uses } = await created();
 
-    uses.push({ kind: 'integration', key: 'core/linear', inSandbox: false });
+    uses.push({ kind: 'integration', key: 'core/linear', exposes: false });
 
     expect(await remove()).toEqual({
       outcome: 'in-use',

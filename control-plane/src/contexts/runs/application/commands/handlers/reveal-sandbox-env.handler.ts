@@ -39,25 +39,25 @@ export class RevealSandboxEnvHandler implements CommandHandlerPort<
       }
 
       const attempt = RunAttempt.reported(run.id, command.attempt);
-      const variables = run.sandboxEnvOn(attempt, runner);
+      const sandboxEnv = run.sandboxEnv(attempt, runner);
 
-      if (variables.length === 0) {
+      if (sandboxEnv.length === 0) {
         return { variables: [], denied: [] };
       }
 
-      const revealed = await this.reveals.revealFor({
+      const revealed = await this.reveals.reveal({
         workspaceId: run.workspaceId.value,
         runId: run.id.value,
-        variables,
+        sandboxEnv,
       });
 
-      const still = await this.runs.findById(runId);
+      const current = await this.runs.findById(runId);
 
-      if (!still) {
+      if (!current) {
         throw new UnknownRunError(`Run ${command.runId} not found.`);
       }
 
-      still.assertStillOn(attempt, runner);
+      current.assertStillOn(attempt, runner);
 
       return revealed;
     } catch (error) {

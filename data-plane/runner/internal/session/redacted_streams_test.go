@@ -15,7 +15,7 @@ const streamedKey = "-----BEGIN PRIVATE KEY-----MIIEvQIBADAN"
 func streamingJournal() (*journalWriter, *flaky) {
 	control := &flaky{}
 	journal := &journalWriter{runID: "run", journal: control}
-	journal.redactWith(inject.RedactorOf(map[string]string{"DEV_GITHUB_APP_KEY": streamedKey}))
+	journal.useRedactor(inject.NewRedactor(map[string]string{"DEV_GITHUB_APP_KEY": streamedKey}))
 	return journal, control
 }
 

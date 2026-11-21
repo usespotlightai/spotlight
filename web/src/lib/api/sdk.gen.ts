@@ -999,7 +999,7 @@ export const readSecret = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Rebind a secret, or rotate its value by changing valueWoVersion
+ * Rebind a secret, change its sandbox, or rotate its value by changing valueWoVersion
  */
 export const updateSecret = <ThrowOnError extends boolean = false>(options: Options<UpdateSecretData, ThrowOnError>): RequestResult<UpdateSecretResponses, UpdateSecretErrors, ThrowOnError> => (options.client ?? client).put<UpdateSecretResponses, UpdateSecretErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],

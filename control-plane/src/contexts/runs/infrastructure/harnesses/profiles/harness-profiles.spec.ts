@@ -466,6 +466,16 @@ describe('reviewing a harness profile', () => {
     ]);
   });
 
+  it('rejects a secret in TRACEPARENT, which the harness command sets on every run', () => {
+    expect(putting('TRACEPARENT')).toEqual([
+      {
+        about: 'env',
+        variable: 'TRACEPARENT',
+        reason: 'sets TRACEPARENT, which the harness command sets on every run',
+      },
+    ]);
+  });
+
   it('rejects a secret in a variable a harness sets itself, naming each harness', () => {
     expect(putting('ANTHROPIC_API_KEY')).toEqual([
       {

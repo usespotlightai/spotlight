@@ -11,7 +11,7 @@ import (
 )
 
 func TestRedactingJSONTouchesOnlyItsStrings(t *testing.T) {
-	redactor := inject.RedactorOf(map[string]string{"TINY": "1"})
+	redactor := inject.NewRedactor(map[string]string{"TINY": "1"})
 
 	got := redactedJSON(redactor, []byte(`{"seq":1,"ids":[1,12345678901234567890],"text":"a1b","1":"x","frame":"{\"key\":\"1\"}"}`))
 
@@ -27,7 +27,7 @@ func TestRedactingJSONTouchesOnlyItsStrings(t *testing.T) {
 }
 
 func TestRedactingLeavesDataWithoutASecretAsItWas(t *testing.T) {
-	redactor := inject.RedactorOf(map[string]string{"KEY": "secret-value"})
+	redactor := inject.NewRedactor(map[string]string{"KEY": "secret-value"})
 	data := []byte(`{ "b": 1,  "a": "kept as written" }`)
 
 	if got := redactedJSON(redactor, data); string(got) != string(data) {
@@ -39,7 +39,7 @@ func TestRedactingLeavesDataWithoutASecretAsItWas(t *testing.T) {
 }
 
 func TestWhatGoesToSpotlightBesideTheJournalIsRedacted(t *testing.T) {
-	redactor := inject.RedactorOf(map[string]string{"KEY": "secret-value"})
+	redactor := inject.NewRedactor(map[string]string{"KEY": "secret-value"})
 	sent := &sentToSpotlight{}
 	journal := redactingJournal{Journal: sent, redactor: redactor}
 

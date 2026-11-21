@@ -546,7 +546,7 @@ func TestInjectPlainSwapsABasicStandInOnThePlainControlPlanesPort(t *testing.T) 
 }
 
 func TestARedactorSwapsEachSpellingOfAValueForItsSecretsStandIn(t *testing.T) {
-	redactor := RedactorOf(map[string]string{"APP_KEY": "a/b c\n\"d\"", "EMPTY": ""})
+	redactor := NewRedactor(map[string]string{"APP_KEY": "a/b c\n\"d\"", "EMPTY": ""})
 
 	for _, written := range []string{
 		"raw a/b c\n\"d\" end",
@@ -567,7 +567,7 @@ func TestARedactorSwapsEachSpellingOfAValueForItsSecretsStandIn(t *testing.T) {
 }
 
 func TestARedactorSwapsAValueThatSpansLinesWithItsLinesJoinedBySpacesOrCarriageReturns(t *testing.T) {
-	redactor := RedactorOf(map[string]string{"APP_KEY": "-----BEGIN KEY-----\nMIIEvQIBADANBgkq\nabc\n-----END KEY-----\n"})
+	redactor := NewRedactor(map[string]string{"APP_KEY": "-----BEGIN KEY-----\nMIIEvQIBADANBgkq\nabc\n-----END KEY-----\n"})
 
 	for _, written := range []string{
 		"-----BEGIN KEY----- MIIEvQIBADANBgkq abc -----END KEY-----",
@@ -577,7 +577,7 @@ func TestARedactorSwapsAValueThatSpansLinesWithItsLinesJoinedBySpacesOrCarriageR
 			t.Errorf("%q became %q", written, got)
 		}
 	}
-	indented := RedactorOf(map[string]string{"SA_KEY": "{\n  \"type\": \"service_account\",\n\n  \"private_key\": \"MIIEvQIBADANBgkq\"\n}\n"})
+	indented := NewRedactor(map[string]string{"SA_KEY": "{\n  \"type\": \"service_account\",\n\n  \"private_key\": \"MIIEvQIBADANBgkq\"\n}\n"})
 	if got := indented.Text(`{ "type": "service_account", "private_key": "MIIEvQIBADANBgkq" }`); strings.Contains(got, "MIIEvQ") {
 		t.Errorf("the words of an indented value became %q", got)
 	}
@@ -594,8 +594,18 @@ func TestARedactorSwapsAValueThatSpansLinesWithItsLinesJoinedBySpacesOrCarriageR
 	}
 }
 
+func TestARedactorSwapsAOneLineValueTrimmedOrWithItsSpacesJoined(t *testing.T) {
+	redactor := NewRedactor(map[string]string{"PIN": " abc   defgh "})
+
+	for _, written := range []string{" abc   defgh ", "abc   defgh", "abc defgh"} {
+		if got := redactor.Text("echo " + written + "."); got != "echo "+protocol.StandInPrefix+"PIN." {
+			t.Errorf("%q became %q", written, got)
+		}
+	}
+}
+
 func TestARedactorHoldsBackTextThatMayStartAValue(t *testing.T) {
-	redactor := RedactorOf(map[string]string{"APP_KEY": "private-key"})
+	redactor := NewRedactor(map[string]string{"APP_KEY": "private-key"})
 
 	redacted, held := redactor.Partial("the key is priv")
 	if redacted != "the key is " || held != "priv" {

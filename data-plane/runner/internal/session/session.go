@@ -56,7 +56,7 @@ type Journal interface {
 	GrantAttachment(ctx context.Context, runID string, request protocol.AttachmentRequest) (protocol.AttachmentGrant, error)
 	CompleteArchive(ctx context.Context, runID, archiveID string) error
 	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
-	SandboxEnv(ctx context.Context, runID string, attempt int) (protocol.SandboxEnv, error)
+	RevealSandboxEnv(ctx context.Context, runID string, attempt int) (protocol.SandboxEnv, error)
 }
 
 const (
@@ -128,7 +128,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	if secrets.redactor != nil {
-		journal.redactWith(secrets.redactor)
+		journal.useRedactor(secrets.redactor)
 		opts.Journal = redactingJournal{Journal: opts.Journal, redactor: secrets.redactor}
 	}
 
@@ -343,7 +343,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 
 	opts.checkEgress(ctx, journal)
 
-	env := secrets.over(granted(protocol.WithoutShadowedHarnessKeys(run.Spec.Command.Env, os.Getenv), channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane)))
+	env := secrets.overlay(granted(protocol.WithoutShadowedHarnessKeys(run.Spec.Command.Env, os.Getenv), channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane)))
 	maps.Copy(env, opts.ProxyEnv)
 
 	harness, err := startHarness(ctx, run.Spec.Command.Protocol, acp.Options{
@@ -896,7 +896,7 @@ func (o Options) setUp(
 		missed = append(missed, checkout)
 	}
 
-	env := secrets.over(o.ProxyEnv)
+	env := secrets.overlay(o.ProxyEnv)
 	failed := make([]*setupFailure, len(missed))
 	slots := make(chan struct{}, parallelSetups)
 	var installing sync.WaitGroup
@@ -972,7 +972,7 @@ func (j *journalWriter) releaseHeld() {
 	}
 }
 
-func (j *journalWriter) redactWith(redactor *inject.Redactor) {
+func (j *journalWriter) useRedactor(redactor *inject.Redactor) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -983,7 +983,10 @@ func (j *journalWriter) redactor() *inject.Redactor {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	return j.streams.redactorOrNil()
+	if j.streams == nil {
+		return nil
+	}
+	return j.streams.redactor
 }
 
 func (j *journalWriter) redactedError(err error) error {

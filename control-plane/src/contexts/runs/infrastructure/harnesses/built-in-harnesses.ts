@@ -5,7 +5,10 @@ import type {
   ProfileReview,
   ReadyProfileShape,
 } from '@runs/application/contracts/harness-profile.contract';
-import type { RunCommandShape } from '@runs/application/contracts/run-spec.contract';
+import {
+  type RunCommandShape,
+  TRACE_PARENT_VAR,
+} from '@runs/application/contracts/run-spec.contract';
 import type {
   Chosen,
   HarnessCatalogueEntry,
@@ -25,7 +28,7 @@ import type {
   HarnessProtocol,
   SessionOption,
 } from '@runs/domain/value-objects/run-spec.vo';
-import { isSetByTheRunner } from '@runs/domain/value-objects/runner-set-variables';
+import { isRunnerVariable } from '@runs/domain/value-objects/runner-variables';
 import { claudeCodeProfile } from '@runs/infrastructure/harnesses/profiles/claude-code.profile';
 import { codexProfile } from '@runs/infrastructure/harnesses/profiles/codex.profile';
 import { cursorProfile } from '@runs/infrastructure/harnesses/profiles/cursor.profile';
@@ -316,7 +319,7 @@ export class BuiltInHarnesses
           `names no harness Spotlight runs; it runs ${[...known].join(', ')}`,
         ),
       );
-    const settingEach = new Map<string, string[]>();
+    const setters = new Map<string, string[]>();
 
     for (const def of DEFINITIONS) {
       const native = profile.native[def.id];
@@ -327,17 +330,14 @@ export class BuiltInHarnesses
         continue;
       }
 
-      for (const variable of variablesSetBy(def, profile)) {
-        settingEach.set(variable, [
-          ...(settingEach.get(variable) ?? []),
-          def.id,
-        ]);
+      for (const variable of harnessVariables(def, profile)) {
+        setters.set(variable, [...(setters.get(variable) ?? []), def.id]);
       }
     }
 
     problems.push(
       ...profile.sandboxEnv.flatMap(({ variable }) =>
-        variableProblems(variable, settingEach.get(variable) ?? []),
+        variableProblems(variable, setters.get(variable) ?? []),
       ),
     );
 
@@ -373,7 +373,7 @@ export class BuiltInHarnesses
   }
 }
 
-const variablesSetBy = (
+const harnessVariables = (
   def: Definition,
   profile: HarnessProfileShape,
 ): readonly string[] => [
@@ -387,9 +387,9 @@ const variablesSetBy = (
 
 const variableProblems = (
   variable: string,
-  setting: readonly string[],
+  setters: readonly string[],
 ): readonly HarnessNote[] => {
-  if (isSetByTheRunner(variable)) {
+  if (isRunnerVariable(variable)) {
     return [
       {
         about: 'env',
@@ -399,12 +399,22 @@ const variableProblems = (
     ];
   }
 
-  return setting.length > 0
+  if (variable === TRACE_PARENT_VAR) {
+    return [
+      {
+        about: 'env',
+        variable,
+        reason: `sets ${variable}, which the harness command sets on every run`,
+      },
+    ];
+  }
+
+  return setters.length > 0
     ? [
         {
           about: 'env',
           variable,
-          reason: `sets ${variable}, which a harness sets itself: ${setting.join(', ')}`,
+          reason: `sets ${variable}, which a harness sets itself: ${setters.join(', ')}`,
         },
       ]
     : [];

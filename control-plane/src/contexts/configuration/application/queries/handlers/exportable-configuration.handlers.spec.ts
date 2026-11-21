@@ -79,7 +79,7 @@ const secretOf = (id: string, name: string) => ({
   workspaceId: WORKSPACE,
   name,
   bindings: [],
-  sandbox: 'stand-in' as const,
+  sandbox: null,
   valueVersion: 1,
 });
 
