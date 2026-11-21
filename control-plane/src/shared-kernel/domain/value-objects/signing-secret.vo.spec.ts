@@ -1,3 +1,5 @@
+import { inspect } from 'node:util';
+
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidSigningSecretError } from '@shared-kernel/domain/exceptions/invalid-signing-secret.error';
 import { isSecret } from '@shared-kernel/domain/value-objects/secret';
@@ -32,10 +34,23 @@ describe('SigningSecret', () => {
     expect(SigningSecret.isWellFormed(raw)).toBe(false);
   });
 
-  it('says a stored secret in another shape is an inconsistent state', () => {
-    expect(() => SigningSecret.rehydrate('whsec_')).toThrow(
-      InconsistentStateError,
-    );
+  it('takes base64 without its padding', () => {
+    const unpadded = secretOf(32).replace(/=+$/, '');
+
+    expect(unpadded.endsWith('=')).toBe(false);
+    expect(SigningSecret.isWellFormed(unpadded)).toBe(true);
+  });
+
+  it.each([['whsec_'], [secretOf(23)], [secretOf(65)]])(
+    'says a stored secret in another shape is an inconsistent state: %s',
+    (stored) => {
+      expect(() => SigningSecret.rehydrate(stored)).toThrow(
+        InconsistentStateError,
+      );
+    },
+  );
+
+  it('rehydrates a stored secret in the shape', () => {
     expect(SigningSecret.rehydrate(secretOf(32)).revealed()).toBe(secretOf(32));
   });
 
@@ -49,6 +64,7 @@ describe('SigningSecret', () => {
     expect(isSecret(secret)).toBe(true);
     expect(String(secret)).toBe('[secret]');
     expect(JSON.stringify({ secret })).toBe('{"secret":"[secret]"}');
+    expect(inspect(secret)).toBe('SigningSecret [secret]');
   });
 
   it('equals a secret of the same value', () => {

@@ -7,8 +7,8 @@ import {
   SigningSecret,
 } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
-// A hook names the field of a secret that does not sign, so the message points at signing.secret.
-const signingSecretOf = (raw: string): SigningSecret => {
+// A hook names the field of a secret that is not well formed, so the message points at signing.secret.
+const suppliedSigningSecret = (raw: string): SigningSecret => {
   if (!SigningSecret.isWellFormed(raw)) {
     throw new InvalidHookError(
       FieldPath.of(['signing', 'secret']),
@@ -31,7 +31,7 @@ export const signingSecretChange = (
     : {
         kind: 'supplied',
         versioned: {
-          secret: signingSecretOf(input.secret),
+          secret: suppliedSigningSecret(input.secret),
           version: input.version,
         },
       };

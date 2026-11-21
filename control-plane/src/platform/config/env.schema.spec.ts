@@ -1,4 +1,5 @@
 import { databaseSchema, envSchema } from '@platform/config/env.schema';
+import { SIGNING_SECRET_RULE } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { describe, expect, it } from 'vitest';
 
 const url = 'postgres://localhost/spotlight';
@@ -201,6 +202,18 @@ describe('envSchema event webhook', () => {
         SPOTLIGHT_EVENT_WEBHOOK_SECRET: 'secret',
       }).success,
     ).toBe(false);
+  });
+
+  it('refuses a secret of more than 64 bytes, and says what a secret must be', () => {
+    const parsed = envSchema.safeParse({
+      ...webhook,
+      SPOTLIGHT_EVENT_WEBHOOK_SECRET: `whsec_${Buffer.alloc(65, 1).toString('base64')}`,
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((each) => each.message)).toContain(
+      SIGNING_SECRET_RULE,
+    );
   });
 
   it('reads the kinds as a list of kinds or contexts, and refuses another value', () => {

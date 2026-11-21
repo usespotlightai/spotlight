@@ -1,6 +1,5 @@
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { secretLabel } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-definitions.repository';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -9,6 +8,7 @@ import {
   CREDENTIAL_ENCRYPTION,
   type CredentialEncryptionPort,
 } from '@secrets/application/ports/credential-encryption.port';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { eq } from 'drizzle-orm';
 
 @Injectable()

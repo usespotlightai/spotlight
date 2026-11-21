@@ -1,7 +1,7 @@
 import type { PushDiff } from '@change-review/domain/aggregates/push-diff.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import {
-  comesBefore,
+  precedes,
   placeOf,
   reviewWorkOrder,
 } from '@change-review/domain/services/review-work-order';
@@ -53,24 +53,33 @@ describe('reviewWorkOrder', () => {
   });
 });
 
-describe('placeOf', () => {
+describe('precedes', () => {
   it('places an item that left the order where it stood, so a cursor at it still works', () => {
     const place = placeOf({ kind: 'check', check: check('stack_2', 2) });
 
     expect(
-      comesBefore(
-        place,
-        placeOf({ kind: 'check', check: check('stack_3', 2) }),
-      ),
+      precedes(place, placeOf({ kind: 'check', check: check('stack_3', 2) })),
     ).toBe(true);
     expect(
-      comesBefore(
-        place,
-        placeOf({ kind: 'check', check: check('stack_1', 2) }),
-      ),
+      precedes(place, placeOf({ kind: 'check', check: check('stack_1', 2) })),
     ).toBe(false);
     expect(
-      comesBefore(place, placeOf({ kind: 'diff', diff: diff('diff_1', 9) })),
+      precedes(place, placeOf({ kind: 'diff', diff: diff('diff_1', 9) })),
     ).toBe(false);
+  });
+
+  it('never puts a place before itself, so the item at a cursor is not read again', () => {
+    const place = placeOf({ kind: 'check', check: check('stack_2', 2) });
+
+    expect(precedes(place, place)).toBe(false);
+  });
+
+  it('puts a first check before its recheck at the same time', () => {
+    expect(
+      precedes(
+        placeOf({ kind: 'check', check: check('stack_1', 2) }),
+        placeOf({ kind: 'check', check: check('stack_1', 2, true) }),
+      ),
+    ).toBe(true);
   });
 });

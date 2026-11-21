@@ -18,7 +18,7 @@ const REDACTED = '[secret]';
 // The rule that a signing secret obeys, for the messages that refuse one.
 export const SIGNING_SECRET_RULE = `must be whsec_ followed by ${MIN_BYTES} to ${MAX_BYTES} base64-encoded random bytes`;
 
-// A Standard Webhooks signing secret: whsec_ and base64 random bytes. Hooks, push pools, the platform pool and the event webhook sign their calls with one.
+// A Standard Webhooks signing secret: whsec_ and base64 random bytes, which signs an outgoing call.
 export class SigningSecret implements Secret {
   readonly #value: string;
 
@@ -38,7 +38,7 @@ export class SigningSecret implements Secret {
     if (!SigningSecret.isWellFormed(stored)) {
       throw new InconsistentStateError(
         'signing secret',
-        'was stored in a shape that cannot sign',
+        'is in a shape that cannot sign',
       );
     }
 

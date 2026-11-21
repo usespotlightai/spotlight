@@ -5,11 +5,11 @@ export type ReviewWorkItem =
   | { readonly kind: 'diff'; readonly diff: PushDiff }
   | { readonly kind: 'check'; readonly check: StackCheck };
 
-// Where an item stands in the order of review work: push diffs first, by the time Spotlight recorded them, then checks, by how long they wait. The tie decides between items of the same kind and time, so the order is total.
+// Where an item stands in the order of review work: push diffs first, by the time Spotlight recorded them, then checks, by how long they wait. The tie-breakers decide between items of the same kind and time, so the order is total.
 export interface ReviewWorkPlace {
   readonly rank: number;
   readonly at: number;
-  readonly tie: string;
+  readonly tieBreakers: readonly string[];
 }
 
 const DIFF_RANK = 0;
@@ -21,15 +21,31 @@ export const placeOf = (item: ReviewWorkItem): ReviewWorkPlace =>
     ? {
         rank: DIFF_RANK,
         at: item.diff.recordedAt.getTime(),
-        tie: item.diff.id.value,
+        tieBreakers: [item.diff.id.value],
       }
     : {
         rank: CHECK_RANK,
         at: item.check.waitingSince.getTime(),
-        tie: `${item.check.stackId.value} ${item.check.recheck ? 1 : 0}`,
+        tieBreakers: [item.check.stackId.value, item.check.recheck ? '1' : '0'],
       };
 
-export const comesBefore = (
+const tiePrecedes = (
+  one: readonly string[],
+  other: readonly string[],
+): boolean => {
+  for (const [index, each] of one.entries()) {
+    const against = other[index];
+
+    if (against === undefined || each !== against) {
+      return against !== undefined && each < against;
+    }
+  }
+
+  return one.length < other.length;
+};
+
+// The one place comes strictly before the other; a place never precedes itself.
+export const precedes = (
   one: ReviewWorkPlace,
   other: ReviewWorkPlace,
 ): boolean =>
@@ -37,16 +53,16 @@ export const comesBefore = (
     ? one.rank < other.rank
     : one.at !== other.at
       ? one.at < other.at
-      : one.tie < other.tie;
+      : tiePrecedes(one.tieBreakers, other.tieBreakers);
 
 const byPlace = (one: ReviewWorkItem, other: ReviewWorkItem): number => {
   const [first, second] = [placeOf(one), placeOf(other)];
 
-  if (comesBefore(first, second)) {
+  if (precedes(first, second)) {
     return -1;
   }
 
-  return comesBefore(second, first) ? 1 : 0;
+  return precedes(second, first) ? 1 : 0;
 };
 
 export const reviewWorkOrder = (

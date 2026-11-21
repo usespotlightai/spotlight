@@ -210,17 +210,48 @@ describe('ProvisionReviewWork', () => {
     expect(next.next).not.toBeNull();
   });
 
-  it('reads from the head with a cursor it did not give', async () => {
-    const { service } = provisioning([waiting('stack_1')]);
+  it.each(['not a cursor', '[1,2]', '{}', '[1,2,"stack_1"]', '[1,2,[3]]'])(
+    'reads from the head with a cursor it did not give: %s',
+    async (cursor) => {
+      const { service } = provisioning([waiting('stack_1')]);
 
-    const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
-      after: 'not a cursor',
-      max: 10,
+      const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+        after: cursor,
+        max: 10,
+      });
+
+      expect(offered.waiting.map((each) => each.work.id.value)).toEqual([
+        'stack_1',
+      ]);
+    },
+  );
+
+  it('goes on from the last push diff to the first check across a page boundary', async () => {
+    const { service } = provisioning(
+      [waiting('stack_1')],
+      0,
+      [waiting('stack_1')],
+      [pushDiff('diff_1')],
+    );
+
+    const first = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: null,
+      max: 1,
+    });
+    const second = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: first.next,
+      max: 1,
+    });
+    const third = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: second.next,
+      max: 1,
     });
 
-    expect(offered.waiting.map((each) => each.work.id.value)).toEqual([
-      'stack_1',
+    expect(first.waiting.map((each) => each.work)).toEqual([diffOf('diff_1')]);
+    expect(second.waiting.map((each) => each.work)).toEqual([
+      checkOf('stack_1'),
     ]);
+    expect(third).toEqual({ waiting: [], next: null });
   });
 
   it('gives no cursor for an empty page', async () => {

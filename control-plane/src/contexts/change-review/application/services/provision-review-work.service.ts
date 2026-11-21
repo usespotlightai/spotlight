@@ -6,7 +6,7 @@ import { StackCheckVersionConflictError } from '@change-review/domain/exceptions
 import type { PushDiffRepository } from '@change-review/domain/repositories/push-diff.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import {
-  comesBefore,
+  precedes,
   placeOf,
   type ReviewWorkPlace,
   reviewWorkOrder,
@@ -30,12 +30,12 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const ATTEMPTS = 3;
 
-// A cursor is the place of the last item of a page. The place, not an offset, so an item that leaves the queue moves no other item back past the cursor.
-const cursorAt = (place: ReviewWorkPlace): ReviewWorkCursor =>
-  JSON.stringify([place.rank, place.at, place.tie]);
+// A cursor is the place of the last item of a page. It is a place and not an offset, so an item that leaves the queue moves no other item back past the cursor.
+const cursorOf = (place: ReviewWorkPlace): ReviewWorkCursor =>
+  JSON.stringify([place.rank, place.at, place.tieBreakers]);
 
-// The place a cursor names, or null for one that this service did not give, so that the page starts at the head.
-const placeAt = (cursor: ReviewWorkCursor): ReviewWorkPlace | null => {
+// The place that a cursor names, or null for a cursor that this service did not give, so that the page starts at the head.
+const cursorPlace = (cursor: ReviewWorkCursor): ReviewWorkPlace | null => {
   try {
     const read: unknown = JSON.parse(cursor);
 
@@ -44,9 +44,10 @@ const placeAt = (cursor: ReviewWorkCursor): ReviewWorkPlace | null => {
       read.length === 3 &&
       typeof read[0] === 'number' &&
       typeof read[1] === 'number' &&
-      typeof read[2] === 'string'
+      Array.isArray(read[2]) &&
+      read[2].every((each: unknown) => typeof each === 'string')
     ) {
-      return { rank: read[0], at: read[1], tie: read[2] };
+      return { rank: read[0], at: read[1], tieBreakers: read[2] as string[] };
     }
   } catch {
     // A cursor that is not JSON names no place.
@@ -85,11 +86,11 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
       diffs.filter((each) => each.provisionableAt(now)),
       checks.filter((each) => each.provisionableAt(now)),
     );
-    const after = page.after === null ? null : placeAt(page.after);
+    const after = page.after === null ? null : cursorPlace(page.after);
     const read = (
       after === null
         ? ordered
-        : ordered.filter((each) => comesBefore(after, placeOf(each)))
+        : ordered.filter((each) => precedes(after, placeOf(each)))
     ).slice(0, page.max);
     const last = read[read.length - 1];
 
@@ -107,7 +108,7 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
               placement: each.check.request.placement,
             },
       ),
-      next: last ? cursorAt(placeOf(last)) : null,
+      next: last ? cursorOf(placeOf(last)) : null,
     };
   }
 

@@ -237,6 +237,7 @@ export class EventDelivery {
   ): Promise<number> {
     return this.context.inTransaction(async () => {
       const db = this.context.db;
+      // and() gives undefined only with no conditions, so the false never applies; lockDeliveries needs a filter.
       const dead =
         and(
           eq(eventDelivery.subscriber, subscriber),
