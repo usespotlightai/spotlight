@@ -211,7 +211,7 @@ describe('the event outbox', () => {
         throw new Error('the command failed');
       })
       .catch(() => undefined);
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(received).toEqual([]);
   });
@@ -258,7 +258,7 @@ describe('the event outbox', () => {
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('one'))]);
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(received).toEqual(
       expect.arrayContaining(['rang one', 'answered one', 'flaky one']),
@@ -274,7 +274,7 @@ describe('the event outbox', () => {
     await causation.runWith(cause, () =>
       outbox.record([new Rang(Marker.of('caused'))]),
     );
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(causes).toEqual([cause]);
     expect(
@@ -289,7 +289,7 @@ describe('the event outbox', () => {
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('plain'))]);
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(received).toContain('published string plain');
   });
@@ -300,13 +300,13 @@ describe('the event outbox', () => {
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('two'))]);
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(received).not.toContain('flaky two');
     expect(received).toContain('rang two');
 
     now = new Date(now.getTime() + 60_000);
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(received).toContain('flaky two');
   });
@@ -322,7 +322,7 @@ describe('the event outbox', () => {
       attempt < DEFAULT_RETRY.maxAttempts + 2;
       attempt += 1
     ) {
-      await delivery.processDue();
+      await delivery.processDue('contexts');
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     }
 
@@ -386,7 +386,7 @@ describe('the event outbox', () => {
         return [new Answered(event.marker)];
       };
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect(seen).toEqual([
         {
@@ -408,14 +408,14 @@ describe('the event outbox', () => {
 
         if (calls === 1) {
           now = new Date(now.getTime() + LEASE_MS + 1_000);
-          await other.processDue();
+          await other.processDue('contexts');
         }
 
         return [new Answered(Marker.of(`${event.marker.value} ${calls}`))];
       };
 
-      await delivery.processDue();
-      await other.processDue();
+      await delivery.processDue('contexts');
+      await other.processDue('contexts');
 
       expect(calls).toBe(2);
       expect((await deliveryOf(eventId))?.attempts).toBe(1);
@@ -436,7 +436,7 @@ describe('the event outbox', () => {
         return [new Answered(event.marker)];
       };
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect((await deliveryOf(eventId))?.deliveredAt).toBeNull();
       expect(received).not.toContain('answered six');
@@ -454,7 +454,7 @@ describe('the event outbox', () => {
         return [];
       };
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect(await deliveryOf(eventId)).toMatchObject({
         attempts: 1,
@@ -463,7 +463,7 @@ describe('the event outbox', () => {
       });
 
       now = new Date(now.getTime() + 60_000);
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect((await deliveryOf(eventId))?.deliveredAt).not.toBeNull();
     });
@@ -686,7 +686,10 @@ describe('the rows the event outbox keeps', () => {
       )[0];
     const before = await Promise.all(untouched.map(stateOf));
 
-    expect(await redelivery.redeliver('test.redeliver', since)).toBe(1);
+    expect(await redelivery.redeliver('test.redeliver', since)).toEqual({
+      queued: 1,
+      more: false,
+    });
     expect(await stateOf(queued)).toEqual({
       attempts: 0,
       dueAt: queuedAt,
@@ -725,7 +728,7 @@ describe('the rows the event outbox keeps', () => {
       .map((each) => each.id)
       .sort();
 
-  it('keeps an event that another instance queues again between the read and the delete of a sweep', async () => {
+  it('keeps an event whose dead letter another instance queues again while the sweep deletes', async () => {
     const at = new Date('2001-01-10T00:00:00.000Z');
     const old = new Date('2001-01-01T00:00:00.000Z');
     const id = randomUUID();
@@ -739,47 +742,48 @@ describe('the rows the event outbox keeps', () => {
       context,
       outbox,
       elsewhere,
-      { now: () => at } as ClockPort,
+      { now: () => new Date() } as ClockPort,
       logger,
       causation,
       { report: vi.fn() },
       new OtelTelemetry(),
     );
-    let deletes = 0;
-    // The second delete of the sweep is the delete of the dead letters that nobody hears. The other instance queues the dead letter again just before it.
-    const db = context.db;
-    const racingDb = new Proxy(db, {
-      get: (inner, member): unknown =>
-        member === 'delete'
-          ? (table: typeof eventOutbox) => ({
-              where: (
-                condition: Parameters<ReturnType<typeof db.delete>['where']>[0],
-              ) => ({
-                returning: async (columns: { id: typeof eventOutbox.id }) => {
-                  deletes += 1;
-
-                  if (deletes === 2) {
-                    await redelivery.redeliver('test.raced', old);
-                  }
-
-                  return inner
-                    .delete(table)
-                    .where(condition)
-                    .returning(columns);
-                },
-              }),
-            })
-          : (Reflect.get(inner, member) as unknown),
+    let queuedUncommitted = () => undefined as void;
+    const uncommitted = new Promise<void>((resolve) => {
+      queuedUncommitted = resolve;
     });
-    const racing = { db: racingDb } as unknown as DrizzleContext;
+    let commit = () => undefined as void;
+    const committing = new Promise<void>((resolve) => {
+      commit = resolve;
+    });
+    // The other instance queues the dead letter again in a transaction that stays open while this instance sweeps.
+    const redelivering = context.inTransaction(async () => {
+      const queued = await redelivery.redeliver('test.raced', old);
+      queuedUncommitted();
+      await committing;
+      return queued;
+    });
+    await uncommitted;
 
-    await new OutboxRetention(
-      racing,
+    let swept = false;
+    const sweeping = new OutboxRetention(
+      context,
       { now: () => at } as ClockPort,
       new EventSubscribers(),
-    ).sweep();
+    )
+      .sweep()
+      .then((deleted) => {
+        swept = true;
+        return deleted;
+      });
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    expect(deletes).toBe(2);
+    expect(swept).toBe(false);
+
+    commit();
+
+    expect(await redelivering).toEqual({ queued: 1, more: false });
+    expect(await sweeping).toBe(0);
     expect(await keptIds([id])).toEqual([id]);
     expect(
       await database.db
@@ -792,6 +796,41 @@ describe('the rows the event outbox keeps', () => {
     ).toEqual([{ attempts: 0, deadLetteredAt: null }]);
 
     await database.db.delete(eventOutbox).where(eq(eventOutbox.id, id));
+  });
+
+  it('deletes an old event whose open deliveries belong to subscribers nobody registers, but keeps one a subscriber here still hears', async () => {
+    const at = new Date('2002-01-10T00:00:00.000Z');
+    const old = new Date('2002-01-01T00:00:00.000Z');
+    const abandoned = randomUUID();
+    const heard = randomUUID();
+    for (const [id, subscriber] of [
+      [abandoned, 'test.removed'],
+      [heard, 'test.here'],
+    ] as const) {
+      await database.db
+        .insert(eventOutbox)
+        .values({ id, kind: 'bell.abandoned', payload: {}, recordedAt: old });
+      await database.db.insert(eventDelivery).values({
+        eventId: id,
+        subscriber,
+        dueAt: old,
+      });
+    }
+    const here = new EventSubscribers();
+    here.register([
+      subscribing('test.here', ['bell.abandoned'], async () => []),
+    ]);
+
+    expect(
+      await new OutboxRetention(
+        context,
+        { now: () => at } as ClockPort,
+        here,
+      ).sweep(),
+    ).toBe(1);
+    expect(await keptIds([abandoned, heard])).toEqual([heard]);
+
+    await database.db.delete(eventOutbox).where(eq(eventOutbox.id, heard));
   });
 
   it('goes on after the dead letters it keeps in the next sweep, and starts again once it reached the end', async () => {
@@ -855,9 +894,9 @@ describe('the lanes of event delivery', () => {
 
     await outbox.record([new Rang(Marker.of('lane'))]);
 
-    const sinking = delivery.processDue(100, 'sinks');
+    const sinking = delivery.processDue('sinks');
 
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(received).toContain('rang lane');
     expect(sunk).toEqual([]);
@@ -866,5 +905,64 @@ describe('the lanes of event delivery', () => {
     await sinking;
 
     expect(sunk).toEqual(['lane']);
+  });
+
+  it('leaves a delivery that only a newer instance can handle to that instance', async () => {
+    const id = randomUUID();
+    const recordedAt = new Date(now.getTime() - 60_000);
+    await database.db
+      .insert(eventOutbox)
+      .values({ id, kind: 'bell.newer', payload: {}, recordedAt });
+    await database.db.insert(eventDelivery).values({
+      eventId: id,
+      subscriber: 'test.newer',
+      dueAt: recordedAt,
+    });
+    const heard: string[] = [];
+    const { outbox } = outboxWith();
+    const instance = (subscribers: EventSubscribers) =>
+      new EventDelivery(
+        context,
+        outbox,
+        subscribers,
+        { now: () => now } as ClockPort,
+        logger,
+        causation,
+        { report: vi.fn() },
+        new OtelTelemetry(),
+      );
+    const older = new EventSubscribers();
+    older.register([subscribing('test.older', ['bell.newer'], async () => [])]);
+    const newer = new EventSubscribers();
+    newer.register([
+      subscribing('test.newer', ['bell.newer'], async () => {
+        heard.push(id);
+      }),
+    ]);
+    const rowOf = async () =>
+      (
+        await database.db
+          .select({
+            attempts: eventDelivery.attempts,
+            deliveredAt: eventDelivery.deliveredAt,
+            deadLetteredAt: eventDelivery.deadLetteredAt,
+          })
+          .from(eventDelivery)
+          .where(eq(eventDelivery.eventId, id))
+      )[0];
+
+    await instance(older).processDue('contexts');
+
+    expect(await rowOf()).toEqual({
+      attempts: 0,
+      deliveredAt: null,
+      deadLetteredAt: null,
+    });
+
+    await instance(newer).processDue('contexts');
+
+    expect(heard).toEqual([id]);
+    expect(await rowOf()).toMatchObject({ attempts: 1, deadLetteredAt: null });
+    expect((await rowOf())?.deliveredAt).not.toBeNull();
   });
 });

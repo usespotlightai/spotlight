@@ -277,7 +277,7 @@ const deliveryFor = (): EventDelivery =>
   );
 
 const worked = (): Promise<number> =>
-  holders.run({ since: now }, () => deliveryFor().processDue(1000));
+  holders.run({ since: now }, () => deliveryFor().processDue('contexts', 1000));
 
 const planOf = (marker: string): Plan => {
   const found = seen.plans.get(marker);

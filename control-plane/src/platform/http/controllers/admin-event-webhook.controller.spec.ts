@@ -6,7 +6,7 @@ import { subscribing } from '@shared-kernel/application/ports/domain-event-subsc
 import { describe, expect, it, vi } from 'vitest';
 
 const controller = (registered: boolean) => {
-  const redeliver = vi.fn(async () => 3);
+  const redeliver = vi.fn(async () => ({ queued: 3, more: false }));
   const subscribers = new EventSubscribers();
 
   if (registered) {
@@ -29,14 +29,27 @@ describe('AdminEventWebhookController', () => {
 
     await expect(
       admin.redeliver({ since: '2026-11-01T00:00:00Z' }),
-    ).resolves.toEqual({ queued: 3 });
+    ).resolves.toEqual({ queued: 3, more: false });
     expect(redeliver).toHaveBeenCalledExactlyOnceWith(
       'platform.send-event-webhook',
       new Date('2026-11-01T00:00:00Z'),
+      undefined,
     );
   });
 
-  it('refuses a body without since as an ISO 8601 time', async () => {
+  it('passes the limit of the body on', async () => {
+    const { admin, redeliver } = controller(true);
+
+    await admin.redeliver({ since: '2026-11-01T00:00:00Z', limit: 5 });
+
+    expect(redeliver).toHaveBeenCalledExactlyOnceWith(
+      'platform.send-event-webhook',
+      new Date('2026-11-01T00:00:00Z'),
+      5,
+    );
+  });
+
+  it('refuses a body without since as an ISO 8601 time, or a limit out of range', async () => {
     const { admin, redeliver } = controller(true);
 
     await expect(admin.redeliver(undefined)).rejects.toThrow(
@@ -45,6 +58,9 @@ describe('AdminEventWebhookController', () => {
     await expect(admin.redeliver({ since: 'yesterday' })).rejects.toThrow(
       BadRequestException,
     );
+    await expect(
+      admin.redeliver({ since: '2026-11-01T00:00:00Z', limit: 0 }),
+    ).rejects.toThrow(BadRequestException);
     expect(redeliver).not.toHaveBeenCalled();
   });
 

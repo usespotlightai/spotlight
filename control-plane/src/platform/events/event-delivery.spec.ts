@@ -150,12 +150,18 @@ const delivering = (
   attempts = 0,
   options: Parameters<typeof subscribing>[3] = { callsOut: false },
   clock = { now: () => NOW },
+  sink = false,
 ) => {
   const context = new FakeContext(attempts);
   const subscribers = new EventSubscribers();
-  subscribers.register([
-    subscribing('test.door', ['bell.rang'], handle, options),
-  ]);
+  const subscriber = subscribing('test.door', ['bell.rang'], handle, options);
+
+  if (sink) {
+    subscribers.registerSink(subscriber, { prefixes: [] });
+  } else {
+    subscribers.register([subscriber]);
+  }
+
   const logger = {
     debug: vi.fn(),
     info: vi.fn(),
@@ -189,7 +195,7 @@ describe('EventDelivery', () => {
   it('records a delivery in the transaction that claimed it, after the subscriber handled it in a savepoint', async () => {
     const { delivery, context } = delivering(async () => undefined);
 
-    expect(await delivery.processDue()).toBe(1);
+    expect(await delivery.processDue('contexts')).toBe(1);
     expect(context.steps.slice(0, 6)).toEqual([
       'begin',
       'claim',
@@ -206,7 +212,7 @@ describe('EventDelivery', () => {
       throw new Error('nobody home');
     }, 2);
 
-    expect(await delivery.processDue()).toBe(1);
+    expect(await delivery.processDue('contexts')).toBe(1);
     expect(context.steps.slice(0, 7)).toEqual([
       'begin',
       'claim',
@@ -232,7 +238,7 @@ describe('EventDelivery', () => {
     });
     context.failingUpdates = 1;
 
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(context.updates).toEqual([
       expect.objectContaining({ attempts: 1, lastError: 'nobody home' }),
@@ -249,7 +255,7 @@ describe('EventDelivery', () => {
     });
     context.failingUpdates = 2;
 
-    await expect(delivery.processDue()).rejects.toThrow(
+    await expect(delivery.processDue('contexts')).rejects.toThrow(
       'connection terminated',
     );
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(
@@ -263,7 +269,7 @@ describe('EventDelivery', () => {
       throw new Error('nobody home');
     }, DEFAULT_RETRY.maxAttempts - 1);
 
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(context.updates).toEqual([
       expect.objectContaining({
@@ -288,7 +294,7 @@ describe('EventDelivery', () => {
     context.settledElsewhere = true;
     context.updates.push({ deliveredAt: NOW });
 
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(logger.error).not.toHaveBeenCalled();
     expect(reports.report).not.toHaveBeenCalled();
@@ -303,7 +309,7 @@ describe('EventDelivery', () => {
     const handle = vi.fn(async () => undefined);
     const { delivery } = delivering(handle);
 
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
     expect(handle).toHaveBeenCalledExactlyOnceWith(
       {},
@@ -311,12 +317,18 @@ describe('EventDelivery', () => {
     );
   });
 
-  it('never hands a subscriber a kind it no longer hears: the delivery is a dead letter at once, with a warning and no error report', async () => {
+  it('never hands a sink a kind it no longer hears: the delivery is a dead letter at once, with a warning and no error report', async () => {
     const handle = vi.fn(async () => undefined);
-    const { delivery, context, logger, reports } = delivering(handle);
+    const { delivery, context, logger, reports } = delivering(
+      handle,
+      0,
+      { callsOut: false },
+      { now: () => NOW },
+      true,
+    );
     context.kind = 'bell.rung';
 
-    await delivery.processDue();
+    await delivery.processDue('sinks');
 
     expect(handle).not.toHaveBeenCalled();
     expect(context.updates).toEqual([
@@ -334,20 +346,30 @@ describe('EventDelivery', () => {
     expect(reports.report).not.toHaveBeenCalled();
   });
 
-  it('dead-letters at once a delivery of a subscriber that is gone', async () => {
-    const { delivery, context, reports } = delivering(async () => undefined);
-    context.subscriber = 'test.gone';
+  it('retries a delivery of a kind that a subscriber of a context does not hear here, as another instance may still hear it', async () => {
+    const handle = vi.fn(async () => undefined);
+    const { delivery, context, reports } = delivering(handle);
+    context.kind = 'bell.rung';
 
-    await delivery.processDue();
+    await delivery.processDue('contexts');
 
+    expect(handle).not.toHaveBeenCalled();
     expect(context.updates).toEqual([
-      expect.objectContaining({
+      {
         attempts: 1,
-        lastError: 'No subscriber is called test.gone any more',
-        deadLetteredAt: NOW,
-      }),
+        lastError: 'test.door does not hear bell.rung here',
+        dueAt: new Date(NOW.getTime() + 2000),
+        deadLetteredAt: null,
+      },
     ]);
     expect(reports.report).not.toHaveBeenCalled();
+  });
+
+  it('claims nothing in a lane where this instance registers no subscriber', async () => {
+    const { delivery, context } = delivering(async () => undefined);
+
+    expect(await delivery.processDue('sinks')).toBe(0);
+    expect(context.steps).toEqual(['begin', 'commit']);
   });
 
   describe('with the retries of its subscriber', () => {
@@ -364,8 +386,8 @@ describe('EventDelivery', () => {
       const early = delivering(failing, 2, { retry: RETRY });
       const late = delivering(failing, 20, { retry: RETRY });
 
-      await early.delivery.processDue();
-      await late.delivery.processDue();
+      await early.delivery.processDue('contexts');
+      await late.delivery.processDue('contexts');
 
       expect(early.context.updates).toEqual([
         expect.objectContaining({
@@ -391,8 +413,8 @@ describe('EventDelivery', () => {
         retry: RETRY,
       });
 
-      await retried.delivery.processDue();
-      await deadLettered.delivery.processDue();
+      await retried.delivery.processDue('contexts');
+      await deadLettered.delivery.processDue('contexts');
 
       expect(retried.context.updates).toEqual([
         expect.objectContaining({ deadLetteredAt: null }),
@@ -421,7 +443,7 @@ describe('EventDelivery', () => {
         CALLS_OUT,
       );
 
-      expect(await delivery.processDue()).toBe(1);
+      expect(await delivery.processDue('contexts')).toBe(1);
       expect(context.steps.slice(0, 8)).toEqual([
         'begin',
         'claim',
@@ -456,7 +478,7 @@ describe('EventDelivery', () => {
         { now: () => now },
       );
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
       vi.useRealTimers();
 
       expect(context.updates).toEqual([
@@ -483,7 +505,7 @@ describe('EventDelivery', () => {
         { now: () => now },
       );
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
       vi.useRealTimers();
 
       expect(
@@ -502,7 +524,7 @@ describe('EventDelivery', () => {
         CALLS_OUT,
       );
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect(context.updates).toEqual([
         LEASED,
@@ -528,7 +550,7 @@ describe('EventDelivery', () => {
         CALLS_OUT,
       );
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect(reports.report).toHaveBeenCalledExactlyOnceWith(
         new Error('nobody home'),
@@ -544,7 +566,7 @@ describe('EventDelivery', () => {
       );
       context.settledElsewhere = true;
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect(context.updates).toEqual([LEASED]);
       expect(reports.report).not.toHaveBeenCalled();
@@ -563,7 +585,7 @@ describe('EventDelivery', () => {
       );
       context.failingUpdateAt = 1;
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect(context.updates).toEqual([
         LEASED,
@@ -590,7 +612,7 @@ describe('EventDelivery', () => {
       context.failingUpdates = 1;
       context.failingUpdatesFrom = 1;
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
 
       expect(context.updates).toEqual([LEASED]);
       expect(reports.report).not.toHaveBeenCalled();
@@ -615,7 +637,7 @@ describe('EventDelivery', () => {
         { now: () => now },
       );
 
-      await delivery.processDue();
+      await delivery.processDue('contexts');
       vi.useRealTimers();
 
       expect(logger.error).toHaveBeenCalledWith(

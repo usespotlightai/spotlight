@@ -1,9 +1,7 @@
-import type {
-  DeliveryLane,
-  EventDelivery,
-} from '@platform/events/event-delivery';
+import type { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import type { EventOutbox } from '@platform/events/event-outbox';
+import type { DeliveryLane } from '@platform/events/event-subscribers';
 import { describe, expect, it, vi } from 'vitest';
 
 const logger = {
@@ -14,14 +12,14 @@ const logger = {
 };
 
 describe('EventDeliveryWorker', () => {
-  it('keeps delivering to the subscribers while the sinks lane waits for a slow receiver', async () => {
+  it('keeps delivering to the subscribers of the contexts while the sinks lane waits for a slow receiver', async () => {
     const lanes: DeliveryLane[] = [];
     let release = () => undefined as void;
     const holding = new Promise<void>((resolve) => {
       release = resolve;
     });
     const delivery = {
-      processDue: vi.fn(async (_limit: number, lane: DeliveryLane) => {
+      processDue: vi.fn(async (lane: DeliveryLane) => {
         lanes.push(lane);
 
         if (lane === 'sinks') {
@@ -43,12 +41,7 @@ describe('EventDeliveryWorker', () => {
     await worker.tick();
     await worker.tick();
 
-    expect(lanes).toEqual([
-      'subscribers',
-      'sinks',
-      'subscribers',
-      'subscribers',
-    ]);
+    expect(lanes).toEqual(['contexts', 'sinks', 'contexts', 'contexts']);
 
     release();
     await first;

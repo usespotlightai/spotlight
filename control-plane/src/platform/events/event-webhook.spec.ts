@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import {
   EVENT_WEBHOOK_RETRY,
+  EVENT_WEBHOOK_RETRY_HOURS,
   EVENT_WEBHOOK_SUBSCRIBER,
   EventWebhook,
   eventWebhookSubscription,
@@ -147,8 +148,7 @@ describe('eventWebhookSubscription', () => {
     const { subscriber, prefixes } = eventWebhookSubscription(webhook(), kinds);
     subscribers.registerSink(subscriber, { prefixes });
 
-    return (kind: string) =>
-      subscribers.listeningTo(kind).map((each) => each.name);
+    return (kind: string) => subscribers.hearing(kind).map((each) => each.name);
   };
 
   it('hears every integration event and no domain event when no kinds are set', () => {
@@ -193,6 +193,7 @@ describe('eventWebhookSubscription', () => {
     expect(Math.max(...waits)).toBe(3_600_000);
     expect(hours).toBeGreaterThan(13);
     expect(hours).toBeLessThan(14);
+    expect(EVENT_WEBHOOK_RETRY_HOURS).toBe(13);
     expect(
       EVENT_WEBHOOK_RETRY.nextAttemptAt(EVENT_WEBHOOK_RETRY.maxAttempts, NOW),
     ).toBeNull();

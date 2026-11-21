@@ -2,7 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CauseCarrier } from '@platform/events/cause-carrier';
 import { idsOf } from '@platform/events/event-ids';
 import { EventOutbox } from '@platform/events/event-outbox';
-import { EventSubscribers } from '@platform/events/event-subscribers';
+import {
+  type DeliveryLane,
+  EventSubscribers,
+} from '@platform/events/event-subscribers';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -38,7 +41,6 @@ import {
   isNull,
   gt,
   lte,
-  notInArray,
 } from 'drizzle-orm';
 
 // A subscriber that sets no retry gets 8 attempts. The outbox waits 2 seconds after the first attempt, twice as long after each next one, and never longer than one hour.
@@ -56,19 +58,24 @@ export const LONGEST_LEASE_MS = 30 * 60 * 1000;
 
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
-const REDELIVERY_BATCH = 1_000;
+// How many deliveries one processDue call works at most.
+const DELIVERY_BATCH = 100;
 
-// The subscribers lane holds the subscribers of the contexts. The sinks lane holds the sinks, which send events out of Spotlight (EventSubscribers.registerSink), so a slow receiver does not hold up the other subscribers.
-export type DeliveryLane = 'subscribers' | 'sinks';
+const REDELIVERY_PAGE = 1_000;
 
-// The subscriber is gone, or it no longer hears the kind, as when the operator unsets SPOTLIGHT_EVENT_WEBHOOK_URL or narrows SPOTLIGHT_EVENT_WEBHOOK_KINDS. The delivery is a dead letter at once, and it is not an error: a redelivery sends it again.
+// How many dead letters one redelivery queues again when it names no limit.
+export const REDELIVERY_LIMIT = 10_000;
+
+export interface Redelivery {
+  readonly queued: number;
+  // The redelivery stopped at its limit, and more dead letters may wait.
+  readonly more: boolean;
+}
+
+// A sink no longer hears the kind, as when the operator narrows SPOTLIGHT_EVENT_WEBHOOK_KINDS. The delivery is a dead letter at once, and it is not an error: a redelivery sends it again.
 class KindNotHeardError extends Error {
-  constructor(subscriber: string, kind: string, gone: boolean) {
-    super(
-      gone
-        ? `No subscriber is called ${subscriber} any more`
-        : `${subscriber} does not hear ${kind} any more`,
-    );
+  constructor(subscriber: string, kind: string) {
+    super(`${subscriber} does not hear ${kind} any more`);
     this.name = 'KindNotHeardError';
   }
 }
@@ -117,9 +124,10 @@ export class EventDelivery {
     @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
+  // Works the due deliveries of the lane, but only those of the subscribers this instance registers: during a deploy, an instance never settles a delivery that only a newer instance can handle.
   async processDue(
-    limit = 100,
-    lane: DeliveryLane = 'subscribers',
+    lane: DeliveryLane,
+    limit = DELIVERY_BATCH,
   ): Promise<number> {
     let worked = 0;
 
@@ -134,8 +142,8 @@ export class EventDelivery {
     const until = Date.now() + timeoutMs;
 
     for (;;) {
-      await this.processDue();
-      await this.processDue(100, 'sinks');
+      await this.processDue('contexts');
+      await this.processDue('sinks');
 
       if ((await this.stillDue()) === 0 || Date.now() > until) {
         return;
@@ -145,12 +153,17 @@ export class EventDelivery {
     }
   }
 
-  // Queues the dead letters of one subscriber again, for the events recorded at or after the time whose kind it still hears. Each gets all its attempts again. Returns how many it queued.
-  async redeliver(subscriber: string, since: Date): Promise<number> {
+  // Queues the dead letters of one subscriber again, for the events recorded at or after the time whose kind it still hears, at most limit of them. Each gets all its attempts again. While more is true, a next call queues more.
+  async redeliver(
+    subscriber: string,
+    since: Date,
+    limit = REDELIVERY_LIMIT,
+  ): Promise<Redelivery> {
     const db = this.context.db;
     let after: string | null = null;
     let queued = 0;
     let skipped = 0;
+    let more = false;
 
     for (;;) {
       const dead = await db
@@ -167,14 +180,16 @@ export class EventDelivery {
           ),
         )
         .orderBy(asc(eventDelivery.eventId))
-        .limit(REDELIVERY_BATCH);
+        .limit(REDELIVERY_PAGE);
       const heard = dead
         .filter((each) => this.subscribers.hears(subscriber, each.kind))
         .map((each) => each.eventId);
+      const taken = heard.slice(0, limit - queued);
 
       skipped += dead.length - heard.length;
 
-      if (heard.length > 0) {
+      if (taken.length > 0) {
+        // A row that retention deleted in the meantime is not written, so it is not counted.
         const written = await db
           .update(eventDelivery)
           .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
@@ -183,7 +198,7 @@ export class EventDelivery {
               eq(eventDelivery.subscriber, subscriber),
               isNull(eventDelivery.deliveredAt),
               isNotNull(eventDelivery.deadLetteredAt),
-              inArray(eventDelivery.eventId, heard),
+              inArray(eventDelivery.eventId, taken),
             ),
           )
           .returning({ eventId: eventDelivery.eventId });
@@ -191,7 +206,12 @@ export class EventDelivery {
         queued += written.length;
       }
 
-      if (dead.length < REDELIVERY_BATCH) {
+      if (queued >= limit) {
+        more = taken.length < heard.length || dead.length === REDELIVERY_PAGE;
+        break;
+      }
+
+      if (dead.length < REDELIVERY_PAGE) {
         break;
       }
 
@@ -199,11 +219,11 @@ export class EventDelivery {
     }
 
     this.logger.info(
-      { subscriber, since: since.toISOString(), queued, skipped },
+      { subscriber, since: since.toISOString(), queued, skipped, more },
       'Queued dead letters again',
     );
 
-    return queued;
+    return { queued, more };
   }
 
   private async stillDue(): Promise<number> {
@@ -212,6 +232,10 @@ export class EventDelivery {
       .from(eventDelivery)
       .where(
         and(
+          inArray(eventDelivery.subscriber, [
+            ...this.subscribers.lane('contexts'),
+            ...this.subscribers.lane('sinks'),
+          ]),
           isNull(eventDelivery.deliveredAt),
           isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
@@ -513,9 +537,9 @@ export class EventDelivery {
   }
 
   private async nextDue(lane: DeliveryLane): Promise<Due | null> {
-    const sinks = [...this.subscribers.sinks()];
+    const names = [...this.subscribers.lane(lane)];
 
-    if (lane === 'sinks' && sinks.length === 0) {
+    if (names.length === 0) {
       return null;
     }
 
@@ -537,11 +561,7 @@ export class EventDelivery {
           isNull(eventDelivery.deliveredAt),
           isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
-          lane === 'sinks'
-            ? inArray(eventDelivery.subscriber, sinks)
-            : sinks.length > 0
-              ? notInArray(eventDelivery.subscriber, sinks)
-              : undefined,
+          inArray(eventDelivery.subscriber, names),
         ),
       )
       .orderBy(asc(eventDelivery.dueAt), asc(eventOutbox.recordedAt))
@@ -557,8 +577,17 @@ export class EventDelivery {
   ): Promise<T> {
     const subscriber = this.subscribers.named(due.subscriber);
 
-    if (!subscriber || !this.subscribers.hears(due.subscriber, due.kind)) {
-      throw new KindNotHeardError(due.subscriber, due.kind, !subscriber);
+    if (!subscriber) {
+      throw new Error(`No subscriber is called ${due.subscriber} here`);
+    }
+
+    // A sink is set by the operator, so a kind it no longer hears is a dead letter at once. A subscriber of a context that does not hear the kind is retried: another instance may still hear it during a deploy.
+    if (!this.subscribers.hears(due.subscriber, due.kind)) {
+      if (this.subscribers.isSink(due.subscriber)) {
+        throw new KindNotHeardError(due.subscriber, due.kind);
+      }
+
+      throw new Error(`${due.subscriber} does not hear ${due.kind} here`);
     }
 
     return this.telemetry.inSpan(
