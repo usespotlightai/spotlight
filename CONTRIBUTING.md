@@ -96,10 +96,8 @@ see.
 | Hearing | The event kinds that one subscriber hears (`Hearing`): the kinds it names in full, and, for an event sink only, each integration event kind that starts with one of its prefixes. A prefix is a context, such as `identity.`, or the empty prefix, which matches every integration event. `EventSubscribers.hears` and the outbox queries (`heardDeliveries`) read the same hearings, so an instance claims only the deliveries that it can handle. |
 | Job loop | The loop that processes the due pending jobs of one kind (`JobLoop`, `PendingJobsPort.processDue`). |
 | Ledger | A table gateway that is not an aggregate repository (`*.ledger.ts`). |
-| Metered call | One usage row for each catalog tool call (`MeteredCall`). |
 | Outbox record | The id and the record time of one event in the outbox (`event_outbox`, `OutboxRecord`). A subscriber gets it with the event; the event webhook sends the id as `webhook-id`. |
 | Pending job | A row that a job loop must process, with its attempts and next attempt time (`job_attempts`, `job_due_at`). |
-| Plan term | A plan and the time it ends, if it ends (`PlanTerm`). The free plan never ends. |
 | Platform pool | The push pool that Spotlight adds to each workspace when the deployment sets `SPOTLIGHT_PLATFORM_POOL_URL` (`runner_pool.platform`). The deployment gives its provision URL and secret, so the row keeps neither. It takes only work that no other pool or trust of the workspace fits, and the operator can disable it for one workspace. Terraform does not see or change it. Compare the platform egress. |
 | Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
 | Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
@@ -112,7 +110,6 @@ see.
 | Value origin | Where a secret's value comes from (`SecretValueOrigin`): `awaiting` (no value yet), `spotlight` (a person set it, or Terraform handed it over) or `terraform` (`valueWoVersion` is set). |
 | Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |
 | Workspace directory | Every workspace of the deployment, not scoped to a viewer (`WorkspaceDirectoryPort`). |
-| Workspace plan | The plan term stored for one workspace (`WorkspacePlan`). A workspace without a workspace plan has the free plan. |
 
 ## Releases
 

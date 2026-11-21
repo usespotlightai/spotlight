@@ -24,12 +24,6 @@ interface DeclaredWriters {
 }
 
 const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
-  catalog_call: {
-    why: 'append-only ledger of catalog tool calls, kept for metering',
-    writers: [
-      'contexts/catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger.ts',
-    ],
-  },
   chat_record: {
     why: 'Insights ledger of chats, written from chat events',
     writers: [

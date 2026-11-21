@@ -1,6 +1,6 @@
 import type {
   CatalogRequest,
-  EntitledItems,
+  ResolvedItems,
 } from '@catalog/application/contracts/catalog.contract';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
@@ -310,13 +310,13 @@ const tracing = {
     `trace:${requester.id}:${runId.value}`,
 };
 
-let entitledItems: EntitledItems = { tools: [], skills: [], denied: [] };
+let resolvedItems: ResolvedItems = { tools: [], skills: [], denied: [] };
 let catalogRequested: CatalogRequest[] = [];
 
 const catalog = new RunCatalog({
-  entitledTo: async (_workspace, named) => {
+  resolve: async (named) => {
     catalogRequested.push(named);
-    return entitledItems;
+    return resolvedItems;
   },
   call: async () => ({ kind: 'answered', output: null }),
 });
@@ -414,7 +414,7 @@ describe('DispatchTask', () => {
     touchedOnTask = [];
     queued = [];
     ordered = [];
-    entitledItems = { tools: [], skills: [], denied: [] };
+    resolvedItems = { tools: [], skills: [], denied: [] };
     catalogRequested = [];
   });
 
@@ -442,7 +442,7 @@ describe('DispatchTask', () => {
     });
 
     it('names a catalog tool without its version, and pins the version in the run', async () => {
-      entitledItems = { tools: [WEB_SEARCH], skills: [], denied: [] };
+      resolvedItems = { tools: [WEB_SEARCH], skills: [], denied: [] };
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
@@ -452,7 +452,7 @@ describe('DispatchTask', () => {
     });
 
     it('lays a catalog skill in its own folder and enables the tools it uses', async () => {
-      entitledItems = {
+      resolvedItems = {
         tools: [WEB_SEARCH],
         skills: [
           {
@@ -475,16 +475,15 @@ describe('DispatchTask', () => {
       expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
     });
 
-    it('fails the run as entitlement_expired, rather than running without it, when the plan has expired', async () => {
-      entitledItems = {
+    it('fails the run as catalog_item_unknown, rather than running without it, when the catalog no longer has the item', async () => {
+      resolvedItems = {
         tools: [],
         skills: [],
         denied: [
           {
             id: WEB_SEARCH.id,
-            reason: 'expired',
-            because:
-              'catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
+            reason: 'unknown',
+            because: 'Catalog has no item catalog.web-search@1.1.0.',
           },
         ],
       };
@@ -492,7 +491,7 @@ describe('DispatchTask', () => {
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
       expect(refusedAs(queued[0])).toEqual([
-        'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
+        'catalog_item_unknown: Catalog has no item catalog.web-search@1.1.0.',
       ]);
     });
   });
@@ -501,10 +500,8 @@ describe('DispatchTask', () => {
     it.each([
       ['unknown', 'catalog_item_unknown'],
       ['wrong-kind', 'catalog_item_wrong_kind'],
-      ['not-entitled', 'not_entitled'],
-      ['expired', 'entitlement_expired'],
     ] as const)('names a refusal for %s as %s', async (reason, code) => {
-      entitledItems = {
+      resolvedItems = {
         tools: [],
         skills: [],
         denied: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
@@ -516,11 +513,15 @@ describe('DispatchTask', () => {
     });
 
     it('names every refusal, each by its own reason', async () => {
-      entitledItems = {
+      resolvedItems = {
         tools: [],
         skills: [],
         denied: [
-          { id: WEB_SEARCH.id, reason: 'expired', because: 'expired here' },
+          {
+            id: WEB_SEARCH.id,
+            reason: 'wrong-kind',
+            because: 'wrong kind here',
+          },
           {
             id: 'catalog.research@9.0.0',
             reason: 'unknown',
@@ -537,7 +538,7 @@ describe('DispatchTask', () => {
       );
 
       expect(refusedAs(queued[0])).toEqual([
-        'entitlement_expired: expired here',
+        'catalog_item_wrong_kind: wrong kind here',
         'catalog_item_unknown: unknown here',
       ]);
     });
