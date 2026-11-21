@@ -1,5 +1,6 @@
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { describe, expect, it } from 'vitest';
 
 const heard = async () => [];
@@ -48,8 +49,21 @@ describe('EventSubscribers', () => {
     expect(more.named('test.part')).toBeNull();
   });
 
-  it('leaves the retry of a subscriber made with subscribing to the outbox default', () => {
-    expect(subscribers.named('test.exact')?.retry).toBeUndefined();
+  it('keeps the retry of a sink, and leaves another subscriber to the outbox default', () => {
+    const retry = Retry.backoff({
+      maxAttempts: 3,
+      initialDelayMs: 1_000,
+      maxDelayMs: 1_000,
+    });
+    const more = new EventSubscribers();
+    more.registerSink(subscribing('test.sink', [], heard), {
+      prefixes: [''],
+      retry,
+    });
+
+    expect(more.retry('test.sink')).toBe(retry);
+    expect(subscribers.retry('test.work')).toBeNull();
+    expect(subscribers.retry('test.exact')).toBeNull();
   });
 
   it('answers whether a subscriber of the name is registered and hears the kind', () => {
@@ -59,8 +73,17 @@ describe('EventSubscribers', () => {
   });
 
   it('puts the sinks in the sinks lane, and the other subscribers in the contexts lane', () => {
-    expect(subscribers.lane('sinks')).toEqual(['test.work', 'test.every']);
-    expect(subscribers.lane('contexts')).toEqual(['test.exact']);
+    expect(subscribers.lane('sinks')).toEqual([
+      { name: 'test.work', kinds: [], prefixes: ['work.'] },
+      { name: 'test.every', kinds: [], prefixes: [''] },
+    ]);
+    expect(subscribers.lane('contexts')).toEqual([
+      {
+        name: 'test.exact',
+        kinds: ['task.opened', 'work.task-opened.v1'],
+        prefixes: [],
+      },
+    ]);
     expect(subscribers.isSink('test.work')).toBe(true);
     expect(subscribers.isSink('test.exact')).toBe(false);
   });

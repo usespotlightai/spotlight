@@ -4,14 +4,27 @@ import {
   isIntegrationEventKind,
 } from '@shared-kernel/application/integration-events/integration-event';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import type { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 // The contexts lane holds the subscribers of the contexts. The sinks lane holds the sinks, which send events out of Spotlight, so a slow receiver does not hold up the subscribers of the contexts.
 export type DeliveryLane = 'contexts' | 'sinks';
 
+// What one subscriber hears: the kinds it names, and each integration event kind that starts with one of its prefixes. hears and the outbox's queries both read it, so they match the same kinds.
+export interface Hearing {
+  readonly name: string;
+  readonly kinds: readonly string[];
+  readonly prefixes: readonly string[];
+}
+
+interface Sink {
+  readonly prefixes: readonly string[];
+  readonly retry: Retry | null;
+}
+
 @Injectable()
 export class EventSubscribers {
   readonly #named = new Map<string, DomainEventSubscriber>();
-  readonly #prefixes = new Map<string, readonly string[]>();
+  readonly #sinks = new Map<string, Sink>();
 
   register(subscribers: readonly DomainEventSubscriber[]): void {
     for (const subscriber of subscribers) {
@@ -25,10 +38,13 @@ export class EventSubscribers {
     }
   }
 
-  // A sink sends integration events out of Spotlight. It also hears each integration event that a context of the prefixes publishes, but never a domain event; the empty prefix matches every integration event. Its deliveries go in the sinks lane. Only the platform registers a sink: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
+  // A sink sends integration events out of Spotlight. It also hears each integration event that a context of the prefixes publishes, but never a domain event; the empty prefix matches every integration event. Its deliveries go in the sinks lane, with its own retry. Only the platform registers a sink: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
   registerSink(
     subscriber: DomainEventSubscriber,
-    { prefixes }: { readonly prefixes: readonly string[] },
+    {
+      prefixes,
+      retry = null,
+    }: { readonly prefixes: readonly string[]; readonly retry?: Retry | null },
   ): void {
     const wrong = prefixes.find(
       (each) => each !== '' && !isContextPrefix(each),
@@ -41,19 +57,26 @@ export class EventSubscribers {
     }
 
     this.register([subscriber]);
-    this.#prefixes.set(subscriber.name, prefixes);
+    this.#sinks.set(subscriber.name, { prefixes, retry });
   }
 
   // The subscribers that hear the kind.
   hearing(kind: string): readonly DomainEventSubscriber[] {
-    return [...this.#named.values()].filter((each) => this.matches(each, kind));
+    return [...this.#named.keys()]
+      .filter((name) => this.hears(name, kind))
+      .flatMap((name) => this.named(name) ?? []);
   }
 
-  // The subscriber of the name is registered, and it hears the kind: it names the kind, or one of its prefixes matches the integration event kind.
+  // The subscriber of the name is registered, and it hears the kind.
   hears(name: string, kind: string): boolean {
-    const subscriber = this.#named.get(name);
+    const hearing = this.hearingOf(name);
 
-    return subscriber !== undefined && this.matches(subscriber, kind);
+    return (
+      hearing !== null &&
+      (hearing.kinds.includes(kind) ||
+        (isIntegrationEventKind(kind) &&
+          hearing.prefixes.some((prefix) => kind.startsWith(prefix))))
+    );
   }
 
   named(name: string): DomainEventSubscriber | null {
@@ -61,23 +84,30 @@ export class EventSubscribers {
   }
 
   isSink(name: string): boolean {
-    return this.#prefixes.has(name);
+    return this.#sinks.has(name);
   }
 
-  // The names of the subscribers in the lane.
-  lane(lane: DeliveryLane): readonly string[] {
-    return [...this.#named.keys()].filter(
-      (name) => this.isSink(name) === (lane === 'sinks'),
-    );
+  // The retry of a sink; null for a subscriber that takes the outbox default.
+  retry(name: string): Retry | null {
+    return this.#sinks.get(name)?.retry ?? null;
   }
 
-  private matches(subscriber: DomainEventSubscriber, kind: string): boolean {
-    return (
-      subscriber.kinds.includes(kind) ||
-      (isIntegrationEventKind(kind) &&
-        (this.#prefixes.get(subscriber.name) ?? []).some((prefix) =>
-          kind.startsWith(prefix),
-        ))
-    );
+  // What each subscriber in the lane hears.
+  lane(lane: DeliveryLane): readonly Hearing[] {
+    return [...this.#named.keys()]
+      .filter((name) => this.isSink(name) === (lane === 'sinks'))
+      .flatMap((name) => this.hearingOf(name) ?? []);
+  }
+
+  private hearingOf(name: string): Hearing | null {
+    const subscriber = this.#named.get(name);
+
+    return subscriber
+      ? {
+          name,
+          kinds: subscriber.kinds,
+          prefixes: this.#sinks.get(name)?.prefixes ?? [],
+        }
+      : null;
   }
 }

@@ -100,7 +100,7 @@ export class OutboxRetention {
     return removed.length;
   }
 
-  // The events whose open deliveries no subscriber of this instance hears, where each open delivery is a dead letter or has waited untouched since before the retention age.
+  // The events whose open deliveries no subscriber of this instance hears, where each open delivery is untouched since before the retention age: no attempt, dead letter, lease or redelivery since then. A dead letter's due time is when it became one.
   private async deleteUnheard(
     before: Date,
   ): Promise<{ readonly removed: number; readonly more: boolean }> {
@@ -126,7 +126,7 @@ export class OutboxRetention {
       )
       .groupBy(eventOutbox.id)
       .having(
-        sql`bool_and(${eventDelivery.deadLetteredAt} is not null or ${eventDelivery.dueAt} < ${before.toISOString()}::timestamptz)`,
+        sql`bool_and(${eventDelivery.dueAt} < ${before.toISOString()}::timestamptz)`,
       )
       .orderBy(asc(eventOutbox.id))
       .limit(this.limits.batch);
@@ -149,14 +149,15 @@ export class OutboxRetention {
     const removed = await this.context.inTransaction(async () => {
       const db = this.context.db;
 
-      // Waits for an instance that queues one of these dead letters again right now. The delete then reads a fresh snapshot.
+      // Waits for an instance that queues one of these dead letters again right now, locking in the order of the event as the redelivery does. The delete then reads a fresh snapshot.
       await db
         .select({ eventId: eventDelivery.eventId })
         .from(eventDelivery)
         .where(inArray(eventDelivery.eventId, unheard))
+        .orderBy(asc(eventDelivery.eventId), asc(eventDelivery.subscriber))
         .for('update');
 
-      // An event with a delivery that waits again, as one queued again or claimed by another instance, stays.
+      // An event with a delivery touched since the retention age, as one queued again or claimed by another instance, stays.
       return db
         .delete(eventOutbox)
         .where(
@@ -171,7 +172,6 @@ export class OutboxRetention {
                   and(
                     eq(eventDelivery.eventId, eventOutbox.id),
                     isNull(eventDelivery.deliveredAt),
-                    isNull(eventDelivery.deadLetteredAt),
                     gte(eventDelivery.dueAt, before),
                   ),
                 ),

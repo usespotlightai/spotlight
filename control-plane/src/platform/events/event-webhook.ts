@@ -145,6 +145,7 @@ export class EventWebhook {
 export interface EventWebhookSubscription {
   readonly subscriber: DomainEventSubscriber;
   readonly prefixes: readonly string[];
+  readonly retry: Retry;
 }
 
 // SPOTLIGHT_EVENT_WEBHOOK_KINDS names integration event kinds in full, such as runs.run-usage-recorded.v1, or contexts, such as identity. With no kinds, the subscriber hears every integration event. It never hears a domain event.
@@ -157,8 +158,9 @@ export const eventWebhookSubscription = (
     EVENT_WEBHOOK_SUBSCRIBER,
     kinds.filter(isIntegrationEventKind),
     (event, record) => webhook.send(event, record),
-    { callsOut: true, retry: EVENT_WEBHOOK_RETRY },
+    { callsOut: true },
   ),
+  retry: EVENT_WEBHOOK_RETRY,
   prefixes:
     kinds.length === 0
       ? ['']

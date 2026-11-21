@@ -30,7 +30,7 @@ const nameOf = (statement: ts.Statement): string | null => {
   return null;
 };
 
-// Each declaration of the integration event files, by name: the kinds and the payload types, printed without comments.
+// Each declaration of the integration event files, by file and name: the kinds and the payload types, printed without comments.
 export const integrationEventShapes = (): Record<string, string> =>
   Object.fromEntries(
     sourceFiles(INTEGRATION_EVENTS)
@@ -42,7 +42,7 @@ export const integrationEventShapes = (): Record<string, string> =>
           return name
             ? [
                 [
-                  name,
+                  `${file.path.slice(INTEGRATION_EVENTS.length)}:${name}`,
                   printer
                     .printNode(ts.EmitHint.Unspecified, statement, file.tree)
                     .replace(/\s+/g, ' '),

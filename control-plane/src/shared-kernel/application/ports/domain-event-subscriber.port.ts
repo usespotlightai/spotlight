@@ -1,5 +1,4 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import type { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 // The outbox record of the event that a subscriber gets: its id and when the outbox recorded it.
 export interface OutboxRecord {
@@ -14,9 +13,6 @@ export interface DomainEventSubscriber {
 
   readonly callsOut: boolean;
 
-  // How often the outbox tries a failed delivery, and how long it waits between attempts. After the last attempt, the delivery is a dead letter. Without it, the outbox default applies.
-  readonly retry?: Retry;
-
   handle(
     event: DomainEvent,
     record: OutboxRecord,
@@ -27,15 +23,11 @@ export const subscribing = <E extends DomainEvent>(
   name: string,
   kinds: readonly string[],
   handle: (event: E, record: OutboxRecord) => Promise<unknown>,
-  {
-    callsOut = false,
-    retry,
-  }: { readonly callsOut?: boolean; readonly retry?: Retry } = {},
+  { callsOut } = { callsOut: false },
 ): DomainEventSubscriber => ({
   name,
   kinds,
   callsOut,
-  ...(retry ? { retry } : {}),
   handle: async (event, record) => {
     const raised = await handle(event as E, record);
 

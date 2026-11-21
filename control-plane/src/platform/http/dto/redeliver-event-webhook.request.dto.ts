@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { REDELIVERY_LIMIT } from '@platform/events/event-delivery';
-
-export const LONGEST_REDELIVERY = 100_000;
+import {
+  MAX_REDELIVERY_LIMIT,
+  REDELIVERY_LIMIT,
+} from '@platform/events/event-delivery';
 
 export class RedeliverEventWebhookRequestDto {
   @ApiProperty({
@@ -16,7 +17,7 @@ export class RedeliverEventWebhookRequestDto {
     type: Number,
     required: false,
     example: REDELIVERY_LIMIT,
-    description: `At most this many dead letters, ${REDELIVERY_LIMIT} when left out, up to ${LONGEST_REDELIVERY}. While the answer says more, send the same request again`,
+    description: `At most this many dead letters, ${REDELIVERY_LIMIT} when left out, up to ${MAX_REDELIVERY_LIMIT}. While the answer is truncated, send the same request again`,
   })
   readonly limit?: number;
 }

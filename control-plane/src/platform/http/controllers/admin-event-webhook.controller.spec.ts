@@ -6,7 +6,7 @@ import { subscribing } from '@shared-kernel/application/ports/domain-event-subsc
 import { describe, expect, it, vi } from 'vitest';
 
 const controller = (registered: boolean) => {
-  const redeliver = vi.fn(async () => ({ queued: 3, more: false }));
+  const redeliver = vi.fn(async () => ({ queued: 3, truncated: false }));
   const subscribers = new EventSubscribers();
 
   if (registered) {
@@ -29,7 +29,7 @@ describe('AdminEventWebhookController', () => {
 
     await expect(
       admin.redeliver({ since: '2026-11-01T00:00:00Z' }),
-    ).resolves.toEqual({ queued: 3, more: false });
+    ).resolves.toEqual({ queued: 3, truncated: false });
     expect(redeliver).toHaveBeenCalledExactlyOnceWith(
       'platform.send-event-webhook',
       new Date('2026-11-01T00:00:00Z'),

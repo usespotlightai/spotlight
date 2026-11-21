@@ -14,17 +14,17 @@ import {
   ApiOkResponse,
   ApiOperation,
 } from '@nestjs/swagger';
-import { EventDelivery } from '@platform/events/event-delivery';
+import {
+  EventDelivery,
+  MAX_REDELIVERY_LIMIT,
+} from '@platform/events/event-delivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import {
   EVENT_WEBHOOK_RETRY_HOURS,
   EVENT_WEBHOOK_SUBSCRIBER,
 } from '@platform/events/event-webhook';
 import { AdminController } from '@platform/http/decorators/admin-controller.decorator';
-import {
-  LONGEST_REDELIVERY,
-  RedeliverEventWebhookRequestDto,
-} from '@platform/http/dto/redeliver-event-webhook.request.dto';
+import { RedeliverEventWebhookRequestDto } from '@platform/http/dto/redeliver-event-webhook.request.dto';
 import { RedeliverEventWebhookResponseDto } from '@platform/http/dto/redeliver-event-webhook.response.dto';
 import { isoTimeOf } from '@platform/http/iso-time';
 
@@ -50,10 +50,10 @@ const limitOf = (raw: unknown): number | undefined => {
     typeof raw !== 'number' ||
     !Number.isInteger(raw) ||
     raw < 1 ||
-    raw > LONGEST_REDELIVERY
+    raw > MAX_REDELIVERY_LIMIT
   ) {
     throw new BadRequestException(
-      `Sorry, limit must be a whole number from 1 to ${LONGEST_REDELIVERY}.`,
+      `Sorry, limit must be a whole number from 1 to ${MAX_REDELIVERY_LIMIT}.`,
     );
   }
 
@@ -73,13 +73,12 @@ export class AdminEventWebhookController {
   @ApiOperation({
     operationId: 'redeliverEventWebhook',
     summary: 'Send the dead letters of the event webhook again',
-    description: `Spotlight tries to send each event to the event webhook for about ${EVENT_WEBHOOK_RETRY_HOURS} hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again. One request queues at most limit dead letters; while the answer says more, send it again.`,
+    description: `Spotlight tries to send each event to the event webhook for about ${EVENT_WEBHOOK_RETRY_HOURS} hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again. One request queues at most limit dead letters; while the answer is truncated, send it again.`,
   })
   @ApiBody({ type: RedeliverEventWebhookRequestDto })
   @ApiOkResponse({ type: RedeliverEventWebhookResponseDto })
   @ApiBadRequestResponse({
-    description:
-      'A body without since as an ISO 8601 time, or a limit that is not a whole number from 1 to 100000',
+    description: `A body without since as an ISO 8601 time, or a limit that is not a whole number from 1 to ${MAX_REDELIVERY_LIMIT}`,
   })
   @ApiConflictResponse({
     description: 'This deployment sets no event webhook',

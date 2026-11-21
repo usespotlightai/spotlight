@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import type { Redelivery } from '@platform/events/event-delivery';
 
 export class RedeliverEventWebhookResponseDto {
   @ApiProperty({
@@ -13,10 +14,10 @@ export class RedeliverEventWebhookResponseDto {
     description:
       'Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them',
   })
-  readonly more: boolean;
+  readonly truncated: boolean;
 
-  constructor(redelivery: { readonly queued: number; readonly more: boolean }) {
+  constructor(redelivery: Redelivery) {
     this.queued = redelivery.queued;
-    this.more = redelivery.more;
+    this.truncated = redelivery.truncated;
   }
 }

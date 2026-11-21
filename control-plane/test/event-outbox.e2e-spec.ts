@@ -40,7 +40,7 @@ import {
   changeActorIn,
 } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
@@ -688,7 +688,7 @@ describe('the rows the event outbox keeps', () => {
 
     expect(await redelivery.redeliver('test.redeliver', since)).toEqual({
       queued: 1,
-      more: false,
+      truncated: false,
     });
     expect(await stateOf(queued)).toEqual({
       attempts: 0,
@@ -782,7 +782,7 @@ describe('the rows the event outbox keeps', () => {
 
     commit();
 
-    expect(await redelivering).toEqual({ queued: 1, more: false });
+    expect(await redelivering).toEqual({ queued: 1, truncated: false });
     expect(await sweeping).toBe(0);
     expect(await keptIds([id])).toEqual([id]);
     expect(
@@ -964,5 +964,104 @@ describe('the lanes of event delivery', () => {
     expect(heard).toEqual([id]);
     expect(await rowOf()).toMatchObject({ attempts: 1, deadLetteredAt: null });
     expect((await rowOf())?.deliveredAt).not.toBeNull();
+  });
+
+  const pendingRow = async (kind: string, subscriber: string) => {
+    const id = randomUUID();
+    const recordedAt = new Date(now.getTime() - 60_000);
+    await database.db
+      .insert(eventOutbox)
+      .values({ id, kind, payload: {}, recordedAt });
+    await database.db.insert(eventDelivery).values({
+      eventId: id,
+      subscriber,
+      dueAt: recordedAt,
+    });
+    return id;
+  };
+
+  const stateOf = async (id: string) =>
+    (
+      await database.db
+        .select({
+          attempts: eventDelivery.attempts,
+          delivered: sql<boolean>`${eventDelivery.deliveredAt} is not null`,
+          deadLettered: sql<boolean>`${eventDelivery.deadLetteredAt} is not null`,
+        })
+        .from(eventDelivery)
+        .where(eq(eventDelivery.eventId, id))
+    )[0];
+
+  const instanceWith = (subscribers: EventSubscribers) =>
+    new EventDelivery(
+      context,
+      outboxWith().outbox,
+      subscribers,
+      { now: () => now } as ClockPort,
+      logger,
+      causation,
+      { report: vi.fn() },
+      new OtelTelemetry(),
+    );
+
+  it('leaves a new kind of an existing subscriber to the instance that hears it', async () => {
+    const id = await pendingRow('bell.added', 'test.widened');
+    const heard: string[] = [];
+    const older = new EventSubscribers();
+    older.register([
+      subscribing('test.widened', ['bell.kept'], async () => []),
+    ]);
+    const newer = new EventSubscribers();
+    newer.register([
+      subscribing('test.widened', ['bell.kept', 'bell.added'], async () => {
+        heard.push(id);
+      }),
+    ]);
+
+    await instanceWith(older).processDue('contexts');
+
+    expect(await stateOf(id)).toEqual({
+      attempts: 0,
+      delivered: false,
+      deadLettered: false,
+    });
+
+    await instanceWith(newer).processDue('contexts');
+
+    expect(heard).toEqual([id]);
+    expect(await stateOf(id)).toEqual({
+      attempts: 1,
+      delivered: true,
+      deadLettered: false,
+    });
+  });
+
+  it('leaves an integration event of a context that a sink names only on a newer instance to that instance', async () => {
+    const id = await pendingRow('bellwide.rang.v1', 'test.widened-sink');
+    const sunk: string[] = [];
+    const sinkWith = (prefixes: readonly string[]) => {
+      const subscribers = new EventSubscribers();
+      subscribers.registerSink(
+        subscribing('test.widened-sink', [], async () => {
+          sunk.push(id);
+        }),
+        { prefixes },
+      );
+      return instanceWith(subscribers);
+    };
+
+    await sinkWith(['bellnarrow.']).processDue('sinks');
+
+    expect(sunk).toEqual([]);
+    expect(await stateOf(id)).toEqual({
+      attempts: 0,
+      delivered: false,
+      deadLettered: false,
+    });
+
+    await sinkWith(['bellnarrow.', 'bellwide.']).processDue('sinks');
+
+    expect(sunk).toEqual([id]);
+    expect((await stateOf(id))?.delivered).toBe(true);
   });
 });

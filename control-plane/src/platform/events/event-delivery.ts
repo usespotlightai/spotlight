@@ -6,6 +6,7 @@ import {
   type DeliveryLane,
   EventSubscribers,
 } from '@platform/events/event-subscribers';
+import { heardDeliveries } from '@platform/events/heard-deliveries';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -63,21 +64,15 @@ const DELIVERY_BATCH = 100;
 
 const REDELIVERY_PAGE = 1_000;
 
-// How many dead letters one redelivery queues again when it names no limit.
-export const REDELIVERY_LIMIT = 10_000;
+// How many dead letters one redelivery queues again when it names no limit, and at most. A small default keeps the new events of the webhook from waiting behind a large batch; the caller asks again while the redelivery is truncated.
+export const REDELIVERY_LIMIT = 1_000;
+
+export const MAX_REDELIVERY_LIMIT = 100_000;
 
 export interface Redelivery {
   readonly queued: number;
   // The redelivery stopped at its limit, and more dead letters may wait.
-  readonly more: boolean;
-}
-
-// A sink no longer hears the kind, as when the operator narrows SPOTLIGHT_EVENT_WEBHOOK_KINDS. The delivery is a dead letter at once, and it is not an error: a redelivery sends it again.
-class KindNotHeardError extends Error {
-  constructor(subscriber: string, kind: string) {
-    super(`${subscriber} does not hear ${kind} any more`);
-    this.name = 'KindNotHeardError';
-  }
+  readonly truncated: boolean;
 }
 
 const because = (error: unknown): string =>
@@ -124,7 +119,7 @@ export class EventDelivery {
     @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
-  // Works the due deliveries of the lane, but only those of the subscribers this instance registers: during a deploy, an instance never settles a delivery that only a newer instance can handle.
+  // Works the due deliveries of the lane, but only those that this instance hears: a subscriber it registers, and a kind that subscriber hears. During a deploy, an instance never settles a delivery that only a newer instance can handle. A delivery that no instance hears stays as it is, and retention deletes it once it has been untouched for the retention age.
   async processDue(
     lane: DeliveryLane,
     limit = DELIVERY_BATCH,
@@ -153,7 +148,7 @@ export class EventDelivery {
     }
   }
 
-  // Queues the dead letters of one subscriber again, for the events recorded at or after the time whose kind it still hears, at most limit of them. Each gets all its attempts again. While more is true, a next call queues more.
+  // Queues the dead letters of one subscriber again, for the events recorded at or after the time whose kind it still hears, at most limit of them. Each gets all its attempts again. While the result is truncated, a next call queues more.
   async redeliver(
     subscriber: string,
     since: Date,
@@ -163,7 +158,7 @@ export class EventDelivery {
     let after: string | null = null;
     let queued = 0;
     let skipped = 0;
-    let more = false;
+    let truncated = false;
 
     for (;;) {
       const dead = await db
@@ -189,25 +184,12 @@ export class EventDelivery {
       skipped += dead.length - heard.length;
 
       if (taken.length > 0) {
-        // A row that retention deleted in the meantime is not written, so it is not counted.
-        const written = await db
-          .update(eventDelivery)
-          .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
-          .where(
-            and(
-              eq(eventDelivery.subscriber, subscriber),
-              isNull(eventDelivery.deliveredAt),
-              isNotNull(eventDelivery.deadLetteredAt),
-              inArray(eventDelivery.eventId, taken),
-            ),
-          )
-          .returning({ eventId: eventDelivery.eventId });
-
-        queued += written.length;
+        queued += await this.requeued(subscriber, taken);
       }
 
       if (queued >= limit) {
-        more = taken.length < heard.length || dead.length === REDELIVERY_PAGE;
+        truncated =
+          taken.length < heard.length || dead.length === REDELIVERY_PAGE;
         break;
       }
 
@@ -219,20 +201,52 @@ export class EventDelivery {
     }
 
     this.logger.info(
-      { subscriber, since: since.toISOString(), queued, skipped, more },
+      { subscriber, since: since.toISOString(), queued, skipped, truncated },
       'Queued dead letters again',
     );
 
-    return { queued, more };
+    return { queued, truncated };
+  }
+
+  // Locks the dead letters in the order of their event, as retention does, so the two never wait on each other in a circle, and queues them again. A row that retention deleted in the meantime is not written, so it is not counted.
+  private requeued(
+    subscriber: string,
+    eventIds: readonly string[],
+  ): Promise<number> {
+    return this.context.inTransaction(async () => {
+      const db = this.context.db;
+      const dead = and(
+        eq(eventDelivery.subscriber, subscriber),
+        isNull(eventDelivery.deliveredAt),
+        isNotNull(eventDelivery.deadLetteredAt),
+        inArray(eventDelivery.eventId, [...eventIds]),
+      );
+
+      await db
+        .select({ eventId: eventDelivery.eventId })
+        .from(eventDelivery)
+        .where(dead)
+        .orderBy(asc(eventDelivery.eventId))
+        .for('update');
+
+      const written = await db
+        .update(eventDelivery)
+        .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
+        .where(dead)
+        .returning({ eventId: eventDelivery.eventId });
+
+      return written.length;
+    });
   }
 
   private async stillDue(): Promise<number> {
     const [row] = await this.context.db
       .select({ due: count() })
       .from(eventDelivery)
+      .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
       .where(
         and(
-          inArray(eventDelivery.subscriber, [
+          heardDeliveries([
             ...this.subscribers.lane('contexts'),
             ...this.subscribers.lane('sinks'),
           ]),
@@ -537,9 +551,9 @@ export class EventDelivery {
   }
 
   private async nextDue(lane: DeliveryLane): Promise<Due | null> {
-    const names = [...this.subscribers.lane(lane)];
+    const hearings = this.subscribers.lane(lane);
 
-    if (names.length === 0) {
+    if (hearings.length === 0) {
       return null;
     }
 
@@ -561,7 +575,7 @@ export class EventDelivery {
           isNull(eventDelivery.deliveredAt),
           isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
-          inArray(eventDelivery.subscriber, names),
+          heardDeliveries(hearings),
         ),
       )
       .orderBy(asc(eventDelivery.dueAt), asc(eventOutbox.recordedAt))
@@ -579,15 +593,6 @@ export class EventDelivery {
 
     if (!subscriber) {
       throw new Error(`No subscriber is called ${due.subscriber} here`);
-    }
-
-    // A sink is set by the operator, so a kind it no longer hears is a dead letter at once. A subscriber of a context that does not hear the kind is retried: another instance may still hear it during a deploy.
-    if (!this.subscribers.hears(due.subscriber, due.kind)) {
-      if (this.subscribers.isSink(due.subscriber)) {
-        throw new KindNotHeardError(due.subscriber, due.kind);
-      }
-
-      throw new Error(`${due.subscriber} does not hear ${due.kind} here`);
     }
 
     return this.telemetry.inSpan(
@@ -619,10 +624,7 @@ export class EventDelivery {
   ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
-    const next =
-      error instanceof KindNotHeardError
-        ? null
-        : this.retryOf(due).nextAttemptAt(attempts, now);
+    const next = this.retryOf(due).nextAttemptAt(attempts, now);
 
     const written = await this.context.db
       .update(eventDelivery)
@@ -644,26 +646,11 @@ export class EventDelivery {
 
   // A subscriber that sets no retry gets the default.
   private retryOf(due: Due): Retry {
-    return this.subscribers.named(due.subscriber)?.retry ?? DEFAULT_RETRY;
+    return this.subscribers.retry(due.subscriber) ?? DEFAULT_RETRY;
   }
 
   private reported(due: Due, error: unknown): void {
     const attempts = due.attempts + 1;
-
-    if (error instanceof KindNotHeardError) {
-      this.logger.warn(
-        {
-          err: error,
-          eventId: due.eventId,
-          eventKind: due.kind,
-          subscriber: due.subscriber,
-          attempts,
-          ...idsOf(due.payload),
-        },
-        'Dead-lettering a domain event delivery that its subscriber does not hear',
-      );
-      return;
-    }
 
     const deadLettering = this.retryOf(due).exhaustedAfter(attempts);
 

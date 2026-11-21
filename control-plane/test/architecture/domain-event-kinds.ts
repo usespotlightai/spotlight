@@ -1,4 +1,7 @@
-import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
+import {
+  INTEGRATION_EVENT_KIND,
+  KIND_PARTS,
+} from '@shared-kernel/application/integration-events/integration-event';
 import ts from 'typescript';
 
 import {
@@ -8,8 +11,10 @@ import {
   sourceFiles,
 } from './source-index';
 
-// Any event kind: a domain event kind (<aggregate>.<name>, a different grammar), or an integration event kind as INTEGRATION_EVENT_KIND writes it (<context>.<name>.v<version>).
-export const KIND_PATTERN = /^[a-z][a-z-]*\.[a-z][a-z-]*(\.v\d+)?$/;
+// Any event kind: a domain event kind (<aggregate>.<name>), or an integration event kind (<context>.<name>.v<version>).
+export const KIND_PATTERN = new RegExp(
+  `^${KIND_PARTS.context}\\.${KIND_PARTS.name}(${KIND_PARTS.version})?$`,
+);
 const INTEGRATION_EVENTS = 'shared-kernel/application/integration-events/';
 
 export const isDomainEventsPath = (path: string): boolean =>
