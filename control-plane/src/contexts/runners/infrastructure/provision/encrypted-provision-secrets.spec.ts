@@ -3,10 +3,12 @@ import {
   secretOf,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { ProvisionSecretDecryptionFailedError } from '@runners/domain/exceptions/provision-secret-decryption-failed.error';
+import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { EncryptedProvisionSecrets } from '@runners/infrastructure/provision/encrypted-provision-secrets';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import { CredentialDecryptionFailedError } from '@secrets/application/errors/credential-decryption-failed.error';
 import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -53,6 +55,18 @@ describe('EncryptedProvisionSecrets', () => {
 
     await expect(secrets.decrypt(HOLDER, ciphertext)).rejects.toThrow(
       ProvisionSecretDecryptionFailedError,
+    );
+  });
+
+  it('says a stored secret that no longer has the shape of a signing secret is an inconsistent state', async () => {
+    const secrets = new EncryptedProvisionSecrets(encryption());
+    const ciphertext = await secrets.encrypt(HOLDER, secretOf('s'));
+    const tampered = EncryptedProvisionSecret.of(
+      `${ciphertext.value.split('|').slice(0, 2).join('|')}|hunter2`,
+    );
+
+    await expect(secrets.decrypt(HOLDER, tampered)).rejects.toThrow(
+      InconsistentStateError,
     );
   });
 });

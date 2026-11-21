@@ -293,14 +293,14 @@ const trialsOf = () =>
       { named: () => null },
       { readyAt: async () => [] } as unknown as StationSkills,
       new RunCatalog({
-        entitledTo: async () => ({
+        resolve: async () => ({
           tools: [],
           skills: [],
           denied: [
             {
               id: 'catalog.web-search@1.1.0',
-              reason: 'not-entitled',
-              because: 'The plan does not include it.',
+              reason: 'unknown',
+              because: 'Catalog has no item catalog.web-search@1.1.0.',
             },
           ],
         }),

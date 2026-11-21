@@ -25,7 +25,7 @@ const ago = (ms: number): Date => new Date(NOW.getTime() - ms);
 const host = (overrides: Partial<HostSummary> = {}): HostSummary => ({
   id: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
   name: 'build-box',
-  source: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral', platform: null },
   release: '0.9.0',
   containerRuntime: 'docker',
   capacity: 4,
@@ -50,7 +50,7 @@ const runner = (
   overrides: Partial<LiveRunnerSummary> = {},
 ): LiveRunnerSummary => ({
   id: 'runner_1',
-  source: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral', platform: null },
   hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
   image: 'ghcr.io/acme/runner:main',
   harnesses: ['claude-code'],
@@ -150,7 +150,7 @@ describe('ListRunnersHandler', () => {
     expect(fleet?.hosts).toEqual([
       expect.objectContaining({
         id: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
-        source: { kind: 'pool', key: 'ephemeral' },
+        source: { kind: 'pool', key: 'ephemeral', platform: null },
         slotsTaken: 0,
         slotsOffered: 4,
         idleSandboxes: [],
@@ -217,7 +217,7 @@ describe('ListRunnersHandler', () => {
     expect(fleet?.runners).toEqual([
       {
         id: 'runner_1',
-        source: { kind: 'pool', key: 'ephemeral' },
+        source: { kind: 'pool', key: 'ephemeral', platform: null },
         hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
         image: 'ghcr.io/acme/runner:main',
         harnesses: ['claude-code'],
@@ -459,7 +459,7 @@ describe('ListRunnersHandler', () => {
   });
 
   it('still lists a host and a runner whose pool is gone, with no key to name it by', async () => {
-    const gone = { kind: 'pool' as const, key: null };
+    const gone = { kind: 'pool' as const, key: null, platform: null };
     const fleet = await handle({
       hosts: [host({ source: gone })],
       runners: [runner({ source: gone })],

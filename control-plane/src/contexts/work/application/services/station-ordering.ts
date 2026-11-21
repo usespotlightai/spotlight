@@ -114,9 +114,7 @@ export class StationOrdering {
     const teamSkills = station
       ? await this.teamSkills.readyAt(line, station)
       : [];
-    const catalog = station
-      ? await this.catalog.enabledAt(line, station)
-      : null;
+    const catalog = station ? await this.catalog.enabledAt(station) : null;
     const ready = [...teamSkills, ...(catalog?.skills ?? [])];
     const profiles = await this.profilesAt(line, station);
     const order = orderAt({

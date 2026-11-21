@@ -84,30 +84,21 @@ const teams = {
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
-const NEEDS_TEAM = (id: string) =>
-  `${id} requires the Team plan, and this workspace is on the Free plan`;
+const KNOWN = ['catalog.web-search@1.1.0', 'catalog.research@1.0.0'];
+
+const UNKNOWN = (id: string) => `Catalog has no item ${id}.`;
 
 const catalog = new CatalogDenials({
-  entitledTo: async (_workspace, named) => ({
+  resolve: async (named) => ({
     tools: [],
-    skills: named.skills
-      .filter((each) => each.startsWith('catalog.research@'))
+    skills: [],
+    denied: [...named.tools, ...named.skills]
+      .filter((each) => !KNOWN.includes(each))
       .map((id) => ({
         id,
-        description: 'Research on the web.',
-        files: [],
-        tools: ['catalog.web-search@1.1.0'],
+        reason: 'unknown' as const,
+        because: UNKNOWN(id),
       })),
-    denied: [
-      ...named.tools.filter((each) => each.startsWith('catalog.web-search@')),
-      ...(named.skills.some((each) => each.startsWith('catalog.research@'))
-        ? ['catalog.web-search@1.1.0']
-        : []),
-    ].map((id) => ({
-      id,
-      reason: 'not-entitled' as const,
-      because: NEEDS_TEAM(id),
-    })),
   }),
   call: async () => {
     throw new Error('not called here');
@@ -199,17 +190,31 @@ describe('CreateLineHandler', () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it('denies a catalog item the workspace’s plan does not include, pointing at where the station names it', async () => {
+  it('lets every workspace enable every catalog item, web-search too', async () => {
+    const { create, apply } = creating();
+
+    expect(
+      await create(
+        enabling(
+          ['pull-request', 'catalog.web-search@1.1.0'],
+          ['catalog.research@1.0.0'],
+        ),
+      ),
+    ).toMatchObject({ outcome: 'created' });
+    expect(apply).toHaveBeenCalled();
+  });
+
+  it('denies a catalog item the catalog does not have, pointing at where the station names it', async () => {
     const { create, apply } = creating();
     const rejected = await create(
-      enabling(['pull-request', 'catalog.web-search@1.1.0']),
+      enabling(['pull-request', 'catalog.web-search@9.0.0']),
     );
 
     expect(rejected).toEqual({
       outcome: 'invalid',
       problems: [
         expect.objectContaining({
-          reason: NEEDS_TEAM('catalog.web-search@1.1.0'),
+          reason: UNKNOWN('catalog.web-search@9.0.0'),
         }),
       ],
     });
@@ -220,17 +225,15 @@ describe('CreateLineHandler', () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it('denies a catalog skill at the skill, where a tool it uses is not included', async () => {
+  it('denies a catalog skill the catalog does not have, at the skill', async () => {
     const rejected = await creating().create(
-      enabling([], ['catalog.research@1.0.0']),
+      enabling([], ['catalog.research@9.0.0']),
     );
 
     expect(
       rejected?.outcome === 'invalid' &&
         rejected.problems.map((each) => [dottedOf(each.field), each.reason]),
-    ).toEqual([
-      ['stations.1.skills.0', NEEDS_TEAM('catalog.web-search@1.1.0')],
-    ]);
+    ).toEqual([['stations.1.skills.0', UNKNOWN('catalog.research@9.0.0')]]);
   });
 
   it('says a key the team already has is taken', async () => {
@@ -325,10 +328,10 @@ describe('UpdateLineHandler', () => {
     ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });
   });
 
-  it('denies a change to a catalog item the plan does not include, and reconciles nothing', async () => {
+  it('denies a change to a catalog item the catalog does not have, and reconciles nothing', async () => {
     const { update, reconcile } = updating();
 
-    expect(await update(enabling(['catalog.web-search@1.1.0']))).toMatchObject({
+    expect(await update(enabling(['catalog.web-search@9.0.0']))).toMatchObject({
       outcome: 'invalid',
     });
     expect(reconcile).not.toHaveBeenCalled();

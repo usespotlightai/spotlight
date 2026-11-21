@@ -11,6 +11,7 @@ describe('ProvisionFailure', () => {
     ['http-error', true],
     ['expired', true],
     ['not-allowed', false],
+    ['declined', false],
     ['unusable', false],
     ['harness-missing', false],
   ])('states whether a %s failure may be retried (%s)', (kind, allowsRetry) => {
@@ -25,6 +26,7 @@ describe('ProvisionFailure', () => {
         'harness-missing',
         'expired',
         'not-allowed',
+        'declined',
         'http-error',
         'unreachable',
         'unusable',

@@ -121,6 +121,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     remove: async () => undefined,
     waiting: async () => [],
     waitingIn: async () => [],
+    workspacesWaiting: async () => [],
     reserved: async () => [],
     reservedFor: async () => [],
   };

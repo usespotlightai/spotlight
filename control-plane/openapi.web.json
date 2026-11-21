@@ -8458,6 +8458,19 @@
           "efforts"
         ]
       },
+      "PlatformPoolSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "egress": {
+            "type": "boolean",
+            "example": true,
+            "description": "The runs of the pool go out through the platform egress of this deployment"
+          }
+        },
+        "required": [
+          "egress"
+        ]
+      },
       "CredentialSourceResponseDto": {
         "type": "object",
         "properties": {
@@ -8474,11 +8487,22 @@
             "nullable": true,
             "example": "build-farm",
             "description": "The pool’s or trust’s key; null once it is gone"
+          },
+          "platform": {
+            "nullable": true,
+            "description": "Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformPoolSourceResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "kind",
-          "key"
+          "key",
+          "platform"
         ]
       },
       "IdleSandboxResponseDto": {

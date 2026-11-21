@@ -125,7 +125,7 @@ export class PublishedLines implements LinesPort {
       return { ok: false, problems: compiled.problems.map(rerooted(place)) };
     }
 
-    const denied = await this.catalog.deniedIn(line.workspaceId, compiled.line);
+    const denied = await this.catalog.deniedIn(compiled.line);
 
     if (denied.length > 0) {
       return { ok: false, problems: denied.map(rerooted(place)) };

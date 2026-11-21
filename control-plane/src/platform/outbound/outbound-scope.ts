@@ -11,6 +11,11 @@ export const OutboundScope = {
     return scope.run([...(scope.getStore() ?? []), { hosts, refusal }], work);
   },
 
+  // Runs the work under the deployment's allow-list only, also where it starts in the scope of a workspace. Only for calls to a URL that the deployment sets.
+  deployment<T>(work: () => T): T {
+    return scope.run([], work);
+  },
+
   allows(host: string): boolean {
     return OutboundScope.refusalFor(host) === null;
   },

@@ -18,3 +18,8 @@ export interface WorkspaceMemberDto extends MemberDto {
   readonly mayBeUnsuspended: boolean;
   readonly mayLeave: boolean;
 }
+
+export type WorkspaceMemberSummaryDto = Pick<
+  WorkspaceMemberDto,
+  'id' | 'email' | 'name' | 'role' | 'joinedAt'
+>;

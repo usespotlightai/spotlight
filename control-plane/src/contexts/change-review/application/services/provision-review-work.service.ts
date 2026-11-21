@@ -5,13 +5,20 @@ import { PushDiffVersionConflictError } from '@change-review/domain/exceptions/p
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { PushDiffRepository } from '@change-review/domain/repositories/push-diff.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
-import { reviewWorkOrder } from '@change-review/domain/services/review-work-order';
+import {
+  precedes,
+  placeOf,
+  type ReviewWorkPlace,
+  reviewWorkOrder,
+} from '@change-review/domain/services/review-work-order';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
-  ReviewWorkProvisioningPort,
   ExpiredReviewWork,
+  ReviewWorkCursor,
+  ReviewWorkPage,
+  ReviewWorkProvisioningPort,
   WaitingReviewWork,
 } from '@runs/application/ports/review-work-provisioning.port';
 import type { ReviewWork } from '@runs/application/ports/review-work.port';
@@ -22,6 +29,36 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const ATTEMPTS = 3;
+
+// A cursor is the place of the last item of a page. It is a place and not an offset, so an item that leaves the queue moves no other item back past the cursor.
+const cursorOf = (place: ReviewWorkPlace): ReviewWorkCursor =>
+  JSON.stringify([place.rank, place.time, place.tieBreakers]);
+
+// The place that a cursor names, or null for a cursor that this service did not give, so that the page starts at the head.
+const cursorPlace = (cursor: ReviewWorkCursor): ReviewWorkPlace | null => {
+  try {
+    const parsed: unknown = JSON.parse(cursor);
+
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      typeof parsed[0] === 'number' &&
+      typeof parsed[1] === 'number' &&
+      Array.isArray(parsed[2]) &&
+      parsed[2].every((each: unknown) => typeof each === 'string')
+    ) {
+      return {
+        rank: parsed[0],
+        time: parsed[1],
+        tieBreakers: parsed[2],
+      };
+    }
+  } catch {
+    // A cursor that is not JSON names no place.
+  }
+
+  return null;
+};
 
 const diffWork = (diff: PushDiff): ReviewWork => ({
   kind: 'diff',
@@ -43,18 +80,26 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
   async awaiting(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly max: number },
-  ): Promise<readonly WaitingReviewWork[]> {
+    page: { readonly after: ReviewWorkCursor | null; readonly max: number },
+  ): Promise<ReviewWorkPage> {
     const [diffs, checks] = await Promise.all([
       this.diffs.waitingIn(workspaceId),
       this.checks.waitingIn(workspaceId),
     ]);
-
-    return reviewWorkOrder(
+    const ordered = reviewWorkOrder(
       diffs.filter((each) => each.provisionableAt(now)),
       checks.filter((each) => each.provisionableAt(now)),
-    )
-      .map((each): WaitingReviewWork =>
+    );
+    const after = page.after === null ? null : cursorPlace(page.after);
+    const taken = (
+      after === null
+        ? ordered
+        : ordered.filter((each) => precedes(after, placeOf(each)))
+    ).slice(0, page.max);
+    const last = taken[taken.length - 1];
+
+    return {
+      waiting: taken.map((each): WaitingReviewWork =>
         each.kind === 'diff'
           ? {
               work: diffWork(each.diff),
@@ -66,8 +111,21 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
               runId: each.check.runId,
               placement: each.check.request.placement,
             },
-      )
-      .slice(page.skip, page.skip + page.max);
+      ),
+      next: last ? cursorOf(placeOf(last)) : null,
+    };
+  }
+
+  async workspacesAwaiting(now: Date): Promise<readonly WorkspaceId[]> {
+    const [diffs, checks] = await Promise.all([
+      this.diffs.workspacesWaiting(now),
+      this.checks.workspacesWaiting(now),
+    ]);
+    const unique = new Map(
+      [...diffs, ...checks].map((each) => [each.value, each]),
+    );
+
+    return [...unique.values()];
   }
 
   async reserve(

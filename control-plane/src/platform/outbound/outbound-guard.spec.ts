@@ -147,6 +147,24 @@ describe('OutboundGuard', () => {
     ).toThrow(OutboundBlockedError);
   });
 
+  it('drops the lists of every enclosing scope in the deployment scope, but keeps the deployment list', () => {
+    expect(() =>
+      OutboundScope.within(HostAllowList.of(['slack.com']), OUTSIDE_SCOPE, () =>
+        OutboundScope.deployment(() => guard('').check('https://example.com/')),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      OutboundScope.within(
+        HostAllowList.of(['example.com']),
+        OUTSIDE_SCOPE,
+        () =>
+          OutboundScope.deployment(() =>
+            guard('slack.com').check('https://example.com/'),
+          ),
+      ),
+    ).toThrow('Host is not on the allowed list.');
+  });
+
   it('refuses a request fetch makes for a host outside the scope list, before it connects', async () => {
     await expect(
       OutboundScope.within(HostAllowList.of(['slack.com']), OUTSIDE_SCOPE, () =>

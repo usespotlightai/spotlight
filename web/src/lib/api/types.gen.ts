@@ -27,6 +27,28 @@ export type ErrorReportingResponseDto = {
   release: string | null;
 };
 
+export type RedeliverEventWebhookRequestDto = {
+  /**
+   * Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time
+   */
+  since: string;
+  /**
+   * At most this many dead letters, 1000 when left out, up to 100000. While the answer is truncated, send the same request again
+   */
+  limit?: number;
+};
+
+export type RedeliverEventWebhookResponseDto = {
+  /**
+   * How many dead letters Spotlight queued again. Each gets all its attempts again
+   */
+  queued: number;
+  /**
+   * Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them
+   */
+  truncated: boolean;
+};
+
 export type StationJudgeResponseDto = {
   /**
    * Checkable claims the judge marks met or not met, in order
@@ -390,6 +412,42 @@ export type LineResourceListResponseDto = {
    * Every one there is, each as a read returns it, in address order
    */
   items: Array<LineResourceResponseDto>;
+};
+
+export type WorkspaceSummaryResponseDto = {
+  id: string;
+  slug: string;
+  name: string;
+  createdAt: string;
+  /**
+   * How many people are in it
+   */
+  memberCount: number;
+};
+
+export type WorkspaceSummaryPageResponseDto = {
+  /**
+   * Oldest first
+   */
+  items: Array<WorkspaceSummaryResponseDto>;
+  /**
+   * Pass as `after` to read the next page; null on the last
+   */
+  next: string | null;
+};
+
+export type WorkspaceMemberSummaryResponseDto = {
+  id: string;
+  email: string;
+  name: string;
+  /**
+   * What they are in the workspace
+   */
+  role: 'owner' | 'admin' | 'member';
+  /**
+   * When they joined the workspace
+   */
+  joinedAt: string;
 };
 
 export type SetAvatarRequestDto = {
@@ -998,10 +1056,6 @@ export type CatalogToolResponseDto = {
    * The constraint it was resolved against
    */
   constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
   description: string;
 };
 
@@ -1019,10 +1073,6 @@ export type CatalogSkillResponseDto = {
    * The constraint it was resolved against
    */
   constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
   description: string;
   /**
    * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
@@ -1980,12 +2030,23 @@ export type HostHeartbeatResponseDto = {
   drain: Array<string>;
 };
 
+export type PlatformPoolSourceResponseDto = {
+  /**
+   * The runs of the pool go out through the platform egress of this deployment
+   */
+  egress: boolean;
+};
+
 export type CredentialSourceResponseDto = {
   kind: 'pool' | 'trust';
   /**
    * The pool’s or trust’s key; null once it is gone
    */
   key: string | null;
+  /**
+   * Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it
+   */
+  platform: PlatformPoolSourceResponseDto | null;
 };
 
 export type IdleSandboxResponseDto = {
@@ -2317,6 +2378,20 @@ export type WorkspaceRunnersResourceListResponseDto = {
    * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceRunnersResourceResponseDto>;
+};
+
+export type SetWorkspacePlatformPoolRequestDto = {
+  /**
+   * True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace
+   */
+  enabled: boolean;
+};
+
+export type WorkspacePlatformPoolResponseDto = {
+  /**
+   * The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight
+   */
+  enabled: boolean;
 };
 
 export type RunAttachmentResponseDto = {
@@ -9620,6 +9695,38 @@ export type GetErrorReportingResponses = {
 
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
 
+export type RedeliverEventWebhookData = {
+  body: RedeliverEventWebhookRequestDto;
+  path?: never;
+  query?: never;
+  url: '/admin/event-webhook/redeliver';
+};
+
+export type RedeliverEventWebhookErrors = {
+  /**
+   * A body without since as an ISO 8601 time, or a limit that is not a whole number from 1 to 100000
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No admin token is set
+   */
+  404: unknown;
+  /**
+   * This deployment sets no event webhook
+   */
+  409: unknown;
+};
+
+export type RedeliverEventWebhookResponses = {
+  200: RedeliverEventWebhookResponseDto;
+};
+
+export type RedeliverEventWebhookResponse = RedeliverEventWebhookResponses[keyof RedeliverEventWebhookResponses];
+
 export type ListTeamLinesData = {
   body?: never;
   path: {
@@ -9984,6 +10091,103 @@ export type ListLinesResponses = {
 };
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
+
+export type ListWorkspaceSummariesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Only the workspaces created at or after this time, as an ISO 8601 time
+     */
+    since?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+    /**
+     * The `next` cursor of the page before
+     */
+    after?: string;
+  };
+  url: '/admin/workspaces';
+};
+
+export type ListWorkspaceSummariesErrors = {
+  /**
+   * A page limit that is not a whole number above 0, or a since that is not an ISO 8601 time
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No admin token is set
+   */
+  404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
+};
+
+export type ListWorkspaceSummariesResponses = {
+  200: WorkspaceSummaryPageResponseDto;
+};
+
+export type ListWorkspaceSummariesResponse = ListWorkspaceSummariesResponses[keyof ListWorkspaceSummariesResponses];
+
+export type ReadWorkspaceSummaryData = {
+  body?: never;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}';
+};
+
+export type ReadWorkspaceSummaryErrors = {
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+};
+
+export type ReadWorkspaceSummaryResponses = {
+  200: WorkspaceSummaryResponseDto;
+};
+
+export type ReadWorkspaceSummaryResponse = ReadWorkspaceSummaryResponses[keyof ReadWorkspaceSummaryResponses];
+
+export type ListWorkspaceMemberSummariesData = {
+  body?: never;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}/members';
+};
+
+export type ListWorkspaceMemberSummariesErrors = {
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+};
+
+export type ListWorkspaceMemberSummariesResponses = {
+  200: Array<WorkspaceMemberSummaryResponseDto>;
+};
+
+export type ListWorkspaceMemberSummariesResponse = ListWorkspaceMemberSummariesResponses[keyof ListWorkspaceMemberSummariesResponses];
 
 export type RemoveWorkspaceAvatarData = {
   body?: never;
@@ -12346,10 +12550,6 @@ export type ReadCatalogToolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-tool; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
-  /**
    * No such catalog-tool, or no workspace here that you may see
    */
   404: ProblemResponseDto;
@@ -12407,10 +12607,6 @@ export type ReadCatalogSkillErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
-  /**
-   * The workspace’s plan does not include the catalog-skill; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
   /**
    * No such catalog-skill, or no workspace here that you may see
    */
@@ -15472,6 +15668,40 @@ export type ImportWorkspaceRunnersResponses = {
 };
 
 export type ImportWorkspaceRunnersResponse = ImportWorkspaceRunnersResponses[keyof ImportWorkspaceRunnersResponses];
+
+export type SetWorkspacePlatformPoolData = {
+  body: SetWorkspacePlatformPoolRequestDto;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}/platform-pool';
+};
+
+export type SetWorkspacePlatformPoolErrors = {
+  /**
+   * A body without enabled as true or false
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+  /**
+   * This deployment adds no platform pool, or the workspace has its own pool with the key spotlight, or the pool changed at the same time
+   */
+  409: unknown;
+};
+
+export type SetWorkspacePlatformPoolResponses = {
+  200: WorkspacePlatformPoolResponseDto;
+};
+
+export type SetWorkspacePlatformPoolResponse = SetWorkspacePlatformPoolResponses[keyof SetWorkspacePlatformPoolResponses];
 
 export type PendingMessagesData = {
   body?: never;

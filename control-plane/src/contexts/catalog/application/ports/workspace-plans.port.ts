@@ -1,8 +1,0 @@
-import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-export const WORKSPACE_PLANS = Symbol('WORKSPACE_PLANS');
-
-export interface WorkspacePlansPort {
-  of(workspaceId: WorkspaceId): Promise<WorkspacePlan>;
-}

@@ -1,11 +1,18 @@
-import type { CredentialSourceKind } from '@runners/application/ports/runner-authenticator.port';
 import type { LiveSandboxState } from '@runners/domain/aggregates/sandbox.aggregate';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface CredentialSourceSummary {
-  readonly kind: CredentialSourceKind;
-  readonly key: string | null;
+interface PlatformPoolSummary {
+  readonly egress: boolean;
 }
+
+export type CredentialSourceSummary =
+  | {
+      readonly kind: 'pool';
+      readonly key: string | null;
+      // Set when the pool is the platform pool that Spotlight adds to each workspace.
+      readonly platform: PlatformPoolSummary | null;
+    }
+  | { readonly kind: 'trust'; readonly key: string | null };
 
 export interface LiveRunnerSummary {
   readonly id: string;

@@ -15,6 +15,7 @@ import {
   WORKSPACE_MEMBER_ACCESS_ENDED,
   type WorkspaceMemberAccessEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -59,7 +60,7 @@ const handledBy = async (
   const event = connected(owner);
 
   if (subscriber && event) {
-    await subscriber.handle(event);
+    await subscriber.handle(event, anOutboxRecord());
   }
 };
 
@@ -133,7 +134,7 @@ describe('integrationsSubscribers', () => {
       userId: 'user_1',
     };
 
-    await subscriber?.handle(ended);
+    await subscriber?.handle(ended, anOutboxRecord());
 
     expect(disconnect).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),

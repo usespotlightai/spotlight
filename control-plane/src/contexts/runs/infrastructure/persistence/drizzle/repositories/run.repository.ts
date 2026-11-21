@@ -116,6 +116,15 @@ interface Selected {
   readonly run: Row;
 }
 
+// A queued run that no runner is reserved for, and that Spotlight can provision a runner for now.
+const awaitingProvisionAt = (now: Date) =>
+  and(
+    eq(run.state, 'queued'),
+    isNull(run.reservedFor),
+    or(isNull(run.nextProvisionAttemptAt), lte(run.nextProvisionAttemptAt, now)),
+    or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
+  );
+
 @Injectable()
 export class DrizzleRunRepository implements RunRepository {
   constructor(
@@ -396,7 +405,7 @@ export class DrizzleRunRepository implements RunRepository {
     workspaceId: WorkspaceId,
     now: Date,
     page: {
-      readonly skip: number;
+      readonly after: ClaimCursor | null;
       readonly max: number;
       readonly withSecrets: boolean;
       readonly avoiding: readonly WorkingCopyKey[];
@@ -406,22 +415,25 @@ export class DrizzleRunRepository implements RunRepository {
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
-          eq(run.state, 'queued'),
-          isNull(run.reservedFor),
+          awaitingProvisionAt(now),
           page.withSecrets ? undefined : eq(run.injectsSecrets, false),
-          or(
-            isNull(run.nextProvisionAttemptAt),
-            lte(run.nextProvisionAttemptAt, now),
-          ),
-          or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           routedBy({ avoiding: page.avoiding }),
+          page.after ? claimedAfter(page.after) : undefined,
         ),
       )
       .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
-      .limit(page.max)
-      .offset(page.skip);
+      .limit(page.max);
 
     return this.queuedRunsOf(rows.map(toRun));
+  }
+
+  async workspacesAwaitingProvision(now: Date): Promise<readonly WorkspaceId[]> {
+    const rows = await this.context.db
+      .selectDistinct({ workspaceId: run.workspaceId })
+      .from(run)
+      .where(awaitingProvisionAt(now));
+
+    return rows.map((row) => WorkspaceId.of(row.workspaceId));
   }
 
   async withExpiredReservations(now: Date): Promise<readonly Run[]> {

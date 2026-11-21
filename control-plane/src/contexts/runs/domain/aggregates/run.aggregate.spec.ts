@@ -761,10 +761,10 @@ describe('Run', () => {
   });
 
   describe('being refused before a runner claims it', () => {
-    const EXPIRED = RunOutcome.refused([
+    const REFUSED = RunOutcome.refused([
       {
         description:
-          'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace is on the Free plan',
+          'catalog_item_unknown: Catalog has no item catalog.web-search@1.1.0.',
       },
     ]);
 
@@ -775,12 +775,12 @@ describe('Run', () => {
         harness: HarnessId.of('dev'),
         ...orderedFor.spec(),
         spec: aSpec('sh'),
-        refusal: [{ description: EXPIRED.detail ?? '' }],
+        refusal: [{ description: REFUSED.detail ?? '' }],
       });
 
       expect(refused.state).toBe('failed');
       expect(refused.outcome?.detail).toBe(
-        'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace is on the Free plan',
+        'catalog_item_unknown: Catalog has no item catalog.web-search@1.1.0.',
       );
 
       const [completed] = refused.pullEvents();

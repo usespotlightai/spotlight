@@ -24,12 +24,6 @@ interface DeclaredWriters {
 }
 
 const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
-  catalog_call: {
-    why: 'append-only ledger of catalog tool calls, kept for metering',
-    writers: [
-      'contexts/catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger.ts',
-    ],
-  },
   chat_record: {
     why: 'Insights ledger of chats, written from chat events',
     writers: [
@@ -233,12 +227,6 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
     writers: [
       'contexts/work/infrastructure/persistence/drizzle/projections/work-stations.projection.ts',
       'contexts/work/infrastructure/persistence/drizzle/station-deletion.guard.ts',
-    ],
-  },
-  workspace_plan: {
-    why: 'Catalog plan record of a workspace, removed with the workspace',
-    writers: [
-      'contexts/catalog/infrastructure/persistence/drizzle/workspace-plan-deletion.ts',
     ],
   },
 };

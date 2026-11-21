@@ -1,16 +1,10 @@
 import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 
-export type CatalogDenialReason =
-  | 'unknown'
-  | 'wrong-kind'
-  | 'not-entitled'
-  | 'expired';
+export type CatalogDenialReason = 'unknown' | 'wrong-kind';
 
 const CODES: Readonly<Record<CatalogDenialReason, string>> = {
   unknown: 'catalog_item_unknown',
   'wrong-kind': 'catalog_item_wrong_kind',
-  'not-entitled': 'not_entitled',
-  expired: 'entitlement_expired',
 };
 
 export class DeniedCatalogItem implements RefusalReason {

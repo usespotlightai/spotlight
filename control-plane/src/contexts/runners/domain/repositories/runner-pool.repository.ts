@@ -1,4 +1,5 @@
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,4 +17,19 @@ export interface RunnerPoolRepository {
   findByTokenHash(hash: TokenHash): Promise<RunnerPool | null>;
 
   inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]>;
+
+  inWorkspaces(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly RunnerPool[]>;
+
+  findByKey(workspaceId: WorkspaceId, key: PoolKey): Promise<RunnerPool | null>;
+
+  // The pools of every workspace that have this key.
+  withKey(key: PoolKey): Promise<readonly RunnerPool[]>;
+
+  // As find, but not the platform pool, which the workspace does not own.
+  findOwned(id: PoolId): Promise<RunnerPool | null>;
+
+  // As inWorkspace, but not the platform pool, which the workspace does not own.
+  ownedIn(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]>;
 }

@@ -1,5 +1,6 @@
-import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import type { ProvisionFailureKind } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
 export const PROVISION_CALLS = Symbol('PROVISION_CALLS');
 
@@ -18,9 +19,13 @@ export type ProvisionedWork =
     }
   | { readonly kind: 'diff'; readonly diffId: string };
 
+// Who gives the provisioner: the workspace for its own pools, the deployment for the platform pool.
+export type ProvisionerOwner = 'workspace' | 'deployment';
+
 export interface ProvisionCall {
+  readonly owner: ProvisionerOwner;
   readonly url: ProvisionUrl;
-  readonly secret: ProvisionSecret;
+  readonly secret: SigningSecret;
   readonly messageId: string;
   readonly at: Date;
   readonly pool: string;
@@ -35,10 +40,16 @@ export interface ProvisionCall {
   readonly egress: ProvisionEgress | null;
 }
 
+export type ProvisionCallFailureKind = Extract<
+  ProvisionFailureKind,
+  'unreachable' | 'http-error' | 'not-allowed' | 'declined'
+>;
+
 export type ProvisionAnswer =
   | { readonly outcome: 'accepted' }
+  | { readonly outcome: 'full' }
   | {
-      readonly outcome: 'unreachable' | 'http-error' | 'not-allowed';
+      readonly outcome: ProvisionCallFailureKind;
       readonly detail: string;
     };
 

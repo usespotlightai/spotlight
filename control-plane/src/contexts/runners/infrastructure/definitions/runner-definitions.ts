@@ -27,11 +27,11 @@ import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
-import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { z } from 'zod';
 
 const once = (all: readonly string[], context: z.RefinementCtx) => {
@@ -73,7 +73,7 @@ const poolSchema = z
     provision: z
       .object({
         url: madeBy(ProvisionUrl.of),
-        secret: madeBy(ProvisionSecret.of).nullish(),
+        secret: madeBy(SigningSecret.of).nullish(),
         secretVersion: writeOnlyVersion,
         egress: madeBy(EgressReference.of).nullish(),
         egressTraffic: z
@@ -160,7 +160,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
             mode: 'push',
             url: ProvisionUrl.of(provision.url),
             secret: provision.secret
-              ? ProvisionSecret.of(provision.secret)
+              ? SigningSecret.of(provision.secret)
               : null,
             secretVersion: provision.secretVersion ?? null,
             egress: provision.egress

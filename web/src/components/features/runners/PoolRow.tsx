@@ -7,8 +7,12 @@ import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { PoolEgress } from '@/components/features/runners/PoolEgress';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import { StatusDot } from '@/components/features/runners/StatusDot';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   type NamedHarness,
+  PLATFORM_POOL,
+  PLATFORM_POOL_WITH_EGRESS,
+  platformPoolTip,
   type PushPool,
   poolHarnesses,
   poolName,
@@ -30,7 +34,22 @@ export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
       <div className={cn(HOST_ROW, HOST_ROW_HOVER, HOST_COLUMNS)}>
         <span className="min-w-0 truncate text-foreground">{name}</span>
 
-        <PoolEgress slug={slug} poolKey={pool.source.key} />
+        {pool.source.platform ? (
+          <span className="flex min-w-0">
+            <WithTooltip
+              tooltip={platformPoolTip(pool.source.platform.egress)}
+              named={PLATFORM_POOL}
+            >
+              <span className="min-w-0 truncate text-muted-foreground text-xs">
+                {pool.source.platform.egress
+                  ? PLATFORM_POOL_WITH_EGRESS
+                  : PLATFORM_POOL}
+              </span>
+            </WithTooltip>
+          </span>
+        ) : (
+          <PoolEgress slug={slug} poolKey={pool.source.key} />
+        )}
 
         <StatusDot
           tone={

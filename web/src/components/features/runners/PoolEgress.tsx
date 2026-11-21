@@ -5,7 +5,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useRunnerPools } from '@/hooks/api/useRunnerPools';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { PUSH_POOL } from '@/lib/runner';
+import { PUSH_POOL, SPOTLIGHT_EGRESS_TIP } from '@/lib/runner';
 
 const PLATFORM = 'spotlight';
 
@@ -46,7 +46,7 @@ export function PoolEgress({
       </TooltipTrigger>
       <TooltipContent className="max-w-80">
         {egress === PLATFORM
-          ? 'The runs of this pool go out through the Spotlight egress. Runs whose secrets egress injects can run here.'
+          ? SPOTLIGHT_EGRESS_TIP
           : 'The runs of this pool go out through an egress that your team operates. Runs whose secrets egress injects can run here.'}
       </TooltipContent>
     </Tooltip>

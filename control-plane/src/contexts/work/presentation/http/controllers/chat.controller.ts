@@ -28,6 +28,7 @@ import {
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
@@ -37,7 +38,6 @@ import {
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
 import type { ChatDto, ChatSummaryDto } from '@work/application/dto/chat.dto';
-import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type {
   JournalledRunDto,
   RunJournalDto,

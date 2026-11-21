@@ -1,5 +1,6 @@
 import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
+import type { PlatformPoolSettings } from '@runners/application/ports/platform-pool-settings.port';
 import type {
   ProvisionAnswer,
   ProvisionCall,
@@ -16,6 +17,7 @@ import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregat
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aHost,
+  aPlatformPool,
   aPullPool,
   aPushPool,
   aRunner,
@@ -45,6 +47,8 @@ import { EgressReference } from '@runners/domain/value-objects/egress-reference.
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -80,6 +84,13 @@ const PLATFORM: PlatformEgressSettings = {
   tokenHash: hashOf('7'),
 };
 
+const PROVISIONER: PlatformPoolSettings = {
+  url: ProvisionUrl.of('https://provision.deployment.example.com/runs'),
+  secret: secretOf('m'),
+  labels: RunnerLabels.none(),
+  egress: EgressReference.platform(),
+};
+
 const running = (
   pool: RunnerPool | null,
   input: {
@@ -93,6 +104,7 @@ const running = (
     insecureAllowed?: boolean;
     egress?: Egress | null;
     platform?: PlatformEgressSettings | null;
+    platformPool?: PlatformPoolSettings | null;
     sandboxes?: readonly Sandbox[];
   } = {},
 ) => {
@@ -157,6 +169,7 @@ const running = (
     {
       insecureAllowed: input.insecureAllowed ?? false,
       platformEgress: input.platform ?? null,
+      platformPool: input.platformPool ?? null,
     },
     {
       issue: () =>
@@ -748,6 +761,30 @@ describe('Runners', () => {
       expect(saved[0]?.isDiscarded).toBe(true);
     });
 
+    it('releases the runner and passes on the reason when the pool declines the work', async () => {
+      const { service, saved } = running(aPushPool(), {
+        answer: { outcome: 'declined', detail: 'No free run-hours left.' },
+      });
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'failed',
+        kind: 'declined',
+        detail: 'No free run-hours left.',
+      });
+      expect(saved[0]?.isDiscarded).toBe(true);
+    });
+
+    it('releases the runner and takes the pool as full when the pool says it is full', async () => {
+      const { service, saved } = running(aPushPool(), {
+        answer: { outcome: 'full' },
+      });
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'full',
+      });
+      expect(saved[0]?.isDiscarded).toBe(true);
+    });
+
     it('still says why provision failed when releasing the runner fails, and logs it', async () => {
       const lost = new Error('the database is down');
       const { service, logged } = running(aPushPool(), {
@@ -809,6 +846,47 @@ describe('Runners', () => {
     it('provisions nothing for a pool that is gone, or that is pulled from', async () => {
       for (const pool of [null, aPullPool()]) {
         const { service, added, called } = running(pool);
+
+        await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+          outcome: 'gone',
+        });
+        expect(added).toEqual([]);
+        expect(called).toEqual([]);
+      }
+    });
+
+    it('calls the provisioner of the deployment for the platform pool, under the deployment’s allow-list', async () => {
+      const { service, called } = running(
+        aPlatformPool({ egress: EgressReference.platform() }),
+        { platformPool: PROVISIONER, platform: PLATFORM },
+      );
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'provisioned',
+      });
+      expect(called[0]).toMatchObject({
+        owner: 'deployment',
+        url: PROVISIONER.url,
+        pool: 'spotlight',
+        egress: { url: 'https://egress.usespotlight.ai', traffic: 'all' },
+      });
+      expect(called[0]?.secret.equals(PROVISIONER.secret)).toBe(true);
+    });
+
+    it('calls a workspace pool’s provisioner under the workspace’s allow-list', async () => {
+      const { service, called } = running(aPushPool());
+
+      await service.provision(request, STARTED_AT);
+
+      expect(called[0]?.owner).toBe('workspace');
+    });
+
+    it('provisions nothing through a disabled platform pool, or while the deployment sets no platform provisioner', async () => {
+      for (const [pool, platformPool] of [
+        [aPlatformPool({ disabled: true }), PROVISIONER],
+        [aPlatformPool(), null],
+      ] as const) {
+        const { service, added, called } = running(pool, { platformPool });
 
         await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
           outcome: 'gone',

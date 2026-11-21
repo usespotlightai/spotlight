@@ -8,6 +8,7 @@ import { TEAM_DEPENDENTS } from '@identity/application/ports/team-dependents.por
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
+import { WORKSPACE_DIRECTORY } from '@identity/application/ports/workspace-directory.port';
 import { WORKSPACE_OUTBOUND_HOSTS } from '@identity/application/ports/workspace-outbound-hosts.port';
 import { WORKSPACE_OUTBOUND_SCOPE } from '@identity/application/ports/workspace-outbound-scope.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
@@ -27,6 +28,7 @@ import { Module } from '@nestjs/common';
     TEAM_DIRECTORY,
     TEAM_DEPENDENTS,
     WORKSPACE_DEPENDENTS,
+    WORKSPACE_DIRECTORY,
     WORKSPACE_READER,
     WORKSPACE_OUTBOUND_HOSTS,
     WORKSPACE_OUTBOUND_SCOPE,

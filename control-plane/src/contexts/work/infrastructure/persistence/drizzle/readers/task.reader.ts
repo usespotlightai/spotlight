@@ -13,7 +13,7 @@ import {
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Page } from '@work/application/dto/page.dto';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type {
   TaskListing,
   TaskNoteSummary,
@@ -23,7 +23,7 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
-import { cursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
+import { cursorOf } from '@platform/persistence/drizzle/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,

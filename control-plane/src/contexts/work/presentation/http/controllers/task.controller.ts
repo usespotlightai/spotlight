@@ -30,6 +30,7 @@ import {
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
@@ -40,7 +41,6 @@ import { SendTaskMessageCommand } from '@work/application/commands/send-task-mes
 import { StartTaskRunCommand } from '@work/application/commands/start-task-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { NoteDto } from '@work/application/dto/inbox.dto';
-import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
 import type { TaskPullRequestDto } from '@work/application/dto/task-pull-request.dto';
