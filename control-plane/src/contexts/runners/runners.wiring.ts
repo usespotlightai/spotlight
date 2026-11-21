@@ -200,6 +200,7 @@ import {
   HostSandboxTunnels,
 } from '@runners/infrastructure/tunnels/host-sandbox-tunnels';
 import { runnersSubscribers } from '@runners/presentation/events/runners.subscribers';
+import { AdminPlatformPoolController } from '@runners/presentation/http/controllers/admin-platform-pool.controller';
 import { EgressResourceController } from '@runners/presentation/http/controllers/egress-resource.controller';
 import { HostController } from '@runners/presentation/http/controllers/host.controller';
 import { InstallController } from '@runners/presentation/http/controllers/install.controller';
@@ -268,6 +269,7 @@ export const RUNNERS_CONTROLLERS: readonly Type[] = [
   RunnerPoolResourceController,
   EgressResourceController,
   WorkspaceRunnersResourceController,
+  AdminPlatformPoolController,
 ];
 
 export const RUNNERS_PROVIDERS: readonly Provider[] = [
