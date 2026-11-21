@@ -10,6 +10,7 @@ import type {
 } from '@runners/application/ports/runners.port';
 import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type {
+  ReviewWorkCursor,
   ReviewWorkProvisioningPort,
   WaitingReviewWork,
 } from '@runs/application/ports/review-work-provisioning.port';
@@ -127,7 +128,7 @@ export class ProvisionWork {
   // Each tick reads the head and at most one page past it, for each kind of work.
   readonly #runSweeps = new Sweeps<ClaimCursor>(MAX_PAGES);
 
-  readonly #reviewWorkSweeps = new Sweeps<number>(MAX_PAGES);
+  readonly #reviewWorkSweeps = new Sweeps<ReviewWorkCursor>(MAX_PAGES);
 
   constructor(
     private readonly runs: RunRepository,
@@ -269,20 +270,19 @@ export class ProvisionWork {
     });
     await this.sweep(first.workspaceId, place, more, {
       sweeps: this.#reviewWorkSweeps,
-      page: async (from: number | null) => {
-        const skip = from ?? 0;
+      page: async (from: ReviewWorkCursor | null) => {
         const awaiting = await this.reviewWork.awaiting(
           first.workspaceId,
           this.clock.now(),
-          { skip, max: PAGE },
+          { after: from, max: PAGE },
         );
 
         return {
-          read: awaiting.length,
-          found: awaiting.map((waiting) =>
+          read: awaiting.waiting.length,
+          found: awaiting.waiting.map((waiting) =>
             this.provisionableReviewWork(waiting),
           ),
-          next: skip + awaiting.length,
+          next: awaiting.next,
         };
       },
     });

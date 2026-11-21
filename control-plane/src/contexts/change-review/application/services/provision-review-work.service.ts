@@ -5,13 +5,20 @@ import { PushDiffVersionConflictError } from '@change-review/domain/exceptions/p
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { PushDiffRepository } from '@change-review/domain/repositories/push-diff.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
-import { reviewWorkOrder } from '@change-review/domain/services/review-work-order';
+import {
+  comesBefore,
+  placeOf,
+  type ReviewWorkPlace,
+  reviewWorkOrder,
+} from '@change-review/domain/services/review-work-order';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
-  ReviewWorkProvisioningPort,
   ExpiredReviewWork,
+  ReviewWorkCursor,
+  ReviewWorkPage,
+  ReviewWorkProvisioningPort,
   WaitingReviewWork,
 } from '@runs/application/ports/review-work-provisioning.port';
 import type { ReviewWork } from '@runs/application/ports/review-work.port';
@@ -22,6 +29,31 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const ATTEMPTS = 3;
+
+// A cursor is the place of the last item of a page. The place, not an offset, so an item that leaves the queue moves no other item back past the cursor.
+const cursorAt = (place: ReviewWorkPlace): ReviewWorkCursor =>
+  JSON.stringify([place.rank, place.at, place.tie]);
+
+// The place a cursor names, or null for one that this service did not give, so that the page starts at the head.
+const placeAt = (cursor: ReviewWorkCursor): ReviewWorkPlace | null => {
+  try {
+    const read: unknown = JSON.parse(cursor);
+
+    if (
+      Array.isArray(read) &&
+      read.length === 3 &&
+      typeof read[0] === 'number' &&
+      typeof read[1] === 'number' &&
+      typeof read[2] === 'string'
+    ) {
+      return { rank: read[0], at: read[1], tie: read[2] };
+    }
+  } catch {
+    // A cursor that is not JSON names no place.
+  }
+
+  return null;
+};
 
 const diffWork = (diff: PushDiff): ReviewWork => ({
   kind: 'diff',
@@ -43,18 +75,26 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
   async awaiting(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly max: number },
-  ): Promise<readonly WaitingReviewWork[]> {
+    page: { readonly after: ReviewWorkCursor | null; readonly max: number },
+  ): Promise<ReviewWorkPage> {
     const [diffs, checks] = await Promise.all([
       this.diffs.waitingIn(workspaceId),
       this.checks.waitingIn(workspaceId),
     ]);
-
-    return reviewWorkOrder(
+    const ordered = reviewWorkOrder(
       diffs.filter((each) => each.provisionableAt(now)),
       checks.filter((each) => each.provisionableAt(now)),
-    )
-      .map((each): WaitingReviewWork =>
+    );
+    const after = page.after === null ? null : placeAt(page.after);
+    const read = (
+      after === null
+        ? ordered
+        : ordered.filter((each) => comesBefore(after, placeOf(each)))
+    ).slice(0, page.max);
+    const last = read[read.length - 1];
+
+    return {
+      waiting: read.map((each): WaitingReviewWork =>
         each.kind === 'diff'
           ? {
               work: diffWork(each.diff),
@@ -66,8 +106,9 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
               runId: each.check.runId,
               placement: each.check.request.placement,
             },
-      )
-      .slice(page.skip, page.skip + page.max);
+      ),
+      next: last ? cursorAt(placeOf(last)) : null,
+    };
   }
 
   async workspacesAwaiting(now: Date): Promise<readonly WorkspaceId[]> {

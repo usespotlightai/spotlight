@@ -188,7 +188,9 @@ const provisioning = (
   const checks = {
     awaiting: vi.fn<ReviewWorkProvisioningPort['awaiting']>(
       async (_workspaceId, _at, page) =>
-        page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
+        page.after === null
+          ? { waiting: waitingChecks.awaiting ?? [], next: 'cursor_1' }
+          : { waiting: [], next: null },
     ),
     reserve: vi.fn<ReviewWorkProvisioningPort['reserve']>(
       async (_check, _runner, _pool, at) =>
@@ -1037,7 +1039,7 @@ describe('ProvisionWork', () => {
         WorkspaceId.of('ws_1'),
         NOON,
         {
-          skip: 0,
+          after: null,
           max: 200,
         },
       );

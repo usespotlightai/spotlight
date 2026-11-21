@@ -150,11 +150,11 @@ describe('ProvisionReviewWork', () => {
     ]);
 
     const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
-      skip: 0,
+      after: null,
       max: 200,
     });
 
-    expect(offered).toEqual([
+    expect(offered.waiting).toEqual([
       {
         work: checkOf('stack_1'),
         runId: RunId.of('run_of_stack_1'),
@@ -164,19 +164,71 @@ describe('ProvisionReviewWork', () => {
     expect(waitingIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
   });
 
-  it('offers one page of the checks waiting to be provisioned at a time', async () => {
+  it('offers one page of the checks waiting to be provisioned at a time, and the page after its cursor next', async () => {
     const { service } = provisioning([
       waiting('stack_1'),
       waiting('stack_2'),
       waiting('stack_3'),
     ]);
 
-    const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
-      skip: 1,
+    const first = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: null,
+      max: 1,
+    });
+    const second = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: first.next,
       max: 1,
     });
 
-    expect(offered.map((each) => each.work.id.value)).toEqual(['stack_2']);
+    expect(first.waiting.map((each) => each.work.id.value)).toEqual([
+      'stack_1',
+    ]);
+    expect(second.waiting.map((each) => each.work.id.value)).toEqual([
+      'stack_2',
+    ]);
+  });
+
+  it('keeps its place when work before the cursor leaves the queue, so no waiting check is passed over', async () => {
+    const stacks = [waiting('stack_1'), waiting('stack_2'), waiting('stack_3')];
+    const before = provisioning(stacks);
+    const first = await before.service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: null,
+      max: 2,
+    });
+    const after = provisioning([
+      stacks[0].reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
+      stacks[1].reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
+      stacks[2],
+    ]);
+
+    const next = await after.service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: first.next,
+      max: 2,
+    });
+
+    expect(next.waiting.map((each) => each.work.id.value)).toEqual(['stack_3']);
+    expect(next.next).not.toBeNull();
+  });
+
+  it('reads from the head with a cursor it did not give', async () => {
+    const { service } = provisioning([waiting('stack_1')]);
+
+    const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      after: 'not a cursor',
+      max: 10,
+    });
+
+    expect(offered.waiting.map((each) => each.work.id.value)).toEqual([
+      'stack_1',
+    ]);
+  });
+
+  it('gives no cursor for an empty page', async () => {
+    const { service } = provisioning([]);
+
+    await expect(
+      service.awaiting(WorkspaceId.of('ws_1'), NOW, { after: null, max: 10 }),
+    ).resolves.toEqual({ waiting: [], next: null });
   });
 
   it('reserves a waiting check for the runner and says until when', async () => {
@@ -352,19 +404,24 @@ describe('ProvisionReviewWork', () => {
       );
 
       await expect(
-        service.awaiting(WorkspaceId.of('ws_1'), NOW, { skip: 0, max: 200 }),
-      ).resolves.toEqual([
-        {
-          work: diffOf('diff_1'),
-          runId: null,
-          placement: RunnerPlacement.of(['gpu']),
-        },
-        {
-          work: checkOf('stack_1'),
-          runId: RunId.of('run_of_stack_1'),
-          placement: RunnerPlacement.anywhere(),
-        },
-      ]);
+        service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+          after: null,
+          max: 200,
+        }),
+      ).resolves.toMatchObject({
+        waiting: [
+          {
+            work: diffOf('diff_1'),
+            runId: null,
+            placement: RunnerPlacement.of(['gpu']),
+          },
+          {
+            work: checkOf('stack_1'),
+            runId: RunId.of('run_of_stack_1'),
+            placement: RunnerPlacement.anywhere(),
+          },
+        ],
+      });
     });
 
     it('reserves it for the runner and leaves the checks alone', async () => {
