@@ -8,8 +8,12 @@ const subscribers = new EventSubscribers();
 subscribers.register([
   subscribing('test.exact', ['task.opened', 'work.task-opened.v1'], heard),
 ]);
-subscribers.registerByPrefix(subscribing('test.work', [], heard), ['work.']);
-subscribers.registerByPrefix(subscribing('test.every', [], heard), ['']);
+subscribers.registerSink(subscribing('test.work', [], heard), {
+  prefixes: ['work.'],
+});
+subscribers.registerSink(subscribing('test.every', [], heard), {
+  prefixes: [''],
+});
 
 const listening = (kind: string) =>
   subscribers.listeningTo(kind).map((each) => each.name);
@@ -37,19 +41,24 @@ describe('EventSubscribers', () => {
     const more = new EventSubscribers();
 
     expect(() =>
-      more.registerByPrefix(subscribing('test.part', [], heard), [
-        'identity.workspace',
-      ]),
+      more.registerSink(subscribing('test.part', [], heard), {
+        prefixes: ['identity.workspace'],
+      }),
     ).toThrow('test.part hears identity.workspace, which is not a context');
-    expect(more.names()).toEqual([]);
+    expect(more.named('test.part')).toBeNull();
   });
 
   it('leaves the retry of a subscriber made with subscribing to the outbox default', () => {
     expect(subscribers.named('test.exact')?.retry).toBeUndefined();
-    expect(subscribers.names()).toEqual([
-      'test.exact',
-      'test.work',
-      'test.every',
-    ]);
+  });
+
+  it('answers whether a subscriber of the name is registered and hears the kind', () => {
+    expect(subscribers.hears('test.work', 'work.task-opened.v1')).toBe(true);
+    expect(subscribers.hears('test.work', 'runs.run-ended.v1')).toBe(false);
+    expect(subscribers.hears('test.gone', 'task.opened')).toBe(false);
+  });
+
+  it('names the sinks, which go in a lane of their own', () => {
+    expect(subscribers.sinks()).toEqual(['test.work', 'test.every']);
   });
 });

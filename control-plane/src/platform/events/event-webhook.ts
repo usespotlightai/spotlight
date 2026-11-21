@@ -18,6 +18,37 @@ const TIMEOUT_MS = 10_000;
 
 const MAX_DETAIL = 500;
 
+// The start of a response body, at most MAX_DETAIL bytes. It reads no more of the body than that.
+const detailOf = async (answered: Response): Promise<string> => {
+  const reader = answered.body?.getReader();
+
+  if (!reader) {
+    return '';
+  }
+
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+
+  try {
+    while (size < MAX_DETAIL) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      chunks.push(value);
+      size += value.byteLength;
+    }
+  } catch {
+    // The detail is only for the error message.
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+
+  return Buffer.concat(chunks).subarray(0, MAX_DETAIL).toString('utf8');
+};
+
 export const EVENT_WEBHOOK_SUBSCRIBER = 'platform.send-event-webhook';
 
 // 24 attempts. The wait grows from 2 seconds to one hour, then stays at one hour.
@@ -29,12 +60,7 @@ export const EVENT_WEBHOOK_RETRY = Retry.backoff({
 
 // How long Spotlight tries before a delivery is a dead letter, in whole hours.
 export const EVENT_WEBHOOK_RETRY_HOURS = Math.round(
-  Array.from(
-    { length: EVENT_WEBHOOK_RETRY.maxAttempts - 1 },
-    (_, index) =>
-      (EVENT_WEBHOOK_RETRY.nextAttemptAt(index + 1, new Date(0))?.getTime() ??
-        0) / 3_600_000,
-  ).reduce((sum, each) => sum + each, 0),
+  EVENT_WEBHOOK_RETRY.totalWaitMs() / 3_600_000,
 );
 
 export interface EventWebhookSettings {
@@ -99,16 +125,16 @@ export class EventWebhook {
       );
     }
 
-    const response = (await answered.text().catch(() => '')).slice(
-      0,
-      MAX_DETAIL,
-    );
-
-    if (answered.status < 200 || answered.status >= 300) {
-      throw new Error(
-        `The event webhook answered ${answered.status}.${response ? ` Response: ${response}` : ''}`,
-      );
+    if (answered.status >= 200 && answered.status < 300) {
+      await answered.body?.cancel().catch(() => undefined);
+      return;
     }
+
+    const response = await detailOf(answered);
+
+    throw new Error(
+      `The event webhook answered ${answered.status}.${response ? ` Response: ${response}` : ''}`,
+    );
   }
 }
 

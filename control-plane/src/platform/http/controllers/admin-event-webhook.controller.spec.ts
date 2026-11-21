@@ -10,9 +10,9 @@ const controller = (registered: boolean) => {
   const subscribers = new EventSubscribers();
 
   if (registered) {
-    subscribers.registerByPrefix(
+    subscribers.registerSink(
       subscribing('platform.send-event-webhook', [], async () => []),
-      [''],
+      { prefixes: [''] },
     );
   }
 
@@ -29,7 +29,7 @@ describe('AdminEventWebhookController', () => {
 
     await expect(
       admin.redeliver({ since: '2026-11-01T00:00:00Z' }),
-    ).resolves.toEqual({ count: 3 });
+    ).resolves.toEqual({ queued: 3 });
     expect(redeliver).toHaveBeenCalledExactlyOnceWith(
       'platform.send-event-webhook',
       new Date('2026-11-01T00:00:00Z'),

@@ -50,6 +50,7 @@ class FakeContext {
   readonly leasesGuarded: Date[] = [];
   settledElsewhere = false;
   kind = 'bell.rang';
+  subscriber = 'test.door';
   private committed: (() => void)[] = [];
   private claimable = true;
 
@@ -63,7 +64,7 @@ class FakeContext {
           ? [
               {
                 eventId: 'event_1',
-                subscriber: 'test.door',
+                subscriber: this.subscriber,
                 attempts: this.attempts,
                 kind: this.kind,
                 payload: {},
@@ -310,12 +311,9 @@ describe('EventDelivery', () => {
     );
   });
 
-  it('never hands a subscriber a kind it no longer hears, and fails the delivery as for a subscriber that is gone', async () => {
+  it('never hands a subscriber a kind it no longer hears: the delivery is a dead letter at once, with a warning and no error report', async () => {
     const handle = vi.fn(async () => undefined);
-    const { delivery, context } = delivering(
-      handle,
-      DEFAULT_RETRY.maxAttempts - 1,
-    );
+    const { delivery, context, logger, reports } = delivering(handle);
     context.kind = 'bell.rung';
 
     await delivery.processDue();
@@ -323,11 +321,33 @@ describe('EventDelivery', () => {
     expect(handle).not.toHaveBeenCalled();
     expect(context.updates).toEqual([
       expect.objectContaining({
-        attempts: DEFAULT_RETRY.maxAttempts,
+        attempts: 1,
         lastError: 'test.door does not hear bell.rung any more',
         deadLetteredAt: NOW,
       }),
     ]);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ subscriber: 'test.door' }),
+      'Dead-lettering a domain event delivery that its subscriber does not hear',
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(reports.report).not.toHaveBeenCalled();
+  });
+
+  it('dead-letters at once a delivery of a subscriber that is gone', async () => {
+    const { delivery, context, reports } = delivering(async () => undefined);
+    context.subscriber = 'test.gone';
+
+    await delivery.processDue();
+
+    expect(context.updates).toEqual([
+      expect.objectContaining({
+        attempts: 1,
+        lastError: 'No subscriber is called test.gone any more',
+        deadLetteredAt: NOW,
+      }),
+    ]);
+    expect(reports.report).not.toHaveBeenCalled();
   });
 
   describe('with the retries of its subscriber', () => {

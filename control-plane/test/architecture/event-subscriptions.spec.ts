@@ -74,13 +74,13 @@ describe('event subscriptions', () => {
     ]);
   });
 
-  it('finds a subscriber registered by prefix, which hears every context it names', () => {
+  it('finds a sink, which hears every context it names', () => {
     expect(
       problemsIn(`import { subscribing } from '${SUBSCRIBER}';
-        subscribers.registerByPrefix(subscribing('memory.a', [], handle), ['insights.']);`),
+        subscribers.registerSink(subscribing('memory.a', [], handle), { prefixes: ['insights.'] });`),
     ).toEqual([
       'memory.a hears no kind the check can resolve',
-      'calls subscribers.registerByPrefix, which only the platform may call',
+      'calls subscribers.registerSink, which only the platform may call',
     ]);
   });
 

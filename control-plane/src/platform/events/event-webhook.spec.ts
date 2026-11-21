@@ -145,7 +145,7 @@ describe('eventWebhookSubscription', () => {
   const listening = (kinds: readonly string[]) => {
     const subscribers = new EventSubscribers();
     const { subscriber, prefixes } = eventWebhookSubscription(webhook(), kinds);
-    subscribers.registerByPrefix(subscriber, prefixes);
+    subscribers.registerSink(subscriber, { prefixes });
 
     return (kind: string) =>
       subscribers.listeningTo(kind).map((each) => each.name);

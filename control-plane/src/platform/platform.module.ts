@@ -221,7 +221,15 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
-    OutboxRetention,
+    {
+      provide: OutboxRetention,
+      inject: [DrizzleContext, CLOCK, EventSubscribers],
+      useFactory: (
+        context: DrizzleContext,
+        clock: ClockPort,
+        subscribers: EventSubscribers,
+      ) => new OutboxRetention(context, clock, subscribers),
+    },
     OutboxRetentionWorker,
     {
       provide: EVENT_WEBHOOK_REGISTRATION,
@@ -250,7 +258,7 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
             env.SPOTLIGHT_EVENT_WEBHOOK_KINDS,
           );
 
-          subscribers.registerByPrefix(subscriber, prefixes);
+          subscribers.registerSink(subscriber, { prefixes });
         }
 
         return true;

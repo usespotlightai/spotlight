@@ -38,7 +38,7 @@ export type EventWebhookRedeliveryResponseDto = {
   /**
    * How many dead letters Spotlight queued again. Each gets all its attempts again
    */
-  count: number;
+  queued: number;
 };
 
 export type StationJudgeResponseDto = {

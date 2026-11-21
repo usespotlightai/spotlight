@@ -22,10 +22,10 @@ export class EventSubscribers {
     }
   }
 
-  // The subscriber also hears each integration event that a context of the prefixes publishes, but never a domain event. The empty prefix matches every integration event. Only the platform registers a subscriber so: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
-  registerByPrefix(
+  // A sink sends integration events out of Spotlight. It also hears each integration event that a context of the prefixes publishes, but never a domain event; the empty prefix matches every integration event. Its deliveries go in a lane of their own, so a slow receiver does not hold up the other subscribers. Only the platform registers a sink: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
+  registerSink(
     subscriber: DomainEventSubscriber,
-    prefixes: readonly string[],
+    { prefixes }: { readonly prefixes: readonly string[] },
   ): void {
     const wrong = prefixes.find(
       (each) => each !== '' && !isContextPrefix(each),
@@ -56,8 +56,8 @@ export class EventSubscribers {
     return this.#named.get(name) ?? null;
   }
 
-  names(): readonly string[] {
-    return [...this.#named.keys()];
+  sinks(): readonly string[] {
+    return [...this.#prefixes.keys()];
   }
 
   private matches(subscriber: DomainEventSubscriber, kind: string): boolean {

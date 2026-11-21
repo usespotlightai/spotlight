@@ -6,9 +6,9 @@ export class EventWebhookRedeliveryResponseDto {
     description:
       'How many dead letters Spotlight queued again. Each gets all its attempts again',
   })
-  readonly count: number;
+  readonly queued: number;
 
-  constructor(count: number) {
-    this.count = count;
+  constructor(queued: number) {
+    this.queued = queued;
   }
 }
