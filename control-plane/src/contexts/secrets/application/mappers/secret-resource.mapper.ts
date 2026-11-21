@@ -12,6 +12,7 @@ export const SecretResourceMapper = {
       workspaceId: secret.workspaceId.value,
       name: secret.name,
       bindings: secret.bindings.map((each) => ({ ...each })),
+      sandbox: secret.sandbox,
       valueWoVersion: secret.valueVersion,
       rotatedAt: secret.rotatedAt.toISOString(),
       warnings: [],
@@ -30,6 +31,7 @@ export const SecretResourceMapper = {
         name: each.target.name,
         prefix: each.prefix,
       })),
+      sandbox: secret.sandbox,
       valueVersion: secret.valueVersion?.value ?? null,
     };
   },

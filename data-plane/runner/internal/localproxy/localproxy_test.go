@@ -200,6 +200,14 @@ func TestGoesDirectWhenTheDefaultIsOff(t *testing.T) {
 	}
 }
 
+func TestNoSecretMayTakeTheNameOfAVariableTheLocalProxySets(t *testing.T) {
+	for name := range rigged(t, false).local.Env() {
+		if !protocol.SetByTheRunner(name) {
+			t.Errorf("the local proxy sets %s, which protocol.RunnerSetVariables does not list", name)
+		}
+	}
+}
+
 func TestHandsTheAgentTheLocalProxyAndItsAuthority(t *testing.T) {
 	r := rigged(t, false)
 	env := r.local.Env()

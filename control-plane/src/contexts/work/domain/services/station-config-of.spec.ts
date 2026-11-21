@@ -131,6 +131,7 @@ describe('stationConfigOf', () => {
             mcpServers: [],
             native: {},
             injectedSecrets: secrets.map((each) => SecretName.of(each)),
+            sandboxEnv: [],
           },
           stationTools: [],
           toolsOnMarks: [],

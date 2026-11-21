@@ -36,6 +36,14 @@ export interface ReportedCheckout {
   readonly commit: string;
 }
 
+export class RevealSandboxEnvCommand {
+  constructor(
+    readonly runId: string,
+    readonly runnerId: string,
+    readonly attempt: number,
+  ) {}
+}
+
 export class RecordStartingPointCommand {
   constructor(
     readonly runId: string,

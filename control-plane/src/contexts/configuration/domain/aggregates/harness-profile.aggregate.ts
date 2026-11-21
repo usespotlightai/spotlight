@@ -5,9 +5,12 @@ import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harne
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
+import { SecretsKeptOutOfSandboxError } from '@configuration/domain/exceptions/secrets-kept-out-of-sandbox.error';
 import type { HarnessCompatibilityCheck } from '@configuration/domain/services/harness-compatibility-check';
+import { keptOutOfSandbox } from '@configuration/domain/services/kept-out-of-sandbox';
 import { missingSecrets } from '@configuration/domain/services/missing-secrets';
 import type { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
+import type { KnownSecrets } from '@configuration/domain/value-objects/known-secrets.vo';
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -16,7 +19,6 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
-import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 interface Props {
@@ -38,7 +40,7 @@ export interface ParsedProfile {
 
 const rejectUnusable = (
   parsed: ParsedProfile,
-  existing: readonly SecretName[],
+  known: KnownSecrets,
   harnesses: HarnessCompatibilityCheck,
 ): void => {
   const compatibility = harnesses.compatibilityOf(parsed);
@@ -50,10 +52,16 @@ const rejectUnusable = (
     );
   }
 
-  const missing = missingSecrets(parsed.settings, existing);
+  const missing = missingSecrets(parsed.settings, known.existing);
 
   if (missing.length > 0) {
     throw new MissingSecretsError(parsed.key.value, missing);
+  }
+
+  const refused = keptOutOfSandbox(parsed.settings, known);
+
+  if (refused.length > 0) {
+    throw new SecretsKeptOutOfSandboxError(parsed.key.value, refused);
   }
 };
 
@@ -67,11 +75,11 @@ export class HarnessProfile extends EventRecorder {
       id: HarnessProfileId;
       teamId: TeamId;
       by: ChangeActor;
-      existingSecrets: readonly SecretName[];
+      knownSecrets: KnownSecrets;
       harnesses: HarnessCompatibilityCheck;
     },
   ): HarnessProfile {
-    rejectUnusable(input, input.existingSecrets, input.harnesses);
+    rejectUnusable(input, input.knownSecrets, input.harnesses);
 
     const created = new HarnessProfile({
       id: input.id,
@@ -114,7 +122,7 @@ export class HarnessProfile extends EventRecorder {
   update(
     parsed: ParsedProfile,
     by: ChangeActor,
-    existingSecrets: readonly SecretName[],
+    knownSecrets: KnownSecrets,
     harnesses: HarnessCompatibilityCheck,
   ): HarnessProfile {
     this.guardLive();
@@ -129,7 +137,7 @@ export class HarnessProfile extends EventRecorder {
       );
     }
 
-    rejectUnusable(parsed, existingSecrets, harnesses);
+    rejectUnusable(parsed, knownSecrets, harnesses);
 
     const updated = this.with({ settings: parsed.settings });
 

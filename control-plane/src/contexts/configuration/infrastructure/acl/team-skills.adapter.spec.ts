@@ -62,6 +62,7 @@ const withSkills = (
 ) => {
   const secrets = {
     ofTeam: vi.fn(async () => existing.map((each) => SecretName.of(each))),
+    knownTo: vi.fn(),
   } satisfies SecretNamesPort;
   return new TeamSkills(
     new ReadySkills(

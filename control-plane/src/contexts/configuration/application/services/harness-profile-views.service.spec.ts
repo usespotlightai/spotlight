@@ -30,6 +30,7 @@ const profile = (
         : [],
     native: {},
     secrets,
+    env: {},
   }),
 });
 

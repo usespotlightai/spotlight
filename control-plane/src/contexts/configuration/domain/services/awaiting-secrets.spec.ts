@@ -15,6 +15,7 @@ const settings = ProfileSettings.fromRaw({
   ],
   native: {},
   secrets: ['STAGING_VIEWER', 'GRAFANA_TOKEN'],
+  env: {},
 });
 
 const awaitingOf = (...names: string[]) =>

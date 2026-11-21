@@ -121,6 +121,7 @@ interface Profile {
   readonly version: number;
   readonly warnings: readonly unknown[];
   readonly secrets: readonly string[];
+  readonly env: Readonly<Record<string, string>>;
   readonly mcpServers: readonly {
     readonly env: Readonly<Record<string, string>>;
   }[];
@@ -483,6 +484,85 @@ describe('a harness profile, created through the resource API (e2e)', () => {
 
       expect(rejected.status).toBe(409);
       expect(rejected.body.detail).toContain('harness profile team/careful');
+    });
+  });
+
+  describe('a secret the profile puts in the sandbox', () => {
+    const PUTTING = {
+      ...CAREFUL,
+      env: { GITHUB_APP_PRIVATE_KEY: 'DEV_GITHUB_APP_KEY' },
+    };
+
+    const secretWith = (sandbox: string) =>
+      as(fixture.admin).create(
+        `/api/v1/resources/workspaces/${teamId}/secrets`,
+        { name: 'DEV_GITHUB_APP_KEY', sandbox },
+      ) as Promise<Answer<{ id: string; version: number; sandbox: string }>>;
+
+    afterEach(async () => {
+      const db = app.get<DrizzleDatabase>(DRIZZLE);
+      await db
+        .delete(schema.harnessProfile)
+        .where(eq(schema.harnessProfile.teamId, teamId));
+      await db
+        .delete(schema.secret)
+        .where(eq(schema.secret.workspaceId, teamId));
+    });
+
+    it('rejects a secret that keeps its value out of sandboxes, where it is named', async () => {
+      expect((await secretWith('stand-in')).status).toBe(201);
+
+      const rejected = await create(PUTTING);
+
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([
+        expect.objectContaining({
+          path: 'env.GITHUB_APP_PRIVATE_KEY',
+          message: expect.stringContaining(
+            'names secret DEV_GITHUB_APP_KEY, which does not allow its value in a sandbox',
+          ) as unknown,
+        }),
+      ]);
+    });
+
+    it('puts it in the spec of its runs, and keeps the secret in sandboxes while it does', async () => {
+      const secret = await secretWith('env');
+      expect(secret.status).toBe(201);
+      expect(secret.body.sandbox).toBe('env');
+
+      const made = await create(PUTTING);
+      expect(made.status).toBe(201);
+      expect(made.body.env).toEqual(PUTTING.env);
+
+      const stored = await app
+        .get<StationProfilesPort>(STATION_PROFILES)
+        .named(TeamId.of(teamId), 'careful');
+      const ready = stored
+        ? ReadyProfileMapper.toReady(
+            app.get<HarnessLaunchPort>(HARNESS_LAUNCH).readyProfile(stored),
+          )
+        : null;
+      expect(
+        ready?.sandboxEnv.map(({ variable, secret: name }) => [
+          variable,
+          name.value,
+        ]),
+      ).toEqual([['GITHUB_APP_PRIVATE_KEY', 'DEV_GITHUB_APP_KEY']]);
+      expect(ready?.injectedSecrets).toEqual([]);
+
+      const reverted = (await served(app)
+        .put(`/api/v1/resources/secrets/${secret.body.id}`)
+        .set(TEST_USER_HEADER, fixture.admin)
+        .set('If-Match', `"${secret.body.version}"`)
+        .send({
+          name: 'DEV_GITHUB_APP_KEY',
+          sandbox: 'stand-in',
+        })) as Answer<Problem>;
+
+      expect(reverted.status).toBe(409);
+      expect(reverted.body.detail).toContain(
+        'Secret DEV_GITHUB_APP_KEY is in the sandbox env of: harness profile team/careful',
+      );
     });
   });
 

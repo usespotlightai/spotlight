@@ -88,6 +88,7 @@ export class HarnessProfileViews {
       mcpServers: HarnessProfileMapper.servers(parsed.settings),
       native: parsed.settings.native,
       secrets: parsed.settings.secrets.map((each) => each.value),
+      env: parsed.settings.environment,
       secretReferences: parsed.settings.secretReferences.map(
         ({ path, name }) => ({ path, name: name.value }),
       ),

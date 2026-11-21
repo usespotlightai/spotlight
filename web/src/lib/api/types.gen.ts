@@ -1187,6 +1187,34 @@ export type RecordRunImageRequestDto = {
   image: string;
 };
 
+export type RevealSandboxEnvRequestDto = {
+  /**
+   * The attempt of the run assigned to the runner, as the claim named it
+   */
+  attempt: number;
+};
+
+export type SandboxEnvVariableResponseDto = {
+  name: string;
+  /**
+   * The real value of the secret. The runner sets it in the sandbox and redacts it from what it reports
+   */
+  value: string;
+};
+
+export type DeniedSecretResponseDto = {
+  secret: string;
+  reason: string;
+};
+
+export type SandboxEnvResponseDto = {
+  variables: Array<SandboxEnvVariableResponseDto>;
+  /**
+   * Secrets the run cannot get, with why. The runner fails the run before setup if any is listed
+   */
+  denied: Array<DeniedSecretResponseDto>;
+};
+
 export type CheckoutHeadRequestDto = {
   /**
    * The checkout, by its path in the working copy, as the run received it
@@ -1442,11 +1470,6 @@ export type FetchedSecretResponseDto = {
    * The value, sealed to the recipient for this run
    */
   sealed: string;
-};
-
-export type DeniedSecretResponseDto = {
-  secret: string;
-  reason: string;
 };
 
 export type HarnessKeysResponseDto = {
@@ -1800,6 +1823,11 @@ export type SecretBindingResponseDto = {
   prefix: string;
 };
 
+/**
+ * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+ */
+export type SecretSandbox = 'stand-in' | 'env';
+
 export type SecretResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -1830,6 +1858,10 @@ export type SecretResourceResponseDto = {
    */
   bindings: Array<SecretBindingResponseDto>;
   /**
+   * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+   */
+  sandbox: SecretSandbox;
+  /**
    * Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never returned
    */
   valueWoVersion: number | null;
@@ -1857,6 +1889,10 @@ export type WorkspaceSecretResponseDto = {
    * The hosts egress sends the value to
    */
   hosts: Array<string>;
+  /**
+   * stand-in keeps the value out of every sandbox; env lets a harness profile give the value to its runs as an environment variable
+   */
+  sandbox: SecretSandbox;
   /**
    * Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)
    */
@@ -4295,6 +4331,12 @@ export type HarnessProfileResourceResponseDto = {
    * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
    */
   secrets: Array<string>;
+  /**
+   * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused.
+   */
+  env: {
+    [key: string]: string;
+  };
 };
 
 export type HarnessProfileResourceListResponseDto = {
@@ -12423,6 +12465,36 @@ export type RecordRunImageResponses = {
 
 export type RecordRunImageResponse = RecordRunImageResponses[keyof RecordRunImageResponses];
 
+export type RevealSandboxEnvData = {
+  body: RevealSandboxEnvRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/sandbox-env';
+};
+
+export type RevealSandboxEnvErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run
+   */
+  404: unknown;
+  /**
+   * The run is not leased by this runner on that attempt
+   */
+  409: unknown;
+};
+
+export type RevealSandboxEnvResponses = {
+  200: SandboxEnvResponseDto;
+};
+
+export type RevealSandboxEnvResponse = RevealSandboxEnvResponses[keyof RevealSandboxEnvResponses];
+
 export type RecordStartingPointData = {
   body: RecordStartingPointRequestDto;
   path: {
@@ -13273,6 +13345,10 @@ export type CreateSecretData = {
       prefix?: string;
     }>;
     /**
+     * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+     */
+    sandbox?: 'stand-in' | 'env';
+    /**
      * The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform
      */
     valueWo?: string;
@@ -13458,6 +13534,10 @@ export type UpdateSecretData = {
       name?: string;
       prefix?: string;
     }>;
+    /**
+     * Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it
+     */
+    sandbox?: 'stand-in' | 'env';
     /**
      * The value to store, sent only together with valueWoVersion, and never returned. Leave out both to set the value outside Terraform
      */
@@ -18142,6 +18222,12 @@ export type CreateHarnessProfileData = {
      * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
      */
     secrets?: Array<string>;
+    /**
+     * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused.
+     */
+    env?: {
+      [key: string]: string;
+    };
   };
   headers: {
     /**
@@ -18334,6 +18420,12 @@ export type UpdateHarnessProfileData = {
      * Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.
      */
     secrets?: Array<string>;
+    /**
+     * Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused.
+     */
+    env?: {
+      [key: string]: string;
+    };
   };
   headers: {
     /**

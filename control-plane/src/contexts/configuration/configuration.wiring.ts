@@ -40,6 +40,7 @@ import {
   SECRET_NAMES,
   type SecretNamesPort,
 } from '@configuration/application/ports/secret-names.port';
+import { SECRET_USE_LOCK } from '@configuration/application/ports/secret-use-lock.port';
 import {
   SECRETS_AWAITING_VALUE,
   type SecretsAwaitingValuePort,
@@ -111,6 +112,7 @@ import { HarnessReviewOfRuns } from '@configuration/infrastructure/acl/harness-r
 import { StationProfiles } from '@configuration/infrastructure/acl/station-profiles.adapter';
 import { StationSkillTools } from '@configuration/infrastructure/acl/station-skill-tools.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
+import { WorkspaceSecretUseLock } from '@configuration/infrastructure/acl/workspace-secret-use-lock.adapter';
 import { WorkspaceSecretsAwaitingValue } from '@configuration/infrastructure/acl/workspace-secrets-awaiting-value.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/infrastructure/events/configuration-payload-types';
@@ -190,6 +192,10 @@ import {
   type SecretReadinessPort,
 } from '@secrets/application/ports/secret-readiness.port';
 import {
+  SECRET_USE_LOCKS,
+  type SecretUseLocksPort,
+} from '@secrets/application/ports/secret-use-locks.port';
+import {
   SECRET_USES,
   type SecretUsesPort,
 } from '@secrets/application/ports/secret-uses.port';
@@ -237,6 +243,12 @@ const adapters: Provider[] = [
     inject: [TEAM_DIRECTORY, DEFINED_SECRETS],
     useFactory: (teams: TeamDirectoryPort, secrets: DefinedSecretsPort) =>
       new WorkspaceSecrets(teams, secrets),
+  },
+  {
+    provide: SECRET_USE_LOCK,
+    inject: [TEAM_DIRECTORY, SECRET_USE_LOCKS],
+    useFactory: (teams: TeamDirectoryPort, locks: SecretUseLocksPort) =>
+      new WorkspaceSecretUseLock(teams, locks),
   },
   {
     provide: SECRETS_AWAITING_VALUE,
@@ -404,6 +416,7 @@ const handlers: Provider[] = [
       TEAM_DIRECTORY,
       HARNESS_PROFILE_COMPILER,
       SECRET_NAMES,
+      SECRET_USE_LOCK,
       HARNESS_PROFILES,
       IDEMPOTENT_CREATES,
       ID_GENERATOR,
@@ -417,6 +430,7 @@ const handlers: Provider[] = [
       WORKSPACE_ACCESS,
       HARNESS_PROFILE_COMPILER,
       SECRET_NAMES,
+      SECRET_USE_LOCK,
       HARNESS_PROFILES,
       TRANSACTION,
     ],

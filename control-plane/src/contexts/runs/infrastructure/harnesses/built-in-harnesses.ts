@@ -25,6 +25,7 @@ import type {
   HarnessProtocol,
   SessionOption,
 } from '@runs/domain/value-objects/run-spec.vo';
+import { isSetByTheRunner } from '@runs/domain/value-objects/runner-set-variables';
 import { claudeCodeProfile } from '@runs/infrastructure/harnesses/profiles/claude-code.profile';
 import { codexProfile } from '@runs/infrastructure/harnesses/profiles/codex.profile';
 import { cursorProfile } from '@runs/infrastructure/harnesses/profiles/cursor.profile';
@@ -300,6 +301,7 @@ export class BuiltInHarnesses
         native: shape.native,
       },
       shape.secrets,
+      shape.sandboxEnv,
     );
   }
 
@@ -314,6 +316,7 @@ export class BuiltInHarnesses
           `names no harness Spotlight runs; it runs ${[...known].join(', ')}`,
         ),
       );
+    const settingEach = new Map<string, string[]>();
 
     for (const def of DEFINITIONS) {
       const native = profile.native[def.id];
@@ -321,8 +324,22 @@ export class BuiltInHarnesses
 
       if (problem) {
         problems.push(problem);
+        continue;
+      }
+
+      for (const variable of variablesSetBy(def, profile)) {
+        settingEach.set(variable, [
+          ...(settingEach.get(variable) ?? []),
+          def.id,
+        ]);
       }
     }
+
+    problems.push(
+      ...profile.sandboxEnv.flatMap(({ variable }) =>
+        variableProblems(variable, settingEach.get(variable) ?? []),
+      ),
+    );
 
     return {
       problems,
@@ -355,6 +372,43 @@ export class BuiltInHarnesses
     return DEFINITIONS.find((each) => each.id === id.value);
   }
 }
+
+const variablesSetBy = (
+  def: Definition,
+  profile: HarnessProfileShape,
+): readonly string[] => [
+  ...Object.keys(def.env),
+  ...Object.keys(def.profile.translate(profile).env),
+  ...(def.configEnv ? [def.configEnv] : []),
+  ...(def.modelBinding.kind === 'env' ? [def.modelBinding.name] : []),
+  ...(def.effortBinding?.kind === 'env' ? [def.effortBinding.name] : []),
+  ...def.harnessKeys,
+];
+
+const variableProblems = (
+  variable: string,
+  setting: readonly string[],
+): readonly HarnessNote[] => {
+  if (isSetByTheRunner(variable)) {
+    return [
+      {
+        about: 'env',
+        variable,
+        reason: `sets ${variable}, which the runner sets in every sandbox`,
+      },
+    ];
+  }
+
+  return setting.length > 0
+    ? [
+        {
+          about: 'env',
+          variable,
+          reason: `sets ${variable}, which a harness sets itself: ${setting.join(', ')}`,
+        },
+      ]
+    : [];
+};
 
 const commandOf = (
   def: Definition,

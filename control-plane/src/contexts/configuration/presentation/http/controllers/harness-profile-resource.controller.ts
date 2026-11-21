@@ -8,6 +8,7 @@ import { ReadHarnessProfileQuery } from '@configuration/application/queries/read
 import {
   HarnessProfileResourceResponseDto,
   MCP_SERVER_ENV,
+  PROFILE_ENV,
   PROFILE_SECRETS,
 } from '@configuration/presentation/http/dto/harness-profile-resource.response.dto';
 import { Body, Param, Query } from '@nestjs/common';
@@ -87,6 +88,12 @@ const DEFINITION = ApiBody({
         ...rules,
         example: ['STAGING_VIEWER'],
         description: PROFILE_SECRETS,
+      },
+      env: {
+        type: 'object',
+        additionalProperties: { type: 'string' },
+        example: { GITHUB_APP_PRIVATE_KEY: 'DEV_GITHUB_APP_KEY' },
+        description: PROFILE_ENV,
       },
     },
   },

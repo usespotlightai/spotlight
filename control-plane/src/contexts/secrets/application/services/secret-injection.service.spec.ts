@@ -10,6 +10,7 @@ import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
 import { SecretTargetConflictError } from '@secrets/domain/exceptions/secret-target-conflict.error';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
+import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import {
   BY,
   clockAt,
@@ -142,6 +143,7 @@ describe('SecretInjection', () => {
         definition({ value: 'lin_api_2', valueVersion: 2 }),
         BY,
         NOW,
+        SecretUses.none(),
       );
 
       await secrets.save(rotated);
@@ -527,6 +529,7 @@ describe('SecretInjection', () => {
           definition({ bindings: [{ host: 'uploads.linear.app' }] }),
           BY,
           NOW,
+          SecretUses.none(),
         ),
       );
 

@@ -48,6 +48,7 @@ export const harnessProfile = pgTable(
     mcpServers: jsonb('mcp_servers').$type<McpServerRow[]>().notNull(),
     native: jsonb('native').$type<Record<string, unknown>>().notNull(),
     secrets: text('secrets').array().notNull().default([]),
+    env: jsonb('env').$type<Record<string, string>>().notNull().default({}),
     version: integer('version').notNull().default(1),
     updatedAt: timestamptz('updated_at')
       .defaultNow()

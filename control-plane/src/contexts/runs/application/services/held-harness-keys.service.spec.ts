@@ -20,7 +20,13 @@ const launch = {
 const held = (names: readonly string[]) => {
   const namesIn = vi.fn(async () => names);
 
-  return { namesIn, subject: new HeldHarnessKeys(launch, { namesIn }) };
+  return {
+    namesIn,
+    subject: new HeldHarnessKeys(launch, {
+      namesIn,
+      namesInSandboxIn: async () => [],
+    }),
+  };
 };
 
 describe('HeldHarnessKeys', () => {

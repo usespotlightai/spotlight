@@ -382,6 +382,7 @@ const dispatch = async (
           name,
           bindings: [],
           awaitingValue: awaitingValue.includes(name),
+          entersSandbox: true,
         })),
     },
   );
@@ -671,6 +672,7 @@ describe('DispatchTask', () => {
       mcpServers: [],
       native: {},
       secrets: [],
+      sandboxEnv: [],
     };
 
     const naming = (profile: string) =>
@@ -715,6 +717,7 @@ describe('DispatchTask', () => {
           ],
           native: {},
           secrets: [],
+          sandboxEnv: [],
         },
       };
       readyAs = {
@@ -747,6 +750,7 @@ describe('DispatchTask', () => {
           mcpServers: [],
           native: {},
           secrets: [],
+          sandboxEnv: [],
         },
       };
       readyAs = { injectedSecrets: [SecretName.of('LINEAR_API_KEY')] };
@@ -1401,6 +1405,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           ],
           native: {},
           secrets: [],
+          sandboxEnv: [],
         },
       };
 

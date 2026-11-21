@@ -252,6 +252,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
+      sandbox: 'stand-in',
       valueVersion: 3,
     },
     {
@@ -268,6 +269,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
+      sandbox: 'stand-in',
       valueVersion: null,
     },
     {
@@ -277,6 +279,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       address: 'LINEAR_SIGNING',
       name: 'LINEAR_SIGNING',
       bindings: [],
+      sandbox: 'env',
       valueVersion: null,
     },
     {
@@ -543,6 +546,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       ],
       native: { 'claude-code': { includeCoAuthoredBy: false } },
       secrets: ['LINEAR_SIGNING'],
+      env: { LINEAR_SIGNING_KEY: 'LINEAR_SIGNING' },
       secretReferences: [
         {
           path: FieldPath.of(['mcpServers', 0, 'env', 'LINEAR_API_KEY']),

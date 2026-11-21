@@ -24,6 +24,7 @@ import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 import type { Resume } from '@work/domain/value-objects/resume.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { SecretAwaitingValue } from '@work/domain/value-objects/secret-awaiting-value.vo';
+import { SecretKeptOutOfSandbox } from '@work/domain/value-objects/secret-kept-out-of-sandbox.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface RunOrder {
@@ -112,10 +113,16 @@ export const orderAt = ({
   }
 
   const { station, launch } = launched;
-  const injected = launch.enabled.profile?.injectedSecrets ?? [];
+  const inSandbox = (launch.enabled.profile?.sandboxEnv ?? []).map(
+    ({ secret }) => secret,
+  );
+  const needed = [
+    ...(launch.enabled.profile?.injectedSecrets ?? []),
+    ...inSandbox,
+  ];
   const named = launch.enabled.profile?.secrets ?? [];
   const bound = boundSecrets.filter((each) =>
-    injected.some((name) => name.equals(each.name)),
+    needed.some((name) => name.equals(each.name)),
   );
   const refusals = [
     ...denied,
@@ -123,6 +130,13 @@ export const orderAt = ({
     ...bound
       .filter((each) => each.awaitingValue)
       .map((each) => SecretAwaitingValue.at(station.name, each.name)),
+    ...bound
+      .filter(
+        (each) =>
+          !each.entersSandbox &&
+          inSandbox.some((name) => name.equals(each.name)),
+      )
+      .map((each) => SecretKeptOutOfSandbox.at(station.name, each.name)),
   ];
 
   return {

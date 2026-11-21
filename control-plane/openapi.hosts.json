@@ -285,6 +285,57 @@
         ]
       }
     },
+    "/runs/{runId}/sandbox-env": {
+      "post": {
+        "description": "The runner calls this once per attempt, before the setup commands. Each variable holds the real value of a secret with sandbox = \"env\". Spotlight logs each reveal with the run and the secret names.",
+        "operationId": "revealSandboxEnv",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevealSandboxEnvRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxEnvResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run"
+          },
+          "409": {
+            "description": "The run is not leased by this runner on that attempt"
+          }
+        },
+        "summary": "Get the secrets that the run’s harness profile puts in its sandbox as environment variables",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/starting-point": {
       "post": {
         "description": "The runner reports this once the working copy is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.",
@@ -3016,6 +3067,75 @@
           "image"
         ]
       },
+      "RevealSandboxEnvRequestDto": {
+        "type": "object",
+        "properties": {
+          "attempt": {
+            "type": "number",
+            "example": 1,
+            "description": "The attempt of the run assigned to the runner, as the claim named it"
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "SandboxEnvVariableResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "GITHUB_APP_PRIVATE_KEY"
+          },
+          "value": {
+            "type": "string",
+            "description": "The real value of the secret. The runner sets it in the sandbox and redacts it from what it reports"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "DeniedSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_API_KEY"
+          },
+          "reason": {
+            "type": "string",
+            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
+          }
+        },
+        "required": [
+          "secret",
+          "reason"
+        ]
+      },
+      "SandboxEnvResponseDto": {
+        "type": "object",
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SandboxEnvVariableResponseDto"
+            }
+          },
+          "denied": {
+            "description": "Secrets the run cannot get, with why. The runner fails the run before setup if any is listed",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeniedSecretResponseDto"
+            }
+          }
+        },
+        "required": [
+          "variables",
+          "denied"
+        ]
+      },
       "CheckoutHeadRequestDto": {
         "type": "object",
         "properties": {
@@ -3451,23 +3571,6 @@
           "name",
           "prefix",
           "sealed"
-        ]
-      },
-      "DeniedSecretResponseDto": {
-        "type": "object",
-        "properties": {
-          "secret": {
-            "type": "string",
-            "example": "LINEAR_API_KEY"
-          },
-          "reason": {
-            "type": "string",
-            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
-          }
-        },
-        "required": [
-          "secret",
-          "reason"
         ]
       },
       "HarnessKeysResponseDto": {

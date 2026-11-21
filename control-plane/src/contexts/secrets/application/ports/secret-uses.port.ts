@@ -10,6 +10,7 @@ export interface NamedSecret {
 export interface SecretUse {
   readonly kind: ResourceType;
   readonly key: string;
+  readonly inSandbox: boolean;
 }
 
 export interface SecretUser {

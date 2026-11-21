@@ -8,6 +8,7 @@ import type {
   SecretResourcesPort,
 } from '@secrets/application/ports/secret-resources.port';
 import { RESERVED_SECRET_PREFIX } from '@secrets/domain/value-objects/reserved-secret-name';
+import { allowsSandboxes } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import {
   secret,
   secretValue,
@@ -29,6 +30,7 @@ const recordOf = ({
   workspaceId: WorkspaceId.of(row.workspaceId),
   name: row.name,
   bindings: row.bindings.map((each) => ({ ...each })),
+  sandbox: row.sandbox,
   valueVersion: row.valueVersion,
   holdsValue: valueOf !== null,
   rotatedAt: row.rotatedAt,
@@ -91,6 +93,18 @@ export class DrizzleSecretResources
         .where(and(eq(secret.workspaceId, workspaceId), visible))
         .orderBy(asc(secret.name))
     ).map((each) => each.name);
+  }
+
+  async namesInSandboxIn(workspaceId: string): Promise<readonly string[]> {
+    return (
+      await this.context.db
+        .select({ name: secret.name, sandbox: secret.sandbox })
+        .from(secret)
+        .where(and(eq(secret.workspaceId, workspaceId), visible))
+        .orderBy(asc(secret.name))
+    )
+      .filter((each) => allowsSandboxes(each.sandbox))
+      .map((each) => each.name);
   }
 
   async dependentsOf(workspaceId: WorkspaceId): Promise<readonly Dependent[]> {

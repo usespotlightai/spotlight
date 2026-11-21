@@ -6,8 +6,10 @@ import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harne
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
+import { SecretsKeptOutOfSandboxError } from '@configuration/domain/exceptions/secrets-kept-out-of-sandbox.error';
 import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
+import { KnownSecrets } from '@configuration/domain/value-objects/known-secrets.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
@@ -32,6 +34,7 @@ const settings = (ask: string[] = []) =>
     mcpServers: [],
     native: {},
     secrets: [],
+    env: {},
   });
 
 const parsed = (key = 'careful', ask: string[] = []) => ({
@@ -56,6 +59,8 @@ const harnessesFinding = (compatibility: HarnessCompatibility) => ({
 
 const COMPATIBLE = harnessesFinding(HarnessCompatibility.of([]));
 
+const NONE = KnownSecrets.of({ existing: [], allowedInSandbox: [] });
+
 const CAREFUL = {
   resource: 'harness-profile' as const,
   id: 'profile_1',
@@ -77,7 +82,7 @@ describe('HarnessProfile', () => {
       id: ID,
       teamId: TEAM,
       by: BY,
-      existingSecrets: [],
+      knownSecrets: NONE,
       harnesses: COMPATIBLE,
     });
 
@@ -102,7 +107,7 @@ describe('HarnessProfile', () => {
     const updated = stored().update(
       parsed('careful', ['execute(git push *)']),
       BY,
-      [],
+      NONE,
       COMPATIBLE,
     );
 
@@ -118,7 +123,7 @@ describe('HarnessProfile', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => stored().update(parsed('bold'), BY, [], COMPATIBLE)).toThrow(
+    expect(() => stored().update(parsed('bold'), BY, NONE, COMPATIBLE)).toThrow(
       ImmutableFieldError,
     );
   });
@@ -151,7 +156,7 @@ describe('HarnessProfile', () => {
         ConfigurationChange.deleted(CAREFUL, BY),
       ),
     ]);
-    expect(() => deleted.update(parsed(), BY, [], COMPATIBLE)).toThrow(
+    expect(() => deleted.update(parsed(), BY, NONE, COMPATIBLE)).toThrow(
       InconsistentStateError,
     );
   });
@@ -185,6 +190,7 @@ describe('HarnessProfile', () => {
         ],
         native: {},
         secrets: [],
+        env: {},
       }),
     };
     const existing = [SecretName.of('LINEAR_API_KEY')];
@@ -195,17 +201,63 @@ describe('HarnessProfile', () => {
         id: ID,
         teamId: TEAM,
         by: BY,
-        existingSecrets: [],
+        knownSecrets: NONE,
         harnesses: COMPATIBLE,
       }),
     ).toThrow(MissingSecretsError);
-    expect(() => stored().update(referring, BY, [], COMPATIBLE)).toThrow(
+    expect(() => stored().update(referring, BY, NONE, COMPATIBLE)).toThrow(
       MissingSecretsError,
     );
     expect(
       stored()
-        .update(referring, BY, existing, COMPATIBLE)
+        .update(
+          referring,
+          BY,
+          KnownSecrets.of({ existing, allowedInSandbox: [] }),
+          COMPATIBLE,
+        )
         .settings.uses(existing[0]),
+    ).toBe(true);
+  });
+
+  it('puts in the sandbox only secrets that allow it', () => {
+    const putting = {
+      key: ProfileKey.of('careful'),
+      settings: ProfileSettings.fromRaw({
+        permissions: { allow: [], ask: [], deny: [] },
+        mcpServers: [],
+        native: {},
+        secrets: [],
+        env: { GITHUB_APP_PRIVATE_KEY: 'DEV_GITHUB_APP_KEY' },
+      }),
+    };
+    const key = SecretName.of('DEV_GITHUB_APP_KEY');
+
+    expect(() =>
+      HarnessProfile.create({
+        ...putting,
+        id: ID,
+        teamId: TEAM,
+        by: BY,
+        knownSecrets: KnownSecrets.of({
+          existing: [key],
+          allowedInSandbox: [],
+        }),
+        harnesses: COMPATIBLE,
+      }),
+    ).toThrow(SecretsKeptOutOfSandboxError);
+    expect(() => stored().update(putting, BY, NONE, COMPATIBLE)).toThrow(
+      MissingSecretsError,
+    );
+    expect(
+      stored()
+        .update(
+          putting,
+          BY,
+          KnownSecrets.of({ existing: [key], allowedInSandbox: [key] }),
+          COMPATIBLE,
+        )
+        .settings.putsInSandbox(key),
     ).toBe(true);
   });
 
@@ -222,11 +274,11 @@ describe('HarnessProfile', () => {
         id: ID,
         teamId: TEAM,
         by: BY,
-        existingSecrets: [],
+        knownSecrets: NONE,
         harnesses: incompatible,
       }),
     ).toThrow(IncompatibleHarnessProfileError);
-    expect(() => stored().update(parsed(), BY, [], incompatible)).toThrow(
+    expect(() => stored().update(parsed(), BY, NONE, incompatible)).toThrow(
       IncompatibleHarnessProfileError,
     );
   });

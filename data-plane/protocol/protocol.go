@@ -60,23 +60,38 @@ type HandoverSpec struct {
 }
 
 type Spec struct {
-	Checkouts     []Checkout     `json:"checkouts,omitempty"`
-	Command       Command        `json:"command"`
-	Briefing      string         `json:"briefing,omitempty"`
-	Handover      HandoverSpec   `json:"handover,omitzero"`
-	Manifest      []ToolManifest `json:"manifest,omitempty"`
-	ChangedTools  *ChangedTools  `json:"changedTools,omitempty"`
-	Resume        Resume         `json:"resume,omitzero"`
-	Attachments   []Attachment   `json:"attachments,omitempty"`
-	Skills        []SkillFile    `json:"skills,omitempty"`
-	SkillHomes    []string       `json:"skillHomes,omitempty"`
-	Diffs         bool           `json:"diffs,omitempty"`
-	StartingPoint bool           `json:"startingPoint,omitempty"`
-	HarnessSetup  HarnessSetup   `json:"harnessSetup,omitzero"`
-	SettingFiles  []string       `json:"settingFiles,omitempty"`
-	SpotlightAPI  bool           `json:"spotlightApi,omitempty"`
-	Replay        *Replay        `json:"replay,omitempty"`
-	Search        *SearchSpec    `json:"search,omitempty"`
+	Checkouts     []Checkout           `json:"checkouts,omitempty"`
+	Command       Command              `json:"command"`
+	Briefing      string               `json:"briefing,omitempty"`
+	Handover      HandoverSpec         `json:"handover,omitzero"`
+	Manifest      []ToolManifest       `json:"manifest,omitempty"`
+	ChangedTools  *ChangedTools        `json:"changedTools,omitempty"`
+	Resume        Resume               `json:"resume,omitzero"`
+	Attachments   []Attachment         `json:"attachments,omitempty"`
+	Skills        []SkillFile          `json:"skills,omitempty"`
+	SkillHomes    []string             `json:"skillHomes,omitempty"`
+	Diffs         bool                 `json:"diffs,omitempty"`
+	StartingPoint bool                 `json:"startingPoint,omitempty"`
+	HarnessSetup  HarnessSetup         `json:"harnessSetup,omitzero"`
+	SettingFiles  []string             `json:"settingFiles,omitempty"`
+	SpotlightAPI  bool                 `json:"spotlightApi,omitempty"`
+	Replay        *Replay              `json:"replay,omitempty"`
+	Search        *SearchSpec          `json:"search,omitempty"`
+	SandboxEnv    []SandboxEnvVariable `json:"sandboxEnv,omitempty"`
+}
+
+type SandboxEnvVariable struct {
+	Variable string `json:"variable"`
+	Secret   string `json:"secret"`
+}
+
+type SandboxEnvRequest struct {
+	Attempt int `json:"attempt"`
+}
+
+type SandboxEnv struct {
+	Variables []EnvVariable  `json:"variables"`
+	Denied    []DeniedSecret `json:"denied"`
 }
 
 type ChangedTools struct {

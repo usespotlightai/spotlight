@@ -239,6 +239,17 @@ const manifestOf = (value: JsonValue): ToolManifestShape => {
   };
 };
 
+const sandboxVariableOf = (
+  value: JsonValue,
+): { variable: string; secret: string } => {
+  const variable = objectAt(value, 'spec sandbox variable');
+
+  return {
+    variable: textAt(variable.variable, 'spec sandbox variable name'),
+    secret: textAt(variable.secret, 'spec sandbox variable secret'),
+  };
+};
+
 const attachmentOf = (value: JsonValue): AttachmentShape => {
   const attachment = objectAt(value, 'spec attachment');
 
@@ -314,6 +325,9 @@ const specOf = (value: JsonValue | undefined): RunSpecShape => {
       'injectedSecrets',
       spec.injectedSecrets,
       texts('spec injected secrets'),
+    ),
+    ...present('sandboxEnv', spec.sandboxEnv, (each) =>
+      listAt(each, 'spec sandbox env', sandboxVariableOf),
     ),
     ...present('spotlightApi', spec.spotlightApi, flag('spec spotlight api')),
   };
