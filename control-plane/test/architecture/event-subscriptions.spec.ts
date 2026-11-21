@@ -77,7 +77,7 @@ describe('event subscriptions', () => {
   it('finds a sink, which hears every context it names', () => {
     expect(
       problemsIn(`import { subscribing } from '${SUBSCRIBER}';
-        subscribers.registerSink(subscribing('memory.a', [], handle), { prefixes: ['insights.'] });`),
+        subscribers.registerSink({ subscriber: subscribing('memory.a', [], handle), prefixes: ['insights.'], retry: null });`),
     ).toEqual([
       'memory.a hears no kind the check can resolve',
       'calls subscribers.registerSink, which only the platform may call',

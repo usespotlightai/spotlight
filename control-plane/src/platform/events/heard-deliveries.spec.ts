@@ -1,4 +1,5 @@
 import { heardDeliveries } from '@platform/events/heard-deliveries';
+import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
@@ -6,6 +7,10 @@ const query = (hearings: Parameters<typeof heardDeliveries>[0]) =>
   new PgDialect().sqlToQuery(heardDeliveries(hearings));
 
 describe('heardDeliveries', () => {
+  it('copies a pattern into SQL that has no flags, which SQL would drop', () => {
+    expect(INTEGRATION_EVENT_KIND.flags).toBe('');
+  });
+
   it('matches no delivery for no hearing, or for one that hears nothing', () => {
     expect(query([]).sql).toBe('false');
     expect(query([{ name: 'test.deaf', kinds: [], prefixes: [] }]).sql).toBe(

@@ -10,10 +10,15 @@ const controller = (registered: boolean) => {
   const subscribers = new EventSubscribers();
 
   if (registered) {
-    subscribers.registerSink(
-      subscribing('platform.send-event-webhook', [], async () => []),
-      { prefixes: [''] },
-    );
+    subscribers.registerSink({
+      subscriber: subscribing(
+        'platform.send-event-webhook',
+        [],
+        async () => [],
+      ),
+      prefixes: [''],
+      retry: null,
+    });
   }
 
   const admin = new AdminEventWebhookController(subscribers, {

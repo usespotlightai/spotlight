@@ -253,12 +253,12 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
             clock,
           );
 
-          const { subscriber, prefixes, retry } = eventWebhookSubscription(
-            webhook,
-            env.SPOTLIGHT_EVENT_WEBHOOK_KINDS,
+          subscribers.registerSink(
+            eventWebhookSubscription(
+              webhook,
+              env.SPOTLIGHT_EVENT_WEBHOOK_KINDS,
+            ),
           );
-
-          subscribers.registerSink(subscriber, { prefixes, retry });
         }
 
         return true;

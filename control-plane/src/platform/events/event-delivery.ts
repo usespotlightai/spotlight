@@ -3,10 +3,12 @@ import { CauseCarrier } from '@platform/events/cause-carrier';
 import { idsOf } from '@platform/events/event-ids';
 import { EventOutbox } from '@platform/events/event-outbox';
 import {
+  DELIVERY_LANES,
   type DeliveryLane,
   EventSubscribers,
 } from '@platform/events/event-subscribers';
 import { heardDeliveries } from '@platform/events/heard-deliveries';
+import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -42,6 +44,8 @@ import {
   isNull,
   gt,
   lte,
+  type SQL,
+  sql,
 } from 'drizzle-orm';
 
 // A subscriber that sets no retry gets 8 attempts. The outbox waits 2 seconds after the first attempt, twice as long after each next one, and never longer than one hour.
@@ -74,6 +78,23 @@ export interface Redelivery {
   // The redelivery stopped at its limit, and more dead letters may wait.
   readonly truncated: boolean;
 }
+
+// A delivery untouched since the time: no attempt, dead letter, lease or redelivery since then. Each of them sets its due time, so a dead letter's due time is when it became one.
+export const untouchedSince = (before: Date): SQL =>
+  sql`${eventDelivery.dueAt} < ${before.toISOString()}::timestamptz`;
+
+// Locks the deliveries that match, always in the order of their event and subscriber, so two instances that lock deliveries never wait on each other in a circle.
+export const lockDeliveries = async (
+  db: DrizzleDatabase,
+  where: SQL | undefined,
+): Promise<void> => {
+  await db
+    .select({ eventId: eventDelivery.eventId })
+    .from(eventDelivery)
+    .where(where)
+    .orderBy(asc(eventDelivery.eventId), asc(eventDelivery.subscriber))
+    .for('update');
+};
 
 const because = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).replaceAll(
@@ -137,8 +158,9 @@ export class EventDelivery {
     const until = Date.now() + timeoutMs;
 
     for (;;) {
-      await this.processDue('contexts');
-      await this.processDue('sinks');
+      for (const lane of DELIVERY_LANES) {
+        await this.processDue(lane);
+      }
 
       if ((await this.stillDue()) === 0 || Date.now() > until) {
         return;
@@ -184,7 +206,7 @@ export class EventDelivery {
       skipped += dead.length - heard.length;
 
       if (taken.length > 0) {
-        queued += await this.requeued(subscriber, taken);
+        queued += await this.requeue(subscriber, taken);
       }
 
       if (queued >= limit) {
@@ -208,8 +230,8 @@ export class EventDelivery {
     return { queued, truncated };
   }
 
-  // Locks the dead letters in the order of their event, as retention does, so the two never wait on each other in a circle, and queues them again. A row that retention deleted in the meantime is not written, so it is not counted.
-  private requeued(
+  // Locks the dead letters and queues them again. A row that retention deleted in the meantime is not written, so it is not counted.
+  private requeue(
     subscriber: string,
     eventIds: readonly string[],
   ): Promise<number> {
@@ -222,12 +244,7 @@ export class EventDelivery {
         inArray(eventDelivery.eventId, [...eventIds]),
       );
 
-      await db
-        .select({ eventId: eventDelivery.eventId })
-        .from(eventDelivery)
-        .where(dead)
-        .orderBy(asc(eventDelivery.eventId))
-        .for('update');
+      await lockDeliveries(db, dead);
 
       const written = await db
         .update(eventDelivery)
@@ -246,10 +263,9 @@ export class EventDelivery {
       .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
       .where(
         and(
-          heardDeliveries([
-            ...this.subscribers.lane('contexts'),
-            ...this.subscribers.lane('sinks'),
-          ]),
+          heardDeliveries(
+            DELIVERY_LANES.flatMap((lane) => this.subscribers.lane(lane)),
+          ),
           isNull(eventDelivery.deliveredAt),
           isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
@@ -646,7 +662,7 @@ export class EventDelivery {
 
   // A subscriber that sets no retry gets the default.
   private retryOf(due: Due): Retry {
-    return this.subscribers.retry(due.subscriber) ?? DEFAULT_RETRY;
+    return this.subscribers.retryOf(due.subscriber) ?? DEFAULT_RETRY;
   }
 
   private reported(due: Due, error: unknown): void {

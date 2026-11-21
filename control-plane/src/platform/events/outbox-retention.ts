@@ -1,3 +1,7 @@
+import {
+  lockDeliveries,
+  untouchedSince,
+} from '@platform/events/event-delivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -10,12 +14,12 @@ import {
   asc,
   eq,
   gt,
-  gte,
   inArray,
   isNull,
   lt,
   notExists,
   sql,
+  not,
 } from 'drizzle-orm';
 
 export const OUTBOX_RETENTION_MS = 7 * 24 * 60 * 60_000;
@@ -125,9 +129,7 @@ export class OutboxRetention {
         ),
       )
       .groupBy(eventOutbox.id)
-      .having(
-        sql`bool_and(${eventDelivery.dueAt} < ${before.toISOString()}::timestamptz)`,
-      )
+      .having(sql`bool_and(${untouchedSince(before)})`)
       .orderBy(asc(eventOutbox.id))
       .limit(this.limits.batch);
     const unheard = abandoned
@@ -149,13 +151,8 @@ export class OutboxRetention {
     const removed = await this.context.inTransaction(async () => {
       const db = this.context.db;
 
-      // Waits for an instance that queues one of these dead letters again right now, locking in the order of the event as the redelivery does. The delete then reads a fresh snapshot.
-      await db
-        .select({ eventId: eventDelivery.eventId })
-        .from(eventDelivery)
-        .where(inArray(eventDelivery.eventId, unheard))
-        .orderBy(asc(eventDelivery.eventId), asc(eventDelivery.subscriber))
-        .for('update');
+      // Waits for an instance that queues one of these dead letters again right now. The delete then reads a fresh snapshot.
+      await lockDeliveries(db, inArray(eventDelivery.eventId, unheard));
 
       // An event with a delivery touched since the retention age, as one queued again or claimed by another instance, stays.
       return db
@@ -172,7 +169,7 @@ export class OutboxRetention {
                   and(
                     eq(eventDelivery.eventId, eventOutbox.id),
                     isNull(eventDelivery.deliveredAt),
-                    gte(eventDelivery.dueAt, before),
+                    not(untouchedSince(before)),
                   ),
                 ),
             ),

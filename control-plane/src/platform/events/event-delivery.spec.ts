@@ -154,11 +154,13 @@ const delivering = (
 ) => {
   const context = new FakeContext(attempts);
   const subscribers = new EventSubscribers();
-  const subscriber = subscribing('test.door', ['bell.rang'], handle, options);
+  // A sink hears only integration events.
+  context.kind = retry ? 'bell.rang.v1' : 'bell.rang';
+  const subscriber = subscribing('test.door', [context.kind], handle, options);
 
   // Only a sink sets its own retry.
   if (retry) {
-    subscribers.registerSink(subscriber, { prefixes: [], retry });
+    subscribers.registerSink({ subscriber, prefixes: [], retry });
   } else {
     subscribers.register([subscriber]);
   }

@@ -9,15 +9,19 @@ const subscribers = new EventSubscribers();
 subscribers.register([
   subscribing('test.exact', ['task.opened', 'work.task-opened.v1'], heard),
 ]);
-subscribers.registerSink(subscribing('test.work', [], heard), {
+subscribers.registerSink({
+  subscriber: subscribing('test.work', [], heard),
   prefixes: ['work.'],
+  retry: null,
 });
-subscribers.registerSink(subscribing('test.every', [], heard), {
+subscribers.registerSink({
+  subscriber: subscribing('test.every', [], heard),
   prefixes: [''],
+  retry: null,
 });
 
 const listening = (kind: string) =>
-  subscribers.hearing(kind).map((each) => each.name);
+  subscribers.subscribersHearing(kind).map((each) => each.name);
 
 describe('EventSubscribers', () => {
   it('matches a subscriber that names the kind', () => {
@@ -42,11 +46,28 @@ describe('EventSubscribers', () => {
     const more = new EventSubscribers();
 
     expect(() =>
-      more.registerSink(subscribing('test.part', [], heard), {
+      more.registerSink({
+        subscriber: subscribing('test.part', [], heard),
         prefixes: ['identity.workspace'],
+        retry: null,
       }),
     ).toThrow('test.part hears identity.workspace, which is not a context');
     expect(more.named('test.part')).toBeNull();
+  });
+
+  it('refuses a sink that names a domain event kind, so no domain event is sent out', () => {
+    const more = new EventSubscribers();
+
+    expect(() =>
+      more.registerSink({
+        subscriber: subscribing('test.leak', ['task.opened'], heard),
+        prefixes: [],
+        retry: null,
+      }),
+    ).toThrow(
+      'test.leak hears task.opened, which is not an integration event kind',
+    );
+    expect(more.named('test.leak')).toBeNull();
   });
 
   it('keeps the retry of a sink, and leaves another subscriber to the outbox default', () => {
@@ -56,14 +77,15 @@ describe('EventSubscribers', () => {
       maxDelayMs: 1_000,
     });
     const more = new EventSubscribers();
-    more.registerSink(subscribing('test.sink', [], heard), {
+    more.registerSink({
+      subscriber: subscribing('test.sink', [], heard),
       prefixes: [''],
       retry,
     });
 
-    expect(more.retry('test.sink')).toBe(retry);
-    expect(subscribers.retry('test.work')).toBeNull();
-    expect(subscribers.retry('test.exact')).toBeNull();
+    expect(more.retryOf('test.sink')).toBe(retry);
+    expect(subscribers.retryOf('test.work')).toBeNull();
+    expect(subscribers.retryOf('test.exact')).toBeNull();
   });
 
   it('answers whether a subscriber of the name is registered and hears the kind', () => {

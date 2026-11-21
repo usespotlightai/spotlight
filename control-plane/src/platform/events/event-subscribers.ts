@@ -7,7 +7,9 @@ import type { DomainEventSubscriber } from '@shared-kernel/application/ports/dom
 import type { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 // The contexts lane holds the subscribers of the contexts. The sinks lane holds the sinks, which send events out of Spotlight, so a slow receiver does not hold up the subscribers of the contexts.
-export type DeliveryLane = 'contexts' | 'sinks';
+export const DELIVERY_LANES = ['contexts', 'sinks'] as const;
+
+export type DeliveryLane = (typeof DELIVERY_LANES)[number];
 
 // What one subscriber hears: the kinds it names, and each integration event kind that starts with one of its prefixes. hears and the outbox's queries both read it, so they match the same kinds.
 export interface Hearing {
@@ -16,7 +18,9 @@ export interface Hearing {
   readonly prefixes: readonly string[];
 }
 
-interface Sink {
+// A sink, with the contexts whose integration events it hears (the empty prefix matches every integration event) and its own retry, or null for the outbox default.
+export interface SinkRegistration {
+  readonly subscriber: DomainEventSubscriber;
   readonly prefixes: readonly string[];
   readonly retry: Retry | null;
 }
@@ -24,7 +28,7 @@ interface Sink {
 @Injectable()
 export class EventSubscribers {
   readonly #named = new Map<string, DomainEventSubscriber>();
-  readonly #sinks = new Map<string, Sink>();
+  readonly #sinks = new Map<string, SinkRegistration>();
 
   register(subscribers: readonly DomainEventSubscriber[]): void {
     for (const subscriber of subscribers) {
@@ -38,14 +42,19 @@ export class EventSubscribers {
     }
   }
 
-  // A sink sends integration events out of Spotlight. It also hears each integration event that a context of the prefixes publishes, but never a domain event; the empty prefix matches every integration event. Its deliveries go in the sinks lane, with its own retry. Only the platform registers a sink: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
-  registerSink(
-    subscriber: DomainEventSubscriber,
-    {
-      prefixes,
-      retry = null,
-    }: { readonly prefixes: readonly string[]; readonly retry?: Retry | null },
-  ): void {
+  // A sink sends integration events out of Spotlight, and never a domain event: it names only integration event kinds, and its prefixes match only integration event kinds. Its deliveries go in the sinks lane, with its own retry. Only the platform registers a sink: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
+  registerSink(registration: SinkRegistration): void {
+    const { subscriber, prefixes } = registration;
+    const domainKind = subscriber.kinds.find(
+      (each) => !isIntegrationEventKind(each),
+    );
+
+    if (domainKind !== undefined) {
+      throw new Error(
+        `${subscriber.name} hears ${domainKind}, which is not an integration event kind, and a sink sends only integration events`,
+      );
+    }
+
     const wrong = prefixes.find(
       (each) => each !== '' && !isContextPrefix(each),
     );
@@ -57,11 +66,10 @@ export class EventSubscribers {
     }
 
     this.register([subscriber]);
-    this.#sinks.set(subscriber.name, { prefixes, retry });
+    this.#sinks.set(subscriber.name, registration);
   }
 
-  // The subscribers that hear the kind.
-  hearing(kind: string): readonly DomainEventSubscriber[] {
+  subscribersHearing(kind: string): readonly DomainEventSubscriber[] {
     return [...this.#named.keys()]
       .filter((name) => this.hears(name, kind))
       .flatMap((name) => this.named(name) ?? []);
@@ -88,7 +96,7 @@ export class EventSubscribers {
   }
 
   // The retry of a sink; null for a subscriber that takes the outbox default.
-  retry(name: string): Retry | null {
+  retryOf(name: string): Retry | null {
     return this.#sinks.get(name)?.retry ?? null;
   }
 
