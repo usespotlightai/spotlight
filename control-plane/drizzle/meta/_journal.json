@@ -36,13 +36,6 @@
       "when": 1795186337240,
       "tag": "20261120145217_harness_profile_secrets",
       "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1795223770920,
-      "tag": "20261121011610_platform_runner_pool",
-      "breakpoints": true
     }
   ]
 }
