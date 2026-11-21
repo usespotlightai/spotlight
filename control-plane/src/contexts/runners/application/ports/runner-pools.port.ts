@@ -8,12 +8,17 @@ export interface PoolAtWork {
   readonly workspaceId: WorkspaceId;
   readonly key: string;
   readonly labels: RunnerOffer;
-  // The pool can take a run that injects secrets. A host injects them through its own egress.
   readonly egress: boolean;
   // Spotlight adds the platform pool to each workspace with the provisioner of the deployment.
   readonly platform: boolean;
-  // Spotlight asks this pool for runners. Hosts pull the runners of the others.
-  readonly provisions: boolean;
+}
+
+// What the hosts of a pull pool or a trust can take. It names no pool, because Spotlight asks no host for a runner.
+export interface HostOfferAtWork {
+  readonly workspaceId: WorkspaceId;
+  readonly labels: RunnerOffer;
+  // A host injects secrets through its own egress.
+  readonly egress: boolean;
 }
 
 export interface RunnerPoolsPort {
@@ -22,10 +27,15 @@ export interface RunnerPoolsPort {
     poolId: string,
   ): Promise<PoolAtWork | null>;
 
-  // The pools and trusts of these workspaces, and which of them Spotlight can ask for runners now.
+  // The pools of these workspaces that Spotlight can ask for runners now.
   provisioning(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly PoolAtWork[]>;
+
+  // What the hosts of these workspaces can take, so that such work stays off the platform pool.
+  hostOffersIn(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly HostOfferAtWork[]>;
 
   running(poolId: string, now: Date): Promise<number>;
 

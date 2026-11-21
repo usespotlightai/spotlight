@@ -231,12 +231,13 @@ export const PLATFORM_POOL = 'Platform pool';
 export const PLATFORM_POOL_WITH_EGRESS = `${PLATFORM_POOL} with egress`;
 
 const PLATFORM_POOL_TIP =
-  'Spotlight adds this pool to each workspace. It sends work to this pool only when no other pool or host of this workspace fits the work.';
+  'Spotlight adds this pool to each workspace. Spotlight sends work to this pool only when no other pool or host of this workspace fits the work.';
+
+export const SPOTLIGHT_EGRESS_TIP =
+  'The runs of this pool go out through the Spotlight egress. Runs that use secrets can run here.';
 
 export const platformPoolTip = (egress: boolean): string =>
-  egress
-    ? `${PLATFORM_POOL_TIP} The runs of this pool go out through the Spotlight egress. Runs that use secrets can run here.`
-    : PLATFORM_POOL_TIP;
+  egress ? `${PLATFORM_POOL_TIP} ${SPOTLIGHT_EGRESS_TIP}` : PLATFORM_POOL_TIP;
 
 export const poolStatus = (pool: PushPool): string => {
   const running = pool.runners.filter(

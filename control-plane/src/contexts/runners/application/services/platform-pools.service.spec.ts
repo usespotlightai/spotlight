@@ -15,6 +15,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -27,6 +28,8 @@ const SETTINGS: PlatformPoolSettings = {
   labels: RunnerLabels.of(['linux']),
   egress: EgressReference.platform(),
 };
+
+const BY = ChangeActor.spotlight(WS_1);
 
 const settled = (pool: RunnerPool): RunnerPool => {
   pool.pullEvents();
@@ -46,7 +49,7 @@ const platformPools = (
   const saved: RunnerPool[] = [];
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const pools = {
-    findAllByKey: vi.fn(async (key: PoolKey) =>
+    withKey: vi.fn(async (key: PoolKey) =>
       stored.filter((each) => each.key.equals(key)),
     ),
     inWorkspace: vi.fn(async (workspaceId: WorkspaceId) =>
@@ -163,6 +166,24 @@ describe('PlatformPools', () => {
       ).toEqual([['ws_1', true]]);
     });
 
+    it('deletes a platform pool whose workspace is gone, also a disabled one', async () => {
+      const { platform, saved } = platformPools({
+        stored: [
+          settled(aPlatformPool({ workspaceId: WS_2, disabled: true })),
+          settled(aPlatformPool()),
+        ],
+        workspaces: [WS_1],
+      });
+
+      await platform.reconcile();
+
+      expect(
+        saved
+          .filter((each) => each.isDeleted)
+          .map((each) => each.workspaceId.value),
+      ).toEqual(['ws_2']);
+    });
+
     it('accepts that another instance added the pool first, and goes on', async () => {
       const { platform, logger } = platformPools({
         workspaces: [WS_1, WS_2],
@@ -241,7 +262,7 @@ describe('PlatformPools', () => {
       const pool = settled(aPlatformPool());
       const { platform, saved } = platformPools({ stored: [pool] });
 
-      await expect(platform.disable(WS_1)).resolves.toEqual({
+      await expect(platform.disable(WS_1, BY)).resolves.toEqual({
         outcome: 'disabled',
       });
       expect(saved[0]?.isDisabled).toBe(true);
@@ -252,7 +273,7 @@ describe('PlatformPools', () => {
         stored: [settled(aPlatformPool({ disabled: true }))],
       });
 
-      await expect(platform.enable(WS_1)).resolves.toEqual({
+      await expect(platform.enable(WS_1, BY)).resolves.toEqual({
         outcome: 'enabled',
       });
       expect(saved[0]?.isDisabled).toBe(false);
@@ -261,7 +282,7 @@ describe('PlatformPools', () => {
     it('adds the platform pool disabled where it is missing', async () => {
       const { platform, added } = platformPools();
 
-      await expect(platform.disable(WS_1)).resolves.toEqual({
+      await expect(platform.disable(WS_1, BY)).resolves.toEqual({
         outcome: 'disabled',
       });
       expect(added[0]?.isDisabled).toBe(true);
@@ -272,7 +293,7 @@ describe('PlatformPools', () => {
         stored: [settled(anOwnPoolWithThePlatformKey())],
       });
 
-      await expect(platform.disable(WS_1)).resolves.toEqual({
+      await expect(platform.disable(WS_1, BY)).resolves.toEqual({
         outcome: 'key-taken',
       });
       expect(added).toEqual([]);
@@ -282,7 +303,7 @@ describe('PlatformPools', () => {
     it('says so while the deployment sets no platform provisioner', async () => {
       const { platform } = platformPools({ settings: null });
 
-      await expect(platform.enable(WS_1)).resolves.toEqual({
+      await expect(platform.enable(WS_1, BY)).resolves.toEqual({
         outcome: 'unset',
       });
     });
@@ -290,7 +311,7 @@ describe('PlatformPools', () => {
     it('answers nothing for a workspace that is not open', async () => {
       const { platform } = platformPools({ workspaces: [] });
 
-      await expect(platform.disable(WS_1)).resolves.toBeNull();
+      await expect(platform.disable(WS_1, BY)).resolves.toBeNull();
     });
   });
 });

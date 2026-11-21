@@ -19,7 +19,7 @@ export class RunnerDependents implements WorkspaceDependentSource {
       this.trusts.inWorkspace(workspaceId),
       this.workspaceRunners.ofWorkspace(workspaceId),
       // Spotlight deletes the platform pool with its workspace, so it does not keep the workspace.
-      this.pools.listOwned(workspaceId),
+      this.pools.ownedIn(workspaceId),
       this.egresses.inWorkspace(workspaceId),
     ]);
 

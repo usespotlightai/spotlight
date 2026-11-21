@@ -18,6 +18,7 @@ export class EnablePlatformPoolHandler implements CommandHandlerPort<
     try {
       return await this.platformPools.enable(
         WorkspaceId.of(command.workspaceId),
+        command.by,
       );
     } catch (error) {
       rethrowAsApplicationError(error);

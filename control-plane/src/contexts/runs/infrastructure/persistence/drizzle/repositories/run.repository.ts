@@ -405,7 +405,7 @@ export class DrizzleRunRepository implements RunRepository {
     workspaceId: WorkspaceId,
     now: Date,
     page: {
-      readonly skip: number;
+      readonly after: ClaimCursor | null;
       readonly max: number;
       readonly withSecrets: boolean;
       readonly avoiding: readonly WorkingCopyKey[];
@@ -418,11 +418,11 @@ export class DrizzleRunRepository implements RunRepository {
           awaitingProvisionAt(now),
           page.withSecrets ? undefined : eq(run.injectsSecrets, false),
           routedBy({ avoiding: page.avoiding }),
+          page.after ? claimedAfter(page.after) : undefined,
         ),
       )
       .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
-      .limit(page.max)
-      .offset(page.skip);
+      .limit(page.max);
 
     return this.queuedRunsOf(rows.map(toRun));
   }

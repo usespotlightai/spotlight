@@ -42,7 +42,7 @@ const dependents = (declared: WorkspaceRunners | null) =>
     } as unknown as WorkspaceRunnersRepository,
     {
       inWorkspace: async () => [aPullPool(), aPlatformPool()],
-      listOwned: async () => [aPullPool()],
+      ownedIn: async () => [aPullPool()],
     } as unknown as RunnerPoolRepository,
     {
       inWorkspace: async () => [anEgress()],
