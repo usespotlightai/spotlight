@@ -18,10 +18,7 @@ import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import {
-  EventWebhook,
-  eventWebhookSubscription,
-} from '@platform/events/event-webhook';
+import { EventWebhook, eventWebhookSink } from '@platform/events/event-webhook';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { OutboxRetention } from '@platform/events/outbox-retention';
 import { OutboxRetentionWorker } from '@platform/events/outbox-retention.worker';
@@ -254,10 +251,7 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
           );
 
           subscribers.registerSink(
-            eventWebhookSubscription(
-              webhook,
-              env.SPOTLIGHT_EVENT_WEBHOOK_KINDS,
-            ),
+            eventWebhookSink(webhook, env.SPOTLIGHT_EVENT_WEBHOOK_KINDS),
           );
         }
 

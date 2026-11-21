@@ -86,7 +86,7 @@ export const untouchedSince = (before: Date): SQL =>
 // Locks the deliveries that match, always in the order of their event and subscriber, so two instances that lock deliveries never wait on each other in a circle.
 export const lockDeliveries = async (
   db: DrizzleDatabase,
-  where: SQL | undefined,
+  where: SQL,
 ): Promise<void> => {
   await db
     .select({ eventId: eventDelivery.eventId })
@@ -237,12 +237,13 @@ export class EventDelivery {
   ): Promise<number> {
     return this.context.inTransaction(async () => {
       const db = this.context.db;
-      const dead = and(
-        eq(eventDelivery.subscriber, subscriber),
-        isNull(eventDelivery.deliveredAt),
-        isNotNull(eventDelivery.deadLetteredAt),
-        inArray(eventDelivery.eventId, [...eventIds]),
-      );
+      const dead =
+        and(
+          eq(eventDelivery.subscriber, subscriber),
+          isNull(eventDelivery.deliveredAt),
+          isNotNull(eventDelivery.deadLetteredAt),
+          inArray(eventDelivery.eventId, [...eventIds]),
+        ) ?? sql`false`;
 
       await lockDeliveries(db, dead);
 

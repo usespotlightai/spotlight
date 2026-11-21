@@ -144,7 +144,7 @@ export class EventWebhook {
 
 // SPOTLIGHT_EVENT_WEBHOOK_KINDS names integration event kinds in full, such as runs.run-usage-recorded.v1, or contexts, such as identity. With no kinds, the subscriber hears every integration event. It never hears a domain event.
 // Many integration events carry content, such as task text, pull request titles, review comments and run messages. The operator sends fewer kinds to send less of it.
-export const eventWebhookSubscription = (
+export const eventWebhookSink = (
   webhook: EventWebhook,
   kinds: readonly string[],
 ): SinkRegistration => ({
