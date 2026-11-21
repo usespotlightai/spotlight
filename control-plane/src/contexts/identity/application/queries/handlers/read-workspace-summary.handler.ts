@@ -1,8 +1,7 @@
-import type { WorkspaceSummaryDto } from '@catalog/application/dto/workspace-summary.dto';
-import { WorkspaceSummaryMapper } from '@catalog/application/mappers/workspace-summary.mapper';
-import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
-import type { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
+import type { WorkspaceSummaryDto } from '@identity/application/dto/workspace-summary.dto';
+import { WorkspaceSummaryMapper } from '@identity/application/mappers/workspace-summary.mapper';
 import type { WorkspaceDirectoryPort } from '@identity/application/ports/workspace-directory.port';
+import type { ReadWorkspaceSummaryQuery } from '@identity/application/queries/read-workspace-summary.query';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -11,10 +10,7 @@ export class ReadWorkspaceSummaryHandler implements QueryHandlerPort<
   ReadWorkspaceSummaryQuery,
   WorkspaceSummaryDto | null
 > {
-  constructor(
-    private readonly directory: WorkspaceDirectoryPort,
-    private readonly terms: PlanTermsPort,
-  ) {}
+  constructor(private readonly directory: WorkspaceDirectoryPort) {}
 
   async execute(
     query: ReadWorkspaceSummaryQuery,
@@ -24,12 +20,7 @@ export class ReadWorkspaceSummaryHandler implements QueryHandlerPort<
         WorkspaceId.of(query.workspaceId),
       );
 
-      return workspace
-        ? WorkspaceSummaryMapper.toDto(
-            workspace,
-            await this.terms.of(workspace.id),
-          )
-        : null;
+      return workspace ? WorkspaceSummaryMapper.toDto(workspace) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

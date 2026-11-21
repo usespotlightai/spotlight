@@ -1,5 +1,4 @@
-import type { WorkspaceSummaryDto } from '@catalog/application/dto/workspace-summary.dto';
-import { PlanTermResponseDto } from '@catalog/presentation/http/dto/plan-term.response.dto';
+import type { WorkspaceSummaryDto } from '@identity/application/dto/workspace-summary.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import type { Page } from '@shared-kernel/application/dto/page.dto';
 
@@ -19,20 +18,12 @@ export class WorkspaceSummaryResponseDto {
   @ApiProperty({ example: 4, description: 'How many people are in it' })
   readonly memberCount: number;
 
-  @ApiProperty({
-    type: PlanTermResponseDto,
-    description:
-      'The plan set for the workspace and when it ends; the free plan when none is set',
-  })
-  readonly term: PlanTermResponseDto;
-
   constructor(workspace: WorkspaceSummaryDto) {
     this.id = workspace.id;
     this.slug = workspace.slug;
     this.name = workspace.name;
     this.createdAt = workspace.createdAt;
     this.memberCount = workspace.memberCount;
-    this.term = new PlanTermResponseDto(workspace.term);
   }
 }
 

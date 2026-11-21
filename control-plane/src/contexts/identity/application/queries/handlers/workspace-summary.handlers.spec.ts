@@ -1,14 +1,11 @@
-import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
-import { ListWorkspaceSummariesHandler } from '@catalog/application/queries/handlers/list-workspace-summaries.handler';
-import { ReadWorkspaceSummaryHandler } from '@catalog/application/queries/handlers/read-workspace-summary.handler';
-import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-workspace-summaries.query';
-import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
-import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
-import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import type {
   DirectoryWorkspace,
   WorkspaceDirectoryPort,
 } from '@identity/application/ports/workspace-directory.port';
+import { ListWorkspaceSummariesHandler } from '@identity/application/queries/handlers/list-workspace-summaries.handler';
+import { ReadWorkspaceSummaryHandler } from '@identity/application/queries/handlers/read-workspace-summary.handler';
+import { ListWorkspaceSummariesQuery } from '@identity/application/queries/list-workspace-summaries.query';
+import { ReadWorkspaceSummaryQuery } from '@identity/application/queries/read-workspace-summary.query';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -24,10 +21,6 @@ const ACME = listing('ws_acme', 3);
 
 const GLOBEX = listing('ws_globex', 1);
 
-const END = new Date('2027-01-01T00:00:00.000Z');
-
-const TERMS = new Map([['ws_acme', PlanTerm.of(Plan.team, END)]]);
-
 const workspaces = (
   found: readonly DirectoryWorkspace[],
 ): WorkspaceDirectoryPort => ({
@@ -37,19 +30,13 @@ const workspaces = (
   ),
 });
 
-const plans: PlanTermsPort = {
-  of: async (id) => TERMS.get(id.value) ?? PlanTerm.free,
-  ofWorkspaces: async (ids) =>
-    ids.map((id) => TERMS.get(id.value) ?? PlanTerm.free),
-};
-
 describe('ListWorkspaceSummariesHandler', () => {
-  it('gives each workspace of the page with its member count and plan', async () => {
+  it('gives each workspace of the page with its member count', async () => {
     const listed = workspaces([ACME, GLOBEX]);
     const created = new Date('2026-08-01T00:00:00.000Z');
 
     await expect(
-      new ListWorkspaceSummariesHandler(listed, plans).execute(
+      new ListWorkspaceSummariesHandler(listed).execute(
         new ListWorkspaceSummariesQuery('cursor_1', 2, created),
       ),
     ).resolves.toEqual({
@@ -60,13 +47,8 @@ describe('ListWorkspaceSummariesHandler', () => {
           name: 'ws_acme',
           createdAt: '2026-09-01T00:00:00.000Z',
           memberCount: 3,
-          term: { plan: 'team', expiresAt: '2027-01-01T00:00:00.000Z' },
         },
-        expect.objectContaining({
-          id: 'ws_globex',
-          memberCount: 1,
-          term: { plan: 'free', expiresAt: null },
-        }),
+        expect.objectContaining({ id: 'ws_globex', memberCount: 1 }),
       ],
       next: 'cursor_2',
     });
@@ -79,21 +61,23 @@ describe('ListWorkspaceSummariesHandler', () => {
 });
 
 describe('ReadWorkspaceSummaryHandler', () => {
-  it('gives one workspace with its plan', async () => {
+  it('gives one workspace with its member count, and nothing else', async () => {
     await expect(
-      new ReadWorkspaceSummaryHandler(workspaces([ACME]), plans).execute(
+      new ReadWorkspaceSummaryHandler(workspaces([ACME])).execute(
         new ReadWorkspaceSummaryQuery('ws_acme'),
       ),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       id: 'ws_acme',
-      term: { plan: 'team' },
+      slug: 'acme',
+      name: 'ws_acme',
+      createdAt: '2026-09-01T00:00:00.000Z',
       memberCount: 3,
     });
   });
 
   it('finds no workspace that does not exist', async () => {
     await expect(
-      new ReadWorkspaceSummaryHandler(workspaces([]), plans).execute(
+      new ReadWorkspaceSummaryHandler(workspaces([])).execute(
         new ReadWorkspaceSummaryQuery('ws_gone'),
       ),
     ).resolves.toBeNull();
