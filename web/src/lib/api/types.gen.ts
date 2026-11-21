@@ -2334,6 +2334,20 @@ export type WorkspaceRunnersResourceListResponseDto = {
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
+export type SetWorkspacePlatformPoolRequestDto = {
+  /**
+   * True to let the platform pool take the work of the workspace, false to disable it for this workspace
+   */
+  enabled: boolean;
+};
+
+export type WorkspacePlatformPoolResponseDto = {
+  /**
+   * The platform pool takes the work of the workspace. It stays so across restarts of Spotlight
+   */
+  enabled: boolean;
+};
+
 export type RunAttachmentResponseDto = {
   id: string;
   /**
@@ -15459,6 +15473,40 @@ export type ImportWorkspaceRunnersResponses = {
 };
 
 export type ImportWorkspaceRunnersResponse = ImportWorkspaceRunnersResponses[keyof ImportWorkspaceRunnersResponses];
+
+export type SetWorkspacePlatformPoolData = {
+  body: SetWorkspacePlatformPoolRequestDto;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}/platform-pool';
+};
+
+export type SetWorkspacePlatformPoolErrors = {
+  /**
+   * A body without enabled as true or false
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+  /**
+   * This deployment adds no platform pool, or the workspace has its own pool with the key spotlight, or the pool changed at the same time
+   */
+  409: unknown;
+};
+
+export type SetWorkspacePlatformPoolResponses = {
+  200: WorkspacePlatformPoolResponseDto;
+};
+
+export type SetWorkspacePlatformPoolResponse = SetWorkspacePlatformPoolResponses[keyof SetWorkspacePlatformPoolResponses];
 
 export type PendingMessagesData = {
   body?: never;

@@ -31,6 +31,8 @@ import { seatTeam } from './support/team';
 
 const SECRET = `whsec_${Buffer.from('m'.repeat(32)).toString('base64')}`;
 
+const ADMIN_TOKEN = `admin.${randomUUID()}`;
+
 const OWN_SECRET = `whsec_${Buffer.from('o'.repeat(32)).toString('base64')}`;
 
 interface Provisioned {
@@ -123,14 +125,29 @@ describe('platform runner pool (e2e)', () => {
     return row ?? null;
   };
 
+  const platformEnv = () => ({
+    SPOTLIGHT_PLATFORM_POOL_URL: platformEndpoint.url,
+    SPOTLIGHT_PLATFORM_POOL_SECRET: SECRET,
+    SPOTLIGHT_PLATFORM_POOL_LABELS: [],
+  });
+
+  const setPlatformPool = (
+    on: INestApplication,
+    enabled: unknown,
+    token: string | null = ADMIN_TOKEN,
+    id = workspaceId,
+  ) => {
+    const call = served(on).put(`/api/admin/workspaces/${id}/platform-pool`);
+
+    return (token ? call.set('Authorization', `Bearer ${token}`) : call).send({
+      enabled,
+    });
+  };
+
   beforeAll(async () => {
     platformEndpoint = await listening();
     app = await openApp(undefined, {
-      env: {
-        SPOTLIGHT_PLATFORM_POOL_URL: platformEndpoint.url,
-        SPOTLIGHT_PLATFORM_POOL_SECRET: SECRET,
-        SPOTLIGHT_PLATFORM_POOL_LABELS: [],
-      },
+      env: { ...platformEnv(), SPOTLIGHT_ADMIN_TOKEN: ADMIN_TOKEN },
     });
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
@@ -317,5 +334,119 @@ describe('platform runner pool (e2e)', () => {
 
     expect(platformEndpoint.calls.map(runIdOf)).not.toContain(runId);
     expect(await platformRow()).toMatchObject({ disabled: true });
+  });
+
+  describe('the admin route that disables and enables it', () => {
+    it('answers 404 while no admin token is set, and 401 without the admin token', async () => {
+      // The same platform provisioner, so that the start of this app keeps the platform pools of the shared database.
+      const tokenless = await openApp(undefined, {
+        env: platformEnv(),
+        sharingDatabaseOf: app,
+      });
+
+      try {
+        await setPlatformPool(tokenless, false).expect(404);
+      } finally {
+        await tokenless.close();
+      }
+
+      await setPlatformPool(app, false, null).expect(401);
+      await setPlatformPool(app, false, `admin.${randomUUID()}`).expect(401);
+      expect(await platformRow()).toMatchObject({ disabled: false });
+    });
+
+    it('disables and enables the platform pool, which takes work only while enabled, and records each change as made by Spotlight', async () => {
+      await setPlatformPool(app, false).expect(200).expect({ enabled: false });
+      const waitingRun = await queue();
+
+      await app.get(ProvisionWork).due();
+
+      expect(platformEndpoint.calls.map(runIdOf)).not.toContain(waitingRun);
+
+      await setPlatformPool(app, true).expect(200).expect({ enabled: true });
+
+      await eventually(async () =>
+        platformEndpoint.calls.some((each) => runIdOf(each) === waitingRun),
+      );
+
+      const changes = await http()
+        .get(`/api/workspaces/${workspaceId}/configuration-changes`)
+        .set(TEST_USER_HEADER, owner)
+        .expect(200);
+      const updated = (
+        changes.body as readonly {
+          resource: string;
+          key: string;
+          action: string;
+          by: { kind: string };
+          details: Record<string, unknown>;
+        }[]
+      ).filter(
+        (each) => each.resource === 'runner-pool' && each.action === 'updated',
+      );
+
+      expect(updated).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: 'spotlight',
+            by: expect.objectContaining({ kind: 'spotlight' }) as unknown,
+            details: expect.objectContaining({ disabled: true }) as unknown,
+          }),
+          expect.objectContaining({
+            key: 'spotlight',
+            details: expect.objectContaining({ disabled: false }) as unknown,
+          }),
+        ]),
+      );
+    });
+
+    it('refuses a body without enabled, and finds no workspace that names none', async () => {
+      await setPlatformPool(app, 'no').expect(400);
+      await setPlatformPool(app, false, ADMIN_TOKEN, randomUUID()).expect(404);
+    });
+
+    it('says that the workspace has its own pool with the key spotlight', async () => {
+      const own = `platform-${randomUUID().slice(0, 8)}`;
+      const seat = await seatTeam(db, own);
+
+      try {
+        await db.insert(schema.runnerPool).values({
+          id: randomUUID(),
+          workspaceId: own,
+          key: 'spotlight',
+          tokenHash: randomUUID().replaceAll('-', '').repeat(2),
+        });
+
+        const refused = await setPlatformPool(app, false, ADMIN_TOKEN, own);
+
+        expect(refused.status).toBe(409);
+        expect(JSON.stringify(refused.body)).toContain(
+          'its own runner pool with the key spotlight',
+        );
+      } finally {
+        await deleteRunnersOf(db, own);
+        await seat.unseat();
+      }
+    });
+
+    it('says that the deployment adds no platform pool while it sets no platform provisioner', async () => {
+      const unset = await openApp(undefined, {
+        env: { SPOTLIGHT_ADMIN_TOKEN: ADMIN_TOKEN },
+      });
+
+      try {
+        const id = `platform-${randomUUID().slice(0, 8)}`;
+        const seat = await seatTeam(unset.get<DrizzleDatabase>(DRIZZLE), id);
+        const refused = await setPlatformPool(unset, false, ADMIN_TOKEN, id);
+
+        expect(refused.status).toBe(409);
+        expect(JSON.stringify(refused.body)).toContain(
+          'this deployment adds no platform pool',
+        );
+        await seat.unseat();
+      } finally {
+        await unset.close();
+      }
+    });
   });
 });
