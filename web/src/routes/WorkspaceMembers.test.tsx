@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +13,9 @@ const refetchMembers = vi.fn();
 const requestedMembers = vi.fn();
 const changeRole = vi.fn();
 const changing = vi.fn<(...args: unknown[]) => string>();
+const suspend = vi.fn();
+const unsuspend = vi.fn();
+const leave = vi.fn();
 const resend = vi.fn();
 const resending = vi.fn<(...args: unknown[]) => string>();
 const revoke = vi.fn();
@@ -55,6 +58,18 @@ vi.mock('@/hooks/api/useChangeMemberRole', () => ({
   useChangeMemberRole: () => mutation(changeRole, changing()),
 }));
 
+vi.mock('@/hooks/api/useSuspendMember', () => ({
+  useSuspendMember: () => mutation(suspend, 'idle'),
+}));
+
+vi.mock('@/hooks/api/useUnsuspendMember', () => ({
+  useUnsuspendMember: () => mutation(unsuspend, 'idle'),
+}));
+
+vi.mock('@/hooks/api/useLeaveWorkspace', () => ({
+  useLeaveWorkspace: () => mutation(leave, 'idle'),
+}));
+
 vi.mock('@/hooks/api/useResendInvite', () => ({
   useResendInvite: () => mutation(resend, resending()),
 }));
@@ -80,6 +95,10 @@ const member = (over: Record<string, unknown>) => ({
   teams: [PLATFORM, GROWTH],
   joinedAt: '2026-05-01T09:00:00.000Z',
   assignableRoles: [],
+  suspendedAt: null,
+  mayBeSuspended: false,
+  mayBeUnsuspended: false,
+  mayLeave: false,
   ...over,
 });
 
@@ -103,6 +122,7 @@ const showing = (at = '/w/acme/settings/members') =>
   render(
     <MemoryRouter initialEntries={[at]}>
       <Routes>
+        <Route path="/" element={<p>the start</p>} />
         <Route path="/w/:slug" element={<p>the workspace</p>} />
         <Route
           path="/w/:slug/settings/members"
@@ -118,6 +138,8 @@ const showing = (at = '/w/acme/settings/members') =>
   );
 
 const membersList = () => screen.getByRole('list', { name: 'Members' });
+
+const suspendedList = () => screen.getByRole('list', { name: 'Suspended' });
 
 const invitesList = () => screen.getByRole('list', { name: 'Pending invites' });
 
@@ -152,6 +174,7 @@ beforeEach(() => {
       role: 'member',
       teams: [PLATFORM],
       assignableRoles: ['admin'],
+      mayBeSuspended: true,
     }),
     member({
       id: 'user_4',
@@ -171,6 +194,9 @@ beforeEach(() => {
     refetchMembers,
     requestedMembers,
     changeRole,
+    suspend,
+    unsuspend,
+    leave,
     resend,
     revoke,
   ]) {
@@ -321,6 +347,156 @@ describe('WorkspaceMembers', () => {
       userId: 'user_3',
       role: 'admin',
     });
+  });
+
+  it('suspends a member once the owner confirms', async () => {
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for Maya Chen' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Suspend' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+
+    expect(
+      within(dialog).getByRole('heading', { name: 'Suspend Maya Chen?' }),
+    ).toBeInTheDocument();
+    expect(suspend).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Suspend' }),
+    );
+
+    expect(suspend).toHaveBeenCalledWith('user_3', expect.anything());
+  });
+
+  it('suspends nobody when the owner cancels', async () => {
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for Maya Chen' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Suspend' }),
+    );
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Cancel',
+      }),
+    );
+
+    expect(suspend).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('offers to suspend only a member who may be suspended', async () => {
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for Priya Nair' }),
+    );
+
+    expect(
+      await screen.findByRole('menuitem', { name: 'Change role' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: 'Suspend' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('marks a suspended member, and offers to unsuspend them', async () => {
+    members.mockReturnValue([
+      member({}),
+      member({
+        id: 'user_3',
+        name: 'Maya Chen',
+        email: 'maya.chen@acme.dev',
+        role: 'member',
+        suspendedAt: '2026-11-01T09:00:00.000Z',
+        mayBeUnsuspended: true,
+      }),
+    ]);
+    showing();
+
+    expect(within(suspendedList()).getByText('Maya Chen')).toBeInTheDocument();
+    expect(
+      within(membersList()).queryByText('Maya Chen'),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for Maya Chen' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Unsuspend' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Unsuspend' }),
+    );
+
+    expect(unsuspend).toHaveBeenCalledWith('user_3', expect.anything());
+  });
+
+  it('lists suspended members in their own section, apart from the members', () => {
+    members.mockReturnValue([
+      member({}),
+      member({
+        id: 'user_3',
+        name: 'Maya Chen',
+        email: 'maya.chen@acme.dev',
+        role: 'member',
+        suspendedAt: '2026-11-01T09:00:00.000Z',
+      }),
+    ]);
+    showing();
+
+    expect(
+      screen.getByRole('heading', { name: /Suspended\s*1/ }),
+    ).toBeInTheDocument();
+    expect(within(suspendedList()).getByText('Maya Chen')).toBeInTheDocument();
+    expect(
+      within(suspendedList()).queryByText('Sam Rivera'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows no Suspended section when nobody is suspended', () => {
+    showing();
+
+    expect(
+      screen.queryByRole('list', { name: 'Suspended' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('lets the signed-in member leave, and goes to the start once they have', async () => {
+    members.mockReturnValue([member({ mayLeave: true })]);
+    leave.mockImplementation((_: unknown, options: { onSuccess: () => void }) =>
+      options.onSuccess(),
+    );
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for Sam Rivera' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Leave workspace' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+
+    expect(
+      within(dialog).getByRole('heading', { name: 'Leave this workspace?' }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Leave workspace' }),
+    );
+
+    expect(leave).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('the start')).toBeInTheDocument();
   });
 
   it('offers no actions for a member whose role may not be changed', () => {

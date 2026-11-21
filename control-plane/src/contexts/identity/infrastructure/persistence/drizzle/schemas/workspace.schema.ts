@@ -56,6 +56,7 @@ export const workspaceMember = pgTable(
       .references(() => user.id),
     role: workspaceRole('role').notNull(),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
+    suspendedAt: timestamptz('suspended_at'),
   },
   (table) => [
     primaryKey({ columns: [table.workspaceId, table.userId] }),

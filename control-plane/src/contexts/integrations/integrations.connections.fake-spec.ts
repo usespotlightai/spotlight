@@ -5,6 +5,8 @@ import type { ConnectionOwner } from '@integrations/domain/value-objects/connect
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const keyOf = (
   teamId: TeamId,
@@ -133,6 +135,17 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
   async ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]> {
     return [...this.#stored.values()].filter((each) =>
       each.teamId.equals(teamId),
+    );
+  }
+
+  async ofPerson(
+    workspaceId: WorkspaceId,
+    person: UserId,
+  ): Promise<readonly IntegrationConnection[]> {
+    return [...this.#stored.values()].filter(
+      (each) =>
+        each.workspaceId.equals(workspaceId) &&
+        each.owner.personId?.equals(person),
     );
   }
 }

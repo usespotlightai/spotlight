@@ -37,7 +37,8 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { and, eq, inArray } from 'drizzle-orm';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 const rowsOf = (line: Line) =>
   line.stations.map((each) => ({
@@ -258,6 +259,32 @@ export class DrizzleLineRepository implements LineRepository {
         .select()
         .from(line)
         .where(eq(line.teamId, teamId.value))
+        .orderBy(line.id),
+    );
+  }
+
+  async withDefaultAssignee(
+    workspaceId: WorkspaceId,
+    emails: readonly string[],
+  ): Promise<readonly Line[]> {
+    if (emails.length === 0) {
+      return [];
+    }
+
+    return hydratedLines(
+      this.context,
+      await this.context.db
+        .select()
+        .from(line)
+        .where(
+          and(
+            eq(line.workspaceId, workspaceId.value),
+            inArray(
+              sql<string>`lower(${line.defaultAssignee})`,
+              emails.map((each) => each.toLowerCase()),
+            ),
+          ),
+        )
         .orderBy(line.id),
     );
   }

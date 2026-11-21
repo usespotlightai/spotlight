@@ -6,6 +6,10 @@ export type RoleAssignmentDenial =
   | 'not-below-you'
   | 'your-own'
   | 'above-your-rank'
+  | 'not-an-admin-to-suspend'
+  | 'suspend-your-own'
+  | 'suspend-above-your-rank'
+  | 'suspended-member'
   | 'last-owner';
 
 export interface RoleAssignmentContext {

@@ -102,6 +102,8 @@ export const describeInviter = (name: string | null | undefined): string =>
 export const sameAddress = (one: string, other: string): boolean =>
   one.trim().toLowerCase() === other.trim().toLowerCase();
 
+export type MemberChange = 'suspend' | 'unsuspend' | 'leave';
+
 export const MEMBER_SHOWS = [
   { value: 'owner', label: 'Owners' },
   { value: 'admin', label: 'Admins' },
@@ -127,10 +129,14 @@ export const visibleMembers = (
     return null;
   }
 
-  return show === null
-    ? [...members]
-    : members.filter((each) => each.role === show);
+  const active = members.filter((each) => each.suspendedAt === null);
+
+  return show === null ? active : active.filter((each) => each.role === show);
 };
+
+export const suspendedMembers = (
+  members: readonly WorkspaceMember[],
+): WorkspaceMember[] => members.filter((each) => each.suspendedAt !== null);
 
 export const showsInvites = (show: MemberShow | null): boolean =>
   show === null || show === 'invited';

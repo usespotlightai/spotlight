@@ -16,6 +16,7 @@ export type WorkspacePerson = {
   readonly email: string;
   role: Role;
   readonly joinedAt: string;
+  suspendedAt: string | null;
 };
 
 const person = (
@@ -28,6 +29,7 @@ const person = (
   email,
   role,
   joinedAt: daysAgo(joinedDaysAgo),
+  suspendedAt: null,
 });
 
 const PEOPLE: WorkspacePerson[] = [

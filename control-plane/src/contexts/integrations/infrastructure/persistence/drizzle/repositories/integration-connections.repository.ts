@@ -22,6 +22,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, isNotNull, isNull, lt } from 'drizzle-orm';
 
@@ -125,6 +126,23 @@ export class DrizzleIntegrationConnections
       .select()
       .from(integrationConnection)
       .where(eq(integrationConnection.teamId, teamId.value));
+
+    return Promise.all(rows.map((row) => this.rehydrate(row)));
+  }
+
+  async ofPerson(
+    workspaceId: WorkspaceId,
+    person: UserId,
+  ): Promise<readonly IntegrationConnection[]> {
+    const rows = await this.context.db
+      .select()
+      .from(integrationConnection)
+      .where(
+        and(
+          eq(integrationConnection.workspaceId, workspaceId.value),
+          eq(integrationConnection.owner, ConnectionOwner.person(person).key),
+        ),
+      );
 
     return Promise.all(rows.map((row) => this.rehydrate(row)));
   }

@@ -12,29 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1795176785224,
-      "tag": "20261120121305_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1795178084290,
-      "tag": "20261120123444_drop_secret_source",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1795184139503,
-      "tag": "20261120141539_backfill_awaiting_secret_values",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1795186337240,
-      "tag": "20261120145217_harness_profile_secrets",
+      "when": 1795281830538,
+      "tag": "20261121172350_initial_schema",
       "breakpoints": true
     }
   ]
