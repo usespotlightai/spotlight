@@ -8,7 +8,7 @@ import { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { runsSubscribers } from '@runs/presentation/events/runs.subscribers';
 import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
-import { anEnvelope } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -36,7 +36,7 @@ describe('runsSubscribers', () => {
         false,
         new Date('2026-09-27T09:00:00.000Z'),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     expect(ending?.kinds).toEqual([
@@ -72,7 +72,7 @@ describe('runsSubscribers', () => {
         new Date('2026-09-27T09:00:00.000Z'),
         RunAttempt.of(run, 1),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     await losing?.handle(
@@ -84,7 +84,7 @@ describe('runsSubscribers', () => {
         new Date('2026-09-27T09:05:00.000Z'),
         RunAttempt.of(run, 2),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     expect(losing?.kinds).toEqual(['run.lease-expired', 'run.suspended']);
@@ -117,7 +117,7 @@ describe('runsSubscribers', () => {
         false,
         new Date('2026-09-27T09:00:00.000Z'),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
     await named('runs.revoke-tokens-of-ended-attempt')?.handle(
       new RunSuspended(
@@ -128,7 +128,7 @@ describe('runsSubscribers', () => {
         new Date('2026-09-27T09:05:00.000Z'),
         RunAttempt.of(run, 3),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     expect(named('runs.revoke-tokens-of-ended-run')?.kinds).toEqual([
@@ -165,7 +165,7 @@ describe('runsSubscribers', () => {
 
     await named('runs.release-runner-that-left-its-run')?.handle(
       new RunLeaseExpired(run, workspace, runner, at, RunAttempt.of(run, 1)),
-      anEnvelope(),
+      anOutboxRecord(),
     );
     await named('runs.release-runner-that-left-its-run')?.handle(
       new RunSuspended(
@@ -176,11 +176,11 @@ describe('runsSubscribers', () => {
         at,
         RunAttempt.of(run, 2),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
     await named('runs.release-reserved-runner')?.handle(
       new RunReservationDropped(run, workspace, runner),
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     expect(runners.runLeft).toHaveBeenCalledWith(runner, at);
@@ -212,7 +212,7 @@ describe('runsSubscribers', () => {
         at,
         RunAttempt.of(run, 1),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
     await ended?.handle(
       new RunCancelled(
@@ -224,7 +224,7 @@ describe('runsSubscribers', () => {
         false,
         new Date('2026-09-27T09:00:00.000Z'),
       ),
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     expect(ended?.kinds).toEqual([

@@ -17,3 +17,9 @@ export const INTEGRATION_EVENT_KIND = /^([a-z][a-z-]*)\.[a-z][a-z-]*\.v\d+$/;
 
 export const isIntegrationEventKind = (kind: string): boolean =>
   INTEGRATION_EVENT_KIND.test(kind);
+
+// A context prefix, as in identity., names the start of each integration event kind that the context publishes.
+const CONTEXT_PREFIX = /^[a-z][a-z-]*\.$/;
+
+export const isContextPrefix = (prefix: string): boolean =>
+  CONTEXT_PREFIX.test(prefix);

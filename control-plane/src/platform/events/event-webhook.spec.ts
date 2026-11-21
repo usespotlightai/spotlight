@@ -23,7 +23,7 @@ const NOW = new Date('2026-11-21T10:00:00.000Z');
 
 const RECORDED = new Date('2026-11-21T09:59:58.123Z');
 
-const ENVELOPE = { id: 'event_1', recordedAt: RECORDED };
+const RECORD = { id: 'event_1', recordedAt: RECORDED };
 
 const JOINED = {
   kind: 'identity.workspace-member-joined.v1',
@@ -88,7 +88,7 @@ const webhook = (path = '/events', hosts = '127.0.0.1') =>
 
 describe('EventWebhook', () => {
   it('posts the event as type, timestamp and data, signed per Standard Webhooks', async () => {
-    await webhook().send(JOINED, ENVELOPE);
+    await webhook().send(JOINED, RECORD);
 
     const [call] = received;
     const timestamp = String(Math.floor(NOW.getTime() / 1000));
@@ -111,13 +111,13 @@ describe('EventWebhook', () => {
   it('throws when the webhook answers other than 2xx, so the outbox tries again', async () => {
     status = 503;
 
-    await expect(webhook().send(JOINED, ENVELOPE)).rejects.toThrow(
+    await expect(webhook().send(JOINED, RECORD)).rejects.toThrow(
       'The event webhook answered 503. Response: try later',
     );
   });
 
   it('follows no redirect', async () => {
-    await expect(webhook('/moved').send(JOINED, ENVELOPE)).rejects.toThrow(
+    await expect(webhook('/moved').send(JOINED, RECORD)).rejects.toThrow(
       'The event webhook answered 307.',
     );
     expect(received.map((each) => each.path)).toEqual(['/moved']);
@@ -125,7 +125,7 @@ describe('EventWebhook', () => {
 
   it('throws when the deployment’s allow-list does not include the host', async () => {
     await expect(
-      webhook('/events', 'events.example.com').send(JOINED, ENVELOPE),
+      webhook('/events', 'events.example.com').send(JOINED, RECORD),
     ).rejects.toThrow('Host is not on the allowed list.');
     expect(received).toEqual([]);
   });
@@ -134,7 +134,7 @@ describe('EventWebhook', () => {
     await OutboundScope.within(
       HostAllowList.of(['slack.com']),
       'Host is outside this workspace’s list.',
-      () => webhook().send(JOINED, ENVELOPE),
+      () => webhook().send(JOINED, RECORD),
     );
 
     expect(received).toHaveLength(1);
@@ -198,11 +198,11 @@ describe('eventWebhookSubscription', () => {
     ).toBeNull();
   });
 
-  it('sends the event with its outbox envelope, and raises nothing', async () => {
+  it('sends the event with its outbox record, and raises nothing', async () => {
     const { subscriber } = eventWebhookSubscription(webhook(), []);
 
     await expect(
-      subscriber.handle(JOINED as unknown as DomainEvent, ENVELOPE),
+      subscriber.handle(JOINED as unknown as DomainEvent, RECORD),
     ).resolves.toEqual([]);
     expect(received[0]?.headers['webhook-id']).toBe('event_1');
   });

@@ -3,7 +3,6 @@ import {
   Body,
   HttpCode,
   HttpStatus,
-  Inject,
   NotFoundException,
   Post,
 } from '@nestjs/common';
@@ -14,9 +13,8 @@ import {
   ApiOkResponse,
   ApiOperation,
 } from '@nestjs/swagger';
-import { ENV } from '@platform/config/config.constants';
-import type { Env } from '@platform/config/env.schema';
 import { EventDelivery } from '@platform/events/event-delivery';
+import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EVENT_WEBHOOK_SUBSCRIBER } from '@platform/events/event-webhook';
 import { AdminController } from '@platform/http/decorators/admin-controller.decorator';
 import { EventWebhookRedeliveryRequestDto } from '@platform/http/dto/event-webhook-redelivery.request.dto';
@@ -37,7 +35,7 @@ const sinceOf = (raw: unknown): Date => {
 @AdminController('event-webhook')
 export class AdminEventWebhookController {
   constructor(
-    @Inject(ENV) private readonly env: Env,
+    private readonly subscribers: EventSubscribers,
     private readonly delivery: EventDelivery,
   ) {}
 
@@ -60,7 +58,7 @@ export class AdminEventWebhookController {
   async redeliver(
     @Body() body: EventWebhookRedeliveryRequestDto | undefined,
   ): Promise<EventWebhookRedeliveryResponseDto> {
-    if (!this.env.SPOTLIGHT_EVENTS_URL) {
+    if (!this.subscribers.named(EVENT_WEBHOOK_SUBSCRIBER)) {
       throw new NotFoundException(
         'Sorry, this deployment sends no events. Set SPOTLIGHT_EVENTS_URL and SPOTLIGHT_EVENTS_SECRET to send them.',
       );

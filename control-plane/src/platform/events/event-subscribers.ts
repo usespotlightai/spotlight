@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { isIntegrationEventKind } from '@shared-kernel/application/integration-events/integration-event';
+import {
+  isContextPrefix,
+  isIntegrationEventKind,
+} from '@shared-kernel/application/integration-events/integration-event';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
-
-// A context prefix, as in identity., or the empty prefix, which matches every integration event.
-const CONTEXT_PREFIX = /^([a-z][a-z-]*\.)?$/;
 
 @Injectable()
 export class EventSubscribers {
@@ -22,12 +22,14 @@ export class EventSubscribers {
     }
   }
 
-  // The subscriber also hears each integration event that a context of the prefixes publishes, but never a domain event. Only the platform registers a subscriber so: a context hears only the upstream events it names.
+  // The subscriber also hears each integration event that a context of the prefixes publishes, but never a domain event. The empty prefix matches every integration event. Only the platform registers a subscriber so: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
   registerByPrefix(
     subscriber: DomainEventSubscriber,
     prefixes: readonly string[],
   ): void {
-    const wrong = prefixes.find((each) => !CONTEXT_PREFIX.test(each));
+    const wrong = prefixes.find(
+      (each) => each !== '' && !isContextPrefix(each),
+    );
 
     if (wrong !== undefined) {
       throw new Error(

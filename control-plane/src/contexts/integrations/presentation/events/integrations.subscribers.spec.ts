@@ -10,7 +10,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
-import { anEnvelope } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -54,7 +54,7 @@ const handledBy = async (
   const event = connected(owner);
 
   if (subscriber && event) {
-    await subscriber.handle(event, anEnvelope());
+    await subscriber.handle(event, anOutboxRecord());
   }
 };
 

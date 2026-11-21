@@ -4,14 +4,12 @@ import {
   LEASE_MS,
   LEASE_RENEWAL_MS,
   LONGEST_LEASE_MS,
+  DEFAULT_RETRY,
 } from '@platform/events/event-delivery';
 import type { EventOutbox } from '@platform/events/event-outbox';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import {
-  subscribing,
-  DEFAULT_RETRY,
-} from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -146,7 +144,7 @@ class FakeContext {
 }
 
 const delivering = (
-  handle: (event: unknown, envelope?: unknown) => Promise<void>,
+  handle: (event: unknown, record?: unknown) => Promise<void>,
   attempts = 0,
   options: Parameters<typeof subscribing>[3] = { callsOut: false },
   clock = { now: () => NOW },
