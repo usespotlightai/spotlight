@@ -7,7 +7,7 @@ import {
   SigningSecret,
 } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
-// A hook names the field of a secret that is not well formed, so the message points at signing.secret.
+// The error names the field signing.secret, so the message points at the field of the hook.
 const suppliedSigningSecret = (raw: string): SigningSecret => {
   if (!SigningSecret.isWellFormed(raw)) {
     throw new InvalidHookError(

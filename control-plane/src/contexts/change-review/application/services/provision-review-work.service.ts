@@ -32,22 +32,26 @@ const ATTEMPTS = 3;
 
 // A cursor is the place of the last item of a page. It is a place and not an offset, so an item that leaves the queue moves no other item back past the cursor.
 const cursorOf = (place: ReviewWorkPlace): ReviewWorkCursor =>
-  JSON.stringify([place.rank, place.at, place.tieBreakers]);
+  JSON.stringify([place.rank, place.time, place.tieBreakers]);
 
 // The place that a cursor names, or null for a cursor that this service did not give, so that the page starts at the head.
 const cursorPlace = (cursor: ReviewWorkCursor): ReviewWorkPlace | null => {
   try {
-    const read: unknown = JSON.parse(cursor);
+    const parsed: unknown = JSON.parse(cursor);
 
     if (
-      Array.isArray(read) &&
-      read.length === 3 &&
-      typeof read[0] === 'number' &&
-      typeof read[1] === 'number' &&
-      Array.isArray(read[2]) &&
-      read[2].every((each: unknown) => typeof each === 'string')
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      typeof parsed[0] === 'number' &&
+      typeof parsed[1] === 'number' &&
+      Array.isArray(parsed[2]) &&
+      parsed[2].every((each: unknown) => typeof each === 'string')
     ) {
-      return { rank: read[0], at: read[1], tieBreakers: read[2] as string[] };
+      return {
+        rank: parsed[0],
+        time: parsed[1],
+        tieBreakers: parsed[2],
+      };
     }
   } catch {
     // A cursor that is not JSON names no place.
@@ -87,15 +91,15 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
       checks.filter((each) => each.provisionableAt(now)),
     );
     const after = page.after === null ? null : cursorPlace(page.after);
-    const read = (
+    const taken = (
       after === null
         ? ordered
         : ordered.filter((each) => precedes(after, placeOf(each)))
     ).slice(0, page.max);
-    const last = read[read.length - 1];
+    const last = taken[taken.length - 1];
 
     return {
-      waiting: read.map((each): WaitingReviewWork =>
+      waiting: taken.map((each): WaitingReviewWork =>
         each.kind === 'diff'
           ? {
               work: diffWork(each.diff),

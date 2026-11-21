@@ -1,5 +1,8 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { InvalidSigningSecretError } from '@shared-kernel/domain/exceptions/invalid-signing-secret.error';
+import {
+  InvalidSigningSecretError,
+  SIGNING_SECRET_RULE,
+} from '@shared-kernel/domain/exceptions/invalid-signing-secret.error';
 import {
   SECRET,
   type Secret,
@@ -15,8 +18,7 @@ const MAX_BYTES = 64;
 
 const REDACTED = '[secret]';
 
-// The rule that a signing secret obeys, for the messages that refuse one.
-export const SIGNING_SECRET_RULE = `must be whsec_ followed by ${MIN_BYTES} to ${MAX_BYTES} base64-encoded random bytes`;
+export { SIGNING_SECRET_RULE };
 
 // A Standard Webhooks signing secret: whsec_ and base64 random bytes, which signs an outgoing call.
 export class SigningSecret implements Secret {
@@ -28,7 +30,7 @@ export class SigningSecret implements Secret {
 
   static of(raw: string): SigningSecret {
     if (!SigningSecret.isWellFormed(raw)) {
-      throw new InvalidSigningSecretError(SIGNING_SECRET_RULE);
+      throw new InvalidSigningSecretError();
     }
 
     return new SigningSecret(raw);

@@ -1,12 +1,7 @@
-import { inspect } from 'node:util';
-
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidSigningSecretError } from '@shared-kernel/domain/exceptions/invalid-signing-secret.error';
 import { isSecret } from '@shared-kernel/domain/value-objects/secret';
-import {
-  SIGNING_SECRET_RULE,
-  SigningSecret,
-} from '@shared-kernel/domain/value-objects/signing-secret.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { describe, expect, it } from 'vitest';
 
 const secretOf = (bytes: number) =>
@@ -29,7 +24,7 @@ describe('SigningSecret', () => {
     ['nothing after the prefix', 'whsec_'],
   ])('refuses %s', (_, raw) => {
     expect(() => SigningSecret.of(raw)).toThrow(
-      new InvalidSigningSecretError(SIGNING_SECRET_RULE),
+      new InvalidSigningSecretError(),
     );
     expect(SigningSecret.isWellFormed(raw)).toBe(false);
   });
@@ -64,7 +59,11 @@ describe('SigningSecret', () => {
     expect(isSecret(secret)).toBe(true);
     expect(String(secret)).toBe('[secret]');
     expect(JSON.stringify({ secret })).toBe('{"secret":"[secret]"}');
-    expect(inspect(secret)).toBe('SigningSecret [secret]');
+    expect(
+      (secret as unknown as Record<symbol, () => string>)[
+        Symbol.for('nodejs.util.inspect.custom')
+      ]?.(),
+    ).toBe('SigningSecret [secret]');
   });
 
   it('equals a secret of the same value', () => {

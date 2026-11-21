@@ -82,4 +82,12 @@ describe('precedes', () => {
       ),
     ).toBe(true);
   });
+
+  it('puts a shorter list of tie-breakers first when it starts the longer one', () => {
+    const shorter = { rank: 1, time: 0, tieBreakers: ['stack_1'] };
+    const longer = { rank: 1, time: 0, tieBreakers: ['stack_1', '0'] };
+
+    expect(precedes(shorter, longer)).toBe(true);
+    expect(precedes(longer, shorter)).toBe(false);
+  });
 });

@@ -8,7 +8,7 @@ export type ReviewWorkItem =
 // Where an item stands in the order of review work: push diffs first, by the time Spotlight recorded them, then checks, by how long they wait. The tie-breakers decide between items of the same kind and time, so the order is total.
 export interface ReviewWorkPlace {
   readonly rank: number;
-  readonly at: number;
+  readonly time: number;
   readonly tieBreakers: readonly string[];
 }
 
@@ -20,12 +20,12 @@ export const placeOf = (item: ReviewWorkItem): ReviewWorkPlace =>
   item.kind === 'diff'
     ? {
         rank: DIFF_RANK,
-        at: item.diff.recordedAt.getTime(),
+        time: item.diff.recordedAt.getTime(),
         tieBreakers: [item.diff.id.value],
       }
     : {
         rank: CHECK_RANK,
-        at: item.check.waitingSince.getTime(),
+        time: item.check.waitingSince.getTime(),
         tieBreakers: [item.check.stackId.value, item.check.recheck ? '1' : '0'],
       };
 
@@ -51,11 +51,11 @@ export const precedes = (
 ): boolean =>
   one.rank !== other.rank
     ? one.rank < other.rank
-    : one.at !== other.at
-      ? one.at < other.at
+    : one.time !== other.time
+      ? one.time < other.time
       : tiePrecedes(one.tieBreakers, other.tieBreakers);
 
-const byPlace = (one: ReviewWorkItem, other: ReviewWorkItem): number => {
+const placeOrder = (one: ReviewWorkItem, other: ReviewWorkItem): number => {
   const [first, second] = [placeOf(one), placeOf(other)];
 
   if (precedes(first, second)) {
@@ -72,4 +72,4 @@ export const reviewWorkOrder = (
   [
     ...diffs.map((diff) => ({ kind: 'diff' as const, diff })),
     ...checks.map((check) => ({ kind: 'check' as const, check })),
-  ].sort(byPlace);
+  ].sort(placeOrder);

@@ -82,6 +82,19 @@ describe('envSchema platform pool', () => {
     ).toBe(false);
   });
 
+  it('refuses a platform pool secret of more than 64 bytes, and says what a secret must be', () => {
+    const parsed = envSchema.safeParse({
+      ...required,
+      SPOTLIGHT_PLATFORM_POOL_URL: 'https://provision.example.com/runs',
+      SPOTLIGHT_PLATFORM_POOL_SECRET: `whsec_${Buffer.alloc(65, 1).toString('base64')}`,
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((each) => each.message)).toContain(
+      SIGNING_SECRET_RULE,
+    );
+  });
+
   it('names the platform egress only where the deployment has one', () => {
     const platform = {
       ...required,

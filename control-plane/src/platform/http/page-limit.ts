@@ -5,7 +5,8 @@ import {
 } from '@shared-kernel/application/dto/page.dto';
 
 export const pageLimitOf = (raw: string | undefined): number => {
-  const asked = raw === undefined ? PAGE_LIMIT : Number(raw);
+  const asked =
+    raw === undefined ? PAGE_LIMIT : /^\d+$/.test(raw) ? Number(raw) : NaN;
 
   if (!Number.isInteger(asked) || asked < 1) {
     throw new BadRequestException(

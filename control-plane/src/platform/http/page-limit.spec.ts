@@ -24,7 +24,7 @@ describe('pageLimitOf', () => {
     expect(pageLimitOf('100000')).toBe(LONGEST_PAGE);
   });
 
-  it.each(['0', '-1', '2.5', 'ten', '', ' '])(
+  it.each(['0', '-1', '2.5', 'ten', '', ' ', '1e2', '0x10', '+5', ' 25 '])(
     'refuses %j as a page limit',
     (raw) => {
       expect(() => pageLimitOf(raw)).toThrow(
