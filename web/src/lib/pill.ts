@@ -14,6 +14,7 @@ export const pillClass = (
     buttonVariants({ size: 'sm', variant }),
     'rounded-full shadow-none',
     size === 'small' && 'h-6 px-2.5 text-xs',
-    variant === 'outline' && 'bg-card text-foreground',
+    variant === 'outline' &&
+      'bg-card text-foreground dark:bg-card dark:hover:bg-muted',
     className,
   );
