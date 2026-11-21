@@ -1,6 +1,6 @@
 {
-  "id": "31a10a17-e8ae-45d9-92e8-b24ca85d81ea",
-  "prevId": "abba3173-4dd4-4b8a-ab7c-47ade10c98f0",
+  "id": "78e43f82-20f0-460a-87dd-c47e9d7eae8e",
+  "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4949,6 +4949,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "suspended_at": {
+          "name": "suspended_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
