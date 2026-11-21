@@ -159,28 +159,32 @@ describe('envSchema event webhook', () => {
   const SECRET = `whsec_${Buffer.from('e'.repeat(32)).toString('base64')}`;
   const webhook = {
     ...required,
-    SPOTLIGHT_EVENTS_URL: 'https://events.example.com/spotlight',
-    SPOTLIGHT_EVENTS_SECRET: SECRET,
+    SPOTLIGHT_EVENT_WEBHOOK_URL: 'https://events.example.com/spotlight',
+    SPOTLIGHT_EVENT_WEBHOOK_SECRET: SECRET,
   };
 
   it('sends no events when the URL is empty', () => {
     expect(
-      envSchema.parse({ ...required, SPOTLIGHT_EVENTS_URL: '' }),
+      envSchema.parse({ ...required, SPOTLIGHT_EVENT_WEBHOOK_URL: '' }),
     ).toMatchObject({
-      SPOTLIGHT_EVENTS_URL: undefined,
-      SPOTLIGHT_EVENTS_KINDS: [],
+      SPOTLIGHT_EVENT_WEBHOOK_URL: undefined,
+      SPOTLIGHT_EVENT_WEBHOOK_KINDS: [],
     });
   });
 
   it('takes the URL and the secret together, or neither', () => {
     expect(envSchema.safeParse(webhook).success).toBe(true);
     expect(
-      envSchema.safeParse({ ...webhook, SPOTLIGHT_EVENTS_SECRET: undefined })
-        .success,
+      envSchema.safeParse({
+        ...webhook,
+        SPOTLIGHT_EVENT_WEBHOOK_SECRET: undefined,
+      }).success,
     ).toBe(false);
     expect(
-      envSchema.safeParse({ ...required, SPOTLIGHT_EVENTS_SECRET: SECRET })
-        .success,
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_EVENT_WEBHOOK_SECRET: SECRET,
+      }).success,
     ).toBe(false);
   });
 
@@ -188,12 +192,14 @@ describe('envSchema event webhook', () => {
     expect(
       envSchema.safeParse({
         ...webhook,
-        SPOTLIGHT_EVENTS_URL: 'http://events.example.com',
+        SPOTLIGHT_EVENT_WEBHOOK_URL: 'http://events.example.com',
       }).success,
     ).toBe(false);
     expect(
-      envSchema.safeParse({ ...webhook, SPOTLIGHT_EVENTS_SECRET: 'secret' })
-        .success,
+      envSchema.safeParse({
+        ...webhook,
+        SPOTLIGHT_EVENT_WEBHOOK_SECRET: 'secret',
+      }).success,
     ).toBe(false);
   });
 
@@ -201,8 +207,9 @@ describe('envSchema event webhook', () => {
     expect(
       envSchema.parse({
         ...webhook,
-        SPOTLIGHT_EVENTS_KINDS: ' identity., runs.run-usage-recorded.v1 ,',
-      }).SPOTLIGHT_EVENTS_KINDS,
+        SPOTLIGHT_EVENT_WEBHOOK_KINDS:
+          ' identity., runs.run-usage-recorded.v1 ,',
+      }).SPOTLIGHT_EVENT_WEBHOOK_KINDS,
     ).toEqual(['identity.', 'runs.run-usage-recorded.v1']);
 
     for (const kinds of [
@@ -214,16 +221,20 @@ describe('envSchema event webhook', () => {
       'work.task-',
     ]) {
       expect(
-        envSchema.safeParse({ ...webhook, SPOTLIGHT_EVENTS_KINDS: kinds })
-          .success,
+        envSchema.safeParse({
+          ...webhook,
+          SPOTLIGHT_EVENT_WEBHOOK_KINDS: kinds,
+        }).success,
       ).toBe(false);
     }
   });
 
   it('refuses kinds with no URL', () => {
     expect(
-      envSchema.safeParse({ ...required, SPOTLIGHT_EVENTS_KINDS: 'identity.' })
-        .success,
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_EVENT_WEBHOOK_KINDS: 'identity.',
+      }).success,
     ).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import type { EventDelivery } from '@platform/events/event-delivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { AdminEventWebhookController } from '@platform/http/controllers/admin-event-webhook.controller';
@@ -48,12 +48,12 @@ describe('AdminEventWebhookController', () => {
     expect(redeliver).not.toHaveBeenCalled();
   });
 
-  it('answers 404 when the deployment registers no event webhook', async () => {
+  it('answers 409 when the deployment registers no event webhook', async () => {
     const { admin, redeliver } = controller(false);
 
     await expect(
       admin.redeliver({ since: '2026-11-01T00:00:00Z' }),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toThrow(ConflictException);
     expect(redeliver).not.toHaveBeenCalled();
   });
 });

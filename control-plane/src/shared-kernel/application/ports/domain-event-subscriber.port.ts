@@ -1,7 +1,7 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
-// The outbox row of the event that a subscriber gets: its id and when the outbox recorded it.
+// The outbox record of the event that a subscriber gets: its id and when the outbox recorded it.
 export interface OutboxRecord {
   readonly id: string;
   readonly recordedAt: Date;

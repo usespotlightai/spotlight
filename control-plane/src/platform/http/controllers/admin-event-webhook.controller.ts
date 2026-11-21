@@ -1,25 +1,32 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Post,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
+  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
 } from '@nestjs/swagger';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EVENT_WEBHOOK_SUBSCRIBER } from '@platform/events/event-webhook';
+import {
+  EVENT_WEBHOOK_RETRY_HOURS,
+  EVENT_WEBHOOK_SUBSCRIBER,
+} from '@platform/events/event-webhook';
 import { AdminController } from '@platform/http/decorators/admin-controller.decorator';
 import { EventWebhookRedeliveryRequestDto } from '@platform/http/dto/event-webhook-redelivery.request.dto';
 import { EventWebhookRedeliveryResponseDto } from '@platform/http/dto/event-webhook-redelivery.response.dto';
 import { isoTimeOf } from '@platform/http/iso-time';
+
+const UNSET =
+  'Sorry, this deployment sends no events to an event webhook. Set SPOTLIGHT_EVENT_WEBHOOK_URL and SPOTLIGHT_EVENT_WEBHOOK_SECRET to send them.';
 
 const sinceOf = (raw: unknown): Date => {
   if (typeof raw !== 'string') {
@@ -31,7 +38,7 @@ const sinceOf = (raw: unknown): Date => {
   return isoTimeOf('since', raw);
 };
 
-// The deployment event webhook, which SPOTLIGHT_EVENTS_URL sets.
+// The deployment event webhook, which SPOTLIGHT_EVENT_WEBHOOK_URL sets.
 @AdminController('event-webhook')
 export class AdminEventWebhookController {
   constructor(
@@ -44,24 +51,22 @@ export class AdminEventWebhookController {
   @ApiOperation({
     operationId: 'redeliverEventWebhook',
     summary: 'Send the dead letters of the event webhook again',
-    description:
-      'Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Spotlight deletes an event 7 days after it recorded it, but only when it is delivered, so a dead letter stays until it is delivered.',
+    description: `Spotlight tries to send each event to the event webhook for about ${EVENT_WEBHOOK_RETRY_HOURS} hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again.`,
   })
   @ApiBody({ type: EventWebhookRedeliveryRequestDto })
   @ApiOkResponse({ type: EventWebhookRedeliveryResponseDto })
   @ApiBadRequestResponse({
     description: 'A body without since as an ISO 8601 time',
   })
-  @ApiNotFoundResponse({
-    description: 'No event webhook is set, or no admin token is set',
+  @ApiConflictResponse({
+    description: 'This deployment sets no event webhook',
   })
+  @ApiNotFoundResponse({ description: 'No admin token is set' })
   async redeliver(
     @Body() body: EventWebhookRedeliveryRequestDto | undefined,
   ): Promise<EventWebhookRedeliveryResponseDto> {
     if (!this.subscribers.named(EVENT_WEBHOOK_SUBSCRIBER)) {
-      throw new NotFoundException(
-        'Sorry, this deployment sends no events. Set SPOTLIGHT_EVENTS_URL and SPOTLIGHT_EVENTS_SECRET to send them.',
-      );
+      throw new ConflictException(UNSET);
     }
 
     return new EventWebhookRedeliveryResponseDto(

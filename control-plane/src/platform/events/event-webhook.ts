@@ -1,10 +1,7 @@
+import { failureOf } from '@platform/outbound/outbound-failure';
 import type { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import {
-  failureOf,
-  keyOf,
-  signatureOf,
-} from '@platform/outbound/standard-webhooks';
+import { keyOf, signatureOf } from '@platform/outbound/standard-webhooks';
 import {
   type IntegrationEvent,
   isIntegrationEventKind,
@@ -23,27 +20,39 @@ const MAX_DETAIL = 500;
 
 export const EVENT_WEBHOOK_SUBSCRIBER = 'platform.send-event-webhook';
 
-// 24 attempts. The wait grows from 2 seconds to one hour, so Spotlight tries for about 13 hours before the delivery is a dead letter.
+// 24 attempts. The wait grows from 2 seconds to one hour, then stays at one hour.
 export const EVENT_WEBHOOK_RETRY = Retry.backoff({
   maxAttempts: 24,
   initialDelayMs: 2_000,
   maxDelayMs: 60 * 60 * 1000,
 });
 
+// How long Spotlight tries before a delivery is a dead letter, in whole hours.
+export const EVENT_WEBHOOK_RETRY_HOURS = Math.round(
+  Array.from(
+    { length: EVENT_WEBHOOK_RETRY.maxAttempts - 1 },
+    (_, index) =>
+      (EVENT_WEBHOOK_RETRY.nextAttemptAt(index + 1, new Date(0))?.getTime() ??
+        0) / 3_600_000,
+  ).reduce((sum, each) => sum + each, 0),
+);
+
 export interface EventWebhookSettings {
   readonly url: string;
   readonly secret: string;
 }
 
-// The deployment event webhook (SPOTLIGHT_EVENTS_URL). Each integration event is one POST, signed per Standard Webhooks. The order is not guaranteed, and an event can come again: a receiver drops repeats by webhook-id and reads the current state from the admin API.
+// The deployment event webhook (SPOTLIGHT_EVENT_WEBHOOK_URL). Each integration event is one POST, signed per Standard Webhooks. The order is not guaranteed, and an event can come again: a receiver drops repeats by webhook-id and reads the current state from the admin API.
 export class EventWebhook {
+  readonly #url: string;
   readonly #key: Buffer;
 
   constructor(
-    private readonly settings: EventWebhookSettings,
+    settings: EventWebhookSettings,
     private readonly guard: OutboundGuard,
     private readonly clock: ClockPort,
   ) {
+    this.#url = settings.url;
     this.#key = keyOf(settings.secret);
   }
 
@@ -67,7 +76,7 @@ export class EventWebhook {
     let answered: Response;
 
     try {
-      answered = await this.guard.fetch(this.settings.url, {
+      answered = await this.guard.fetch(this.#url, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -108,7 +117,7 @@ export interface EventWebhookSubscription {
   readonly prefixes: readonly string[];
 }
 
-// SPOTLIGHT_EVENTS_KINDS names integration event kinds in full, such as runs.run-usage-recorded.v1, or contexts, such as identity. With no kinds, the subscriber hears every integration event. It never hears a domain event.
+// SPOTLIGHT_EVENT_WEBHOOK_KINDS names integration event kinds in full, such as runs.run-usage-recorded.v1, or contexts, such as identity. With no kinds, the subscriber hears every integration event. It never hears a domain event.
 // Many integration events carry content, such as task text, pull request titles, review comments and run messages. The operator sends fewer kinds to send less of it.
 export const eventWebhookSubscription = (
   webhook: EventWebhook,

@@ -134,9 +134,9 @@ describe('deployment event webhook (e2e)', () => {
     app = await openApp(undefined, {
       env: {
         SPOTLIGHT_ADMIN_TOKEN: ADMIN_TOKEN,
-        SPOTLIGHT_EVENTS_URL: receiver.url,
-        SPOTLIGHT_EVENTS_SECRET: SECRET,
-        SPOTLIGHT_EVENTS_KINDS: [],
+        SPOTLIGHT_EVENT_WEBHOOK_URL: receiver.url,
+        SPOTLIGHT_EVENT_WEBHOOK_SECRET: SECRET,
+        SPOTLIGHT_EVENT_WEBHOOK_KINDS: [],
       },
     });
     db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -166,7 +166,7 @@ describe('deployment event webhook (e2e)', () => {
     await unseat();
   });
 
-  it('sends an integration event as one POST, signed per Standard Webhooks, with the outbox id as webhook-id', async () => {
+  it('sends an integration event as one POST, signed per Standard Webhooks, with the id of its outbox record as webhook-id', async () => {
     await setPlan('team');
 
     const [call] = await eventually(async () => {

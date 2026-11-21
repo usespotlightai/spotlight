@@ -1,3 +1,4 @@
+import { SECRET_PATTERN } from '@platform/outbound/standard-webhooks';
 import {
   isContextPrefix,
   isIntegrationEventKind,
@@ -89,7 +90,7 @@ export const envSchema = databaseSchema
       z.url({ protocol: /^https?$/ }),
     ),
     SPOTLIGHT_PLATFORM_POOL_SECRET: unsetWhenEmpty(
-      z.string().regex(/^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/),
+      z.string().regex(SECRET_PATTERN),
     ),
     // The labels that the platform pool serves, separated by commas. With no value, it serves only work that names no runners.
     SPOTLIGHT_PLATFORM_POOL_LABELS: z
@@ -118,12 +119,12 @@ export const envSchema = databaseSchema
       ),
     SPOTLIGHT_PLATFORM_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
     // The deployment event webhook: Spotlight sends the integration events of every workspace to this URL, signed per Standard Webhooks. With no value, it sends none.
-    SPOTLIGHT_EVENTS_URL: unsetWhenEmpty(z.url({ protocol: /^https$/ })),
-    SPOTLIGHT_EVENTS_SECRET: unsetWhenEmpty(
-      z.string().regex(/^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/),
+    SPOTLIGHT_EVENT_WEBHOOK_URL: unsetWhenEmpty(z.url({ protocol: /^https$/ })),
+    SPOTLIGHT_EVENT_WEBHOOK_SECRET: unsetWhenEmpty(
+      z.string().regex(SECRET_PATTERN),
     ),
     // The integration event kinds to send in full, or the contexts whose integration events to send, separated by commas, as in identity.,runs.run-usage-recorded.v1. With no value, Spotlight sends every integration event.
-    SPOTLIGHT_EVENTS_KINDS: z
+    SPOTLIGHT_EVENT_WEBHOOK_KINDS: z
       .string()
       .default('')
       .transform((raw) =>
@@ -241,22 +242,22 @@ export const envSchema = databaseSchema
   )
   .refine(
     (env) =>
-      (env.SPOTLIGHT_EVENTS_URL === undefined) ===
-      (env.SPOTLIGHT_EVENTS_SECRET === undefined),
+      (env.SPOTLIGHT_EVENT_WEBHOOK_URL === undefined) ===
+      (env.SPOTLIGHT_EVENT_WEBHOOK_SECRET === undefined),
     {
-      path: ['SPOTLIGHT_EVENTS_SECRET'],
+      path: ['SPOTLIGHT_EVENT_WEBHOOK_SECRET'],
       message:
-        'goes with SPOTLIGHT_EVENTS_URL. Set both to send events to the deployment event webhook, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
+        'goes with SPOTLIGHT_EVENT_WEBHOOK_URL. Set both to send events to the deployment event webhook, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
     },
   )
   .refine(
     (env) =>
-      env.SPOTLIGHT_EVENTS_URL !== undefined ||
-      env.SPOTLIGHT_EVENTS_KINDS.length === 0,
+      env.SPOTLIGHT_EVENT_WEBHOOK_URL !== undefined ||
+      env.SPOTLIGHT_EVENT_WEBHOOK_KINDS.length === 0,
     {
-      path: ['SPOTLIGHT_EVENTS_URL'],
+      path: ['SPOTLIGHT_EVENT_WEBHOOK_URL'],
       message:
-        'is not set, so Spotlight sends no events. Please set it, or leave SPOTLIGHT_EVENTS_KINDS empty',
+        'is not set, so Spotlight sends no events. Please set it, or leave SPOTLIGHT_EVENT_WEBHOOK_KINDS empty',
     },
   )
   .refine(

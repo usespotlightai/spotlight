@@ -92,7 +92,7 @@ import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
-// Registers the event webhook subscriber when SPOTLIGHT_EVENTS_URL is set.
+// Registers the event webhook subscriber when SPOTLIGHT_EVENT_WEBHOOK_URL is set.
 const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
 
 @Global()
@@ -232,11 +232,14 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
         clock: ClockPort,
         subscribers: EventSubscribers,
       ) => {
-        if (env.SPOTLIGHT_EVENTS_URL && env.SPOTLIGHT_EVENTS_SECRET) {
+        if (
+          env.SPOTLIGHT_EVENT_WEBHOOK_URL &&
+          env.SPOTLIGHT_EVENT_WEBHOOK_SECRET
+        ) {
           const webhook = new EventWebhook(
             {
-              url: env.SPOTLIGHT_EVENTS_URL,
-              secret: env.SPOTLIGHT_EVENTS_SECRET,
+              url: env.SPOTLIGHT_EVENT_WEBHOOK_URL,
+              secret: env.SPOTLIGHT_EVENT_WEBHOOK_SECRET,
             },
             guard,
             clock,
@@ -244,7 +247,7 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
 
           const { subscriber, prefixes } = eventWebhookSubscription(
             webhook,
-            env.SPOTLIGHT_EVENTS_KINDS,
+            env.SPOTLIGHT_EVENT_WEBHOOK_KINDS,
           );
 
           subscribers.registerByPrefix(subscriber, prefixes);

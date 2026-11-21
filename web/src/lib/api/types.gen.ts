@@ -9631,9 +9631,13 @@ export type RedeliverEventWebhookErrors = {
    */
   401: unknown;
   /**
-   * No event webhook is set, or no admin token is set
+   * No admin token is set
    */
   404: unknown;
+  /**
+   * This deployment sets no event webhook
+   */
+  409: unknown;
 };
 
 export type RedeliverEventWebhookResponses = {

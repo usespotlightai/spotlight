@@ -42,7 +42,14 @@ export class EventSubscribers {
   }
 
   listeningTo(kind: string): readonly DomainEventSubscriber[] {
-    return [...this.#named.values()].filter((each) => this.hears(each, kind));
+    return [...this.#named.values()].filter((each) => this.matches(each, kind));
+  }
+
+  // The subscriber of the name is registered, and it hears the kind: it names the kind, or one of its prefixes matches the integration event kind.
+  hears(name: string, kind: string): boolean {
+    const subscriber = this.#named.get(name);
+
+    return subscriber !== undefined && this.matches(subscriber, kind);
   }
 
   named(name: string): DomainEventSubscriber | null {
@@ -53,7 +60,7 @@ export class EventSubscribers {
     return [...this.#named.keys()];
   }
 
-  private hears(subscriber: DomainEventSubscriber, kind: string): boolean {
+  private matches(subscriber: DomainEventSubscriber, kind: string): boolean {
     return (
       subscriber.kinds.includes(kind) ||
       (isIntegrationEventKind(kind) &&

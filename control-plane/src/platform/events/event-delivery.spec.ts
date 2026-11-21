@@ -49,6 +49,7 @@ class FakeContext {
   failingUpdatesFrom = 0;
   readonly leasesGuarded: Date[] = [];
   settledElsewhere = false;
+  kind = 'bell.rang';
   private committed: (() => void)[] = [];
   private claimable = true;
 
@@ -64,7 +65,7 @@ class FakeContext {
                 eventId: 'event_1',
                 subscriber: 'test.door',
                 attempts: this.attempts,
-                kind: 'bell.rang',
+                kind: this.kind,
                 payload: {},
                 cause: null,
                 traceparent: null,
@@ -297,7 +298,7 @@ describe('EventDelivery', () => {
     );
   });
 
-  it('gives the subscriber the id and the time of the outbox event', async () => {
+  it('gives the subscriber the outbox record of the event', async () => {
     const handle = vi.fn(async () => undefined);
     const { delivery } = delivering(handle);
 
@@ -307,6 +308,26 @@ describe('EventDelivery', () => {
       {},
       { id: 'event_1', recordedAt: NOW },
     );
+  });
+
+  it('never hands a subscriber a kind it no longer hears, and fails the delivery as for a subscriber that is gone', async () => {
+    const handle = vi.fn(async () => undefined);
+    const { delivery, context } = delivering(
+      handle,
+      DEFAULT_RETRY.maxAttempts - 1,
+    );
+    context.kind = 'bell.rung';
+
+    await delivery.processDue();
+
+    expect(handle).not.toHaveBeenCalled();
+    expect(context.updates).toEqual([
+      expect.objectContaining({
+        attempts: DEFAULT_RETRY.maxAttempts,
+        lastError: 'test.door does not hear bell.rung any more',
+        deadLetteredAt: NOW,
+      }),
+    ]);
   });
 
   describe('with the retries of its subscriber', () => {
