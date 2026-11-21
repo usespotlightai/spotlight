@@ -111,7 +111,6 @@ describe('WorkspaceMembers on the mock API', () => {
     );
 
     expect(within(suspended).getByText('Maya Chen')).toBeInTheDocument();
-    expect(within(suspended).getByText('Suspended')).toBeInTheDocument();
     await waitFor(
       () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
       WAIT,

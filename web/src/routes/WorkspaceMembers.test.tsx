@@ -422,10 +422,8 @@ describe('WorkspaceMembers', () => {
     ]);
     showing();
 
-    const row = within(suspendedList()).getByText('Maya Chen').closest('li');
-
     expect(
-      within(row as HTMLElement).getByText('Suspended'),
+      within(suspendedList()).getByText('Maya Chen'),
     ).toBeInTheDocument();
     expect(
       within(membersList()).queryByText('Maya Chen'),

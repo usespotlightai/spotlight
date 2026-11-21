@@ -66,11 +66,6 @@ export function MemberRow({ slug, member }: MemberRowProps) {
         }
       >
         <span className="flex items-center gap-2">
-          {suspended && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-              Suspended
-            </span>
-          )}
           <span className="text-muted-foreground text-sm">
             {
               nameOfRole[
