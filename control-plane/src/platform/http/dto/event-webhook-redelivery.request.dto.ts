@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class EventRedeliveryRequestDto {
+export class EventWebhookRedeliveryRequestDto {
   @ApiProperty({
     type: String,
     example: '2026-11-01T00:00:00Z',

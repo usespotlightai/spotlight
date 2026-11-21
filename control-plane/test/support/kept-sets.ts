@@ -13,6 +13,7 @@ import {
   DISPATCH_ENDED,
   type DispatchEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import { anEnvelope } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -56,7 +57,7 @@ export const runEnded = async (
     asked: false,
   };
 
-  await subscriber.handle(ended);
+  await subscriber.handle(ended, anEnvelope());
 };
 
 const keptSetOf = async (

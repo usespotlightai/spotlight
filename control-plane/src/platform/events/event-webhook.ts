@@ -6,11 +6,12 @@ import {
   isIntegrationEventKind,
 } from '@shared-kernel/application/integration-events/integration-event';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type {
-  DomainEventSubscriber,
-  EventEnvelope,
-  RetryPolicy,
+import {
+  type DomainEventSubscriber,
+  type EventEnvelope,
+  subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 const TIMEOUT_MS = 10_000;
 
@@ -18,13 +19,14 @@ const MAX_DETAIL = 500;
 
 const SECRET_PREFIX = 'whsec_';
 
-export const EVENT_WEBHOOK = 'platform.send-event-webhook';
+export const EVENT_WEBHOOK_SUBSCRIBER = 'platform.send-event-webhook';
 
 // 24 attempts. The wait grows from 2 seconds to one hour, so Spotlight tries for about 13 hours before the delivery is a dead letter.
-export const EVENT_WEBHOOK_RETRIES: RetryPolicy = {
+export const EVENT_WEBHOOK_RETRY = Retry.backoff({
   maxAttempts: 24,
-  maxBackoffMs: 60 * 60 * 1000,
-};
+  initialDelayMs: 2_000,
+  maxDelayMs: 60 * 60 * 1000,
+});
 
 export interface EventWebhookSettings {
   readonly url: string;
@@ -112,27 +114,25 @@ export class EventWebhook {
   }
 }
 
-// SPOTLIGHT_EVENTS_KINDS names integration event kinds in full, or the starts of kinds. With no kinds, the subscriber hears every integration event. It never hears a domain event.
+export interface EventWebhookSubscription {
+  readonly subscriber: DomainEventSubscriber;
+  readonly prefixes: readonly string[];
+}
+
+// SPOTLIGHT_EVENTS_KINDS names integration event kinds in full, such as runs.run-usage-recorded.v1, or contexts, such as identity. With no kinds, the subscriber hears every integration event. It never hears a domain event.
 // Many integration events carry content, such as task text, pull request titles, review comments and run messages. The operator sends fewer kinds to send less of it.
-export const eventWebhookSubscriber = (
+export const eventWebhookSubscription = (
   webhook: EventWebhook,
-  filter: readonly string[],
-): DomainEventSubscriber => ({
-  name: EVENT_WEBHOOK,
-  kinds: filter.filter(isIntegrationEventKind),
-  integrationEventPrefixes:
-    filter.length === 0
+  kinds: readonly string[],
+): EventWebhookSubscription => ({
+  subscriber: subscribing<IntegrationEvent>(
+    EVENT_WEBHOOK_SUBSCRIBER,
+    kinds.filter(isIntegrationEventKind),
+    (event, envelope) => webhook.send(event, envelope),
+    { callsOut: true, retry: EVENT_WEBHOOK_RETRY },
+  ),
+  prefixes:
+    kinds.length === 0
       ? ['']
-      : filter.filter((each) => !isIntegrationEventKind(each)),
-  callsOut: true,
-  retries: EVENT_WEBHOOK_RETRIES,
-  handle: async (event, envelope) => {
-    if (!envelope) {
-      throw new Error('The event webhook sends only events from the outbox');
-    }
-
-    await webhook.send(event as unknown as IntegrationEvent, envelope);
-
-    return [];
-  },
+      : kinds.filter((each) => !isIntegrationEventKind(each)),
 });

@@ -3,7 +3,7 @@ import { createServer, type IncomingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 import type { INestApplication } from '@nestjs/common';
-import { EVENT_WEBHOOK } from '@platform/events/event-webhook';
+import { EVENT_WEBHOOK_SUBSCRIBER } from '@platform/events/event-webhook';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { and, eq } from 'drizzle-orm';
@@ -114,7 +114,7 @@ describe('deployment event webhook (e2e)', () => {
       .where(
         and(
           eq(schema.eventDelivery.eventId, eventId),
-          eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK),
+          eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK_SUBSCRIBER),
         ),
       );
 
@@ -242,7 +242,7 @@ describe('deployment event webhook (e2e)', () => {
       .where(
         and(
           eq(schema.eventDelivery.eventId, id),
-          eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK),
+          eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK_SUBSCRIBER),
         ),
       );
 
@@ -271,7 +271,7 @@ describe('deployment event webhook (e2e)', () => {
     const id = String(failed?.headers['webhook-id']);
     const at = and(
       eq(schema.eventDelivery.eventId, id),
-      eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK),
+      eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK_SUBSCRIBER),
     );
 
     await eventually(async () => (await deliveryOf(id))?.attempts === 1);
@@ -290,12 +290,15 @@ describe('deployment event webhook (e2e)', () => {
     const later = new Date(Date.now() + 60_000).toISOString();
 
     expect(
-      (await admin().post('/api/admin/events/redeliver', { since: later }))
-        .body,
+      (
+        await admin().post('/api/admin/event-webhook/redeliver', {
+          since: later,
+        })
+      ).body,
     ).toEqual({ count: 0 });
 
     const redelivered = await admin()
-      .post('/api/admin/events/redeliver', { since })
+      .post('/api/admin/event-webhook/redeliver', { since })
       .expect(200);
 
     expect(redelivered.body).toEqual({ count: 1 });
@@ -310,12 +313,12 @@ describe('deployment event webhook (e2e)', () => {
   });
 
   it('refuses a redelivery without since as an ISO 8601 time, or without the admin token', async () => {
-    await admin().post('/api/admin/events/redeliver', {}).expect(400);
+    await admin().post('/api/admin/event-webhook/redeliver', {}).expect(400);
     await admin()
-      .post('/api/admin/events/redeliver', { since: 'yesterday' })
+      .post('/api/admin/event-webhook/redeliver', { since: 'yesterday' })
       .expect(400);
     await served(app)
-      .post('/api/admin/events/redeliver')
+      .post('/api/admin/event-webhook/redeliver')
       .send({ since: new Date().toISOString() })
       .expect(401);
   });

@@ -28,7 +28,7 @@ import {
 import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
-  DEFAULT_RETRIES,
+  DEFAULT_RETRY,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
@@ -308,14 +308,14 @@ describe('the event outbox', () => {
   });
 
   it('dead-letters the delivery to a subscriber that keeps failing, and reports only the last failure', async () => {
-    failing = DEFAULT_RETRIES.maxAttempts + 5;
+    failing = DEFAULT_RETRY.maxAttempts + 5;
     const { outbox, delivery, reports } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('three'))]);
 
     for (
       let attempt = 0;
-      attempt < DEFAULT_RETRIES.maxAttempts + 2;
+      attempt < DEFAULT_RETRY.maxAttempts + 2;
       attempt += 1
     ) {
       await delivery.processDue();
@@ -329,7 +329,7 @@ describe('the event outbox', () => {
     const deadLettered = rows.filter((each) => each.deadLetteredAt !== null);
 
     expect(deadLettered).toHaveLength(1);
-    expect(deadLettered[0]?.attempts).toBe(DEFAULT_RETRIES.maxAttempts);
+    expect(deadLettered[0]?.attempts).toBe(DEFAULT_RETRY.maxAttempts);
     expect(deadLettered[0]?.lastError).toBe('not yet');
     expect(reports.report).toHaveBeenCalledExactlyOnceWith(
       new Error('not yet'),
@@ -509,13 +509,14 @@ describe('the rows the event outbox keeps', () => {
     ).toBe(before + 2);
   });
 
-  it('deletes delivered events after a week, and keeps pending and dead-lettered ones', async () => {
+  it('deletes delivered events after a week, and keeps pending ones and the dead letters of a registered subscriber', async () => {
     const at = new Date('2026-11-01T00:00:00.000Z');
     const old = new Date(at.getTime() - OUTBOX_RETENTION_MS - 1);
     const recent = new Date(at.getTime() - OUTBOX_RETENTION_MS + 60_000);
     const event = async (
       recordedAt: Date,
       deliveries: { deliveredAt: Date | null; deadLetteredAt: Date | null }[],
+      subscriber = 'test.retained',
     ) => {
       const id = randomUUID();
       await database.db.insert(eventOutbox).values({
@@ -527,7 +528,7 @@ describe('the rows the event outbox keeps', () => {
       for (const [index, each] of deliveries.entries()) {
         await database.db.insert(eventDelivery).values({
           eventId: id,
-          subscriber: `test.retained-${index}`,
+          subscriber: `${subscriber}-${index}`,
           dueAt: recordedAt,
           ...each,
         });
@@ -541,11 +542,19 @@ describe('the rows the event outbox keeps', () => {
     const oldDelivered = await event(old, [delivered, delivered]);
     const oldPartly = await event(old, [delivered, pending]);
     const oldDead = await event(old, [deadLettered]);
+    const oldDeadOfGone = await event(old, [deadLettered], 'test.gone');
     const recentDelivered = await event(recent, [delivered]);
+    const registered = new EventSubscribers();
+    registered.register([
+      subscribing('test.retained-0', ['bell.retained'], async () => []),
+      subscribing('test.retained-1', ['bell.retained'], async () => []),
+    ]);
 
-    const deleted = await new OutboxRetention(context, {
-      now: () => at,
-    } as ClockPort).sweep();
+    const deleted = await new OutboxRetention(
+      context,
+      { now: () => at } as ClockPort,
+      registered,
+    ).sweep();
 
     const left = (
       await database.db
@@ -556,6 +565,7 @@ describe('the rows the event outbox keeps', () => {
 
     expect(deleted).toBeGreaterThanOrEqual(1);
     expect(left).not.toContain(oldDelivered);
+    expect(left).not.toContain(oldDeadOfGone);
     expect(left).toEqual(
       expect.arrayContaining([oldPartly, oldDead, recentDelivered]),
     );

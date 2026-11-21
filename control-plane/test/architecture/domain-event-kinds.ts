@@ -1,3 +1,4 @@
+import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
 import ts from 'typescript';
 
 import {
@@ -8,7 +9,6 @@ import {
 } from './source-index';
 
 export const KIND_PATTERN = /^[a-z][a-z-]*\.[a-z][a-z-]*(\.v\d+)?$/;
-export const INTEGRATION_EVENT_KIND = /^([a-z-]+)\.[a-z-]+\.v\d+$/;
 const INTEGRATION_EVENTS = 'shared-kernel/application/integration-events/';
 
 export const isDomainEventsPath = (path: string): boolean =>

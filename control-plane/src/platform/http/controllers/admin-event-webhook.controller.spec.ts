@@ -1,20 +1,20 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Env } from '@platform/config/env.schema';
-import type { EventRedelivery } from '@platform/events/event-redelivery';
-import { AdminEventController } from '@platform/http/controllers/admin-event.controller';
+import type { EventDelivery } from '@platform/events/event-delivery';
+import { AdminEventWebhookController } from '@platform/http/controllers/admin-event-webhook.controller';
 import { describe, expect, it, vi } from 'vitest';
 
 const controller = (url: string | undefined) => {
   const redeliver = vi.fn(async () => 3);
-  const admin = new AdminEventController(
+  const admin = new AdminEventWebhookController(
     { SPOTLIGHT_EVENTS_URL: url } as Env,
-    { redeliver } as unknown as EventRedelivery,
+    { redeliver } as unknown as EventDelivery,
   );
 
   return { admin, redeliver };
 };
 
-describe('AdminEventController', () => {
+describe('AdminEventWebhookController', () => {
   it('queues the dead letters of the event webhook again since the time, and answers how many', async () => {
     const { admin, redeliver } = controller('https://events.example.com');
 

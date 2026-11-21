@@ -29,6 +29,7 @@ import {
   WORKING_COPY_ARCHIVE_STORE,
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
+import { anEnvelope } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -775,7 +776,9 @@ const handledAgain = async <T>(
 
 export const delivered = async (event: DomainEvent): Promise<void> => {
   for (const each of app.get(EventSubscribers).listeningTo(event.kind)) {
-    for (const raised of await handledAgain(() => each.handle(event))) {
+    for (const raised of await handledAgain(() =>
+      each.handle(event, anEnvelope()),
+    )) {
       await delivered(raised);
     }
   }

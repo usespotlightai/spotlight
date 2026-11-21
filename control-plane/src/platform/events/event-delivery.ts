@@ -13,10 +13,7 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
-import {
-  DEFAULT_RETRIES,
-  type RetryPolicy,
-} from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { DEFAULT_RETRY } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import {
   ERROR_REPORTS,
   type ErrorReportsPort,
@@ -30,7 +27,18 @@ import {
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
+import type { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+} from 'drizzle-orm';
 
 export const LEASE_MS = 5 * 60 * 1000;
 
@@ -39,9 +47,6 @@ export const LEASE_RENEWAL_MS = 60 * 1000;
 export const LONGEST_LEASE_MS = 30 * 60 * 1000;
 
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
-
-export const backoffMs = (retries: RetryPolicy, attempts: number): number =>
-  Math.min(2 ** attempts * 1000, retries.maxBackoffMs);
 
 const because = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).replaceAll(
@@ -109,6 +114,36 @@ export class EventDelivery {
 
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
+  }
+
+  // Queues the dead letters of one subscriber again, for the events recorded at or after the time. Each gets all its attempts again. Returns how many it queued.
+  async redeliver(subscriber: string, since: Date): Promise<number> {
+    const db = this.context.db;
+    const queued = await db
+      .update(eventDelivery)
+      .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
+      .where(
+        and(
+          eq(eventDelivery.subscriber, subscriber),
+          isNull(eventDelivery.deliveredAt),
+          isNotNull(eventDelivery.deadLetteredAt),
+          inArray(
+            eventDelivery.eventId,
+            db
+              .select({ id: eventOutbox.id })
+              .from(eventOutbox)
+              .where(gte(eventOutbox.recordedAt, since)),
+          ),
+        ),
+      )
+      .returning({ eventId: eventDelivery.eventId });
+
+    this.logger.info(
+      { subscriber, since: since.toISOString(), queued: queued.length },
+      'Queued dead letters again',
+    );
+
+    return queued.length;
   }
 
   private async stillDue(): Promise<number> {
@@ -484,16 +519,15 @@ export class EventDelivery {
   ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
-    const retries = this.retriesOf(due);
-    const deadLettering = attempts >= retries.maxAttempts;
+    const next = this.retryOf(due).nextAttemptAt(attempts, now);
 
     const written = await this.context.db
       .update(eventDelivery)
       .set({
         attempts,
         lastError: because(error).slice(0, 2000),
-        dueAt: new Date(now.getTime() + backoffMs(retries, attempts)),
-        deadLetteredAt: deadLettering ? now : null,
+        dueAt: next ?? now,
+        deadLetteredAt: next ? null : now,
       })
       .where(this.open(due, lease))
       .returning({ eventId: eventDelivery.eventId });
@@ -502,17 +536,17 @@ export class EventDelivery {
       return 'lost';
     }
 
-    return deadLettering ? 'dead_lettered' : 'retried';
+    return next ? 'retried' : 'dead_lettered';
   }
 
   // A subscriber that is gone keeps the default, so its deliveries end as dead letters.
-  private retriesOf(due: Due): RetryPolicy {
-    return this.subscribers.named(due.subscriber)?.retries ?? DEFAULT_RETRIES;
+  private retryOf(due: Due): Retry {
+    return this.subscribers.named(due.subscriber)?.retry ?? DEFAULT_RETRY;
   }
 
   private reported(due: Due, error: unknown): void {
     const attempts = due.attempts + 1;
-    const deadLettering = attempts >= this.retriesOf(due).maxAttempts;
+    const deadLettering = this.retryOf(due).exhaustedAfter(attempts);
 
     this.logger.error(
       {

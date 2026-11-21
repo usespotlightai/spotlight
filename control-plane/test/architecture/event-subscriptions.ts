@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
 import ts from 'typescript';
 
 import { reachableFrom } from './context-dependencies';
 import {
   DOMAIN_EVENT_OWNERS,
-  INTEGRATION_EVENT_KIND,
   INTEGRATION_EVENT_KINDS,
   KIND_PATTERN,
   publisherOfKind,

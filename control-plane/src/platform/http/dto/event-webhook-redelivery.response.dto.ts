@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class EventRedeliveryResponseDto {
+export class EventWebhookRedeliveryResponseDto {
   @ApiProperty({
     example: 12,
     description:

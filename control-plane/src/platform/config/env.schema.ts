@@ -118,7 +118,7 @@ export const envSchema = databaseSchema
     SPOTLIGHT_EVENTS_SECRET: unsetWhenEmpty(
       z.string().regex(/^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/),
     ),
-    // The integration event kinds to send, or the starts of kinds, separated by commas. With no value, Spotlight sends every integration event.
+    // The integration event kinds to send in full, or the contexts whose integration events to send, separated by commas, as in identity.,runs.run-usage-recorded.v1. With no value, Spotlight sends every integration event.
     SPOTLIGHT_EVENTS_KINDS: z
       .string()
       .default('')
@@ -133,8 +133,8 @@ export const envSchema = databaseSchema
           z
             .string()
             .regex(
-              /^[a-z][a-z-]*\.([a-z][a-z-]*(\.v\d+)?)?$/,
-              'is an integration event kind, such as runs.run-usage-recorded.v1, or the start of one, such as identity.',
+              /^[a-z][a-z-]*\.([a-z][a-z-]*\.v\d+)?$/,
+              'is an integration event kind, such as runs.run-usage-recorded.v1, or a context, such as identity.',
             ),
         ),
       ),
