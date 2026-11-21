@@ -15,6 +15,7 @@ import {
   runnerTrust,
   workspaceRunners,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -22,9 +23,6 @@ type TrustRow = typeof runnerTrust.$inferSelect;
 type WorkspaceRunnersRow = typeof workspaceRunners.$inferSelect;
 type PoolRow = typeof runnerPool.$inferSelect;
 type EgressRow = typeof egress.$inferSelect;
-
-// The deployment manages the managed pool, so Terraform neither sees nor changes it.
-const workspaceOwned = eq(runnerPool.managed, false);
 
 const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
   id: row.id,
@@ -121,7 +119,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     const [found] = await this.db
       .select()
       .from(runnerPool)
-      .where(and(eq(runnerPool.id, id), workspaceOwned))
+      .where(and(eq(runnerPool.id, id), ownedPools))
       .limit(1);
 
     return found ? poolRecord(found) : null;
@@ -138,7 +136,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
         and(
           eq(runnerPool.workspaceId, workspaceId.value),
           eq(runnerPool.key, key),
-          workspaceOwned,
+          ownedPools,
         ),
       )
       .limit(1);
@@ -154,7 +152,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
         .select()
         .from(runnerPool)
         .where(
-          and(eq(runnerPool.workspaceId, workspaceId.value), workspaceOwned),
+          and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
         )
     ).map(poolRecord);
   }
@@ -229,7 +227,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
         .select({ key: runnerPool.key })
         .from(runnerPool)
         .where(
-          and(eq(runnerPool.workspaceId, workspaceId.value), workspaceOwned),
+          and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
         ),
     ]);
 

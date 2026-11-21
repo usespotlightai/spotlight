@@ -13,9 +13,11 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
+import { PushAccess } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
@@ -100,9 +102,9 @@ export const aPushPool = (
     by: changeActorIn(),
   });
 
-const MANAGED_POOL_ID = PoolId.of('pool_managed');
+const PLATFORM_POOL_ID = PoolId.of('pool_platform');
 
-export const aManagedPool = (
+export const aPlatformPool = (
   input: {
     labels?: string[];
     egress?: EgressReference | null;
@@ -110,8 +112,8 @@ export const aManagedPool = (
     workspaceId?: WorkspaceId;
   } = {},
 ): RunnerPool => {
-  const created = RunnerPool.createManaged({
-    id: MANAGED_POOL_ID,
+  const created = RunnerPool.createPlatform({
+    id: PLATFORM_POOL_ID,
     workspaceId: input.workspaceId ?? POOL_WORKSPACE,
     labels: RunnerLabels.of(input.labels ?? []),
     egress: input.egress ?? null,
@@ -120,6 +122,23 @@ export const aManagedPool = (
 
   return input.disabled ? created.disable(changeActorIn()) : created;
 };
+
+// A pool of the workspace that took the platform key before Spotlight kept that key for the platform pool.
+export const anOwnPoolWithThePlatformKey = (): RunnerPool =>
+  RunnerPool.rehydrate({
+    id: POOL_ID,
+    workspaceId: POOL_WORKSPACE,
+    key: PoolKey.platform(),
+    labels: RunnerLabels.of(['sandbox']),
+    maxRuns: null,
+    access: PushAccess.of(
+      ProvisionUrl.of('https://provision.example.com/runs'),
+      encryptedOf('s'),
+      RotationVersion.of(1),
+      null,
+    ),
+    version: 0,
+  });
 
 export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
   RunnerTrust.create({

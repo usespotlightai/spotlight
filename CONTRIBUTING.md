@@ -95,6 +95,7 @@ see.
 | Metered call | One usage row for each catalog tool call (`MeteredCall`). |
 | Pending job | A row that a job loop must process, with its attempts and next attempt time (`job_attempts`, `job_due_at`). |
 | Plan term | A plan and the time it ends, if it ends (`PlanTerm`). The free plan never ends. |
+| Platform pool | The push pool that Spotlight adds to each workspace when the deployment sets `SPOTLIGHT_PLATFORM_POOL_URL` (`runner_pool.platform`). The deployment gives its provision URL and secret, so the row keeps neither. It takes only work that no other pool or trust of the workspace fits, and the operator can disable it for one workspace. Terraform does not see or change it. Compare the platform egress. |
 | Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
 | Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
 | Recipient | The public key that Spotlight seals a run's secrets to: one key for each run in an egress sidecar, one key for each process in a shared egress. |

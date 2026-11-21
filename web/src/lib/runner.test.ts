@@ -36,7 +36,7 @@ const NOW = new Date('2026-08-30T12:00:00.000Z');
 const host = (over: Partial<HostResponseDto> = {}): HostResponseDto => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'build-box-1',
-  source: { kind: 'pool', key: 'build-farm', managed: false },
+  source: { kind: 'pool', key: 'build-farm', platform: null },
   release: 'v1.4.0',
   unavailableReason: null,
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
@@ -79,7 +79,7 @@ const runner = (
   over: Partial<LiveRunnerResponseDto> = {},
 ): LiveRunnerResponseDto => ({
   id: 'runner_1',
-  source: { kind: 'pool', key: 'ephemeral', managed: false },
+  source: { kind: 'pool', key: 'ephemeral', platform: null },
   hostId: null,
   image: null,
   harnesses: [],
@@ -382,7 +382,7 @@ describe('withActivity', () => {
           runner({ id: 'runner_1' }),
           runner({
             id: 'runner_2',
-            source: { kind: 'pool', key: 'burst', managed: false },
+            source: { kind: 'pool', key: 'burst', platform: null },
           }),
           runner({ id: 'runner_3' }),
         ],
@@ -484,9 +484,9 @@ describe('onlineCount', () => {
 describe('sourceLabel', () => {
   it('names the pool or trust, or says it is gone', () => {
     expect(
-      sourceLabel({ kind: 'pool', key: 'build-farm', managed: false }),
+      sourceLabel({ kind: 'pool', key: 'build-farm', platform: null }),
     ).toBe('Pool build-farm');
-    expect(sourceLabel({ kind: 'trust', key: null, managed: false })).toBe(
+    expect(sourceLabel({ kind: 'trust', key: null, platform: null })).toBe(
       'Trust deleted',
     );
   });

@@ -26,7 +26,7 @@ describe('databaseSchema pool limits', () => {
   });
 });
 
-describe('envSchema managed pool', () => {
+describe('envSchema platform pool', () => {
   const required = {
     DATABASE_URL: url,
     BETTER_AUTH_SECRET: 'b'.repeat(32),
@@ -40,12 +40,12 @@ describe('envSchema managed pool', () => {
   };
   const SECRET = `whsec_${Buffer.from('p'.repeat(32)).toString('base64')}`;
 
-  it('adds no managed pool when the URL is empty', () => {
+  it('adds no platform pool when the URL is empty', () => {
     expect(
-      envSchema.parse({ ...required, SPOTLIGHT_MANAGED_POOL_URL: '' }),
+      envSchema.parse({ ...required, SPOTLIGHT_PLATFORM_POOL_URL: '' }),
     ).toMatchObject({
-      SPOTLIGHT_MANAGED_POOL_URL: undefined,
-      SPOTLIGHT_MANAGED_POOL_LABELS: '',
+      SPOTLIGHT_PLATFORM_POOL_URL: undefined,
+      SPOTLIGHT_PLATFORM_POOL_LABELS: [],
     });
   });
 
@@ -53,20 +53,20 @@ describe('envSchema managed pool', () => {
     expect(
       envSchema.safeParse({
         ...required,
-        SPOTLIGHT_MANAGED_POOL_URL: 'https://provision.example.com/runs',
-        SPOTLIGHT_MANAGED_POOL_SECRET: SECRET,
+        SPOTLIGHT_PLATFORM_POOL_URL: 'https://provision.example.com/runs',
+        SPOTLIGHT_PLATFORM_POOL_SECRET: SECRET,
       }).success,
     ).toBe(true);
     expect(
       envSchema.safeParse({
         ...required,
-        SPOTLIGHT_MANAGED_POOL_URL: 'https://provision.example.com/runs',
+        SPOTLIGHT_PLATFORM_POOL_URL: 'https://provision.example.com/runs',
       }).success,
     ).toBe(false);
     expect(
       envSchema.safeParse({
         ...required,
-        SPOTLIGHT_MANAGED_POOL_SECRET: SECRET,
+        SPOTLIGHT_PLATFORM_POOL_SECRET: SECRET,
       }).success,
     ).toBe(false);
   });
@@ -75,27 +75,71 @@ describe('envSchema managed pool', () => {
     expect(
       envSchema.safeParse({
         ...required,
-        SPOTLIGHT_MANAGED_POOL_URL: 'https://provision.example.com/runs',
-        SPOTLIGHT_MANAGED_POOL_SECRET: 'not-a-secret',
+        SPOTLIGHT_PLATFORM_POOL_URL: 'https://provision.example.com/runs',
+        SPOTLIGHT_PLATFORM_POOL_SECRET: 'not-a-secret',
       }).success,
     ).toBe(false);
   });
 
   it('names the platform egress only where the deployment has one', () => {
-    const managed = {
+    const platform = {
       ...required,
-      SPOTLIGHT_MANAGED_POOL_URL: 'https://provision.example.com/runs',
-      SPOTLIGHT_MANAGED_POOL_SECRET: SECRET,
-      SPOTLIGHT_MANAGED_POOL_EGRESS: 'spotlight',
+      SPOTLIGHT_PLATFORM_POOL_URL: 'https://provision.example.com/runs',
+      SPOTLIGHT_PLATFORM_POOL_SECRET: SECRET,
+      SPOTLIGHT_PLATFORM_POOL_EGRESS: 'spotlight',
     };
 
-    expect(envSchema.safeParse(managed).success).toBe(false);
+    expect(envSchema.safeParse(platform).success).toBe(false);
     expect(
       envSchema.safeParse({
-        ...managed,
+        ...platform,
         SPOTLIGHT_PLATFORM_EGRESS_URL: 'https://egress.example.com',
         SPOTLIGHT_PLATFORM_EGRESS_TOKEN: 't'.repeat(32),
       }).success,
     ).toBe(true);
+  });
+
+  it('reads the labels as a list, and refuses one that is not a label or is named twice', () => {
+    const withUrl = {
+      ...required,
+      SPOTLIGHT_PLATFORM_POOL_URL: 'https://provision.example.com/runs',
+      SPOTLIGHT_PLATFORM_POOL_SECRET: SECRET,
+    };
+
+    expect(
+      envSchema.parse({
+        ...withUrl,
+        SPOTLIGHT_PLATFORM_POOL_LABELS: ' linux, gpu ,',
+      }).SPOTLIGHT_PLATFORM_POOL_LABELS,
+    ).toEqual(['linux', 'gpu']);
+    expect(
+      envSchema.safeParse({
+        ...withUrl,
+        SPOTLIGHT_PLATFORM_POOL_LABELS: 'Linux',
+      }).success,
+    ).toBe(false);
+    expect(
+      envSchema.safeParse({
+        ...withUrl,
+        SPOTLIGHT_PLATFORM_POOL_LABELS: 'gpu,gpu',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('refuses labels or an egress for the platform pool with no URL', () => {
+    expect(
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_PLATFORM_POOL_LABELS: 'gpu',
+      }).success,
+    ).toBe(false);
+    expect(
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_PLATFORM_EGRESS_URL: 'https://egress.example.com',
+        SPOTLIGHT_PLATFORM_EGRESS_TOKEN: 't'.repeat(32),
+        SPOTLIGHT_PLATFORM_POOL_EGRESS: 'spotlight',
+      }).success,
+    ).toBe(false);
   });
 });

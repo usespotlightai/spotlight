@@ -18,11 +18,16 @@ export interface RunnerPoolRepository {
 
   inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]>;
 
-  // The pools of every workspace that have this key.
-  withKey(key: PoolKey): Promise<readonly RunnerPool[]>;
-
-  // The pools of these workspaces that Spotlight asks for runners, also the disabled managed ones.
-  pushingIn(
+  findAllByWorkspaces(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly RunnerPool[]>;
+
+  // The pools of every workspace that have this key.
+  findAllByKey(key: PoolKey): Promise<readonly RunnerPool[]>;
+
+  // As find, but not the platform pool, which the workspace does not own.
+  findOwned(id: PoolId): Promise<RunnerPool | null>;
+
+  // As inWorkspace, but not the platform pool, which the workspace does not own.
+  listOwned(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]>;
 }

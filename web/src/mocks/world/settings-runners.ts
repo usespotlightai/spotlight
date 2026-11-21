@@ -53,9 +53,9 @@ const PRIVATE_IMAGE_BOX = 'F4G7H0J3K6L9M2N5P8Q1R4S7T0';
 
 const DELIVERY_BOX = 'V8W1X4Y7Z0A3B6C9D2E5F8G1H4';
 
-const BUILD_FARM = { kind: 'pool', key: 'build-farm', managed: false } as const;
+const BUILD_FARM = { kind: 'pool', key: 'build-farm', platform: null } as const;
 
-const EPHEMERAL = { kind: 'pool', key: 'ephemeral', managed: false } as const;
+const EPHEMERAL = { kind: 'pool', key: 'ephemeral', platform: null } as const;
 
 const KEPT_FOR_RETRIES = 'work/task-task_retries';
 
@@ -165,7 +165,7 @@ const HOSTS: HostResponseDto[] = [
   {
     id: GPU_NODE,
     name: 'gpu-node-3',
-    source: { kind: 'trust', key: 'production-cluster', managed: false },
+    source: { kind: 'trust', key: 'production-cluster', platform: null },
     release: 'v0.4.3',
     unavailableReason:
       'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight update',

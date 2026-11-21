@@ -10,4 +10,8 @@ export interface RunnerTrustRepository {
   find(id: RunnerTrustId): Promise<RunnerTrust | null>;
 
   inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerTrust[]>;
+
+  findAllByWorkspaces(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly RunnerTrust[]>;
 }

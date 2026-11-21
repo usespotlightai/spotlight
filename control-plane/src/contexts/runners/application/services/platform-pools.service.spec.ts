@@ -1,10 +1,10 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import type { ManagedPoolSettings } from '@runners/application/ports/managed-pool-settings.port';
-import { ManagedPools } from '@runners/application/services/managed-pools.service';
+import type { PlatformPoolSettings } from '@runners/application/ports/platform-pool-settings.port';
+import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
-  aManagedPool,
-  aPushPool,
+  anOwnPoolWithThePlatformKey,
+  aPlatformPool,
   secretOf,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
@@ -15,14 +15,13 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const WS_1 = WorkspaceId.of('ws_1');
 const WS_2 = WorkspaceId.of('ws_2');
 
-const SETTINGS: ManagedPoolSettings = {
+const SETTINGS: PlatformPoolSettings = {
   url: ProvisionUrl.of('https://provision.deployment.example.com/runs'),
   secret: secretOf('m'),
   labels: RunnerLabels.of(['linux']),
@@ -34,11 +33,11 @@ const settled = (pool: RunnerPool): RunnerPool => {
   return pool;
 };
 
-const managing = (
+const platformPools = (
   input: {
     stored?: readonly RunnerPool[];
     workspaces?: readonly WorkspaceId[];
-    settings?: ManagedPoolSettings | null;
+    settings?: PlatformPoolSettings | null;
     added?: (pool: RunnerPool) => Promise<void>;
   } = {},
 ) => {
@@ -47,7 +46,7 @@ const managing = (
   const saved: RunnerPool[] = [];
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const pools = {
-    withKey: vi.fn(async (key: PoolKey) =>
+    findAllByKey: vi.fn(async (key: PoolKey) =>
       stored.filter((each) => each.key.equals(key)),
     ),
     inWorkspace: vi.fn(async (workspaceId: WorkspaceId) =>
@@ -73,7 +72,7 @@ const managing = (
     added,
     saved,
     logger,
-    managed: new ManagedPools(
+    platform: new PlatformPools(
       pools as unknown as RunnerPoolRepository,
       workspaces as unknown as WorkspaceReaderPort,
       input.settings === undefined ? SETTINGS : input.settings,
@@ -86,40 +85,40 @@ const managing = (
   };
 };
 
-describe('ManagedPools', () => {
+describe('PlatformPools', () => {
   describe('at startup', () => {
-    it('adds the managed pool to each workspace that has none, with the labels and egress the deployment sets', async () => {
-      const { managed, added } = managing({ workspaces: [WS_1, WS_2] });
+    it('adds the platform pool to each workspace that has none, with the labels and egress the deployment sets', async () => {
+      const { platform, added } = platformPools({ workspaces: [WS_1, WS_2] });
 
-      await managed.reconcile();
+      await platform.reconcile();
 
       expect(added.map((each) => each.workspaceId.value)).toEqual([
         'ws_1',
         'ws_2',
       ]);
-      expect(added[0]?.isManaged).toBe(true);
-      expect(added[0]?.key.equals(PoolKey.managed())).toBe(true);
+      expect(added[0]?.isPlatform).toBe(true);
+      expect(added[0]?.key.equals(PoolKey.platform())).toBe(true);
       expect(added[0]?.labels.values).toEqual(['linux']);
       expect(added[0]?.egress?.isPlatform).toBe(true);
     });
 
-    it('gives an existing managed pool the labels and egress the deployment sets now, and keeps it disabled', async () => {
-      const { managed, added, saved } = managing({
-        stored: [settled(aManagedPool({ labels: ['arm'], disabled: true }))],
+    it('gives an existing platform pool the labels and egress the deployment sets now, and keeps it disabled', async () => {
+      const { platform, added, saved } = platformPools({
+        stored: [settled(aPlatformPool({ labels: ['arm'], disabled: true }))],
       });
 
-      await managed.reconcile();
+      await platform.reconcile();
 
       expect(added).toEqual([]);
       expect(saved[0]?.labels.values).toEqual(['linux']);
       expect(saved[0]?.isDisabled).toBe(true);
     });
 
-    it('saves nothing for a managed pool that is already as the deployment sets it', async () => {
-      const { managed, saved } = managing({
+    it('saves nothing for a platform pool that is already as the deployment sets it', async () => {
+      const { platform, saved } = platformPools({
         stored: [
           settled(
-            aManagedPool({
+            aPlatformPool({
               labels: ['linux'],
               egress: EgressReference.platform(),
             }),
@@ -127,36 +126,36 @@ describe('ManagedPools', () => {
         ],
       });
 
-      await managed.reconcile();
+      await platform.reconcile();
 
       expect(saved).toEqual([]);
     });
 
-    it('adds no managed pool to a workspace with its own pool of that key, and says so', async () => {
-      const { managed, added, saved, logger } = managing({
-        stored: [settled(aPushPool({ key: 'spotlight' }))],
+    it('adds no platform pool to a workspace with its own pool of that key, and says so', async () => {
+      const { platform, added, saved, logger } = platformPools({
+        stored: [settled(anOwnPoolWithThePlatformKey())],
       });
 
-      await managed.reconcile();
+      await platform.reconcile();
 
       expect(added).toEqual([]);
       expect(saved).toEqual([]);
       expect(logger.info).toHaveBeenCalledWith(
         expect.objectContaining({ workspaceId: 'ws_1' }),
-        'Did not add the managed runner pool, because the workspace has its own pool spotlight',
+        'Did not add the platform runner pool, because the workspace has its own pool spotlight',
       );
     });
 
-    it('deletes the managed pools that are on while the deployment sets no managed provisioner, and keeps the disabled ones', async () => {
-      const on = settled(aManagedPool());
-      const off = settled(aManagedPool({ workspaceId: WS_2, disabled: true }));
-      const { managed, added, saved } = managing({
+    it('deletes the platform pools that are on while the deployment sets no platform provisioner, and keeps the disabled ones', async () => {
+      const on = settled(aPlatformPool());
+      const off = settled(aPlatformPool({ workspaceId: WS_2, disabled: true }));
+      const { platform, added, saved } = platformPools({
         stored: [on, off],
         settings: null,
         workspaces: [WS_1, WS_2],
       });
 
-      await managed.reconcile();
+      await platform.reconcile();
 
       expect(added).toEqual([]);
       expect(
@@ -165,7 +164,7 @@ describe('ManagedPools', () => {
     });
 
     it('accepts that another instance added the pool first, and goes on', async () => {
-      const { managed, logger } = managing({
+      const { platform, logger } = platformPools({
         workspaces: [WS_1, WS_2],
         added: async (pool) => {
           if (pool.belongsTo(WS_1)) {
@@ -174,13 +173,13 @@ describe('ManagedPools', () => {
         },
       });
 
-      await managed.reconcile();
+      await platform.reconcile();
 
       expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it('goes on with the other workspaces when one fails, and says so', async () => {
-      const { managed, added, logger } = managing({
+      const { platform, added, logger } = platformPools({
         workspaces: [WS_1, WS_2],
         added: async (pool) => {
           if (pool.belongsTo(WS_1)) {
@@ -189,100 +188,109 @@ describe('ManagedPools', () => {
         },
       });
 
-      await managed.reconcile();
+      await platform.reconcile();
 
       expect(added.map((each) => each.workspaceId.value)).toEqual(['ws_2']);
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({ workspaceId: 'ws_1' }),
-        'Could not reconcile the managed runner pool of a workspace',
+        'Could not reconcile the platform runner pool of a workspace',
       );
     });
   });
 
   describe('when a workspace is created', () => {
-    it('adds the managed pool to it', async () => {
-      const { managed, added } = managing();
+    it('adds the platform pool to it', async () => {
+      const { platform, added } = platformPools();
 
-      await managed.createFor(WS_1);
+      await platform.add(WS_1);
 
       expect(added).toHaveLength(1);
     });
 
     it('adds nothing to a workspace that was deleted before the event arrived', async () => {
-      const { managed, added } = managing({ workspaces: [] });
+      const { platform, added } = platformPools({ workspaces: [] });
 
-      await managed.createFor(WS_1);
+      await platform.add(WS_1);
 
       expect(added).toEqual([]);
     });
 
-    it('adds nothing while the deployment sets no managed provisioner', async () => {
-      const { managed, added } = managing({ settings: null });
+    it('adds nothing while the deployment sets no platform provisioner', async () => {
+      const { platform, added } = platformPools({ settings: null });
 
-      await managed.createFor(WS_1);
+      await platform.add(WS_1);
 
       expect(added).toEqual([]);
     });
 
     it('throws what fails, so that the event is delivered again', async () => {
-      const { managed } = managing({
+      const { platform } = platformPools({
         added: async () => {
           throw new Error('the database went away');
         },
       });
 
-      await expect(managed.createFor(WS_1)).rejects.toThrow(
+      await expect(platform.add(WS_1)).rejects.toThrow(
         'the database went away',
       );
     });
   });
 
-  describe('turning the managed pool of a workspace off and on', () => {
-    it('disables the managed pool, and enables it again', async () => {
-      const pool = settled(aManagedPool());
-      const { managed, saved } = managing({ stored: [pool] });
+  describe('disabling and enabling the platform pool of a workspace', () => {
+    it('disables the platform pool, and enables it again', async () => {
+      const pool = settled(aPlatformPool());
+      const { platform, saved } = platformPools({ stored: [pool] });
 
-      await expect(
-        managed.update(WS_1, true, changeActorIn()),
-      ).resolves.toEqual({ outcome: 'updated', disabled: true });
+      await expect(platform.disable(WS_1)).resolves.toEqual({
+        outcome: 'disabled',
+      });
       expect(saved[0]?.isDisabled).toBe(true);
     });
 
-    it('adds the managed pool disabled where it is missing', async () => {
-      const { managed, added } = managing();
+    it('enables a disabled platform pool', async () => {
+      const { platform, saved } = platformPools({
+        stored: [settled(aPlatformPool({ disabled: true }))],
+      });
 
-      await expect(
-        managed.update(WS_1, true, changeActorIn()),
-      ).resolves.toEqual({ outcome: 'updated', disabled: true });
+      await expect(platform.enable(WS_1)).resolves.toEqual({
+        outcome: 'enabled',
+      });
+      expect(saved[0]?.isDisabled).toBe(false);
+    });
+
+    it('adds the platform pool disabled where it is missing', async () => {
+      const { platform, added } = platformPools();
+
+      await expect(platform.disable(WS_1)).resolves.toEqual({
+        outcome: 'disabled',
+      });
       expect(added[0]?.isDisabled).toBe(true);
     });
 
     it('changes nothing in a workspace with its own pool of that key', async () => {
-      const { managed, added, saved } = managing({
-        stored: [settled(aPushPool({ key: 'spotlight' }))],
+      const { platform, added, saved } = platformPools({
+        stored: [settled(anOwnPoolWithThePlatformKey())],
       });
 
-      await expect(
-        managed.update(WS_1, true, changeActorIn()),
-      ).resolves.toEqual({ outcome: 'owned' });
+      await expect(platform.disable(WS_1)).resolves.toEqual({
+        outcome: 'key-taken',
+      });
       expect(added).toEqual([]);
       expect(saved).toEqual([]);
     });
 
-    it('says so while the deployment sets no managed provisioner', async () => {
-      const { managed } = managing({ settings: null });
+    it('says so while the deployment sets no platform provisioner', async () => {
+      const { platform } = platformPools({ settings: null });
 
-      await expect(
-        managed.update(WS_1, true, changeActorIn()),
-      ).resolves.toEqual({ outcome: 'off' });
+      await expect(platform.enable(WS_1)).resolves.toEqual({
+        outcome: 'unset',
+      });
     });
 
     it('answers nothing for a workspace that is not open', async () => {
-      const { managed } = managing({ workspaces: [] });
+      const { platform } = platformPools({ workspaces: [] });
 
-      await expect(
-        managed.update(WS_1, true, changeActorIn()),
-      ).resolves.toBeNull();
+      await expect(platform.disable(WS_1)).resolves.toBeNull();
     });
   });
 });

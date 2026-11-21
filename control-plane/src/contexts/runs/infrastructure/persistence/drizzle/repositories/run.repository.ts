@@ -116,6 +116,15 @@ interface Selected {
   readonly run: Row;
 }
 
+// A queued run that no runner is reserved for, and that Spotlight can provision a runner for now.
+const awaitingProvisionAt = (now: Date) =>
+  and(
+    eq(run.state, 'queued'),
+    isNull(run.reservedFor),
+    or(isNull(run.nextProvisionAttemptAt), lte(run.nextProvisionAttemptAt, now)),
+    or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
+  );
+
 @Injectable()
 export class DrizzleRunRepository implements RunRepository {
   constructor(
@@ -406,14 +415,8 @@ export class DrizzleRunRepository implements RunRepository {
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
-          eq(run.state, 'queued'),
-          isNull(run.reservedFor),
+          awaitingProvisionAt(now),
           page.withSecrets ? undefined : eq(run.injectsSecrets, false),
-          or(
-            isNull(run.nextProvisionAttemptAt),
-            lte(run.nextProvisionAttemptAt, now),
-          ),
-          or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           routedBy({ avoiding: page.avoiding }),
         ),
       )
@@ -428,17 +431,7 @@ export class DrizzleRunRepository implements RunRepository {
     const rows = await this.context.db
       .selectDistinct({ workspaceId: run.workspaceId })
       .from(run)
-      .where(
-        and(
-          eq(run.state, 'queued'),
-          isNull(run.reservedFor),
-          or(
-            isNull(run.nextProvisionAttemptAt),
-            lte(run.nextProvisionAttemptAt, now),
-          ),
-          or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
-        ),
-      );
+      .where(awaitingProvisionAt(now));
 
     return rows.map((row) => WorkspaceId.of(row.workspaceId));
   }

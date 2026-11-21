@@ -1,3 +1,7 @@
+import {
+  MAX_SLUG_LENGTH,
+  SLUG_SHAPE,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { z } from 'zod';
 
 const LOG_LEVELS = [
@@ -76,14 +80,39 @@ export const envSchema = databaseSchema
       .string()
       .regex(/^[A-Za-z0-9._~-]{32,255}$/)
       .optional(),
-    // The provision URL of the pool that this deployment adds to every workspace. With no value, Spotlight adds no such pool.
-    SPOTLIGHT_MANAGED_POOL_URL: unsetWhenEmpty(z.url({ protocol: /^https?$/ })),
-    SPOTLIGHT_MANAGED_POOL_SECRET: unsetWhenEmpty(
+    // The provision URL of the platform pool, which Spotlight adds to each workspace. With no value, Spotlight adds no platform pool.
+    SPOTLIGHT_PLATFORM_POOL_URL: unsetWhenEmpty(
+      z.url({ protocol: /^https?$/ }),
+    ),
+    SPOTLIGHT_PLATFORM_POOL_SECRET: unsetWhenEmpty(
       z.string().regex(/^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/),
     ),
-    // The labels that the pool serves, separated by commas. With no value, the pool serves only work that names no runners.
-    SPOTLIGHT_MANAGED_POOL_LABELS: z.string().default(''),
-    SPOTLIGHT_MANAGED_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
+    // The labels that the platform pool serves, separated by commas. With no value, it serves only work that names no runners.
+    SPOTLIGHT_PLATFORM_POOL_LABELS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((each) => each.trim())
+          .filter((each) => each !== ''),
+      )
+      .pipe(
+        z
+          .array(
+            z
+              .string()
+              .max(MAX_SLUG_LENGTH)
+              .regex(
+                new RegExp(`^${SLUG_SHAPE}$`),
+                'is lowercase words joined by dashes, as in vpc-internal',
+              ),
+          )
+          .refine((labels) => new Set(labels).size === labels.length, {
+            message: 'names a label twice',
+          }),
+      ),
+    SPOTLIGHT_PLATFORM_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
@@ -152,22 +181,33 @@ export const envSchema = databaseSchema
   )
   .refine(
     (env) =>
-      (env.SPOTLIGHT_MANAGED_POOL_URL === undefined) ===
-      (env.SPOTLIGHT_MANAGED_POOL_SECRET === undefined),
+      (env.SPOTLIGHT_PLATFORM_POOL_URL === undefined) ===
+      (env.SPOTLIGHT_PLATFORM_POOL_SECRET === undefined),
     {
-      path: ['SPOTLIGHT_MANAGED_POOL_SECRET'],
+      path: ['SPOTLIGHT_PLATFORM_POOL_SECRET'],
       message:
-        'goes with SPOTLIGHT_MANAGED_POOL_URL. Set both to add the managed pool to every workspace, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
+        'goes with SPOTLIGHT_PLATFORM_POOL_URL. Set both to add the platform pool to each workspace, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
     },
   )
   .refine(
     (env) =>
-      env.SPOTLIGHT_MANAGED_POOL_EGRESS === undefined ||
+      env.SPOTLIGHT_PLATFORM_POOL_URL !== undefined ||
+      (env.SPOTLIGHT_PLATFORM_POOL_LABELS.length === 0 &&
+        env.SPOTLIGHT_PLATFORM_POOL_EGRESS === undefined),
+    {
+      path: ['SPOTLIGHT_PLATFORM_POOL_URL'],
+      message:
+        'is not set, so Spotlight adds no platform pool. Please set it, or leave SPOTLIGHT_PLATFORM_POOL_LABELS and SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
+    },
+  )
+  .refine(
+    (env) =>
+      env.SPOTLIGHT_PLATFORM_POOL_EGRESS === undefined ||
       env.SPOTLIGHT_PLATFORM_EGRESS_URL !== undefined,
     {
-      path: ['SPOTLIGHT_MANAGED_POOL_EGRESS'],
+      path: ['SPOTLIGHT_PLATFORM_POOL_EGRESS'],
       message:
-        'names the platform egress. Please set SPOTLIGHT_PLATFORM_EGRESS_URL and SPOTLIGHT_PLATFORM_EGRESS_TOKEN, or leave SPOTLIGHT_MANAGED_POOL_EGRESS empty',
+        'names the platform egress. Please set SPOTLIGHT_PLATFORM_EGRESS_URL and SPOTLIGHT_PLATFORM_EGRESS_TOKEN, or leave SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
     },
   )
   .refine(

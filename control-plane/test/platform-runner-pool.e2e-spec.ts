@@ -3,11 +3,12 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 import type { INestApplication } from '@nestjs/common';
+import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { ManagedPools } from '@runners/application/services/managed-pools.service';
+import { DisablePlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
+import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -74,8 +75,8 @@ const listening = async (): Promise<{
   };
 };
 
-describe('managed runner pool (e2e)', () => {
-  let managedEndpoint: Awaited<ReturnType<typeof listening>>;
+describe('platform runner pool (e2e)', () => {
+  let platformEndpoint: Awaited<ReturnType<typeof listening>>;
   let app: INestApplication;
   let db: DrizzleDatabase;
   let workspaceId: string;
@@ -84,7 +85,7 @@ describe('managed runner pool (e2e)', () => {
 
   const http = () => served(app);
 
-  const managed = () => app.get(ManagedPools);
+  const platformPools = () => app.get(PlatformPools);
 
   const queue = async (placement: string[][] = []) => {
     const id = randomUUID();
@@ -107,14 +108,14 @@ describe('managed runner pool (e2e)', () => {
     return id;
   };
 
-  const managedRow = async () => {
+  const platformRow = async () => {
     const [row] = await db
       .select()
       .from(schema.runnerPool)
       .where(
         and(
           eq(schema.runnerPool.workspaceId, workspaceId),
-          eq(schema.runnerPool.managed, true),
+          eq(schema.runnerPool.platform, true),
         ),
       );
 
@@ -122,12 +123,12 @@ describe('managed runner pool (e2e)', () => {
   };
 
   beforeAll(async () => {
-    managedEndpoint = await listening();
+    platformEndpoint = await listening();
     app = await openApp(undefined, {
       env: {
-        SPOTLIGHT_MANAGED_POOL_URL: managedEndpoint.url,
-        SPOTLIGHT_MANAGED_POOL_SECRET: SECRET,
-        SPOTLIGHT_MANAGED_POOL_LABELS: '',
+        SPOTLIGHT_PLATFORM_POOL_URL: platformEndpoint.url,
+        SPOTLIGHT_PLATFORM_POOL_SECRET: SECRET,
+        SPOTLIGHT_PLATFORM_POOL_LABELS: [],
       },
     });
     db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -135,15 +136,15 @@ describe('managed runner pool (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-    managedEndpoint.server.close();
+    platformEndpoint.server.close();
   });
 
   beforeEach(async () => {
-    workspaceId = `managed-${randomUUID().slice(0, 8)}`;
+    workspaceId = `platform-${randomUUID().slice(0, 8)}`;
     const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
-    await managed().createFor(WorkspaceId.of(workspaceId));
+    await platformPools().add(WorkspaceId.of(workspaceId));
   });
 
   afterEach(async () => {
@@ -157,14 +158,45 @@ describe('managed runner pool (e2e)', () => {
     await unseat();
   });
 
-  it('adds one managed pool to the workspace, with no provision URL or secret in its row', async () => {
-    await managed().reconcile();
+  it('adds the platform pool to a workspace created through the API, when identity.workspace-created.v1 arrives', async () => {
+    const slug = `acme-${randomUUID().slice(0, 8)}`;
+    // Another person makes the workspace, so that the cleanup of the seated team keeps working. The database is dropped with the app.
+    const founder = randomUUID();
+    await db
+      .insert(schema.user)
+      .values({ id: founder, name: 'Ada', email: `${founder}@example.com` });
+    const created = await http()
+      .post('/api/workspaces')
+      .set(TEST_USER_HEADER, founder)
+      .send({
+        name: 'Acme',
+        slug,
+        teamName: 'Core',
+        survey: { jobFunction: 'engineering' },
+      })
+      .expect(201);
+    const { id } = created.body as { id: string };
 
-    const row = await managedRow();
+    const [row] = await eventually(async () => {
+      const rows = await db
+        .select()
+        .from(schema.runnerPool)
+        .where(eq(schema.runnerPool.workspaceId, id));
+
+      return rows.length > 0 ? rows : null;
+    });
+
+    expect(row).toMatchObject({ key: 'spotlight', platform: true });
+  });
+
+  it('adds one platform pool to the workspace, with no provision URL or secret in its row', async () => {
+    await platformPools().reconcile();
+
+    const row = await platformRow();
 
     expect(row).toMatchObject({
       key: 'spotlight',
-      managed: true,
+      platform: true,
       disabled: false,
       provisionUrl: null,
       provisionSecret: null,
@@ -182,7 +214,7 @@ describe('managed runner pool (e2e)', () => {
     const runId = await queue();
 
     const call = await eventually(async () =>
-      managedEndpoint.calls.find((each) => runIdOf(each) === runId),
+      platformEndpoint.calls.find((each) => runIdOf(each) === runId),
     );
     const signed = `${String(call.headers['webhook-id'])}.${String(call.headers['webhook-timestamp'])}.${call.body}`;
     const key = Buffer.from(SECRET.slice('whsec_'.length), 'base64');
@@ -196,7 +228,21 @@ describe('managed runner pool (e2e)', () => {
     });
   });
 
-  it('keeps a run that a pool of the workspace fits off the managed pool', async () => {
+  it('keeps a run that a pull pool of the workspace fits off the platform pool', async () => {
+    await http()
+      .post(`/api/v1/resources/workspaces/${workspaceId}/runner-pools`)
+      .set(TEST_USER_HEADER, owner)
+      .set('Idempotency-Key', randomUUID())
+      .send({ key: 'ephemeral', labels: ['on-premises'] })
+      .expect(201);
+    const runId = await queue([['on-premises']]);
+
+    await app.get(ProvisionWork).due();
+
+    expect(platformEndpoint.calls.map(runIdOf)).not.toContain(runId);
+  });
+
+  it('keeps a run that a push pool of the workspace fits off the platform pool', async () => {
     const own = await listening();
 
     try {
@@ -216,13 +262,13 @@ describe('managed runner pool (e2e)', () => {
         own.calls.some((each) => runIdOf(each) === runId),
       );
 
-      expect(managedEndpoint.calls.map(runIdOf)).not.toContain(runId);
+      expect(platformEndpoint.calls.map(runIdOf)).not.toContain(runId);
     } finally {
       own.server.close();
     }
   });
 
-  it('leaves the managed pool out of the pools that Terraform reads, and refuses a pool with its key', async () => {
+  it('leaves the platform pool out of the pools that Terraform reads, and refuses a pool with its key', async () => {
     const listed = await http()
       .get(`/api/v1/resources/workspaces/${workspaceId}/runner-pools`)
       .set(TEST_USER_HEADER, owner)
@@ -236,15 +282,15 @@ describe('managed runner pool (e2e)', () => {
       .set('Idempotency-Key', randomUUID())
       .send({
         key: 'spotlight',
-        provision: { url: managedEndpoint.url, secret: OWN_SECRET },
+        provision: { url: platformEndpoint.url, secret: OWN_SECRET },
       });
 
     expect(refused.status).toBe(422);
     expect(JSON.stringify(refused.body)).toContain(
-      'the key of the pool that this deployment manages',
+      'the key of the platform pool that Spotlight adds to each workspace',
     );
 
-    const row = await managedRow();
+    const row = await platformRow();
 
     await http()
       .get(`/api/v1/resources/runner-pools/${row?.id}`)
@@ -252,18 +298,16 @@ describe('managed runner pool (e2e)', () => {
       .expect(404);
   });
 
-  it('provisions nothing through the managed pool of a workspace whose operator disabled it, also after a restart', async () => {
-    const by = ChangeActor.spotlight(WorkspaceId.of(workspaceId));
-
+  it('provisions nothing through the platform pool of a workspace whose operator disabled it, also after a restart', async () => {
     await expect(
-      managed().update(WorkspaceId.of(workspaceId), true, by),
-    ).resolves.toEqual({ outcome: 'updated', disabled: true });
-    await managed().reconcile();
+      app.get(CommandBus).execute(new DisablePlatformPoolCommand(workspaceId)),
+    ).resolves.toEqual({ outcome: 'disabled' });
+    await platformPools().reconcile();
     const runId = await queue();
 
     await app.get(ProvisionWork).due();
 
-    expect(managedEndpoint.calls.map(runIdOf)).not.toContain(runId);
-    expect(await managedRow()).toMatchObject({ disabled: true });
+    expect(platformEndpoint.calls.map(runIdOf)).not.toContain(runId);
+    expect(await platformRow()).toMatchObject({ disabled: true });
   });
 });

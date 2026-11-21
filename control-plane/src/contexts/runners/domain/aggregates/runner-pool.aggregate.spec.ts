@@ -1,7 +1,8 @@
 import { EGRESS_ID } from '@runners/domain/aggregates/egress.fake-spec';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
-  aManagedPool,
+  anOwnPoolWithThePlatformKey,
+  aPlatformPool,
   aPullPool,
   aPushPool,
   encryptedOf,
@@ -14,7 +15,7 @@ import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runne
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
-import { ManagedAccess } from '@runners/domain/value-objects/pool-access.vo';
+import { PlatformAccess } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -313,7 +314,7 @@ describe('RunnerPool egress', () => {
   });
 });
 
-describe('RunnerPool managed by the deployment', () => {
+describe('RunnerPool for the platform', () => {
   const recordedOf = (pool: RunnerPool) =>
     pool
       .pullEvents()
@@ -321,32 +322,52 @@ describe('RunnerPool managed by the deployment', () => {
         each instanceof RunnerPoolUpdated ? [each.change.recordedDetail] : [],
       );
 
-  it('is created with the managed key, no run limit and no provision URL or secret of its own', () => {
-    const pool = aManagedPool({ labels: ['linux'] });
+  it('is created with the platform key, no run limit and no provision URL or secret of its own', () => {
+    const pool = aPlatformPool({ labels: ['linux'] });
     const [created] = pool.pullEvents();
 
-    expect(pool.key.equals(PoolKey.managed())).toBe(true);
-    expect(pool.isManaged).toBe(true);
+    expect(pool.key.equals(PoolKey.platform())).toBe(true);
+    expect(pool.isPlatform).toBe(true);
+    expect(pool.access.kind).toBe('platform');
     expect(pool.maxRuns).toBeNull();
     expect(pool.provision).toBeNull();
     expect(pool.mode).toBe('push');
-    expect(pool.canProvision).toBe(true);
     expect(pool.roomFor(occupied(500))).toBeNull();
     expect(pool.capacity('push', occupied(500))).toBe('open');
     expect(created).toBeInstanceOf(RunnerPoolCreated);
   });
 
+  it('provisions only while the deployment sets its provisioner, and a pool of the workspace provisions either way', () => {
+    expect(aPlatformPool().canProvision(true)).toBe(true);
+    expect(aPlatformPool().canProvision(false)).toBe(false);
+    expect(aPushPool().canProvision(false)).toBe(true);
+    expect(aPullPool().canProvision(true)).toBe(false);
+  });
+
+  it('keeps the platform key for the platform pool', () => {
+    expect(() =>
+      RunnerPool.create({
+        id: PoolId.of('pool_2'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        ...definition('spotlight'),
+        access: { mode: 'pull', tokenHash: hashOf('a'), tokenVersion: null },
+        by: BY,
+      }),
+    ).toThrow(InvalidRunnerPoolError);
+    expect(anOwnPoolWithThePlatformKey().isPlatform).toBe(false);
+  });
+
   it('goes out through the egress the deployment names for it', () => {
-    const pool = aManagedPool({ egress: EgressReference.platform() });
+    const pool = aPlatformPool({ egress: EgressReference.platform() });
 
     expect(pool.usesEgress(EgressReference.platform())).toBe(true);
     expect(pool.servesEgressNeed(true)).toBe(true);
     expect(pool.egressTraffic.value).toBe('all');
-    expect(aManagedPool().servesEgressNeed(true)).toBe(false);
+    expect(aPlatformPool().servesEgressNeed(true)).toBe(false);
   });
 
   it('takes the labels and egress the deployment sets now, and changes nothing when they are the same', () => {
-    const pool = aManagedPool({ labels: ['linux'] });
+    const pool = aPlatformPool({ labels: ['linux'] });
     pool.pullEvents();
 
     expect(
@@ -369,10 +390,10 @@ describe('RunnerPool managed by the deployment', () => {
   });
 
   it('provisions nothing once disabled, and keeps disabled when the deployment changes its labels', () => {
-    const disabled = aManagedPool().disable(BY);
+    const disabled = aPlatformPool().disable(BY);
 
     expect(disabled.isDisabled).toBe(true);
-    expect(disabled.canProvision).toBe(false);
+    expect(disabled.canProvision(true)).toBe(false);
     expect(disabled.roomFor(occupied(0))).toBe(0);
     expect(disabled.capacity('push', occupied(0))).toBe('gone');
     expect(
@@ -381,8 +402,8 @@ describe('RunnerPool managed by the deployment', () => {
     ).toBe(true);
   });
 
-  it('records each turn off and on, and nothing when it is already so', () => {
-    const pool = aManagedPool();
+  it('records each change to disabled or enabled, and nothing when it is already so', () => {
+    const pool = aPlatformPool();
     pool.pullEvents();
     const disabled = pool.disable(BY);
 
@@ -393,10 +414,10 @@ describe('RunnerPool managed by the deployment', () => {
     ]);
   });
 
-  it('refuses the changes of a workspace pool, and a workspace pool refuses the changes of a managed one', () => {
+  it('refuses the changes of a workspace pool, and a workspace pool refuses the changes of the platform pool', () => {
     expect(() =>
-      aManagedPool().update(
-        { key: PoolKey.managed(), labels: RunnerLabels.none(), maxRuns: null },
+      aPlatformPool().update(
+        { key: PoolKey.platform(), labels: RunnerLabels.none(), maxRuns: null },
         { mode: 'pull', tokenHash: hashOf('a'), tokenVersion: null },
         BY,
       ),
@@ -407,12 +428,12 @@ describe('RunnerPool managed by the deployment', () => {
     ).toThrow(InconsistentStateError);
   });
 
-  it('does not read back as managed with another key or a run limit', () => {
+  it('does not read back as the platform pool with another key or a run limit, nor as a disabled pool of the workspace', () => {
     const stored = {
       id: PoolId.of('pool_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       labels: RunnerLabels.none(),
-      access: ManagedAccess.of(null, false),
+      access: PlatformAccess.of(null),
       version: 0,
     };
 
@@ -426,8 +447,17 @@ describe('RunnerPool managed by the deployment', () => {
     expect(() =>
       RunnerPool.rehydrate({
         ...stored,
-        key: PoolKey.managed(),
+        key: PoolKey.platform(),
         maxRuns: MaxRuns.of(2),
+      }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      RunnerPool.rehydrate({
+        ...stored,
+        key: PoolKey.of('sandboxes'),
+        maxRuns: null,
+        access: aPushPool().access,
+        disabled: true,
       }),
     ).toThrow(InconsistentStateError);
   });

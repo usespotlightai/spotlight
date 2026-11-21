@@ -125,9 +125,9 @@ export class ProvisionWork {
   async due(): Promise<void> {
     await this.expired();
 
-    const offered = (await this.pools.provisioning(await this.queued())).map(
-      (each): OfferedPool => ({ ...each, pool: PoolId.of(each.poolId) }),
-    );
+    const offered = (
+      await this.pools.provisioning(await this.pendingWorkspaces())
+    ).map((each): OfferedPool => ({ ...each, pool: PoolId.of(each.poolId) }));
 
     await awaitAll(
       [...byWorkspace(offered).values()].map((pools) =>
@@ -136,8 +136,8 @@ export class ProvisionWork {
     );
   }
 
-  // Every workspace has the managed pool, so the tick visits only the workspaces with work that waits.
-  private async queued(): Promise<readonly WorkspaceId[]> {
+  // Every workspace can have the platform pool, so the tick visits only the workspaces with work that waits.
+  private async pendingWorkspaces(): Promise<readonly WorkspaceId[]> {
     const [runs, reviewWork] = await Promise.all([
       this.runs.workspacesAwaitingProvision(this.clock.now()),
       this.reviewWork.workspacesAwaiting(),
@@ -148,14 +148,15 @@ export class ProvisionWork {
 
   private async inWorkspace(pools: readonly OfferedPool[]): Promise<void> {
     const [first] = pools;
+    const provisioning = pools.filter((offered) => offered.provisions);
 
-    if (!first) {
+    if (!first || provisioning.length === 0) {
       return;
     }
 
     let room = PoolRoom.of(
       await Promise.all(
-        pools.map(
+        provisioning.map(
           async (offered) =>
             [
               offered.pool,
@@ -163,6 +164,9 @@ export class ProvisionWork {
             ] as const,
         ),
       ),
+      provisioning
+        .filter((offered) => offered.platform)
+        .map((offered) => offered.pool),
     );
     const placed: {
       provisionable: Provisionable;
@@ -183,7 +187,7 @@ export class ProvisionWork {
       }
 
       if (placed.length < MAX_AT_ONCE) {
-        room = room.afterTaking(chosen.pool);
+        room = room.afterPlacing(chosen);
         placed.push({ provisionable, fitting });
       }
     };
@@ -193,7 +197,7 @@ export class ProvisionWork {
       this.clock.now(),
     );
 
-    const withEgress = pools.some((offered) => offered.egress);
+    const withEgress = provisioning.some((offered) => offered.egress);
 
     for (const page of [
       async (skip: number) => {
@@ -234,7 +238,7 @@ export class ProvisionWork {
     ]) {
       for (
         let at = 0;
-        at < MAX_PAGES && placed.length < MAX_AT_ONCE && room.anyLeft;
+        at < MAX_PAGES && placed.length < MAX_AT_ONCE && room.readsPage(at);
         at++
       ) {
         const { read, found } = await page(at * PAGE);

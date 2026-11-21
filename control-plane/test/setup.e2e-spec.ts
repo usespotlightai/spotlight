@@ -221,15 +221,28 @@ describe('the inbox item of a setup list', () => {
 });
 
 describe('whether a workspace is ready to run', () => {
-  const runners = () =>
+  const runners = (platformPool = false) =>
     new DrizzleRunnerReader(
       db,
       {
         now: () => NOW,
         sleep: async () => {},
       },
-      true,
+      { platformEgress: true, platformPool },
     );
+
+  const platformPooled = (
+    workspaceId: WorkspaceId,
+    over: { disabled?: boolean; egress?: string | null } = {},
+  ) =>
+    db.insert(schema.runnerPool).values({
+      id: randomUUID(),
+      workspaceId: workspaceId.value,
+      key: 'spotlight',
+      platform: true,
+      disabled: over.disabled ?? false,
+      provisionEgress: over.egress ?? null,
+    });
 
   const pooled = async (workspaceId: WorkspaceId, mode: 'pull' | 'push') => {
     const id = randomUUID();
@@ -350,6 +363,31 @@ describe('whether a workspace is ready to run', () => {
     });
 
     await expect(runners().readyToRun(workspace)).resolves.toBe(false);
+  });
+
+  it('is ready with the platform pool while the deployment sets its provisioner, and goes out through its egress', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    await platformPooled(workspace, { egress: 'spotlight' });
+
+    await expect(runners(true).readyToRun(workspace)).resolves.toBe(true);
+    await expect(runners(true).hasEgressCapableRunner(workspace)).resolves.toBe(
+      true,
+    );
+  });
+
+  it('is not ready with only the platform pool while the deployment sets no provisioner for it, or once it is disabled', async () => {
+    const unset = WorkspaceId.of(randomUUID());
+    const disabled = WorkspaceId.of(randomUUID());
+
+    await platformPooled(unset, { egress: 'spotlight' });
+    await platformPooled(disabled, { disabled: true, egress: 'spotlight' });
+
+    await expect(runners(false).readyToRun(unset)).resolves.toBe(false);
+    await expect(runners(false).hasEgressCapableRunner(unset)).resolves.toBe(
+      false,
+    );
+    await expect(runners(true).readyToRun(disabled)).resolves.toBe(false);
   });
 
   it('does not count a host or push pool in another workspace', async () => {

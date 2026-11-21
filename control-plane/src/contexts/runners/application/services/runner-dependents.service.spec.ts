@@ -1,6 +1,9 @@
 import { RunnerDependents } from '@runners/application/services/runner-dependents.service';
 import { anEgress } from '@runners/domain/aggregates/egress.fake-spec';
-import { aPullPool } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import {
+  aPlatformPool,
+  aPullPool,
+} from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
@@ -38,7 +41,8 @@ const dependents = (declared: WorkspaceRunners | null) =>
       ofWorkspace: async () => declared,
     } as unknown as WorkspaceRunnersRepository,
     {
-      inWorkspace: async () => [aPullPool()],
+      inWorkspace: async () => [aPullPool(), aPlatformPool()],
+      listOwned: async () => [aPullPool()],
     } as unknown as RunnerPoolRepository,
     {
       inWorkspace: async () => [anEgress()],
@@ -63,6 +67,12 @@ describe('RunnerDependents', () => {
         { kind: 'workspace-runners', key: null },
       ],
     );
+  });
+
+  it('does not name the platform pool, which Spotlight deletes with the workspace', async () => {
+    const named = await dependents(null).dependentsOf(WORKSPACE);
+
+    expect(named).not.toContainEqual({ kind: 'runner-pool', key: 'spotlight' });
   });
 
   it('names no declaration when the workspace made none', async () => {

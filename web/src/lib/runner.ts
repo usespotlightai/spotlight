@@ -226,10 +226,17 @@ export const poolName = (source: CredentialSourceResponseDto): string =>
 
 export const PUSH_POOL = 'Push pool';
 
-export const MANAGED_POOL = 'Managed by the deployment';
+export const PLATFORM_POOL = 'Platform pool';
 
-export const MANAGED_POOL_TIP =
-  'The operator of this deployment sets up this pool for each workspace. Spotlight sends work to it only when no other pool of this workspace fits the work.';
+export const PLATFORM_POOL_WITH_EGRESS = `${PLATFORM_POOL} with egress`;
+
+const PLATFORM_POOL_TIP =
+  'Spotlight adds this pool to each workspace. It sends work to this pool only when no other pool or host of this workspace fits the work.';
+
+export const platformPoolTip = (egress: boolean): string =>
+  egress
+    ? `${PLATFORM_POOL_TIP} The runs of this pool go out through the Spotlight egress. Runs that use secrets can run here.`
+    : PLATFORM_POOL_TIP;
 
 export const poolStatus = (pool: PushPool): string => {
   const running = pool.runners.filter(

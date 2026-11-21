@@ -92,19 +92,24 @@ const aPool = (
   key: string,
   labels: string[] = [],
   egress = false,
-  managed = false,
+  platform = false,
+  provisions = true,
 ): BoundedPool => ({
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
   key,
   labels: RunnerOffer.of(labels),
   egress,
-  managed,
+  platform,
+  provisions,
   maxRuns: null,
 });
 
-const aManagedPool = (labels: string[] = [], egress = false): BoundedPool =>
+const aPlatformPool = (labels: string[] = [], egress = false): BoundedPool =>
   aPool('spotlight', labels, egress, true);
+
+const aPulledPool = (key: string, labels: string[] = []): BoundedPool =>
+  aPool(key, labels, true, false, false);
 
 const provisioning = (
   queue: readonly Run[],
@@ -671,10 +676,10 @@ describe('ProvisionWork', () => {
     expect(provision).not.toHaveBeenCalled();
   });
 
-  it('hands a run to the managed pool when no pool of the workspace fits it', async () => {
+  it('hands a run to the platform pool when no pool of the workspace fits it', async () => {
     const { provisioner, provision } = provisioning(
       [waiting('run_1', ['gpu']), waiting('run_2', ['arm'])],
-      [aPool('burst', ['gpu']), aManagedPool(['arm'])],
+      [aPool('burst', ['gpu']), aPlatformPool(['arm'])],
     );
 
     await provisioner.due();
@@ -690,10 +695,10 @@ describe('ProvisionWork', () => {
     ]);
   });
 
-  it('keeps a run off the managed pool while a full pool of the workspace fits it', async () => {
+  it('keeps a run off the platform pool while a full pool of the workspace fits it', async () => {
     const { provisioner, provision, run } = provisioning(
       [waiting('run_1', ['gpu'])],
-      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aManagedPool(['gpu'])],
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aPlatformPool(['gpu'])],
       {},
       NOON,
       1,
@@ -705,11 +710,77 @@ describe('ProvisionWork', () => {
     expect(run('run_1').reservation).toBeNull();
   });
 
+  it('keeps a run that a pull pool or a trust fits off the platform pool, and asks no host for a runner', async () => {
+    const { provisioner, provision, run } = provisioning(
+      [waiting('run_1', ['on-premises']), waiting('run_2', ['vpc'])],
+      [
+        aPulledPool('ephemeral', ['on-premises']),
+        aPulledPool('cluster', ['vpc']),
+        aPlatformPool(['on-premises', 'vpc']),
+      ],
+    );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(run('run_1').reservation).toBeNull();
+    expect(run('run_2').reservation).toBeNull();
+  });
+
+  it('visits no workspace whose pools hosts pull from, and Spotlight asks none of them for runners', async () => {
+    const { provisioner, awaitingProvision } = provisioning(
+      [waiting('run_1', ['on-premises'])],
+      [aPulledPool('ephemeral', ['on-premises'])],
+    );
+
+    await provisioner.due();
+
+    expect(awaitingProvision).not.toHaveBeenCalled();
+  });
+
+  it('reads one page, not more, while all waiting work fits only full pools of the workspace beside the platform pool', async () => {
+    const { provisioner, provision, awaitingProvision, checks } = provisioning(
+      Array.from({ length: 450 }, (_, at) => waiting(`run_${at}`, ['gpu'])),
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aPlatformPool()],
+      {},
+      NOON,
+      1,
+    );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(awaitingProvision).toHaveBeenCalledOnce();
+    expect(checks.awaiting).toHaveBeenCalledOnce();
+  });
+
+  it('reads the next page once work fell through to the platform pool', async () => {
+    const { provisioner, provision, awaitingProvision } = provisioning(
+      [
+        waiting('arm_1', ['arm']),
+        ...Array.from({ length: 200 }, (_, at) =>
+          waiting(`gpu_${at}`, ['gpu']),
+        ),
+      ],
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aPlatformPool(['arm'])],
+      {},
+      NOON,
+      1,
+    );
+
+    await provisioner.due();
+
+    expect(awaitingProvision).toHaveBeenCalledTimes(2);
+    expect(provision.mock.calls.map(([request]) => request.work.id)).toEqual([
+      'arm_1',
+    ]);
+  });
+
   it('visits only the workspaces with work that waits', async () => {
-    const ws2 = { ...aManagedPool(), workspaceId: WorkspaceId.of('ws_2') };
+    const ws2 = { ...aPlatformPool(), workspaceId: WorkspaceId.of('ws_2') };
     const { provisioner, provision, offering } = provisioning(
       [waiting('run_1')],
-      [aManagedPool(), ws2],
+      [aPlatformPool(), ws2],
     );
 
     await provisioner.due();

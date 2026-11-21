@@ -1,5 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class PlatformPoolResponseDto {
+  @ApiProperty({
+    example: true,
+    description:
+      'The runs of the pool go out through the platform egress of this deployment',
+  })
+  readonly egress: boolean;
+
+  constructor(egress: boolean) {
+    this.egress = egress;
+  }
+}
+
 export class CredentialSourceResponseDto {
   @ApiProperty({ enum: ['pool', 'trust'], example: 'pool' })
   readonly kind: 'pool' | 'trust';
@@ -13,16 +26,21 @@ export class CredentialSourceResponseDto {
   readonly key: string | null;
 
   @ApiProperty({
-    example: false,
+    type: PlatformPoolResponseDto,
+    nullable: true,
     description:
-      'The deployment manages the pool and its provisioner for every workspace. Terraform does not manage it',
+      'Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it',
   })
-  readonly managed: boolean;
+  readonly platform: PlatformPoolResponseDto | null;
 
-  constructor(kind: 'pool' | 'trust', key: string | null, managed: boolean) {
+  constructor(
+    kind: 'pool' | 'trust',
+    key: string | null,
+    platform: PlatformPoolResponseDto | null,
+  ) {
     this.kind = kind;
     this.key = key;
-    this.managed = managed;
+    this.platform = platform;
   }
 }
 

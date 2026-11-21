@@ -1,6 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import type { ManagedPoolChangeDto } from '@runners/application/dto/managed-pool.dto';
-import type { ManagedPoolSettings } from '@runners/application/ports/managed-pool-settings.port';
+import type { PlatformPoolChangeDto } from '@runners/application/dto/platform-pool.dto';
+import type { PlatformPoolSettings } from '@runners/application/ports/platform-pool-settings.port';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
@@ -17,22 +17,23 @@ const lostRace = (error: unknown): boolean =>
   error instanceof RunnerPoolAlreadyExistsError ||
   error instanceof RunnerPoolVersionConflictError;
 
-// Keeps one managed pool in each workspace while the deployment sets a managed provisioner. While it sets none, only the disabled managed pools stay. Another instance can do the same work at the same time, so each step accepts that it lost a race.
-export class ManagedPools {
+// Keeps one platform pool in each workspace while the deployment sets the platform provisioner. While it sets none, only the disabled platform pools stay. Another instance can do the same work at the same time, so each step accepts that it lost a race. The operator of the deployment is the actor of each change.
+export class PlatformPools {
   constructor(
     private readonly pools: RunnerPoolRepository,
     private readonly workspaces: WorkspaceReaderPort,
-    private readonly settings: ManagedPoolSettings | null,
+    private readonly settings: PlatformPoolSettings | null,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
   ) {}
 
+  // Each instance walks every workspace, one at a time, at each start. That is one read of the pools and one write for each workspace that changes.
   async reconcile(): Promise<void> {
-    const keyed = await this.pools.withKey(PoolKey.managed());
+    const keyed = await this.pools.findAllByKey(PoolKey.platform());
 
     if (!this.settings) {
-      await this.removeAll(keyed);
+      await this.deleteEnabled(keyed);
       return;
     }
 
@@ -44,24 +45,25 @@ export class ManagedPools {
 
       await this.step(workspaceId, () =>
         pool
-          ? this.reconciled(pool, settings)
-          : this.created(workspaceId, settings),
+          ? this.reconcilePool(pool, settings)
+          : this.create(workspaceId, settings),
       );
     }
   }
 
-  async createFor(workspaceId: WorkspaceId): Promise<void> {
+  // Adds the platform pool to a workspace that was just created.
+  async add(workspaceId: WorkspaceId): Promise<void> {
     // The event can arrive after the workspace is deleted.
     if (!this.settings || !(await this.workspaces.isOpen(workspaceId))) {
       return;
     }
 
-    const pool = await this.managedKeyHolder(workspaceId);
+    const pool = await this.platformKeyHolder(workspaceId);
 
     try {
       await (pool
-        ? this.reconciled(pool, this.settings)
-        : this.created(workspaceId, this.settings));
+        ? this.reconcilePool(pool, this.settings)
+        : this.create(workspaceId, this.settings));
     } catch (error) {
       if (!lostRace(error)) {
         throw error;
@@ -69,29 +71,37 @@ export class ManagedPools {
     }
   }
 
-  // Turns the managed pool of one workspace off or on. It stays so across restarts.
-  async update(
+  // The platform pool of the workspace stays disabled across restarts, until it is enabled again.
+  disable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
+    return this.change(workspaceId, true);
+  }
+
+  enable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
+    return this.change(workspaceId, false);
+  }
+
+  private async change(
     workspaceId: WorkspaceId,
     disabled: boolean,
-    by: ChangeActor,
-  ): Promise<ManagedPoolChangeDto | null> {
+  ): Promise<PlatformPoolChangeDto | null> {
     if (!this.settings) {
-      return { outcome: 'off' };
+      return { outcome: 'unset' };
     }
 
     if (!(await this.workspaces.isOpen(workspaceId))) {
       return null;
     }
 
-    const found = await this.managedKeyHolder(workspaceId);
+    const found = await this.platformKeyHolder(workspaceId);
 
-    if (found && !found.isManaged) {
-      return { outcome: 'owned' };
+    if (found && !found.isPlatform) {
+      return { outcome: 'key-taken' };
     }
 
+    const by = ChangeActor.spotlight(workspaceId);
     const pool =
       found ??
-      RunnerPool.createManaged({
+      RunnerPool.createPlatform({
         id: PoolId.of(this.ids.generate()),
         workspaceId,
         labels: this.settings.labels,
@@ -104,24 +114,24 @@ export class ManagedPools {
       found ? this.pools.save(changed) : this.pools.add(changed),
     );
 
-    return { outcome: 'updated', disabled: changed.isDisabled };
+    return { outcome: changed.isDisabled ? 'disabled' : 'enabled' };
   }
 
-  private async managedKeyHolder(
+  private async platformKeyHolder(
     workspaceId: WorkspaceId,
   ): Promise<RunnerPool | null> {
     return (
       (await this.pools.inWorkspace(workspaceId)).find((each) =>
-        each.key.equals(PoolKey.managed()),
+        each.key.equals(PoolKey.platform()),
       ) ?? null
     );
   }
 
-  private async created(
+  private async create(
     workspaceId: WorkspaceId,
-    settings: ManagedPoolSettings,
+    settings: PlatformPoolSettings,
   ): Promise<void> {
-    const pool = RunnerPool.createManaged({
+    const pool = RunnerPool.createPlatform({
       id: PoolId.of(this.ids.generate()),
       workspaceId,
       labels: settings.labels,
@@ -132,18 +142,18 @@ export class ManagedPools {
     await this.transaction.inTransaction(() => this.pools.add(pool));
     this.logger.info(
       { workspaceId: workspaceId.value, pool: pool.id.value },
-      'Added the managed runner pool to a workspace',
+      'Added the platform runner pool to a workspace',
     );
   }
 
-  private async reconciled(
+  private async reconcilePool(
     pool: RunnerPool,
-    settings: ManagedPoolSettings,
+    settings: PlatformPoolSettings,
   ): Promise<void> {
-    if (!pool.isManaged) {
+    if (!pool.isPlatform) {
       this.logger.info(
         { workspaceId: pool.workspaceId.value, pool: pool.id.value },
-        `Did not add the managed runner pool, because the workspace has its own pool ${pool.key.value}`,
+        `Did not add the platform runner pool, because the workspace has its own pool ${pool.key.value}`,
       );
       return;
     }
@@ -158,10 +168,10 @@ export class ManagedPools {
     }
   }
 
-  // A disabled managed pool provisions nothing, and it keeps the choice of the operator until the managed provisioner is set again.
-  private async removeAll(keyed: readonly RunnerPool[]): Promise<void> {
+  // A disabled platform pool provisions nothing. It keeps the choice of the operator until the deployment sets the platform provisioner again.
+  private async deleteEnabled(keyed: readonly RunnerPool[]): Promise<void> {
     for (const pool of keyed) {
-      if (pool.isManaged && !pool.isDisabled) {
+      if (pool.isPlatform && !pool.isDisabled) {
         await this.step(pool.workspaceId, () =>
           this.transaction.inTransaction(() =>
             this.pools.save(
@@ -186,7 +196,7 @@ export class ManagedPools {
 
       this.logger.warn(
         { err: error, workspaceId: workspaceId.value },
-        'Could not reconcile the managed runner pool of a workspace',
+        'Could not reconcile the platform runner pool of a workspace',
       );
     }
   }

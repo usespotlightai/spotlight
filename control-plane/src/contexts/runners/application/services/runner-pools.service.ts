@@ -6,7 +6,9 @@ import type {
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { occupancyOf } from '@runners/application/services/pool-occupancy';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -15,12 +17,13 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export interface RunnerPoolsSettings {
   readonly platformEgress: boolean;
-  readonly managedPool: boolean;
+  readonly platformPool: boolean;
 }
 
 export class RunnerPools implements RunnerPoolsPort {
   constructor(
     private readonly pools: RunnerPoolRepository,
+    private readonly trusts: RunnerTrustRepository,
     private readonly runners: RunnerRepository,
     private readonly placements: SandboxPlacementsPort,
     private readonly authenticator: RunnerAuthenticatorPort,
@@ -48,15 +51,25 @@ export class RunnerPools implements RunnerPoolsPort {
     return pool ? this.atWork(pool) : null;
   }
 
+  // The pull pools and trusts come too, so that work which hosts can take stays off the platform pool.
   async provisioning(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly PoolAtWork[]> {
-    return (await this.pools.pushingIn(workspaceIds))
-      .filter(
-        (pool) =>
-          pool.canProvision && (this.settings.managedPool || !pool.isManaged),
-      )
-      .map((pool) => this.atWork(pool));
+    const [pools, trusts] = await Promise.all([
+      this.pools.findAllByWorkspaces(workspaceIds),
+      this.trusts.findAllByWorkspaces(workspaceIds),
+    ]);
+
+    return [
+      ...pools
+        .filter(
+          (pool) =>
+            pool.acceptsPullToken ||
+            pool.canProvision(this.settings.platformPool),
+        )
+        .map((pool) => this.atWork(pool)),
+      ...trusts.map((trust) => this.trustAtWork(trust)),
+    ];
   }
 
   async running(poolId: string, now: Date): Promise<number> {
@@ -75,13 +88,30 @@ export class RunnerPools implements RunnerPoolsPort {
   }
 
   private atWork(pool: RunnerPool): PoolAtWork {
+    const pulled = pool.mode === 'pull';
+
     return {
       poolId: pool.id.value,
       workspaceId: pool.workspaceId,
       key: pool.key.value,
       labels: RunnerOffer.of(pool.labels.values),
-      egress: pool.egress?.usableWith(this.settings.platformEgress) ?? false,
-      managed: pool.isManaged,
+      egress:
+        pulled ||
+        (pool.egress?.usableWith(this.settings.platformEgress) ?? false),
+      platform: pool.isPlatform,
+      provisions: pool.canProvision(this.settings.platformPool),
+    };
+  }
+
+  private trustAtWork(trust: RunnerTrust): PoolAtWork {
+    return {
+      poolId: trust.id.value,
+      workspaceId: trust.workspaceId,
+      key: trust.key.value,
+      labels: RunnerOffer.of(trust.labels.values),
+      egress: true,
+      platform: false,
+      provisions: false,
     };
   }
 }

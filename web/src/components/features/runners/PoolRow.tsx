@@ -9,9 +9,10 @@ import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import { StatusDot } from '@/components/features/runners/StatusDot';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
-  MANAGED_POOL,
-  MANAGED_POOL_TIP,
   type NamedHarness,
+  PLATFORM_POOL,
+  PLATFORM_POOL_WITH_EGRESS,
+  platformPoolTip,
   type PushPool,
   poolHarnesses,
   poolName,
@@ -33,11 +34,16 @@ export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
       <div className={cn(HOST_ROW, HOST_ROW_HOVER, HOST_COLUMNS)}>
         <span className="min-w-0 truncate text-foreground">{name}</span>
 
-        {pool.source.managed ? (
+        {pool.source.platform ? (
           <span className="flex min-w-0">
-            <WithTooltip tooltip={MANAGED_POOL_TIP} named={MANAGED_POOL}>
+            <WithTooltip
+              tooltip={platformPoolTip(pool.source.platform.egress)}
+              named={PLATFORM_POOL}
+            >
               <span className="min-w-0 truncate text-muted-foreground text-xs">
-                {MANAGED_POOL}
+                {pool.source.platform.egress
+                  ? PLATFORM_POOL_WITH_EGRESS
+                  : PLATFORM_POOL}
               </span>
             </WithTooltip>
           </span>

@@ -1,7 +1,10 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
 import { anEgress } from '@runners/domain/aggregates/egress.fake-spec';
-import { aPullPool } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import {
+  aPlatformPool,
+  aPullPool,
+} from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
@@ -56,8 +59,10 @@ const configuration = new RunnerConfiguration(
   } as unknown as WorkspaceRunnersRepository,
   { slugOf: async () => 'acme' } as unknown as WorkspaceReaderPort,
   {
-    inWorkspace: async () => [pool],
-    find: async () => pool,
+    inWorkspace: async () => [pool, aPlatformPool()],
+    listOwned: async () => [pool],
+    find: async () => aPlatformPool(),
+    findOwned: async () => pool,
   } as unknown as RunnerPoolRepository,
   {
     inWorkspace: async () => [egress],
@@ -109,6 +114,15 @@ describe('RunnerConfiguration', () => {
         trusts: ['production'],
         pools: ['ephemeral'],
       },
+    });
+  });
+
+  it('leaves out the platform pool, which Terraform does not change', async () => {
+    const configured = await configuration.in(WORKSPACE);
+
+    expect(configured.pools.map((each) => each.key)).toEqual(['ephemeral']);
+    await expect(configuration.poolWithId('pool_1')).resolves.toMatchObject({
+      key: 'ephemeral',
     });
   });
 
