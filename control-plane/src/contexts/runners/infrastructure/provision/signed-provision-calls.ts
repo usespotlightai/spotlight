@@ -124,7 +124,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
           'webhook-id': call.messageId,
           'webhook-timestamp': String(timestamp),
           'webhook-signature': signatureOf(
-            Buffer.from(call.secret.encodedKey, 'base64'),
+            call.secret.key,
             call.messageId,
             timestamp,
             body,

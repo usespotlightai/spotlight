@@ -107,6 +107,7 @@ see.
 | Refused run | A run that Spotlight creates and ends failed before it starts, because the station needs something that is missing (`RefusalReason`, such as `SecretAwaitingValue`). A reply to its inbox item orders a new run. Compare run not started. |
 | Resume key | The key of a working copy archive (`task-<id>` or `chat-<id>`). A run restores the archive of its resume key. |
 | Run not started | A task that has no run, because Spotlight cannot start the station's harness (`RunNotStarted`). Try again or a message starts it. Compare refused run. |
+| Signing secret | A Standard Webhooks secret, `whsec_` and 24 to 64 base64 random bytes, that signs outgoing calls (`SigningSecret`, `SIGNING_SECRET_RULE`). Hooks, push pools, the platform pool and the event webhook all use it; a context that names the field of a bad secret checks `SigningSecret.isWellFormed` and throws its own error. |
 | Tombstone | A row that Spotlight keeps after it deletes data, so that it does not restore the data (`deleted_*` tables). |
 | Value origin | Where a secret's value comes from (`SecretValueOrigin`): `awaiting` (no value yet), `spotlight` (a person set it, or Terraform handed it over) or `terraform` (`valueWoVersion` is set). |
 | Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |

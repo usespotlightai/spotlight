@@ -14,6 +14,7 @@ import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 const KEY = Buffer.from('w'.repeat(32));
@@ -82,7 +83,7 @@ beforeEach(() => {
 
 const webhook = (path = '/events', hosts = '127.0.0.1') =>
   new EventWebhook(
-    { url: `${base}${path}`, secret: SECRET },
+    { url: `${base}${path}`, secret: SigningSecret.of(SECRET) },
     new OutboundGuard(HostAllowList.listed(hosts), true),
     { now: () => NOW, sleep: async () => undefined },
   );

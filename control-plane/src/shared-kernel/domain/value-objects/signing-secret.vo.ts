@@ -1,6 +1,5 @@
-import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { InvalidSigningSecretError } from '@shared-kernel/domain/exceptions/invalid-signing-secret.error';
 import {
   SECRET,
   type Secret,
@@ -16,36 +15,37 @@ const MAX_BYTES = 64;
 
 const REDACTED = '[secret]';
 
-export class HookSigningSecret implements Secret {
+// The rule that a signing secret obeys, for the messages that refuse one.
+export const SIGNING_SECRET_RULE = `must be whsec_ followed by ${MIN_BYTES} to ${MAX_BYTES} base64-encoded random bytes`;
+
+// A Standard Webhooks signing secret: whsec_ and base64 random bytes. Hooks, push pools, the platform pool and the event webhook sign their calls with one.
+export class SigningSecret implements Secret {
   readonly #value: string;
 
   private constructor(value: string) {
     this.#value = value;
   }
 
-  static of(raw: string): HookSigningSecret {
-    if (!HookSigningSecret.isWellFormed(raw)) {
-      throw new InvalidHookError(
-        FieldPath.of(['signing', 'secret']),
-        `must be whsec_ followed by ${MIN_BYTES} to ${MAX_BYTES} base64-encoded random bytes`,
-      );
+  static of(raw: string): SigningSecret {
+    if (!SigningSecret.isWellFormed(raw)) {
+      throw new InvalidSigningSecretError(SIGNING_SECRET_RULE);
     }
 
-    return new HookSigningSecret(raw);
+    return new SigningSecret(raw);
   }
 
-  static rehydrate(stored: string): HookSigningSecret {
-    if (!HookSigningSecret.isWellFormed(stored)) {
+  static rehydrate(stored: string): SigningSecret {
+    if (!SigningSecret.isWellFormed(stored)) {
       throw new InconsistentStateError(
-        'hook signing secret',
-        'was stored in a shape no hook can sign with',
+        'signing secret',
+        'was stored in a shape that cannot sign',
       );
     }
 
-    return new HookSigningSecret(stored);
+    return new SigningSecret(stored);
   }
 
-  private static isWellFormed(raw: string): boolean {
+  static isWellFormed(raw: string): boolean {
     const encoded = raw.startsWith(PREFIX) ? raw.slice(PREFIX.length) : '';
     const bytes = BASE64.test(encoded)
       ? Buffer.from(encoded, 'base64').length
@@ -58,6 +58,7 @@ export class HookSigningSecret implements Secret {
     return true;
   }
 
+  // The HMAC key: the bytes after the prefix.
   get key(): Buffer {
     return Buffer.from(this.#value.slice(PREFIX.length), 'base64');
   }
@@ -66,7 +67,7 @@ export class HookSigningSecret implements Secret {
     return this.#value;
   }
 
-  equals(other: HookSigningSecret): boolean {
+  equals(other: SigningSecret): boolean {
     return this.#value === other.#value;
   }
 
@@ -79,6 +80,6 @@ export class HookSigningSecret implements Secret {
   }
 
   [Symbol.for('nodejs.util.inspect.custom')](): string {
-    return `HookSigningSecret ${REDACTED}`;
+    return `SigningSecret ${REDACTED}`;
   }
 }

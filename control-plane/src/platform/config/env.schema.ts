@@ -1,4 +1,3 @@
-import { SECRET_PATTERN } from '@platform/outbound/standard-webhooks';
 import {
   isContextPrefix,
   isIntegrationEventKind,
@@ -7,6 +6,10 @@ import {
   MAX_SLUG_LENGTH,
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import {
+  SIGNING_SECRET_RULE,
+  SigningSecret,
+} from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { z } from 'zod';
 
 const LOG_LEVELS = [
@@ -90,7 +93,7 @@ export const envSchema = databaseSchema
       z.url({ protocol: /^https?$/ }),
     ),
     SPOTLIGHT_PLATFORM_POOL_SECRET: unsetWhenEmpty(
-      z.string().regex(SECRET_PATTERN),
+      z.string().refine(SigningSecret.isWellFormed, SIGNING_SECRET_RULE),
     ),
     // The labels that the platform pool serves, separated by commas. With no value, it serves only work that names no runners.
     SPOTLIGHT_PLATFORM_POOL_LABELS: z
@@ -121,7 +124,7 @@ export const envSchema = databaseSchema
     // The deployment event webhook: Spotlight sends the integration events of every workspace to this URL, signed per Standard Webhooks. With no value, it sends none.
     SPOTLIGHT_EVENT_WEBHOOK_URL: unsetWhenEmpty(z.url({ protocol: /^https$/ })),
     SPOTLIGHT_EVENT_WEBHOOK_SECRET: unsetWhenEmpty(
-      z.string().regex(SECRET_PATTERN),
+      z.string().refine(SigningSecret.isWellFormed, SIGNING_SECRET_RULE),
     ),
     // The integration event kinds to send in full, or the contexts whose integration events to send, separated by commas, as in identity.,runs.run-usage-recorded.v1. With no value, Spotlight sends every integration event.
     SPOTLIGHT_EVENT_WEBHOOK_KINDS: z

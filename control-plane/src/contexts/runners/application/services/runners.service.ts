@@ -41,7 +41,6 @@ import type {
   PoolMode,
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
-import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
@@ -57,6 +56,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
+import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 type Began<Through> =
@@ -85,7 +85,7 @@ interface Provisioner {
 }
 
 type ResolvedSecret =
-  | { readonly outcome: 'found'; readonly secret: ProvisionSecret }
+  | { readonly outcome: 'found'; readonly secret: SigningSecret }
   | Unusable;
 
 const NO_EGRESS_NAMED: ProvisionedRunner = {

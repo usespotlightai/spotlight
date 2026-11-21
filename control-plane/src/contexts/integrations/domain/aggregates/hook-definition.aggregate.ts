@@ -11,7 +11,6 @@ import type { DefinitionDocument } from '@integrations/domain/value-objects/defi
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import type { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -20,11 +19,12 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 interface VersionedSigningSecret {
-  readonly secret: HookSigningSecret;
+  readonly secret: SigningSecret;
   readonly version: number;
 }
 
@@ -51,7 +51,7 @@ interface State extends Props {
 
 interface Signing {
   readonly signing: SigningVersion | null;
-  readonly supplied: HookSigningSecret | null;
+  readonly supplied: SigningSecret | null;
 }
 
 export interface Compiled {
@@ -145,7 +145,7 @@ const signingFor = (
 export class HookDefinition extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly uncommittedSigningSecret: HookSigningSecret | null = null,
+    readonly uncommittedSigningSecret: SigningSecret | null = null,
   ) {
     super();
   }

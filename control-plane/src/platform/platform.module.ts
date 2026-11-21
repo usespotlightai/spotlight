@@ -88,6 +88,7 @@ import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
 // Registers the event webhook subscriber when SPOTLIGHT_EVENT_WEBHOOK_URL is set.
 const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
@@ -244,7 +245,7 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
           const webhook = new EventWebhook(
             {
               url: env.SPOTLIGHT_EVENT_WEBHOOK_URL,
-              secret: env.SPOTLIGHT_EVENT_WEBHOOK_SECRET,
+              secret: SigningSecret.of(env.SPOTLIGHT_EVENT_WEBHOOK_SECRET),
             },
             guard,
             clock,

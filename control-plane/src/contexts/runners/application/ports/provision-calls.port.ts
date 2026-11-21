@@ -1,6 +1,6 @@
-import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { ProvisionFailureKind } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
 export const PROVISION_CALLS = Symbol('PROVISION_CALLS');
 
@@ -25,7 +25,7 @@ export type ProvisionerOwner = 'workspace' | 'deployment';
 export interface ProvisionCall {
   readonly owner: ProvisionerOwner;
   readonly url: ProvisionUrl;
-  readonly secret: ProvisionSecret;
+  readonly secret: SigningSecret;
   readonly messageId: string;
   readonly at: Date;
   readonly pool: string;

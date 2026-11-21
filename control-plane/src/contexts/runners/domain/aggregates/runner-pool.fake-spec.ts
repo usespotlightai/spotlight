@@ -15,7 +15,6 @@ import type { InstalledHarness } from '@runners/domain/value-objects/installed-h
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PushAccess } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
-import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -28,6 +27,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
@@ -45,8 +45,8 @@ export const STARTED_AT = new Date('2026-09-24T10:00:00.000Z');
 export const hashOf = (character: string): TokenHash =>
   TokenHash.of(character.repeat(64));
 
-export const secretOf = (character: string): ProvisionSecret =>
-  ProvisionSecret.of(
+export const secretOf = (character: string): SigningSecret =>
+  SigningSecret.of(
     `whsec_${Buffer.from(character.repeat(32)).toString('base64')}`,
   );
 

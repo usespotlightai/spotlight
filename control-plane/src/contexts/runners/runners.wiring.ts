@@ -177,7 +177,6 @@ import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
-import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
@@ -242,6 +241,7 @@ import {
   WORKLOAD_TOKENS,
   type WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
@@ -256,7 +256,7 @@ const platformPoolOf = (env: Env): PlatformPoolSettings | null =>
   env.SPOTLIGHT_PLATFORM_POOL_URL && env.SPOTLIGHT_PLATFORM_POOL_SECRET
     ? {
         url: ProvisionUrl.of(env.SPOTLIGHT_PLATFORM_POOL_URL),
-        secret: ProvisionSecret.of(env.SPOTLIGHT_PLATFORM_POOL_SECRET),
+        secret: SigningSecret.of(env.SPOTLIGHT_PLATFORM_POOL_SECRET),
         labels: RunnerLabels.of(env.SPOTLIGHT_PLATFORM_POOL_LABELS),
         egress: env.SPOTLIGHT_PLATFORM_POOL_EGRESS
           ? EgressReference.of(env.SPOTLIGHT_PLATFORM_POOL_EGRESS)
