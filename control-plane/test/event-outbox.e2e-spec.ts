@@ -29,7 +29,9 @@ import {
   eventDelivery,
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
+import type { Leadership } from '@platform/redis/leadership';
 import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
+import { OutboxGauges } from '@platform/telemetry/outbox-gauges';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
@@ -878,8 +880,8 @@ describe('the lanes of event delivery', () => {
     });
     const sunk: string[] = [];
     const { outbox, delivery } = outboxWith((subscribers) =>
-      subscribers.registerSink(
-        subscribing<{ kind: string; marker: string }>(
+      subscribers.registerSink({
+        subscriber: subscribing<{ kind: string; marker: string }>(
           'test.sink',
           [],
           async (event) => {
@@ -888,8 +890,9 @@ describe('the lanes of event delivery', () => {
           },
           { callsOut: true },
         ),
-        { prefixes: ['bell.'] },
-      ),
+        prefixes: ['bell.'],
+        retry: null,
+      }),
     );
 
     await outbox.record([new Rang(Marker.of('lane'))]);
@@ -1041,12 +1044,13 @@ describe('the lanes of event delivery', () => {
     const sunk: string[] = [];
     const sinkWith = (prefixes: readonly string[]) => {
       const subscribers = new EventSubscribers();
-      subscribers.registerSink(
-        subscribing('test.widened-sink', [], async () => {
+      subscribers.registerSink({
+        subscriber: subscribing('test.widened-sink', [], async () => {
           sunk.push(id);
         }),
-        { prefixes },
-      );
+        prefixes,
+        retry: null,
+      });
       return instanceWith(subscribers);
     };
 
@@ -1063,5 +1067,44 @@ describe('the lanes of event delivery', () => {
 
     expect(sunk).toEqual([id]);
     expect((await stateOf(id))?.delivered).toBe(true);
+  });
+
+  it('counts in the gauges of a lane only the deliveries that a subscriber of the lane hears', async () => {
+    const gone = await pendingRow('bell.gauge', 'test.gauge-gone');
+    const webhook = await pendingRow(
+      'identity.workspace-created.v1',
+      'platform.send-event-webhook',
+    );
+    const here = new EventSubscribers();
+    here.register([subscribing('test.gauge', ['bell.gauge'], async () => [])]);
+    const gauges = new OutboxGauges(
+      database.db,
+      { now: () => now } as ClockPort,
+      { held: () => true } as unknown as Leadership,
+      here,
+    );
+    const due = async () =>
+      Object.fromEntries(
+        (await gauges.read())['spotlight.outbox.due'].map((each) => [
+          Object.entries(each.attributes ?? {})
+            .map(([key, value]) => `${key}=${value}`)
+            .join(),
+          each.value,
+        ]),
+      );
+
+    const before = await due();
+
+    expect(before['spotlight.delivery.lane=contexts']).toBe(0);
+    expect(before['spotlight.delivery.lane=sinks']).toBe(0);
+    expect(before['spotlight.delivery.unheard=true']).toBeGreaterThanOrEqual(2);
+
+    const heard = await pendingRow('bell.gauge', 'test.gauge');
+
+    expect((await due())['spotlight.delivery.lane=contexts']).toBe(1);
+
+    await database.db
+      .delete(eventOutbox)
+      .where(inArray(eventOutbox.id, [gone, webhook, heard]));
   });
 });

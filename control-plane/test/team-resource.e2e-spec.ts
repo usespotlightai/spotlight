@@ -267,7 +267,9 @@ describe('a team, created through the resource API (e2e)', () => {
   };
 
   const delivered = async (event: DomainEvent): Promise<void> => {
-    for (const each of app.get(EventSubscribers).hearing(event.kind)) {
+    for (const each of app
+      .get(EventSubscribers)
+      .subscribersHearing(event.kind)) {
       for (const raised of await each.handle(event, anOutboxRecord())) {
         await delivered(raised);
       }
@@ -310,7 +312,7 @@ describe('a team, created through the resource API (e2e)', () => {
     expect(
       app
         .get(EventSubscribers)
-        .hearing(TEAM_DELETED)
+        .subscribersHearing(TEAM_DELETED)
         .map((each) => each.name)
         .sort(),
     ).toEqual([

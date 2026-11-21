@@ -7,7 +7,10 @@ import {
 import { Interval } from '@nestjs/schedule';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
-import type { DeliveryLane } from '@platform/events/event-subscribers';
+import {
+  DELIVERY_LANES,
+  type DeliveryLane,
+} from '@platform/events/event-subscribers';
 import { LiveWrites } from '@platform/live/live-writes';
 import { detached } from '@platform/telemetry/detached';
 import {
@@ -22,13 +25,11 @@ interface LaneState {
   again: boolean;
 }
 
-const LANES: readonly DeliveryLane[] = ['contexts', 'sinks'];
-
 // Each lane ticks on its own, so a slow sink never holds up the subscribers of the contexts.
 @Injectable()
 export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
   readonly #lanes = new Map<DeliveryLane, LaneState>(
-    LANES.map((lane) => [lane, { ticking: null, again: false }]),
+    DELIVERY_LANES.map((lane) => [lane, { ticking: null, again: false }]),
   );
   #stopped = false;
   #unsubscribe: (() => void) | null = null;
@@ -59,7 +60,7 @@ export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
 
   @Interval(EVERY_MS)
   async tick(): Promise<void> {
-    await Promise.all(LANES.map((lane) => this.tickLane(lane)));
+    await Promise.all(DELIVERY_LANES.map((lane) => this.tickLane(lane)));
   }
 
   private async tickLane(lane: DeliveryLane): Promise<void> {

@@ -775,7 +775,7 @@ const handledAgain = async <T>(
 };
 
 export const delivered = async (event: DomainEvent): Promise<void> => {
-  for (const each of app.get(EventSubscribers).hearing(event.kind)) {
+  for (const each of app.get(EventSubscribers).subscribersHearing(event.kind)) {
     for (const raised of await handledAgain(() =>
       each.handle(event, anOutboxRecord()),
     )) {

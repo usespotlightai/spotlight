@@ -145,10 +145,10 @@ describe('EventWebhook', () => {
 describe('eventWebhookSubscription', () => {
   const listening = (kinds: readonly string[]) => {
     const subscribers = new EventSubscribers();
-    const { subscriber, prefixes } = eventWebhookSubscription(webhook(), kinds);
-    subscribers.registerSink(subscriber, { prefixes });
+    subscribers.registerSink(eventWebhookSubscription(webhook(), kinds));
 
-    return (kind: string) => subscribers.hearing(kind).map((each) => each.name);
+    return (kind: string) =>
+      subscribers.subscribersHearing(kind).map((each) => each.name);
   };
 
   it('hears every integration event and no domain event when no kinds are set', () => {
