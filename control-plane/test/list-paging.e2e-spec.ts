@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { InvalidPageCursorError } from '@shared-kernel/application/errors/invalid-page-cursor.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
-import { InvalidPageCursorError } from '@work/application/errors/invalid-page-cursor.error';
 import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
 import { conversationsOf } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';

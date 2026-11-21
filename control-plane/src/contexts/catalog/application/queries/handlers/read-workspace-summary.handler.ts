@@ -1,7 +1,7 @@
 import type { WorkspaceSummaryDto } from '@catalog/application/dto/workspace-summary.dto';
 import { WorkspaceSummaryMapper } from '@catalog/application/mappers/workspace-summary.mapper';
+import type { WorkspaceDirectoryPort } from '@catalog/application/ports/workspace-directory.port';
 import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
-import type { WorkspacesPort } from '@catalog/application/ports/workspaces.port';
 import type { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -12,7 +12,7 @@ export class ReadWorkspaceSummaryHandler implements QueryHandlerPort<
   WorkspaceSummaryDto | null
 > {
   constructor(
-    private readonly workspaces: WorkspacesPort,
+    private readonly directory: WorkspaceDirectoryPort,
     private readonly plans: WorkspacePlansPort,
   ) {}
 
@@ -20,12 +20,12 @@ export class ReadWorkspaceSummaryHandler implements QueryHandlerPort<
     query: ReadWorkspaceSummaryQuery,
   ): Promise<WorkspaceSummaryDto | null> {
     try {
-      const workspace = await this.workspaces.find(
+      const workspace = await this.directory.find(
         WorkspaceId.of(query.workspaceId),
       );
 
       return workspace
-        ? WorkspaceSummaryMapper.toSummary(
+        ? WorkspaceSummaryMapper.toDto(
             workspace,
             await this.plans.of(workspace.id),
           )

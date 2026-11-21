@@ -31,10 +31,15 @@ describe('PlanTerm', () => {
     );
   });
 
-  it('is the default only for the free plan with no end', () => {
+  it('drops the end of the free plan, which never ends', () => {
+    expect(PlanTerm.of(Plan.free, END)).toBe(PlanTerm.free);
+    expect(PlanTerm.of(Plan.free, END).expiresAt).toBeNull();
+  });
+
+  it('is the default only for the free plan', () => {
     expect(PlanTerm.free.isDefault).toBe(true);
     expect(PlanTerm.of(Plan.free).isDefault).toBe(true);
-    expect(PlanTerm.of(Plan.free, END).isDefault).toBe(false);
     expect(PlanTerm.of(Plan.team).isDefault).toBe(false);
+    expect(PlanTerm.of(Plan.team, END).isDefault).toBe(false);
   });
 });

@@ -1,8 +1,3 @@
-export interface PlanTermDto {
-  readonly plan: string;
-  readonly expiresAt: string | null;
-}
-
 export interface WorkspaceSummaryDto {
   readonly id: string;
   readonly slug: string;

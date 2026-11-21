@@ -971,7 +971,7 @@
     },
     "/admin/workspaces/{workspaceId}/members": {
       "get": {
-        "operationId": "listAdminWorkspaceMembers",
+        "operationId": "listDirectoryMembers",
         "parameters": [
           {
             "name": "workspaceId",
@@ -5729,7 +5729,7 @@
     },
     "/admin/workspaces": {
       "get": {
-        "operationId": "listAdminWorkspaces",
+        "operationId": "listWorkspaceSummaries",
         "parameters": [
           {
             "name": "createdAfter",
@@ -5766,7 +5766,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminWorkspacePageResponseDto"
+                  "$ref": "#/components/schemas/WorkspaceSummaryPageResponseDto"
                 }
               }
             }
@@ -5792,7 +5792,7 @@
     },
     "/admin/workspaces/{workspaceId}": {
       "get": {
-        "operationId": "getAdminWorkspace",
+        "operationId": "readWorkspaceSummary",
         "parameters": [
           {
             "name": "workspaceId",
@@ -5810,7 +5810,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminWorkspaceResponseDto"
+                  "$ref": "#/components/schemas/WorkspaceSummaryResponseDto"
                 }
               }
             }
@@ -5831,7 +5831,7 @@
     "/admin/workspaces/{workspaceId}/plan": {
       "put": {
         "description": "The workspace’s configuration changes record the change, made by Spotlight. The free plan with no end is the same as no plan.",
-        "operationId": "setAdminWorkspacePlan",
+        "operationId": "setWorkspacePlan",
         "parameters": [
           {
             "name": "workspaceId",
@@ -5859,13 +5859,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspacePlanResponseDto"
+                  "$ref": "#/components/schemas/PlanTermResponseDto"
                 }
               }
             }
           },
           "400": {
-            "description": "An expiresAt that is not a time"
+            "description": "A body without a plan, or an expiresAt that is not a time"
           },
           "401": {
             "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
@@ -5886,8 +5886,8 @@
         ]
       },
       "delete": {
-        "description": "Removes the plan set for the workspace. The workspace’s configuration changes record the change, made by Spotlight.",
-        "operationId": "removeAdminWorkspacePlan",
+        "description": "Deletes the plan set for the workspace. The workspace’s configuration changes record the change, made by Spotlight.",
+        "operationId": "deleteWorkspacePlan",
         "parameters": [
           {
             "name": "workspaceId",
@@ -25034,7 +25034,7 @@
       "AdminMemberResponseDto": {
         "type": "object",
         "properties": {
-          "userId": {
+          "id": {
             "type": "string",
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
           },
@@ -25063,7 +25063,7 @@
           }
         },
         "required": [
-          "userId",
+          "id",
           "email",
           "name",
           "role",
@@ -26553,7 +26553,7 @@
           "tools"
         ]
       },
-      "AdminWorkspaceResponseDto": {
+      "WorkspaceSummaryResponseDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -26591,7 +26591,7 @@
             "type": "string",
             "nullable": true,
             "example": "2027-01-01T00:00:00.000Z",
-            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end"
+            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan"
           }
         },
         "required": [
@@ -26604,14 +26604,14 @@
           "planExpiresAt"
         ]
       },
-      "AdminWorkspacePageResponseDto": {
+      "WorkspaceSummaryPageResponseDto": {
         "type": "object",
         "properties": {
           "items": {
             "description": "Oldest first",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AdminWorkspaceResponseDto"
+              "$ref": "#/components/schemas/WorkspaceSummaryResponseDto"
             }
           },
           "next": {
@@ -26641,14 +26641,14 @@
             "type": "string",
             "nullable": true,
             "example": "2027-01-01T00:00:00.000Z",
-            "description": "When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end"
+            "description": "When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end. The free plan does not end, so Spotlight ignores an end on it"
           }
         },
         "required": [
           "plan"
         ]
       },
-      "WorkspacePlanResponseDto": {
+      "PlanTermResponseDto": {
         "type": "object",
         "properties": {
           "plan": {
@@ -26664,7 +26664,7 @@
             "type": "string",
             "nullable": true,
             "example": "2027-01-01T00:00:00.000Z",
-            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end"
+            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan"
           }
         },
         "required": [

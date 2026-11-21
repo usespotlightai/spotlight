@@ -1,7 +1,7 @@
-import { RemoveWorkspacePlanHandler } from '@catalog/application/commands/handlers/remove-workspace-plan.handler';
+import { DeleteWorkspacePlanHandler } from '@catalog/application/commands/handlers/delete-workspace-plan.handler';
 import { SetWorkspacePlanHandler } from '@catalog/application/commands/handlers/set-workspace-plan.handler';
 import {
-  RemoveWorkspacePlanCommand,
+  DeleteWorkspacePlanCommand,
   SetWorkspacePlanCommand,
 } from '@catalog/application/commands/workspace-plan.commands';
 import {
@@ -16,11 +16,11 @@ import {
   CATALOG,
   type CatalogPort,
 } from '@catalog/application/ports/catalog.port';
+import { WORKSPACE_DIRECTORY } from '@catalog/application/ports/workspace-directory.port';
 import {
   WORKSPACE_PLANS,
   type WorkspacePlansPort,
 } from '@catalog/application/ports/workspace-plans.port';
-import { WORKSPACES } from '@catalog/application/ports/workspaces.port';
 import { ListWorkspaceSummariesHandler } from '@catalog/application/queries/handlers/list-workspace-summaries.handler';
 import { ReadWorkspaceSummaryHandler } from '@catalog/application/queries/handlers/read-workspace-summary.handler';
 import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers/resolve-catalog-item.handler';
@@ -29,8 +29,8 @@ import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-wor
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
-import { WorkspacePlanAdministration } from '@catalog/application/services/workspace-plan-administration.service';
-import { Workspaces } from '@catalog/infrastructure/acl/workspaces.adapter';
+import { DeletePlanOfDeletedWorkspace } from '@catalog/application/services/delete-plan-of-deleted-workspace.service';
+import { WorkspaceDirectory } from '@catalog/infrastructure/acl/workspace-directory.adapter';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { CATALOG_PAYLOAD_TYPES } from '@catalog/infrastructure/events/catalog-payload-types';
@@ -43,8 +43,8 @@ import { AdminWorkspaceController } from '@catalog/presentation/http/controllers
 import { CatalogController } from '@catalog/presentation/http/controllers/catalog.controller';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import {
-  WORKSPACE_DIRECTORY,
-  type WorkspaceDirectoryPort,
+  WORKSPACE_DIRECTORY as IDENTITY_WORKSPACE_DIRECTORY,
+  type WorkspaceDirectoryPort as IdentityWorkspaceDirectoryPort,
 } from '@identity/application/ports/workspace-directory.port';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
@@ -73,17 +73,17 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   DrizzleWorkspacePlanRepository,
 
   {
-    provide: WORKSPACES,
-    inject: [WORKSPACE_DIRECTORY],
-    useFactory: (directory: WorkspaceDirectoryPort) =>
-      new Workspaces(directory),
+    provide: WORKSPACE_DIRECTORY,
+    inject: [IDENTITY_WORKSPACE_DIRECTORY],
+    useFactory: (directory: IdentityWorkspaceDirectoryPort) =>
+      new WorkspaceDirectory(directory),
   },
 
   {
-    provide: WorkspacePlanAdministration,
+    provide: DeletePlanOfDeletedWorkspace,
     inject: [DrizzleWorkspacePlanRepository],
     useFactory: (plans: DrizzleWorkspacePlanRepository) =>
-      new WorkspacePlanAdministration(plans),
+      new DeletePlanOfDeletedWorkspace(plans),
   },
 
   { provide: CATALOG_CALL_LEDGER, useClass: DrizzleCatalogCallLedger },
@@ -144,13 +144,13 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
     inject: [
       PayloadTypes,
       EventSubscribers,
-      WorkspacePlanAdministration,
+      DeletePlanOfDeletedWorkspace,
       CATALOG_CALL_LEDGER,
     ],
     useFactory: (
       types: PayloadTypes,
       subscribers: EventSubscribers,
-      plans: WorkspacePlanAdministration,
+      plans: DeletePlanOfDeletedWorkspace,
       calls: CatalogCallLedgerPort,
     ) => {
       types.register('catalog', CATALOG_PAYLOAD_TYPES);
@@ -169,22 +169,22 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(
     ListWorkspaceSummariesQuery,
     ListWorkspaceSummariesHandler,
-    [WORKSPACES, WORKSPACE_PLANS],
+    [WORKSPACE_DIRECTORY, WORKSPACE_PLANS],
   ),
 
   ...bindQueryHandler(ReadWorkspaceSummaryQuery, ReadWorkspaceSummaryHandler, [
-    WORKSPACES,
+    WORKSPACE_DIRECTORY,
     WORKSPACE_PLANS,
   ]),
 
   ...bindCommandHandler(SetWorkspacePlanCommand, SetWorkspacePlanHandler, [
-    WORKSPACES,
-    WorkspacePlanAdministration,
+    WORKSPACE_DIRECTORY,
+    DrizzleWorkspacePlanRepository,
   ]),
 
   ...bindCommandHandler(
-    RemoveWorkspacePlanCommand,
-    RemoveWorkspacePlanHandler,
-    [WORKSPACES, WorkspacePlanAdministration],
+    DeleteWorkspacePlanCommand,
+    DeleteWorkspacePlanHandler,
+    [WORKSPACE_DIRECTORY, DrizzleWorkspacePlanRepository],
   ),
 ];

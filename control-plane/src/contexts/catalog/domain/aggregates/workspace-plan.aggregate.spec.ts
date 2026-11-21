@@ -1,5 +1,7 @@
 import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
-import type { WorkspacePlanChanged } from '@catalog/domain/events/workspace-plan-changed.event';
+import type { WorkspacePlanCreated } from '@catalog/domain/events/workspace-plan-created.event';
+import type { WorkspacePlanDeleted } from '@catalog/domain/events/workspace-plan-deleted.event';
+import type { WorkspacePlanUpdated } from '@catalog/domain/events/workspace-plan-updated.event';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
@@ -21,128 +23,130 @@ const ENTERPRISE = PlanTerm.of(Plan.enterprise);
 const stored = (term: PlanTerm = TEAM, version = 3) =>
   WorkspacePlan.rehydrate({ workspaceId: WORKSPACE, term, version });
 
-const changesOf = (plan: WorkspacePlan) =>
-  plan.pullEvents() as readonly WorkspacePlanChanged[];
+const set = (current: WorkspacePlan | null, term: PlanTerm) =>
+  WorkspacePlan.set(current, { workspaceId: WORKSPACE, term, by: BY });
+
+const eventsOf = <E>(plan: WorkspacePlan | null) =>
+  (plan?.pullEvents() ?? []) as readonly E[];
 
 describe('WorkspacePlan', () => {
-  it('says the plan changed from free when it is assigned', () => {
-    const assigned = WorkspacePlan.assign({
-      workspaceId: WORKSPACE,
-      term: TEAM,
-      by: BY,
+  describe('set on a workspace without a stored plan', () => {
+    it('creates the plan, and records it as a created configuration change by the actor', () => {
+      const created = set(null, TEAM);
+      const [event, ...more] = eventsOf<WorkspacePlanCreated>(created);
+
+      expect(created).toMatchObject({ term: TEAM, version: 0 });
+      expect(more).toEqual([]);
+      expect(event).toMatchObject({
+        kind: 'workspace-plan.created',
+        workspaceId: WORKSPACE,
+        term: TEAM,
+      });
+      expect(changesConfiguration(event)).toBe(true);
+      expect(event.change).toMatchObject({
+        resource: 'workspace-plan',
+        resourceId: 'ws_1',
+        key: 'plan',
+        action: 'created',
+        by: BY,
+      });
+      expect(event.change.recordedDetail).toEqual({
+        plan: 'team',
+        expiresAt: '2027-01-01T00:00:00.000Z',
+      });
     });
-    const [changed, ...more] = changesOf(assigned);
 
-    expect(assigned.version).toBe(0);
-    expect(assigned.term).toBe(TEAM);
-    expect(more).toEqual([]);
-    expect(changed).toMatchObject({
-      kind: 'workspace-plan.changed',
-      workspaceId: WORKSPACE,
-      term: TEAM,
-      previous: PlanTerm.free,
-    });
-  });
-
-  it('records the change as a configuration change of the workspace, made by Spotlight', () => {
-    const [changed] = changesOf(stored().changeTo(ENTERPRISE, BY));
-
-    expect(changesConfiguration(changed)).toBe(true);
-    expect(changed.change).toMatchObject({
-      resource: 'workspace-plan',
-      resourceId: 'ws_1',
-      key: 'plan',
-      action: 'updated',
-      by: { actor: null, workspaceId: WORKSPACE },
-    });
-    expect(changed.change.recordedDetail).toEqual({
-      plan: 'enterprise',
-      expiresAt: null,
-    });
-    expect(changed.previous).toBe(TEAM);
-  });
-
-  it('records the end of the plan it changes to', () => {
-    const [changed] = changesOf(stored(ENTERPRISE).changeTo(TEAM, BY));
-
-    expect(changed.change.recordedDetail).toEqual({
-      plan: 'team',
-      expiresAt: '2027-01-01T00:00:00.000Z',
+    it('stores nothing for the free plan, which a workspace has without a stored plan', () => {
+      expect(set(null, PlanTerm.free)).toBeNull();
+      expect(set(null, PlanTerm.of(Plan.free, END))).toBeNull();
     });
   });
 
-  it('keeps its version, which the repository raises when it stores the change', () => {
-    expect(stored(TEAM, 3).changeTo(ENTERPRISE, BY).version).toBe(3);
-  });
+  describe('set on a stored plan', () => {
+    it('updates the plan, and records what it was', () => {
+      const updated = set(stored(), ENTERPRISE);
+      const [event] = eventsOf<WorkspacePlanUpdated>(updated);
 
-  it('changes nothing for the term it already has', () => {
-    const plan = stored();
-    const same = plan.changeTo(PlanTerm.of(Plan.team, new Date(END)), BY);
+      expect(updated).toMatchObject({
+        term: ENTERPRISE,
+        version: 3,
+        isDeleted: false,
+      });
+      expect(event).toMatchObject({
+        kind: 'workspace-plan.updated',
+        term: ENTERPRISE,
+        previous: TEAM,
+      });
+      expect(event.change.action).toBe('updated');
+      expect(event.change.recordedDetail).toEqual({
+        plan: 'enterprise',
+        expiresAt: null,
+      });
+    });
 
-    expect(same).toBe(plan);
-    expect(same.hasEvents).toBe(false);
-  });
+    it('changes nothing for the term it already has', () => {
+      expect(set(stored(), PlanTerm.of(Plan.team, new Date(END)))).toBeNull();
+    });
 
-  it('is removed when it changes to the free plan with no end', () => {
-    const removed = stored().changeTo(PlanTerm.free, BY);
-    const [changed] = changesOf(removed);
+    it('deletes the plan when it is set to the free plan', () => {
+      const deleted = set(stored(), PlanTerm.of(Plan.free, END));
+      const [event] = eventsOf<WorkspacePlanDeleted>(deleted);
 
-    expect(removed.isRemoved).toBe(true);
-    expect(removed.term).toBe(PlanTerm.free);
-    expect(changed).toMatchObject({ term: PlanTerm.free, previous: TEAM });
-    expect(changed.change.recordedDetail).toEqual({
-      plan: 'free',
-      expiresAt: null,
+      expect(deleted?.isDeleted).toBe(true);
+      expect(event).toMatchObject({
+        kind: 'workspace-plan.deleted',
+        previous: TEAM,
+      });
+      expect(event.change.action).toBe('deleted');
+    });
+
+    it('refuses a stored plan of another workspace', () => {
+      expect(() =>
+        WorkspacePlan.set(stored(), {
+          workspaceId: WorkspaceId.of('ws_2'),
+          term: ENTERPRISE,
+          by: BY,
+        }),
+      ).toThrow(InconsistentStateError);
     });
   });
 
-  it('keeps the free plan with an end, which expires to the same plan', () => {
-    const freeUntil = PlanTerm.of(Plan.free, END);
-    const changed = stored().changeTo(freeUntil, BY);
+  it('deletes a stored plan, and records it as a deleted configuration change', () => {
+    const deleted = stored().delete(BY);
 
-    expect(changed.isRemoved).toBe(false);
-    expect(changed.term).toBe(freeUntil);
-  });
-
-  it('says the workspace is back on the free plan when it is removed', () => {
-    const removed = stored().remove(BY);
-
-    expect(removed.isRemoved).toBe(true);
-    expect(changesOf(removed)).toMatchObject([
-      { term: PlanTerm.free, previous: TEAM },
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.version).toBe(3);
+    expect(eventsOf<WorkspacePlanDeleted>(deleted)).toMatchObject([
+      {
+        kind: 'workspace-plan.deleted',
+        workspaceId: WORKSPACE,
+        previous: TEAM,
+        change: { action: 'deleted', by: BY },
+      },
     ]);
-  });
-
-  it('is removed without a change when it already holds the free plan with no end', () => {
-    const removed = stored(PlanTerm.free).remove(BY);
-
-    expect(removed.isRemoved).toBe(true);
-    expect(removed.hasEvents).toBe(false);
   });
 
   it('keeps the events of each step', () => {
-    const plan = WorkspacePlan.assign({
-      workspaceId: WORKSPACE,
-      term: TEAM,
-      by: BY,
-    })
-      .changeTo(ENTERPRISE, BY)
-      .remove(BY);
+    const created = set(null, TEAM) as WorkspacePlan;
+    const updated = set(created, ENTERPRISE) as WorkspacePlan;
 
-    expect(changesOf(plan).map((each) => each.term)).toEqual([
-      TEAM,
-      ENTERPRISE,
-      PlanTerm.free,
+    expect(
+      updated
+        .delete(BY)
+        .pullEvents()
+        .map((each) => each.kind),
+    ).toEqual([
+      'workspace-plan.created',
+      'workspace-plan.updated',
+      'workspace-plan.deleted',
     ]);
   });
 
-  it('cannot change after it is removed', () => {
-    const removed = stored().remove(BY);
+  it('cannot change after it is deleted', () => {
+    const deleted = stored().delete(BY);
 
-    expect(() => removed.changeTo(ENTERPRISE, BY)).toThrow(
-      InconsistentStateError,
-    );
-    expect(() => removed.remove(BY)).toThrow(InconsistentStateError);
+    expect(() => set(deleted, ENTERPRISE)).toThrow(InconsistentStateError);
+    expect(() => deleted.delete(BY)).toThrow(InconsistentStateError);
   });
 
   it('refuses a stored version that is impossible', () => {

@@ -1,15 +1,12 @@
 import type {
-  PlanTermDto,
   WorkspaceSummaryDto,
   WorkspaceSummaryPageDto,
 } from '@catalog/application/dto/workspace-summary.dto';
 import { PLANS } from '@catalog/domain/value-objects/plan.vo';
+import { PLAN_EXPIRY } from '@catalog/presentation/http/dto/plan-term.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
-const PLAN_EXPIRY =
-  'When the plan ends; the workspace then has the free plan. Null when it does not end';
-
-export class AdminWorkspaceResponseDto {
+export class WorkspaceSummaryResponseDto {
   @ApiProperty({ example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57' })
   readonly id: string;
 
@@ -51,13 +48,13 @@ export class AdminWorkspaceResponseDto {
   }
 }
 
-export class AdminWorkspacePageResponseDto {
+export class WorkspaceSummaryPageResponseDto {
   @ApiProperty({
-    type: AdminWorkspaceResponseDto,
+    type: WorkspaceSummaryResponseDto,
     isArray: true,
     description: 'Oldest first',
   })
-  readonly items: readonly AdminWorkspaceResponseDto[];
+  readonly items: readonly WorkspaceSummaryResponseDto[];
 
   @ApiProperty({
     type: String,
@@ -67,25 +64,9 @@ export class AdminWorkspacePageResponseDto {
   readonly next: string | null;
 
   constructor(page: WorkspaceSummaryPageDto) {
-    this.items = page.items.map((each) => new AdminWorkspaceResponseDto(each));
+    this.items = page.items.map(
+      (each) => new WorkspaceSummaryResponseDto(each),
+    );
     this.next = page.next;
-  }
-}
-
-export class WorkspacePlanResponseDto {
-  @ApiProperty({ enum: PLANS, example: 'team' })
-  readonly plan: string;
-
-  @ApiProperty({
-    type: String,
-    nullable: true,
-    example: '2027-01-01T00:00:00.000Z',
-    description: PLAN_EXPIRY,
-  })
-  readonly expiresAt: string | null;
-
-  constructor(term: PlanTermDto) {
-    this.plan = term.plan;
-    this.expiresAt = term.expiresAt;
   }
 }

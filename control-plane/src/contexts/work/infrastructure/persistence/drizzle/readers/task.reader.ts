@@ -23,7 +23,7 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
-import { cursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
+import { cursorOf } from '@platform/persistence/drizzle/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,
