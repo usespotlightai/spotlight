@@ -21,7 +21,7 @@ export class ListWorkspaceSummariesHandler implements QueryHandlerPort<
     const page = await this.directory.list({
       after: query.after,
       limit: query.limit,
-      createdAfter: query.createdAfter,
+      since: query.since,
     });
     const pageTerms = await this.terms.ofWorkspaces(
       page.items.map((each) => each.id),

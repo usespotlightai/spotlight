@@ -105,16 +105,17 @@ export class AdminWorkspaceController {
     description: `At most this many, ${PAGE_LIMIT} by default, up to ${LONGEST_PAGE}`,
   })
   @ApiQuery({
-    name: 'createdAfter',
+    name: 'since',
     required: false,
     type: String,
     example: '2026-09-01T00:00:00Z',
-    description: 'Only the workspaces created after this time',
+    description:
+      'Only the workspaces created at or after this time, as an ISO 8601 time',
   })
   @ApiOkResponse({ type: WorkspaceSummaryPageResponseDto })
   @ApiBadRequestResponse({
     description:
-      'A page limit that is not a whole number above 0, or a createdAfter that is not a time',
+      'A page limit that is not a whole number above 0, or a since that is not an ISO 8601 time',
   })
   @ApiUnprocessableEntityResponse({
     description: 'A page cursor that this list did not give',
@@ -123,7 +124,7 @@ export class AdminWorkspaceController {
   async list(
     @Query('after') after: string | undefined,
     @Query('limit') limit: string | undefined,
-    @Query('createdAfter') createdAfter: string | undefined,
+    @Query('since') since: string | undefined,
   ): Promise<WorkspaceSummaryPageResponseDto> {
     const page = await this.queryBus.execute<
       ListWorkspaceSummariesQuery,
@@ -132,7 +133,7 @@ export class AdminWorkspaceController {
       new ListWorkspaceSummariesQuery(
         after || null,
         pageLimitOf(limit),
-        createdAfter ? isoTimeOf('createdAfter', createdAfter) : null,
+        since ? isoTimeOf('since', since) : null,
       ),
     );
 
@@ -219,12 +220,12 @@ export class AdminWorkspaceController {
   })
   @NOT_FOUND
   async deletePlan(@Param('workspaceId') workspaceId: string): Promise<void> {
-    const deleted = await this.commandBus.execute<
+    const found = await this.commandBus.execute<
       DeleteWorkspacePlanCommand,
       boolean
     >(new DeleteWorkspacePlanCommand(workspaceId));
 
-    if (!deleted) {
+    if (!found) {
       throw new NotFoundException();
     }
   }

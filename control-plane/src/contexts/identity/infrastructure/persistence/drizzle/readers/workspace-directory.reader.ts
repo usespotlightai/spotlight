@@ -18,7 +18,7 @@ import {
 import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
 import type { Page } from '@shared-kernel/application/dto/page.dto';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, gt, type SQL, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, type SQL, sql } from 'drizzle-orm';
 
 const COLUMNS = {
   id: workspace.id,
@@ -55,8 +55,8 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectoryPort {
   async list(request: DirectoryPageRequest): Promise<Page<DirectoryWorkspace>> {
     const cursor = timeCursorOf(request.after);
     const conditions: SQL[] = [
-      ...(request.createdAfter
-        ? [gt(workspace.createdAt, request.createdAfter)]
+      ...(request.since
+        ? [gte(workspace.createdAt, request.since)]
         : []),
       ...(cursor
         ? [after(sortableTime(workspace.createdAt), workspace.id, cursor)]
