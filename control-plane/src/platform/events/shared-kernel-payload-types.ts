@@ -43,7 +43,6 @@ import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-re
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { SourceCommit } from '@shared-kernel/domain/value-objects/source-commit.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -87,7 +86,6 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   RunnerOffer,
   RunningImage,
   SecretName,
-  SigningSecret,
   StationId,
   TaskId,
   TeamAddress,
