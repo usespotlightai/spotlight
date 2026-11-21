@@ -151,7 +151,8 @@ CREATE TABLE "catalog_call" (
 CREATE TABLE "workspace_plan" (
 	"workspace_id" text PRIMARY KEY NOT NULL,
 	"plan" text NOT NULL,
-	"expires_at" timestamp (3) with time zone
+	"expires_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "change_stack" (
