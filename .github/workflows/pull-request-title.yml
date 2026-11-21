@@ -2,8 +2,8 @@ name: Pull request title
 
 # Pull requests are squash-merged, so the title becomes the commit on main, and
 # release-please reads it to choose the next version and write the changelog.
-# The title is a Conventional Commit with the Linear issue as the scope, as in
-# "feat(SPO-123): Add the judge to stations".
+# The title is a Conventional Commit, as in "feat: add the judge to stations".
+# The description says which issue the pull request closes, as in "Fixes #123".
 
 on:
   pull_request_target:

@@ -42,8 +42,8 @@ export const workspaceAt = (version: number) =>
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
     members: [
-      { userId: OWNER, role: WorkspaceRole.owner },
-      { userId: MEMBER, role: WorkspaceRole.member },
+      { userId: OWNER, role: WorkspaceRole.owner, suspendedAt: null },
+      { userId: MEMBER, role: WorkspaceRole.member, suspendedAt: null },
     ],
     version,
   });

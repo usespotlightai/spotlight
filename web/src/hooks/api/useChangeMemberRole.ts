@@ -1,8 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { memberKeys } from '@/hooks/api/useMembers';
-import { workspaceMemberKeys } from '@/hooks/api/useWorkspaceMembers';
-import { workspaceKeys } from '@/hooks/api/useWorkspaces';
+import { refreshMembers } from '@/hooks/api/refreshMembers';
 import { changeMemberRole } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 import type { Role } from '@/lib/role';
@@ -23,13 +21,6 @@ export function useChangeMemberRole(slug: string | undefined) {
         );
       }
     },
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: memberKeys.all }),
-        queryClient.invalidateQueries({
-          queryKey: workspaceMemberKeys.forWorkspace(slug),
-        }),
-        queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(slug) }),
-      ]),
+    onSettled: () => refreshMembers(queryClient, slug),
   });
 }

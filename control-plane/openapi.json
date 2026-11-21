@@ -4753,6 +4753,128 @@
         ]
       }
     },
+    "/workspaces/{slug}/members/{userId}/suspension": {
+      "put": {
+        "description": "A suspended member loses all access at once but stays listed, with their teams and their work. An owner may suspend anyone, an admin any member or admin. Nobody may suspend themselves, and the last owner stays.",
+        "operationId": "suspendMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "They are suspended"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You cannot suspend this person"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "It would leave nobody who owns it"
+          }
+        },
+        "summary": "Suspend a member",
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "delete": {
+        "description": "The member gets back the role and the teams they had. This also brings back a member who left.",
+        "operationId": "unsuspendMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "They are not suspended"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You cannot unsuspend this person"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Unsuspend a member",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/leave": {
+      "post": {
+        "description": "Leaving is a suspension you choose. You stay listed, and an admin or an owner can unsuspend you. The last owner cannot leave.",
+        "operationId": "leaveWorkspace",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "You left the workspace"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "It would leave nobody who owns it"
+          }
+        },
+        "summary": "Leave the workspace",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/workspaces/{slug}/configuration-changes": {
       "get": {
         "operationId": "listConfigurationChanges",
@@ -25655,6 +25777,27 @@
             "type": "string",
             "description": "When they joined the workspace.",
             "example": "2026-09-12T09:00:00.000Z"
+          },
+          "suspendedAt": {
+            "type": "string",
+            "description": "When they were suspended or left. It is null for a member with access.",
+            "nullable": true,
+            "example": null
+          },
+          "mayBeSuspended": {
+            "type": "boolean",
+            "description": "Whether the caller may suspend this member.",
+            "example": true
+          },
+          "mayBeUnsuspended": {
+            "type": "boolean",
+            "description": "Whether the caller may unsuspend this member.",
+            "example": false
+          },
+          "mayLeave": {
+            "type": "boolean",
+            "description": "Whether this member is the caller and may leave the workspace.",
+            "example": false
           }
         },
         "required": [
@@ -25665,7 +25808,11 @@
           "assignableRoles",
           "email",
           "teams",
-          "joinedAt"
+          "joinedAt",
+          "suspendedAt",
+          "mayBeSuspended",
+          "mayBeUnsuspended",
+          "mayLeave"
         ]
       },
       "ChangeMemberRoleRequestDto": {

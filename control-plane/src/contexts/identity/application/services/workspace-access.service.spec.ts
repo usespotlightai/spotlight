@@ -19,9 +19,21 @@ const acme = Workspace.rehydrate({
   name: WorkspaceName.of('Acme'),
   slug: WorkspaceSlug.of('acme'),
   members: [
-    { userId: UserId.of('owner_1'), role: WorkspaceRole.owner },
-    { userId: UserId.of('admin_1'), role: WorkspaceRole.admin },
-    { userId: UserId.of('member_1'), role: WorkspaceRole.member },
+    {
+      userId: UserId.of('owner_1'),
+      role: WorkspaceRole.owner,
+      suspendedAt: null,
+    },
+    {
+      userId: UserId.of('admin_1'),
+      role: WorkspaceRole.admin,
+      suspendedAt: null,
+    },
+    {
+      userId: UserId.of('member_1'),
+      role: WorkspaceRole.member,
+      suspendedAt: null,
+    },
   ],
   version: 0,
 });

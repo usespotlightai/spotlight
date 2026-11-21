@@ -2,6 +2,9 @@ import { IDENTITY_EVENT_MAPPERS } from '@identity/application/integration-events
 import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
+import { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
+import { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
+import { WorkspaceMemberUnsuspended } from '@identity/domain/events/workspace-member-unsuspended.event';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -75,5 +78,51 @@ describe('IDENTITY_EVENT_MAPPERS', () => {
         slug: 'acme',
       },
     ]);
+  });
+
+  it('publishes a suspended member as the end of their access', () => {
+    expect(
+      published(
+        new WorkspaceMemberSuspended(
+          WORKSPACE,
+          UserId.of('user_1'),
+          UserId.of('user_2'),
+          new Date(),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'identity.workspace-member-access-ended.v1',
+        workspaceId: 'ws_1',
+        userId: 'user_1',
+      },
+    ]);
+  });
+
+  it('publishes a member who left as the end of their access', () => {
+    expect(
+      published(
+        new WorkspaceMemberLeft(WORKSPACE, UserId.of('user_1'), new Date()),
+      ),
+    ).toEqual([
+      {
+        kind: 'identity.workspace-member-access-ended.v1',
+        workspaceId: 'ws_1',
+        userId: 'user_1',
+      },
+    ]);
+  });
+
+  it('publishes nothing when a member is unsuspended', () => {
+    expect(
+      published(
+        new WorkspaceMemberUnsuspended(
+          WORKSPACE,
+          UserId.of('user_1'),
+          UserId.of('user_2'),
+          new Date(),
+        ),
+      ),
+    ).toEqual([]);
   });
 });
