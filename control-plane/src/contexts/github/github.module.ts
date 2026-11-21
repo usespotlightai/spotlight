@@ -11,6 +11,7 @@ import { REPOSITORY_ACCESS } from '@github/application/ports/repository-access.p
 import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
 import { REPOSITORY_SETTINGS } from '@github/application/ports/repository-settings.port';
+import { REPOSITORY_VISIBILITY } from '@github/application/ports/repository-visibility.port';
 import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
 import { WORKSPACE_CONNECTIONS } from '@github/application/ports/workspace-connections.port';
 import { GITHUB_CONTROLLERS, GITHUB_PROVIDERS } from '@github/github.wiring';
@@ -29,6 +30,7 @@ import { Module } from '@nestjs/common';
     REPOSITORY_CONTENTS,
     PULL_REQUESTS,
     REPOSITORY_SETTINGS,
+    REPOSITORY_VISIBILITY,
     PULL_REQUEST_COMMENTS,
     PULL_REQUEST_REACTIONS,
     PULL_REQUEST_REVIEWS,

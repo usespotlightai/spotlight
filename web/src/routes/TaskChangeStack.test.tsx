@@ -8,12 +8,14 @@ import { TaskChangeStack } from '@/routes/TaskChangeStack';
 import { INVITATIONS } from '@/test/fixtures/change-stack';
 
 const stacks = vi.fn<(...args: unknown[]) => unknown>();
+const stacksFailing = vi.fn<() => boolean>();
 
 vi.mock('@/hooks/api/useTaskChangeStacks', () => ({
   useTaskChangeStacks: () => ({
     data: stacks(),
     isPending: stacks() === undefined,
-    errorUpdateCount: 0,
+    errorUpdateCount: stacksFailing() ? 1 : 0,
+    error: stacksFailing() ? { statusCode: 404 } : undefined,
     isFetching: false,
     refetch: vi.fn(),
   }),
@@ -51,6 +53,10 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
   }),
 }));
 
+vi.mock('@/routes/PublicChangeStack', () => ({
+  PublicChangeStack: () => <p>The public view</p>,
+}));
+
 vi.mock('@/components/shared/PatchCodeDiff', () => ({
   PatchCodeDiff: ({ patch }: { patch: string }) => <pre>{patch}</pre>,
 }));
@@ -75,6 +81,7 @@ const serving = (value: ChangeStacks) => stacks.mockReturnValue(value);
 
 beforeEach(() => {
   stacks.mockReset();
+  stacksFailing.mockReturnValue(false);
 });
 
 describe('TaskChangeStack', () => {
@@ -106,6 +113,14 @@ describe('TaskChangeStack', () => {
       'title',
       'Commit 9f2c4e1',
     );
+  });
+
+  it('shows the public view when the team-scoped read finds nothing, since the stack may be public', () => {
+    serving(undefined as never);
+    stacksFailing.mockReturnValue(true);
+    renderAt();
+
+    expect(screen.getByText('The public view')).toBeInTheDocument();
   });
 
   it('sends a person back to the task when there is no stack', () => {

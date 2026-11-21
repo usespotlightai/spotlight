@@ -88,6 +88,7 @@ const stack = (
     trial: false,
     checkouts: 1,
     workspaceId: WORKSPACE,
+    owner: 'acme',
     repository: over.repository === undefined ? 'widgets' : over.repository,
     base: null,
     diff: DIFF,
@@ -535,6 +536,7 @@ describe('StackPushes', () => {
         },
         {
           diff: 'diff --git a/retry.ts b/retry.ts',
+          owner: 'acme',
           repository: 'widgets',
           base: 'a'.repeat(40),
           request: REQUEST,

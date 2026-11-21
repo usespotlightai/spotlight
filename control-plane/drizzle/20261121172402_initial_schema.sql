@@ -162,6 +162,7 @@ CREATE TABLE "change_stack" (
 	"team_id" text,
 	"trial" boolean NOT NULL,
 	"workspace_id" text NOT NULL,
+	"repository_owner" text NOT NULL,
 	"repository" text,
 	"base_commit" text,
 	"state" "change_stack_state" NOT NULL,
@@ -476,6 +477,14 @@ CREATE TABLE "github_pull_request" (
 	"reverted_by" text,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "github_pull_request_workspace_id_url_pk" PRIMARY KEY("workspace_id","url")
+);
+--> statement-breakpoint
+CREATE TABLE "repository_visibility" (
+	"owner" text NOT NULL,
+	"name" text NOT NULL,
+	"visibility" text NOT NULL,
+	"checked_at" timestamp (3) with time zone NOT NULL,
+	CONSTRAINT "repository_visibility_owner_name_pk" PRIMARY KEY("owner","name")
 );
 --> statement-breakpoint
 CREATE TABLE "device_code" (

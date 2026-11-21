@@ -143,6 +143,7 @@ const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
   await db.insert(schema.changeStack).values({
     id: stackId,
     runId,
+    repositoryOwner: 'acme',
     workspaceId,
     teamId: 'team_checked',
     trial: false,
@@ -410,6 +411,7 @@ const withStack = async (check: StackCheck): Promise<StackCheck> => {
   await db.insert(schema.changeStack).values({
     id: check.stackId.value,
     runId: randomUUID(),
+    repositoryOwner: 'acme',
     workspaceId: check.workspaceId.value,
     taskId: check.taskId?.value ?? null,
     teamId: check.teamId?.value ?? null,

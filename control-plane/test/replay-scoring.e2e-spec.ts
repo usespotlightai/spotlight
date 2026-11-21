@@ -835,6 +835,14 @@ describe('a task run’s change', () => {
         check: 'npm test',
       },
     });
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId,
+        workspaceId: team.workspaceId.value,
+        taskId,
+        stationId: BUILD,
+      }),
+    );
 
     const leased = await claimed();
     expect(leased.runId).toBe(runId);

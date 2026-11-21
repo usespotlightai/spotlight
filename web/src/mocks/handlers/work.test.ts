@@ -5,6 +5,8 @@ import {
   assignTask,
   deleteTask,
   grantAttachmentUpload,
+  listPublicRunChangeStacks,
+  listPublicTaskChangeStacks,
   listRunChangeStacks,
   listTaskChangeStacks,
   listTasks,
@@ -93,6 +95,45 @@ describe('the mock work area', () => {
     expect(data.stacks[0]?.files.map((each) => each.path)).toContain(
       'src/db/pool.ts',
     );
+  });
+
+  it('lists the change stacks of a run to anybody, without what stays private', async () => {
+    const { data } = await listPublicRunChangeStacks({
+      path: { runId: 'run_postgres_2' },
+      throwOnError: true,
+    });
+
+    expect(data.stacks.map((stack) => stack.repository)).toEqual([
+      'acme/api',
+      'acme/worker',
+    ]);
+    for (const stack of data.stacks) {
+      expect(Object.keys(stack).sort()).toEqual([
+        'cohorts',
+        'files',
+        'id',
+        'removed',
+        'repository',
+        'state',
+      ]);
+    }
+  });
+
+  it('lists the change stacks of a task to anybody', async () => {
+    const { data } = await listPublicTaskChangeStacks({
+      path: { taskId: 'task_postgres' },
+      throwOnError: true,
+    });
+
+    expect(data.stacks.length).toBeGreaterThan(0);
+  });
+
+  it('says there is no public change stack for a run it does not know', async () => {
+    const { response } = await listPublicRunChangeStacks({
+      path: { runId: 'run_nobody_knows' },
+    });
+
+    expect(response?.status).toBe(404);
   });
 
   it('reads the memories of a run', async () => {

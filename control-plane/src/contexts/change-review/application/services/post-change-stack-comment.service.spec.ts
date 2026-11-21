@@ -26,6 +26,7 @@ const ready = (repository: string | null = null, run = 'run-1') =>
     trial: false,
     checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
+    owner: 'acme',
     repository,
     base: null,
     request: null,
@@ -93,6 +94,8 @@ const posting = (
   const poster = new PostChangeStackComment(
     {
       latestForTask: async () => null,
+      publicOfRun: async () => [],
+      publicOfTask: async () => [],
       latestPerRepository: async () =>
         (over.stacks ?? [{ repository: null, run: 'run-1' }]).map((each) => {
           const stack = ready(each.repository, each.run);
@@ -139,6 +142,7 @@ const posting = (
         };
       },
       teamOfRun: async () => null,
+      repositoriesOfRun: async () => [],
       reasoning: async () => null,
       task: async () => {
         if (over.failing === 'task') {

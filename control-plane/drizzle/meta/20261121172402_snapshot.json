@@ -1,5 +1,5 @@
 {
-  "id": "78e43f82-20f0-460a-87dd-c47e9d7eae8e",
+  "id": "d107abca-5f62-48ae-9cc0-4b6b4c19be0c",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -498,6 +498,12 @@
         },
         "workspace_id": {
           "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repository_owner": {
+          "name": "repository_owner",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -3158,6 +3164,51 @@
           "columns": [
             "workspace_id",
             "url"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.repository_visibility": {
+      "name": "repository_visibility",
+      "schema": "",
+      "columns": {
+        "owner": {
+          "name": "owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "repository_visibility_owner_name_pk": {
+          "name": "repository_visibility_owner_name_pk",
+          "columns": [
+            "owner",
+            "name"
           ]
         }
       },

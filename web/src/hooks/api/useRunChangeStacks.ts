@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { listRunChangeStacks } from '@/lib/api';
 import { inProgress } from '@/lib/change-stack';
+import { notFound } from '@/lib/error';
 
 export const changeStackKeys = {
   ofRuns: ['change-stacks', 'run'] as const,
@@ -9,6 +10,10 @@ export const changeStackKeys = {
   ofTasks: ['change-stacks', 'task-stacks'] as const,
   forTask: (taskId?: string) =>
     ['change-stacks', 'task-stacks', taskId ?? null] as const,
+  publicRun: (runId?: string) =>
+    ['change-stacks', 'public-run', runId ?? null] as const,
+  publicTask: (taskId?: string) =>
+    ['change-stacks', 'public-task', taskId ?? null] as const,
 };
 
 const POLL_MS = 5_000;
@@ -17,6 +22,7 @@ export function useRunChangeStacks(teamId?: string, runId?: string) {
   return useQuery({
     queryKey: changeStackKeys.forRun(runId),
     enabled: Boolean(teamId && runId),
+    retry: (failures, error) => !notFound(error) && failures < 3,
     refetchInterval: (query) =>
       query.state.data && inProgress(query.state.data.stacks) ? POLL_MS : false,
     queryFn: async () => {

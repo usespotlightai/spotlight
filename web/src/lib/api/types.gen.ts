@@ -4599,6 +4599,49 @@ export type NewestChangeStackResponseDto = {
   latest: LatestChangeStackResponseDto | null;
 };
 
+export type PublicLayerQuestionResponseDto = {
+  id: string;
+  question: string;
+  /**
+   * The hunks that show the answer
+   */
+  hunks: Array<string>;
+};
+
+export type PublicStackLayerResponseDto = {
+  id: string;
+  title: string;
+  summary: string;
+  hunks: Array<StackHunkResponseDto>;
+  notes: Array<FileNoteResponseDto>;
+  questions: Array<PublicLayerQuestionResponseDto>;
+  revision: LayerRevisionResponseDto | null;
+};
+
+export type PublicStackCohortResponseDto = {
+  id: string;
+  kind: 'change' | 'incidental';
+  title: string;
+  intent: string;
+  layers: Array<PublicStackLayerResponseDto>;
+};
+
+export type PublicChangeStackResponseDto = {
+  id: string;
+  repository: string;
+  state: 'generating' | 'ready' | 'failed';
+  files: Array<DiffFileResponseDto>;
+  cohorts: Array<PublicStackCohortResponseDto>;
+  /**
+   * Layers of the previous stack that this stack no longer has
+   */
+  removed: Array<RemovedLayerResponseDto>;
+};
+
+export type PublicChangeStacksResponseDto = {
+  stacks: Array<PublicChangeStackResponseDto>;
+};
+
 export type DecisionMergeResponseDto = {
   repository: string;
   /**
@@ -18915,6 +18958,50 @@ export type ReadTaskChangeStackResponses = {
 };
 
 export type ReadTaskChangeStackResponse = ReadTaskChangeStackResponses[keyof ReadTaskChangeStackResponses];
+
+export type ListPublicRunChangeStacksData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/public/runs/{runId}/change-stacks';
+};
+
+export type ListPublicRunChangeStacksErrors = {
+  /**
+   * The change stack does not exist, or a repository in it is not public
+   */
+  404: unknown;
+};
+
+export type ListPublicRunChangeStacksResponses = {
+  200: PublicChangeStacksResponseDto;
+};
+
+export type ListPublicRunChangeStacksResponse = ListPublicRunChangeStacksResponses[keyof ListPublicRunChangeStacksResponses];
+
+export type ListPublicTaskChangeStacksData = {
+  body?: never;
+  path: {
+    taskId: string;
+  };
+  query?: never;
+  url: '/public/tasks/{taskId}/change-stacks';
+};
+
+export type ListPublicTaskChangeStacksErrors = {
+  /**
+   * The change stack does not exist, or a repository in it is not public
+   */
+  404: unknown;
+};
+
+export type ListPublicTaskChangeStacksResponses = {
+  200: PublicChangeStacksResponseDto;
+};
+
+export type ListPublicTaskChangeStacksResponse = ListPublicTaskChangeStacksResponses[keyof ListPublicTaskChangeStacksResponses];
 
 export type ReadTaskDecisionsData = {
   body?: never;

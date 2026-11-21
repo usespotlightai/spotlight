@@ -9,6 +9,7 @@ import {
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -24,6 +25,7 @@ const generating = (
     claimed?: boolean;
     checking?: CheckingPlan | null;
     trial?: boolean;
+    repositories?: Repository[];
   } = {},
 ) => {
   const begin = vi.fn(async () => ({}) as never);
@@ -43,6 +45,11 @@ const generating = (
       placement: RunnerPlacement.anywhere(),
     }),
     teamOfRun: async () => TeamId.of('team_1'),
+    repositoriesOfRun: async () =>
+      over.repositories ?? [
+        Repository.of('acme/widgets'),
+        Repository.of('acme/gadgets'),
+      ],
     reasoning: async () => null,
     task: async () => null,
     taskWithPullRequest: async () => null,
@@ -99,6 +106,7 @@ describe('GenerateRunChangeStackHandler', () => {
       },
       {
         diff: 'diff --git a/a.ts b/a.ts',
+        owner: 'acme',
         repository: 'widgets',
         base: null,
         request: CheckRequest.of('npm test', 'npm ci', placement),
@@ -120,7 +128,10 @@ describe('GenerateRunChangeStackHandler', () => {
   });
 
   it('checks without a setup when the repository declares none', async () => {
-    const { handler, begin } = generating({ checking });
+    const { handler, begin } = generating({
+      checking,
+      repositories: [Repository.of('acme/widgets')],
+    });
 
     await handler.execute(handed(null));
 
@@ -130,6 +141,37 @@ describe('GenerateRunChangeStackHandler', () => {
         request: CheckRequest.of('npm test', null, placement),
       }),
     );
+  });
+
+  it('stores the owner and name of the only repository of the line when the runner names none', async () => {
+    const { handler, begin } = generating({
+      repositories: [Repository.of('acme/widgets')],
+    });
+
+    await handler.execute(handed(null));
+
+    expect(begin).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ owner: 'acme', repository: 'widgets' }),
+    );
+  });
+
+  it('generates nothing when the repository is not one of the line', async () => {
+    const { handler, begin } = generating();
+
+    await expect(handler.execute(handed('other'))).rejects.toThrow(
+      ApplicationError,
+    );
+    expect(begin).not.toHaveBeenCalled();
+  });
+
+  it('generates nothing when the runner names no repository and the line has several', async () => {
+    const { handler, begin } = generating();
+
+    await expect(handler.execute(handed(null))).rejects.toThrow(
+      ApplicationError,
+    );
+    expect(begin).not.toHaveBeenCalled();
   });
 
   it('requests no check when the station has none', async () => {

@@ -16,6 +16,7 @@ const settingUp = (variables: 'written' | 'not-permitted' = 'written') => {
     })),
     defaultBranchNameOf: vi.fn(async () => 'trunk'),
     oidcSubjectPrefixOf: vi.fn(async () => 'repo:acme@7/infra@101'),
+    visibilityOf: vi.fn(async () => 'public' as const),
     putVariables: vi.fn(async () => variables),
   } satisfies RepositorySettingsPort;
   const trusts = {

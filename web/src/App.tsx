@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
+import { PublicStackGate } from './components/shell/auth/PublicStackGate.tsx';
 import { RequireAuth } from './components/shell/auth/RequireAuth.tsx';
 import { RequireGuest } from './components/shell/auth/RequireGuest.tsx';
 import { CommandsProvider } from './components/shell/command/CommandsProvider.tsx';
@@ -59,19 +60,21 @@ export default function App() {
             <Route path="/verify-email/:token" element={<VerifyEmail />} />
             <Route path="/device" element={<AuthorizeDevice />} />
 
-            <Route element={<RequireAuth />}>
-              <Route index element={<DefaultWorkspace />} />
-              <Route path="/workspaces/new" element={<CreateWorkspace />} />
-              <Route path="/github/installed" element={<GitHubInstalled />} />
-              <Route
-                path="/w/:slug"
-                element={
-                  <CommandsProvider>
-                    <Workspace pages={workspacePages} />
-                  </CommandsProvider>
-                }
-              >
-                {workspacePages}
+            <Route element={<PublicStackGate />}>
+              <Route element={<RequireAuth />}>
+                <Route index element={<DefaultWorkspace />} />
+                <Route path="/workspaces/new" element={<CreateWorkspace />} />
+                <Route path="/github/installed" element={<GitHubInstalled />} />
+                <Route
+                  path="/w/:slug"
+                  element={
+                    <CommandsProvider>
+                      <Workspace pages={workspacePages} />
+                    </CommandsProvider>
+                  }
+                >
+                  {workspacePages}
+                </Route>
               </Route>
             </Route>
 

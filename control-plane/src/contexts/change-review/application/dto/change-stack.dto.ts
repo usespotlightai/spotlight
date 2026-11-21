@@ -43,7 +43,7 @@ interface DiffHunkDto {
   readonly patch: string;
 }
 
-interface DiffFileDto {
+export interface DiffFileDto {
   readonly path: string;
   readonly previousPath: string | null;
   readonly status: (typeof DIFF_FILE_STATUS_NAMES)[number];
@@ -65,7 +65,7 @@ interface LayerRevisionDto {
   readonly previous: string | null;
 }
 
-interface RemovedLayerDto {
+export interface RemovedLayerDto {
   readonly previous: string;
   readonly cohort: string;
   readonly title: string;
@@ -78,7 +78,7 @@ interface LayerQuestionDto {
   readonly answered: QuestionAnswerDto | null;
 }
 
-interface StackLayerDto {
+export interface StackLayerDto {
   readonly id: string;
   readonly title: string;
   readonly summary: string;
@@ -149,6 +149,33 @@ export interface ChangeStackDto {
 interface PushOriginDto {
   readonly head: string;
   readonly pushedBy: string | null;
+}
+
+interface PublicLayerQuestionDto {
+  readonly id: string;
+  readonly question: string;
+  readonly hunks: readonly string[];
+}
+
+interface PublicStackLayerDto extends Omit<StackLayerDto, 'questions'> {
+  readonly questions: readonly PublicLayerQuestionDto[];
+}
+
+interface PublicStackCohortDto extends Omit<StackCohortDto, 'layers'> {
+  readonly layers: readonly PublicStackLayerDto[];
+}
+
+export interface PublicChangeStackDto {
+  readonly id: string;
+  readonly repository: string;
+  readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
+  readonly files: readonly DiffFileDto[];
+  readonly cohorts: readonly PublicStackCohortDto[];
+  readonly removed: readonly RemovedLayerDto[];
+}
+
+export interface PublicChangeStacksDto {
+  readonly stacks: readonly PublicChangeStackDto[];
 }
 
 export interface ChangeStacksDto {

@@ -16,6 +16,7 @@ export const awaitingCheck = async (
     id: stackId,
     runId,
     workspaceId,
+    repositoryOwner: 'acme',
     teamId: 'team_checked',
     trial: false,
     state: 'ready',

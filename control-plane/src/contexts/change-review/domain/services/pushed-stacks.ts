@@ -3,6 +3,7 @@ import type {
   PushDiff,
   PushSettlement,
 } from '@change-review/domain/aggregates/push-diff.aggregate';
+import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import {
   latestPerPullRequest,
   type TaskPullRequests,
@@ -140,15 +141,29 @@ export interface PushStack {
   readonly teamOfRun: null;
   readonly trial: false;
   readonly checkouts: 1;
+  readonly owner: string;
   readonly repository: RepositoryName | null;
   readonly request: CheckRequest | null;
 }
+
+const ownerOf = (diff: PushDiff): string => {
+  const repository = diff.pullRequest.repository;
+
+  if (!repository) {
+    throw InvalidChangeStackError.because(
+      'needs a pull request that names its repository',
+    );
+  }
+
+  return repository.owner;
+};
 
 export const pushStackOf = (
   diff: PushDiff,
   followed: ChangeStack | null,
 ): PushStack => ({
   origin: StackOrigin.push(diff.push.head, diff.push.pushedBy),
+  owner: ownerOf(diff),
   taskId: diff.taskId,
   workspaceId: diff.workspaceId,
   teamOfRun: null,

@@ -16,26 +16,26 @@ export interface StackNoticeBack {
 }
 
 type ChangeStackNoticeProps = {
-  slug: string;
+  slug: string | undefined;
   stack: ChangeStack | null;
-  back: StackNoticeBack;
+  back: StackNoticeBack | null;
 };
 
 export function ChangeStackNotice({
   slug,
   stack,
-  back: { to, label },
+  back: target,
 }: ChangeStackNoticeProps) {
   const unset = useInferenceUnset(slug);
-  const back = (
+  const back = target && (
     <TrailLink
-      to={to}
+      to={target.to}
       className={cn(
         buttonVariants({ variant: 'outline', size: 'sm' }),
         'rounded-full bg-card shadow-none',
       )}
     >
-      {label}
+      {target.label}
     </TrailLink>
   );
 
@@ -70,7 +70,7 @@ export function ChangeStackNotice({
     );
   }
 
-  if (!stack && unset) {
+  if (!stack && unset && slug) {
     return (
       <Notice>
         <EmptyState

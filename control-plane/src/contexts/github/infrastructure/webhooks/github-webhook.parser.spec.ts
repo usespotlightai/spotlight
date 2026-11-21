@@ -31,6 +31,35 @@ const pull = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('GitHubWebhookParser', () => {
+  describe('reading a change of visibility', () => {
+    it.each([
+      ['publicized', 'public'],
+      ['privatized', 'private'],
+    ])('reads %s as %s', (action, visibility) => {
+      expect(
+        eventsOf('repository', {
+          action,
+          repository: { full_name: 'acme/api' },
+        }),
+      ).toEqual([
+        { kind: 'repository-visibility', repository: 'acme/api', visibility },
+      ]);
+    });
+
+    it('says nothing of other repository actions', () => {
+      expect(
+        eventsOf('repository', {
+          action: 'renamed',
+          repository: { full_name: 'acme/api' },
+        }),
+      ).toEqual([]);
+    });
+
+    it('says nothing without the repository name', () => {
+      expect(eventsOf('repository', { action: 'privatized' })).toEqual([]);
+    });
+  });
+
   describe('reading pull request activity', () => {
     it('reads a merged pull request', () => {
       expect(
