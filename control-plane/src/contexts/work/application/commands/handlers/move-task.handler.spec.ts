@@ -115,6 +115,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
         memoryFolder: null,
         tools: [],
         boundSecrets: [],
+        sandboxEnv: [],
       }),
     });
     return runId === null ? null : RunId.of(runId);

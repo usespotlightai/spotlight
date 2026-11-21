@@ -21,6 +21,7 @@ const referring = ProfileSettings.fromRaw({
   ],
   native: {},
   secrets: [],
+  env: {},
 });
 
 describe('a profile’s injected secrets', () => {

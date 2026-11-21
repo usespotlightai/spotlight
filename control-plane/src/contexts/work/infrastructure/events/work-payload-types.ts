@@ -134,6 +134,7 @@ import { RunNotStarted } from '@work/domain/value-objects/run-not-started.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { SecretAwaitingValue } from '@work/domain/value-objects/secret-awaiting-value.vo';
+import { SecretSandboxNotAllowed } from '@work/domain/value-objects/secret-sandbox-not-allowed.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { Station } from '@work/domain/value-objects/station.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
@@ -187,6 +188,7 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessPermission,
   ProfileMissing,
   SecretAwaitingValue,
+  SecretSandboxNotAllowed,
   HandoverOption,
   Resumption,
   RunNotStarted,

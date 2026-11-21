@@ -21,6 +21,7 @@ import {
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const LINEAR = {
@@ -50,18 +51,34 @@ const setUp = (managesSecrets = true) => {
     clock,
     transaction,
   );
+  const uses: SecretUse[] = [];
+  const steps: string[] = [];
+  const usesPort = {
+    register: () => undefined,
+    of: async () => {
+      steps.push('read uses');
+      return uses;
+    },
+  };
+  const locks = {
+    lock: async (workspaceId: WorkspaceId) => {
+      steps.push(`locked ${workspaceId.value}`);
+    },
+  };
   const updating = new UpdateSecretHandler(
     access,
     definitions,
     secrets,
+    usesPort,
+    locks,
     clock,
     transaction,
   );
-  const uses: SecretUse[] = [];
   const deleting = new DeleteSecretHandler(
     access,
     secrets,
-    { register: () => undefined, of: async () => uses },
+    usesPort,
+    locks,
     transaction,
   );
 
@@ -84,6 +101,7 @@ const setUp = (managesSecrets = true) => {
     store,
     creates,
     uses,
+    steps,
     storedValue,
     demoted: () => {
       as.managesSecrets = false;
@@ -210,6 +228,14 @@ describe('UpdateSecretHandler', () => {
     expect(await storedValue()).toBe('lin_api_1');
   });
 
+  it('locks the uses of the workspace’s secrets before it reads them', async () => {
+    const { update, steps } = await created();
+
+    await update({ ...LINEAR, sandbox: 'env' });
+
+    expect(steps).toEqual(['locked ws_1', 'read uses']);
+  });
+
   it('records one change saying who rebound and rotated it, and never the value', async () => {
     const { update, secrets } = await created();
 
@@ -251,10 +277,18 @@ describe('DeleteSecretHandler', () => {
     });
   });
 
+  it('locks the uses of the workspace’s secrets before it reads them', async () => {
+    const { remove, steps } = await created();
+
+    await remove();
+
+    expect(steps).toEqual(['locked ws_1', 'read uses']);
+  });
+
   it('will not delete a secret an integration still uses, and says which', async () => {
     const { remove, storedValue, uses } = await created();
 
-    uses.push({ kind: 'integration', key: 'core/linear' });
+    uses.push({ kind: 'integration', key: 'core/linear', exposes: false });
 
     expect(await remove()).toEqual({
       outcome: 'in-use',

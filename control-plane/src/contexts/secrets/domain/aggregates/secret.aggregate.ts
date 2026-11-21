@@ -1,12 +1,15 @@
 import { SecretCreated } from '@secrets/domain/events/secret-created.event';
 import { SecretDeleted } from '@secrets/domain/events/secret-deleted.event';
 import { SecretUpdated } from '@secrets/domain/events/secret-updated.event';
+import { InvalidSandboxValueError } from '@secrets/domain/exceptions/invalid-sandbox-value.error';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { ReservedSecretValueError } from '@secrets/domain/exceptions/reserved-secret-value.error';
 import { SecretAwaitingValueError } from '@secrets/domain/exceptions/secret-awaiting-value.error';
+import { SecretInSandboxError } from '@secrets/domain/exceptions/secret-in-sandbox.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
+import { SecretSandboxNotAllowedError } from '@secrets/domain/exceptions/secret-sandbox-not-allowed.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import { isReservedSecretName } from '@secrets/domain/value-objects/reserved-secret-name';
 import type {
@@ -20,6 +23,11 @@ import {
 } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
+import {
+  allowsSandbox,
+  sandboxValueRule,
+  type SecretSandbox,
+} from '@secrets/domain/value-objects/secret-sandbox.vo';
 import type { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValueOrigin } from '@secrets/domain/value-objects/secret-value-origin.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
@@ -36,6 +44,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface SecretDefinition {
   readonly name: SecretName;
   readonly bindings: SecretBindings;
+  readonly sandbox: SecretSandbox;
   readonly value: SecretValue | null;
   readonly valueVersion: ValueVersion | null;
 }
@@ -45,6 +54,7 @@ interface Props {
   readonly workspaceId: WorkspaceId;
   readonly name: SecretName;
   readonly bindings: SecretBindings;
+  readonly sandbox: SecretSandbox;
   readonly valueVersion: ValueVersion | null;
   readonly holdsValue: boolean;
   readonly rotatedAt: Date;
@@ -80,6 +90,17 @@ const versionedValueOf = (definition: SecretDefinition): SecretValue | null =>
   definition.valueVersion
     ? valueFor(definition, 'is required when valueWoVersion is set')
     : null;
+
+const assertFitsSandbox = (
+  name: SecretName,
+  sandbox: SecretSandbox,
+  value: SecretValue | null,
+  field: string,
+): void => {
+  if (value && allowsSandbox(sandbox) && !value.fitsSandbox) {
+    throw new InvalidSecretError(field, sandboxValueRule(name.value));
+  }
+};
 
 const assertSendable = (
   name: SecretName,
@@ -119,6 +140,12 @@ export class Secret extends EventRecorder {
 
     const valueToStore = versionedValueOf(definition);
 
+    assertFitsSandbox(
+      definition.name,
+      definition.sandbox,
+      valueToStore,
+      VALUE_FIELD,
+    );
     assertSendable(
       definition.name,
       definition.bindings,
@@ -131,6 +158,7 @@ export class Secret extends EventRecorder {
       workspaceId: input.workspaceId,
       name: definition.name,
       bindings: definition.bindings,
+      sandbox: definition.sandbox,
       valueVersion: definition.valueVersion,
       holdsValue: valueToStore !== null,
       rotatedAt: input.at,
@@ -152,6 +180,7 @@ export class Secret extends EventRecorder {
             origin: created.valueOrigin,
             valueVersion: created.valueVersion?.value ?? null,
             targets: created.bindings.hosts,
+            sandbox: created.sandbox,
           }),
         ),
       ),
@@ -189,7 +218,12 @@ export class Secret extends EventRecorder {
     }
   }
 
-  update(definition: SecretDefinition, by: ChangeActor, at: Date): Secret {
+  update(
+    definition: SecretDefinition,
+    by: ChangeActor,
+    at: Date,
+    uses: SecretUses,
+  ): Secret {
     this.assertNotDeleted();
 
     if (!definition.name.equals(this.name)) {
@@ -214,15 +248,26 @@ export class Secret extends EventRecorder {
       ? valueFor(definition, 'is required when valueWoVersion changes')
       : null;
     const rebound = !definition.bindings.equals(this.bindings);
+    const sandboxChanged = definition.sandbox !== this.sandbox;
 
+    assertFitsSandbox(this.name, definition.sandbox, valueToStore, VALUE_FIELD);
     assertSendable(this.name, definition.bindings, valueToStore, VALUE_FIELD);
 
-    if (!rotating && !rebound && !handedOver) {
+    if (
+      sandboxChanged &&
+      !allowsSandbox(definition.sandbox) &&
+      !uses.exposures.isEmpty
+    ) {
+      throw new SecretInSandboxError(this.name.value, uses.exposures);
+    }
+
+    if (!rotating && !rebound && !handedOver && !sandboxChanged) {
       return this;
     }
 
     const updated = this.with({
       bindings: definition.bindings,
+      sandbox: definition.sandbox,
       valueVersion: definition.valueVersion,
       holdsValue: valueToStore !== null || this.state.holdsValue,
       rotatedAt: valueToStore ? at : this.rotatedAt,
@@ -240,6 +285,7 @@ export class Secret extends EventRecorder {
       valueVersion: definition.valueVersion?.value ?? null,
       rebound,
       targets: definition.bindings.hosts,
+      sandbox: sandboxChanged ? definition.sandbox : null,
     });
 
     updated.record(
@@ -262,6 +308,7 @@ export class Secret extends EventRecorder {
     }
 
     this.valueOrigin.assertSettable(this.name.value);
+    assertFitsSandbox(this.name, this.sandbox, value, 'value');
     assertSendable(this.name, this.bindings, value, 'value');
 
     const updated = this.with({
@@ -284,6 +331,7 @@ export class Secret extends EventRecorder {
             valueVersion: null,
             rebound: false,
             targets: this.bindings.hosts,
+            sandbox: null,
           }),
         ),
       ),
@@ -360,6 +408,24 @@ export class Secret extends EventRecorder {
     return this.bindingForUrl(url).standIn(this.name);
   }
 
+  assertAllowsSandbox(): void {
+    this.assertNotDeleted();
+
+    if (!allowsSandbox(this.sandbox)) {
+      throw new SecretSandboxNotAllowedError(this.name.value);
+    }
+  }
+
+  sandboxValue(value: SecretValue): SecretValue {
+    this.assertAllowsSandbox();
+
+    if (!value.fitsSandbox) {
+      throw new InvalidSandboxValueError(this.name.value);
+    }
+
+    return value;
+  }
+
   injectable(value: SecretValue): SecretValue {
     if (!value.fitsOneLine) {
       throw new SecretNotInjectableError(this.name.value);
@@ -429,6 +495,10 @@ export class Secret extends EventRecorder {
 
   get bindings(): SecretBindings {
     return this.state.bindings;
+  }
+
+  get sandbox(): SecretSandbox {
+    return this.state.sandbox;
   }
 
   get valueVersion(): ValueVersion | null {

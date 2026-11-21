@@ -1,8 +1,10 @@
 import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
+import { isRunnerVariable } from '@runs/domain/value-objects/runner-variables';
 import type { WarmCheckout } from '@runs/domain/value-objects/warm-line.vo';
 import { distinct } from '@shared-kernel/domain/distinct';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
+import { isEnvironmentVariableName } from '@shared-kernel/domain/value-objects/environment-variable-name';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
@@ -101,6 +103,11 @@ export interface RunHarnessSetup {
   readonly askKinds: readonly string[];
 }
 
+export interface RunSandboxVariable {
+  readonly variable: string;
+  readonly secret: string;
+}
+
 export interface RunAttachment {
   readonly id: string;
   readonly path: string;
@@ -124,6 +131,7 @@ export interface RunSpecParts {
   readonly harnessSetup?: RunHarnessSetup;
   readonly settingFiles?: readonly string[];
   readonly injectedSecrets?: readonly string[];
+  readonly sandboxEnv?: readonly RunSandboxVariable[];
   readonly harnessKeys?: readonly string[];
   readonly spotlightApi?: boolean;
 }
@@ -146,6 +154,7 @@ export const RUN_SPEC_FIELDS = [
   'harnessSetup',
   'settingFiles',
   'injectedSecrets',
+  'sandboxEnv',
   'harnessKeys',
   'spotlightApi',
 ] as const satisfies readonly (keyof RunSpecParts)[];
@@ -284,6 +293,14 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.injectedSecrets?.length
     ? { injectedSecrets: [...parts.injectedSecrets] }
     : {}),
+  ...(parts.sandboxEnv?.length
+    ? {
+        sandboxEnv: parts.sandboxEnv.map(({ variable, secret }) => ({
+          variable,
+          secret,
+        })),
+      }
+    : {}),
   ...(parts.harnessKeys?.length ? { harnessKeys: [...parts.harnessKeys] } : {}),
   ...(parts.spotlightApi ? { spotlightApi: true } : {}),
 });
@@ -291,6 +308,10 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
 export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
   if ((parts.injectedSecrets?.length ?? 0) > 0) {
     return 'has egress inject secrets';
+  }
+
+  if ((parts.sandboxEnv?.length ?? 0) > 0) {
+    return 'puts secrets in its sandbox';
   }
 
   if (parts.spotlightApi) {
@@ -422,6 +443,38 @@ export class RunSpec {
       if (!isSecretName(secret)) {
         throw new InvalidRunSpecError(
           'must name each secret that egress injects for it',
+        );
+      }
+    }
+
+    for (const [at, { variable, secret }] of (
+      parts.sandboxEnv ?? []
+    ).entries()) {
+      if (!isEnvironmentVariableName(variable) || !isSecretName(secret)) {
+        throw new InvalidRunSpecError(
+          'must name each environment variable and the secret it holds',
+        );
+      }
+
+      if (isRunnerVariable(variable)) {
+        throw new InvalidRunSpecError(
+          `must not put a secret in ${variable}, which the runner sets in every sandbox`,
+        );
+      }
+
+      if (Object.keys(parts.command.env ?? {}).includes(variable)) {
+        throw new InvalidRunSpecError(
+          `must not put a secret in ${variable}, which the harness command sets`,
+        );
+      }
+
+      if (
+        (parts.sandboxEnv ?? [])
+          .slice(0, at)
+          .some((each) => each.variable === variable)
+      ) {
+        throw new InvalidRunSpecError(
+          `must set environment variable ${variable} once`,
         );
       }
     }
@@ -608,6 +661,10 @@ export class RunSpec {
         ...(this.parts.harnessKeys ?? []),
       ].map((each) => SecretName.of(each)),
     );
+  }
+
+  get sandboxEnv(): readonly RunSandboxVariable[] {
+    return this.parts.sandboxEnv ?? [];
   }
 
   get injectsSpotlightApi(): boolean {

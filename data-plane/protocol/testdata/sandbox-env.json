@@ -1,0 +1,75 @@
+{
+  "variables": [
+    "ALL_PROXY",
+    "COLORTERM",
+    "CURL_CA_BUNDLE",
+    "GIT_SSL_CAINFO",
+    "HOME",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "LOGNAME",
+    "NODE_EXTRA_CA_CERTS",
+    "NODE_USE_ENV_PROXY",
+    "NO_PROXY",
+    "PATH",
+    "REQUESTS_CA_BUNDLE",
+    "SHELL",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "TERM",
+    "USER"
+  ],
+  "prefix": "SPOTLIGHT_",
+  "namePattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+  "minLength": 8,
+  "values": [
+    {
+      "value": "12345678",
+      "fits": true
+    },
+    {
+      "value": "1234567",
+      "fits": false
+    },
+    {
+      "value": "1234\n5678",
+      "fits": true
+    },
+    {
+      "value": "a\n       ",
+      "fits": false
+    },
+    {
+      "value": "a b c d e f g",
+      "fits": false
+    },
+    {
+      "value": "1234567\u0085",
+      "fits": false
+    },
+    {
+      "value": "1234567\u00a0",
+      "fits": false
+    },
+    {
+      "value": "1234567\u3000",
+      "fits": false
+    },
+    {
+      "value": "1234567\ufeff",
+      "fits": true
+    },
+    {
+      "value": "🔑🔑🔑🔑🔑🔑🔑",
+      "fits": false
+    },
+    {
+      "value": "🔑🔑🔑🔑🔑🔑🔑🔑",
+      "fits": true
+    },
+    {
+      "value": "12345678\u0000",
+      "fits": false
+    }
+  ]
+}

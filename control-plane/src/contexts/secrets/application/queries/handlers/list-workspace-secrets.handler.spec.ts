@@ -26,6 +26,7 @@ const record = (
       prefix: '',
     },
   ],
+  sandbox: 'stand-in',
   valueVersion: null,
   holdsValue: false,
   rotatedAt: NOW,
@@ -55,6 +56,7 @@ describe('ListWorkspaceSecretsHandler', () => {
       {
         name: 'LINEAR_API_KEY',
         hosts: ['example.com'],
+        sandbox: 'stand-in',
         valueOrigin: 'terraform',
         valueSetAt: NOW,
         settable: false,
@@ -62,6 +64,7 @@ describe('ListWorkspaceSecretsHandler', () => {
       {
         name: 'STAGING_PASSWORD',
         hosts: ['example.com'],
+        sandbox: 'stand-in',
         valueOrigin: 'awaiting',
         valueSetAt: null,
         settable: true,
@@ -69,6 +72,7 @@ describe('ListWorkspaceSecretsHandler', () => {
       {
         name: 'VIEWER_TOKEN',
         hosts: ['example.com'],
+        sandbox: 'stand-in',
         valueOrigin: 'spotlight',
         valueSetAt: NOW,
         settable: true,

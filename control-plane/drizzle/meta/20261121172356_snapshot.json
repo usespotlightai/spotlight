@@ -1,5 +1,5 @@
 {
-  "id": "429b9184-2b5f-4cbe-ae47-1d0156f1a61f",
+  "id": "78e43f82-20f0-460a-87dd-c47e9d7eae8e",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -2612,6 +2612,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'"
+        },
+        "env": {
+          "name": "env",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "version": {
           "name": "version",
@@ -17541,6 +17548,13 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "sandbox": {
+          "name": "sandbox",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'stand-in'"
         },
         "value_version": {
           "name": "value_version",

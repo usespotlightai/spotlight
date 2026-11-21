@@ -4,6 +4,7 @@ import type {
 } from '@secrets/application/ports/bound-secrets.port';
 import type { SecretResourcesPort } from '@secrets/application/ports/secret-resources.port';
 import { SecretBinding } from '@secrets/domain/value-objects/secret-binding.vo';
+import { allowsSandbox } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import { SecretValueOrigin } from '@secrets/domain/value-objects/secret-value-origin.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -40,6 +41,7 @@ export class BoundSecrets implements BoundSecretsPort {
           };
         }),
         awaitingValue: SecretValueOrigin.of(each).awaitsValue,
+        allowsSandbox: allowsSandbox(each.sandbox),
       };
     });
   }

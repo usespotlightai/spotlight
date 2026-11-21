@@ -116,7 +116,7 @@ const DEFINITION = ApiBody({
             nullable: true,
             example: 'spotlight',
             description:
-              'The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool',
+              'The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs whose secrets egress injects, or that use the Spotlight API, do not go to the pool',
           },
           egressTraffic: {
             type: 'string',

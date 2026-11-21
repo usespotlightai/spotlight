@@ -2,6 +2,7 @@ import type { SecretResourceDto } from '@secrets/application/dto/secret-resource
 import type { SecretView } from '@secrets/application/ports/secret-configuration.port';
 import type { SecretRecord } from '@secrets/application/ports/secret-resources.port';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
+import { DEFAULT_SECRET_SANDBOX } from '@secrets/domain/value-objects/secret-sandbox.vo';
 
 export const SecretResourceMapper = {
   toDto(secret: SecretRecord): SecretResourceDto {
@@ -12,6 +13,7 @@ export const SecretResourceMapper = {
       workspaceId: secret.workspaceId.value,
       name: secret.name,
       bindings: secret.bindings.map((each) => ({ ...each })),
+      sandbox: secret.sandbox,
       valueWoVersion: secret.valueVersion,
       rotatedAt: secret.rotatedAt.toISOString(),
       warnings: [],
@@ -30,6 +32,8 @@ export const SecretResourceMapper = {
         name: each.target.name,
         prefix: each.prefix,
       })),
+      sandbox:
+        secret.sandbox === DEFAULT_SECRET_SANDBOX ? null : secret.sandbox,
       valueVersion: secret.valueVersion?.value ?? null,
     };
   },

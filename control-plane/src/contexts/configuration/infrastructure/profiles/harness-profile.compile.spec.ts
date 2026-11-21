@@ -66,6 +66,7 @@ describe('HarnessProfileCompiler', () => {
         mcpServers: [],
         native: {},
         secrets: [],
+        env: {},
       }),
     });
 

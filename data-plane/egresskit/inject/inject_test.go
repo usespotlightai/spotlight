@@ -544,3 +544,78 @@ func TestInjectPlainSwapsABasicStandInOnThePlainControlPlanesPort(t *testing.T) 
 		t.Fatalf("Authorization = %q, want the run's token", got)
 	}
 }
+
+func TestARedactorSwapsEachSpellingOfAValueForItsSecretsStandIn(t *testing.T) {
+	redactor := NewRedactor(map[string]string{"APP_KEY": "a/b c\n\"d\"", "EMPTY": ""})
+
+	for _, written := range []string{
+		"raw a/b c\n\"d\" end",
+		`json "a/b c\n\"d\"" end`,
+		"query a%2Fb+c%0A%22d%22 end",
+		"path a%2Fb%20c%0A%22d%22 end",
+	} {
+		if got := redactor.Text(written); strings.Contains(got, "a/b") || strings.Contains(got, "a%2F") || !strings.Contains(got, "APP_KEY") {
+			t.Errorf("%q became %q", written, got)
+		}
+	}
+	if got := redactor.Text("nothing secret"); got != "nothing secret" {
+		t.Errorf("redacted %q", got)
+	}
+	if got := (*Redactor)(nil).Text("as it was"); got != "as it was" {
+		t.Errorf("no redactor redacted %q", got)
+	}
+}
+
+func TestARedactorSwapsAValueThatSpansLinesWithItsLinesJoinedBySpacesOrCarriageReturns(t *testing.T) {
+	redactor := NewRedactor(map[string]string{"APP_KEY": "-----BEGIN KEY-----\nMIIEvQIBADANBgkq\nabc\n-----END KEY-----\n"})
+
+	for _, written := range []string{
+		"-----BEGIN KEY----- MIIEvQIBADANBgkq abc -----END KEY-----",
+		"-----BEGIN KEY-----\r\nMIIEvQIBADANBgkq\r\nabc\r\n-----END KEY-----",
+	} {
+		if got := redactor.Text(written); strings.Contains(got, "MIIEvQ") || strings.Contains(got, "BEGIN") {
+			t.Errorf("%q became %q", written, got)
+		}
+	}
+	indented := NewRedactor(map[string]string{"SA_KEY": "{\n  \"type\": \"service_account\",\n\n  \"private_key\": \"MIIEvQIBADANBgkq\"\n}\n"})
+	if got := indented.Text(`{ "type": "service_account", "private_key": "MIIEvQIBADANBgkq" }`); strings.Contains(got, "MIIEvQ") {
+		t.Errorf("the words of an indented value became %q", got)
+	}
+
+	for _, written := range []string{"abc", "-----BEGIN KEY-----"} {
+		if got := redactor.Text(written); got != written {
+			t.Errorf("redacted the line %q alone", got)
+		}
+	}
+
+	redacted, held := redactor.Partial("-----BEGIN KEY----- MIIEvQ")
+	if redacted != "" || held != "-----BEGIN KEY----- MIIEvQ" {
+		t.Errorf("redacted %q and held %q", redacted, held)
+	}
+}
+
+func TestARedactorSwapsAOneLineValueTrimmedOrWithItsSpacesJoined(t *testing.T) {
+	redactor := NewRedactor(map[string]string{"PIN": " abc   defgh "})
+
+	for _, written := range []string{" abc   defgh ", "abc   defgh", "abc defgh"} {
+		if got := redactor.Text("echo " + written + "."); got != "echo "+protocol.StandInPrefix+"PIN." {
+			t.Errorf("%q became %q", written, got)
+		}
+	}
+}
+
+func TestARedactorHoldsBackTextThatMayStartAValue(t *testing.T) {
+	redactor := NewRedactor(map[string]string{"APP_KEY": "private-key"})
+
+	redacted, held := redactor.Partial("the key is priv")
+	if redacted != "the key is " || held != "priv" {
+		t.Errorf("redacted %q and held %q", redacted, held)
+	}
+	redacted, held = redactor.Partial(held + "ate-key, done")
+	if redacted != protocol.StandInPrefix+"APP_KEY, done" || held != "" {
+		t.Errorf("redacted %q and held %q", redacted, held)
+	}
+	if redacted, held = (*Redactor)(nil).Partial("priv"); redacted != "priv" || held != "" {
+		t.Errorf("no redactor redacted %q and held %q", redacted, held)
+	}
+}

@@ -1,3 +1,4 @@
+import type { SecretSandbox } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const SECRET_RESOURCES = Symbol('SECRET_RESOURCES');
@@ -13,6 +14,7 @@ export interface SecretRecord {
     readonly name: string;
     readonly prefix: string;
   }[];
+  readonly sandbox: SecretSandbox;
   readonly valueVersion: number | null;
   readonly holdsValue: boolean;
   readonly rotatedAt: Date;

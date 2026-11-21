@@ -1,3 +1,4 @@
+import type { SecretSandbox } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface SecretResourceDto {
@@ -12,6 +13,7 @@ export interface SecretResourceDto {
     readonly name: string;
     readonly prefix: string;
   }[];
+  readonly sandbox: SecretSandbox;
   readonly valueWoVersion: number | null;
   readonly rotatedAt: string;
   readonly warnings: readonly ConfigurationProblem[];

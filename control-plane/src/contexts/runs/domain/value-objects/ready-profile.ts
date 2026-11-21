@@ -28,16 +28,23 @@ export interface HarnessSettings {
   readonly native: Readonly<Record<string, unknown>>;
 }
 
+export interface SandboxVariable {
+  readonly variable: string;
+  readonly secret: SecretName;
+}
+
 export interface ReadyProfile extends HarnessSettings {
   readonly key: ProfileKey;
   readonly secrets: readonly SecretName[];
   readonly injectedSecrets: readonly SecretName[];
+  readonly sandboxEnv: readonly SandboxVariable[];
 }
 
 export const readyProfile = (
   key: ProfileKey,
   settings: HarnessSettings,
   secrets: readonly SecretName[],
+  sandboxEnv: readonly SandboxVariable[],
 ): ReadyProfile => {
   const servers = settings.mcpServers.map((server) => ({
     server,
@@ -56,5 +63,6 @@ export const readyProfile = (
       ...servers.flatMap(({ injected }) => injected.injectedSecrets),
       ...secrets,
     ]),
+    sandboxEnv: sandboxEnv.map((each) => ({ ...each })),
   };
 };

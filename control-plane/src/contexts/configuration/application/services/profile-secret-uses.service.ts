@@ -27,6 +27,7 @@ export class ProfileSecretUses implements SecretUser {
           uses.push({
             kind: 'harness-profile',
             key: TeamAddress.of(team.key, profile.key.value).toString(),
+            exposes: profile.settings.exposes(name),
           });
         }
       }

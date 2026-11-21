@@ -38,6 +38,7 @@ import {
   stationWith,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import type { SandboxVariable } from '@work/domain/value-objects/ready-profile';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -167,6 +168,7 @@ const brief = (
   memoryFolder: MemoryFolder | null = null,
   tools: readonly DeclaredTool[] = [],
   secrets: readonly BoundSecret[] = [],
+  sandboxEnv: readonly SandboxVariable[] = [],
 ) => {
   const line = lineOf(station, at('station_2', 'Spec', 1));
 
@@ -181,6 +183,7 @@ const brief = (
     memoryFolder,
     tools,
     boundSecrets: secrets,
+    sandboxEnv,
   });
 };
 
@@ -210,6 +213,7 @@ describe('TaskBriefing', () => {
       memoryFolder: null,
       tools: [],
       boundSecrets: [],
+      sandboxEnv: [],
       drivenByAPerson: true,
     });
 
@@ -488,6 +492,7 @@ describe('TaskBriefing', () => {
       name: SecretName.of(name),
       bindings,
       awaitingValue: false,
+      allowsSandbox: false,
     });
 
     it('says where to send the stand-in of each secret, and never a value', () => {
@@ -535,6 +540,32 @@ describe('TaskBriefing', () => {
     it('says nothing of secrets where its profile injects none', () => {
       expect(brief(triage())).not.toContain('## Secrets');
     });
+
+    it('names each variable that holds a secret’s real value, and warns what is not redacted', () => {
+      const briefing = brief(
+        triage(),
+        undefined,
+        [],
+        [],
+        null,
+        [],
+        [],
+        [
+          {
+            variable: 'GITHUB_APP_PRIVATE_KEY',
+            secret: SecretName.of('DEV_GITHUB_APP_KEY'),
+          },
+        ],
+      );
+
+      expect(briefing).toContain('## Secrets in your environment');
+      expect(briefing).toContain(
+        '- `GITHUB_APP_PRIVATE_KEY`: secret `DEV_GITHUB_APP_KEY`',
+      );
+      expect(briefing).toContain(
+        'but not in files, attachments, commits or the workspace archive',
+      );
+    });
   });
 
   it('says that a handover to no station puts the task in front of a person', () => {
@@ -554,6 +585,7 @@ describe('TaskBriefing', () => {
         memoryFolder: null,
         tools: [],
         boundSecrets: [],
+        sandboxEnv: [],
       });
     };
 
@@ -731,6 +763,7 @@ describe('TaskBriefing', () => {
         memoryFolder: null,
         tools: [],
         boundSecrets: [],
+        sandboxEnv: [],
       });
 
     it('lists every repository the line works in, side by side', () => {

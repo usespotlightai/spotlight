@@ -15,6 +15,7 @@ const PARSED = {
     mcpServers: [],
     native: {},
     secrets: [],
+    env: {},
   }),
 };
 

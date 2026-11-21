@@ -12,6 +12,7 @@ const record = (
   workspaceId: WORKSPACE,
   name,
   bindings: [],
+  sandbox: 'stand-in',
   valueVersion: null,
   holdsValue: false,
   rotatedAt: NOW,
@@ -90,6 +91,7 @@ describe('BoundSecrets', () => {
           },
         ],
         awaitingValue: true,
+        allowsSandbox: false,
       },
       {
         name: 'LINEAR_API_KEY',
@@ -102,8 +104,14 @@ describe('BoundSecrets', () => {
           },
         ],
         awaitingValue: false,
+        allowsSandbox: false,
       },
-      { name: 'VIEWER_TOKEN', bindings: [], awaitingValue: false },
+      {
+        name: 'VIEWER_TOKEN',
+        bindings: [],
+        awaitingValue: false,
+        allowsSandbox: false,
+      },
     ]);
   });
 

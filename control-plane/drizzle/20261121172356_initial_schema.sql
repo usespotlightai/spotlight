@@ -399,6 +399,7 @@ CREATE TABLE "harness_profile" (
 	"mcp_servers" jsonb NOT NULL,
 	"native" jsonb NOT NULL,
 	"secrets" text[] DEFAULT '{}' NOT NULL,
+	"env" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "harness_profile_team_id_key_unique" UNIQUE("team_id","key")
@@ -2142,6 +2143,7 @@ CREATE TABLE "secret" (
 	"workspace_id" text NOT NULL,
 	"name" text NOT NULL,
 	"bindings" jsonb NOT NULL,
+	"sandbox" text DEFAULT 'stand-in' NOT NULL,
 	"value_version" integer,
 	"rotated_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,

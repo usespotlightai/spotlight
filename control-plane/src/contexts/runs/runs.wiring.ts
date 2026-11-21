@@ -75,6 +75,7 @@ import { RedeemCallSecretsHandler } from '@runs/application/commands/handlers/re
 import { ReleaseSandboxArchiveHandler } from '@runs/application/commands/handlers/release-sandbox-archive.handler';
 import { RenewLeaseHandler } from '@runs/application/commands/handlers/renew-lease.handler';
 import { RenewReviewWorkLeaseHandler } from '@runs/application/commands/handlers/renew-review-work-lease.handler';
+import { RevealSandboxEnvHandler } from '@runs/application/commands/handlers/reveal-sandbox-env.handler';
 import {
   ClaimHostCallCommand,
   RecordHostCallResponseCommand,
@@ -90,6 +91,7 @@ import {
   RecordStartingPointCommand,
   RenewReviewWorkLeaseCommand,
   RenewLeaseCommand,
+  RevealSandboxEnvCommand,
 } from '@runs/application/commands/runner.commands';
 import {
   AppendSandboxArchiveJournalCommand,
@@ -346,6 +348,7 @@ import {
   RUN_SECRET_FETCHES,
   type RunSecretFetchesPort,
 } from '@secrets/application/ports/run-secret-fetches.port';
+import { SANDBOX_ENV_REVEALS } from '@secrets/application/ports/sandbox-env-reveals.port';
 import {
   CLOCK,
   type ClockPort,
@@ -759,6 +762,13 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     GrantWorkingCopyArchiveHandler,
     [RUN_REPOSITORY, ArchiveGrants],
   ),
+
+  ...bindCommandHandler(RevealSandboxEnvCommand, RevealSandboxEnvHandler, [
+    RUN_REPOSITORY,
+    RUNNER_CLAIMANTS,
+    SANDBOX_ENV_REVEALS,
+    CLOCK,
+  ]),
 
   ...bindCommandHandler(
     RecordStartingPointCommand,

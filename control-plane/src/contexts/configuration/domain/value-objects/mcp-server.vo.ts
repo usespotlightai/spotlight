@@ -1,8 +1,10 @@
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
+import {
+  ENVIRONMENT_VARIABLE_NAME_RULE,
+  isEnvironmentVariableName,
+} from '@shared-kernel/domain/value-objects/environment-variable-name';
 import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export class McpServer {
   private constructor(
@@ -39,10 +41,10 @@ export class McpServer {
     }
 
     for (const variable of Object.keys(input.env)) {
-      if (!ENV_NAME.test(variable)) {
+      if (!isEnvironmentVariableName(variable)) {
         throw new InvalidHarnessProfileError(
           ['mcpServers', at, 'env', variable],
-          'environment variable names must use letters, digits and underscores',
+          ENVIRONMENT_VARIABLE_NAME_RULE,
         );
       }
     }

@@ -52,6 +52,7 @@ const handler = () => {
     subject: new HarnessKeysHandler(
       authenticator,
       new HeldHarnessKeys(launch, {
+        sandboxSecrets: async () => [],
         namesIn: async () => [
           'ANTHROPIC_API_KEY',
           'LINEAR_API_KEY',

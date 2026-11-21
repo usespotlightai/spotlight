@@ -462,6 +462,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
           valueOrigin: 'terraform',
           valueVersion: 1,
           targets: ['api.linear.app'],
+          sandbox: 'stand-in',
         },
       ],
     ]);

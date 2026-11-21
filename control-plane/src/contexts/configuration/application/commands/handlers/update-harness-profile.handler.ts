@@ -1,11 +1,13 @@
 import type { UpdateHarnessProfileCommand } from '@configuration/application/commands/update-harness-profile.command';
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
+import type { SecretUseLocksPort } from '@configuration/application/ports/secret-use-locks.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import type { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
+import { SecretsSandboxNotAllowedError } from '@configuration/domain/exceptions/secrets-sandbox-not-allowed.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -27,6 +29,7 @@ export class UpdateHarnessProfileHandler implements CommandHandlerPort<
     private readonly access: WorkspaceAccessPort,
     private readonly compiler: HarnessProfileCompilerPort,
     private readonly secrets: SecretNamesPort,
+    private readonly locks: SecretUseLocksPort,
     private readonly profiles: HarnessProfileRepository,
     private readonly transaction: TransactionPort,
   ) {}
@@ -64,16 +67,18 @@ export class UpdateHarnessProfileHandler implements CommandHandlerPort<
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      await this.transaction.inTransaction(async () =>
-        this.profiles.save(
+      await this.transaction.inTransaction(async () => {
+        await this.locks.lock(existing.teamId);
+
+        await this.profiles.save(
           existing.update(
             compiled,
             ChangeActor.of(command.actor, permissions.workspaceId),
-            await this.secrets.ofTeam(existing.teamId),
+            await this.secrets.known(existing.teamId),
             this.compiler,
           ),
-        ),
-      );
+        );
+      });
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
@@ -99,6 +104,16 @@ export class UpdateHarnessProfileHandler implements CommandHandlerPort<
         return {
           outcome: 'invalid',
           problems: HarnessProfileProblems.missing(error.key, error.missing),
+        };
+      }
+
+      if (error instanceof SecretsSandboxNotAllowedError) {
+        return {
+          outcome: 'invalid',
+          problems: HarnessProfileProblems.sandboxNotAllowed(
+            error.key,
+            error.refused,
+          ),
         };
       }
 

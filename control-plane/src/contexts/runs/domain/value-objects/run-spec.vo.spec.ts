@@ -32,6 +32,72 @@ describe('RunSpec', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
+  it('names each secret it puts in the sandbox, once per variable', () => {
+    const key = {
+      variable: 'GITHUB_APP_PRIVATE_KEY',
+      secret: 'DEV_GITHUB_APP_KEY',
+    };
+
+    expect(RunSpec.of(parts({ sandboxEnv: [key] })).sandboxEnv).toEqual([key]);
+    expect(() =>
+      RunSpec.of(
+        parts({ sandboxEnv: [{ variable: 'GITHUB-KEY', secret: key.secret }] }),
+      ),
+    ).toThrow(
+      'Run spec must name each environment variable and the secret it holds.',
+    );
+    expect(() =>
+      RunSpec.of(parts({ sandboxEnv: [{ ...key, secret: 'dev key' }] })),
+    ).toThrow(
+      'Run spec must name each environment variable and the secret it holds.',
+    );
+    expect(() => RunSpec.of(parts({ sandboxEnv: [key, key] }))).toThrow(
+      'Run spec must set environment variable GITHUB_APP_PRIVATE_KEY once.',
+    );
+    expect(() =>
+      RunSpec.of(
+        parts({
+          sandboxEnv: [{ variable: 'https_proxy', secret: key.secret }],
+        }),
+      ),
+    ).toThrow('which the runner sets in every sandbox');
+    expect(actsBeyondItselfIn(parts({ sandboxEnv: [key] }))).toBe(
+      'puts secrets in its sandbox',
+    );
+  });
+
+  it('keeps the variables the harness command sets, harness keys among them, out of the sandbox env', () => {
+    const key = { variable: 'ANTHROPIC_API_KEY', secret: 'DEV_KEY' };
+
+    expect(() =>
+      RunSpec.of(
+        parts({
+          command: {
+            executable: 'claude-agent-acp',
+            args: [],
+            env: { CLAUDE_CONFIG_DIR: '/state' },
+          },
+          sandboxEnv: [{ variable: 'CLAUDE_CONFIG_DIR', secret: 'DEV_KEY' }],
+        }),
+      ),
+    ).toThrow('which the harness command sets');
+    expect(() =>
+      RunSpec.of(parts({ sandboxEnv: [key] })).wearingHarnessKeys([
+        SecretName.of('ANTHROPIC_API_KEY'),
+      ]),
+    ).toThrow('which the harness command sets');
+  });
+
+  it('takes a variable named like a property every object has, which no harness command sets', () => {
+    const spec = RunSpec.of(
+      parts({ sandboxEnv: [{ variable: 'toString', secret: 'DEV_KEY' }] }),
+    );
+
+    expect(spec.sandboxEnv).toEqual([
+      { variable: 'toString', secret: 'DEV_KEY' },
+    ]);
+  });
+
   it('gives the harness a stand-in for each harness key it wears, and has egress inject each', () => {
     const worn = RunSpec.of(
       parts({

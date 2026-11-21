@@ -17,6 +17,8 @@ import type { SecretRepository } from '@secrets/domain/repositories/secret.repos
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
+import type { SecretSandbox } from '@secrets/domain/value-objects/secret-sandbox.vo';
+import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -103,9 +105,13 @@ export const NOW = new Date('2026-09-23T12:00:00.000Z');
 export class RecordingLogger implements LoggerPort {
   readonly warned: LogFields[] = [];
 
+  readonly informed: LogFields[] = [];
+
   debug(): void {}
 
-  info(): void {}
+  info(fields: LogFields): void {
+    this.informed.push(fields);
+  }
 
   warn(fields: LogFields): void {
     this.warned.push(fields);
@@ -132,6 +138,7 @@ export const definition = (
     }[];
     value: string | null;
     valueVersion: number | null;
+    sandbox: SecretSandbox;
   }> = {},
 ): SecretDefinition => ({
   name: SecretName.of(over.name ?? 'LINEAR_API_KEY'),
@@ -141,6 +148,7 @@ export const definition = (
   value: over.value === null ? null : SecretValue.of(over.value ?? 'lin_api_1'),
   valueVersion:
     over.valueVersion === null ? null : ValueVersion.of(over.valueVersion ?? 1),
+  sandbox: over.sandbox ?? 'stand-in',
 });
 
 interface StoredSecret {
@@ -215,6 +223,7 @@ export class InMemorySecrets implements SecretRepository {
       workspaceId: record.secret.workspaceId,
       name: record.secret.name,
       bindings: record.secret.bindings,
+      sandbox: record.secret.sandbox,
       valueVersion: record.secret.valueVersion,
       holdsValue: this.values.has(record.secret.id),
       rotatedAt: record.secret.rotatedAt,
@@ -260,7 +269,9 @@ export const bindStored = async (
     throw new Error(`Secret ${id} was not saved`);
   }
 
-  await secrets.save(stored.update(definition(over), BY, NOW));
+  await secrets.save(
+    stored.update(definition(over), BY, NOW, SecretUses.none()),
+  );
 };
 
 export class InMemoryGrants implements RunGrantsRepository {

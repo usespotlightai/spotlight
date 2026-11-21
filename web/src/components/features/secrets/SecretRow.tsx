@@ -8,6 +8,8 @@ import {
   awaitsValue,
   describeHosts,
   describeValue,
+  allowsSandbox,
+  SANDBOX_NOTE,
   setValueLabel,
   valueNote,
   type WorkspaceSecret,
@@ -29,6 +31,14 @@ export function SecretRow({ secret, onSetValue }: SecretRowProps) {
         stack
       >
         <div className="flex items-center gap-3">
+          {allowsSandbox(secret) && (
+            <WithTooltip tooltip={SANDBOX_NOTE}>
+              <span className="whitespace-nowrap text-xs text-muted-foreground">
+                Can enter sandboxes
+              </span>
+            </WithTooltip>
+          )}
+
           <WithTooltip tooltip={valueNote(secret)}>
             <span
               className={cn(

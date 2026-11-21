@@ -1073,3 +1073,45 @@ func TestRedeemCallSecretsWithNoCredentialSendsNoAuthorization(t *testing.T) {
 		t.Errorf("redeemed with %q through %q for %+v", auth, trust, received)
 	}
 }
+
+func TestFetchesTheSandboxEnvironmentForTheRunsAttempt(t *testing.T) {
+	var path, body string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		path = r.Method + " " + r.URL.Path
+		read, _ := io.ReadAll(r.Body)
+		body = string(read)
+		_, _ = w.Write([]byte(`{"variables":[{"name":"GITHUB_APP_PRIVATE_KEY","value":"the-key"}],"denied":[{"secret":"DEV_GITHUB_APP_KEY","reason":"the secret does not allow it"}]}`))
+	})
+
+	fetched, err := client.RevealSandboxEnv(context.Background(), "run_1", 3)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	if path != "POST /api/runs/run_1/sandbox-env" || strings.TrimSpace(body) != `{"attempt":3}` {
+		t.Errorf("asked %s with %s", path, body)
+	}
+	if len(fetched.Variables) != 1 || fetched.Variables[0] != (protocol.EnvVariable{Name: "GITHUB_APP_PRIVATE_KEY", Value: "the-key"}) {
+		t.Errorf("variables %+v", fetched.Variables)
+	}
+	if len(fetched.Denied) != 1 || fetched.Denied[0] != (protocol.DeniedSecret{Secret: "DEV_GITHUB_APP_KEY", Reason: "the secret does not allow it"}) {
+		t.Errorf("denied %+v", fetched.Denied)
+	}
+}
+
+func TestTheSandboxEnvironmentOfARunLeasedElsewhereIsALostLease(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, `{"message":"Run run_1 is not leased by that runner"}`, http.StatusConflict)
+	})
+
+	_, err := client.RevealSandboxEnv(context.Background(), "run_1", 1)
+
+	var lost interface{ RunNoLongerLeased() bool }
+	if !errors.As(err, &lost) || !lost.RunNoLongerLeased() {
+		t.Fatalf("err %v", err)
+	}
+	var rejection *control.ResponseError
+	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
+		t.Fatalf("err %v", err)
+	}
+}

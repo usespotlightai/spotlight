@@ -129,6 +129,7 @@ const LINEAR: HarnessProfileShape = {
   ],
   native: {},
   secrets: [],
+  sandboxEnv: [],
 };
 
 const SCREENSHOT = Attachment.of({
@@ -314,6 +315,7 @@ const trialsOf = () =>
             name,
             bindings: [],
             awaitingValue: true,
+            allowsSandbox: false,
           }));
         },
       },

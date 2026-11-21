@@ -9,6 +9,7 @@ const TEAM = TeamId.of('team_1');
 
 const setUp = (team: boolean) => {
   const namesIn = vi.fn(async () => ['GRAFANA_TOKEN', 'LINEAR_API_KEY']);
+  const sandboxSecrets = vi.fn(async () => ['GRAFANA_TOKEN']);
 
   return {
     namesIn,
@@ -27,7 +28,7 @@ const setUp = (team: boolean) => {
         ),
         inWorkspace: vi.fn(),
       } satisfies TeamDirectoryPort,
-      { namesIn } satisfies DefinedSecretsPort,
+      { namesIn, sandboxSecrets } satisfies DefinedSecretsPort,
     ),
   };
 };
@@ -43,10 +44,24 @@ describe('WorkspaceSecrets', () => {
     expect(namesIn).toHaveBeenCalledWith('ws_1');
   });
 
+  it('knows which of those secrets may enter a sandbox', async () => {
+    const { secrets } = setUp(true);
+    const known = await secrets.known(TEAM);
+
+    expect(known.existing.map((each) => each.value)).toEqual([
+      'GRAFANA_TOKEN',
+      'LINEAR_API_KEY',
+    ]);
+    expect(known.sandboxSecrets.map((each) => each.value)).toEqual([
+      'GRAFANA_TOKEN',
+    ]);
+  });
+
   it('names nothing for a team that no workspace has', async () => {
     const { secrets, namesIn } = setUp(false);
 
     await expect(secrets.ofTeam(TEAM)).resolves.toEqual([]);
+    expect((await secrets.known(TEAM)).existing).toEqual([]);
     expect(namesIn).not.toHaveBeenCalled();
   });
 });

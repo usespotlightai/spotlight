@@ -21,6 +21,7 @@ const profile = (
     mcpServers: [{ name: 'linear', command: 'npx', args: [], env }],
     native: {},
     secrets: [],
+    env: {},
   }),
   version: 1,
 });
@@ -41,7 +42,9 @@ describe('ProfileSecretUses', () => {
   it('names each profile whose MCP servers use the secret', async () => {
     await expect(
       uses.usesOf({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
-    ).resolves.toEqual([{ kind: 'harness-profile', key: 'core/careful' }]);
+    ).resolves.toEqual([
+      { kind: 'harness-profile', key: 'core/careful', exposes: false },
+    ]);
   });
 
   it('names none for a secret no profile uses', async () => {

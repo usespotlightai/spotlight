@@ -108,6 +108,7 @@ describe('listing harnesses for a workspace', () => {
           { release },
           new HeldHarnessKeys(launch, {
             namesIn: async () => ['LINEAR_API_KEY', 'ANTHROPIC_API_KEY'],
+            sandboxSecrets: async () => [],
           }),
         ),
       };

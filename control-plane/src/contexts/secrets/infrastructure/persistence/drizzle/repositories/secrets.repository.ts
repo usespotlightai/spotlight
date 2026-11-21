@@ -38,6 +38,7 @@ const rehydrated = ({ row, valueOf }: Held): Secret =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     name: SecretName.of(row.name),
     bindings: SecretBindings.of(row.bindings),
+    sandbox: row.sandbox,
     valueVersion:
       row.valueVersion === null ? null : ValueVersion.of(row.valueVersion),
     holdsValue: valueOf !== null,
@@ -91,6 +92,7 @@ export class DrizzleSecrets implements SecretRepository {
         name: each.target.name,
         prefix: each.prefix,
       })),
+      sandbox: record.sandbox,
       valueVersion: record.valueVersion?.value ?? null,
       rotatedAt: record.rotatedAt,
     };

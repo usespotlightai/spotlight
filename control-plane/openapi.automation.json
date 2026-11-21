@@ -1785,6 +1785,14 @@
           "detail"
         ]
       },
+      "SecretSandbox": {
+        "type": "string",
+        "enum": [
+          "stand-in",
+          "env"
+        ],
+        "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env"
+      },
       "SecretValueOrigin": {
         "type": "string",
         "enum": [
@@ -1811,6 +1819,15 @@
               "type": "string"
             }
           },
+          "sandbox": {
+            "example": "stand-in",
+            "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretSandbox"
+              }
+            ]
+          },
           "valueOrigin": {
             "example": "awaiting",
             "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)",
@@ -1834,6 +1851,7 @@
         "required": [
           "name",
           "hosts",
+          "sandbox",
           "valueOrigin",
           "valueSetAt",
           "settable"
