@@ -1,7 +1,6 @@
-import { InvalidPageCursorError } from '@identity/application/errors/invalid-page-cursor.error';
 import type {
   DirectoryPage,
-  DirectoryRequest,
+  DirectoryPageRequest,
   DirectoryWorkspace,
   WorkspaceDirectoryPort,
 } from '@identity/application/ports/workspace-directory.port';
@@ -14,13 +13,11 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
   after,
-  type Cursor,
-  decodeCursor,
-  isSortableTime,
   pageOf,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, gt, type SQL, sql } from 'drizzle-orm';
 
 const COLUMNS = {
@@ -34,36 +31,29 @@ const COLUMNS = {
   ),
 };
 
-type DirectoryRow = DirectoryWorkspace & { readonly createdKey: string };
+interface DirectoryRow {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly createdAt: Date;
+  readonly createdKey: string;
+  readonly memberCount: number;
+}
 
 const listed = (row: DirectoryRow): DirectoryWorkspace => ({
-  id: row.id,
+  id: WorkspaceId.of(row.id),
   slug: row.slug,
   name: row.name,
   createdAt: row.createdAt,
   memberCount: row.memberCount,
 });
 
-const cursorOf = (raw: string | null): Cursor | null => {
-  if (raw === null) {
-    return null;
-  }
-
-  const cursor = decodeCursor(raw);
-
-  if (!cursor || !isSortableTime(cursor.key)) {
-    throw new InvalidPageCursorError();
-  }
-
-  return cursor;
-};
-
 @Injectable()
 export class DrizzleWorkspaceDirectory implements WorkspaceDirectoryPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async list(request: DirectoryRequest): Promise<DirectoryPage> {
-    const cursor = cursorOf(request.after);
+  async list(request: DirectoryPageRequest): Promise<DirectoryPage> {
+    const cursor = timeCursorOf(request.after);
     const conditions: SQL[] = [
       ...(request.createdAfter
         ? [gt(workspace.createdAt, request.createdAfter)]

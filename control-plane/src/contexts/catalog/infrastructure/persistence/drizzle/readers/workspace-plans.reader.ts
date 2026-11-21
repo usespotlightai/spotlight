@@ -27,19 +27,23 @@ export class DrizzleWorkspacePlans implements WorkspacePlansPort {
     return row ? termOf(row) : PlanTerm.free;
   }
 
-  async ofEach(
+  async storedOf(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<ReadonlyMap<string, PlanTerm>> {
-    const ids = workspaceIds.map((each) => each.value);
-    const rows =
-      ids.length === 0
-        ? []
-        : await this.db
-            .select()
-            .from(workspacePlan)
-            .where(inArray(workspacePlan.workspaceId, ids));
-    const stored = new Map(rows.map((row) => [row.workspaceId, termOf(row)]));
+    if (workspaceIds.length === 0) {
+      return new Map();
+    }
 
-    return new Map(ids.map((id) => [id, stored.get(id) ?? PlanTerm.free]));
+    const rows = await this.db
+      .select()
+      .from(workspacePlan)
+      .where(
+        inArray(
+          workspacePlan.workspaceId,
+          workspaceIds.map((each) => each.value),
+        ),
+      );
+
+    return new Map(rows.map((row) => [row.workspaceId, termOf(row)]));
   }
 }

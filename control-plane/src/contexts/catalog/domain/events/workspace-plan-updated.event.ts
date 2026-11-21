@@ -3,8 +3,8 @@ import type { ConfigurationChanged } from '@shared-kernel/domain/events/configur
 import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class WorkspacePlanChanged implements ConfigurationChanged {
-  readonly kind = 'workspace-plan.changed';
+export class WorkspacePlanUpdated implements ConfigurationChanged {
+  readonly kind = 'workspace-plan.updated';
 
   constructor(
     readonly workspaceId: WorkspaceId,

@@ -11,7 +11,7 @@ export class SetWorkspacePlanRequestDto {
     required: false,
     example: '2027-01-01T00:00:00.000Z',
     description:
-      'When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end',
+      'When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end. The free plan does not end, so Spotlight ignores an end on it',
   })
   readonly expiresAt?: string | null;
 }

@@ -6,6 +6,6 @@ export class SetWorkspacePlanCommand {
   ) {}
 }
 
-export class RemoveWorkspacePlanCommand {
+export class DeleteWorkspacePlanCommand {
   constructor(readonly workspaceId: string) {}
 }

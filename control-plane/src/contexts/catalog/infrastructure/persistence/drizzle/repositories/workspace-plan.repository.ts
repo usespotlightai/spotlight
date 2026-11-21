@@ -59,16 +59,12 @@ export class DrizzleWorkspacePlanRepository implements WorkspacePlanRepository {
   }
 
   async save(saved: WorkspacePlan): Promise<void> {
-    if (!saved.hasEvents && !saved.isRemoved) {
-      return;
-    }
-
     await this.context.inTransaction(async () => {
       const matching = and(
         eq(workspacePlan.workspaceId, saved.workspaceId.value),
         eq(workspacePlan.version, saved.version),
       );
-      const written = saved.isRemoved
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(workspacePlan)
             .where(matching)

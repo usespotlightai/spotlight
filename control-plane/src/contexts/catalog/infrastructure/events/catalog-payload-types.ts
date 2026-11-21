@@ -1,4 +1,6 @@
-import { WorkspacePlanChanged } from '@catalog/domain/events/workspace-plan-changed.event';
+import { WorkspacePlanCreated } from '@catalog/domain/events/workspace-plan-created.event';
+import { WorkspacePlanDeleted } from '@catalog/domain/events/workspace-plan-deleted.event';
+import { WorkspacePlanUpdated } from '@catalog/domain/events/workspace-plan-updated.event';
 import { CatalogCall } from '@catalog/domain/value-objects/catalog-call.vo';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
@@ -17,5 +19,7 @@ export const CATALOG_PAYLOAD_TYPES = [
   PlanTerm,
   VersionConstraint,
   WorkspacePlanChangeDetail,
-  WorkspacePlanChanged,
+  WorkspacePlanCreated,
+  WorkspacePlanUpdated,
+  WorkspacePlanDeleted,
 ] as const;

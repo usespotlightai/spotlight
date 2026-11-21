@@ -1,10 +1,10 @@
-import type { DirectoryMemberDto } from '@identity/application/dto/directory-member.dto';
+import type { WorkspaceMemberDto } from '@identity/application/dto/member.dto';
 import { WORKSPACE_ROLES } from '@identity/domain/value-objects/workspace-role.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AdminMemberResponseDto {
   @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
-  readonly userId: string;
+  readonly id: string;
 
   @ApiProperty({ example: 'ada@example.com' })
   readonly email: string;
@@ -17,7 +17,7 @@ export class AdminMemberResponseDto {
     example: 'member',
     enum: WORKSPACE_ROLES,
   })
-  readonly role: DirectoryMemberDto['role'];
+  readonly role: WorkspaceMemberDto['role'];
 
   @ApiProperty({
     description: 'When they joined the workspace',
@@ -25,8 +25,13 @@ export class AdminMemberResponseDto {
   })
   readonly joinedAt: string;
 
-  constructor(member: DirectoryMemberDto) {
-    this.userId = member.userId;
+  constructor(
+    member: Pick<
+      WorkspaceMemberDto,
+      'id' | 'email' | 'name' | 'role' | 'joinedAt'
+    >,
+  ) {
+    this.id = member.id;
     this.email = member.email;
     this.name = member.name;
     this.role = member.role;

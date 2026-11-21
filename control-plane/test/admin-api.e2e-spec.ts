@@ -227,14 +227,14 @@ describe('admin API (e2e)', () => {
 
     expect(answer.body).toEqual([
       {
-        userId: owner,
+        id: owner,
         email: `${owner}@example.com`,
         name: 'Ada',
         role: 'owner',
         joinedAt: at(4).toISOString(),
       },
       {
-        userId: member,
+        id: member,
         email: `${member}@example.com`,
         name: 'Bea',
         role: 'member',
@@ -286,13 +286,7 @@ describe('admin API (e2e)', () => {
         each.details,
       ]),
     ).toEqual([
-      [
-        'updated',
-        'spotlight',
-        globex.id,
-        'plan',
-        { plan: 'free', expiresAt: null },
-      ],
+      ['deleted', 'spotlight', globex.id, 'plan', {}],
       [
         'updated',
         'spotlight',
@@ -300,7 +294,7 @@ describe('admin API (e2e)', () => {
         'plan',
         { plan: 'enterprise', expiresAt: null },
       ],
-      ['updated', 'spotlight', globex.id, 'plan', { plan: 'team', expiresAt }],
+      ['created', 'spotlight', globex.id, 'plan', { plan: 'team', expiresAt }],
     ]);
   });
 
@@ -321,12 +315,16 @@ describe('admin API (e2e)', () => {
     ]);
   });
 
-  it('refuses a plan that does not exist, a bad end and a workspace that does not exist', async () => {
+  it('refuses a plan that does not exist, a missing plan, a bad end and a workspace that does not exist, and stores nothing for the free plan', async () => {
     const plan = `/api/admin/workspaces/${acme.id}/plan`;
 
     await admin().put(plan, { plan: 'gold', expiresAt: null }).expect(422);
     await admin().put(plan, { plan: 'team', expiresAt: 'soon' }).expect(400);
     await admin().put(plan, { plan: 'team', expiresAt: 7 }).expect(400);
+    await admin().put(plan, { expiresAt: null }).expect(400);
+    await admin()
+      .put(plan, { plan: 'free', expiresAt: '2027-01-01T00:00:00Z' })
+      .expect(200);
     await admin()
       .put(`/api/admin/workspaces/${randomUUID()}/plan`, { plan: 'team' })
       .expect(404);

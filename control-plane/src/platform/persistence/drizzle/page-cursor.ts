@@ -3,7 +3,7 @@ import {
   decodeCursor,
   isSortableTime,
 } from '@platform/persistence/drizzle/keyset';
-import { InvalidPageCursorError } from '@work/application/errors/invalid-page-cursor.error';
+import { InvalidPageCursorError } from '@shared-kernel/application/errors/invalid-page-cursor.error';
 
 export const cursorOf = (
   before: string | null,

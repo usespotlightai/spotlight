@@ -1,4 +1,4 @@
-import type { DirectoryMemberDto } from '@identity/application/dto/directory-member.dto';
+import type { WorkspaceMemberDto } from '@identity/application/dto/member.dto';
 import { ListDirectoryMembersQuery } from '@identity/application/queries/list-directory-members.query';
 import { AdminMemberResponseDto } from '@identity/presentation/http/dto/admin-member.response.dto';
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
@@ -26,7 +26,7 @@ export class AdminMemberController {
 
   @Get(':workspaceId/members')
   @ApiOperation({
-    operationId: 'listAdminWorkspaceMembers',
+    operationId: 'listDirectoryMembers',
     summary: 'List everyone in a workspace, with their role',
   })
   @ApiParam({
@@ -42,7 +42,11 @@ export class AdminMemberController {
   ): Promise<AdminMemberResponseDto[]> {
     const found = await this.queryBus.execute<
       ListDirectoryMembersQuery,
-      DirectoryMemberDto[] | null
+      | Pick<
+          WorkspaceMemberDto,
+          'id' | 'email' | 'name' | 'role' | 'joinedAt'
+        >[]
+      | null
     >(new ListDirectoryMembersQuery(workspaceId));
 
     if (!found) {

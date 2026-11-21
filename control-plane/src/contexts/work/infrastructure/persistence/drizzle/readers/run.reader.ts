@@ -45,7 +45,7 @@ import {
   progressOfTaskRun,
 } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
-import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
+import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,

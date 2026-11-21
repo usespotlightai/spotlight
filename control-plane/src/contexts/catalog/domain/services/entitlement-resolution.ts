@@ -51,10 +51,10 @@ const denied = (id: string, reason: DenialReason, detail: string): Denied => ({
 
 export const resolveEntitledItem = <T extends CatalogItem>(
   item: T,
-  plan: PlanTerm,
+  term: PlanTerm,
   now: Date,
 ): EntitlementResult<T> => {
-  const entitlement = entitlementTo(item, plan, now);
+  const entitlement = entitlementTo(item, term, now);
 
   return entitlement.entitled
     ? { entitled: true, item }
@@ -65,7 +65,7 @@ export const resolveEntitled = <K extends CatalogKind>(
   id: string,
   kind: K,
   catalog: CatalogItems,
-  plan: PlanTerm,
+  term: PlanTerm,
   now: Date,
 ): EntitlementResult<ItemOf<K>> => {
   let parsed: CatalogItemId;
@@ -90,7 +90,7 @@ export const resolveEntitled = <K extends CatalogKind>(
     );
   }
 
-  const result = resolveEntitledItem(item as ItemOf<K>, plan, now);
+  const result = resolveEntitledItem(item as ItemOf<K>, term, now);
 
   return result.entitled
     ? result
@@ -100,7 +100,7 @@ export const resolveEntitled = <K extends CatalogKind>(
 export const resolveEntitledFor = (
   request: EntitlementRequest,
   catalog: CatalogItems,
-  plan: PlanTerm,
+  term: PlanTerm,
   now: Date,
 ): EntitledItems => {
   const tools: CatalogTool[] = [];
@@ -122,7 +122,7 @@ export const resolveEntitledFor = (
       return;
     }
 
-    const result = resolveEntitled(id, 'tool', catalog, plan, now);
+    const result = resolveEntitled(id, 'tool', catalog, term, now);
 
     if (result.entitled) {
       tools.push(result.item);
@@ -136,7 +136,7 @@ export const resolveEntitledFor = (
       return;
     }
 
-    const result = resolveEntitled(id, 'skill', catalog, plan, now);
+    const result = resolveEntitled(id, 'skill', catalog, term, now);
 
     if (!result.entitled) {
       denials.push(result.denial);

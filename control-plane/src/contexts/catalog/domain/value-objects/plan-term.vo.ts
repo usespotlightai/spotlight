@@ -8,8 +8,11 @@ export class PlanTerm {
 
   static readonly free = new PlanTerm(Plan.free, null);
 
+  // The free plan never ends: an end on it changes nothing, so it is dropped.
   static of(plan: Plan, expiresAt: Date | null = null): PlanTerm {
-    return new PlanTerm(plan, expiresAt);
+    return plan.equals(Plan.free)
+      ? PlanTerm.free
+      : new PlanTerm(plan, expiresAt);
   }
 
   get isDefault(): boolean {

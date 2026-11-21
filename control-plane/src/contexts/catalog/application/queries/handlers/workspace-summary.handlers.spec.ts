@@ -1,8 +1,8 @@
-import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
 import type {
-  WorkspaceListing,
-  WorkspacesPort,
-} from '@catalog/application/ports/workspaces.port';
+  DirectoryWorkspace,
+  WorkspaceDirectoryPort,
+} from '@catalog/application/ports/workspace-directory.port';
+import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
 import { ListWorkspaceSummariesHandler } from '@catalog/application/queries/handlers/list-workspace-summaries.handler';
 import { ReadWorkspaceSummaryHandler } from '@catalog/application/queries/handlers/read-workspace-summary.handler';
 import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-workspace-summaries.query';
@@ -12,7 +12,7 @@ import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const listing = (id: string, memberCount: number): WorkspaceListing => ({
+const listing = (id: string, memberCount: number): DirectoryWorkspace => ({
   id: WorkspaceId.of(id),
   slug: id.replace('ws_', ''),
   name: id,
@@ -28,7 +28,9 @@ const END = new Date('2027-01-01T00:00:00.000Z');
 
 const TERMS = new Map([['ws_acme', PlanTerm.of(Plan.team, END)]]);
 
-const workspaces = (found: readonly WorkspaceListing[]): WorkspacesPort => ({
+const workspaces = (
+  found: readonly DirectoryWorkspace[],
+): WorkspaceDirectoryPort => ({
   list: vi.fn().mockResolvedValue({ items: found, next: 'cursor_2' }),
   find: vi.fn(
     async (id: WorkspaceId) => found.find((each) => each.id.equals(id)) ?? null,
@@ -37,7 +39,7 @@ const workspaces = (found: readonly WorkspaceListing[]): WorkspacesPort => ({
 
 const plans: WorkspacePlansPort = {
   of: async (id) => TERMS.get(id.value) ?? PlanTerm.free,
-  ofEach: async () => TERMS,
+  storedOf: async () => TERMS,
 };
 
 describe('ListWorkspaceSummariesHandler', () => {

@@ -10,10 +10,10 @@ const NOW = new Date('2026-09-23T12:00:00.000Z');
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const entitlements = (plan: PlanTerm) => ({
+const entitlements = (term: PlanTerm) => ({
   service: new CatalogEntitlements(
     new StaticCatalog(CATALOG_ITEMS),
-    { of: async () => plan, ofEach: async () => new Map() },
+    { of: async () => term, storedOf: async () => new Map() },
     { now: () => NOW, sleep: async () => {} },
   ),
 });

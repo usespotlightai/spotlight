@@ -22,7 +22,7 @@ const calling = (id: string) => ({
 });
 
 const catalogCalls = (
-  plan: PlanTerm,
+  term: PlanTerm,
   answering: (tool: CatalogTool) => Promise<unknown> = async () =>
     'Three pages.',
 ) => {
@@ -32,7 +32,7 @@ const catalogCalls = (
 
   const service = new CatalogCalls(
     new StaticCatalog(CATALOG_ITEMS),
-    { of: async () => plan, ofEach: async () => new Map() },
+    { of: async () => term, storedOf: async () => new Map() },
     {
       record: async (call) => {
         recorded.push(call);

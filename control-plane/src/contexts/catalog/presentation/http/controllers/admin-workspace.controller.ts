@@ -1,20 +1,20 @@
 import {
-  RemoveWorkspacePlanCommand,
+  DeleteWorkspacePlanCommand,
   SetWorkspacePlanCommand,
 } from '@catalog/application/commands/workspace-plan.commands';
+import type { PlanTermDto } from '@catalog/application/dto/plan-term.dto';
 import type {
-  PlanTermDto,
   WorkspaceSummaryDto,
   WorkspaceSummaryPageDto,
 } from '@catalog/application/dto/workspace-summary.dto';
 import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-workspace-summaries.query';
 import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
-import {
-  AdminWorkspacePageResponseDto,
-  AdminWorkspaceResponseDto,
-  WorkspacePlanResponseDto,
-} from '@catalog/presentation/http/dto/admin-workspace.response.dto';
+import { PlanTermResponseDto } from '@catalog/presentation/http/dto/plan-term.response.dto';
 import { SetWorkspacePlanRequestDto } from '@catalog/presentation/http/dto/set-workspace-plan.request.dto';
+import {
+  WorkspaceSummaryPageResponseDto,
+  WorkspaceSummaryResponseDto,
+} from '@catalog/presentation/http/dto/workspace-summary.response.dto';
 import {
   BadRequestException,
   Body,
@@ -44,11 +44,10 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { AdminOnly } from '@platform/http/decorators/admin-only.decorator';
+import { pageLimitOf } from '@platform/http/page-limit';
 import { ADMIN } from '@platform/http/routes';
 
-const PAGE_LIMIT = 50;
-
-const LONGEST_PAGE = 200;
+const PAGE_LIMITS = { fallback: 50, longest: 200 };
 
 const WORKSPACE = ApiParam({
   name: 'workspaceId',
@@ -58,18 +57,6 @@ const WORKSPACE = ApiParam({
 const NOT_FOUND = ApiNotFoundResponse({
   description: 'No such workspace, or no admin token is set',
 });
-
-const limitOf = (raw: string | undefined): number => {
-  const asked = raw === undefined ? PAGE_LIMIT : Number(raw);
-
-  if (!Number.isInteger(asked) || asked < 1) {
-    throw new BadRequestException(
-      'Sorry, the page limit must be a whole number above 0.',
-    );
-  }
-
-  return Math.min(asked, LONGEST_PAGE);
-};
 
 const timeOf = (field: string, raw: string): Date => {
   const time = new Date(raw);
@@ -97,6 +84,16 @@ const expiryOf = (raw: unknown): Date | null => {
   return timeOf('expiresAt', raw);
 };
 
+const planOf = (raw: unknown): string => {
+  if (typeof raw !== 'string') {
+    throw new BadRequestException(
+      'Sorry, the body must name a plan: free, team or enterprise.',
+    );
+  }
+
+  return raw;
+};
+
 @ApiTags('admin')
 @ApiUnauthorizedResponse({
   description:
@@ -112,7 +109,7 @@ export class AdminWorkspaceController {
 
   @Get()
   @ApiOperation({
-    operationId: 'listAdminWorkspaces',
+    operationId: 'listWorkspaceSummaries',
     summary: 'List every workspace of this Spotlight, oldest first',
   })
   @ApiQuery({
@@ -125,7 +122,7 @@ export class AdminWorkspaceController {
     name: 'limit',
     required: false,
     type: Number,
-    description: `At most this many, ${PAGE_LIMIT} by default, up to ${LONGEST_PAGE}`,
+    description: `At most this many, ${PAGE_LIMITS.fallback} by default, up to ${PAGE_LIMITS.longest}`,
   })
   @ApiQuery({
     name: 'createdAfter',
@@ -134,7 +131,7 @@ export class AdminWorkspaceController {
     example: '2026-09-01T00:00:00Z',
     description: 'Only the workspaces created after this time',
   })
-  @ApiOkResponse({ type: AdminWorkspacePageResponseDto })
+  @ApiOkResponse({ type: WorkspaceSummaryPageResponseDto })
   @ApiBadRequestResponse({
     description:
       'A page limit that is not a whole number above 0, or a createdAfter that is not a time',
@@ -147,32 +144,32 @@ export class AdminWorkspaceController {
     @Query('after') after: string | undefined,
     @Query('limit') limit: string | undefined,
     @Query('createdAfter') createdAfter: string | undefined,
-  ): Promise<AdminWorkspacePageResponseDto> {
+  ): Promise<WorkspaceSummaryPageResponseDto> {
     const page = await this.queryBus.execute<
       ListWorkspaceSummariesQuery,
       WorkspaceSummaryPageDto
     >(
       new ListWorkspaceSummariesQuery(
         after || null,
-        limitOf(limit),
+        pageLimitOf(limit, PAGE_LIMITS),
         createdAfter ? timeOf('createdAfter', createdAfter) : null,
       ),
     );
 
-    return new AdminWorkspacePageResponseDto(page);
+    return new WorkspaceSummaryPageResponseDto(page);
   }
 
   @Get(':workspaceId')
   @ApiOperation({
-    operationId: 'getAdminWorkspace',
+    operationId: 'readWorkspaceSummary',
     summary: 'Read one workspace, with its member count and plan',
   })
   @WORKSPACE
-  @ApiOkResponse({ type: AdminWorkspaceResponseDto })
+  @ApiOkResponse({ type: WorkspaceSummaryResponseDto })
   @NOT_FOUND
-  async get(
+  async read(
     @Param('workspaceId') workspaceId: string,
-  ): Promise<AdminWorkspaceResponseDto> {
+  ): Promise<WorkspaceSummaryResponseDto> {
     const found = await this.queryBus.execute<
       ReadWorkspaceSummaryQuery,
       WorkspaceSummaryDto | null
@@ -182,20 +179,22 @@ export class AdminWorkspaceController {
       throw new NotFoundException();
     }
 
-    return new AdminWorkspaceResponseDto(found);
+    return new WorkspaceSummaryResponseDto(found);
   }
 
   @Put(':workspaceId/plan')
   @ApiOperation({
-    operationId: 'setAdminWorkspacePlan',
+    operationId: 'setWorkspacePlan',
     summary: 'Set the plan of a workspace',
     description:
       'The workspace’s configuration changes record the change, made by Spotlight. The free plan with no end is the same as no plan.',
   })
   @WORKSPACE
   @ApiBody({ type: SetWorkspacePlanRequestDto })
-  @ApiOkResponse({ type: WorkspacePlanResponseDto })
-  @ApiBadRequestResponse({ description: 'An expiresAt that is not a time' })
+  @ApiOkResponse({ type: PlanTermResponseDto })
+  @ApiBadRequestResponse({
+    description: 'A body without a plan, or an expiresAt that is not a time',
+  })
   @ApiUnprocessableEntityResponse({ description: 'No such plan' })
   @ApiConflictResponse({
     description: 'The plan changed at the same time; try again',
@@ -204,14 +203,14 @@ export class AdminWorkspaceController {
   async setPlan(
     @Param('workspaceId') workspaceId: string,
     @Body() body: SetWorkspacePlanRequestDto | undefined,
-  ): Promise<WorkspacePlanResponseDto> {
+  ): Promise<PlanTermResponseDto> {
     const set = await this.commandBus.execute<
       SetWorkspacePlanCommand,
       PlanTermDto | null
     >(
       new SetWorkspacePlanCommand(
         workspaceId,
-        typeof body?.plan === 'string' ? body.plan : '',
+        planOf(body?.plan),
         expiryOf(body?.expiresAt),
       ),
     );
@@ -220,16 +219,16 @@ export class AdminWorkspaceController {
       throw new NotFoundException();
     }
 
-    return new WorkspacePlanResponseDto(set);
+    return new PlanTermResponseDto(set);
   }
 
   @Delete(':workspaceId/plan')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'removeAdminWorkspacePlan',
+    operationId: 'deleteWorkspacePlan',
     summary: 'Put a workspace back on the free plan',
     description:
-      'Removes the plan set for the workspace. The workspace’s configuration changes record the change, made by Spotlight.',
+      'Deletes the plan set for the workspace. The workspace’s configuration changes record the change, made by Spotlight.',
   })
   @WORKSPACE
   @ApiNoContentResponse({ description: 'The workspace has the free plan' })
@@ -237,13 +236,13 @@ export class AdminWorkspaceController {
     description: 'The plan changed at the same time; try again',
   })
   @NOT_FOUND
-  async removePlan(@Param('workspaceId') workspaceId: string): Promise<void> {
-    const removed = await this.commandBus.execute<
-      RemoveWorkspacePlanCommand,
+  async deletePlan(@Param('workspaceId') workspaceId: string): Promise<void> {
+    const deleted = await this.commandBus.execute<
+      DeleteWorkspacePlanCommand,
       boolean
-    >(new RemoveWorkspacePlanCommand(workspaceId));
+    >(new DeleteWorkspacePlanCommand(workspaceId));
 
-    if (!removed) {
+    if (!deleted) {
       throw new NotFoundException();
     }
   }

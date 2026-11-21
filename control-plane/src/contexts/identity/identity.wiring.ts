@@ -517,7 +517,7 @@ const handlers: Provider[] = [
     MEMBER_READER,
   ]),
   ...bindQueryHandler(ListDirectoryMembersQuery, ListDirectoryMembersHandler, [
-    WORKSPACE_DIRECTORY,
+    WORKSPACE_READER,
     MEMBER_READER,
   ]),
   ...bindQueryHandler(ListWorkspaceInvitesQuery, ListWorkspaceInvitesHandler, [

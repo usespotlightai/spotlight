@@ -393,7 +393,7 @@ export type LineResourceListResponseDto = {
 };
 
 export type AdminMemberResponseDto = {
-  userId: string;
+  id: string;
   email: string;
   name: string;
   /**
@@ -1028,7 +1028,7 @@ export type CatalogSkillResponseDto = {
   tools: Array<string>;
 };
 
-export type AdminWorkspaceResponseDto = {
+export type WorkspaceSummaryResponseDto = {
   id: string;
   slug: string;
   name: string;
@@ -1042,16 +1042,16 @@ export type AdminWorkspaceResponseDto = {
    */
   plan: 'free' | 'team' | 'enterprise';
   /**
-   * When the plan ends; the workspace then has the free plan. Null when it does not end
+   * When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan
    */
   planExpiresAt: string | null;
 };
 
-export type AdminWorkspacePageResponseDto = {
+export type WorkspaceSummaryPageResponseDto = {
   /**
    * Oldest first
    */
-  items: Array<AdminWorkspaceResponseDto>;
+  items: Array<WorkspaceSummaryResponseDto>;
   /**
    * Pass as `after` to read the next page; null on the last
    */
@@ -1061,15 +1061,15 @@ export type AdminWorkspacePageResponseDto = {
 export type SetWorkspacePlanRequestDto = {
   plan: 'free' | 'team' | 'enterprise';
   /**
-   * When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end
+   * When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end. The free plan does not end, so Spotlight ignores an end on it
    */
   expiresAt?: string | null;
 };
 
-export type WorkspacePlanResponseDto = {
+export type PlanTermResponseDto = {
   plan: 'free' | 'team' | 'enterprise';
   /**
-   * When the plan ends; the workspace then has the free plan. Null when it does not end
+   * When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan
    */
   expiresAt: string | null;
 };
@@ -9944,7 +9944,7 @@ export type ListLinesResponses = {
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
-export type ListAdminWorkspaceMembersData = {
+export type ListDirectoryMembersData = {
   body?: never;
   path: {
     workspaceId: string;
@@ -9953,7 +9953,7 @@ export type ListAdminWorkspaceMembersData = {
   url: '/admin/workspaces/{workspaceId}/members';
 };
 
-export type ListAdminWorkspaceMembersErrors = {
+export type ListDirectoryMembersErrors = {
   /**
    * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
    */
@@ -9964,11 +9964,11 @@ export type ListAdminWorkspaceMembersErrors = {
   404: unknown;
 };
 
-export type ListAdminWorkspaceMembersResponses = {
+export type ListDirectoryMembersResponses = {
   200: Array<AdminMemberResponseDto>;
 };
 
-export type ListAdminWorkspaceMembersResponse = ListAdminWorkspaceMembersResponses[keyof ListAdminWorkspaceMembersResponses];
+export type ListDirectoryMembersResponse = ListDirectoryMembersResponses[keyof ListDirectoryMembersResponses];
 
 export type RemoveWorkspaceAvatarData = {
   body?: never;
@@ -12312,7 +12312,7 @@ export type ReadCatalogSkillResponses = {
 
 export type ReadCatalogSkillResponse = ReadCatalogSkillResponses[keyof ReadCatalogSkillResponses];
 
-export type ListAdminWorkspacesData = {
+export type ListWorkspaceSummariesData = {
   body?: never;
   path?: never;
   query?: {
@@ -12332,7 +12332,7 @@ export type ListAdminWorkspacesData = {
   url: '/admin/workspaces';
 };
 
-export type ListAdminWorkspacesErrors = {
+export type ListWorkspaceSummariesErrors = {
   /**
    * A page limit that is not a whole number above 0, or a createdAfter that is not a time
    */
@@ -12351,13 +12351,13 @@ export type ListAdminWorkspacesErrors = {
   422: unknown;
 };
 
-export type ListAdminWorkspacesResponses = {
-  200: AdminWorkspacePageResponseDto;
+export type ListWorkspaceSummariesResponses = {
+  200: WorkspaceSummaryPageResponseDto;
 };
 
-export type ListAdminWorkspacesResponse = ListAdminWorkspacesResponses[keyof ListAdminWorkspacesResponses];
+export type ListWorkspaceSummariesResponse = ListWorkspaceSummariesResponses[keyof ListWorkspaceSummariesResponses];
 
-export type GetAdminWorkspaceData = {
+export type ReadWorkspaceSummaryData = {
   body?: never;
   path: {
     workspaceId: string;
@@ -12366,7 +12366,7 @@ export type GetAdminWorkspaceData = {
   url: '/admin/workspaces/{workspaceId}';
 };
 
-export type GetAdminWorkspaceErrors = {
+export type ReadWorkspaceSummaryErrors = {
   /**
    * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
    */
@@ -12377,13 +12377,13 @@ export type GetAdminWorkspaceErrors = {
   404: unknown;
 };
 
-export type GetAdminWorkspaceResponses = {
-  200: AdminWorkspaceResponseDto;
+export type ReadWorkspaceSummaryResponses = {
+  200: WorkspaceSummaryResponseDto;
 };
 
-export type GetAdminWorkspaceResponse = GetAdminWorkspaceResponses[keyof GetAdminWorkspaceResponses];
+export type ReadWorkspaceSummaryResponse = ReadWorkspaceSummaryResponses[keyof ReadWorkspaceSummaryResponses];
 
-export type RemoveAdminWorkspacePlanData = {
+export type DeleteWorkspacePlanData = {
   body?: never;
   path: {
     workspaceId: string;
@@ -12392,7 +12392,7 @@ export type RemoveAdminWorkspacePlanData = {
   url: '/admin/workspaces/{workspaceId}/plan';
 };
 
-export type RemoveAdminWorkspacePlanErrors = {
+export type DeleteWorkspacePlanErrors = {
   /**
    * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
    */
@@ -12407,16 +12407,16 @@ export type RemoveAdminWorkspacePlanErrors = {
   409: unknown;
 };
 
-export type RemoveAdminWorkspacePlanResponses = {
+export type DeleteWorkspacePlanResponses = {
   /**
    * The workspace has the free plan
    */
   204: void;
 };
 
-export type RemoveAdminWorkspacePlanResponse = RemoveAdminWorkspacePlanResponses[keyof RemoveAdminWorkspacePlanResponses];
+export type DeleteWorkspacePlanResponse = DeleteWorkspacePlanResponses[keyof DeleteWorkspacePlanResponses];
 
-export type SetAdminWorkspacePlanData = {
+export type SetWorkspacePlanData = {
   body: SetWorkspacePlanRequestDto;
   path: {
     workspaceId: string;
@@ -12425,9 +12425,9 @@ export type SetAdminWorkspacePlanData = {
   url: '/admin/workspaces/{workspaceId}/plan';
 };
 
-export type SetAdminWorkspacePlanErrors = {
+export type SetWorkspacePlanErrors = {
   /**
-   * An expiresAt that is not a time
+   * A body without a plan, or an expiresAt that is not a time
    */
   400: unknown;
   /**
@@ -12448,11 +12448,11 @@ export type SetAdminWorkspacePlanErrors = {
   422: unknown;
 };
 
-export type SetAdminWorkspacePlanResponses = {
-  200: WorkspacePlanResponseDto;
+export type SetWorkspacePlanResponses = {
+  200: PlanTermResponseDto;
 };
 
-export type SetAdminWorkspacePlanResponse = SetAdminWorkspacePlanResponses[keyof SetAdminWorkspacePlanResponses];
+export type SetWorkspacePlanResponse = SetWorkspacePlanResponses[keyof SetWorkspacePlanResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;

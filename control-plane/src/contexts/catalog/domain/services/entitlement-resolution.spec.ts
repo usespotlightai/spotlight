@@ -153,10 +153,10 @@ describe('resolveEntitled', () => {
   it('denies what an expired plan never included as not entitled, not as expired', () => {
     expect(
       resolveEntitled(
-        'catalog.web-search@1.0.0',
+        'catalog.audit-log@1.0.0',
         'tool',
         CATALOG,
-        PlanTerm.of(Plan.free, EXPIRED),
+        PlanTerm.of(Plan.team, EXPIRED),
         NOW,
       ),
     ).toMatchObject({ entitled: false, denial: { reason: 'not-entitled' } });

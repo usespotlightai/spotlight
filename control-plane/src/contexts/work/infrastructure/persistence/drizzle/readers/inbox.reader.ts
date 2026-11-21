@@ -76,7 +76,7 @@ import {
   chatInboxFactsOf,
 } from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
 import { currentRunReadings } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
-import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
+import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,
