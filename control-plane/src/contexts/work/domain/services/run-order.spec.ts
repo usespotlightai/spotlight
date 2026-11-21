@@ -16,6 +16,7 @@ import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -60,6 +61,7 @@ const known = (
   name: string,
   awaitingValue: boolean,
   hosts: readonly string[] = [],
+  allowsSandbox = false,
 ): BoundSecret => ({
   name: SecretName.of(name),
   bindings: hosts.map((host) => ({
@@ -69,9 +71,13 @@ const known = (
     sent: `Bearer ${SecretName.of(name).standIn}`,
   })),
   awaitingValue,
+  allowsSandbox,
 });
 
-const orderWith = (boundSecrets: readonly BoundSecret[]) =>
+const orderWith = (
+  boundSecrets: readonly BoundSecret[],
+  sandboxEnv: ReadyProfile['sandboxEnv'] = [],
+) =>
   orderAt({
     at: { stationId: TRIAGE, resume: Resume.of({}), checkouts: [] },
     line: LINE,
@@ -84,6 +90,7 @@ const orderWith = (boundSecrets: readonly BoundSecret[]) =>
         mcpServers: [],
         native: {},
         secrets: [SecretName.of('STAGING_VIEWER')],
+        sandboxEnv,
         injectedSecrets: [
           SecretName.of('LINEAR_API_KEY'),
           SecretName.of('STAGING_VIEWER'),
@@ -93,13 +100,36 @@ const orderWith = (boundSecrets: readonly BoundSecret[]) =>
     boundSecrets,
   });
 
-const refusalsWith = (boundSecrets: readonly BoundSecret[]) =>
-  orderWith(boundSecrets)?.refusals.map((each) => each.description);
+const refusalsWith = (
+  boundSecrets: readonly BoundSecret[],
+  sandboxEnv: ReadyProfile['sandboxEnv'] = [],
+) =>
+  orderWith(boundSecrets, sandboxEnv)?.refusals.map((each) => each.description);
 
 describe('orderAt', () => {
   it('refuses the run where a secret the profile injects has no value', () => {
     expect(refusalsWith([known('LINEAR_API_KEY', true)])).toEqual([
       'secret_awaiting_value: Secret LINEAR_API_KEY has no value. Station: Triage',
+    ]);
+  });
+
+  it('refuses the run where a secret the profile puts in the sandbox does not allow it', () => {
+    const appKey = [
+      {
+        variable: 'GITHUB_APP_PRIVATE_KEY',
+        secret: SecretName.of('DEV_GITHUB_APP_KEY'),
+      },
+    ];
+
+    expect(refusalsWith([known('DEV_GITHUB_APP_KEY', false)], appKey)).toEqual([
+      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+    ]);
+    expect(
+      refusalsWith([known('DEV_GITHUB_APP_KEY', false, [], true)], appKey),
+    ).toEqual([]);
+    expect(refusalsWith([known('DEV_GITHUB_APP_KEY', true)], appKey)).toEqual([
+      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+      'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
     ]);
   });
 

@@ -107,6 +107,7 @@ const hooks = (
     failedOn: vi.fn(),
     failedInSuite: vi.fn(over.failedInSuite ?? (async () => [BUILD_FAILED])),
   } satisfies CheckRunsPort;
+  const visibilities = { record: vi.fn(async () => {}) };
   const sync = {
     updateDetails: vi.fn(async () => {}),
     reviewed: vi.fn(async () => {}),
@@ -131,8 +132,10 @@ const hooks = (
       sync as unknown as PullRequestSync,
       logger,
       checkRuns,
+      visibilities,
     ),
     checkRuns,
+    visibilities,
     connections,
     sync,
     signature,
@@ -263,6 +266,49 @@ describe('GitHubWebhooks', () => {
   });
 
   describe('receiving', () => {
+    it.each(['public', 'private'] as const)(
+      'records that a repository turned %s',
+      async (visibility) => {
+        const { service, visibilities } = hooks({
+          installation: '158876513',
+          events: [
+            {
+              kind: 'repository-visibility',
+              repository: 'acme/api',
+              visibility,
+            },
+          ],
+        });
+
+        await service.receive(DELIVERY);
+
+        expect(visibilities.record).toHaveBeenCalledWith(
+          Repository.of('acme/api'),
+          visibility,
+        );
+      },
+    );
+
+    it('ignores a visibility change from an installation that is not connected', async () => {
+      const { service, visibilities } = hooks(
+        {
+          installation: '158876513',
+          events: [
+            {
+              kind: 'repository-visibility',
+              repository: 'acme/api',
+              visibility: 'private',
+            },
+          ],
+        },
+        { connected: false },
+      );
+
+      await service.receive(DELIVERY);
+
+      expect(visibilities.record).not.toHaveBeenCalled();
+    });
+
     it('lets go of an installation GitHub removed, saying so', async () => {
       const { service, connections } = hooks({
         installation: '158876513',

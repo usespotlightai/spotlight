@@ -20,3 +20,12 @@ export const useReviewing = (): Reviewing | null => useContext(ReviewContext);
 export const StackTeamContext = createContext<string | null>(null);
 
 export const useStackTeam = (): string | null => useContext(StackTeamContext);
+
+export interface StackVisitor {
+  readonly signedIn: boolean;
+}
+
+export const StackVisitorContext = createContext<StackVisitor | null>(null);
+
+export const useStackVisitor = (): StackVisitor | null =>
+  useContext(StackVisitorContext);

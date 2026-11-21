@@ -119,7 +119,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
       now: Date;
     },
   ): InviteOffer {
-    if (input.holder && input.workspace.hasMember(input.holder)) {
+    if (input.holder && input.workspace.isListed(input.holder)) {
       return { outcome: 'already-a-member' };
     }
 

@@ -65,6 +65,10 @@ import {
   type PeoplePort,
 } from '@change-review/application/ports/people.port';
 import {
+  REPOSITORY_VISIBILITY,
+  type RepositoryVisibilityPort,
+} from '@change-review/application/ports/repository-visibility.port';
+import {
   REVIEW_DELIVERIES,
   type ReviewDeliveriesPort,
 } from '@change-review/application/ports/review-deliveries.port';
@@ -96,6 +100,8 @@ import {
   type WorkspacesPort,
 } from '@change-review/application/ports/workspaces.port';
 import { ListMergedDecisionsHandler } from '@change-review/application/queries/handlers/list-merged-decisions.handler';
+import { ListPublicRunChangeStacksHandler } from '@change-review/application/queries/handlers/list-public-run-change-stacks.handler';
+import { ListPublicTaskChangeStacksHandler } from '@change-review/application/queries/handlers/list-public-task-change-stacks.handler';
 import { ListRunChangeStacksHandler } from '@change-review/application/queries/handlers/list-run-change-stacks.handler';
 import { ListTaskChangeStacksHandler } from '@change-review/application/queries/handlers/list-task-change-stacks.handler';
 import { ReadQuestionAnswerHandler } from '@change-review/application/queries/handlers/read-question-answer.handler';
@@ -103,6 +109,8 @@ import { ReadTaskChangeStackHandler } from '@change-review/application/queries/h
 import { ReadTaskDecisionsHandler } from '@change-review/application/queries/handlers/read-task-decisions.handler';
 import { ReadTaskReviewHandler } from '@change-review/application/queries/handlers/read-task-review.handler';
 import { ListMergedDecisionsQuery } from '@change-review/application/queries/list-merged-decisions.query';
+import { ListPublicRunChangeStacksQuery } from '@change-review/application/queries/list-public-run-change-stacks.query';
+import { ListPublicTaskChangeStacksQuery } from '@change-review/application/queries/list-public-task-change-stacks.query';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
 import { ListTaskChangeStacksQuery } from '@change-review/application/queries/list-task-change-stacks.query';
 import { ReadQuestionAnswerQuery } from '@change-review/application/queries/read-question-answer.query';
@@ -119,6 +127,7 @@ import { GenerateChangeStack } from '@change-review/application/services/generat
 import { PostChangeStackComment } from '@change-review/application/services/post-change-stack-comment.service';
 import { PostDecisionsComment } from '@change-review/application/services/post-decisions-comment.service';
 import { ProvisionReviewWork } from '@change-review/application/services/provision-review-work.service';
+import { PublicWorkAccess } from '@change-review/application/services/public-work-access.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { RecheckTrialChanges } from '@change-review/application/services/recheck-trial-changes.service';
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
@@ -132,6 +141,7 @@ import { WorkChangeStacks } from '@change-review/application/services/work-chang
 import { WorkDecisionSets } from '@change-review/application/services/work-decision-sets.service';
 import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
+import { RepositoryVisibility } from '@change-review/infrastructure/acl/repository-visibility.adapter';
 import { GitHubReviewPosting } from '@change-review/infrastructure/acl/review-posting.adapter';
 import { ReviewWorkRunners } from '@change-review/infrastructure/acl/review-work-runners.adapter';
 import { Work } from '@change-review/infrastructure/acl/work.adapter';
@@ -164,6 +174,7 @@ import { changeReviewSubscribers } from '@change-review/presentation/events/chan
 import { ChangeStackController } from '@change-review/presentation/http/controllers/change-stack.controller';
 import { DecisionController } from '@change-review/presentation/http/controllers/decision.controller';
 import { MergedDecisionController } from '@change-review/presentation/http/controllers/merged-decision.controller';
+import { PublicChangeStackController } from '@change-review/presentation/http/controllers/public-change-stack.controller';
 import { ReviewController } from '@change-review/presentation/http/controllers/review.controller';
 import { RunnerChangeStackController } from '@change-review/presentation/http/controllers/runner-change-stack.controller';
 import { ReviewDeliveryWorker } from '@change-review/presentation/workers/review-delivery.worker';
@@ -179,6 +190,10 @@ import {
   PULL_REQUEST_REVIEWS,
   type PullRequestReviewsPort,
 } from '@github/application/ports/pull-request-reviews.port';
+import {
+  REPOSITORY_VISIBILITY as GITHUB_REPOSITORY_VISIBILITY,
+  type RepositoryVisibilityPort as GitHubRepositoryVisibilityPort,
+} from '@github/application/ports/repository-visibility.port';
 import {
   WORKSPACE_CONNECTIONS,
   type WorkspaceConnectionsPort,
@@ -256,6 +271,7 @@ const CHANGE_REVIEW_EVENTS = Symbol('CHANGE_REVIEW_EVENTS');
 
 export const CHANGE_REVIEW_CONTROLLERS: readonly Type[] = [
   ChangeStackController,
+  PublicChangeStackController,
   DecisionController,
   MergedDecisionController,
   RunnerChangeStackController,
@@ -280,6 +296,12 @@ const upstream: Provider[] = [
     inject: [WORK_RUN_LOOKUP, WORK_TASK_LOOKUP],
     useFactory: (runs: WorkRunLookupPort, tasks: WorkTaskLookupPort) =>
       new Work(runs, tasks),
+  },
+  {
+    provide: REPOSITORY_VISIBILITY,
+    inject: [GITHUB_REPOSITORY_VISIBILITY],
+    useFactory: (visibility: GitHubRepositoryVisibilityPort) =>
+      new RepositoryVisibility(visibility),
   },
   {
     provide: REVIEW_WORK_RUNNERS,
@@ -733,6 +755,16 @@ const services: Provider[] = [
       new TeamWorkAccess(people, work),
   },
   {
+    provide: PublicWorkAccess,
+    inject: [WORK, CHANGE_STACK_READER, REPOSITORY_VISIBILITY, TELEMETRY],
+    useFactory: (
+      work: WorkPort,
+      stacks: ChangeStackReaderPort,
+      visibility: RepositoryVisibilityPort,
+      telemetry: TelemetryPort,
+    ) => new PublicWorkAccess(work, stacks, visibility, telemetry),
+  },
+  {
     provide: SubmitReview,
     inject: [
       DrizzleReviewCommentRepository,
@@ -927,6 +959,16 @@ const handlers: Provider[] = [
     CHANGE_STACK_READER,
     CLOCK,
   ]),
+  ...bindQueryHandler(
+    ListPublicRunChangeStacksQuery,
+    ListPublicRunChangeStacksHandler,
+    [PublicWorkAccess],
+  ),
+  ...bindQueryHandler(
+    ListPublicTaskChangeStacksQuery,
+    ListPublicTaskChangeStacksHandler,
+    [PublicWorkAccess],
+  ),
 ];
 
 const published: Provider[] = [

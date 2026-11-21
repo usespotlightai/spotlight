@@ -1,5 +1,9 @@
 import { Navigate, Route } from 'react-router';
 
+import {
+  RUN_CHANGES_ROUTE,
+  TASK_CHANGES_ROUTE,
+} from './lib/change-stack-routes.ts';
 import { lazyPage } from './lib/lazy-page.ts';
 import { Inbox } from './routes/Inbox.tsx';
 
@@ -154,12 +158,12 @@ export const workspacePages = (
       />
       <Route path="tasks/:taskId" element={<Task />} />
       <Route path="tasks/:taskId/trace" element={<TaskTrace />} />
-      <Route path="tasks/:taskId/changes" element={<TaskChangeStack />} />
+      <Route path={TASK_CHANGES_ROUTE} element={<TaskChangeStack />} />
       <Route path="agent" element={<Agent />} />
       <Route path="agent/:chatId" element={<AgentChat />} />
       <Route path="runs" element={<Runs />} />
       <Route path="runs/:runId" element={<Run />} />
-      <Route path="runs/:runId/changes" element={<RunChangeStack />} />
+      <Route path={RUN_CHANGES_ROUTE} element={<RunChangeStack />} />
       <Route path="insights" element={<Insights />} />
       <Route path="memory" element={<Memory />} />
     </Route>

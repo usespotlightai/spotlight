@@ -55,6 +55,7 @@ export const changeStack = pgTable(
     teamId: text('team_id'),
     trial: boolean('trial').notNull(),
     workspaceId: text('workspace_id').notNull(),
+    repositoryOwner: text('repository_owner').notNull(),
     repository: text('repository'),
     baseCommit: text('base_commit'),
     state: changeStackState('state').$type<ChangeStackState>().notNull(),

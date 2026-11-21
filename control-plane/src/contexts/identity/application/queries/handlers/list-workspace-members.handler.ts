@@ -39,9 +39,16 @@ export class ListWorkspaceMembersHandler implements QueryHandlerPort<
         role: member.role,
         teams: member.teams,
         joinedAt: member.joinedAt.toISOString(),
+        suspendedAt: member.suspendedAt?.toISOString() ?? null,
         assignableRoles: workspace
           .assignableRolesFor(UserId.of(member.id), viewer)
           .map((role) => role.value),
+        mayBeSuspended: workspace.mayBeSuspended(UserId.of(member.id), viewer),
+        mayBeUnsuspended: workspace.mayBeUnsuspended(
+          UserId.of(member.id),
+          viewer,
+        ),
+        mayLeave: member.id === viewer.value && workspace.mayLeave(viewer),
       }));
     } catch (error) {
       rethrowAsApplicationError(error);

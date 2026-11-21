@@ -669,6 +669,7 @@ const bodyOf = (
       return {
         name: resource.name,
         bindings: resource.bindings,
+        ...(resource.sandbox === null ? {} : { sandbox: resource.sandbox }),
         ...(resource.valueVersion !== null ? { valueWo: VALUE } : {}),
         ...(resource.valueVersion === null
           ? {}
@@ -768,6 +769,7 @@ const bodyOf = (
         mcpServers: resource.mcpServers,
         native: resource.native,
         secrets: resource.secrets,
+        env: resource.env,
       };
   }
 };

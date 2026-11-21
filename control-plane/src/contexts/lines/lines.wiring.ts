@@ -3,6 +3,10 @@ import {
   type CatalogPort,
 } from '@catalog/application/ports/catalog.port';
 import {
+  MEMBER_LOOKUP,
+  type MemberLookupPort,
+} from '@identity/application/ports/member-lookup.port';
+import {
   TEAM_DEPENDENTS,
   type TeamDependentsPort,
 } from '@identity/application/ports/team-dependents.port';
@@ -17,6 +21,7 @@ import { CreateLineHandler } from '@lines/application/commands/handlers/create-l
 import { DeleteLineHandler } from '@lines/application/commands/handlers/delete-line.handler';
 import { UpdateLineHandler } from '@lines/application/commands/handlers/update-line.handler';
 import { UpdateLineCommand } from '@lines/application/commands/update-line.command';
+import { ClearDefaultAssignees } from '@lines/application/events/handlers/clear-default-assignees.handler';
 import { DeleteTeamLines } from '@lines/application/events/handlers/delete-team-lines.handler';
 import { SeedLines } from '@lines/application/events/handlers/seed-lines.handler';
 import { linesEventMappers } from '@lines/application/integration-events/lines.event-mappers';
@@ -201,6 +206,7 @@ export const LINES_PROVIDERS: readonly Provider[] = [
       LOGGER,
       SEEDING_HARNESS,
       LINES_CONTENT_HASH,
+      MEMBER_LOOKUP,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -213,6 +219,7 @@ export const LINES_PROVIDERS: readonly Provider[] = [
       logger: LoggerPort,
       seedingHarness: SeedingHarnessPort,
       hash: ContentHashPort,
+      directory: MemberLookupPort,
     ) => {
       types.register('lines', LINES_PAYLOAD_TYPES);
       mappers.register(linesEventMappers(hash));
@@ -220,6 +227,7 @@ export const LINES_PROVIDERS: readonly Provider[] = [
         linesSubscribers({
           seeding: new SeedLines(lines, ids, seedingHarness.harness),
           deleting: new DeleteTeamLines(lines, applying, transaction, logger),
+          clearing: new ClearDefaultAssignees(lines, directory, logger),
         }),
       );
       return true;

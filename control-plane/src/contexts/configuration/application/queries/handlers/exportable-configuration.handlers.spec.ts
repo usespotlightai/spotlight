@@ -79,6 +79,7 @@ const secretOf = (id: string, name: string) => ({
   workspaceId: WORKSPACE,
   name,
   bindings: [],
+  sandbox: null,
   valueVersion: 1,
 });
 
@@ -267,6 +268,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       mcpServers: [],
       native: {},
       secrets: [],
+      env: {},
     }),
   });
   const profiles = {
@@ -294,6 +296,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       mcpServers: [],
       native: {},
       secrets: [],
+      env: {},
       secretReferences: [],
       warnings: [],
     })),

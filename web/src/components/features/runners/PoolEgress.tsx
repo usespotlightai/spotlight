@@ -47,7 +47,7 @@ export function PoolEgress({
       <TooltipContent className="max-w-80">
         {egress === PLATFORM
           ? SPOTLIGHT_EGRESS_TIP
-          : 'The runs of this pool go out through an egress that your team operates. Runs that use secrets can run here.'}
+          : 'The runs of this pool go out through an egress that your team operates. Runs whose secrets egress injects can run here.'}
       </TooltipContent>
     </Tooltip>
   );

@@ -4,9 +4,12 @@ import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
 import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
+import { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
+import { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
+import { WorkspaceMemberUnsuspended } from '@identity/domain/events/workspace-member-unsuspended.event';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
-import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { changed } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -118,5 +121,51 @@ describe('IDENTITY_EVENT_MAPPERS', () => {
         role: 'admin',
       },
     ]);
+  });
+
+  it('publishes a suspended member as the end of their access', () => {
+    expect(
+      published(
+        new WorkspaceMemberSuspended(
+          WORKSPACE,
+          UserId.of('user_1'),
+          UserId.of('user_2'),
+          new Date(),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'identity.workspace-member-access-ended.v1',
+        workspaceId: 'ws_1',
+        userId: 'user_1',
+      },
+    ]);
+  });
+
+  it('publishes a member who left as the end of their access', () => {
+    expect(
+      published(
+        new WorkspaceMemberLeft(WORKSPACE, UserId.of('user_1'), new Date()),
+      ),
+    ).toEqual([
+      {
+        kind: 'identity.workspace-member-access-ended.v1',
+        workspaceId: 'ws_1',
+        userId: 'user_1',
+      },
+    ]);
+  });
+
+  it('publishes nothing when a member is unsuspended', () => {
+    expect(
+      published(
+        new WorkspaceMemberUnsuspended(
+          WORKSPACE,
+          UserId.of('user_1'),
+          UserId.of('user_2'),
+          new Date(),
+        ),
+      ),
+    ).toEqual([]);
   });
 });

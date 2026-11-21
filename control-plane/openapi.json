@@ -4960,6 +4960,128 @@
         ]
       }
     },
+    "/workspaces/{slug}/members/{userId}/suspension": {
+      "put": {
+        "description": "A suspended member loses all access at once but stays listed, with their teams and their work. An owner may suspend anyone, an admin any member or admin. Nobody may suspend themselves, and the last owner stays.",
+        "operationId": "suspendMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "They are suspended"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You cannot suspend this person"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "It would leave nobody who owns it"
+          }
+        },
+        "summary": "Suspend a member",
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "delete": {
+        "description": "The member gets back the role and the teams they had. This also brings back a member who left.",
+        "operationId": "unsuspendMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "They are not suspended"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You cannot unsuspend this person"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Unsuspend a member",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/leave": {
+      "post": {
+        "description": "Leaving is a suspension you choose. You stay listed, and an admin or an owner can unsuspend you. The last owner cannot leave.",
+        "operationId": "leaveWorkspace",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "You left the workspace"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "It would leave nobody who owns it"
+          }
+        },
+        "summary": "Leave the workspace",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/workspaces/{slug}/configuration-changes": {
       "get": {
         "operationId": "listConfigurationChanges",
@@ -6146,6 +6268,60 @@
           }
         },
         "summary": "Say which image, by digest, the run’s sandbox started from",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/sandbox-env": {
+      "post": {
+        "description": "The runner calls this once per attempt, before the setup commands. Each variable holds the real value of a secret with sandbox = \"env\". Spotlight logs each reveal with the run and the secret names.",
+        "operationId": "revealSandboxEnv",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevealSandboxEnvRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxEnvResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run"
+          },
+          "409": {
+            "description": "The run is not leased by this runner on that attempt"
+          },
+          "422": {
+            "description": "An attempt that is not a whole number from 1"
+          }
+        },
+        "summary": "Get the secrets that the run’s harness profile puts in its sandbox as environment variables",
         "tags": [
           "runners"
         ]
@@ -7526,6 +7702,15 @@
                       }
                     }
                   },
+                  "sandbox": {
+                    "type": "string",
+                    "enum": [
+                      "stand-in",
+                      "env"
+                    ],
+                    "default": "stand-in",
+                    "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env"
+                  },
                   "valueWo": {
                     "type": "string",
                     "writeOnly": true,
@@ -7934,6 +8119,15 @@
                       }
                     }
                   },
+                  "sandbox": {
+                    "type": "string",
+                    "enum": [
+                      "stand-in",
+                      "env"
+                    ],
+                    "default": "stand-in",
+                    "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env"
+                  },
                   "valueWo": {
                     "type": "string",
                     "writeOnly": true,
@@ -8046,7 +8240,7 @@
             "bearer": []
           }
         ],
-        "summary": "Rebind a secret, or rotate its value by changing valueWoVersion",
+        "summary": "Rebind a secret, change its sandbox, or rotate its value by changing valueWoVersion",
         "tags": [
           "secrets"
         ],
@@ -9557,7 +9751,7 @@
                         "type": "string",
                         "nullable": true,
                         "example": "spotlight",
-                        "description": "The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool"
+                        "description": "The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs whose secrets egress injects, or that use the Spotlight API, do not go to the pool"
                       },
                       "egressTraffic": {
                         "type": "string",
@@ -9996,7 +10190,7 @@
                         "type": "string",
                         "nullable": true,
                         "example": "spotlight",
-                        "description": "The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool"
+                        "description": "The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs whose secrets egress injects, or that use the Spotlight API, do not go to the pool"
                       },
                       "egressTraffic": {
                         "type": "string",
@@ -17288,6 +17482,16 @@
                       "STAGING_VIEWER"
                     ],
                     "description": "Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has."
+                  },
+                  "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "example": {
+                      "GITHUB_APP_PRIVATE_KEY": "DEV_GITHUB_APP_KEY"
+                    },
+                    "description": "Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = \"env\". The runner sets PATH, HOME, USER, LOGNAME, SHELL, TERM, COLORTERM, the SPOTLIGHT_ variables, the proxy variables and the CA variables, so these are refused, in any case. A variable that a harness sets itself, such as ANTHROPIC_API_KEY, and TRACEPARENT, which the harness command sets on every run, are refused too."
                   }
                 }
               }
@@ -17648,6 +17852,16 @@
                       "STAGING_VIEWER"
                     ],
                     "description": "Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has."
+                  },
+                  "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "example": {
+                      "GITHUB_APP_PRIVATE_KEY": "DEV_GITHUB_APP_KEY"
+                    },
+                    "description": "Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = \"env\". The runner sets PATH, HOME, USER, LOGNAME, SHELL, TERM, COLORTERM, the SPOTLIGHT_ variables, the proxy variables and the CA variables, so these are refused, in any case. A variable that a harness sets itself, such as ANTHROPIC_API_KEY, and TRACEPARENT, which the harness command sets on every run, are refused too."
                   }
                 }
               }
@@ -18499,6 +18713,74 @@
         "summary": "The newest change stack generated for a task",
         "tags": [
           "change-stacks"
+        ]
+      }
+    },
+    "/public/runs/{runId}/change-stacks": {
+      "get": {
+        "operationId": "listPublicRunChangeStacks",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The change stack does not exist, or a repository in it is not public"
+          }
+        },
+        "summary": "The change stacks of a run, for anybody, when every repository in them is public on GitHub",
+        "tags": [
+          "public-change-stacks"
+        ]
+      }
+    },
+    "/public/tasks/{taskId}/change-stacks": {
+      "get": {
+        "operationId": "listPublicTaskChangeStacks",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The change stack does not exist, or a repository in it is not public"
+          }
+        },
+        "summary": "The newest change stack of each repository of a task, for anybody, when every repository in them is public on GitHub",
+        "tags": [
+          "public-change-stacks"
         ]
       }
     },
@@ -25940,6 +26222,27 @@
             "type": "string",
             "description": "When they joined the workspace.",
             "example": "2026-09-12T09:00:00.000Z"
+          },
+          "suspendedAt": {
+            "type": "string",
+            "description": "When they were suspended or left. It is null for a member with access.",
+            "nullable": true,
+            "example": null
+          },
+          "mayBeSuspended": {
+            "type": "boolean",
+            "description": "Whether the caller may suspend this member.",
+            "example": true
+          },
+          "mayBeUnsuspended": {
+            "type": "boolean",
+            "description": "Whether the caller may unsuspend this member.",
+            "example": false
+          },
+          "mayLeave": {
+            "type": "boolean",
+            "description": "Whether this member is the caller and may leave the workspace.",
+            "example": false
           }
         },
         "required": [
@@ -25950,7 +26253,11 @@
           "assignableRoles",
           "email",
           "teams",
-          "joinedAt"
+          "joinedAt",
+          "suspendedAt",
+          "mayBeSuspended",
+          "mayBeUnsuspended",
+          "mayLeave"
         ]
       },
       "ChangeMemberRoleRequestDto": {
@@ -26054,7 +26361,7 @@
                 "api.linear.app"
               ]
             },
-            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value"
+            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, the hosts it is bound to once changed, and its sandbox when it is created or its sandbox changes, never the value"
           },
           "at": {
             "type": "string"
@@ -26994,6 +27301,75 @@
           "image"
         ]
       },
+      "RevealSandboxEnvRequestDto": {
+        "type": "object",
+        "properties": {
+          "attempt": {
+            "type": "number",
+            "example": 1,
+            "description": "The attempt of the run assigned to the runner, as the claim named it"
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "SandboxEnvVariableResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "GITHUB_APP_PRIVATE_KEY"
+          },
+          "value": {
+            "type": "string",
+            "description": "The real value of the secret. The runner sets it in the sandbox and redacts it from what it reports"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "DeniedSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_API_KEY"
+          },
+          "reason": {
+            "type": "string",
+            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
+          }
+        },
+        "required": [
+          "secret",
+          "reason"
+        ]
+      },
+      "SandboxEnvResponseDto": {
+        "type": "object",
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SandboxEnvVariableResponseDto"
+            }
+          },
+          "denied": {
+            "description": "Secrets the run cannot get, with why. The runner fails the run before setup if any is listed",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeniedSecretResponseDto"
+            }
+          }
+        },
+        "required": [
+          "variables",
+          "denied"
+        ]
+      },
       "CheckoutHeadRequestDto": {
         "type": "object",
         "properties": {
@@ -27549,23 +27925,6 @@
           "name",
           "prefix",
           "sealed"
-        ]
-      },
-      "DeniedSecretResponseDto": {
-        "type": "object",
-        "properties": {
-          "secret": {
-            "type": "string",
-            "example": "LINEAR_API_KEY"
-          },
-          "reason": {
-            "type": "string",
-            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
-          }
-        },
-        "required": [
-          "secret",
-          "reason"
         ]
       },
       "HarnessKeysResponseDto": {
@@ -28293,6 +28652,14 @@
           "prefix"
         ]
       },
+      "SecretSandbox": {
+        "type": "string",
+        "enum": [
+          "stand-in",
+          "env"
+        ],
+        "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env"
+      },
       "SecretResourceResponseDto": {
         "type": "object",
         "properties": {
@@ -28335,6 +28702,15 @@
               "$ref": "#/components/schemas/SecretBindingResponseDto"
             }
           },
+          "sandbox": {
+            "example": "stand-in",
+            "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretSandbox"
+              }
+            ]
+          },
           "valueWoVersion": {
             "type": "number",
             "nullable": true,
@@ -28355,6 +28731,7 @@
           "workspaceId",
           "name",
           "bindings",
+          "sandbox",
           "valueWoVersion",
           "rotatedAt"
         ]
@@ -28400,6 +28777,15 @@
               "type": "string"
             }
           },
+          "sandbox": {
+            "example": "stand-in",
+            "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least 8 characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretSandbox"
+              }
+            ]
+          },
           "valueOrigin": {
             "example": "awaiting",
             "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)",
@@ -28423,6 +28809,7 @@
         "required": [
           "name",
           "hosts",
+          "sandbox",
           "valueOrigin",
           "valueSetAt",
           "settable"
@@ -34448,6 +34835,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "GITHUB_APP_PRIVATE_KEY": "DEV_GITHUB_APP_KEY"
+            },
+            "description": "Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = \"env\". The runner sets PATH, HOME, USER, LOGNAME, SHELL, TERM, COLORTERM, the SPOTLIGHT_ variables, the proxy variables and the CA variables, so these are refused, in any case. A variable that a harness sets itself, such as ANTHROPIC_API_KEY, and TRACEPARENT, which the harness command sets on every run, are refused too."
           }
         },
         "required": [
@@ -34460,7 +34857,8 @@
           "permissions",
           "mcpServers",
           "native",
-          "secrets"
+          "secrets",
+          "env"
         ]
       },
       "HarnessProfileResourceListResponseDto": {
@@ -35118,6 +35516,182 @@
         },
         "required": [
           "latest"
+        ]
+      },
+      "PublicLayerQuestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2.q1"
+          },
+          "question": {
+            "type": "string",
+            "example": "What happens when the address is already a member?"
+          },
+          "hunks": {
+            "example": [
+              "h3"
+            ],
+            "description": "The hunks that show the answer",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "hunks"
+        ]
+      },
+      "PublicStackLayerResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2"
+          },
+          "title": {
+            "type": "string",
+            "example": "Add the invitation API and emails"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "hunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StackHunkResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileNoteResponseDto"
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLayerQuestionResponseDto"
+            }
+          },
+          "revision": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerRevisionResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "hunks",
+          "notes",
+          "questions",
+          "revision"
+        ]
+      },
+      "PublicStackCohortResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "change",
+              "incidental"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Team invitations"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackLayerResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "intent",
+          "layers"
+        ]
+      },
+      "PublicChangeStackResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "generating",
+              "ready",
+              "failed"
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiffFileResponseDto"
+            }
+          },
+          "cohorts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackCohortResponseDto"
+            }
+          },
+          "removed": {
+            "description": "Layers of the previous stack that this stack no longer has",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RemovedLayerResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "repository",
+          "state",
+          "files",
+          "cohorts",
+          "removed"
+        ]
+      },
+      "PublicChangeStacksResponseDto": {
+        "type": "object",
+        "properties": {
+          "stacks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicChangeStackResponseDto"
+            }
+          }
+        },
+        "required": [
+          "stacks"
         ]
       },
       "DecisionMergeResponseDto": {

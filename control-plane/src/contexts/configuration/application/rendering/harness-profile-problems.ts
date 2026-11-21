@@ -47,6 +47,19 @@ export const HarnessProfileProblems = {
     );
   },
 
+  sandboxNotAllowed(
+    key: string,
+    refused: readonly SecretReference[],
+  ): ConfigurationProblem[] {
+    return refused.map((reference) =>
+      ConfigurationProblem.of({
+        path: profileAt(key),
+        at: reference.path,
+        reason: `names secret ${reference.name.value}, which does not allow its value in a sandbox. Set sandbox = "env" on the secret`,
+      }),
+    );
+  },
+
   awaitingValue(
     key: string,
     awaiting: readonly SecretReference[],

@@ -111,6 +111,7 @@ const started = (
     trial: false,
     checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
+    owner: 'acme',
     repository: over.repository ?? 'web',
     base: null,
     diff,

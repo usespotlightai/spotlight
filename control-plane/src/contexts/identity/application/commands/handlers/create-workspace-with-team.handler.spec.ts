@@ -76,7 +76,11 @@ describe('CreateWorkspaceWithTeamHandler', () => {
     await handle();
 
     expect(added?.members).toEqual([
-      { userId: UserId.of('user_1'), role: WorkspaceRole.owner },
+      {
+        userId: UserId.of('user_1'),
+        role: WorkspaceRole.owner,
+        suspendedAt: null,
+      },
     ]);
   });
 

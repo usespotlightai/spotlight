@@ -572,6 +572,49 @@ describe('Run', () => {
     });
   });
 
+  describe('naming the secrets it puts in its sandbox', () => {
+    const appKey = {
+      variable: 'GITHUB_APP_PRIVATE_KEY',
+      secret: 'DEV_GITHUB_APP_KEY',
+    };
+    const sandboxed = () =>
+      Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        ...orderedFor.spec(),
+        spec: RunSpec.of({
+          command: { executable: 'sh', args: [] },
+          briefing: 'do the thing',
+          handover: { options: [], noteLimit: 4_000 },
+          resume: {},
+          sandboxEnv: [appKey],
+        }),
+      });
+
+    it('names them to the runner on the attempt it leases', () => {
+      const leased = sandboxed().claim(claimer(runner()), noon);
+
+      expect(leased.sandboxEnv(leased.attempt, runner())).toEqual([appKey]);
+    });
+
+    it('names them to no other runner, and on no attempt it has left behind', () => {
+      const leased = sandboxed().claim(claimer(runner()), noon);
+      const first = leased.attempt;
+      const reclaimed = lostAndRequeued(leased).claim(
+        claimer(runner()),
+        at('2026-08-28T12:00:00.000Z'),
+      );
+
+      expect(() => leased.sandboxEnv(first, runner('runner_2'))).toThrow(
+        RunAttemptOverError,
+      );
+      expect(() => reclaimed.sandboxEnv(first, runner())).toThrow(
+        RunAttemptOverError,
+      );
+    });
+  });
+
   describe('knowing the secrets that egress injects for it', () => {
     const injecting = () =>
       Run.enqueue({

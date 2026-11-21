@@ -1,5 +1,6 @@
 import type { CheckingPlan } from '@change-review/domain/value-objects/check-request.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -58,6 +59,8 @@ export interface WorkPort {
   run(runId: RunId): Promise<RunForReview | null>;
 
   teamOfRun(runId: RunId): Promise<TeamId | null>;
+
+  repositoriesOfRun(runId: RunId): Promise<readonly Repository[]>;
 
   reasoning(runId: RunId): Promise<RunReasoning | null>;
 

@@ -5,6 +5,7 @@ import type {
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -61,6 +62,10 @@ export class Work implements WorkPort {
 
   async teamOfRun(runId: RunId): Promise<TeamId | null> {
     return (await this.work.contextOfRun(runId))?.teamId ?? null;
+  }
+
+  async repositoriesOfRun(runId: RunId): Promise<readonly Repository[]> {
+    return (await this.work.contextOfRun(runId))?.repositories ?? [];
   }
 
   async reasoning(runId: RunId): Promise<RunReasoning | null> {

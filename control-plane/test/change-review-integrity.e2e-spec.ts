@@ -94,6 +94,7 @@ const readyStack = (input: {
     trial: input.trial,
     checkouts: 1,
     workspaceId: WORKSPACE,
+    owner: 'acme',
     repository: null,
     base: null,
     diff: Diff.of([

@@ -4,6 +4,8 @@ import type { WorkspaceCreated } from '@identity/domain/events/workspace-created
 import type { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import type { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
 import type { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
+import type { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
+import type { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
 import {
   TEAM_CREATED,
   type TeamCreatedIntegrationEvent,
@@ -28,7 +30,19 @@ import {
   WORKSPACE_MEMBER_ROLE_CHANGED,
   type WorkspaceMemberRoleChangedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-member-role-changed.integration-event';
+import {
+  WORKSPACE_MEMBER_ACCESS_ENDED,
+  type WorkspaceMemberAccessEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
+
+const accessEnded = (
+  event: WorkspaceMemberSuspended | WorkspaceMemberLeft,
+): WorkspaceMemberAccessEndedIntegrationEvent => ({
+  kind: WORKSPACE_MEMBER_ACCESS_ENDED,
+  workspaceId: event.workspaceId.value,
+  userId: event.userId.value,
+});
 
 export const IDENTITY_EVENT_MAPPERS = [
   mapping<WorkspaceCreated>(
@@ -82,5 +96,13 @@ export const IDENTITY_EVENT_MAPPERS = [
       userId: event.userId.value,
       role: event.now.value,
     }),
+  ),
+  mapping<WorkspaceMemberSuspended>(
+    'workspace.member-suspended',
+    (event): WorkspaceMemberAccessEndedIntegrationEvent => accessEnded(event),
+  ),
+  mapping<WorkspaceMemberLeft>(
+    'workspace.member-left',
+    (event): WorkspaceMemberAccessEndedIntegrationEvent => accessEnded(event),
   ),
 ] as const;

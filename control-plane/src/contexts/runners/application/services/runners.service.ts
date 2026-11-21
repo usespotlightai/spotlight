@@ -92,7 +92,7 @@ const NO_EGRESS_NAMED: ProvisionedRunner = {
   outcome: 'failed',
   kind: 'unusable',
   detail:
-    'The pool names no egress now. A run that uses secrets or the Spotlight API needs one.',
+    'The pool names no egress now. A run whose secrets egress injects, or that uses the Spotlight API, needs one.',
 };
 
 export interface RunnersSettings {

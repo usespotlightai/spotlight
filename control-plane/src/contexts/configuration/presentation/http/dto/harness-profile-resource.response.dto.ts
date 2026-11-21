@@ -11,6 +11,9 @@ export const MCP_SERVER_ENV =
 export const PROFILE_SECRETS =
   'Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has.';
 
+export const PROFILE_ENV =
+  'Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = "env". The runner sets PATH, HOME, USER, LOGNAME, SHELL, TERM, COLORTERM, the SPOTLIGHT_ variables, the proxy variables and the CA variables, so these are refused, in any case. A variable that a harness sets itself, such as ANTHROPIC_API_KEY, and TRACEPARENT, which the harness command sets on every run, are refused too.';
+
 class PermissionsResponseDto {
   @ApiProperty({
     type: String,
@@ -124,6 +127,14 @@ export class HarnessProfileResourceResponseDto extends ResourceResponseDto {
   })
   readonly secrets: readonly string[];
 
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: { GITHUB_APP_PRIVATE_KEY: 'DEV_GITHUB_APP_KEY' },
+    description: PROFILE_ENV,
+  })
+  readonly env: Readonly<Record<string, string>>;
+
   constructor(profile: HarnessProfileResourceDto) {
     super(profile);
     this.teamId = profile.teamId;
@@ -134,5 +145,6 @@ export class HarnessProfileResourceResponseDto extends ResourceResponseDto {
     );
     this.native = profile.native;
     this.secrets = profile.secrets;
+    this.env = profile.env;
   }
 }

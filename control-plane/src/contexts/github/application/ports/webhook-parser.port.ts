@@ -6,6 +6,7 @@ import type {
   ReceivedComment,
 } from '@github/domain/events/review-comment-received.event';
 import type { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
+import type { RepositoryVisibility } from '@github/domain/value-objects/repository-visibility.vo';
 import type { ReviewState } from '@github/domain/value-objects/review-state.vo';
 
 export const WEBHOOK_PARSER = Symbol('WEBHOOK_PARSER');
@@ -14,6 +15,11 @@ type WebhookReviewComment = ReceivedComment & { readonly byBot: boolean };
 
 export type WebhookEvent =
   | { readonly kind: 'installation-removed' }
+  | {
+      readonly kind: 'repository-visibility';
+      readonly repository: string;
+      readonly visibility: RepositoryVisibility;
+    }
   | {
       readonly kind: 'review-comment';
       readonly action: CommentAction;

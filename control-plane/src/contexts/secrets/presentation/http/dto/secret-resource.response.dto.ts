@@ -2,6 +2,13 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
 import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
+import {
+  SECRET_SANDBOXES,
+  type SecretSandbox,
+  SANDBOX_VALUE_MIN_LENGTH,
+} from '@secrets/domain/value-objects/secret-sandbox.vo';
+
+export const SECRET_SANDBOX = `Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it. With env, the value must have at least ${SANDBOX_VALUE_MIN_LENGTH} characters that are not whitespace and no NUL byte, and the secret cannot go back to stand-in while a harness profile names it in env`;
 
 class SecretBindingResponseDto {
   @ApiProperty({
@@ -61,6 +68,14 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
   readonly bindings: readonly SecretBindingResponseDto[];
 
   @ApiProperty({
+    enum: SECRET_SANDBOXES,
+    enumName: 'SecretSandbox',
+    example: 'stand-in',
+    description: SECRET_SANDBOX,
+  })
+  readonly sandbox: SecretSandbox;
+
+  @ApiProperty({
     type: Number,
     nullable: true,
     example: 1,
@@ -82,6 +97,7 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
     this.bindings = secret.bindings.map(
       (each) => new SecretBindingResponseDto(each),
     );
+    this.sandbox = secret.sandbox;
     this.valueWoVersion = secret.valueWoVersion;
     this.rotatedAt = secret.rotatedAt;
   }

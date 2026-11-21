@@ -13,6 +13,7 @@ export interface SecretView {
     readonly name: string;
     readonly prefix: string;
   }[];
+  readonly sandbox: string | null;
   readonly valueVersion: number | null;
 }
 

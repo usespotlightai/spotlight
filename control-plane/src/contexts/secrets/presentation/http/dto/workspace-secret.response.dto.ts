@@ -1,9 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { WorkspaceSecretDto } from '@secrets/application/dto/workspace-secret.dto';
 import {
+  SECRET_SANDBOXES,
+  type SecretSandbox,
+} from '@secrets/domain/value-objects/secret-sandbox.vo';
+import {
   SECRET_VALUE_ORIGINS,
   type SecretValueOriginKind,
 } from '@secrets/domain/value-objects/secret-value-origin.vo';
+import { SECRET_SANDBOX } from '@secrets/presentation/http/dto/secret-resource.response.dto';
 
 export class WorkspaceSecretResponseDto {
   @ApiProperty({ example: 'STAGING_LOGIN_PASSWORD' })
@@ -16,6 +21,14 @@ export class WorkspaceSecretResponseDto {
     description: 'The hosts egress sends the value to',
   })
   readonly hosts: readonly string[];
+
+  @ApiProperty({
+    enum: SECRET_SANDBOXES,
+    enumName: 'SecretSandbox',
+    example: 'stand-in',
+    description: SECRET_SANDBOX,
+  })
+  readonly sandbox: SecretSandbox;
 
   @ApiProperty({
     enum: SECRET_VALUE_ORIGINS,
@@ -43,6 +56,7 @@ export class WorkspaceSecretResponseDto {
   constructor(secret: WorkspaceSecretDto) {
     this.name = secret.name;
     this.hosts = secret.hosts;
+    this.sandbox = secret.sandbox;
     this.valueOrigin = secret.valueOrigin;
     this.valueSetAt = secret.valueSetAt?.toISOString() ?? null;
     this.settable = secret.settable;

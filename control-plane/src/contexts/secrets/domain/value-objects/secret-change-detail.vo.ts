@@ -1,3 +1,4 @@
+import type { SecretSandbox } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import type {
   SecretValueOrigin,
   SecretValueOriginKind,
@@ -15,18 +16,21 @@ export class SecretChangeDetail implements ChangeDetail {
     readonly valueOrigin: SecretValueOriginKind | null,
     readonly valueVersion: number | null,
     readonly targets: readonly string[] | null,
+    readonly sandbox: SecretSandbox | null,
   ) {}
 
   static created(created: {
     origin: SecretValueOrigin;
     valueVersion: number | null;
     targets: readonly string[];
+    sandbox: SecretSandbox;
   }): SecretChangeDetail {
     return new SecretChangeDetail(
       created.origin.awaitsValue ? null : 'stored',
       created.origin.kind,
       created.valueVersion,
       [...created.targets],
+      created.sandbox,
     );
   }
 
@@ -36,12 +40,14 @@ export class SecretChangeDetail implements ChangeDetail {
     valueVersion: number | null;
     rebound: boolean;
     targets: readonly string[];
+    sandbox: SecretSandbox | null;
   }): SecretChangeDetail {
     return new SecretChangeDetail(
       moved.valueChange,
       moved.valueChange ? moved.origin.kind : null,
       moved.valueChange ? moved.valueVersion : null,
       moved.rebound ? [...moved.targets] : null,
+      moved.sandbox,
     );
   }
 
@@ -53,6 +59,7 @@ export class SecretChangeDetail implements ChangeDetail {
         ? { valueVersion: this.valueVersion }
         : {}),
       ...(this.targets ? { targets: this.targets } : {}),
+      ...(this.sandbox ? { sandbox: this.sandbox } : {}),
     };
   }
 }

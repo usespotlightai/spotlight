@@ -54,6 +54,7 @@ const stackOf = (
     trial: true,
     checkouts: 1,
     workspaceId: WorkspaceId.of('ws-1'),
+    owner: 'acme',
     repository: id,
     base: null,
     diff: DIFF,

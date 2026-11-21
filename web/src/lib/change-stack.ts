@@ -4,6 +4,7 @@ import type {
   DiffHunkResponseDto,
   LayerQuestionResponseDto,
   ChangeStacksResponseDto,
+  PublicChangeStackResponseDto,
   QuestionAnswerResponseDto,
   StackCohortResponseDto,
   StackLayerResponseDto,
@@ -28,6 +29,26 @@ export type LayerQuestion = LayerQuestionResponseDto;
 export type QuestionAnswer = QuestionAnswerResponseDto;
 
 export type AnswerVerdict = QuestionAnswer['verdict'];
+
+export const stackOfPublic = (
+  stack: PublicChangeStackResponseDto,
+): ChangeStack => ({
+  ...stack,
+  failure: null,
+  check: null,
+  runId: null,
+  push: null,
+  cohorts: stack.cohorts.map((cohort) => ({
+    ...cohort,
+    layers: cohort.layers.map((layer) => ({
+      ...layer,
+      questions: layer.questions.map((question) => ({
+        ...question,
+        answered: null,
+      })),
+    })),
+  })),
+});
 
 export interface CitedPlace {
   readonly path: string;

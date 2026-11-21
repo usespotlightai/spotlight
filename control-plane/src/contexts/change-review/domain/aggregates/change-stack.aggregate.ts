@@ -177,6 +177,7 @@ export class ChangeStack
     readonly teamId: TeamId | null,
     readonly trial: boolean,
     readonly workspaceId: WorkspaceId,
+    readonly owner: string,
     readonly repository: RepositoryName | null,
     readonly base: CommitSha | null,
     readonly diff: Diff,
@@ -202,6 +203,7 @@ export class ChangeStack
     trial: boolean;
     checkouts: number;
     workspaceId: WorkspaceId;
+    owner: string;
     repository: string | null;
     base: string | null;
     diff: Diff;
@@ -243,6 +245,7 @@ export class ChangeStack
       owner.teamId,
       input.trial,
       input.workspaceId,
+      input.owner,
       repository,
       input.base?.trim() ? baseOf(input.base) : null,
       input.diff,
@@ -266,6 +269,7 @@ export class ChangeStack
     teamId: TeamId | null;
     trial: boolean;
     workspaceId: WorkspaceId;
+    owner: string;
     repository: RepositoryName | null;
     base: CommitSha | null;
     diff: Diff;
@@ -294,6 +298,7 @@ export class ChangeStack
       input.teamId,
       input.trial,
       input.workspaceId,
+      input.owner,
       input.repository,
       input.base,
       input.diff,
@@ -653,6 +658,7 @@ export class ChangeStack
       this.teamId,
       this.trial,
       this.workspaceId,
+      this.owner,
       this.repository,
       this.base,
       this.diff,

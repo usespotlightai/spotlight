@@ -24,7 +24,7 @@ export function Secrets() {
     <>
       <SettingsPage
         title="Secrets"
-        description="Egress sends each secret to its hosts. A run never sees the value. Terraform defines the secrets."
+        description="Egress sends each secret to its hosts. A run sees a value only where the secret can enter sandboxes. Terraform defines the secrets."
       >
         <SettingsSection
           title="Secrets"

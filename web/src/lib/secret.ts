@@ -30,5 +30,11 @@ export const awaitsValue = (secret: WorkspaceSecret): boolean =>
 export const setValueLabel = (secret: WorkspaceSecret): string =>
   awaitsValue(secret) ? 'Set value' : 'Replace value';
 
+export const allowsSandbox = (secret: WorkspaceSecret): boolean =>
+  secret.sandbox === 'env';
+
+export const SANDBOX_NOTE =
+  'A harness profile can give its runs this value as an environment variable. The agent and every process in the sandbox can read it.';
+
 export const describeHosts = (secret: WorkspaceSecret): string =>
   secret.hosts.length > 0 ? secret.hosts.join(', ') : 'Sent to no host';

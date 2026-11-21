@@ -10,6 +10,7 @@ import {
   type RunHarnessSetup,
   type RunMcpServer,
   type RunResume,
+  type RunSandboxVariable,
   type RunToolChange,
   RunSpec,
   type RunToolApproval,
@@ -27,6 +28,7 @@ const UNORDERABLE = [
   'restore',
   'extensions',
   'injectedSecrets',
+  'sandboxEnv',
   'harnessKeys',
 ] as const;
 
@@ -214,6 +216,15 @@ const attachmentOf = (raw: unknown): RunAttachment => {
   };
 };
 
+const sandboxVariableOf = (raw: unknown): RunSandboxVariable => {
+  const input = objectAt(raw, 'the secrets in its sandbox');
+
+  return {
+    variable: stringAt(input.variable, 'the secrets in its sandbox'),
+    secret: stringAt(input.secret, 'the secrets in its sandbox'),
+  };
+};
+
 const mcpServerOf = (raw: unknown): RunMcpServer => {
   const input = objectAt(raw, 'its MCP servers');
 
@@ -342,6 +353,12 @@ const read = (raw: unknown): RunSpec => {
     (each) => stringAt(each, 'the secrets that egress injects for it'),
   );
 
+  const sandboxEnv = optionalListAt(
+    input.sandboxEnv,
+    'the secrets in its sandbox',
+    sandboxVariableOf,
+  );
+
   const harnessKeys = optionalListAt(
     input.harnessKeys,
     'the harness keys that egress injects for it',
@@ -395,6 +412,7 @@ const read = (raw: unknown): RunSpec => {
     ...(harnessSetup ? { harnessSetup } : {}),
     ...(settingFiles ? { settingFiles } : {}),
     ...(injectedSecrets ? { injectedSecrets } : {}),
+    ...(sandboxEnv ? { sandboxEnv } : {}),
     ...(harnessKeys ? { harnessKeys } : {}),
     ...(spotlightApi ? { spotlightApi } : {}),
   });

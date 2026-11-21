@@ -20,10 +20,20 @@ const acme = (role: WorkspaceRole = WorkspaceRole.owner, user = 'user_1') =>
     name: WorkspaceName.of('Acme'),
     slug: WorkspaceSlug.of('acme'),
     members: role.isOwner
-      ? [{ userId: UserId.of(user), role: WorkspaceRole.owner }]
+      ? [
+          {
+            userId: UserId.of(user),
+            role: WorkspaceRole.owner,
+            suspendedAt: null,
+          },
+        ]
       : [
-          { userId: UserId.of('owner_1'), role: WorkspaceRole.owner },
-          { userId: UserId.of(user), role },
+          {
+            userId: UserId.of('owner_1'),
+            role: WorkspaceRole.owner,
+            suspendedAt: null,
+          },
+          { userId: UserId.of(user), role, suspendedAt: null },
         ],
     version: 0,
   });

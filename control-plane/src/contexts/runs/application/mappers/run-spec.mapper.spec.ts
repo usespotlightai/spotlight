@@ -221,16 +221,34 @@ describe('RunSpecMapper.ordered', () => {
     ).toBe('scratch');
   });
 
-  it('refuses what only Spotlight orders: grants, restores, extensions and injected secrets', () => {
-    for (const field of [
-      { apiGrant: { actingFor: 'user_1', scopes: ['plan'], lifetimeMs: 1 } },
-      { restore: { archive: 'archive_1' } },
-      { extensions: { replay: {} } },
-      { injectedSecrets: ['LINEAR_API_KEY'] },
-    ]) {
+  it('refuses what only Spotlight orders: grants, restores, extensions, injected secrets and secrets in the sandbox', () => {
+    for (const [name, field] of [
+      [
+        'apiGrant',
+        { apiGrant: { actingFor: 'user_1', scopes: ['plan'], lifetimeMs: 1 } },
+      ],
+      ['restore', { restore: { archive: 'archive_1' } }],
+      ['extensions', { extensions: { replay: {} } }],
+      ['injectedSecrets', { injectedSecrets: ['LINEAR_API_KEY'] }],
+      [
+        'sandboxEnv',
+        {
+          sandboxEnv: [
+            {
+              variable: 'GITHUB_APP_PRIVATE_KEY',
+              secret: 'DEV_GITHUB_APP_KEY',
+            },
+          ],
+        },
+      ],
+    ] as const) {
       expect(() =>
         RunSpecMapper.ordered({ briefing: 'do it', ...field }, command),
-      ).toThrow(InvalidRunSpecError);
+      ).toThrow(
+        new InvalidRunSpecError(
+          `must not ask for ${name}, which only Spotlight orders`,
+        ),
+      );
     }
   });
 

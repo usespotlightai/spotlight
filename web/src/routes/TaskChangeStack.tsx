@@ -10,9 +10,11 @@ import { useTaskChangeStacks } from '@/hooks/api/useTaskChangeStacks';
 import { useTaskReview } from '@/hooks/api/useTaskReview';
 import { useTask } from '@/hooks/api/useTasks';
 import { useTaskTrail } from '@/hooks/useTaskTrail';
+import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { TrailContext, useTrail } from '@/lib/trail';
+import { PublicChangeStack } from '@/routes/PublicChangeStack';
 
 export function TaskChangeStack() {
   const { slug, teamId, taskId } = useParams();
@@ -40,6 +42,10 @@ export function TaskChangeStack() {
 
   if (loading(stacks) || loading(found)) {
     return <ChangeStackSkeleton known={trail.slice(0, -1)} />;
+  }
+
+  if (failed(stacks) && notFound(stacks.error)) {
+    return <PublicChangeStack />;
   }
 
   if (failed(stacks)) {

@@ -125,6 +125,12 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository.ts',
     ],
   },
+  repository_visibility: {
+    why: 'GitHub cache of whether a repository is public, kept fresh by webhooks and re-checks',
+    writers: [
+      'contexts/github/infrastructure/persistence/drizzle/ledgers/repository-visibility.ledger.ts',
+    ],
+  },
   run_connection: {
     why: 'Runs append-only ledger of the connections a run made',
     writers: [

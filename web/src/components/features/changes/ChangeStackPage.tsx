@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import {
   ChangeStackNotice,
   type StackNoticeBack,
@@ -16,6 +18,64 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStackInView } from '@/hooks/useStackInView';
 import type { ChangeStack } from '@/lib/change-stack';
 import type { CodeReview } from '@/lib/review';
+import { StackVisitorContext } from '@/lib/review-context';
+
+type StackInView = ReturnType<typeof useStackInView>;
+
+type ChangeStackLayoutProps = {
+  slug: string | undefined;
+  view: StackInView;
+  title: ReactNode;
+  actions: ReactNode;
+  back: StackNoticeBack | null;
+};
+
+function ChangeStackLayout({
+  slug,
+  view: { current, stack, layerId, pick, switchTo },
+  title,
+  actions,
+  back,
+}: ChangeStackLayoutProps) {
+  const ready = stack?.state === 'ready' ? stack : null;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader
+        title={title}
+        trailing={
+          ready && (
+            <>
+              <StackPushOrigin stack={ready} />
+              <StackRepositoryPills
+                stacks={current}
+                stack={ready}
+                onChange={switchTo}
+                className="hidden shrink grow justify-end-safe pr-2 @4xl/pane:flex"
+              />
+            </>
+          )
+        }
+        actions={ready && actions}
+      />
+
+      {ready && (
+        <StackRepositoryPills
+          stacks={current}
+          stack={ready}
+          onChange={switchTo}
+          className="border-border border-b-[0.5px] @md/pane:px-4 @4xl/pane:hidden"
+        />
+      )}
+
+      {ready ? (
+        <ChangeStackView stack={ready} layerId={layerId} onPick={pick} />
+      ) : (
+        <ChangeStackNotice slug={slug} stack={stack} back={back} />
+      )}
+    </div>
+  );
+}
 
 type ChangeStackPageProps = {
   slug: string;
@@ -36,53 +96,49 @@ export function ChangeStackPage({
   trail,
   back,
 }: ChangeStackPageProps) {
-  const { current, stack, layerId, pick, switchTo } = useStackInView(stacks);
-  const ready = stack?.state === 'ready' ? stack : null;
+  const view = useStackInView(stacks);
 
   return (
     <ReviewProvider
       teamId={teamId}
       taskId={taskId}
-      repository={stack?.repository ?? null}
-      alone={current.length <= 1}
+      repository={view.stack?.repository ?? null}
+      alone={view.current.length <= 1}
       review={review}
     >
       <DecisionsProvider slug={slug} teamId={teamId} taskId={taskId}>
-        <div className="flex min-h-0 flex-1 flex-col">
-          <PageHeader
-            title={<Breadcrumbs segments={trail} />}
-            trailing={
-              ready && (
-                <>
-                  <StackPushOrigin stack={ready} />
-                  <StackRepositoryPills
-                    stacks={current}
-                    stack={ready}
-                    onChange={switchTo}
-                    className="hidden shrink grow justify-end-safe pr-2 @4xl/pane:flex"
-                  />
-                </>
-              )
-            }
-            actions={ready && taskId ? <SubmitReviewButton /> : undefined}
-          />
-
-          {ready && (
-            <StackRepositoryPills
-              stacks={current}
-              stack={ready}
-              onChange={switchTo}
-              className="border-border border-b-[0.5px] @md/pane:px-4 @4xl/pane:hidden"
-            />
-          )}
-
-          {ready ? (
-            <ChangeStackView stack={ready} layerId={layerId} onPick={pick} />
-          ) : (
-            <ChangeStackNotice slug={slug} stack={stack} back={back} />
-          )}
-        </div>
+        <ChangeStackLayout
+          slug={slug}
+          view={view}
+          title={<Breadcrumbs segments={trail} />}
+          actions={taskId ? <SubmitReviewButton /> : undefined}
+          back={back}
+        />
       </DecisionsProvider>
     </ReviewProvider>
+  );
+}
+
+type PublicChangeStackPageProps = {
+  stacks: readonly ChangeStack[];
+  signedIn: boolean;
+};
+
+export function PublicChangeStackPage({
+  stacks,
+  signedIn,
+}: PublicChangeStackPageProps) {
+  const view = useStackInView(stacks);
+
+  return (
+    <StackVisitorContext value={{ signedIn }}>
+      <ChangeStackLayout
+        slug={undefined}
+        view={view}
+        title="Change stack"
+        actions={undefined}
+        back={null}
+      />
+    </StackVisitorContext>
   );
 }

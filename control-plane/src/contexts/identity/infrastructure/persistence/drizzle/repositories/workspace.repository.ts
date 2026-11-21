@@ -42,8 +42,12 @@ const isSlugCollision = (error: unknown): boolean =>
   ((error as { constraint?: string }).constraint ?? '').includes('slug');
 
 const membersOfWorkspace = sql<
-  { readonly userId: string; readonly role: string }[]
->`coalesce((select json_agg(json_build_object('userId', ${workspaceMember.userId}, 'role', ${workspaceMember.role})) from ${workspaceMember} where ${workspaceMember.workspaceId} = ${workspace.id}), '[]'::json)`;
+  {
+    readonly userId: string;
+    readonly role: string;
+    readonly suspendedAt: string | null;
+  }[]
+>`coalesce((select json_agg(json_build_object('userId', ${workspaceMember.userId}, 'role', ${workspaceMember.role}, 'suspendedAt', ${workspaceMember.suspendedAt})) from ${workspaceMember} where ${workspaceMember.workspaceId} = ${workspace.id}), '[]'::json)`;
 
 @Injectable()
 export class DrizzleWorkspaceRepository implements WorkspaceRepository {
@@ -90,6 +94,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       members: found.members.map((each) => ({
         userId: UserId.of(each.userId),
         role: WorkspaceRole.of(each.role),
+        suspendedAt: each.suspendedAt ? new Date(each.suspendedAt) : null,
       })),
       firstTeamPending: found.firstTeamPending,
       version: found.version,
@@ -177,10 +182,11 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
           workspaceId: saved.id.value,
           userId: member.userId.value,
           role: member.role.value,
+          suspendedAt: member.suspendedAt,
         })
         .onConflictDoUpdate({
           target: [workspaceMember.workspaceId, workspaceMember.userId],
-          set: { role: member.role.value },
+          set: { role: member.role.value, suspendedAt: member.suspendedAt },
         });
     }
   }
@@ -209,6 +215,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
             workspaceId: added.id.value,
             userId: member.userId.value,
             role: member.role.value,
+            suspendedAt: member.suspendedAt,
           })),
         );
       });

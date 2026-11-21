@@ -198,6 +198,7 @@ const readyStack = (workspaceId: WorkspaceId, since: Date): ChangeStack =>
     checkouts: 1,
     workspaceId,
     repository: null,
+    owner: 'acme',
     base: null,
     diff: DIFF,
     facts: StackFacts.of({ hunks: [], links: [], imports: [] }),

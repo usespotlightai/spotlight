@@ -26,10 +26,16 @@ interface HarnessSettings {
   readonly native: Readonly<Record<string, unknown>>;
 }
 
+export interface SandboxVariable {
+  readonly variable: string;
+  readonly secret: SecretName;
+}
+
 export interface ReadyProfile extends HarnessSettings {
   readonly key: ProfileKey;
   readonly secrets: readonly SecretName[];
   readonly injectedSecrets: readonly SecretName[];
+  readonly sandboxEnv: readonly SandboxVariable[];
 }
 
 export const withoutServersOrSecrets = (
@@ -39,4 +45,5 @@ export const withoutServersOrSecrets = (
   mcpServers: [],
   secrets: [],
   injectedSecrets: [],
+  sandboxEnv: [],
 });

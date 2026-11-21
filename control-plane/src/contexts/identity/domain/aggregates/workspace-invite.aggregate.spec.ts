@@ -24,7 +24,7 @@ const ACME = Workspace.rehydrate({
   id: acme,
   name: WorkspaceName.of('Acme'),
   slug: WorkspaceSlug.of('acme'),
-  members: [{ userId: inviter, role: WorkspaceRole.owner }],
+  members: [{ userId: inviter, role: WorkspaceRole.owner, suspendedAt: null }],
   version: 0,
 });
 const hash = (of: string) => TokenHash.of(of.repeat(64).slice(0, 64));

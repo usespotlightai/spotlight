@@ -17,6 +17,12 @@ import {
 } from '@identity/application/services/invite-memberships.service';
 import type { IssuedTokens } from '@identity/application/services/issued-tokens.service';
 import {
+  MAIL_MEMBER_WHO_LEFT,
+  MAIL_SUSPENDED_MEMBER,
+  MAIL_UNSUSPENDED_MEMBER,
+  type MemberNotices,
+} from '@identity/application/services/member-notices.service';
+import {
   REMOVE_INVITES_OF_DELETED_WORKSPACE,
   type WorkspaceInviteRemoval,
 } from '@identity/application/services/workspace-invite-removal.service';
@@ -32,6 +38,9 @@ import type { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import type { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import type { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import type { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
+import type { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
+import type { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
+import type { WorkspaceMemberUnsuspended } from '@identity/domain/events/workspace-member-unsuspended.event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -44,6 +53,7 @@ export const identitySubscribers = (
   inviteRemoval: WorkspaceInviteRemoval,
   setup: WorkspaceSetup,
   avatars: AvatarRemoval,
+  notices: MemberNotices,
 ): readonly DomainEventSubscriber[] => [
   subscribing<WorkspaceCreated>(FIRST_TEAM, ['workspace.created'], (event) =>
     firstTeam.createFor(event),
@@ -97,6 +107,24 @@ export const identitySubscribers = (
     REMOVE_AVATAR_IMAGES_OF_DELETED_WORKSPACE,
     ['workspace.deleted'],
     (event) => avatars.imagesOfWorkspace(event),
+    { callsOut: true },
+  ),
+  subscribing<WorkspaceMemberSuspended>(
+    MAIL_SUSPENDED_MEMBER,
+    ['workspace.member-suspended'],
+    (event) => notices.suspended(event),
+    { callsOut: true },
+  ),
+  subscribing<WorkspaceMemberUnsuspended>(
+    MAIL_UNSUSPENDED_MEMBER,
+    ['workspace.member-unsuspended'],
+    (event) => notices.unsuspended(event),
+    { callsOut: true },
+  ),
+  subscribing<WorkspaceMemberLeft>(
+    MAIL_MEMBER_WHO_LEFT,
+    ['workspace.member-left'],
+    (event) => notices.left(event),
     { callsOut: true },
   ),
   subscribing<TeamCreated>(MARK_WORKSPACE_SET_UP, ['team.created'], (event) =>

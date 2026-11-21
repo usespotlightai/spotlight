@@ -167,10 +167,14 @@ export class DispatchTask implements TaskDispatching {
       memoryFolder: memories.folder,
       tools: described,
       boundSecrets: order.boundSecrets,
+      sandboxEnv: order.enabled.profile?.sandboxEnv ?? [],
       drivenByAPerson,
     });
     const injected = (order.enabled.profile?.injectedSecrets ?? []).map(
       (each) => each.value,
+    );
+    const sandboxEnv = (order.enabled.profile?.sandboxEnv ?? []).map(
+      ({ variable, secret }) => ({ variable, secret: secret.value }),
     );
     const catalog = order.enabled.pinned.map((each) => each.value);
 
@@ -198,6 +202,7 @@ export class DispatchTask implements TaskDispatching {
           ...(catalog.length > 0 ? { catalog } : {}),
           startingPoint: true,
           ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
+          ...(sandboxEnv.length > 0 ? { sandboxEnv } : {}),
         },
         refusals: order.refusals,
       }),

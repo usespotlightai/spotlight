@@ -13,6 +13,10 @@ export interface WorkspaceMemberDto extends MemberDto {
   readonly email: string;
   readonly teams: readonly TeamRef[];
   readonly joinedAt: string;
+  readonly suspendedAt: string | null;
+  readonly mayBeSuspended: boolean;
+  readonly mayBeUnsuspended: boolean;
+  readonly mayLeave: boolean;
 }
 
 export type WorkspaceMemberSummaryDto = Pick<

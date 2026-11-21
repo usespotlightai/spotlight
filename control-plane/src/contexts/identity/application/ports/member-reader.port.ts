@@ -15,6 +15,7 @@ export interface WorkspaceMemberSummary extends PersonRef {
   readonly role: WorkspaceRoleName;
   readonly teams: readonly TeamRef[];
   readonly joinedAt: Date;
+  readonly suspendedAt: Date | null;
 }
 
 export interface MemberReaderPort {

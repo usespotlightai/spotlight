@@ -533,6 +533,128 @@
         ]
       }
     },
+    "/workspaces/{slug}/members/{userId}/suspension": {
+      "put": {
+        "description": "A suspended member loses all access at once but stays listed, with their teams and their work. An owner may suspend anyone, an admin any member or admin. Nobody may suspend themselves, and the last owner stays.",
+        "operationId": "suspendMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "They are suspended"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You cannot suspend this person"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "It would leave nobody who owns it"
+          }
+        },
+        "summary": "Suspend a member",
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "delete": {
+        "description": "The member gets back the role and the teams they had. This also brings back a member who left.",
+        "operationId": "unsuspendMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "They are not suspended"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "You cannot unsuspend this person"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "Unsuspend a member",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/leave": {
+      "post": {
+        "description": "Leaving is a suspension you choose. You stay listed, and an admin or an owner can unsuspend you. The last owner cannot leave.",
+        "operationId": "leaveWorkspace",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "You left the workspace"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          },
+          "409": {
+            "description": "It would leave nobody who owns it"
+          }
+        },
+        "summary": "Leave the workspace",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/workspaces/{slug}/configuration-changes": {
       "get": {
         "operationId": "listConfigurationChanges",
@@ -4634,6 +4756,74 @@
         ]
       }
     },
+    "/public/runs/{runId}/change-stacks": {
+      "get": {
+        "operationId": "listPublicRunChangeStacks",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The change stack does not exist, or a repository in it is not public"
+          }
+        },
+        "summary": "The change stacks of a run, for anybody, when every repository in them is public on GitHub",
+        "tags": [
+          "public-change-stacks"
+        ]
+      }
+    },
+    "/public/tasks/{taskId}/change-stacks": {
+      "get": {
+        "operationId": "listPublicTaskChangeStacks",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangeStacksResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The change stack does not exist, or a repository in it is not public"
+          }
+        },
+        "summary": "The newest change stack of each repository of a task, for anybody, when every repository in them is public on GitHub",
+        "tags": [
+          "public-change-stacks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/decisions": {
       "get": {
         "operationId": "readTaskDecisions",
@@ -7293,6 +7483,27 @@
             "type": "string",
             "description": "When they joined the workspace.",
             "example": "2026-09-12T09:00:00.000Z"
+          },
+          "suspendedAt": {
+            "type": "string",
+            "description": "When they were suspended or left. It is null for a member with access.",
+            "nullable": true,
+            "example": null
+          },
+          "mayBeSuspended": {
+            "type": "boolean",
+            "description": "Whether the caller may suspend this member.",
+            "example": true
+          },
+          "mayBeUnsuspended": {
+            "type": "boolean",
+            "description": "Whether the caller may unsuspend this member.",
+            "example": false
+          },
+          "mayLeave": {
+            "type": "boolean",
+            "description": "Whether this member is the caller and may leave the workspace.",
+            "example": false
           }
         },
         "required": [
@@ -7303,7 +7514,11 @@
           "assignableRoles",
           "email",
           "teams",
-          "joinedAt"
+          "joinedAt",
+          "suspendedAt",
+          "mayBeSuspended",
+          "mayBeUnsuspended",
+          "mayLeave"
         ]
       },
       "ChangeMemberRoleRequestDto": {
@@ -7407,7 +7622,7 @@
                 "api.linear.app"
               ]
             },
-            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, and the hosts it is bound to once changed, never the value"
+            "description": "What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records whether its value was stored or handed over to people, where its value now comes from, the value version it moved to, the hosts it is bound to once changed, and its sandbox when it is created or its sandbox changes, never the value"
           },
           "at": {
             "type": "string"
@@ -13454,6 +13669,182 @@
         },
         "required": [
           "latest"
+        ]
+      },
+      "PublicLayerQuestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2.q1"
+          },
+          "question": {
+            "type": "string",
+            "example": "What happens when the address is already a member?"
+          },
+          "hunks": {
+            "example": [
+              "h3"
+            ],
+            "description": "The hunks that show the answer",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "hunks"
+        ]
+      },
+      "PublicStackLayerResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2"
+          },
+          "title": {
+            "type": "string",
+            "example": "Add the invitation API and emails"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "hunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StackHunkResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileNoteResponseDto"
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLayerQuestionResponseDto"
+            }
+          },
+          "revision": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerRevisionResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "hunks",
+          "notes",
+          "questions",
+          "revision"
+        ]
+      },
+      "PublicStackCohortResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "change",
+              "incidental"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Team invitations"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackLayerResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "intent",
+          "layers"
+        ]
+      },
+      "PublicChangeStackResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "generating",
+              "ready",
+              "failed"
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiffFileResponseDto"
+            }
+          },
+          "cohorts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackCohortResponseDto"
+            }
+          },
+          "removed": {
+            "description": "Layers of the previous stack that this stack no longer has",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RemovedLayerResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "repository",
+          "state",
+          "files",
+          "cohorts",
+          "removed"
+        ]
+      },
+      "PublicChangeStacksResponseDto": {
+        "type": "object",
+        "properties": {
+          "stacks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicChangeStackResponseDto"
+            }
+          }
+        },
+        "required": [
+          "stacks"
         ]
       },
       "DecisionMergeResponseDto": {
