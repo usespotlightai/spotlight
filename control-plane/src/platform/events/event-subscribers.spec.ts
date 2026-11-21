@@ -1,8 +1,5 @@
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import {
-  DEFAULT_RETRY,
-  subscribing,
-} from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { describe, expect, it } from 'vitest';
 
 const heard = async () => [];
@@ -47,8 +44,8 @@ describe('EventSubscribers', () => {
     expect(more.names()).toEqual([]);
   });
 
-  it('gives a subscriber made with subscribing the default retry', () => {
-    expect(subscribers.named('test.exact')?.retry).toBe(DEFAULT_RETRY);
+  it('leaves the retry of a subscriber made with subscribing to the outbox default', () => {
+    expect(subscribers.named('test.exact')?.retry).toBeUndefined();
     expect(subscribers.names()).toEqual([
       'test.exact',
       'test.work',

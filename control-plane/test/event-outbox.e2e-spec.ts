@@ -6,7 +6,11 @@ import { configurationChange } from '@identity/infrastructure/persistence/drizzl
 import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { CauseCarrier } from '@platform/events/cause-carrier';
-import { EventDelivery, LEASE_MS } from '@platform/events/event-delivery';
+import {
+  EventDelivery,
+  LEASE_MS,
+  DEFAULT_RETRY,
+} from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -27,10 +31,7 @@ import {
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import {
-  DEFAULT_RETRY,
-  subscribing,
-} from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -515,7 +516,11 @@ describe('the rows the event outbox keeps', () => {
     const recent = new Date(at.getTime() - OUTBOX_RETENTION_MS + 60_000);
     const event = async (
       recordedAt: Date,
-      deliveries: { deliveredAt: Date | null; deadLetteredAt: Date | null }[],
+      deliveries: {
+        deliveredAt: Date | null;
+        deadLetteredAt: Date | null;
+        subscriber?: string;
+      }[],
       subscriber = 'test.retained',
     ) => {
       const id = randomUUID();
@@ -543,6 +548,15 @@ describe('the rows the event outbox keeps', () => {
     const oldPartly = await event(old, [delivered, pending]);
     const oldDead = await event(old, [deadLettered]);
     const oldDeadOfGone = await event(old, [deadLettered], 'test.gone');
+    const deadOfGone = { ...deadLettered, subscriber: 'test.gone-0' };
+    const oldDeadOfGoneAndPending = await event(old, [
+      deadOfGone,
+      { ...pending, subscriber: 'test.retained-1' },
+    ]);
+    const oldDeadOfGoneAndOfRegistered = await event(old, [
+      deadOfGone,
+      { ...deadLettered, subscriber: 'test.retained-0' },
+    ]);
     const recentDelivered = await event(recent, [delivered]);
     const registered = new EventSubscribers();
     registered.register([
@@ -567,7 +581,13 @@ describe('the rows the event outbox keeps', () => {
     expect(left).not.toContain(oldDelivered);
     expect(left).not.toContain(oldDeadOfGone);
     expect(left).toEqual(
-      expect.arrayContaining([oldPartly, oldDead, recentDelivered]),
+      expect.arrayContaining([
+        oldPartly,
+        oldDead,
+        oldDeadOfGoneAndPending,
+        oldDeadOfGoneAndOfRegistered,
+        recentDelivered,
+      ]),
     );
     expect(
       await database.db

@@ -1,4 +1,8 @@
 import {
+  isContextPrefix,
+  isIntegrationEventKind,
+} from '@shared-kernel/application/integration-events/integration-event';
+import {
   MAX_SLUG_LENGTH,
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
@@ -132,8 +136,8 @@ export const envSchema = databaseSchema
         z.array(
           z
             .string()
-            .regex(
-              /^[a-z][a-z-]*\.([a-z][a-z-]*\.v\d+)?$/,
+            .refine(
+              (each) => isIntegrationEventKind(each) || isContextPrefix(each),
               'is an integration event kind, such as runs.run-usage-recorded.v1, or a context, such as identity.',
             ),
         ),

@@ -3,7 +3,7 @@ import type { DeleteTeamSkills } from '@configuration/application/services/delet
 import type { DeleteWorkspaceStates } from '@configuration/application/services/delete-workspace-states.service';
 import type { PruneStateBodies } from '@configuration/application/services/prune-state-bodies.service';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
-import { anEnvelope } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -27,7 +27,7 @@ describe('configuration learning that a team is deleted', () => {
         teamId: 'team_1',
         key: 'core',
       } as never,
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     expect(deleting.deleteForTeam).toHaveBeenCalledWith(
@@ -57,7 +57,7 @@ describe('configuration learning that a workspace is deleted', () => {
         workspaceId: 'ws_1',
         slug: 'acme',
       } as never,
-      anEnvelope(),
+      anOutboxRecord(),
     );
 
     expect(deleting.deleteForWorkspace).toHaveBeenCalledWith(

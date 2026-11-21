@@ -1,6 +1,10 @@
 import type { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import { signatureOf } from '@platform/outbound/standard-webhooks';
+import {
+  failureOf,
+  keyOf,
+  signatureOf,
+} from '@platform/outbound/standard-webhooks';
 import {
   type IntegrationEvent,
   isIntegrationEventKind,
@@ -8,7 +12,7 @@ import {
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
   type DomainEventSubscriber,
-  type EventEnvelope,
+  type OutboxRecord,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
@@ -16,8 +20,6 @@ import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 const TIMEOUT_MS = 10_000;
 
 const MAX_DETAIL = 500;
-
-const SECRET_PREFIX = 'whsec_';
 
 export const EVENT_WEBHOOK_SUBSCRIBER = 'platform.send-event-webhook';
 
@@ -33,16 +35,6 @@ export interface EventWebhookSettings {
   readonly secret: string;
 }
 
-const described = (error: unknown): string => {
-  const cause = (error as { cause?: unknown }).cause;
-
-  return error instanceof Error
-    ? cause instanceof Error
-      ? `${error.message}: ${cause.message || (cause as { code?: string }).code || cause.name}`
-      : error.message
-    : String(error);
-};
-
 // The deployment event webhook (SPOTLIGHT_EVENTS_URL). Each integration event is one POST, signed per Standard Webhooks. The order is not guaranteed, and an event can come again: a receiver drops repeats by webhook-id and reads the current state from the admin API.
 export class EventWebhook {
   readonly #key: Buffer;
@@ -52,25 +44,22 @@ export class EventWebhook {
     private readonly guard: OutboundGuard,
     private readonly clock: ClockPort,
   ) {
-    this.#key = Buffer.from(
-      settings.secret.slice(SECRET_PREFIX.length),
-      'base64',
-    );
+    this.#key = keyOf(settings.secret);
   }
 
   // The call goes out under the deployment's allow-list only, not the list of a workspace. It throws when the webhook does not answer 2xx, so that the outbox tries again.
-  send(event: IntegrationEvent, envelope: EventEnvelope): Promise<void> {
-    return OutboundScope.deployment(() => this.sent(event, envelope));
+  send(event: IntegrationEvent, record: OutboxRecord): Promise<void> {
+    return OutboundScope.deployment(() => this.post(event, record));
   }
 
-  private async sent(
+  private async post(
     event: IntegrationEvent,
-    envelope: EventEnvelope,
+    record: OutboxRecord,
   ): Promise<void> {
     const { kind, ...data } = event;
     const body = JSON.stringify({
       type: kind,
-      timestamp: envelope.recordedAt.toISOString(),
+      timestamp: record.recordedAt.toISOString(),
       data,
     });
     const timestamp = Math.floor(this.clock.now().getTime() / 1000);
@@ -82,11 +71,11 @@ export class EventWebhook {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'webhook-id': envelope.id,
+          'webhook-id': record.id,
           'webhook-timestamp': String(timestamp),
           'webhook-signature': signatureOf(
             this.#key,
-            envelope.id,
+            record.id,
             timestamp,
             body,
           ),
@@ -97,7 +86,7 @@ export class EventWebhook {
       });
     } catch (error) {
       throw new Error(
-        `Spotlight could not send the event to the event webhook: ${described(error)}`,
+        `Spotlight could not send the event to the event webhook: ${failureOf(error)}`,
       );
     }
 
@@ -128,7 +117,7 @@ export const eventWebhookSubscription = (
   subscriber: subscribing<IntegrationEvent>(
     EVENT_WEBHOOK_SUBSCRIBER,
     kinds.filter(isIntegrationEventKind),
-    (event, envelope) => webhook.send(event, envelope),
+    (event, record) => webhook.send(event, record),
     { callsOut: true, retry: EVENT_WEBHOOK_RETRY },
   ),
   prefixes:

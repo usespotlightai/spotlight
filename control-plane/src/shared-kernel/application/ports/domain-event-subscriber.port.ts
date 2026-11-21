@@ -1,15 +1,8 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import type { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
-// The outbox tries a failed delivery 8 times. It waits 2 seconds after the first attempt, twice as long after each next one, and never longer than one hour.
-export const DEFAULT_RETRY = Retry.backoff({
-  maxAttempts: 8,
-  initialDelayMs: 2_000,
-  maxDelayMs: 60 * 60 * 1000,
-});
-
-// The outbox record of the event that a subscriber gets.
-export interface EventEnvelope {
+// The outbox row of the event that a subscriber gets: its id and when the outbox recorded it.
+export interface OutboxRecord {
   readonly id: string;
   readonly recordedAt: Date;
 }
@@ -21,30 +14,30 @@ export interface DomainEventSubscriber {
 
   readonly callsOut: boolean;
 
-  // How often the outbox tries a failed delivery, and how long it waits between attempts. After the last attempt, the delivery is a dead letter.
-  readonly retry: Retry;
+  // How often the outbox tries a failed delivery, and how long it waits between attempts. After the last attempt, the delivery is a dead letter. Without it, the outbox default applies.
+  readonly retry?: Retry;
 
   handle(
     event: DomainEvent,
-    envelope: EventEnvelope,
+    record: OutboxRecord,
   ): Promise<readonly DomainEvent[]>;
 }
 
 export const subscribing = <E extends DomainEvent>(
   name: string,
   kinds: readonly string[],
-  handle: (event: E, envelope: EventEnvelope) => Promise<unknown>,
+  handle: (event: E, record: OutboxRecord) => Promise<unknown>,
   {
     callsOut = false,
-    retry = DEFAULT_RETRY,
+    retry,
   }: { readonly callsOut?: boolean; readonly retry?: Retry } = {},
 ): DomainEventSubscriber => ({
   name,
   kinds,
   callsOut,
-  retry,
-  handle: async (event, envelope) => {
-    const raised = await handle(event as E, envelope);
+  ...(retry ? { retry } : {}),
+  handle: async (event, record) => {
+    const raised = await handle(event as E, record);
 
     return Array.isArray(raised) ? (raised as readonly DomainEvent[]) : [];
   },

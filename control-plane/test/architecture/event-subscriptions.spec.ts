@@ -74,6 +74,16 @@ describe('event subscriptions', () => {
     ]);
   });
 
+  it('finds a subscriber registered by prefix, which hears every context it names', () => {
+    expect(
+      problemsIn(`import { subscribing } from '${SUBSCRIBER}';
+        subscribers.registerByPrefix(subscribing('memory.a', [], handle), ['insights.']);`),
+    ).toEqual([
+      'memory.a hears no kind the check can resolve',
+      'calls subscribers.registerByPrefix, which only the platform may call',
+    ]);
+  });
+
   it('finds another context domain event heard by its kind', () => {
     expect(
       problemsIn(`import { subscribing } from '${SUBSCRIBER}';

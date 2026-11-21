@@ -13,7 +13,6 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
-import { DEFAULT_RETRY } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import {
   ERROR_REPORTS,
   type ErrorReportsPort,
@@ -27,7 +26,7 @@ import {
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import type { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import {
   and,
   asc,
@@ -39,6 +38,13 @@ import {
   isNull,
   lte,
 } from 'drizzle-orm';
+
+// A subscriber that sets no retry gets 8 attempts. The outbox waits 2 seconds after the first attempt, twice as long after each next one, and never longer than one hour.
+export const DEFAULT_RETRY = Retry.backoff({
+  maxAttempts: 8,
+  initialDelayMs: 2_000,
+  maxDelayMs: 60 * 60 * 1000,
+});
 
 export const LEASE_MS = 5 * 60 * 1000;
 
@@ -539,7 +545,7 @@ export class EventDelivery {
     return next ? 'retried' : 'dead_lettered';
   }
 
-  // A subscriber that is gone keeps the default, so its deliveries end as dead letters.
+  // A subscriber that sets no retry, or that is gone, gets the default. The deliveries of a subscriber that is gone end as dead letters.
   private retryOf(due: Due): Retry {
     return this.subscribers.named(due.subscriber)?.retry ?? DEFAULT_RETRY;
   }

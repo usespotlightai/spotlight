@@ -1,22 +1,31 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import type { Env } from '@platform/config/env.schema';
 import type { EventDelivery } from '@platform/events/event-delivery';
+import { EventSubscribers } from '@platform/events/event-subscribers';
 import { AdminEventWebhookController } from '@platform/http/controllers/admin-event-webhook.controller';
+import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { describe, expect, it, vi } from 'vitest';
 
-const controller = (url: string | undefined) => {
+const controller = (registered: boolean) => {
   const redeliver = vi.fn(async () => 3);
-  const admin = new AdminEventWebhookController(
-    { SPOTLIGHT_EVENTS_URL: url } as Env,
-    { redeliver } as unknown as EventDelivery,
-  );
+  const subscribers = new EventSubscribers();
+
+  if (registered) {
+    subscribers.registerByPrefix(
+      subscribing('platform.send-event-webhook', [], async () => []),
+      [''],
+    );
+  }
+
+  const admin = new AdminEventWebhookController(subscribers, {
+    redeliver,
+  } as unknown as EventDelivery);
 
   return { admin, redeliver };
 };
 
 describe('AdminEventWebhookController', () => {
   it('queues the dead letters of the event webhook again since the time, and answers how many', async () => {
-    const { admin, redeliver } = controller('https://events.example.com');
+    const { admin, redeliver } = controller(true);
 
     await expect(
       admin.redeliver({ since: '2026-11-01T00:00:00Z' }),
@@ -28,7 +37,7 @@ describe('AdminEventWebhookController', () => {
   });
 
   it('refuses a body without since as an ISO 8601 time', async () => {
-    const { admin, redeliver } = controller('https://events.example.com');
+    const { admin, redeliver } = controller(true);
 
     await expect(admin.redeliver(undefined)).rejects.toThrow(
       BadRequestException,
@@ -39,8 +48,8 @@ describe('AdminEventWebhookController', () => {
     expect(redeliver).not.toHaveBeenCalled();
   });
 
-  it('answers 404 when the deployment sends no events', async () => {
-    const { admin, redeliver } = controller(undefined);
+  it('answers 404 when the deployment registers no event webhook', async () => {
+    const { admin, redeliver } = controller(false);
 
     await expect(
       admin.redeliver({ since: '2026-11-01T00:00:00Z' }),

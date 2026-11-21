@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 
 import { CauseCarrier } from '@platform/events/cause-carrier';
-import { EventDelivery, LEASE_MS } from '@platform/events/event-delivery';
+import {
+  EventDelivery,
+  LEASE_MS,
+  DEFAULT_RETRY,
+} from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -22,10 +26,7 @@ import {
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import {
-  DEFAULT_RETRY,
-  type DomainEventSubscriber,
-} from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { type DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
@@ -343,7 +344,6 @@ const hearing = (
   name,
   kinds: [RANG],
   callsOut,
-  retry: DEFAULT_RETRY,
   handle: (event) => {
     if (!(event instanceof Rang)) {
       throw new Error(`${name} heard ${event.kind}`);
@@ -417,7 +417,6 @@ const raceSubscribers = (): readonly DomainEventSubscriber[] => [
     name: HEAR_ANSWER,
     kinds: [ANSWERED],
     callsOut: false,
-    retry: DEFAULT_RETRY,
     handle: async (event) => {
       if (!(event instanceof Answered)) {
         throw new Error(`${HEAR_ANSWER} heard ${event.kind}`);
