@@ -150,14 +150,15 @@ const delivering = (
   attempts = 0,
   options: Parameters<typeof subscribing>[3] = { callsOut: false },
   clock = { now: () => NOW },
-  sink = false,
+  retry: Retry | null = null,
 ) => {
   const context = new FakeContext(attempts);
   const subscribers = new EventSubscribers();
   const subscriber = subscribing('test.door', ['bell.rang'], handle, options);
 
-  if (sink) {
-    subscribers.registerSink(subscriber, { prefixes: [] });
+  // Only a sink sets its own retry.
+  if (retry) {
+    subscribers.registerSink(subscriber, { prefixes: [], retry });
   } else {
     subscribers.register([subscriber]);
   }
@@ -317,54 +318,6 @@ describe('EventDelivery', () => {
     );
   });
 
-  it('never hands a sink a kind it no longer hears: the delivery is a dead letter at once, with a warning and no error report', async () => {
-    const handle = vi.fn(async () => undefined);
-    const { delivery, context, logger, reports } = delivering(
-      handle,
-      0,
-      { callsOut: false },
-      { now: () => NOW },
-      true,
-    );
-    context.kind = 'bell.rung';
-
-    await delivery.processDue('sinks');
-
-    expect(handle).not.toHaveBeenCalled();
-    expect(context.updates).toEqual([
-      expect.objectContaining({
-        attempts: 1,
-        lastError: 'test.door does not hear bell.rung any more',
-        deadLetteredAt: NOW,
-      }),
-    ]);
-    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ subscriber: 'test.door' }),
-      'Dead-lettering a domain event delivery that its subscriber does not hear',
-    );
-    expect(logger.error).not.toHaveBeenCalled();
-    expect(reports.report).not.toHaveBeenCalled();
-  });
-
-  it('retries a delivery of a kind that a subscriber of a context does not hear here, as another instance may still hear it', async () => {
-    const handle = vi.fn(async () => undefined);
-    const { delivery, context, reports } = delivering(handle);
-    context.kind = 'bell.rung';
-
-    await delivery.processDue('contexts');
-
-    expect(handle).not.toHaveBeenCalled();
-    expect(context.updates).toEqual([
-      {
-        attempts: 1,
-        lastError: 'test.door does not hear bell.rung here',
-        dueAt: new Date(NOW.getTime() + 2000),
-        deadLetteredAt: null,
-      },
-    ]);
-    expect(reports.report).not.toHaveBeenCalled();
-  });
-
   it('claims nothing in a lane where this instance registers no subscriber', async () => {
     const { delivery, context } = delivering(async () => undefined);
 
@@ -372,7 +325,9 @@ describe('EventDelivery', () => {
     expect(context.steps).toEqual(['begin', 'commit']);
   });
 
-  describe('with the retries of its subscriber', () => {
+  describe('with the retry of a sink', () => {
+    const CALLS_IN = { callsOut: false };
+    const NOON = { now: () => NOW };
     const RETRY = Retry.backoff({
       maxAttempts: 24,
       initialDelayMs: 2_000,
@@ -383,11 +338,11 @@ describe('EventDelivery', () => {
     };
 
     it('waits 2^attempts seconds, but never longer than the longest backoff', async () => {
-      const early = delivering(failing, 2, { retry: RETRY });
-      const late = delivering(failing, 20, { retry: RETRY });
+      const early = delivering(failing, 2, CALLS_IN, NOON, RETRY);
+      const late = delivering(failing, 20, CALLS_IN, NOON, RETRY);
 
-      await early.delivery.processDue('contexts');
-      await late.delivery.processDue('contexts');
+      await early.delivery.processDue('sinks');
+      await late.delivery.processDue('sinks');
 
       expect(early.context.updates).toEqual([
         expect.objectContaining({
@@ -406,15 +361,23 @@ describe('EventDelivery', () => {
     });
 
     it('tries after the default attempts, and dead-letters only after its own', async () => {
-      const retried = delivering(failing, DEFAULT_RETRY.maxAttempts - 1, {
-        retry: RETRY,
-      });
-      const deadLettered = delivering(failing, RETRY.maxAttempts - 1, {
-        retry: RETRY,
-      });
+      const retried = delivering(
+        failing,
+        DEFAULT_RETRY.maxAttempts - 1,
+        CALLS_IN,
+        NOON,
+        RETRY,
+      );
+      const deadLettered = delivering(
+        failing,
+        RETRY.maxAttempts - 1,
+        CALLS_IN,
+        NOON,
+        RETRY,
+      );
 
-      await retried.delivery.processDue('contexts');
-      await deadLettered.delivery.processDue('contexts');
+      await retried.delivery.processDue('sinks');
+      await deadLettered.delivery.processDue('sinks');
 
       expect(retried.context.updates).toEqual([
         expect.objectContaining({ deadLetteredAt: null }),

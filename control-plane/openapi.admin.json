@@ -3,7 +3,7 @@
   "paths": {
     "/admin/event-webhook/redeliver": {
       "post": {
-        "description": "Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again. One request queues at most limit dead letters; while the answer says more, send it again.",
+        "description": "Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again. One request queues at most limit dead letters; while the answer is truncated, send it again.",
         "operationId": "redeliverEventWebhook",
         "parameters": [],
         "requestBody": {
@@ -402,8 +402,8 @@
           },
           "limit": {
             "type": "number",
-            "example": 10000,
-            "description": "At most this many dead letters, 10000 when left out, up to 100000. While the answer says more, send the same request again"
+            "example": 1000,
+            "description": "At most this many dead letters, 1000 when left out, up to 100000. While the answer is truncated, send the same request again"
           }
         },
         "required": [
@@ -418,7 +418,7 @@
             "example": 12,
             "description": "How many dead letters Spotlight queued again. Each gets all its attempts again"
           },
-          "more": {
+          "truncated": {
             "type": "boolean",
             "example": false,
             "description": "Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them"
@@ -426,7 +426,7 @@
         },
         "required": [
           "queued",
-          "more"
+          "truncated"
         ]
       },
       "WorkspaceMemberSummaryResponseDto": {

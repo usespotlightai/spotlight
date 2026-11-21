@@ -33,7 +33,7 @@ export type RedeliverEventWebhookRequestDto = {
    */
   since: string;
   /**
-   * At most this many dead letters, 10000 when left out, up to 100000. While the answer says more, send the same request again
+   * At most this many dead letters, 1000 when left out, up to 100000. While the answer is truncated, send the same request again
    */
   limit?: number;
 };
@@ -46,7 +46,7 @@ export type RedeliverEventWebhookResponseDto = {
   /**
    * Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them
    */
-  more: boolean;
+  truncated: boolean;
 };
 
 export type StationJudgeResponseDto = {

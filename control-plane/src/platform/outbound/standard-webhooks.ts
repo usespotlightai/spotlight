@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 
 const SECRET_PREFIX = 'whsec_';
 
-// A signing secret as an environment variable gives it: whsec_ followed by 24 to 64 base64-encoded bytes.
+// A signing secret as an environment variable gives it: whsec_ followed by 32 to 88 base64 characters, which are 24 to 66 bytes.
 export const SECRET_PATTERN = /^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/;
 
 // The signing key of a whsec_ secret: the base64 bytes after the prefix.

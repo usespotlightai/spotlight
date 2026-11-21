@@ -178,7 +178,7 @@ describe('eventWebhookSubscription', () => {
   });
 
   it('calls out, and retries for about 13 hours with waits of at most one hour', () => {
-    const { subscriber } = eventWebhookSubscription(webhook(), []);
+    const { subscriber, retry } = eventWebhookSubscription(webhook(), []);
     const waits = Array.from(
       { length: EVENT_WEBHOOK_RETRY.maxAttempts - 1 },
       (_, index) =>
@@ -188,7 +188,7 @@ describe('eventWebhookSubscription', () => {
     const hours = waits.reduce((sum, each) => sum + each, 0) / 3_600_000;
 
     expect(subscriber.callsOut).toBe(true);
-    expect(subscriber.retry).toBe(EVENT_WEBHOOK_RETRY);
+    expect(retry).toBe(EVENT_WEBHOOK_RETRY);
     expect(waits[0]).toBe(2_000);
     expect(Math.max(...waits)).toBe(3_600_000);
     expect(hours).toBeGreaterThan(13);
