@@ -198,12 +198,12 @@ describe('RunnerPools', () => {
         'sandboxes',
         'spotlight',
       ]);
-      expect(offers.hosts.map((each) => each.labels.values)).toEqual([
+      expect(offers.hostOffers.map((each) => each.labels.values)).toEqual([
         ['linux'],
         ['vpc-internal'],
       ]);
-      expect(offers.hosts.every((each) => each.egress)).toBe(true);
-      expect(offers.hosts.every((each) => !('poolId' in each))).toBe(true);
+      expect(offers.hostOffers.every((each) => each.egress)).toBe(true);
+      expect(offers.hostOffers.every((each) => !('poolId' in each))).toBe(true);
     });
 
     it('leaves out a disabled platform pool', async () => {

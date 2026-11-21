@@ -57,13 +57,14 @@ export class RunnerPools implements RunnerPoolsPort {
       pools: pools
         .filter((pool) => pool.canProvision(this.setup.platformPoolSet))
         .map((pool) => this.atWork(pool)),
-      hosts: [...pools.filter((pool) => pool.acceptsPullToken), ...trusts].map(
-        (source) => ({
-          workspaceId: source.workspaceId,
-          labels: RunnerOffer.of(source.labels.values),
-          egress: true,
-        }),
-      ),
+      hostOffers: [
+        ...pools.filter((pool) => pool.acceptsPullToken),
+        ...trusts,
+      ].map((source) => ({
+        workspaceId: source.workspaceId,
+        labels: RunnerOffer.of(source.labels.values),
+        egress: true,
+      })),
     };
   }
 

@@ -152,7 +152,7 @@ export class ProvisionWork {
 
     const offers = await this.pools.offersIn(awaiting);
     const offered = offers.pools;
-    const hostsBy = byWorkspace(offers.hosts);
+    const hostsBy = byWorkspace(offers.hostOffers);
 
     await awaitAll(
       [
@@ -242,7 +242,7 @@ export class ProvisionWork {
 
     const withEgress = pools.some((offered) => offered.egress);
 
-    await this.swept(first.workspaceId, place, more, {
+    await this.sweep(first.workspaceId, place, more, {
       sweeps: this.#runSweeps,
       page: async (from: ClaimCursor | null) => {
         const queued = await this.runs.awaitingProvision(
@@ -267,7 +267,7 @@ export class ProvisionWork {
         };
       },
     });
-    await this.swept(first.workspaceId, place, more, {
+    await this.sweep(first.workspaceId, place, more, {
       sweeps: this.#reviewWorkSweeps,
       page: async (from: number | null) => {
         const skip = from ?? 0;
@@ -310,7 +310,7 @@ export class ProvisionWork {
   }
 
   // Reads the head page, then one page past it from where the last tick stopped. The platform pool has no run limit, so room alone does not end the reading.
-  private async swept<Cursor>(
+  private async sweep<Cursor>(
     workspaceId: WorkspaceId,
     place: (provisionable: Provisionable) => void,
     more: () => boolean,

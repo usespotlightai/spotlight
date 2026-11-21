@@ -23,7 +23,7 @@ export interface HostOfferAtWork {
 
 export interface OffersAtWork {
   readonly pools: readonly PoolAtWork[];
-  readonly hosts: readonly HostOfferAtWork[];
+  readonly hostOffers: readonly HostOfferAtWork[];
 }
 
 export interface RunnerPoolsPort {

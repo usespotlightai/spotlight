@@ -215,7 +215,7 @@ const provisioning = (
       );
   const offering = vi.fn(async (workspaceIds: readonly WorkspaceId[]) => ({
     pools: inWorkspaces(workspaceIds)(pools),
-    hosts: inWorkspaces(workspaceIds)(hostOffers),
+    hostOffers: inWorkspaces(workspaceIds)(hostOffers),
   }));
 
   return {
