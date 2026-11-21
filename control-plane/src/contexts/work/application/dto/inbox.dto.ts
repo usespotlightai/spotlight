@@ -156,7 +156,7 @@ export interface FoldedVisitDto {
   readonly to: number;
   readonly endedAt: string;
   readonly closing: NoteDto | null;
-  readonly answer: NoteDto | null;
+  readonly answers: readonly NoteDto[];
   readonly sentBack: boolean;
 }
 

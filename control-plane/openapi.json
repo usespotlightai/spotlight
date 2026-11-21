@@ -31885,15 +31885,12 @@
               }
             ]
           },
-          "answer": {
-            "nullable": true,
-            "description": "The last answer a person gave in this visit",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/NoteResponseDto"
-              }
-            ]
+          "answers": {
+            "description": "Every answer given in this visit, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteResponseDto"
+            }
           },
           "sentBack": {
             "type": "boolean",
@@ -31906,7 +31903,7 @@
           "to",
           "endedAt",
           "closing",
-          "answer",
+          "answers",
           "sentBack"
         ]
       },

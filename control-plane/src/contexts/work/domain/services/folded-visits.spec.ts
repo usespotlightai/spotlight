@@ -1,6 +1,5 @@
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import { foldedVisits } from '@work/domain/services/folded-visits';
-import type { VoiceKind } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const STATIONS = {
@@ -12,18 +11,16 @@ const STATIONS = {
 type Station = keyof typeof STATIONS;
 
 const trailOf = (
-  ...notes: [Station, TaskNoteKind, VoiceKind?][]
+  ...notes: [Station, TaskNoteKind][]
 ): {
   position: number;
   kind: TaskNoteKind;
-  voice: VoiceKind;
   stationId: string;
   stationPosition: number | null;
 }[] =>
-  notes.map(([station, kind, voice], position) => ({
+  notes.map(([station, kind], position) => ({
     position,
     kind,
-    voice: voice ?? 'station',
     stationId: station,
     stationPosition: STATIONS[station],
   }));
@@ -34,7 +31,7 @@ const positionsOf = (folded: ReturnType<typeof foldedVisits>) =>
 describe('foldedVisits', () => {
   const handedOn = trailOf(
     ['plan', 'asked'],
-    ['plan', 'answered', 'person'],
+    ['plan', 'answered'],
     ['plan', 'passed'],
     ['implementation', 'message'],
     ['implementation', 'passed'],
@@ -59,18 +56,32 @@ describe('foldedVisits', () => {
     expect(implementation?.closing?.position).toBe(4);
   });
 
-  it('takes the last answer of a person in the visit', () => {
+  it('takes the answers of the visit', () => {
     const [plan, implementation] = foldedVisits(handedOn, new Set([5]));
 
-    expect(plan?.answer?.position).toBe(1);
-    expect(implementation?.answer).toBeNull();
+    expect(plan?.answers.map((note) => note.position)).toEqual([1]);
+    expect(implementation?.answers).toEqual([]);
+  });
+
+  it('takes every answer of the visit, oldest first', () => {
+    const answeredTwice = trailOf(
+      ['review', 'asked'],
+      ['review', 'answered'],
+      ['review', 'answered'],
+      ['review', 'passed'],
+      ['implementation', 'message'],
+    );
+
+    const [review] = foldedVisits(answeredTwice, new Set([4]));
+
+    expect(review?.answers.map((note) => note.position)).toEqual([1, 2]);
   });
 
   it('marks a visit that sent the task back to an earlier station', () => {
     const reworked = trailOf(
       ['implementation', 'passed'],
       ['review', 'asked'],
-      ['review', 'answered', 'person'],
+      ['review', 'answered'],
       ['review', 'passed'],
       ['implementation', 'message'],
     );
@@ -97,7 +108,7 @@ describe('foldedVisits', () => {
     const atOneStation = trailOf(
       ['implementation', 'message'],
       ['implementation', 'asked'],
-      ['implementation', 'answered', 'person'],
+      ['implementation', 'answered'],
       ['implementation', 'passed'],
     );
 

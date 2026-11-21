@@ -493,7 +493,7 @@ describe('InboxItem', () => {
       to: 2,
       endedAt: '2026-08-29T12:00:00.000Z',
       closing: visitNotes[2],
-      answer: visitNotes[1],
+      answers: [visitNotes[1]],
       sentBack: false,
     };
     const asked = note({
@@ -518,6 +518,28 @@ describe('InboxItem', () => {
       expect(
         screen.queryByText('Per workspace or per token?'),
       ).not.toBeInTheDocument();
+    });
+
+    it('shows every answer of a folded visit, also one from an integration', () => {
+      const slack = note({
+        position: 2,
+        kind: 'answered',
+        voice: 'world',
+        runId: null,
+        source: 'slack',
+        author: { id: 'user_3', name: 'Sam', image: null },
+        body: 'Per token, and log it.',
+      });
+      waiting.mockReturnValue(
+        item([asked], null, [
+          { ...handedOver, answers: [visitNotes[1], slack] },
+        ]),
+      );
+
+      renderItem();
+
+      expect(screen.getByText('Per token.')).toBeInTheDocument();
+      expect(screen.getByText('Per token, and log it.')).toBeInTheDocument();
     });
 
     it('loads every note of a visit once it is opened', async () => {

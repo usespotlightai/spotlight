@@ -142,7 +142,7 @@ export interface InboxFoldedVisit {
   readonly to: number;
   readonly endedAt: Date;
   readonly closing: InboxNote | null;
-  readonly answer: InboxNote | null;
+  readonly answers: readonly InboxNote[];
   readonly sentBack: boolean;
 }
 

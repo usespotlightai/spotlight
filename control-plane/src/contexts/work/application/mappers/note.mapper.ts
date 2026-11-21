@@ -16,6 +16,6 @@ export const NoteMapper = {
     first: NoteMapper.toDto(visit.first),
     endedAt: visit.endedAt.toISOString(),
     closing: visit.closing && NoteMapper.toDto(visit.closing),
-    answer: visit.answer && NoteMapper.toDto(visit.answer),
+    answers: visit.answers.map(NoteMapper.toDto),
   }),
 };

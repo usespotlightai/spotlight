@@ -45,7 +45,7 @@ type FoldedVisitRowProps = {
 export function FoldedVisitRow({ visit, item, worked }: FoldedVisitRowProps) {
   const [open, setOpen] = useState(false);
   const shown = useId();
-  const { first, answer } = visit;
+  const { first, answers } = visit;
   const prefetch = usePrefetchTaskNotes();
   const journals = use(JournalDemandContext);
   const intent = useOpenIntent(() => {
@@ -93,11 +93,15 @@ export function FoldedVisitRow({ visit, item, worked }: FoldedVisitRowProps) {
         </div>
       </Collapsible>
 
-      {answer && (
+      {answers.length > 0 && (
         <Collapsible open={!open} appear={false} lazy className={AVATAR_ROOM}>
-          <div className="pt-2 pb-3 pl-6">
-            <ThreadMessage note={answer} teamId={item.teamId} />
-          </div>
+          <ol className="flex flex-col gap-6 pt-2 pb-3 pl-6">
+            {answers.map((answer) => (
+              <li key={answer.position}>
+                <ThreadMessage note={answer} teamId={item.teamId} />
+              </li>
+            ))}
+          </ol>
         </Collapsible>
       )}
     </div>

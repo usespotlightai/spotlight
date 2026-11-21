@@ -3227,9 +3227,9 @@ export type FoldedVisitResponseDto = {
    */
   closing: NoteResponseDto | null;
   /**
-   * The last answer a person gave in this visit
+   * Every answer given in this visit, oldest first
    */
-  answer: NoteResponseDto | null;
+  answers: Array<NoteResponseDto>;
   /**
    * Whether this visit sent the task back to an earlier station
    */

@@ -555,7 +555,7 @@ export const foldedAround = (
   shown: readonly InboxNote[],
 ): InboxFoldedVisit[] =>
   foldedVisits(trail, new Set(shown.map((note) => note.position))).flatMap(
-    ({ notes, closing, answer, sentBack }) => {
+    ({ notes, closing, answers, sentBack }) => {
       const [first] = notes;
       const last = notes[notes.length - 1];
 
@@ -566,7 +566,7 @@ export const foldedAround = (
               to: last.position,
               endedAt: last.at,
               closing,
-              answer,
+              answers,
               sentBack,
             },
           ]

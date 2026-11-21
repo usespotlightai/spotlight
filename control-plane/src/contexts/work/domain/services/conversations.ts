@@ -8,11 +8,11 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 
 const OPENS_A_CONVERSATION = 'asked' satisfies TaskNoteKind;
 
-const CLOSES_A_CONVERSATION = 'passed' satisfies TaskNoteKind;
+export const CLOSES_A_CONVERSATION = 'passed' satisfies TaskNoteKind;
 
 const REOPENS_A_CONVERSATION = 'reopened' satisfies TaskNoteKind;
 
-const ANSWERS_A_QUESTION = 'answered' satisfies TaskNoteKind;
+export const ANSWERS_A_QUESTION = 'answered' satisfies TaskNoteKind;
 
 export const TURNING_NOTE_KINDS: readonly TaskNoteKind[] = [
   OPENS_A_CONVERSATION,
