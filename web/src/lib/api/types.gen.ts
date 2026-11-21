@@ -1984,6 +1984,13 @@ export type HostHeartbeatResponseDto = {
   drain: Array<string>;
 };
 
+export type PlatformPoolResponseDto = {
+  /**
+   * The runs of the pool go out through the platform egress of this deployment
+   */
+  egress: boolean;
+};
+
 export type CredentialSourceResponseDto = {
   kind: 'pool' | 'trust';
   /**
@@ -1991,9 +1998,9 @@ export type CredentialSourceResponseDto = {
    */
   key: string | null;
   /**
-   * The deployment manages the pool and its provisioner for every workspace. Terraform does not manage it
+   * Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it
    */
-  managed: boolean;
+  platform: PlatformPoolResponseDto | null;
 };
 
 export type IdleSandboxResponseDto = {

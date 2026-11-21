@@ -6,14 +6,17 @@ import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-p
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
-  aManagedPool,
+  aPlatformPool,
   aPullPool,
   aPushPool,
   aRunner,
+  aTrust,
   POOL_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
@@ -33,8 +36,9 @@ const pooling = (
     alive?: readonly Runner[];
     idleSandboxes?: readonly SandboxId[];
     provisioning?: readonly RunnerPool[];
+    trusts?: readonly RunnerTrust[];
     platform?: boolean;
-    managed?: boolean;
+    platformPool?: boolean;
   } = {},
 ) => {
   const authenticate = vi.fn(async () => authenticated);
@@ -42,10 +46,13 @@ const pooling = (
     stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
   );
 
-  const pushingIn = vi.fn(async () => stored.provisioning ?? []);
+  const findAllByWorkspaces = vi.fn(async () => stored.provisioning ?? []);
 
   const pools = new RunnerPools(
-    { find, pushingIn } as unknown as RunnerPoolRepository,
+    { find, findAllByWorkspaces } as unknown as RunnerPoolRepository,
+    {
+      findAllByWorkspaces: vi.fn(async () => stored.trusts ?? []),
+    } as unknown as RunnerTrustRepository,
     {
       aliveIn: vi.fn(async () => stored.alive ?? []),
     } as unknown as RunnerRepository,
@@ -55,11 +62,11 @@ const pooling = (
     { authenticate } satisfies RunnerAuthenticatorPort,
     {
       platformEgress: stored.platform ?? true,
-      managedPool: stored.managed ?? true,
+      platformPool: stored.platformPool ?? true,
     },
   );
 
-  return { pools, authenticate, find, pushingIn };
+  return { pools, authenticate, find, findAllByWorkspaces };
 };
 
 const THROUGH_POOL: AuthenticatedHost = {
@@ -79,8 +86,9 @@ describe('RunnerPools', () => {
         workspaceId: WORKSPACE,
         key: 'ephemeral',
         labels: expect.objectContaining({ values: ['linux'] }) as unknown,
-        egress: false,
-        managed: false,
+        egress: true,
+        platform: false,
+        provisions: false,
       });
       expect(authenticate).toHaveBeenCalledWith({
         bearer: 'pool-token',
@@ -124,13 +132,13 @@ describe('RunnerPools', () => {
     const NAMED = EgressReference.to(EgressId.of('egress_1'));
 
     it('reads the pools of the workspaces it is given', async () => {
-      const { pools, pushingIn } = pooling(null, {
+      const { pools, findAllByWorkspaces } = pooling(null, {
         provisioning: [aPushPool()],
       });
 
       await pools.provisioning([WORKSPACE]);
 
-      expect(pushingIn).toHaveBeenCalledWith([WORKSPACE]);
+      expect(findAllByWorkspaces).toHaveBeenCalledWith([WORKSPACE]);
     });
 
     it('says of each whether it names an egress', async () => {
@@ -143,9 +151,9 @@ describe('RunnerPools', () => {
       });
 
       await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
-        expect.objectContaining({ egress: true }),
-        expect.objectContaining({ egress: true }),
-        expect.objectContaining({ egress: false }),
+        expect.objectContaining({ egress: true, provisions: true }),
+        expect.objectContaining({ egress: true, provisions: true }),
+        expect.objectContaining({ egress: false, provisions: true }),
       ]);
     });
 
@@ -164,33 +172,55 @@ describe('RunnerPools', () => {
       ]);
     });
 
-    it('marks the managed pool, which has no run limit', async () => {
+    it('marks the platform pool, which has no run limit', async () => {
       const { pools } = pooling(null, {
-        provisioning: [aPushPool(), aManagedPool({ egress: PLATFORM })],
+        provisioning: [aPushPool(), aPlatformPool({ egress: PLATFORM })],
       });
 
       await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
-        expect.objectContaining({ key: 'sandboxes', managed: false }),
+        expect.objectContaining({ key: 'sandboxes', platform: false }),
         expect.objectContaining({
           key: 'spotlight',
-          managed: true,
+          platform: true,
+          provisions: true,
           egress: true,
         }),
       ]);
     });
 
-    it('leaves out a disabled managed pool', async () => {
+    it('offers the pull pools and trusts too, as pools Spotlight never asks for runners, so that the work hosts take stays off the platform pool', async () => {
       const { pools } = pooling(null, {
-        provisioning: [aManagedPool({ disabled: true })],
+        provisioning: [aPullPool()],
+        trusts: [aTrust()],
+      });
+
+      await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
+        expect.objectContaining({
+          key: 'ephemeral',
+          provisions: false,
+          egress: true,
+        }),
+        expect.objectContaining({
+          key: 'cluster',
+          provisions: false,
+          egress: true,
+          platform: false,
+        }),
+      ]);
+    });
+
+    it('leaves out a disabled platform pool', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [aPlatformPool({ disabled: true })],
       });
 
       await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([]);
     });
 
-    it('leaves out the managed pool while the deployment sets no managed provisioner', async () => {
+    it('leaves out the platform pool while the deployment sets no platform provisioner', async () => {
       const { pools } = pooling(null, {
-        provisioning: [aPushPool(), aManagedPool()],
-        managed: false,
+        provisioning: [aPushPool(), aPlatformPool()],
+        platformPool: false,
       });
 
       await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([

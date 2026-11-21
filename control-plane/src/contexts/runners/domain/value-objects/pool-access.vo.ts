@@ -5,9 +5,12 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 import type { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
+// How runners of a pool start: a host pulls them, or Spotlight asks a provisioner for them.
 export type PoolMode = 'pull' | 'push';
 
 export class PullAccess {
+  readonly kind = 'pull' as const;
+
   readonly mode = 'pull' as const;
 
   private constructor(
@@ -25,6 +28,8 @@ export class PullAccess {
 }
 
 export class PushAccess {
+  readonly kind = 'push' as const;
+
   readonly mode = 'push' as const;
 
   private constructor(
@@ -60,19 +65,18 @@ export class PushAccess {
   }
 }
 
-// The deployment gives the provision URL and secret of a managed pool, so the access keeps neither.
-export class ManagedAccess {
+// Spotlight adds the platform pool to each workspace. The deployment gives its provision URL and secret, so the access keeps neither.
+export class PlatformAccess {
+  readonly kind = 'platform' as const;
+
   readonly mode = 'push' as const;
 
   readonly egressTraffic = EgressTraffic.all();
 
-  private constructor(
-    readonly egress: EgressReference | null,
-    readonly disabled: boolean,
-  ) {}
+  private constructor(readonly egress: EgressReference | null) {}
 
-  static of(egress: EgressReference | null, disabled: boolean): ManagedAccess {
-    return new ManagedAccess(egress, disabled);
+  static of(egress: EgressReference | null): PlatformAccess {
+    return new PlatformAccess(egress);
   }
 
   usesEgress(egress: EgressReference): boolean {
@@ -80,4 +84,4 @@ export class ManagedAccess {
   }
 }
 
-export type PoolAccess = PullAccess | PushAccess | ManagedAccess;
+export type PoolAccess = PullAccess | PushAccess | PlatformAccess;

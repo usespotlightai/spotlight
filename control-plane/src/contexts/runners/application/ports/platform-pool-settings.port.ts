@@ -4,7 +4,7 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 
 // The provisioner that the deployment gives to every workspace. Spotlight reads it from the environment and does not store its URL or secret.
-export interface ManagedPoolSettings {
+export interface PlatformPoolSettings {
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
   readonly labels: RunnerLabels;

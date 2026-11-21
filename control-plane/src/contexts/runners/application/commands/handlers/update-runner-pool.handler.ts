@@ -53,9 +53,7 @@ export class UpdateRunnerPoolHandler implements CommandHandlerPort<
     const id = PoolId.of(command.poolId);
 
     try {
-      const found = await this.pools.find(id);
-      // Terraform does not manage the pool that the deployment manages.
-      const existing = found?.isManaged ? null : found;
+      const existing = await this.pools.findOwned(id);
       const permissions = existing
         ? await this.access.permissionsIn(
             existing.workspaceId,
@@ -112,9 +110,9 @@ export class UpdateRunnerPoolHandler implements CommandHandlerPort<
       return { outcome: 'updated', id: id.value };
     } catch (error) {
       if (error instanceof RunnerPoolVersionConflictError) {
-        const current = await this.pools.find(id);
+        const current = await this.pools.findOwned(id);
 
-        return current && !current.isManaged
+        return current
           ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }

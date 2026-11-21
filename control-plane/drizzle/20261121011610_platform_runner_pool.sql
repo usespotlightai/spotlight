@@ -1,0 +1,9 @@
+ALTER TABLE "runner_pool" DROP CONSTRAINT "runner_pool_one_mode";--> statement-breakpoint
+ALTER TABLE "runner_pool" DROP CONSTRAINT "runner_pool_egress_pushes";--> statement-breakpoint
+ALTER TABLE "runner_pool" ADD COLUMN "platform" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "runner_pool" ADD COLUMN "disabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "runner_pool" ADD CONSTRAINT "runner_pool_platform_key" CHECK (not "runner_pool"."platform" or "runner_pool"."key" = 'spotlight');--> statement-breakpoint
+ALTER TABLE "runner_pool" ADD CONSTRAINT "runner_pool_platform_unbounded" CHECK (not "runner_pool"."platform" or "runner_pool"."max_runs" is null);--> statement-breakpoint
+ALTER TABLE "runner_pool" ADD CONSTRAINT "runner_pool_disabled_platform" CHECK (not "runner_pool"."disabled" or "runner_pool"."platform");--> statement-breakpoint
+ALTER TABLE "runner_pool" ADD CONSTRAINT "runner_pool_one_mode" CHECK (case when "runner_pool"."platform" then "runner_pool"."token_hash" is null and "runner_pool"."token_version" is null and "runner_pool"."provision_url" is null and "runner_pool"."provision_secret" is null and "runner_pool"."provision_secret_version" is null else ("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null) end);--> statement-breakpoint
+ALTER TABLE "runner_pool" ADD CONSTRAINT "runner_pool_egress_pushes" CHECK ("runner_pool"."provision_egress" is null or "runner_pool"."provision_url" is not null or "runner_pool"."platform");

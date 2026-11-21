@@ -27,40 +27,68 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
 
-const sourceOf = (row: {
-  poolId: string | null;
-  poolKey: string | null;
-  poolManaged: boolean | null;
-  trustKey: string | null;
-}): CredentialSourceSummary =>
-  row.poolId !== null
-    ? { kind: 'pool', key: row.poolKey, managed: row.poolManaged ?? false }
-    : { kind: 'trust', key: row.trustKey, managed: false };
+interface SourceRow {
+  readonly poolId: string | null;
+  readonly poolKey: string | null;
+  readonly poolPlatform: boolean | null;
+  readonly poolEgress: string | null;
+  readonly trustKey: string | null;
+}
 
-// A workspace pool pushes when it has a provision URL. A managed pool pushes until the operator disables it.
-const pushes = or(
-  isNotNull(runnerPool.provisionUrl),
-  and(eq(runnerPool.managed, true), eq(runnerPool.disabled, false)),
-);
+export interface RunnerReaderSettings {
+  readonly platformEgress: boolean;
+  readonly platformPool: boolean;
+}
 
 @Injectable()
 export class DrizzleRunnerReader
   implements RunnerReaderPort, IdleWorkingCopiesPort
 {
+  private readonly platform: boolean;
+
+  // As RunnerPool.canProvision: a pool with a provision URL pushes, and so does the platform pool while the deployment sets its provisioner and the operator did not disable it.
+  private readonly pushes: SQL;
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
-    private readonly platform: boolean,
-  ) {}
+    settings: RunnerReaderSettings,
+  ) {
+    this.platform = settings.platformEgress;
+    this.pushes = settings.platformPool
+      ? (or(
+          isNotNull(runnerPool.provisionUrl),
+          and(eq(runnerPool.platform, true), eq(runnerPool.disabled, false)),
+        ) as SQL)
+      : isNotNull(runnerPool.provisionUrl);
+  }
+
+  private sourceOf(row: SourceRow): CredentialSourceSummary {
+    if (row.poolId === null) {
+      return { kind: 'trust', key: row.trustKey };
+    }
+
+    return {
+      kind: 'pool',
+      key: row.poolKey,
+      platform: row.poolPlatform
+        ? {
+            egress:
+              row.poolEgress !== null &&
+              EgressReference.of(row.poolEgress).usableWith(this.platform),
+          }
+        : null,
+    };
+  }
 
   async readyToRun(workspaceId: WorkspaceId): Promise<boolean> {
     const [pushed] = await this.db
       .select({ id: runnerPool.id })
       .from(runnerPool)
       .where(
-        and(eq(runnerPool.workspaceId, workspaceId.value), pushes),
+        and(eq(runnerPool.workspaceId, workspaceId.value), this.pushes),
       )
       .limit(1);
 
@@ -78,7 +106,7 @@ export class DrizzleRunnerReader
       .where(
         and(
           eq(runnerPool.workspaceId, workspaceId.value),
-          pushes,
+          this.pushes,
           isNotNull(runnerPool.provisionEgress),
         ),
       );
@@ -179,7 +207,8 @@ export class DrizzleRunnerReader
         id: runner.id,
         poolId: runner.poolId,
         poolKey: runnerPool.key,
-        poolManaged: runnerPool.managed,
+        poolPlatform: runnerPool.platform,
+        poolEgress: runnerPool.provisionEgress,
         trustKey: runnerTrust.key,
         hostId: runner.hostId,
         image: runner.image,
@@ -200,7 +229,7 @@ export class DrizzleRunnerReader
 
     return rows.map((row) => ({
       id: row.id,
-      source: sourceOf(row),
+      source: this.sourceOf(row),
       hostId: row.hostId,
       image: row.image,
       harnesses: row.harnesses,
@@ -215,7 +244,8 @@ export class DrizzleRunnerReader
         host: runnerHost,
         poolId: runnerHost.poolId,
         poolKey: runnerPool.key,
-        poolManaged: runnerPool.managed,
+        poolPlatform: runnerPool.platform,
+        poolEgress: runnerPool.provisionEgress,
         trustKey: runnerTrust.key,
       })
       .from(runnerHost)
@@ -232,7 +262,7 @@ export class DrizzleRunnerReader
     return rows.map(({ host, ...keys }) => ({
       id: host.id,
       name: host.name,
-      source: sourceOf(keys),
+      source: this.sourceOf(keys),
       release: host.release,
       containerRuntime: host.containerRuntime,
       capacity: host.capacity,

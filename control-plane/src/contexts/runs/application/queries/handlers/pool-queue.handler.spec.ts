@@ -19,7 +19,8 @@ const POOL: PoolAtWork = {
   key: 'burst',
   labels: RunnerOffer.of(['linux', 'gpu']),
   egress: false,
-  managed: false,
+  platform: false,
+  provisions: false,
 };
 
 const queueOf = (

@@ -1,5 +1,5 @@
 import type { OnApplicationBootstrap, Provider } from '@nestjs/common';
-import { ManagedPools } from '@runners/application/services/managed-pools.service';
+import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import {
   LOGGER,
   type LoggerPort,
@@ -7,20 +7,23 @@ import {
 
 class RunnersStartup implements OnApplicationBootstrap {
   constructor(
-    private readonly managed: ManagedPools,
+    private readonly platformPools: PlatformPools,
     private readonly logger: LoggerPort,
   ) {}
 
   onApplicationBootstrap(): void {
-    void this.managed.reconcile().catch((error: unknown) => {
-      this.logger.error({ err: error }, 'Reconciling the managed runner pools');
+    void this.platformPools.reconcile().catch((error: unknown) => {
+      this.logger.error(
+        { err: error },
+        'Reconciling the platform runner pools',
+      );
     });
   }
 }
 
 export const RUNNERS_STARTUP: Provider = {
   provide: RunnersStartup,
-  inject: [ManagedPools, LOGGER],
-  useFactory: (managed: ManagedPools, logger: LoggerPort) =>
-    new RunnersStartup(managed, logger),
+  inject: [PlatformPools, LOGGER],
+  useFactory: (platformPools: PlatformPools, logger: LoggerPort) =>
+    new RunnersStartup(platformPools, logger),
 };

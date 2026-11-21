@@ -1,11 +1,11 @@
-import type { ManagedPoolSettings } from '@runners/application/ports/managed-pool-settings.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
+import type { PlatformPoolSettings } from '@runners/application/ports/platform-pool-settings.port';
 import type {
   ProvisionAnswer,
   ProvisionCallsPort,
   ProvisionEgress,
   ProvisionedWork,
-  ProvisionScope,
+  ProvisionerOwner,
 } from '@runners/application/ports/provision-calls.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
@@ -80,15 +80,13 @@ type ResolvedEgress =
   | Unusable;
 
 interface Provisioner {
-  readonly scope: ProvisionScope;
+  readonly owner: ProvisionerOwner;
   readonly url: ProvisionUrl;
 }
 
 type ResolvedSecret =
   | { readonly outcome: 'found'; readonly secret: ProvisionSecret }
   | Unusable;
-
-const GONE: ProvisionedRunner = { outcome: 'gone' };
 
 const NO_EGRESS_NAMED: ProvisionedRunner = {
   outcome: 'failed',
@@ -100,7 +98,7 @@ const NO_EGRESS_NAMED: ProvisionedRunner = {
 export interface RunnersSettings {
   readonly insecureAllowed: boolean;
   readonly platformEgress: PlatformEgressSettings | null;
-  readonly managedPool: ManagedPoolSettings | null;
+  readonly platformPool: PlatformPoolSettings | null;
 }
 
 const provisionedWork = (work: WorkToProvision): ProvisionedWork => {
@@ -272,15 +270,8 @@ export class Runners implements RunnersPort {
         });
       },
       null,
-      (pool) => {
-        if (pool.isManaged && !this.settings.managedPool) {
-          return GONE;
-        }
-
-        return pool.servesEgressNeed(request.needsEgress)
-          ? null
-          : NO_EGRESS_NAMED;
-      },
+      (pool) =>
+        pool.servesEgressNeed(request.needsEgress) ? null : NO_EGRESS_NAMED,
     );
 
     if (began.outcome !== 'began') {
@@ -401,7 +392,7 @@ export class Runners implements RunnersPort {
     }
 
     return this.calls.call({
-      scope: provisioner.scope,
+      provisioner: provisioner.owner,
       url: provisioner.url,
       secret: secret.secret,
       messageId: request.runnerId.value,
@@ -420,16 +411,16 @@ export class Runners implements RunnersPort {
   }
 
   private provisionerOf(pool: RunnerPool): Provisioner {
-    if (pool.isManaged) {
-      return { scope: 'deployment', url: this.managedPool().url };
+    if (pool.isPlatform) {
+      return { owner: 'deployment', url: this.platformPool().url };
     }
 
-    return { scope: 'workspace', url: this.pushAccessOf(pool).url };
+    return { owner: 'workspace', url: this.pushAccessOf(pool).url };
   }
 
   private async secretOf(pool: RunnerPool): Promise<ResolvedSecret> {
-    if (pool.isManaged) {
-      return { outcome: 'found', secret: this.managedPool().secret };
+    if (pool.isPlatform) {
+      return { outcome: 'found', secret: this.platformPool().secret };
     }
 
     try {
@@ -453,17 +444,17 @@ export class Runners implements RunnersPort {
     }
   }
 
-  private managedPool(): ManagedPoolSettings {
-    const managed = this.settings.managedPool;
+  private platformPool(): PlatformPoolSettings {
+    const platform = this.settings.platformPool;
 
-    if (!managed) {
+    if (!platform) {
       throw new InconsistentStateError(
         'runner pool',
-        'was started as a managed pool while the deployment sets no managed provisioner',
+        'was started as the platform pool while the deployment sets no platform provisioner',
       );
     }
 
-    return managed;
+    return platform;
   }
 
   private pushAccessOf(pool: RunnerPool): PushAccess {
@@ -564,7 +555,11 @@ export class Runners implements RunnersPort {
     return this.transaction.inTransaction(async () => {
       const pool = await this.pools.findForStart(id);
 
-      if (!pool) {
+      if (
+        !pool ||
+        (mode === 'push' &&
+          !pool.canProvision(this.settings.platformPool !== null))
+      ) {
         return { outcome: 'gone' };
       }
 

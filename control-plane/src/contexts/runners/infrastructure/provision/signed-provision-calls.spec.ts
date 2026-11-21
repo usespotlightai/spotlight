@@ -17,9 +17,9 @@ const AT = new Date('2026-09-24T10:00:00.000Z');
 
 const calling = (
   url = 'https://provision.example.com/runs',
-  scope: ProvisionCall['scope'] = 'workspace',
+  provisioner: ProvisionCall['provisioner'] = 'workspace',
 ): ProvisionCall => ({
-  scope,
+  provisioner,
   url: ProvisionUrl.of(url),
   secret: SECRET,
   messageId: 'runner_1',
@@ -77,7 +77,7 @@ describe('SignedProvisionCalls', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('posts a call to the managed provisioner under the deployment’s allow-list only', async () => {
+  it('posts a call to the provisioner of the deployment under the deployment’s allow-list only', async () => {
     const { fetch, provision } = calls(
       async () => new Response(null, { status: 202 }),
       { workspaceHosts: ['hooks.example.com'] },
@@ -89,7 +89,7 @@ describe('SignedProvisionCalls', () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it('posts nothing to a managed provisioner that the deployment does not allow', async () => {
+  it('posts nothing to a provisioner of the deployment that the deployment does not allow', async () => {
     const { fetch, provision } = calls(
       async () => new Response(null, { status: 202 }),
       { hosts: ['hooks.example.com'] },

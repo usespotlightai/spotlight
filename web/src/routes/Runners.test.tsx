@@ -69,7 +69,7 @@ const image = (over: Record<string, unknown> = {}) => ({
 const host = (over: Record<string, unknown> = {}) => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'build-box-1',
-  source: { kind: 'pool', key: 'build-farm', managed: false },
+  source: { kind: 'pool', key: 'build-farm', platform: null },
   release: 'v1.4.0',
   unavailableReason: null,
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
@@ -87,7 +87,7 @@ const host = (over: Record<string, unknown> = {}) => ({
 });
 
 const pushPool = (over: Record<string, unknown> = {}) => ({
-  source: { kind: 'pool', key: 'ephemeral', managed: false },
+  source: { kind: 'pool', key: 'ephemeral', platform: null },
   runners: [provisioned(over)],
 });
 
@@ -102,7 +102,7 @@ const LEASED_RUN = {
 
 const provisioned = (over: Record<string, unknown> = {}) => ({
   id: 'runner_cloud_1',
-  source: { kind: 'pool', key: 'ephemeral', managed: false },
+  source: { kind: 'pool', key: 'ephemeral', platform: null },
   hostId: null,
   image: null,
   harnesses: ['claude-code'],
@@ -312,7 +312,7 @@ describe('Runners', () => {
 
   it('names a host serving a trust by the trust', () => {
     listing([
-      host({ source: { kind: 'trust', key: 'production', managed: false } }),
+      host({ source: { kind: 'trust', key: 'production', platform: null } }),
     ]);
 
     renderPage();
@@ -606,26 +606,38 @@ describe('Runners', () => {
     expect(screen.getByText('Push pool with egress')).toBeInTheDocument();
   });
 
-  it('says that the deployment manages its managed pool', () => {
+  it('names the platform pool, and says that its runs go out through the Spotlight egress', () => {
+    const platform = {
+      kind: 'pool',
+      key: 'spotlight',
+      platform: { egress: true },
+    };
     listing(
       [host()],
-      [
-        {
-          source: { kind: 'pool', key: 'spotlight', managed: true },
-          runners: [
-            provisioned({
-              source: { kind: 'pool', key: 'spotlight', managed: true },
-            }),
-          ],
-        },
-      ],
+      [{ source: platform, runners: [provisioned({ source: platform })] }],
     );
 
     renderPage();
 
     expect(screen.getByText('spotlight')).toBeInTheDocument();
-    expect(screen.getByText('Managed by the deployment')).toBeInTheDocument();
+    expect(screen.getByText('Platform pool with egress')).toBeInTheDocument();
     expect(screen.queryByText('Push pool')).not.toBeInTheDocument();
+  });
+
+  it('names the platform pool with no egress', () => {
+    const platform = {
+      kind: 'pool',
+      key: 'spotlight',
+      platform: { egress: false },
+    };
+    listing(
+      [host()],
+      [{ source: platform, runners: [provisioned({ source: platform })] }],
+    );
+
+    renderPage();
+
+    expect(screen.getByText('Platform pool')).toBeInTheDocument();
   });
 
   it('shows only the hosts in the chosen filter, and remembers it', async () => {

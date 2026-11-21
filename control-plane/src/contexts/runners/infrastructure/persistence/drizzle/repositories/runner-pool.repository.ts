@@ -14,7 +14,7 @@ import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
-  ManagedAccess,
+  PlatformAccess,
   type PoolAccess,
   PullAccess,
   PushAccess,
@@ -32,13 +32,14 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray, isNotNull, or, type SQL } from 'drizzle-orm';
+import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
 
 type Row = typeof runnerPool.$inferSelect;
 
 const written = (pool: RunnerPool) => {
   const { access } = pool;
-  const pushed = access instanceof PushAccess ? access : null;
+  const pushed = access.kind === 'push' ? access : null;
 
   return {
     key: pool.key.value,
@@ -55,8 +56,8 @@ const written = (pool: RunnerPool) => {
       access.mode === 'push' && access.egress
         ? access.egressTraffic.value
         : null,
-    managed: access instanceof ManagedAccess,
-    disabled: access instanceof ManagedAccess && access.disabled,
+    platform: access.kind === 'platform',
+    disabled: pool.isDisabled,
   };
 };
 
@@ -64,8 +65,8 @@ const egressOf = (row: Row): EgressReference | null =>
   row.provisionEgress === null ? null : EgressReference.of(row.provisionEgress);
 
 const accessOf = (row: Row): PoolAccess => {
-  if (row.managed) {
-    return ManagedAccess.of(egressOf(row), row.disabled);
+  if (row.platform) {
+    return PlatformAccess.of(egressOf(row));
   }
 
   if (row.tokenHash) {
@@ -101,6 +102,7 @@ const toPool = (row: Row): RunnerPool =>
     labels: RunnerLabels.of(row.labels),
     maxRuns: row.maxRuns === null ? null : MaxRuns.of(row.maxRuns),
     access: accessOf(row),
+    disabled: row.disabled,
     version: row.version,
   });
 
@@ -190,34 +192,37 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     return rows.map(toPool);
   }
 
-  async withKey(key: PoolKey): Promise<readonly RunnerPool[]> {
-    const rows = await this.context.db
-      .select()
-      .from(runnerPool)
-      .where(eq(runnerPool.key, key.value));
-
-    return rows.map(toPool);
-  }
-
-  async pushingIn(
+  findAllByWorkspaces(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly RunnerPool[]> {
-    if (workspaceIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(runnerPool)
-      .where(
-        and(
+    return workspaceIds.length === 0
+      ? Promise.resolve([])
+      : this.all(
           inArray(
             runnerPool.workspaceId,
             workspaceIds.map((each) => each.value),
           ),
-          or(isNotNull(runnerPool.provisionUrl), eq(runnerPool.managed, true)),
-        ),
-      );
+        );
+  }
+
+  findAllByKey(key: PoolKey): Promise<readonly RunnerPool[]> {
+    return this.all(eq(runnerPool.key, key.value));
+  }
+
+  findOwned(id: PoolId): Promise<RunnerPool | null> {
+    return this.one(and(eq(runnerPool.id, id.value), ownedPools) as SQL, {
+      locked: false,
+    });
+  }
+
+  listOwned(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]> {
+    return this.all(
+      and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools) as SQL,
+    );
+  }
+
+  private async all(where: SQL): Promise<readonly RunnerPool[]> {
+    const rows = await this.context.db.select().from(runnerPool).where(where);
 
     return rows.map(toPool);
   }
