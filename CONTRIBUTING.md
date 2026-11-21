@@ -115,9 +115,11 @@ Releases use semantic versioning (`v0.4.1`) and come from
 [release-please](https://github.com/googleapis/release-please) on `develop`:
 
 - **Pull request titles:** pull requests are squash-merged, so the title
-  becomes the commit. It is a Conventional Commit with the Linear issue as the
-  scope, as in `feat(SPO-123): Add the judge to stations`, and the **Pull
-  request title** check enforces it. `feat` and `fix` make a release; `docs`,
+  becomes the commit. It is a Conventional Commit, as in
+  `feat: add the judge to stations`, and the **Pull request title** check
+  enforces it. The description says which issue it closes, as in `Fixes #123`.
+  When the release is published, `project-status.yml` moves that issue to
+  Released on the Spotlight project. `feat` and `fix` make a release; `docs`,
   `chore`, `ci`, `test`, `refactor` and `build` do not. `feat!` marks a
   breaking change.
 - **Release pull request:** after each merge to `develop`, release-please
