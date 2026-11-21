@@ -113,6 +113,31 @@ export const envSchema = databaseSchema
           }),
       ),
     SPOTLIGHT_PLATFORM_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
+    // The deployment event webhook: Spotlight sends the integration events of every workspace to this URL, signed per Standard Webhooks. With no value, it sends none.
+    SPOTLIGHT_EVENTS_URL: unsetWhenEmpty(z.url({ protocol: /^https$/ })),
+    SPOTLIGHT_EVENTS_SECRET: unsetWhenEmpty(
+      z.string().regex(/^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/),
+    ),
+    // The integration event kinds to send, or the starts of kinds, separated by commas. With no value, Spotlight sends every integration event.
+    SPOTLIGHT_EVENTS_KINDS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((each) => each.trim())
+          .filter((each) => each !== ''),
+      )
+      .pipe(
+        z.array(
+          z
+            .string()
+            .regex(
+              /^[a-z][a-z-]*\.([a-z][a-z-]*(\.v\d+)?)?$/,
+              'is an integration event kind, such as runs.run-usage-recorded.v1, or the start of one, such as identity.',
+            ),
+        ),
+      ),
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
@@ -208,6 +233,26 @@ export const envSchema = databaseSchema
       path: ['SPOTLIGHT_PLATFORM_POOL_EGRESS'],
       message:
         'names the platform egress. Please set SPOTLIGHT_PLATFORM_EGRESS_URL and SPOTLIGHT_PLATFORM_EGRESS_TOKEN, or leave SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
+    },
+  )
+  .refine(
+    (env) =>
+      (env.SPOTLIGHT_EVENTS_URL === undefined) ===
+      (env.SPOTLIGHT_EVENTS_SECRET === undefined),
+    {
+      path: ['SPOTLIGHT_EVENTS_SECRET'],
+      message:
+        'goes with SPOTLIGHT_EVENTS_URL. Set both to send events to the deployment event webhook, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
+    },
+  )
+  .refine(
+    (env) =>
+      env.SPOTLIGHT_EVENTS_URL !== undefined ||
+      env.SPOTLIGHT_EVENTS_KINDS.length === 0,
+    {
+      path: ['SPOTLIGHT_EVENTS_URL'],
+      message:
+        'is not set, so Spotlight sends no events. Please set it, or leave SPOTLIGHT_EVENTS_KINDS empty',
     },
   )
   .refine(

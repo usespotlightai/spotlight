@@ -1,6 +1,53 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/admin/events/redeliver": {
+      "post": {
+        "description": "Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Spotlight deletes an event 7 days after it recorded it, but only when it is delivered, so a dead letter stays until it is delivered.",
+        "operationId": "redeliverEvents",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventRedeliveryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventRedeliveryResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A body without since as an ISO 8601 time"
+          },
+          "401": {
+            "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
+          },
+          "404": {
+            "description": "No event webhook is set, or no admin token is set"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Send the dead letters of the event webhook again",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/admin/workspaces/{workspaceId}/members": {
       "get": {
         "operationId": "listWorkspaceMemberSummaries",
@@ -342,6 +389,32 @@
       }
     },
     "schemas": {
+      "EventRedeliveryRequestDto": {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "example": "2026-11-01T00:00:00Z",
+            "description": "Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time"
+          }
+        },
+        "required": [
+          "since"
+        ]
+      },
+      "EventRedeliveryResponseDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "example": 12,
+            "description": "How many dead letters Spotlight queued again. Each gets all its attempts again"
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
       "WorkspaceMemberSummaryResponseDto": {
         "type": "object",
         "properties": {
