@@ -45,6 +45,7 @@ import { HostHeartbeatHandler } from '@runners/application/commands/handlers/hos
 import { OpenSandboxHandler } from '@runners/application/commands/handlers/open-sandbox.handler';
 import { RegisterRunnerHandler } from '@runners/application/commands/handlers/register-runner.handler';
 import { UpdateEgressHandler } from '@runners/application/commands/handlers/update-egress.handler';
+import { UpdateManagedPoolHandler } from '@runners/application/commands/handlers/update-managed-pool.handler';
 import { UpdateRunnerPoolHandler } from '@runners/application/commands/handlers/update-runner-pool.handler';
 import { UpdateRunnerTrustHandler } from '@runners/application/commands/handlers/update-runner-trust.handler';
 import { UpdateWorkspaceRunnersHandler } from '@runners/application/commands/handlers/update-workspace-runners.handler';
@@ -53,6 +54,7 @@ import {
   DeregisterHostCommand,
   HostHeartbeatCommand,
 } from '@runners/application/commands/host.commands';
+import { UpdateManagedPoolCommand } from '@runners/application/commands/managed-pool.commands';
 import { RegisterRunnerCommand } from '@runners/application/commands/runner-fleet.commands';
 import {
   CreateEgressCommand,
@@ -82,6 +84,7 @@ import {
 } from '@runners/application/ports/host-slot-locks.port';
 import { IDLE_WORKING_COPIES } from '@runners/application/ports/idle-working-copies.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
+import type { ManagedPoolSettings } from '@runners/application/ports/managed-pool-settings.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import {
   PROVISION_CALLS,
@@ -104,10 +107,7 @@ import { RUNNER_IDENTITY } from '@runners/application/ports/runner-identity.port
 import { RUNNER_LEASES } from '@runners/application/ports/runner-leases.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
-import {
-  RUNNER_RESOURCES,
-  type RunnerResourcesPort,
-} from '@runners/application/ports/runner-resources.port';
+import { RUNNER_RESOURCES } from '@runners/application/ports/runner-resources.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
 import { SANDBOX_RETIREMENT } from '@runners/application/ports/sandbox-retirement.port';
 import {
@@ -153,6 +153,7 @@ import {
 import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
 import { HostAdmission } from '@runners/application/services/host-admission.service';
 import { HostWarmSlots } from '@runners/application/services/host-warm-slots.service';
+import { ManagedPools } from '@runners/application/services/managed-pools.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import { RunnerAuthenticator } from '@runners/application/services/runner-authenticator.service';
 import { RunnerClaimants } from '@runners/application/services/runner-claimants.service';
@@ -166,7 +167,11 @@ import { Runners } from '@runners/application/services/runners.service';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
+import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
+import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
 import { RUNNERS_PAYLOAD_TYPES } from '@runners/infrastructure/events/runners-payload-types';
@@ -236,6 +241,24 @@ const RUNNERS_DEPENDENTS = Symbol('RUNNERS_DEPENDENTS');
 
 const PLATFORM_EGRESS = Symbol('PLATFORM_EGRESS');
 
+const MANAGED_POOL = Symbol('MANAGED_POOL');
+
+const managedPoolOf = (env: Env): ManagedPoolSettings | null =>
+  env.SPOTLIGHT_MANAGED_POOL_URL && env.SPOTLIGHT_MANAGED_POOL_SECRET
+    ? {
+        url: ProvisionUrl.of(env.SPOTLIGHT_MANAGED_POOL_URL),
+        secret: ProvisionSecret.of(env.SPOTLIGHT_MANAGED_POOL_SECRET),
+        labels: RunnerLabels.of(
+          env.SPOTLIGHT_MANAGED_POOL_LABELS.split(',').filter(
+            (each) => each.trim() !== '',
+          ),
+        ),
+        egress: env.SPOTLIGHT_MANAGED_POOL_EGRESS
+          ? EgressReference.of(env.SPOTLIGHT_MANAGED_POOL_EGRESS)
+          : null,
+      }
+    : null;
+
 export const RUNNERS_CONTROLLERS: readonly Type[] = [
   InstallController,
   HostController,
@@ -268,6 +291,31 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
         : null,
   },
   {
+    provide: MANAGED_POOL,
+    inject: [ENV],
+    useFactory: managedPoolOf,
+  },
+  {
+    provide: ManagedPools,
+    inject: [
+      DrizzleRunnerPoolRepository,
+      WORKSPACE_READER,
+      MANAGED_POOL,
+      ID_GENERATOR,
+      TRANSACTION,
+      LOGGER,
+    ],
+    useFactory: (
+      pools: DrizzleRunnerPoolRepository,
+      workspaces: WorkspaceReaderPort,
+      settings: ManagedPoolSettings | null,
+      ids: IdGeneratorPort,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+    ) =>
+      new ManagedPools(pools, workspaces, settings, ids, transaction, logger),
+  },
+  {
     provide: RUNNERS_EVENTS,
     inject: [
       PayloadTypes,
@@ -281,6 +329,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       SANDBOX_UPKEEP,
       WORKSPACE_READER,
       TRANSACTION,
+      ManagedPools,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -294,6 +343,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       upkeep: SandboxUpkeepPort,
       workspaces: WorkspaceReaderPort,
       transaction: TransactionPort,
+      managed: ManagedPools,
     ) => {
       types.register('runners', RUNNERS_PAYLOAD_TYPES);
       mappers.register(RUNNERS_EVENT_MAPPERS);
@@ -309,6 +359,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
           ),
           hosts: purging,
           sandboxes: upkeep,
+          managed,
         }),
       );
       return true;
@@ -585,6 +636,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       PROVISION_SECRETS,
       ENV,
       PLATFORM_EGRESS,
+      MANAGED_POOL,
       TOKEN_ISSUER,
       ID_GENERATOR,
       TRANSACTION,
@@ -602,6 +654,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       secrets: ProvisionSecretsPort,
       env: Env,
       platformEgress: PlatformEgressSettings | null,
+      managedPool: ManagedPoolSettings | null,
       tokens: TokenIssuer,
       ids: IdGeneratorPort,
       transaction: TransactionPort,
@@ -617,7 +670,11 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
         egresses,
         calls,
         secrets,
-        { insecureAllowed: env.NODE_ENV !== 'production', platformEgress },
+        {
+          insecureAllowed: env.NODE_ENV !== 'production',
+          platformEgress,
+          managedPool,
+        },
         tokens,
         ids,
         transaction,
@@ -630,26 +687,22 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       DrizzleRunnerPoolRepository,
       DrizzleRunnerRepository,
       DrizzleSandboxPlacements,
-      RUNNER_RESOURCES,
       RunnerAuthenticator,
       PLATFORM_EGRESS,
+      MANAGED_POOL,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
       runners: DrizzleRunnerRepository,
       placements: DrizzleSandboxPlacements,
-      resources: RunnerResourcesPort,
       authenticator: RunnerAuthenticator,
       platform: PlatformEgressSettings | null,
+      managed: ManagedPoolSettings | null,
     ) =>
-      new RunnerPools(
-        pools,
-        runners,
-        placements,
-        resources,
-        authenticator,
-        platform !== null,
-      ),
+      new RunnerPools(pools, runners, placements, authenticator, {
+        platformEgress: platform !== null,
+        managedPool: managed !== null,
+      }),
   },
   { provide: INSTALLER_ASSETS, useClass: InstallerAssets },
 
@@ -759,10 +812,14 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     PROVISION_SECRETS,
     DrizzleEgressRepository,
     PLATFORM_EGRESS,
+    MANAGED_POOL,
     IDEMPOTENT_CREATES,
     ID_GENERATOR,
     TOKEN_ISSUER,
     TRANSACTION,
+  ]),
+  ...bindCommandHandler(UpdateManagedPoolCommand, UpdateManagedPoolHandler, [
+    ManagedPools,
   ]),
   ...bindCommandHandler(UpdateRunnerPoolCommand, UpdateRunnerPoolHandler, [
     WORKSPACE_ACCESS,

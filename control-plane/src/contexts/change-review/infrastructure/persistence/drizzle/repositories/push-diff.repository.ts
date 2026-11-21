@@ -183,6 +183,15 @@ export class DrizzlePushDiffRepository implements PushDiffRepository {
     return rows.map(toPushDiff);
   }
 
+  async workspacesWaiting(): Promise<readonly WorkspaceId[]> {
+    const rows = await this.context.db
+      .selectDistinct({ workspaceId: pushDiff.workspaceId })
+      .from(pushDiff)
+      .where(eq(pushDiff.status, 'waiting'));
+
+    return rows.map((row) => WorkspaceId.of(row.workspaceId));
+  }
+
   async reserved(): Promise<readonly PushDiff[]> {
     const rows = await this.context.db
       .select()

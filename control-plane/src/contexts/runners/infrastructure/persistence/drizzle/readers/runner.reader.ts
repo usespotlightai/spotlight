@@ -32,11 +32,18 @@ import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 const sourceOf = (row: {
   poolId: string | null;
   poolKey: string | null;
+  poolManaged: boolean | null;
   trustKey: string | null;
 }): CredentialSourceSummary =>
   row.poolId !== null
-    ? { kind: 'pool', key: row.poolKey }
-    : { kind: 'trust', key: row.trustKey };
+    ? { kind: 'pool', key: row.poolKey, managed: row.poolManaged ?? false }
+    : { kind: 'trust', key: row.trustKey, managed: false };
+
+// A workspace pool pushes when it has a provision URL. A managed pool pushes until the operator disables it.
+const pushes = or(
+  isNotNull(runnerPool.provisionUrl),
+  and(eq(runnerPool.managed, true), eq(runnerPool.disabled, false)),
+);
 
 @Injectable()
 export class DrizzleRunnerReader
@@ -53,10 +60,7 @@ export class DrizzleRunnerReader
       .select({ id: runnerPool.id })
       .from(runnerPool)
       .where(
-        and(
-          eq(runnerPool.workspaceId, workspaceId.value),
-          isNotNull(runnerPool.provisionUrl),
-        ),
+        and(eq(runnerPool.workspaceId, workspaceId.value), pushes),
       )
       .limit(1);
 
@@ -74,7 +78,7 @@ export class DrizzleRunnerReader
       .where(
         and(
           eq(runnerPool.workspaceId, workspaceId.value),
-          isNotNull(runnerPool.provisionUrl),
+          pushes,
           isNotNull(runnerPool.provisionEgress),
         ),
       );
@@ -175,6 +179,7 @@ export class DrizzleRunnerReader
         id: runner.id,
         poolId: runner.poolId,
         poolKey: runnerPool.key,
+        poolManaged: runnerPool.managed,
         trustKey: runnerTrust.key,
         hostId: runner.hostId,
         image: runner.image,
@@ -210,6 +215,7 @@ export class DrizzleRunnerReader
         host: runnerHost,
         poolId: runnerHost.poolId,
         poolKey: runnerPool.key,
+        poolManaged: runnerPool.managed,
         trustKey: runnerTrust.key,
       })
       .from(runnerHost)

@@ -48,6 +48,10 @@ export class WorkspaceReader implements WorkspaceReaderPort {
     return (await this.records.slugOf(workspaceId.value)) !== null;
   }
 
+  async openIds(): Promise<readonly WorkspaceId[]> {
+    return (await this.records.ids()).map((each) => WorkspaceId.of(each));
+  }
+
   async identifyTeam(
     slug: string,
     teamKey: string,

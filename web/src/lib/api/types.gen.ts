@@ -1990,6 +1990,10 @@ export type CredentialSourceResponseDto = {
    * The pool’s or trust’s key; null once it is gone
    */
   key: string | null;
+  /**
+   * The deployment manages the pool and its provisioner for every workspace. Terraform does not manage it
+   */
+  managed: boolean;
 };
 
 export type IdleSandboxResponseDto = {

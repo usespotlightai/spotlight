@@ -97,6 +97,10 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
   ) {}
 
   call(call: ProvisionCall): Promise<ProvisionAnswer> {
+    if (call.scope === 'deployment') {
+      return this.callInScope(call);
+    }
+
     return this.settings.scope.within(WorkspaceId.of(call.workspaceId), () =>
       this.callInScope(call),
     );

@@ -75,6 +75,7 @@ export const encryptedOf = (character: string): EncryptedProvisionSecret =>
 
 export const aPushPool = (
   input: {
+    key?: string;
     maxRuns?: number;
     labels?: string[];
     url?: string;
@@ -85,7 +86,7 @@ export const aPushPool = (
   RunnerPool.create({
     id: POOL_ID,
     workspaceId: POOL_WORKSPACE,
-    key: PoolKey.of('sandboxes'),
+    key: PoolKey.of(input.key ?? 'sandboxes'),
     labels: RunnerLabels.of(input.labels ?? ['sandbox']),
     maxRuns: input.maxRuns ? MaxRuns.of(input.maxRuns) : null,
     access: {
@@ -98,6 +99,27 @@ export const aPushPool = (
     },
     by: changeActorIn(),
   });
+
+const MANAGED_POOL_ID = PoolId.of('pool_managed');
+
+export const aManagedPool = (
+  input: {
+    labels?: string[];
+    egress?: EgressReference | null;
+    disabled?: boolean;
+    workspaceId?: WorkspaceId;
+  } = {},
+): RunnerPool => {
+  const created = RunnerPool.createManaged({
+    id: MANAGED_POOL_ID,
+    workspaceId: input.workspaceId ?? POOL_WORKSPACE,
+    labels: RunnerLabels.of(input.labels ?? []),
+    egress: input.egress ?? null,
+    by: changeActorIn(),
+  });
+
+  return input.disabled ? created.disable(changeActorIn()) : created;
+};
 
 export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
   RunnerTrust.create({

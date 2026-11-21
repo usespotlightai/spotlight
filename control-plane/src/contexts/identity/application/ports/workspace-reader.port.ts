@@ -53,6 +53,9 @@ export interface WorkspaceReaderPort {
 
   isOpen(workspaceId: WorkspaceId): Promise<boolean>;
 
+  // Every workspace of the deployment. Use it only for work that the deployment does in each workspace.
+  openIds(): Promise<readonly WorkspaceId[]>;
+
   // Not viewer-scoped. Use it only for webhook callers with a verified signature.
   identifyTeam(slug: string, teamKey: string): Promise<IdentifiedTeam | null>;
 

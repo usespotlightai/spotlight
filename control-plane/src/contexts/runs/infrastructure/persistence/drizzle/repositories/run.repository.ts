@@ -424,6 +424,25 @@ export class DrizzleRunRepository implements RunRepository {
     return this.queuedRunsOf(rows.map(toRun));
   }
 
+  async workspacesAwaitingProvision(now: Date): Promise<readonly WorkspaceId[]> {
+    const rows = await this.context.db
+      .selectDistinct({ workspaceId: run.workspaceId })
+      .from(run)
+      .where(
+        and(
+          eq(run.state, 'queued'),
+          isNull(run.reservedFor),
+          or(
+            isNull(run.nextProvisionAttemptAt),
+            lte(run.nextProvisionAttemptAt, now),
+          ),
+          or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
+        ),
+      );
+
+    return rows.map((row) => WorkspaceId.of(row.workspaceId));
+  }
+
   async withExpiredReservations(now: Date): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(eq(run.state, 'queued'), lte(run.reservedUntil, now)),

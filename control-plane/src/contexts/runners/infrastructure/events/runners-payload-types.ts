@@ -31,6 +31,7 @@ import { InstalledHarness } from '@runners/domain/value-objects/installed-harnes
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
+  ManagedAccess,
   PullAccess,
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
@@ -79,6 +80,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   RunnerWork,
   ProvisionSecret,
   ProvisionUrl,
+  ManagedAccess,
   PullAccess,
   PushAccess,
   RotationVersion,

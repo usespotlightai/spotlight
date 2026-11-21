@@ -28,6 +28,8 @@ export interface StackCheckRepository {
 
   waitingIn(workspaceId: WorkspaceId): Promise<readonly StackCheck[]>;
 
+  workspacesWaiting(): Promise<readonly WorkspaceId[]>;
+
   reserved(): Promise<readonly StackCheck[]>;
 
   reservedFor(runner: RunnerId): Promise<readonly StackCheck[]>;

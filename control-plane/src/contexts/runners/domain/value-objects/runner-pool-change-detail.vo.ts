@@ -10,6 +10,7 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
     readonly tokenRotated: boolean,
     readonly secretRotated: boolean,
     readonly egressChanged: boolean,
+    readonly disabled: boolean | null = null,
   ) {}
 
   static created(mode: PoolMode): RunnerPoolChangeDetail {
@@ -22,6 +23,7 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       tokenRotated: boolean;
       secretRotated: boolean;
       egressChanged?: boolean;
+      disabled?: boolean;
     },
   ): RunnerPoolChangeDetail {
     return new RunnerPoolChangeDetail(
@@ -29,6 +31,7 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       moved.tokenRotated,
       moved.secretRotated,
       moved.egressChanged ?? false,
+      moved.disabled ?? null,
     );
   }
 
@@ -38,6 +41,9 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       ...(this.tokenRotated ? { tokenRotated: true } : {}),
       ...(this.secretRotated ? { secretRotated: true } : {}),
       ...(this.egressChanged ? { egressChanged: true } : {}),
+      ...(typeof this.disabled === 'boolean'
+        ? { disabled: this.disabled }
+        : {}),
     };
   }
 }

@@ -5,6 +5,8 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface CredentialSourceSummary {
   readonly kind: CredentialSourceKind;
   readonly key: string | null;
+  // The deployment manages the pool, not the workspace.
+  readonly managed: boolean;
 }
 
 export interface LiveRunnerSummary {

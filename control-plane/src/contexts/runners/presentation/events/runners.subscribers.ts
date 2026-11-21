@@ -1,9 +1,14 @@
 import type { SandboxUpkeepPort } from '@runners/application/ports/sandbox-upkeep.port';
 import type { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
+import type { ManagedPools } from '@runners/application/services/managed-pools.service';
 import type { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import type { HostStoppedReportingSandbox } from '@runners/domain/events/host-stopped-reporting-sandbox.event';
 import type { RunnerPoolDeleted } from '@runners/domain/events/runner-pool-deleted.event';
 import type { RunnerTrustDeleted } from '@runners/domain/events/runner-trust-deleted.event';
+import {
+  WORKSPACE_CREATED,
+  type WorkspaceCreatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-created.integration-event';
 import {
   WORKSPACE_DELETED,
   type WorkspaceDeletedIntegrationEvent,
@@ -18,7 +23,13 @@ export const runnersSubscribers = (reactions: {
   deleting: DeleteRunnersOfDeletedWorkspace;
   hosts: PurgeStaleHosts;
   sandboxes: SandboxUpkeepPort;
+  managed: ManagedPools;
 }): readonly DomainEventSubscriber[] => [
+  subscribing<WorkspaceCreatedIntegrationEvent>(
+    'runners.add-managed-pool-to-created-workspace',
+    [WORKSPACE_CREATED],
+    (event) => reactions.managed.createFor(WorkspaceId.of(event.workspaceId)),
+  ),
   subscribing<HostStoppedReportingSandbox>(
     'runners.lose-sandbox-its-host-stopped-reporting',
     ['runner-host.stopped-reporting-sandbox'],

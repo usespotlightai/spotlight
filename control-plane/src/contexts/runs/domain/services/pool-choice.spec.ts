@@ -1,4 +1,8 @@
-import { PoolRoom, poolChoiceFor } from '@runs/domain/services/pool-choice';
+import {
+  offerOrder,
+  PoolRoom,
+  poolChoiceFor,
+} from '@runs/domain/services/pool-choice';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -7,12 +11,23 @@ import { describe, expect, it } from 'vitest';
 const BURST = PoolId.of('burst');
 const STEADY = PoolId.of('steady');
 const SPARE = PoolId.of('spare');
+const MANAGED = PoolId.of('spotlight');
 
-const aPool = (pool: PoolId, labels: string[] = [], egress = false) => ({
+const aPool = (
+  pool: PoolId,
+  labels: string[] = [],
+  egress = false,
+  managed = false,
+) => ({
   pool,
+  key: pool.value,
   labels: RunnerOffer.of(labels),
   egress,
+  managed,
 });
+
+const aManagedPool = (labels: string[] = [], egress = false) =>
+  aPool(MANAGED, labels, egress, true);
 
 const POOLS = [aPool(BURST, ['gpu']), aPool(STEADY), aPool(SPARE)];
 
@@ -55,10 +70,63 @@ describe('poolChoiceFor', () => {
     ).toEqual([BURST, STEADY]);
   });
 
+  it('offers the managed pool only work that no pool of the workspace fits', () => {
+    const pools = [aPool(BURST, ['gpu']), aManagedPool(['gpu', 'arm'])];
+    const room = PoolRoom.of([
+      [BURST, null],
+      [MANAGED, null],
+    ]);
+
+    expect(
+      poolChoiceFor(RunnerPlacement.of(['gpu']), pools, room).map(
+        (each) => each.pool,
+      ),
+    ).toEqual([BURST]);
+    expect(
+      poolChoiceFor(RunnerPlacement.of(['arm']), pools, room).map(
+        (each) => each.pool,
+      ),
+    ).toEqual([MANAGED]);
+  });
+
+  it('keeps work that a full pool of the workspace fits off the managed pool', () => {
+    const pools = [aPool(BURST, ['gpu']), aManagedPool(['gpu'])];
+    const room = PoolRoom.of([
+      [BURST, 0],
+      [MANAGED, null],
+    ]);
+
+    expect(poolChoiceFor(RunnerPlacement.of(['gpu']), pools, room)).toEqual([]);
+  });
+
+  it('offers the managed pool a run with injected secrets that no egress pool of the workspace fits', () => {
+    const pools = [aPool(BURST), aManagedPool([], true)];
+    const room = PoolRoom.of([
+      [BURST, null],
+      [MANAGED, null],
+    ]);
+
+    expect(
+      poolChoiceFor(RunnerPlacement.anywhere(), pools, room, true).map(
+        (each) => each.pool,
+      ),
+    ).toEqual([MANAGED]);
+  });
+
   it('offers no pool whose room it was never told', () => {
     expect(
       poolChoiceFor(RunnerPlacement.anywhere(), POOLS, PoolRoom.of([])),
     ).toEqual([]);
+  });
+});
+
+describe('offerOrder', () => {
+  it('puts the pools of the workspace first, by key, and the managed pool last', () => {
+    expect(
+      [aManagedPool(), aPool(STEADY), aPool(BURST)]
+        .sort(offerOrder)
+        .map((each) => each.pool),
+    ).toEqual([BURST, STEADY, MANAGED]);
   });
 });
 

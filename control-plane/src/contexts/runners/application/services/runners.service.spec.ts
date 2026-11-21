@@ -1,4 +1,5 @@
 import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
+import type { ManagedPoolSettings } from '@runners/application/ports/managed-pool-settings.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
@@ -16,6 +17,7 @@ import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregat
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aHost,
+  aManagedPool,
   aPullPool,
   aPushPool,
   aRunner,
@@ -45,6 +47,8 @@ import { EgressReference } from '@runners/domain/value-objects/egress-reference.
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -80,6 +84,13 @@ const PLATFORM: PlatformEgressSettings = {
   tokenHash: hashOf('7'),
 };
 
+const MANAGED: ManagedPoolSettings = {
+  url: ProvisionUrl.of('https://provision.deployment.example.com/runs'),
+  secret: secretOf('m'),
+  labels: RunnerLabels.none(),
+  egress: EgressReference.platform(),
+};
+
 const running = (
   pool: RunnerPool | null,
   input: {
@@ -93,6 +104,7 @@ const running = (
     insecureAllowed?: boolean;
     egress?: Egress | null;
     platform?: PlatformEgressSettings | null;
+    managed?: ManagedPoolSettings | null;
     sandboxes?: readonly Sandbox[];
   } = {},
 ) => {
@@ -157,6 +169,7 @@ const running = (
     {
       insecureAllowed: input.insecureAllowed ?? false,
       platformEgress: input.platform ?? null,
+      managedPool: input.managed ?? null,
     },
     {
       issue: () =>
@@ -833,6 +846,47 @@ describe('Runners', () => {
     it('provisions nothing for a pool that is gone, or that is pulled from', async () => {
       for (const pool of [null, aPullPool()]) {
         const { service, added, called } = running(pool);
+
+        await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+          outcome: 'gone',
+        });
+        expect(added).toEqual([]);
+        expect(called).toEqual([]);
+      }
+    });
+
+    it('calls the managed provisioner of the deployment for the managed pool, under the deployment’s allow-list', async () => {
+      const { service, called } = running(
+        aManagedPool({ egress: EgressReference.platform() }),
+        { managed: MANAGED, platform: PLATFORM },
+      );
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'provisioned',
+      });
+      expect(called[0]).toMatchObject({
+        scope: 'deployment',
+        url: MANAGED.url,
+        pool: 'spotlight',
+        egress: { url: 'https://egress.usespotlight.ai', traffic: 'all' },
+      });
+      expect(called[0]?.secret.equals(MANAGED.secret)).toBe(true);
+    });
+
+    it('calls a workspace pool’s provisioner under the workspace’s allow-list', async () => {
+      const { service, called } = running(aPushPool());
+
+      await service.provision(request, STARTED_AT);
+
+      expect(called[0]?.scope).toBe('workspace');
+    });
+
+    it('provisions nothing through a managed pool that is disabled, or while the deployment sets no managed provisioner', async () => {
+      for (const [pool, managed] of [
+        [aManagedPool({ disabled: true }), MANAGED],
+        [aManagedPool(), null],
+      ] as const) {
+        const { service, added, called } = running(pool, { managed });
 
         await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
           outcome: 'gone',

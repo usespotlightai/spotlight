@@ -4,10 +4,17 @@ import {
   MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
+const MANAGED = 'spotlight';
+
 export class PoolKey {
   private readonly kind = 'pool-key';
 
   private constructor(readonly value: string) {}
+
+  // The key of the pool that the deployment manages in every workspace.
+  static managed(): PoolKey {
+    return new PoolKey(MANAGED);
+  }
 
   static of(raw: string): PoolKey {
     const named = raw.trim();

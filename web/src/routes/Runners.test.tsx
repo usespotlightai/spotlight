@@ -69,7 +69,7 @@ const image = (over: Record<string, unknown> = {}) => ({
 const host = (over: Record<string, unknown> = {}) => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'build-box-1',
-  source: { kind: 'pool', key: 'build-farm' },
+  source: { kind: 'pool', key: 'build-farm', managed: false },
   release: 'v1.4.0',
   unavailableReason: null,
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
@@ -87,7 +87,7 @@ const host = (over: Record<string, unknown> = {}) => ({
 });
 
 const pushPool = (over: Record<string, unknown> = {}) => ({
-  source: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral', managed: false },
   runners: [provisioned(over)],
 });
 
@@ -102,7 +102,7 @@ const LEASED_RUN = {
 
 const provisioned = (over: Record<string, unknown> = {}) => ({
   id: 'runner_cloud_1',
-  source: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral', managed: false },
   hostId: null,
   image: null,
   harnesses: ['claude-code'],
@@ -311,7 +311,9 @@ describe('Runners', () => {
   });
 
   it('names a host serving a trust by the trust', () => {
-    listing([host({ source: { kind: 'trust', key: 'production' } })]);
+    listing([
+      host({ source: { kind: 'trust', key: 'production', managed: false } }),
+    ]);
 
     renderPage();
 
@@ -602,6 +604,28 @@ describe('Runners', () => {
     renderPage();
 
     expect(screen.getByText('Push pool with egress')).toBeInTheDocument();
+  });
+
+  it('says that the deployment manages its managed pool', () => {
+    listing(
+      [host()],
+      [
+        {
+          source: { kind: 'pool', key: 'spotlight', managed: true },
+          runners: [
+            provisioned({
+              source: { kind: 'pool', key: 'spotlight', managed: true },
+            }),
+          ],
+        },
+      ],
+    );
+
+    renderPage();
+
+    expect(screen.getByText('spotlight')).toBeInTheDocument();
+    expect(screen.getByText('Managed by the deployment')).toBeInTheDocument();
+    expect(screen.queryByText('Push pool')).not.toBeInTheDocument();
   });
 
   it('shows only the hosts in the chosen filter, and remembers it', async () => {

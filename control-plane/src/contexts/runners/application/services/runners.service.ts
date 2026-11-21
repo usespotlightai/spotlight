@@ -1,9 +1,11 @@
+import type { ManagedPoolSettings } from '@runners/application/ports/managed-pool-settings.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
   ProvisionCallsPort,
   ProvisionEgress,
   ProvisionedWork,
+  ProvisionScope,
 } from '@runners/application/ports/provision-calls.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
@@ -35,8 +37,12 @@ import type { EgressReference } from '@runners/domain/value-objects/egress-refer
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
-import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
+import type {
+  PoolMode,
+  PushAccess,
+} from '@runners/domain/value-objects/pool-access.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
+import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -73,6 +79,17 @@ type ResolvedEgress =
   | { readonly outcome: 'found'; readonly url: EgressUrl | null }
   | Unusable;
 
+interface Provisioner {
+  readonly scope: ProvisionScope;
+  readonly url: ProvisionUrl;
+}
+
+type ResolvedSecret =
+  | { readonly outcome: 'found'; readonly secret: ProvisionSecret }
+  | Unusable;
+
+const GONE: ProvisionedRunner = { outcome: 'gone' };
+
 const NO_EGRESS_NAMED: ProvisionedRunner = {
   outcome: 'failed',
   kind: 'unusable',
@@ -83,6 +100,7 @@ const NO_EGRESS_NAMED: ProvisionedRunner = {
 export interface RunnersSettings {
   readonly insecureAllowed: boolean;
   readonly platformEgress: PlatformEgressSettings | null;
+  readonly managedPool: ManagedPoolSettings | null;
 }
 
 const provisionedWork = (work: WorkToProvision): ProvisionedWork => {
@@ -254,8 +272,15 @@ export class Runners implements RunnersPort {
         });
       },
       null,
-      (pool) =>
-        pool.servesEgressNeed(request.needsEgress) ? null : NO_EGRESS_NAMED,
+      (pool) => {
+        if (pool.isManaged && !this.settings.managedPool) {
+          return GONE;
+        }
+
+        return pool.servesEgressNeed(request.needsEgress)
+          ? null
+          : NO_EGRESS_NAMED;
+      },
     );
 
     if (began.outcome !== 'began') {
@@ -327,23 +352,16 @@ export class Runners implements RunnersPort {
     credential: NewToken | null,
     at: Date,
   ): Promise<Answered> {
-    const access = pool.provision;
+    const provisioner = this.provisionerOf(pool);
 
-    if (!access) {
-      throw new InconsistentStateError(
-        'runner pool',
-        'was started for provisioning while it is pulled from',
-      );
-    }
-
-    if (!allowsUrl(access.url, this.settings.insecureAllowed)) {
+    if (!allowsUrl(provisioner.url, this.settings.insecureAllowed)) {
       return {
         outcome: 'not-allowed',
         detail: 'Provision URL must be https. Its calls carry a one-run token.',
       };
     }
 
-    const resolved = await this.resolveEgress(pool, access.egress);
+    const resolved = await this.resolveEgress(pool, pool.egress);
 
     if (resolved.outcome !== 'found') {
       return resolved;
@@ -376,25 +394,16 @@ export class Runners implements RunnersPort {
       );
     }
 
-    let secret: ProvisionSecret;
+    const secret = await this.secretOf(pool);
 
-    try {
-      secret = await this.secrets.decrypt(pool, access.secret);
-    } catch (error) {
-      if (error instanceof ProvisionSecretDecryptionFailedError) {
-        return {
-          outcome: 'unusable',
-          detail:
-            'Cannot decrypt the provision secret with the keys of this deployment.',
-        };
-      }
-
-      throw error;
+    if (secret.outcome !== 'found') {
+      return secret;
     }
 
     return this.calls.call({
-      url: access.url,
-      secret,
+      scope: provisioner.scope,
+      url: provisioner.url,
+      secret: secret.secret,
       messageId: request.runnerId.value,
       at,
       pool: pool.key.value,
@@ -408,6 +417,66 @@ export class Runners implements RunnersPort {
       claimBy: request.claimBy,
       egress,
     });
+  }
+
+  private provisionerOf(pool: RunnerPool): Provisioner {
+    if (pool.isManaged) {
+      return { scope: 'deployment', url: this.managedPool().url };
+    }
+
+    return { scope: 'workspace', url: this.pushAccessOf(pool).url };
+  }
+
+  private async secretOf(pool: RunnerPool): Promise<ResolvedSecret> {
+    if (pool.isManaged) {
+      return { outcome: 'found', secret: this.managedPool().secret };
+    }
+
+    try {
+      return {
+        outcome: 'found',
+        secret: await this.secrets.decrypt(
+          pool,
+          this.pushAccessOf(pool).secret,
+        ),
+      };
+    } catch (error) {
+      if (error instanceof ProvisionSecretDecryptionFailedError) {
+        return {
+          outcome: 'unusable',
+          detail:
+            'Cannot decrypt the provision secret with the keys of this deployment.',
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  private managedPool(): ManagedPoolSettings {
+    const managed = this.settings.managedPool;
+
+    if (!managed) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was started as a managed pool while the deployment sets no managed provisioner',
+      );
+    }
+
+    return managed;
+  }
+
+  private pushAccessOf(pool: RunnerPool): PushAccess {
+    const access = pool.provision;
+
+    if (!access) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was started for provisioning while it is pulled from',
+      );
+    }
+
+    return access;
   }
 
   private async resolveEgress(

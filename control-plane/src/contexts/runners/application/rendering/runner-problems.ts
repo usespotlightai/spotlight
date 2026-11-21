@@ -54,6 +54,14 @@ export const RunnerProblems = {
     });
   },
 
+  managedPoolKey(key: string): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: RUNNER_POOL,
+      at: FieldPath.of(['key']),
+      reason: `is ${key}, the key of the pool that this deployment manages in every workspace. Please give the pool another key`,
+    });
+  },
+
   egressNotHttps(): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: EGRESS,

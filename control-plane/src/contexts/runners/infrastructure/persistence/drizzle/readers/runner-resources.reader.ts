@@ -16,12 +16,15 @@ import {
   workspaceRunners,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type TrustRow = typeof runnerTrust.$inferSelect;
 type WorkspaceRunnersRow = typeof workspaceRunners.$inferSelect;
 type PoolRow = typeof runnerPool.$inferSelect;
 type EgressRow = typeof egress.$inferSelect;
+
+// The deployment manages the managed pool, so Terraform neither sees nor changes it.
+const workspaceOwned = eq(runnerPool.managed, false);
 
 const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
   id: row.id,
@@ -118,7 +121,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     const [found] = await this.db
       .select()
       .from(runnerPool)
-      .where(eq(runnerPool.id, id))
+      .where(and(eq(runnerPool.id, id), workspaceOwned))
       .limit(1);
 
     return found ? poolRecord(found) : null;
@@ -135,6 +138,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
         and(
           eq(runnerPool.workspaceId, workspaceId.value),
           eq(runnerPool.key, key),
+          workspaceOwned,
         ),
       )
       .limit(1);
@@ -149,16 +153,9 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       await this.db
         .select()
         .from(runnerPool)
-        .where(eq(runnerPool.workspaceId, workspaceId.value))
-    ).map(poolRecord);
-  }
-
-  async provisioningPools(): Promise<readonly RunnerPoolRecord[]> {
-    return (
-      await this.db
-        .select()
-        .from(runnerPool)
-        .where(isNotNull(runnerPool.provisionUrl))
+        .where(
+          and(eq(runnerPool.workspaceId, workspaceId.value), workspaceOwned),
+        )
     ).map(poolRecord);
   }
 
@@ -231,7 +228,9 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       this.db
         .select({ key: runnerPool.key })
         .from(runnerPool)
-        .where(eq(runnerPool.workspaceId, workspaceId.value)),
+        .where(
+          and(eq(runnerPool.workspaceId, workspaceId.value), workspaceOwned),
+        ),
     ]);
 
     return {
