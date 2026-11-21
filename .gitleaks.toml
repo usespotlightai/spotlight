@@ -16,4 +16,5 @@ regexes = [
   '''^tBHItJI5svbpez7KI4CCXg$''',
   '''^spotlight-egress:[A-Z][A-Z0-9_]*$''',
   '''^XAI_API_KEY=xai(-test)?$''',
+  '''^-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\\n''',
 ]
