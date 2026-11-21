@@ -2,7 +2,7 @@ import type { PlanTermDto } from '@catalog/application/dto/plan-term.dto';
 import { PLANS } from '@catalog/domain/value-objects/plan.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
-export const PLAN_EXPIRY =
+const PLAN_EXPIRY =
   'When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan';
 
 export class PlanTermResponseDto {

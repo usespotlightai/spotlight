@@ -85,7 +85,7 @@ see.
 
 | Term | Meaning |
 |---|---|
-| Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). |
+| Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). A change made with the admin token shows as Spotlight. |
 | Error kind | The class of a domain or application error (`ErrorKind`), such as `invalid` or `conflict`. The HTTP filters map it to a status code. |
 | Event delivery | One outbox event for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |
 | Hand-over | Terraform removes `valueWoVersion` from a secret. Spotlight keeps the stored value, and from then on a person sets it (`valueChange: handed-over` in the change history). |

@@ -2,7 +2,7 @@ import type { WorkspacePlanRepository } from '@catalog/domain/repositories/works
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class DeletePlanOfDeletedWorkspace {
+export class DeleteWorkspacePlanOfDeletedWorkspace {
   constructor(private readonly plans: WorkspacePlanRepository) {}
 
   async deleteForWorkspace(workspaceId: WorkspaceId): Promise<void> {

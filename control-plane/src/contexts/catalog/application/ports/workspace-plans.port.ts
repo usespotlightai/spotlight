@@ -3,11 +3,10 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORKSPACE_PLANS = Symbol('WORKSPACE_PLANS');
 
+// A workspace without a stored plan has the free plan.
 export interface WorkspacePlansPort {
   of(workspaceId: WorkspaceId): Promise<PlanTerm>;
 
-  // The stored plans of the workspaces named, by workspace id. A workspace that is not there has the free plan.
-  storedOf(
-    workspaceIds: readonly WorkspaceId[],
-  ): Promise<ReadonlyMap<string, PlanTerm>>;
+  // One term for each workspace, in the order given.
+  ofEach(workspaceIds: readonly WorkspaceId[]): Promise<readonly PlanTerm[]>;
 }

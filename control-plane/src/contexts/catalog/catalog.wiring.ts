@@ -16,7 +16,6 @@ import {
   CATALOG,
   type CatalogPort,
 } from '@catalog/application/ports/catalog.port';
-import { WORKSPACE_DIRECTORY } from '@catalog/application/ports/workspace-directory.port';
 import {
   WORKSPACE_PLANS,
   type WorkspacePlansPort,
@@ -29,8 +28,7 @@ import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-wor
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
-import { DeletePlanOfDeletedWorkspace } from '@catalog/application/services/delete-plan-of-deleted-workspace.service';
-import { WorkspaceDirectory } from '@catalog/infrastructure/acl/workspace-directory.adapter';
+import { DeleteWorkspacePlanOfDeletedWorkspace } from '@catalog/application/services/delete-workspace-plan-of-deleted-workspace.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { CATALOG_PAYLOAD_TYPES } from '@catalog/infrastructure/events/catalog-payload-types';
@@ -42,10 +40,8 @@ import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscri
 import { AdminWorkspaceController } from '@catalog/presentation/http/controllers/admin-workspace.controller';
 import { CatalogController } from '@catalog/presentation/http/controllers/catalog.controller';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
-import {
-  WORKSPACE_DIRECTORY as IDENTITY_WORKSPACE_DIRECTORY,
-  type WorkspaceDirectoryPort as IdentityWorkspaceDirectoryPort,
-} from '@identity/application/ports/workspace-directory.port';
+import { WORKSPACE_DIRECTORY } from '@identity/application/ports/workspace-directory.port';
+import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -73,17 +69,10 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   DrizzleWorkspacePlanRepository,
 
   {
-    provide: WORKSPACE_DIRECTORY,
-    inject: [IDENTITY_WORKSPACE_DIRECTORY],
-    useFactory: (directory: IdentityWorkspaceDirectoryPort) =>
-      new WorkspaceDirectory(directory),
-  },
-
-  {
-    provide: DeletePlanOfDeletedWorkspace,
+    provide: DeleteWorkspacePlanOfDeletedWorkspace,
     inject: [DrizzleWorkspacePlanRepository],
     useFactory: (plans: DrizzleWorkspacePlanRepository) =>
-      new DeletePlanOfDeletedWorkspace(plans),
+      new DeleteWorkspacePlanOfDeletedWorkspace(plans),
   },
 
   { provide: CATALOG_CALL_LEDGER, useClass: DrizzleCatalogCallLedger },
@@ -144,17 +133,17 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
     inject: [
       PayloadTypes,
       EventSubscribers,
-      DeletePlanOfDeletedWorkspace,
+      DeleteWorkspacePlanOfDeletedWorkspace,
       CATALOG_CALL_LEDGER,
     ],
     useFactory: (
       types: PayloadTypes,
       subscribers: EventSubscribers,
-      plans: DeletePlanOfDeletedWorkspace,
+      deleting: DeleteWorkspacePlanOfDeletedWorkspace,
       calls: CatalogCallLedgerPort,
     ) => {
       types.register('catalog', CATALOG_PAYLOAD_TYPES);
-      subscribers.register(catalogSubscribers({ plans, calls }));
+      subscribers.register(catalogSubscribers({ deleting, calls }));
       return true;
     },
   },
@@ -178,13 +167,14 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindCommandHandler(SetWorkspacePlanCommand, SetWorkspacePlanHandler, [
-    WORKSPACE_DIRECTORY,
+    WORKSPACE_READER,
     DrizzleWorkspacePlanRepository,
+    CLOCK,
   ]),
 
   ...bindCommandHandler(
     DeleteWorkspacePlanCommand,
     DeleteWorkspacePlanHandler,
-    [WORKSPACE_DIRECTORY, DrizzleWorkspacePlanRepository],
+    [WORKSPACE_READER, DrizzleWorkspacePlanRepository],
   ),
 ];

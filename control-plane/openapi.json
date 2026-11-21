@@ -971,7 +971,7 @@
     },
     "/admin/workspaces/{workspaceId}/members": {
       "get": {
-        "operationId": "listDirectoryMembers",
+        "operationId": "listAdminWorkspaceMembers",
         "parameters": [
           {
             "name": "workspaceId",
@@ -991,7 +991,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AdminMemberResponseDto"
+                    "$ref": "#/components/schemas/AdminWorkspaceMemberResponseDto"
                   }
                 }
               }
@@ -5830,7 +5830,7 @@
     },
     "/admin/workspaces/{workspaceId}/plan": {
       "put": {
-        "description": "The workspace’s configuration changes record the change, made by Spotlight. The free plan with no end is the same as no plan.",
+        "description": "The workspace’s configuration changes record the change, made by Spotlight. The free plan is the same as no plan. An end must be in the future.",
         "operationId": "setWorkspacePlan",
         "parameters": [
           {
@@ -5877,7 +5877,7 @@
             "description": "The plan changed at the same time; try again"
           },
           "422": {
-            "description": "No such plan"
+            "description": "No such plan, or an end that is not in the future"
           }
         },
         "summary": "Set the plan of a workspace",
@@ -25031,7 +25031,7 @@
           "items"
         ]
       },
-      "AdminMemberResponseDto": {
+      "AdminWorkspaceMemberResponseDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -26553,6 +26553,30 @@
           "tools"
         ]
       },
+      "PlanTermResponseDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "team",
+              "enterprise"
+            ],
+            "example": "team"
+          },
+          "expiresAt": {
+            "type": "string",
+            "nullable": true,
+            "example": "2027-01-01T00:00:00.000Z",
+            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan"
+          }
+        },
+        "required": [
+          "plan",
+          "expiresAt"
+        ]
+      },
       "WorkspaceSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -26578,20 +26602,12 @@
             "description": "How many people are in it"
           },
           "plan": {
-            "type": "string",
-            "enum": [
-              "free",
-              "team",
-              "enterprise"
-            ],
-            "example": "team",
-            "description": "The plan set for the workspace; free when none is set"
-          },
-          "planExpiresAt": {
-            "type": "string",
-            "nullable": true,
-            "example": "2027-01-01T00:00:00.000Z",
-            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan"
+            "description": "The plan set for the workspace; the free plan when none is set",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlanTermResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -26600,8 +26616,7 @@
           "name",
           "createdAt",
           "memberCount",
-          "plan",
-          "planExpiresAt"
+          "plan"
         ]
       },
       "WorkspaceSummaryPageResponseDto": {
@@ -26646,30 +26661,6 @@
         },
         "required": [
           "plan"
-        ]
-      },
-      "PlanTermResponseDto": {
-        "type": "object",
-        "properties": {
-          "plan": {
-            "type": "string",
-            "enum": [
-              "free",
-              "team",
-              "enterprise"
-            ],
-            "example": "team"
-          },
-          "expiresAt": {
-            "type": "string",
-            "nullable": true,
-            "example": "2027-01-01T00:00:00.000Z",
-            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan"
-          }
-        },
-        "required": [
-          "plan",
-          "expiresAt"
         ]
       },
       "EnqueueRunRequestDto": {

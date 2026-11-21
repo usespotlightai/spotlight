@@ -1,4 +1,4 @@
-import { DeletePlanOfDeletedWorkspace } from '@catalog/application/services/delete-plan-of-deleted-workspace.service';
+import { DeleteWorkspacePlanOfDeletedWorkspace } from '@catalog/application/services/delete-workspace-plan-of-deleted-workspace.service';
 import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
 import type { WorkspacePlanDeleted } from '@catalog/domain/events/workspace-plan-deleted.event';
 import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
@@ -24,10 +24,10 @@ const deleting = (current: PlanTerm | null) => {
     save: async (plan) => void saved.push(plan),
   };
 
-  return { service: new DeletePlanOfDeletedWorkspace(plans), saved };
+  return { service: new DeleteWorkspacePlanOfDeletedWorkspace(plans), saved };
 };
 
-describe('DeletePlanOfDeletedWorkspace', () => {
+describe('DeleteWorkspacePlanOfDeletedWorkspace', () => {
   it('deletes the plan of a deleted workspace, as Spotlight', async () => {
     const { service, saved } = deleting(PlanTerm.of(Plan.team));
 

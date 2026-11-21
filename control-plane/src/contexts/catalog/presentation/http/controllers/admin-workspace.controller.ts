@@ -9,6 +9,7 @@ import type {
 } from '@catalog/application/dto/workspace-summary.dto';
 import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-workspace-summaries.query';
 import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
+import { PLANS } from '@catalog/domain/value-objects/plan.vo';
 import { PlanTermResponseDto } from '@catalog/presentation/http/dto/plan-term.response.dto';
 import { SetWorkspacePlanRequestDto } from '@catalog/presentation/http/dto/set-workspace-plan.request.dto';
 import {
@@ -46,8 +47,14 @@ import {
 import { AdminOnly } from '@platform/http/decorators/admin-only.decorator';
 import { pageLimitOf } from '@platform/http/page-limit';
 import { ADMIN } from '@platform/http/routes';
+import {
+  LONGEST_PAGE,
+  PAGE_LIMIT,
+} from '@shared-kernel/application/dto/page-limits.dto';
 
-const PAGE_LIMITS = { fallback: 50, longest: 200 };
+// An ISO 8601 date and time, with seconds and a time zone where given.
+const ISO_TIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/;
 
 const WORKSPACE = ApiParam({
   name: 'workspaceId',
@@ -61,7 +68,7 @@ const NOT_FOUND = ApiNotFoundResponse({
 const timeOf = (field: string, raw: string): Date => {
   const time = new Date(raw);
 
-  if (Number.isNaN(time.getTime())) {
+  if (!ISO_TIME.test(raw) || Number.isNaN(time.getTime())) {
     throw new BadRequestException(
       `Sorry, ${field} must be an ISO 8601 time, such as 2027-01-01T00:00:00Z.`,
     );
@@ -87,7 +94,7 @@ const expiryOf = (raw: unknown): Date | null => {
 const planOf = (raw: unknown): string => {
   if (typeof raw !== 'string') {
     throw new BadRequestException(
-      'Sorry, the body must name a plan: free, team or enterprise.',
+      `Sorry, the body must name a plan: ${PLANS.join(', ')}.`,
     );
   }
 
@@ -122,7 +129,7 @@ export class AdminWorkspaceController {
     name: 'limit',
     required: false,
     type: Number,
-    description: `At most this many, ${PAGE_LIMITS.fallback} by default, up to ${PAGE_LIMITS.longest}`,
+    description: `At most this many, ${PAGE_LIMIT} by default, up to ${LONGEST_PAGE}`,
   })
   @ApiQuery({
     name: 'createdAfter',
@@ -151,7 +158,7 @@ export class AdminWorkspaceController {
     >(
       new ListWorkspaceSummariesQuery(
         after || null,
-        pageLimitOf(limit, PAGE_LIMITS),
+        pageLimitOf(limit),
         createdAfter ? timeOf('createdAfter', createdAfter) : null,
       ),
     );
@@ -187,7 +194,7 @@ export class AdminWorkspaceController {
     operationId: 'setWorkspacePlan',
     summary: 'Set the plan of a workspace',
     description:
-      'The workspace’s configuration changes record the change, made by Spotlight. The free plan with no end is the same as no plan.',
+      'The workspace’s configuration changes record the change, made by Spotlight. The free plan is the same as no plan. An end must be in the future.',
   })
   @WORKSPACE
   @ApiBody({ type: SetWorkspacePlanRequestDto })
@@ -195,7 +202,9 @@ export class AdminWorkspaceController {
   @ApiBadRequestResponse({
     description: 'A body without a plan, or an expiresAt that is not a time',
   })
-  @ApiUnprocessableEntityResponse({ description: 'No such plan' })
+  @ApiUnprocessableEntityResponse({
+    description: 'No such plan, or an end that is not in the future',
+  })
   @ApiConflictResponse({
     description: 'The plan changed at the same time; try again',
   })

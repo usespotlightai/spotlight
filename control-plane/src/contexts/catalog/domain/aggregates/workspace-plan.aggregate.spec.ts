@@ -2,6 +2,7 @@ import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggrega
 import type { WorkspacePlanCreated } from '@catalog/domain/events/workspace-plan-created.event';
 import type { WorkspacePlanDeleted } from '@catalog/domain/events/workspace-plan-deleted.event';
 import type { WorkspacePlanUpdated } from '@catalog/domain/events/workspace-plan-updated.event';
+import { EndedPlanTermError } from '@catalog/domain/exceptions/ended-plan-term.error';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
@@ -23,16 +24,18 @@ const ENTERPRISE = PlanTerm.of(Plan.enterprise);
 const stored = (term: PlanTerm = TEAM, version = 3) =>
   WorkspacePlan.rehydrate({ workspaceId: WORKSPACE, term, version });
 
-const set = (current: WorkspacePlan | null, term: PlanTerm) =>
-  WorkspacePlan.set(current, { workspaceId: WORKSPACE, term, by: BY });
+const NOW = new Date('2026-11-21T00:00:00.000Z');
+
+const create = (term: PlanTerm) =>
+  WorkspacePlan.create({ workspaceId: WORKSPACE, term, by: BY, now: NOW });
 
 const eventsOf = <E>(plan: WorkspacePlan | null) =>
   (plan?.pullEvents() ?? []) as readonly E[];
 
 describe('WorkspacePlan', () => {
-  describe('set on a workspace without a stored plan', () => {
+  describe('create', () => {
     it('creates the plan, and records it as a created configuration change by the actor', () => {
-      const created = set(null, TEAM);
+      const created = create(TEAM);
       const [event, ...more] = eventsOf<WorkspacePlanCreated>(created);
 
       expect(created).toMatchObject({ term: TEAM, version: 0 });
@@ -57,14 +60,20 @@ describe('WorkspacePlan', () => {
     });
 
     it('stores nothing for the free plan, which a workspace has without a stored plan', () => {
-      expect(set(null, PlanTerm.free)).toBeNull();
-      expect(set(null, PlanTerm.of(Plan.free, END))).toBeNull();
+      expect(create(PlanTerm.free)).toBeNull();
+      expect(create(PlanTerm.of(Plan.free, END))).toBeNull();
+    });
+
+    it('refuses a plan whose end is not in the future', () => {
+      expect(() => create(PlanTerm.of(Plan.team, NOW))).toThrow(
+        EndedPlanTermError,
+      );
     });
   });
 
-  describe('set on a stored plan', () => {
+  describe('set', () => {
     it('updates the plan, and records what it was', () => {
-      const updated = set(stored(), ENTERPRISE);
+      const updated = stored().set(ENTERPRISE, BY, NOW);
       const [event] = eventsOf<WorkspacePlanUpdated>(updated);
 
       expect(updated).toMatchObject({
@@ -85,11 +94,13 @@ describe('WorkspacePlan', () => {
     });
 
     it('changes nothing for the term it already has', () => {
-      expect(set(stored(), PlanTerm.of(Plan.team, new Date(END)))).toBeNull();
+      expect(
+        stored().set(PlanTerm.of(Plan.team, new Date(END)), BY, NOW),
+      ).toBeNull();
     });
 
     it('deletes the plan when it is set to the free plan', () => {
-      const deleted = set(stored(), PlanTerm.of(Plan.free, END));
+      const deleted = stored().set(PlanTerm.of(Plan.free, END), BY, NOW);
       const [event] = eventsOf<WorkspacePlanDeleted>(deleted);
 
       expect(deleted?.isDeleted).toBe(true);
@@ -100,14 +111,21 @@ describe('WorkspacePlan', () => {
       expect(event.change.action).toBe('deleted');
     });
 
-    it('refuses a stored plan of another workspace', () => {
+    it('refuses a plan whose end is not in the future', () => {
       expect(() =>
-        WorkspacePlan.set(stored(), {
-          workspaceId: WorkspaceId.of('ws_2'),
-          term: ENTERPRISE,
-          by: BY,
-        }),
-      ).toThrow(InconsistentStateError);
+        stored().set(
+          PlanTerm.of(Plan.enterprise, new Date('2026-01-01T00:00:00Z')),
+          BY,
+          NOW,
+        ),
+      ).toThrow(EndedPlanTermError);
+    });
+
+    it('keeps a stored plan that has ended until it is set again', () => {
+      const ended = PlanTerm.of(Plan.team, new Date('2026-01-01T00:00:00Z'));
+
+      expect(stored(ended).set(ended, BY, NOW)).toBeNull();
+      expect(stored(ended).delete(BY).isDeleted).toBe(true);
     });
   });
 
@@ -127,8 +145,8 @@ describe('WorkspacePlan', () => {
   });
 
   it('keeps the events of each step', () => {
-    const created = set(null, TEAM) as WorkspacePlan;
-    const updated = set(created, ENTERPRISE) as WorkspacePlan;
+    const created = create(TEAM) as WorkspacePlan;
+    const updated = created.set(ENTERPRISE, BY, NOW) as WorkspacePlan;
 
     expect(
       updated
@@ -145,8 +163,14 @@ describe('WorkspacePlan', () => {
   it('cannot change after it is deleted', () => {
     const deleted = stored().delete(BY);
 
-    expect(() => set(deleted, ENTERPRISE)).toThrow(InconsistentStateError);
+    expect(() => deleted.set(ENTERPRISE, BY, NOW)).toThrow(
+      InconsistentStateError,
+    );
     expect(() => deleted.delete(BY)).toThrow(InconsistentStateError);
+  });
+
+  it('refuses a stored plan that holds the free plan', () => {
+    expect(() => stored(PlanTerm.free)).toThrow('holds the free plan');
   });
 
   it('refuses a stored version that is impossible', () => {

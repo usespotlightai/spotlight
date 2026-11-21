@@ -122,8 +122,8 @@ import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.q
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
 import { ImportTeamHandler } from '@identity/application/queries/handlers/import-team.handler';
 import { ImportWorkspaceHandler } from '@identity/application/queries/handlers/import-workspace.handler';
+import { ListAdminWorkspaceMembersHandler } from '@identity/application/queries/handlers/list-admin-workspace-members.handler';
 import { ListConfigurationChangesHandler } from '@identity/application/queries/handlers/list-configuration-changes.handler';
-import { ListDirectoryMembersHandler } from '@identity/application/queries/handlers/list-directory-members.handler';
 import { ListMembersHandler } from '@identity/application/queries/handlers/list-members.handler';
 import { ListOidcTrustsHandler } from '@identity/application/queries/handlers/list-oidc-trusts.handler';
 import { ListTeamResourcesHandler } from '@identity/application/queries/handlers/list-team-resources.handler';
@@ -149,8 +149,8 @@ import {
 } from '@identity/application/queries/handlers/workspace-token.handlers';
 import { ImportTeamQuery } from '@identity/application/queries/import-team.query';
 import { ImportWorkspaceQuery } from '@identity/application/queries/import-workspace.query';
+import { ListAdminWorkspaceMembersQuery } from '@identity/application/queries/list-admin-workspace-members.query';
 import { ListConfigurationChangesQuery } from '@identity/application/queries/list-configuration-changes.query';
-import { ListDirectoryMembersQuery } from '@identity/application/queries/list-directory-members.query';
 import { ListMembersQuery } from '@identity/application/queries/list-members.query';
 import { ListOidcTrustsQuery } from '@identity/application/queries/list-oidc-trusts.query';
 import { ListTeamResourcesQuery } from '@identity/application/queries/list-team-resources.query';
@@ -229,7 +229,7 @@ import { S3AvatarImages } from '@identity/infrastructure/storage/s3-avatar-image
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { identitySubscribers } from '@identity/presentation/events/identity.subscribers';
 import { IDENTITY_API_CONVENTIONS } from '@identity/presentation/http/api-conventions';
-import { AdminMemberController } from '@identity/presentation/http/controllers/admin-member.controller';
+import { AdminWorkspaceMemberController } from '@identity/presentation/http/controllers/admin-workspace-member.controller';
 import {
   TeamAvatarController,
   WorkspaceAvatarController,
@@ -300,7 +300,7 @@ const IDENTITY_API_DOCUMENTATION = Symbol('IDENTITY_API_DOCUMENTATION');
 const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
 
 export const IDENTITY_CONTROLLERS: readonly Type[] = [
-  AdminMemberController,
+  AdminWorkspaceMemberController,
   WorkspaceAvatarController,
   TeamAvatarController,
   WorkspaceResourceController,
@@ -516,10 +516,11 @@ const handlers: Provider[] = [
     DrizzleWorkspaceRepository,
     MEMBER_READER,
   ]),
-  ...bindQueryHandler(ListDirectoryMembersQuery, ListDirectoryMembersHandler, [
-    WORKSPACE_READER,
-    MEMBER_READER,
-  ]),
+  ...bindQueryHandler(
+    ListAdminWorkspaceMembersQuery,
+    ListAdminWorkspaceMembersHandler,
+    [WORKSPACE_READER, MEMBER_READER],
+  ),
   ...bindQueryHandler(ListWorkspaceInvitesQuery, ListWorkspaceInvitesHandler, [
     WorkspaceAdministration,
     INVITE_READER,

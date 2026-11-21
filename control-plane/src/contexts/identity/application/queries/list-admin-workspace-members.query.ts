@@ -1,3 +1,3 @@
-export class ListDirectoryMembersQuery {
+export class ListAdminWorkspaceMembersQuery {
   constructor(readonly workspaceId: string) {}
 }

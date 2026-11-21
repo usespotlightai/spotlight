@@ -1,7 +1,3 @@
-import type {
-  DirectoryWorkspace,
-  WorkspaceDirectoryPort,
-} from '@catalog/application/ports/workspace-directory.port';
 import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
 import { ListWorkspaceSummariesHandler } from '@catalog/application/queries/handlers/list-workspace-summaries.handler';
 import { ReadWorkspaceSummaryHandler } from '@catalog/application/queries/handlers/read-workspace-summary.handler';
@@ -9,6 +5,10 @@ import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-w
 import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
+import type {
+  DirectoryWorkspace,
+  WorkspaceDirectoryPort,
+} from '@identity/application/ports/workspace-directory.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -39,7 +39,7 @@ const workspaces = (
 
 const plans: WorkspacePlansPort = {
   of: async (id) => TERMS.get(id.value) ?? PlanTerm.free,
-  storedOf: async () => TERMS,
+  ofEach: async (ids) => ids.map((id) => TERMS.get(id.value) ?? PlanTerm.free),
 };
 
 describe('ListWorkspaceSummariesHandler', () => {
@@ -59,14 +59,12 @@ describe('ListWorkspaceSummariesHandler', () => {
           name: 'ws_acme',
           createdAt: '2026-09-01T00:00:00.000Z',
           memberCount: 3,
-          plan: 'team',
-          planExpiresAt: '2027-01-01T00:00:00.000Z',
+          plan: { plan: 'team', expiresAt: '2027-01-01T00:00:00.000Z' },
         },
         expect.objectContaining({
           id: 'ws_globex',
           memberCount: 1,
-          plan: 'free',
-          planExpiresAt: null,
+          plan: { plan: 'free', expiresAt: null },
         }),
       ],
       next: 'cursor_2',
@@ -85,7 +83,11 @@ describe('ReadWorkspaceSummaryHandler', () => {
       new ReadWorkspaceSummaryHandler(workspaces([ACME]), plans).execute(
         new ReadWorkspaceSummaryQuery('ws_acme'),
       ),
-    ).resolves.toMatchObject({ id: 'ws_acme', plan: 'team', memberCount: 3 });
+    ).resolves.toMatchObject({
+      id: 'ws_acme',
+      plan: { plan: 'team' },
+      memberCount: 3,
+    });
   });
 
   it('finds no workspace that does not exist', async () => {

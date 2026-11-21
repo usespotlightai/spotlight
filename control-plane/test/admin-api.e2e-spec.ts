@@ -18,8 +18,7 @@ interface AdminWorkspace {
   readonly name: string;
   readonly createdAt: string;
   readonly memberCount: number;
-  readonly plan: string;
-  readonly planExpiresAt: string | null;
+  readonly plan: { readonly plan: string; readonly expiresAt: string | null };
 }
 
 interface AdminPage {
@@ -175,8 +174,7 @@ describe('admin API (e2e)', () => {
       name: 'admin-acme',
       createdAt: at(1).toISOString(),
       memberCount: 2,
-      plan: 'free',
-      planExpiresAt: null,
+      plan: { plan: 'free', expiresAt: null },
     });
     expect(page.next).not.toBeNull();
 
@@ -215,7 +213,7 @@ describe('admin API (e2e)', () => {
     expect(answer.body).toMatchObject({
       id: globex.id,
       memberCount: 1,
-      plan: 'free',
+      plan: { plan: 'free', expiresAt: null },
     });
     await admin().get(`/api/admin/workspaces/${randomUUID()}`).expect(404);
   });
@@ -248,14 +246,14 @@ describe('admin API (e2e)', () => {
 
   it('sets, changes and removes the plan of a workspace, and records each change as made by Spotlight', async () => {
     const plan = `/api/admin/workspaces/${globex.id}/plan`;
-    const expiresAt = '2027-01-01T00:00:00.000Z';
+    const expiresAt = '2099-01-01T00:00:00.000Z';
 
     expect(
       (await admin().put(plan, { plan: 'team', expiresAt }).expect(200)).body,
     ).toEqual({ plan: 'team', expiresAt });
     expect(
       (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ plan: 'team', planExpiresAt: expiresAt });
+    ).toMatchObject({ plan: { plan: 'team', expiresAt } });
 
     await admin().put(plan, { plan: 'team', expiresAt }).expect(200);
     await admin()
@@ -263,13 +261,13 @@ describe('admin API (e2e)', () => {
       .expect(200);
     expect(
       (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ plan: 'enterprise', planExpiresAt: null });
+    ).toMatchObject({ plan: { plan: 'enterprise', expiresAt: null } });
 
     await admin().delete(plan).expect(204);
     await admin().delete(plan).expect(204);
     expect(
       (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ plan: 'free', planExpiresAt: null });
+    ).toMatchObject({ plan: { plan: 'free', expiresAt: null } });
     expect(
       await db
         .select()
@@ -307,7 +305,11 @@ describe('admin API (e2e)', () => {
       .body as AdminPage;
 
     expect(
-      page.items.map((each) => [each.slug, each.plan, each.planExpiresAt]),
+      page.items.map((each) => [
+        each.slug,
+        each.plan.plan,
+        each.plan.expiresAt,
+      ]),
     ).toEqual([
       ['admin-acme', 'free', null],
       ['admin-globex', 'free', null],
@@ -321,9 +323,15 @@ describe('admin API (e2e)', () => {
     await admin().put(plan, { plan: 'gold', expiresAt: null }).expect(422);
     await admin().put(plan, { plan: 'team', expiresAt: 'soon' }).expect(400);
     await admin().put(plan, { plan: 'team', expiresAt: 7 }).expect(400);
+    await admin()
+      .put(plan, { plan: 'team', expiresAt: 'March 3, 2099' })
+      .expect(400);
+    await admin()
+      .put(plan, { plan: 'team', expiresAt: '2020-01-01T00:00:00Z' })
+      .expect(422);
     await admin().put(plan, { expiresAt: null }).expect(400);
     await admin()
-      .put(plan, { plan: 'free', expiresAt: '2027-01-01T00:00:00Z' })
+      .put(plan, { plan: 'free', expiresAt: '2099-01-01T00:00:00Z' })
       .expect(200);
     await admin()
       .put(`/api/admin/workspaces/${randomUUID()}/plan`, { plan: 'team' })

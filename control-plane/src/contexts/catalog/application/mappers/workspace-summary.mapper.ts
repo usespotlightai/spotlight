@@ -1,6 +1,7 @@
 import type { WorkspaceSummaryDto } from '@catalog/application/dto/workspace-summary.dto';
-import type { DirectoryWorkspace } from '@catalog/application/ports/workspace-directory.port';
+import { PlanTermMapper } from '@catalog/application/mappers/plan-term.mapper';
 import type { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
+import type { DirectoryWorkspace } from '@identity/application/ports/workspace-directory.port';
 
 export const WorkspaceSummaryMapper = {
   toDto: (
@@ -12,7 +13,6 @@ export const WorkspaceSummaryMapper = {
     name: workspace.name,
     createdAt: workspace.createdAt.toISOString(),
     memberCount: workspace.memberCount,
-    plan: term.plan.value,
-    planExpiresAt: term.expiresAt?.toISOString() ?? null,
+    plan: PlanTermMapper.toDto(term),
   }),
 };

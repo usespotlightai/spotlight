@@ -15,7 +15,7 @@ export class PlanTerm {
       : new PlanTerm(plan, expiresAt);
   }
 
-  get isDefault(): boolean {
+  get isFree(): boolean {
     return this.equals(PlanTerm.free);
   }
 

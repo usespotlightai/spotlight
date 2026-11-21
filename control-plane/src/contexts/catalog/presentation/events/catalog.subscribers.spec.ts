@@ -1,3 +1,4 @@
+import type { DeleteWorkspacePlanOfDeletedWorkspace } from '@catalog/application/services/delete-workspace-plan-of-deleted-workspace.service';
 import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscribers';
 import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -15,9 +16,10 @@ const deleting = () => {
   const plans: WorkspaceId[] = [];
   const calls: WorkspaceId[] = [];
   const subscribers = catalogSubscribers({
-    plans: {
-      deleteForWorkspace: async (workspaceId) => void plans.push(workspaceId),
-    },
+    deleting: {
+      deleteForWorkspace: async (workspaceId: WorkspaceId) =>
+        void plans.push(workspaceId),
+    } as unknown as DeleteWorkspacePlanOfDeletedWorkspace,
     calls: {
       record: async () => undefined,
       deleteForWorkspace: async (workspaceId) => void calls.push(workspaceId),
