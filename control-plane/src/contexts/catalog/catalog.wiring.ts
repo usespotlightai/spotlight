@@ -1,8 +1,4 @@
 import {
-  CATALOG_CALL_LEDGER,
-  type CatalogCallLedgerPort,
-} from '@catalog/application/ports/catalog-call-ledger.port';
-import {
   CATALOG_SERVICE,
   type CatalogServicePort,
 } from '@catalog/application/ports/catalog-service.port';
@@ -17,21 +13,14 @@ import { CatalogResolutions } from '@catalog/application/services/catalog-resolu
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { CATALOG_PAYLOAD_TYPES } from '@catalog/infrastructure/events/catalog-payload-types';
-import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
 import { HttpCatalogClient } from '@catalog/infrastructure/service/http-catalog.client';
-import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscribers';
 import { CatalogController } from '@catalog/presentation/http/controllers/catalog.controller';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventSubscribers } from '@platform/events/event-subscribers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import {
-  CLOCK,
-  type ClockPort,
-} from '@shared-kernel/application/ports/clock.port';
 
 const CATALOG_EVENTS = Symbol('CATALOG_EVENTS');
 
@@ -39,8 +28,6 @@ export const CATALOG_CONTROLLERS: readonly Type[] = [CatalogController];
 
 export const CATALOG_PROVIDERS: readonly Provider[] = [
   { provide: StaticCatalog, useValue: new StaticCatalog(CATALOG_ITEMS) },
-
-  { provide: CATALOG_CALL_LEDGER, useClass: DrizzleCatalogCallLedger },
 
   {
     provide: CATALOG_SERVICE,
@@ -60,13 +47,9 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CatalogCalls,
-    inject: [StaticCatalog, CATALOG_CALL_LEDGER, CATALOG_SERVICE, CLOCK],
-    useFactory: (
-      catalog: StaticCatalog,
-      ledger: CatalogCallLedgerPort,
-      service: CatalogServicePort,
-      clock: ClockPort,
-    ) => new CatalogCalls(catalog, ledger, service, clock),
+    inject: [StaticCatalog, CATALOG_SERVICE],
+    useFactory: (catalog: StaticCatalog, service: CatalogServicePort) =>
+      new CatalogCalls(catalog, service),
   },
 
   {
@@ -83,14 +66,9 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CATALOG_EVENTS,
-    inject: [PayloadTypes, EventSubscribers, CATALOG_CALL_LEDGER],
-    useFactory: (
-      types: PayloadTypes,
-      subscribers: EventSubscribers,
-      calls: CatalogCallLedgerPort,
-    ) => {
+    inject: [PayloadTypes],
+    useFactory: (types: PayloadTypes) => {
       types.register('catalog', CATALOG_PAYLOAD_TYPES);
-      subscribers.register(catalogSubscribers({ calls }));
       return true;
     },
   },

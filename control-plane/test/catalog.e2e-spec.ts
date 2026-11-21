@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
+import {
+  CATALOG,
+  type CatalogPort,
+} from '@catalog/application/ports/catalog.port';
 import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
-import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
@@ -347,21 +350,28 @@ describe('a catalog call (e2e)', () => {
   });
 
   afterAll(async () => {
-    await db
-      .delete(schema.catalogCall)
-      .where(eq(schema.catalogCall.workspaceId, workspace));
     await app.close();
   });
 
-  it('is recorded, by workspace, run and the version called', async () => {
-    const calls = new CatalogCalls(
-      new StaticCatalog(CATALOG_ITEMS),
-      new DrizzleCatalogCallLedger(new DrizzleContext(db), {
-        generate: () => randomUUID(),
-      }),
-      { call: async () => ['https://example.com'] },
-      { now: () => new Date(), sleep: async () => {} },
-    );
+  it('resolves web-search for a workspace that nothing is stored for', async () => {
+    const resolved = await app
+      .get<CatalogPort>(CATALOG)
+      .resolve({ tools: ['catalog.web-search@1.1.0'], skills: [] });
+
+    expect(resolved.tools.map((each) => each.id)).toEqual([
+      'catalog.web-search@1.1.0',
+    ]);
+    expect(resolved.denied).toEqual([]);
+  });
+
+  it('calls the catalog service with the workspace, run and the version called', async () => {
+    const called: unknown[] = [];
+    const calls = new CatalogCalls(new StaticCatalog(CATALOG_ITEMS), {
+      call: async (tool, _inputs, on) => {
+        called.push([tool.id.value, on.workspaceId.value, on.runId.value]);
+        return ['https://example.com'];
+      },
+    });
     const runId = randomUUID();
 
     await expect(
@@ -372,20 +382,7 @@ describe('a catalog call (e2e)', () => {
         inputs: { query: 'queues' },
       }),
     ).resolves.toEqual({ kind: 'answered', output: ['https://example.com'] });
-
-    const recorded = await db
-      .select()
-      .from(schema.catalogCall)
-      .where(eq(schema.catalogCall.workspaceId, workspace));
-
-    expect(recorded).toEqual([
-      expect.objectContaining({
-        runId,
-        item: 'catalog.web-search@1.1.0',
-        succeeded: true,
-        billable: true,
-      }),
-    ]);
+    expect(called).toEqual([['catalog.web-search@1.1.0', workspace, runId]]);
   });
 
   it('fails a run refused at dispatch, with its reason on record', async () => {
