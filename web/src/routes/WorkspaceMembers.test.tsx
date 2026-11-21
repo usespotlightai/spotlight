@@ -422,9 +422,7 @@ describe('WorkspaceMembers', () => {
     ]);
     showing();
 
-    expect(
-      within(suspendedList()).getByText('Maya Chen'),
-    ).toBeInTheDocument();
+    expect(within(suspendedList()).getByText('Maya Chen')).toBeInTheDocument();
     expect(
       within(membersList()).queryByText('Maya Chen'),
     ).not.toBeInTheDocument();
