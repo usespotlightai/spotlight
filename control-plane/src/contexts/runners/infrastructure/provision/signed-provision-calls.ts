@@ -98,7 +98,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
 
   // A call to a provisioner of the deployment goes out under the deployment's allow-list only. A call to a provisioner of a workspace goes out under the workspace's list too.
   call(call: ProvisionCall): Promise<ProvisionAnswer> {
-    if (call.provisioner === 'deployment') {
+    if (call.owner === 'deployment') {
       return this.callInScope(call);
     }
 

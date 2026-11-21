@@ -1,16 +1,8 @@
-import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-
-// The caller authorises the operator of the deployment, and names who made the change.
+// For the admin API. The caller authorises the operator of the deployment, and the change shows as made by Spotlight.
 export class DisablePlatformPoolCommand {
-  constructor(
-    readonly workspaceId: string,
-    readonly by: ChangeActor,
-  ) {}
+  constructor(readonly workspaceId: string) {}
 }
 
 export class EnablePlatformPoolCommand {
-  constructor(
-    readonly workspaceId: string,
-    readonly by: ChangeActor,
-  ) {}
+  constructor(readonly workspaceId: string) {}
 }

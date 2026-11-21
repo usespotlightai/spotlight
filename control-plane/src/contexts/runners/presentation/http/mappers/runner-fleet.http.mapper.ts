@@ -6,7 +6,7 @@ import {
   CredentialSourceResponseDto,
   HostResponseDto,
   LiveRunnerResponseDto,
-  PlatformPoolResponseDto,
+  PlatformPoolSourceResponseDto,
   RunnerFleetResponseDto,
 } from '@runners/presentation/http/dto/runner-fleet.response.dto';
 
@@ -15,7 +15,7 @@ const sourceOf = (dto: CredentialSourceDto) =>
     dto.kind,
     dto.key,
     dto.kind === 'pool' && dto.platform
-      ? new PlatformPoolResponseDto(dto.platform.egress)
+      ? new PlatformPoolSourceResponseDto(dto.platform.egress)
       : null,
   );
 

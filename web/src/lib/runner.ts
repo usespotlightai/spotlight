@@ -226,7 +226,7 @@ export const poolName = (source: CredentialSourceResponseDto): string =>
 
 export const PUSH_POOL = 'Push pool';
 
-export const PLATFORM_POOL = 'Platform pool';
+export const PLATFORM_POOL = 'Spotlight pool';
 
 export const PLATFORM_POOL_WITH_EGRESS = `${PLATFORM_POOL} with egress`;
 

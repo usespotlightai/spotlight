@@ -10,8 +10,6 @@ import {
 } from '@runners/application/commands/platform-pool.commands';
 import type { PlatformPoolChangeDto } from '@runners/application/dto/platform-pool.dto';
 import { AdminPlatformPoolController } from '@runners/presentation/http/controllers/admin-platform-pool.controller';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const answering = (answer: PlatformPoolChangeDto | null) => {
@@ -27,19 +25,14 @@ const answering = (answer: PlatformPoolChangeDto | null) => {
 };
 
 describe('AdminPlatformPoolController', () => {
-  it('disables the platform pool as a change by Spotlight, and says it is disabled', async () => {
+  it('disables the platform pool, and says it is disabled', async () => {
     const { controller, sent } = answering({ outcome: 'disabled' });
 
     await expect(
       controller.setPlatformPool('ws_1', { enabled: false }),
     ).resolves.toEqual({ enabled: false });
     expect(sent[0]).toBeInstanceOf(DisablePlatformPoolCommand);
-    expect(sent[0]).toEqual(
-      new DisablePlatformPoolCommand(
-        'ws_1',
-        ChangeActor.spotlight(WorkspaceId.of('ws_1')),
-      ),
-    );
+    expect(sent[0]).toEqual(new DisablePlatformPoolCommand('ws_1'));
   });
 
   it('enables the platform pool, and says it is enabled', async () => {

@@ -24,8 +24,6 @@ import {
 import type { PlatformPoolChangeDto } from '@runners/application/dto/platform-pool.dto';
 import { SetWorkspacePlatformPoolRequestDto } from '@runners/presentation/http/dto/platform-pool.request.dto';
 import { WorkspacePlatformPoolResponseDto } from '@runners/presentation/http/dto/platform-pool.response.dto';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const UNSET =
   'Sorry, this deployment adds no platform pool to its workspaces. Set SPOTLIGHT_PLATFORM_POOL_URL and SPOTLIGHT_PLATFORM_POOL_SECRET to add one.';
@@ -76,14 +74,13 @@ export class AdminPlatformPoolController {
     @Body() body: SetWorkspacePlatformPoolRequestDto | undefined,
   ): Promise<WorkspacePlatformPoolResponseDto> {
     const enabled = enabledOf(body?.enabled);
-    const by = ChangeActor.spotlight(WorkspaceId.of(workspaceId));
     const changed = await this.commandBus.execute<
       DisablePlatformPoolCommand | EnablePlatformPoolCommand,
       PlatformPoolChangeDto | null
     >(
       enabled
-        ? new EnablePlatformPoolCommand(workspaceId, by)
-        : new DisablePlatformPoolCommand(workspaceId, by),
+        ? new EnablePlatformPoolCommand(workspaceId)
+        : new DisablePlatformPoolCommand(workspaceId),
     );
 
     switch (changed?.outcome) {

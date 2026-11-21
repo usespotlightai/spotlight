@@ -1,3 +1,4 @@
+import type { WorkspaceDirectoryPort } from '@identity/application/ports/workspace-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { PlatformPoolChangeDto } from '@runners/application/dto/platform-pool.dto';
 import type { PlatformPoolSettings } from '@runners/application/ports/platform-pool-settings.port';
@@ -6,10 +7,10 @@ import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { LONGEST_PAGE } from '@shared-kernel/application/dto/page.dto';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -23,6 +24,7 @@ export class PlatformPools {
   constructor(
     private readonly pools: RunnerPoolRepository,
     private readonly workspaces: WorkspaceReaderPort,
+    private readonly directory: WorkspaceDirectoryPort,
     private readonly settings: PlatformPoolSettings | null,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
@@ -33,7 +35,7 @@ export class PlatformPools {
   async reconcile(): Promise<void> {
     // The pools are read before the workspaces, so that the platform pool of a workspace created in between is not taken for one of a deleted workspace.
     const keyed = await this.pools.withKey(PoolKey.platform());
-    const open = await this.workspaces.openIds();
+    const open = await this.openWorkspaces();
     const opened = new Set(open.map((each) => each.value));
     const platform = keyed.filter((each) => each.isPlatform);
 
@@ -87,39 +89,28 @@ export class PlatformPools {
   }
 
   // The platform pool of the workspace stays disabled across restarts, until it is enabled again.
-  disable(
-    workspaceId: WorkspaceId,
-    by: ChangeActor,
-  ): Promise<PlatformPoolChangeDto | null> {
-    return this.change(workspaceId, true, by);
+  // The operator of the deployment asks for the change, which shows as made by Spotlight.
+  disable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
+    return this.change(workspaceId, true);
   }
 
-  enable(
-    workspaceId: WorkspaceId,
-    by: ChangeActor,
-  ): Promise<PlatformPoolChangeDto | null> {
-    return this.change(workspaceId, false, by);
+  enable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
+    return this.change(workspaceId, false);
   }
 
   private async change(
     workspaceId: WorkspaceId,
     disabled: boolean,
-    by: ChangeActor,
   ): Promise<PlatformPoolChangeDto | null> {
-    if (!by.workspaceId.equals(workspaceId)) {
-      throw new InconsistentStateError(
-        'platform pool change',
-        'names an actor of another workspace',
-      );
+    if (!(await this.workspaces.isOpen(workspaceId))) {
+      return null;
     }
 
     if (!this.settings) {
       return { outcome: 'unset' };
     }
 
-    if (!(await this.workspaces.isOpen(workspaceId))) {
-      return null;
-    }
+    const by = ChangeActor.spotlight(workspaceId);
 
     const found = await this.platformKeyHolder(workspaceId);
 
@@ -145,14 +136,28 @@ export class PlatformPools {
     return { outcome: changed.isDisabled ? 'disabled' : 'enabled' };
   }
 
-  private async platformKeyHolder(
+  private platformKeyHolder(
     workspaceId: WorkspaceId,
   ): Promise<RunnerPool | null> {
-    return (
-      (await this.pools.inWorkspace(workspaceId)).find((each) =>
-        each.key.equals(PoolKey.platform()),
-      ) ?? null
-    );
+    return this.pools.findByKey(workspaceId, PoolKey.platform());
+  }
+
+  private async openWorkspaces(): Promise<readonly WorkspaceId[]> {
+    const open: WorkspaceId[] = [];
+    let after: string | null = null;
+
+    do {
+      const page = await this.directory.list({
+        after,
+        limit: LONGEST_PAGE,
+        since: null,
+      });
+
+      open.push(...page.items.map((each) => each.id));
+      after = page.next;
+    } while (after);
+
+    return open;
   }
 
   private async create(

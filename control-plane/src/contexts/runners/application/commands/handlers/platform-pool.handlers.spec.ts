@@ -7,11 +7,8 @@ import {
 import type { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import { TranslatedDomainError } from '@shared-kernel/application/errors/translated-domain-error';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
-
-const BY = ChangeActor.spotlight(WorkspaceId.of('ws_1'));
 
 const platformPools = () => ({
   disable: vi.fn(async () => ({ outcome: 'disabled' as const })),
@@ -24,10 +21,10 @@ describe('DisablePlatformPoolHandler', () => {
 
     await expect(
       new DisablePlatformPoolHandler(pools as unknown as PlatformPools).execute(
-        new DisablePlatformPoolCommand('ws_1', BY),
+        new DisablePlatformPoolCommand('ws_1'),
       ),
     ).resolves.toEqual({ outcome: 'disabled' });
-    expect(pools.disable).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), BY);
+    expect(pools.disable).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
     expect(pools.enable).not.toHaveBeenCalled();
   });
 
@@ -39,7 +36,7 @@ describe('DisablePlatformPoolHandler', () => {
 
     await expect(
       new DisablePlatformPoolHandler(pools as unknown as PlatformPools).execute(
-        new DisablePlatformPoolCommand('ws_1', BY),
+        new DisablePlatformPoolCommand('ws_1'),
       ),
     ).rejects.toBeInstanceOf(TranslatedDomainError);
   });
@@ -51,10 +48,10 @@ describe('EnablePlatformPoolHandler', () => {
 
     await expect(
       new EnablePlatformPoolHandler(pools as unknown as PlatformPools).execute(
-        new EnablePlatformPoolCommand('ws_1', BY),
+        new EnablePlatformPoolCommand('ws_1'),
       ),
     ).resolves.toEqual({ outcome: 'enabled' });
-    expect(pools.enable).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), BY);
+    expect(pools.enable).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
     expect(pools.disable).not.toHaveBeenCalled();
   });
 });

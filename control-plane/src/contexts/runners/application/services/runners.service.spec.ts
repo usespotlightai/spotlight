@@ -865,7 +865,7 @@ describe('Runners', () => {
         outcome: 'provisioned',
       });
       expect(called[0]).toMatchObject({
-        provisioner: 'deployment',
+        owner: 'deployment',
         url: PROVISIONER.url,
         pool: 'spotlight',
         egress: { url: 'https://egress.usespotlight.ai', traffic: 'all' },
@@ -878,7 +878,7 @@ describe('Runners', () => {
 
       await service.provision(request, STARTED_AT);
 
-      expect(called[0]?.provisioner).toBe('workspace');
+      expect(called[0]?.owner).toBe('workspace');
     });
 
     it('provisions nothing through a disabled platform pool, or while the deployment sets no platform provisioner', async () => {

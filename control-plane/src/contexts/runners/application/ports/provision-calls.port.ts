@@ -23,7 +23,7 @@ export type ProvisionedWork =
 export type ProvisionerOwner = 'workspace' | 'deployment';
 
 export interface ProvisionCall {
-  readonly provisioner: ProvisionerOwner;
+  readonly owner: ProvisionerOwner;
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
   readonly messageId: string;

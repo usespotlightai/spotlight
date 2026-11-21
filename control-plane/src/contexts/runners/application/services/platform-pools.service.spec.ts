@@ -1,3 +1,4 @@
+import type { WorkspaceDirectoryPort } from '@identity/application/ports/workspace-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { PlatformPoolSettings } from '@runners/application/ports/platform-pool-settings.port';
 import { PlatformPools } from '@runners/application/services/platform-pools.service';
@@ -15,7 +16,6 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -28,8 +28,6 @@ const SETTINGS: PlatformPoolSettings = {
   labels: RunnerLabels.of(['linux']),
   egress: EgressReference.platform(),
 };
-
-const BY = ChangeActor.spotlight(WS_1);
 
 const settled = (pool: RunnerPool): RunnerPool => {
   pool.pullEvents();
@@ -52,8 +50,11 @@ const platformPools = (
     withKey: vi.fn(async (key: PoolKey) =>
       stored.filter((each) => each.key.equals(key)),
     ),
-    inWorkspace: vi.fn(async (workspaceId: WorkspaceId) =>
-      stored.filter((each) => each.belongsTo(workspaceId)),
+    findByKey: vi.fn(
+      async (workspaceId: WorkspaceId, key: PoolKey) =>
+        stored.find(
+          (each) => each.belongsTo(workspaceId) && each.key.equals(key),
+        ) ?? null,
     ),
     add: vi.fn(async (pool: RunnerPool) => {
       await input.added?.(pool);
@@ -63,11 +64,23 @@ const platformPools = (
       saved.push(pool);
     }),
   };
+  const open = input.workspaces ?? [WS_1];
   const workspaces = {
-    openIds: vi.fn(async () => input.workspaces ?? [WS_1]),
     isOpen: vi.fn(async (workspaceId: WorkspaceId) =>
-      (input.workspaces ?? [WS_1]).some((each) => each.equals(workspaceId)),
+      open.some((each) => each.equals(workspaceId)),
     ),
+  };
+  // One workspace a page, so that the reconcile reads every page.
+  const directory = {
+    list: vi.fn(async (request: { after: string | null }) => {
+      const at = request.after === null ? 0 : Number(request.after);
+      const workspace = open[at];
+
+      return {
+        items: workspace ? [{ id: workspace }] : [],
+        next: at + 1 < open.length ? String(at + 1) : null,
+      };
+    }),
   };
   let generated = 0;
 
@@ -78,6 +91,7 @@ const platformPools = (
     platform: new PlatformPools(
       pools as unknown as RunnerPoolRepository,
       workspaces as unknown as WorkspaceReaderPort,
+      directory as unknown as WorkspaceDirectoryPort,
       input.settings === undefined ? SETTINGS : input.settings,
       { generate: () => `pool_${++generated}` },
       {
@@ -262,7 +276,7 @@ describe('PlatformPools', () => {
       const pool = settled(aPlatformPool());
       const { platform, saved } = platformPools({ stored: [pool] });
 
-      await expect(platform.disable(WS_1, BY)).resolves.toEqual({
+      await expect(platform.disable(WS_1)).resolves.toEqual({
         outcome: 'disabled',
       });
       expect(saved[0]?.isDisabled).toBe(true);
@@ -273,7 +287,7 @@ describe('PlatformPools', () => {
         stored: [settled(aPlatformPool({ disabled: true }))],
       });
 
-      await expect(platform.enable(WS_1, BY)).resolves.toEqual({
+      await expect(platform.enable(WS_1)).resolves.toEqual({
         outcome: 'enabled',
       });
       expect(saved[0]?.isDisabled).toBe(false);
@@ -282,7 +296,7 @@ describe('PlatformPools', () => {
     it('adds the platform pool disabled where it is missing', async () => {
       const { platform, added } = platformPools();
 
-      await expect(platform.disable(WS_1, BY)).resolves.toEqual({
+      await expect(platform.disable(WS_1)).resolves.toEqual({
         outcome: 'disabled',
       });
       expect(added[0]?.isDisabled).toBe(true);
@@ -293,7 +307,7 @@ describe('PlatformPools', () => {
         stored: [settled(anOwnPoolWithThePlatformKey())],
       });
 
-      await expect(platform.disable(WS_1, BY)).resolves.toEqual({
+      await expect(platform.disable(WS_1)).resolves.toEqual({
         outcome: 'key-taken',
       });
       expect(added).toEqual([]);
@@ -303,15 +317,34 @@ describe('PlatformPools', () => {
     it('says so while the deployment sets no platform provisioner', async () => {
       const { platform } = platformPools({ settings: null });
 
-      await expect(platform.enable(WS_1, BY)).resolves.toEqual({
+      await expect(platform.enable(WS_1)).resolves.toEqual({
         outcome: 'unset',
+      });
+    });
+
+    it('answers nothing for a workspace that is not open, also while the deployment sets no platform provisioner', async () => {
+      const { platform } = platformPools({ workspaces: [], settings: null });
+
+      await expect(platform.enable(WS_1)).resolves.toBeNull();
+    });
+
+    it('records the change as made by Spotlight', async () => {
+      const pool = settled(aPlatformPool());
+      const { platform, saved } = platformPools({ stored: [pool] });
+
+      await platform.disable(WS_1);
+
+      const [updated] = saved[0]?.pullEvents() ?? [];
+
+      expect(updated).toMatchObject({
+        change: { by: { actor: null, workspaceId: WS_1 } },
       });
     });
 
     it('answers nothing for a workspace that is not open', async () => {
       const { platform } = platformPools({ workspaces: [] });
 
-      await expect(platform.disable(WS_1, BY)).resolves.toBeNull();
+      await expect(platform.disable(WS_1)).resolves.toBeNull();
     });
   });
 });

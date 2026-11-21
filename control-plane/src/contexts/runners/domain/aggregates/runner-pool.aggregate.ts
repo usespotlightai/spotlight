@@ -8,6 +8,7 @@ import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
+  modeOf,
   PlatformAccess,
   type PoolAccess,
   type PoolMode,
@@ -52,7 +53,7 @@ export type AccessInput =
     };
 
 // What the deployment sets for the platform pool of every workspace.
-export interface PlatformDefinition {
+export interface PlatformPoolDefinition {
   readonly labels: RunnerLabels;
   readonly egress: EgressReference | null;
 }
@@ -73,8 +74,6 @@ export class RunnerPool extends EventRecorder {
     readonly labels: RunnerLabels,
     readonly maxRuns: MaxRuns | null,
     readonly access: PoolAccess,
-    // The operator of the deployment can disable the platform pool of one workspace.
-    readonly isDisabled: boolean,
     readonly version: number,
     readonly isDeleted: boolean,
   ) {
@@ -104,7 +103,6 @@ export class RunnerPool extends EventRecorder {
       input.labels,
       input.maxRuns,
       access,
-      false,
       0,
       false,
     );
@@ -126,7 +124,7 @@ export class RunnerPool extends EventRecorder {
   }
 
   static createPlatform(
-    input: PlatformDefinition & {
+    input: PlatformPoolDefinition & {
       id: PoolId;
       workspaceId: WorkspaceId;
       by: ChangeActor;
@@ -139,7 +137,6 @@ export class RunnerPool extends EventRecorder {
       input.labels,
       null,
       PlatformAccess.of(input.egress),
-      false,
       0,
       false,
     );
@@ -165,7 +162,6 @@ export class RunnerPool extends EventRecorder {
       id: PoolId;
       workspaceId: WorkspaceId;
       access: PoolAccess;
-      disabled?: boolean;
       version: number;
     },
   ): RunnerPool {
@@ -188,13 +184,6 @@ export class RunnerPool extends EventRecorder {
       );
     }
 
-    if (input.disabled && !platform) {
-      throw new InconsistentStateError(
-        'runner pool',
-        'is disabled, but only a platform pool can be disabled',
-      );
-    }
-
     return new RunnerPool(
       input.id,
       input.workspaceId,
@@ -202,7 +191,6 @@ export class RunnerPool extends EventRecorder {
       input.labels,
       input.maxRuns,
       input.access,
-      input.disabled ?? false,
       input.version,
       false,
     );
@@ -240,7 +228,11 @@ export class RunnerPool extends EventRecorder {
   }
 
   get mode(): PoolMode {
-    return this.access.mode;
+    return modeOf(this.access);
+  }
+
+  get isDisabled(): boolean {
+    return this.access.kind === 'platform' && this.access.disabled;
   }
 
   get tokenHash(): TokenHash | null {
@@ -380,7 +372,7 @@ export class RunnerPool extends EventRecorder {
   }
 
   // Gives the platform pool the labels and egress that the deployment sets now.
-  reconcile(definition: PlatformDefinition, by: ChangeActor): RunnerPool {
+  reconcile(definition: PlatformPoolDefinition, by: ChangeActor): RunnerPool {
     const access = this.assertPlatform();
     const egressChanged = !sameEgress(access.egress, definition.egress);
 
@@ -391,7 +383,7 @@ export class RunnerPool extends EventRecorder {
     return this.updatePlatform(
       {
         labels: definition.labels,
-        access: PlatformAccess.of(definition.egress),
+        access: PlatformAccess.of(definition.egress, access.disabled),
       },
       by,
       { egressChanged },
@@ -432,21 +424,19 @@ export class RunnerPool extends EventRecorder {
   }
 
   private setDisabled(disabled: boolean, by: ChangeActor): RunnerPool {
-    this.assertPlatform();
+    const access = this.assertPlatform();
 
-    if (this.isDisabled === disabled) {
+    if (access.disabled === disabled) {
       return this;
     }
 
-    return this.updatePlatform({ disabled }, by, { disabled });
+    return this.updatePlatform({ access: access.withDisabled(disabled) }, by, {
+      disabled,
+    });
   }
 
   private updatePlatform(
-    part: {
-      labels?: RunnerLabels;
-      access?: PlatformAccess;
-      disabled?: boolean;
-    },
+    part: { labels?: RunnerLabels; access: PlatformAccess },
     by: ChangeActor,
     moved: { egressChanged?: boolean; disabled?: boolean },
   ): RunnerPool {
@@ -559,7 +549,6 @@ export class RunnerPool extends EventRecorder {
     labels?: RunnerLabels;
     maxRuns?: MaxRuns | null;
     access?: PoolAccess;
-    disabled?: boolean;
     deleted?: boolean;
   }): RunnerPool {
     const next = new RunnerPool(
@@ -569,7 +558,6 @@ export class RunnerPool extends EventRecorder {
       part.labels ?? this.labels,
       part.maxRuns !== undefined ? part.maxRuns : this.maxRuns,
       part.access ?? this.access,
-      part.disabled ?? this.isDisabled,
       this.version,
       part.deleted ?? this.isDeleted,
     );

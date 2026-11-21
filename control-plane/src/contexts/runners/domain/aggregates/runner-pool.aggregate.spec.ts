@@ -437,7 +437,7 @@ describe('RunnerPool for the platform', () => {
     ).toThrow(InconsistentStateError);
   });
 
-  it('does not read back as the platform pool with another key or a run limit, nor as a disabled pool of the workspace', () => {
+  it('does not read back as the platform pool with another key or a run limit', () => {
     const stored = {
       id: PoolId.of('pool_1'),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -460,14 +460,21 @@ describe('RunnerPool for the platform', () => {
         maxRuns: MaxRuns.of(2),
       }),
     ).toThrow(InconsistentStateError);
-    expect(() =>
-      RunnerPool.rehydrate({
-        ...stored,
-        key: PoolKey.of('sandboxes'),
-        maxRuns: null,
-        access: aPushPool().access,
-        disabled: true,
-      }),
-    ).toThrow(InconsistentStateError);
+  });
+
+  it('reads back disabled from the access of the platform pool, the only access that can be disabled', () => {
+    const pool = RunnerPool.rehydrate({
+      id: PoolId.of('pool_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      key: PoolKey.platform(),
+      labels: RunnerLabels.none(),
+      maxRuns: null,
+      access: PlatformAccess.of(null, true),
+      version: 0,
+    });
+
+    expect(pool.isDisabled).toBe(true);
+    expect(pool.mode).toBe('push');
+    expect(aPushPool().isDisabled).toBe(false);
   });
 });

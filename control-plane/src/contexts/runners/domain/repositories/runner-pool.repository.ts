@@ -22,6 +22,8 @@ export interface RunnerPoolRepository {
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly RunnerPool[]>;
 
+  findByKey(workspaceId: WorkspaceId, key: PoolKey): Promise<RunnerPool | null>;
+
   // The pools of every workspace that have this key.
   withKey(key: PoolKey): Promise<readonly RunnerPool[]>;
 

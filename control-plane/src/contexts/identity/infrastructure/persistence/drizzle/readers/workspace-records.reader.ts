@@ -43,15 +43,6 @@ export class DrizzleWorkspaceRecords implements WorkspaceRecordsPort {
     return found?.slug ?? null;
   }
 
-  async ids(): Promise<readonly string[]> {
-    return (
-      await this.db
-        .select({ id: workspace.id })
-        .from(workspace)
-        .orderBy(workspace.id)
-    ).map((each) => each.id);
-  }
-
   async profileOf(workspaceId: string): Promise<WorkspaceProfile | null> {
     const [found] = await this.db
       .select({

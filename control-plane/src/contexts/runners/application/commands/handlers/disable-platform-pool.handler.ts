@@ -18,7 +18,6 @@ export class DisablePlatformPoolHandler implements CommandHandlerPort<
     try {
       return await this.platformPools.disable(
         WorkspaceId.of(command.workspaceId),
-        command.by,
       );
     } catch (error) {
       rethrowAsApplicationError(error);

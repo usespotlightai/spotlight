@@ -229,7 +229,7 @@ describe('whether a workspace is ready to run', () => {
         now: () => NOW,
         sleep: async () => {},
       },
-      { platformEgress: true, platformPool },
+      { platformEgressSet: true, platformPoolSet: platformPool },
     );
 
   const platformPooled = (
