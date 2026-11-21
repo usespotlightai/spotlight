@@ -92,14 +92,19 @@ const aPool = (
   key: string,
   labels: string[] = [],
   egress = false,
+  managed = false,
 ): BoundedPool => ({
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
   key,
   labels: RunnerOffer.of(labels),
   egress,
+  managed,
   maxRuns: null,
 });
+
+const aManagedPool = (labels: string[] = [], egress = false): BoundedPool =>
+  aPool('spotlight', labels, egress, true);
 
 const provisioning = (
   queue: readonly Run[],
@@ -150,6 +155,13 @@ const provisioning = (
       stored.set(run.id.value, run);
     },
     awaitingProvision,
+    workspacesAwaitingProvision: async (at: Date) => [
+      ...new Map(
+        [...stored.values()]
+          .filter((each) => each.provisionableAt(at, true))
+          .map((each) => [each.workspaceId.value, each.workspaceId]),
+      ).values(),
+    ],
     withExpiredReservations: async (at: Date) =>
       [...stored.values()].filter((each) => each.reservationExpiredAt(at)),
   } as unknown as RunRepository;
@@ -172,12 +184,21 @@ const provisioning = (
     unreserve: vi.fn(async () => {}),
     failed: vi.fn(async () => {}),
     expired: vi.fn(async () => waitingChecks.expired ?? []),
+    workspacesAwaiting: vi.fn(async () =>
+      (waitingChecks.awaiting ?? []).length > 0 ? [WorkspaceId.of('ws_1')] : [],
+    ),
   } satisfies ReviewWorkProvisioningPort;
   let generated = 0;
   const failures = new ProvisionFailures(runs);
+  const offering = vi.fn(async (workspaceIds: readonly WorkspaceId[]) =>
+    pools.filter((each) =>
+      workspaceIds.some((id) => id.equals(each.workspaceId)),
+    ),
+  );
 
   return {
     provision,
+    offering,
     release,
     recorded,
     checks,
@@ -187,7 +208,7 @@ const provisioning = (
       runs,
       checks,
       {
-        provisioning: async () => pools,
+        provisioning: offering,
         roomIn: async (poolId: string) => {
           const maxRuns =
             pools.find((each) => each.poolId === poolId)?.maxRuns ?? null;
@@ -648,6 +669,53 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(provision).not.toHaveBeenCalled();
+  });
+
+  it('hands a run to the managed pool when no pool of the workspace fits it', async () => {
+    const { provisioner, provision } = provisioning(
+      [waiting('run_1', ['gpu']), waiting('run_2', ['arm'])],
+      [aPool('burst', ['gpu']), aManagedPool(['arm'])],
+    );
+
+    await provisioner.due();
+
+    expect(
+      provision.mock.calls.map(([request]) => [
+        request.work.id,
+        request.poolId,
+      ]),
+    ).toEqual([
+      ['run_1', 'pool_burst'],
+      ['run_2', 'pool_spotlight'],
+    ]);
+  });
+
+  it('keeps a run off the managed pool while a full pool of the workspace fits it', async () => {
+    const { provisioner, provision, run } = provisioning(
+      [waiting('run_1', ['gpu'])],
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aManagedPool(['gpu'])],
+      {},
+      NOON,
+      1,
+    );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(run('run_1').reservation).toBeNull();
+  });
+
+  it('visits only the workspaces with work that waits', async () => {
+    const ws2 = { ...aManagedPool(), workspaceId: WorkspaceId.of('ws_2') };
+    const { provisioner, provision, offering } = provisioning(
+      [waiting('run_1')],
+      [aManagedPool(), ws2],
+    );
+
+    await provisioner.due();
+
+    expect(offering).toHaveBeenCalledExactlyOnceWith([WorkspaceId.of('ws_1')]);
+    expect(provision).toHaveBeenCalledOnce();
   });
 
   it('fails a reservation nobody claimed in time, saving that its runner is to be released', async () => {

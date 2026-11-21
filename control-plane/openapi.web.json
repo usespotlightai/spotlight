@@ -8259,11 +8259,17 @@
             "nullable": true,
             "example": "build-farm",
             "description": "The pool’s or trust’s key; null once it is gone"
+          },
+          "managed": {
+            "type": "boolean",
+            "example": false,
+            "description": "The deployment manages the pool and its provisioner for every workspace. Terraform does not manage it"
           }
         },
         "required": [
           "kind",
-          "key"
+          "key",
+          "managed"
         ]
       },
       "IdleSandboxResponseDto": {

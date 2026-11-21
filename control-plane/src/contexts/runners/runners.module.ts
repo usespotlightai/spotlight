@@ -15,6 +15,7 @@ import { SANDBOX_RETIREMENT } from '@runners/application/ports/sandbox-retiremen
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
 import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
+import { RUNNERS_STARTUP } from '@runners/runners.startup';
 import {
   RUNNERS_CONTROLLERS,
   RUNNERS_PROVIDERS,
@@ -24,7 +25,7 @@ import { SecretsModule } from '@secrets/secrets.module';
 @Module({
   imports: [IdentityModule, SecretsModule],
   controllers: [...RUNNERS_CONTROLLERS],
-  providers: [...RUNNERS_PROVIDERS],
+  providers: [...RUNNERS_PROVIDERS, RUNNERS_STARTUP],
   exports: [
     RUNNER_CLAIMANTS,
     RUNNER_READER,

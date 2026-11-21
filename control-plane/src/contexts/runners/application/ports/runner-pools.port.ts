@@ -9,6 +9,8 @@ export interface PoolAtWork {
   readonly key: string;
   readonly labels: RunnerOffer;
   readonly egress: boolean;
+  // The deployment manages the pool and its provisioner.
+  readonly managed: boolean;
 }
 
 export interface RunnerPoolsPort {
@@ -17,7 +19,10 @@ export interface RunnerPoolsPort {
     poolId: string,
   ): Promise<PoolAtWork | null>;
 
-  provisioning(): Promise<readonly PoolAtWork[]>;
+  // The pools that Spotlight can ask for runners in these workspaces now.
+  provisioning(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly PoolAtWork[]>;
 
   running(poolId: string, now: Date): Promise<number>;
 

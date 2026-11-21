@@ -226,6 +226,11 @@ export const poolName = (source: CredentialSourceResponseDto): string =>
 
 export const PUSH_POOL = 'Push pool';
 
+export const MANAGED_POOL = 'Managed by the deployment';
+
+export const MANAGED_POOL_TIP =
+  'The operator of this deployment sets up this pool for each workspace. Spotlight sends work to it only when no other pool of this workspace fits the work.';
+
 export const poolStatus = (pool: PushPool): string => {
   const running = pool.runners.filter(
     (runner) => runner.currentRun !== null,

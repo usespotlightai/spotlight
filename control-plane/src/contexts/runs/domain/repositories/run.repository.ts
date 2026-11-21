@@ -64,6 +64,9 @@ export interface RunRepository {
     },
   ): Promise<QueuedRuns>;
 
+  // The workspaces that have a run that waits for Spotlight to provision a runner now.
+  workspacesAwaitingProvision(now: Date): Promise<readonly WorkspaceId[]>;
+
   withExpiredReservations(now: Date): Promise<readonly Run[]>;
 
   save(run: Run): Promise<void>;

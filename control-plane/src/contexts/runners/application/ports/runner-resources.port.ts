@@ -66,8 +66,6 @@ export interface RunnerResourcesPort {
 
   poolsIn(workspaceId: WorkspaceId): Promise<readonly RunnerPoolRecord[]>;
 
-  provisioningPools(): Promise<readonly RunnerPoolRecord[]>;
-
   egressWithId(id: string): Promise<EgressRecord | null>;
 
   egressAt(workspaceId: WorkspaceId, key: string): Promise<EgressRecord | null>;

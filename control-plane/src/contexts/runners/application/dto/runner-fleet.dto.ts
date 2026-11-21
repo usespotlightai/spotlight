@@ -4,6 +4,7 @@ import type { LiveSandboxStatus } from '@runners/domain/aggregates/sandbox.aggre
 export interface CredentialSourceDto {
   readonly kind: CredentialSourceKind;
   readonly key: string | null;
+  readonly managed: boolean;
 }
 
 interface HostHarnessDto {

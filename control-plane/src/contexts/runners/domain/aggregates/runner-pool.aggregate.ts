@@ -8,13 +8,14 @@ import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
+  ManagedAccess,
   type PoolAccess,
   type PoolMode,
   PullAccess,
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
 import type { PoolCapacity } from '@runners/domain/value-objects/pool-capacity';
-import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
@@ -49,6 +50,12 @@ export type AccessInput =
       readonly egress: EgressReference | null;
       readonly egressTraffic?: EgressTraffic;
     };
+
+// What the deployment sets for the pool that it manages in every workspace.
+export interface ManagedDefinition {
+  readonly labels: RunnerLabels;
+  readonly egress: EgressReference | null;
+}
 
 const SECRET_FIELD = 'provision.secret';
 
@@ -108,6 +115,40 @@ export class RunnerPool extends EventRecorder {
     return created;
   }
 
+  static createManaged(
+    input: ManagedDefinition & {
+      id: PoolId;
+      workspaceId: WorkspaceId;
+      by: ChangeActor;
+    },
+  ): RunnerPool {
+    const created = new RunnerPool(
+      input.id,
+      input.workspaceId,
+      PoolKey.managed(),
+      input.labels,
+      null,
+      ManagedAccess.of(input.egress, false),
+      0,
+      false,
+    );
+
+    created.record(
+      new RunnerPoolCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
+        ConfigurationChange.created(
+          created.whatChanged,
+          input.by,
+          RunnerPoolChangeDetail.created(created.mode),
+        ),
+      ),
+    );
+
+    return created;
+  }
+
   static rehydrate(
     input: PoolDefinition & {
       id: PoolId;
@@ -120,6 +161,16 @@ export class RunnerPool extends EventRecorder {
       throw new InconsistentStateError(
         'runner pool',
         `has an impossible version (${input.version})`,
+      );
+    }
+
+    if (
+      input.access instanceof ManagedAccess &&
+      (!input.key.equals(PoolKey.managed()) || input.maxRuns !== null)
+    ) {
+      throw new InconsistentStateError(
+        'runner pool',
+        `is a managed pool with key ${input.key.value} and run limit ${input.maxRuns?.value ?? 'none'}. A managed pool has key ${PoolKey.managed().value} and no run limit`,
       );
     }
 
@@ -175,7 +226,19 @@ export class RunnerPool extends EventRecorder {
   }
 
   get provision(): PushAccess | null {
-    return this.access.mode === 'push' ? this.access : null;
+    return this.access instanceof PushAccess ? this.access : null;
+  }
+
+  get isManaged(): boolean {
+    return this.access instanceof ManagedAccess;
+  }
+
+  get isDisabled(): boolean {
+    return this.access instanceof ManagedAccess && this.access.disabled;
+  }
+
+  get canProvision(): boolean {
+    return !this.isDeleted && this.mode === 'push' && !this.isDisabled;
   }
 
   belongsTo(workspaceId: WorkspaceId): boolean {
@@ -187,11 +250,13 @@ export class RunnerPool extends EventRecorder {
   }
 
   get egress(): EgressReference | null {
-    return this.provision?.egress ?? null;
+    return this.access.mode === 'push' ? this.access.egress : null;
   }
 
   get egressTraffic(): EgressTraffic {
-    return this.provision?.egressTraffic ?? EgressTraffic.all();
+    return this.access.mode === 'push'
+      ? this.access.egressTraffic
+      : EgressTraffic.all();
   }
 
   servesEgressNeed(needsEgress: boolean): boolean {
@@ -199,11 +264,15 @@ export class RunnerPool extends EventRecorder {
   }
 
   usesEgress(egress: EgressReference): boolean {
-    return !this.isDeleted && (this.provision?.usesEgress(egress) ?? false);
+    return (
+      !this.isDeleted &&
+      this.access.mode === 'push' &&
+      this.access.usesEgress(egress)
+    );
   }
 
   roomFor(occupancy: PoolOccupancy): number | null {
-    if (this.isDeleted) {
+    if (this.isDeleted || this.isDisabled) {
       return 0;
     }
 
@@ -211,7 +280,7 @@ export class RunnerPool extends EventRecorder {
   }
 
   capacity(mode: PoolMode, occupancy: PoolOccupancy): PoolCapacity {
-    if (this.isDeleted || mode !== this.mode) {
+    if (this.isDeleted || this.isDisabled || mode !== this.mode) {
       return 'gone';
     }
 
@@ -230,6 +299,7 @@ export class RunnerPool extends EventRecorder {
     by: ChangeActor,
   ): RunnerPool {
     this.assertNotDeleted();
+    this.assertNotManaged();
 
     if (!definition.key.equals(this.key)) {
       const because = `can't change its key to ${definition.key.value}. Please replace the pool instead`;
@@ -285,6 +355,33 @@ export class RunnerPool extends EventRecorder {
     return updated;
   }
 
+  // Gives a managed pool the labels and egress that the deployment sets now.
+  reconcile(definition: ManagedDefinition, by: ChangeActor): RunnerPool {
+    const access = this.managedAccess();
+    const egressChanged = !sameEgress(access.egress, definition.egress);
+
+    if (definition.labels.equals(this.labels) && !egressChanged) {
+      return this;
+    }
+
+    return this.updateManaged(
+      {
+        labels: definition.labels,
+        access: ManagedAccess.of(definition.egress, access.disabled),
+      },
+      by,
+      { egressChanged },
+    );
+  }
+
+  disable(by: ChangeActor): RunnerPool {
+    return this.setDisabled(true, by);
+  }
+
+  enable(by: ChangeActor): RunnerPool {
+    return this.setDisabled(false, by);
+  }
+
   delete(by: ChangeActor): RunnerPool {
     this.assertNotDeleted();
 
@@ -300,6 +397,60 @@ export class RunnerPool extends EventRecorder {
     );
 
     return deleted;
+  }
+
+  private setDisabled(disabled: boolean, by: ChangeActor): RunnerPool {
+    const access = this.managedAccess();
+
+    if (access.disabled === disabled) {
+      return this;
+    }
+
+    return this.updateManaged(
+      { access: ManagedAccess.of(access.egress, disabled) },
+      by,
+      { disabled },
+    );
+  }
+
+  private updateManaged(
+    part: { labels?: RunnerLabels; access: ManagedAccess },
+    by: ChangeActor,
+    moved: { egressChanged?: boolean; disabled?: boolean },
+  ): RunnerPool {
+    const updated = this.with(part);
+
+    updated.record(
+      new RunnerPoolUpdated(
+        this.id,
+        this.workspaceId,
+        this.key,
+        ConfigurationChange.updated(
+          this.whatChanged,
+          by,
+          RunnerPoolChangeDetail.updated(this.mode, {
+            tokenRotated: false,
+            secretRotated: false,
+            ...moved,
+          }),
+        ),
+      ),
+    );
+
+    return updated;
+  }
+
+  private managedAccess(): ManagedAccess {
+    this.assertNotDeleted();
+
+    if (!(this.access instanceof ManagedAccess)) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was changed as a managed pool while its workspace owns it',
+      );
+    }
+
+    return this.access;
   }
 
   private nextAccess(accessInput: AccessInput): PoolAccess {
@@ -320,7 +471,7 @@ export class RunnerPool extends EventRecorder {
       );
     }
 
-    if (accessInput.mode === 'push' && this.access.mode === 'push') {
+    if (accessInput.mode === 'push' && this.access instanceof PushAccess) {
       if (
         !accessInput.secret &&
         this.access.rotatesOn(RotationVersion.of(accessInput.secretVersion))
@@ -352,6 +503,15 @@ export class RunnerPool extends EventRecorder {
       id: this.id.value,
       key: this.key.value,
     };
+  }
+
+  private assertNotManaged(): void {
+    if (this.isManaged) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was changed as a workspace pool while the deployment manages it',
+      );
+    }
   }
 
   private assertNotDeleted(): void {

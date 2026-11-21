@@ -83,6 +83,9 @@ export const runnerPool = pgTable(
     provisionSecretVersion: integer('provision_secret_version'),
     provisionEgress: text('provision_egress'),
     provisionEgressTraffic: text('provision_egress_traffic'),
+    // The deployment sets up a managed pool and gives its provision URL and secret, so the row keeps neither.
+    managed: boolean('managed').notNull().default(false),
+    disabled: boolean('disabled').notNull().default(false),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
@@ -94,11 +97,15 @@ export const runnerPool = pgTable(
     uniqueIndex('runner_pool_token_hash_idx').on(table.tokenHash),
     check(
       'runner_pool_one_mode',
-      sql`(${table.tokenHash} is null) <> (${table.provisionUrl} is null) and (${table.provisionUrl} is null) = (${table.provisionSecret} is null)`,
+      sql`case when ${table.managed} then ${table.tokenHash} is null and ${table.provisionUrl} is null and ${table.provisionSecret} is null and ${table.maxRuns} is null else (${table.tokenHash} is null) <> (${table.provisionUrl} is null) and (${table.provisionUrl} is null) = (${table.provisionSecret} is null) end`,
     ),
     check(
       'runner_pool_egress_pushes',
-      sql`${table.provisionEgress} is null or ${table.provisionUrl} is not null`,
+      sql`${table.provisionEgress} is null or ${table.provisionUrl} is not null or ${table.managed}`,
+    ),
+    check(
+      'runner_pool_disabled_managed',
+      sql`not ${table.disabled} or ${table.managed}`,
     ),
   ],
 );

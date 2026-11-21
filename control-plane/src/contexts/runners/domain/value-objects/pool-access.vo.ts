@@ -60,4 +60,24 @@ export class PushAccess {
   }
 }
 
-export type PoolAccess = PullAccess | PushAccess;
+// The deployment gives the provision URL and secret of a managed pool, so the access keeps neither.
+export class ManagedAccess {
+  readonly mode = 'push' as const;
+
+  readonly egressTraffic = EgressTraffic.all();
+
+  private constructor(
+    readonly egress: EgressReference | null,
+    readonly disabled: boolean,
+  ) {}
+
+  static of(egress: EgressReference | null, disabled: boolean): ManagedAccess {
+    return new ManagedAccess(egress, disabled);
+  }
+
+  usesEgress(egress: EgressReference): boolean {
+    return this.egress?.equals(egress) ?? false;
+  }
+}
+
+export type PoolAccess = PullAccess | PushAccess | ManagedAccess;

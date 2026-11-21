@@ -899,7 +899,7 @@ describe('runner pools (e2e)', () => {
       expect(fleet.body.runners).toEqual([
         expect.objectContaining({
           id: claimed.body.runnerId,
-          source: { kind: 'pool', key: null },
+          source: { kind: 'pool', key: null, managed: false },
           hostId: HOST,
         }),
       ]);
@@ -979,7 +979,7 @@ describe('runner pools (e2e)', () => {
           {
             id: HOST,
             name: 'build-box',
-            source: { kind: 'pool', key: 'ephemeral' },
+            source: { kind: 'pool', key: 'ephemeral', managed: false },
             release: '0.1.0',
             unavailableReason: null,
             containerRuntime: 'docker',
@@ -1014,7 +1014,7 @@ describe('runner pools (e2e)', () => {
         runners: [
           {
             id: claimed.body.runnerId,
-            source: { kind: 'pool', key: 'ephemeral' },
+            source: { kind: 'pool', key: 'ephemeral', managed: false },
             hostId: HOST,
             image: DEFAULT_IMAGE,
             harnesses: ['dev'],

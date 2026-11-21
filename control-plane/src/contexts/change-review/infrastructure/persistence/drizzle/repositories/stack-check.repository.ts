@@ -268,6 +268,15 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return rows.map(toStackCheck);
   }
 
+  async workspacesWaiting(): Promise<readonly WorkspaceId[]> {
+    const rows = await this.context.db
+      .selectDistinct({ workspaceId: stackCheck.workspaceId })
+      .from(stackCheck)
+      .where(eq(stackCheck.status, 'waiting'));
+
+    return rows.map((row) => WorkspaceId.of(row.workspaceId));
+  }
+
   async reserved(): Promise<readonly StackCheck[]> {
     const rows = await this.context.db
       .select()

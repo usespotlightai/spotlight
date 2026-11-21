@@ -28,7 +28,9 @@ export class DeleteRunnerPoolHandler implements CommandHandlerPort<
     const id = PoolId.of(command.poolId);
 
     try {
-      const existing = await this.pools.find(id);
+      const found = await this.pools.find(id);
+      // Terraform does not manage the pool that the deployment manages.
+      const existing = found?.isManaged ? null : found;
       const permissions = existing
         ? await this.access.permissionsIn(
             existing.workspaceId,
@@ -59,7 +61,7 @@ export class DeleteRunnerPoolHandler implements CommandHandlerPort<
       if (error instanceof RunnerPoolVersionConflictError) {
         const current = await this.pools.find(id);
 
-        return current
+        return current && !current.isManaged
           ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }

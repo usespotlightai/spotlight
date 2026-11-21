@@ -19,7 +19,11 @@ export type ProvisionedWork =
     }
   | { readonly kind: 'diff'; readonly diffId: string };
 
+// A call to the provisioner of a workspace pool goes out under the workspace's outbound allow-list. A call to the managed provisioner goes out under the deployment's list only.
+export type ProvisionScope = 'workspace' | 'deployment';
+
 export interface ProvisionCall {
+  readonly scope: ProvisionScope;
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
   readonly messageId: string;

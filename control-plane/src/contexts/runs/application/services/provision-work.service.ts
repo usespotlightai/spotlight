@@ -18,11 +18,12 @@ import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-con
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
 import {
+  offerOrder,
   type PoolOnOffer,
   PoolRoom,
   poolChoiceFor,
 } from '@runs/domain/services/pool-choice';
-import { poolCouldTake } from '@runs/domain/services/pool-fit';
+import { poolFits } from '@runs/domain/services/pool-fit';
 import { ProvisionPlan } from '@runs/domain/services/provision-plan';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -33,6 +34,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const MAX_AT_ONCE = 20;
 
@@ -82,9 +84,9 @@ const awaitAll = async (
 };
 
 const byWorkspace = (
-  pools: readonly PoolAtWork[],
-): ReadonlyMap<string, readonly PoolAtWork[]> => {
-  const grouped = new Map<string, PoolAtWork[]>();
+  pools: readonly OfferedPool[],
+): ReadonlyMap<string, readonly OfferedPool[]> => {
+  const grouped = new Map<string, OfferedPool[]>();
 
   for (const pool of pools) {
     const inWorkspace = grouped.get(pool.workspaceId.value) ?? [];
@@ -93,13 +95,17 @@ const byWorkspace = (
   }
 
   for (const group of grouped.values()) {
-    group.sort((one, other) =>
-      one.key < other.key ? -1 : one.key > other.key ? 1 : 0,
-    );
+    group.sort(offerOrder);
   }
 
   return grouped;
 };
+
+const unique = (
+  workspaceIds: readonly WorkspaceId[],
+): readonly WorkspaceId[] => [
+  ...new Map(workspaceIds.map((each) => [each.value, each])).values(),
+];
 
 export class ProvisionWork {
   readonly #noted = new OncePer(NOTED_FOR_MS);
@@ -119,18 +125,28 @@ export class ProvisionWork {
   async due(): Promise<void> {
     await this.expired();
 
+    const offered = (await this.pools.provisioning(await this.queued())).map(
+      (each): OfferedPool => ({ ...each, pool: PoolId.of(each.poolId) }),
+    );
+
     await awaitAll(
-      [...byWorkspace(await this.pools.provisioning()).values()].map((pools) =>
+      [...byWorkspace(offered).values()].map((pools) =>
         this.inWorkspace(pools),
       ),
     );
   }
 
-  private async inWorkspace(atWork: readonly PoolAtWork[]): Promise<void> {
-    const pools: readonly OfferedPool[] = atWork.map((each) => ({
-      ...each,
-      pool: PoolId.of(each.poolId),
-    }));
+  // Every workspace has the managed pool, so the tick visits only the workspaces with work that waits.
+  private async queued(): Promise<readonly WorkspaceId[]> {
+    const [runs, reviewWork] = await Promise.all([
+      this.runs.workspacesAwaitingProvision(this.clock.now()),
+      this.reviewWork.workspacesAwaiting(),
+    ]);
+
+    return unique([...runs, ...reviewWork]);
+  }
+
+  private async inWorkspace(pools: readonly OfferedPool[]): Promise<void> {
     const [first] = pools;
 
     if (!first) {
@@ -287,10 +303,8 @@ export class ProvisionWork {
       return;
     }
 
-    const matches = pools.some(
-      (offered) =>
-        (offered.egress || !provisionable.needsEgress) &&
-        poolCouldTake(provisionable.placement, offered.labels),
+    const matches = pools.some((offered) =>
+      poolFits(provisionable.placement, offered, provisionable.needsEgress),
     );
 
     this.logger.info(

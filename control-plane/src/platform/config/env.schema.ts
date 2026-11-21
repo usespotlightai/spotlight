@@ -76,6 +76,14 @@ export const envSchema = databaseSchema
       .string()
       .regex(/^[A-Za-z0-9._~-]{32,255}$/)
       .optional(),
+    // The provision URL of the pool that this deployment adds to every workspace. With no value, Spotlight adds no such pool.
+    SPOTLIGHT_MANAGED_POOL_URL: unsetWhenEmpty(z.url({ protocol: /^https?$/ })),
+    SPOTLIGHT_MANAGED_POOL_SECRET: unsetWhenEmpty(
+      z.string().regex(/^whsec_[A-Za-z0-9+/]{32,88}={0,2}$/),
+    ),
+    // The labels that the pool serves, separated by commas. With no value, the pool serves only work that names no runners.
+    SPOTLIGHT_MANAGED_POOL_LABELS: z.string().default(''),
+    SPOTLIGHT_MANAGED_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
@@ -140,6 +148,26 @@ export const envSchema = databaseSchema
       path: ['SPOTLIGHT_PLATFORM_EGRESS_TOKEN'],
       message:
         'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Set both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
+    },
+  )
+  .refine(
+    (env) =>
+      (env.SPOTLIGHT_MANAGED_POOL_URL === undefined) ===
+      (env.SPOTLIGHT_MANAGED_POOL_SECRET === undefined),
+    {
+      path: ['SPOTLIGHT_MANAGED_POOL_SECRET'],
+      message:
+        'goes with SPOTLIGHT_MANAGED_POOL_URL. Set both to add the managed pool to every workspace, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
+    },
+  )
+  .refine(
+    (env) =>
+      env.SPOTLIGHT_MANAGED_POOL_EGRESS === undefined ||
+      env.SPOTLIGHT_PLATFORM_EGRESS_URL !== undefined,
+    {
+      path: ['SPOTLIGHT_MANAGED_POOL_EGRESS'],
+      message:
+        'names the platform egress. Please set SPOTLIGHT_PLATFORM_EGRESS_URL and SPOTLIGHT_PLATFORM_EGRESS_TOKEN, or leave SPOTLIGHT_MANAGED_POOL_EGRESS empty',
     },
   )
   .refine(

@@ -13,6 +13,8 @@ export interface PushDiffRepository {
 
   waitingIn(workspaceId: WorkspaceId): Promise<readonly PushDiff[]>;
 
+  workspacesWaiting(): Promise<readonly WorkspaceId[]>;
+
   waiting(): Promise<readonly PushDiff[]>;
 
   ofTask(taskId: TaskId): Promise<readonly PushDiff[]>;

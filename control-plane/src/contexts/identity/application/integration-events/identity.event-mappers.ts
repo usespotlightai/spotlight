@@ -1,5 +1,6 @@
 import type { TeamCreated } from '@identity/domain/events/team-created.event';
 import type { TeamDeleted } from '@identity/domain/events/team-deleted.event';
+import type { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import type { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import {
   TEAM_CREATED,
@@ -10,12 +11,23 @@ import {
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
+  WORKSPACE_CREATED,
+  type WorkspaceCreatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-created.integration-event';
+import {
   WORKSPACE_DELETED,
   type WorkspaceDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const IDENTITY_EVENT_MAPPERS = [
+  mapping<WorkspaceCreated>(
+    'workspace.created',
+    (event): WorkspaceCreatedIntegrationEvent => ({
+      kind: WORKSPACE_CREATED,
+      workspaceId: event.workspaceId.value,
+    }),
+  ),
   mapping<TeamDeleted>(
     'team.deleted',
     (event): TeamDeletedIntegrationEvent => ({

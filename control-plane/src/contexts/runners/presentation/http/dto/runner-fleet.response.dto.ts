@@ -12,9 +12,17 @@ export class CredentialSourceResponseDto {
   })
   readonly key: string | null;
 
-  constructor(kind: 'pool' | 'trust', key: string | null) {
+  @ApiProperty({
+    example: false,
+    description:
+      'The deployment manages the pool and its provisioner for every workspace. Terraform does not manage it',
+  })
+  readonly managed: boolean;
+
+  constructor(kind: 'pool' | 'trust', key: string | null, managed: boolean) {
     this.kind = kind;
     this.key = key;
+    this.managed = managed;
   }
 }
 

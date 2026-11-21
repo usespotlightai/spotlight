@@ -14,6 +14,7 @@ import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
+  ManagedAccess,
   type PoolAccess,
   PullAccess,
   PushAccess,
@@ -31,12 +32,13 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, or, type SQL } from 'drizzle-orm';
 
 type Row = typeof runnerPool.$inferSelect;
 
 const written = (pool: RunnerPool) => {
   const { access } = pool;
+  const pushed = access instanceof PushAccess ? access : null;
 
   return {
     key: pool.key.value,
@@ -44,20 +46,28 @@ const written = (pool: RunnerPool) => {
     maxRuns: pool.maxRuns?.value ?? null,
     tokenHash: access.mode === 'pull' ? access.tokenHash.value : null,
     tokenVersion: access.mode === 'pull' ? access.tokenVersion.value : null,
-    provisionUrl: access.mode === 'push' ? access.url.value : null,
-    provisionSecret: access.mode === 'push' ? access.secret.value : null,
-    provisionSecretVersion:
-      access.mode === 'push' ? access.secretVersion.value : null,
+    provisionUrl: pushed?.url.value ?? null,
+    provisionSecret: pushed?.secret.value ?? null,
+    provisionSecretVersion: pushed?.secretVersion.value ?? null,
     provisionEgress:
       access.mode === 'push' ? (access.egress?.value ?? null) : null,
     provisionEgressTraffic:
       access.mode === 'push' && access.egress
         ? access.egressTraffic.value
         : null,
+    managed: access instanceof ManagedAccess,
+    disabled: access instanceof ManagedAccess && access.disabled,
   };
 };
 
+const egressOf = (row: Row): EgressReference | null =>
+  row.provisionEgress === null ? null : EgressReference.of(row.provisionEgress);
+
 const accessOf = (row: Row): PoolAccess => {
+  if (row.managed) {
+    return ManagedAccess.of(egressOf(row), row.disabled);
+  }
+
   if (row.tokenHash) {
     return PullAccess.of(
       TokenHash.of(row.tokenHash),
@@ -70,9 +80,7 @@ const accessOf = (row: Row): PoolAccess => {
       ProvisionUrl.of(row.provisionUrl),
       EncryptedProvisionSecret.of(row.provisionSecret),
       RotationVersion.of(row.provisionSecretVersion),
-      row.provisionEgress === null
-        ? null
-        : EgressReference.of(row.provisionEgress),
+      egressOf(row),
       row.provisionEgressTraffic === 'bound'
         ? EgressTraffic.of('bound')
         : EgressTraffic.all(),
@@ -178,6 +186,38 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
       .select()
       .from(runnerPool)
       .where(eq(runnerPool.workspaceId, workspaceId.value));
+
+    return rows.map(toPool);
+  }
+
+  async withKey(key: PoolKey): Promise<readonly RunnerPool[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runnerPool)
+      .where(eq(runnerPool.key, key.value));
+
+    return rows.map(toPool);
+  }
+
+  async pushingIn(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly RunnerPool[]> {
+    if (workspaceIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(runnerPool)
+      .where(
+        and(
+          inArray(
+            runnerPool.workspaceId,
+            workspaceIds.map((each) => each.value),
+          ),
+          or(isNotNull(runnerPool.provisionUrl), eq(runnerPool.managed, true)),
+        ),
+      );
 
     return rows.map(toPool);
   }

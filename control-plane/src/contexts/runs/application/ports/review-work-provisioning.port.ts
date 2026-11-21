@@ -27,6 +27,9 @@ export interface ReviewWorkProvisioningPort {
     page: { readonly skip: number; readonly max: number },
   ): Promise<readonly WaitingReviewWork[]>;
 
+  // The workspaces that have review work that waits for a runner.
+  workspacesAwaiting(): Promise<readonly WorkspaceId[]>;
+
   reserve(
     work: ReviewWork,
     runner: RunnerId,

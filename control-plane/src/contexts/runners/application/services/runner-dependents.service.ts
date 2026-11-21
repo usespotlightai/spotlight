@@ -27,10 +27,13 @@ export class RunnerDependents implements WorkspaceDependentSource {
         kind: 'runner-trust' as const,
         key: each.key.value,
       })),
-      ...pools.map((each) => ({
-        kind: 'runner-pool' as const,
-        key: each.key.value,
-      })),
+      // Spotlight deletes the managed pool with its workspace, so it does not keep the workspace.
+      ...pools
+        .filter((each) => !each.isManaged)
+        .map((each) => ({
+          kind: 'runner-pool' as const,
+          key: each.key.value,
+        })),
       ...egresses.map((each) => ({
         kind: 'egress' as const,
         key: each.key.value,

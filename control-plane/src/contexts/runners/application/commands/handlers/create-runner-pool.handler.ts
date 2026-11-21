@@ -1,6 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { CreateRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerPoolCreatedDto } from '@runners/application/dto/runner-resource.dto';
+import type { ManagedPoolSettings } from '@runners/application/ports/managed-pool-settings.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
@@ -23,6 +24,7 @@ import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { tokenTakenBy } from '@runners/domain/services/token-reuse';
+import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -52,6 +54,7 @@ export class CreateRunnerPoolHandler implements CommandHandlerPort<
     private readonly secrets: ProvisionSecretsPort,
     private readonly egresses: EgressRepository,
     private readonly platform: PlatformEgressSettings | null,
+    private readonly managed: ManagedPoolSettings | null,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
     private readonly tokens: TokenIssuer,
@@ -80,6 +83,16 @@ export class CreateRunnerPoolHandler implements CommandHandlerPort<
       if (!compiled.ok) {
         return {
           created: { outcome: 'invalid', problems: compiled.problems },
+          token: null,
+        };
+      }
+
+      if (await this.keepsManagedKey(compiled.key, permissions.workspaceId)) {
+        return {
+          created: {
+            outcome: 'invalid',
+            problems: [RunnerProblems.managedPoolKey(compiled.key.value)],
+          },
           token: null,
         };
       }
@@ -194,5 +207,19 @@ export class CreateRunnerPoolHandler implements CommandHandlerPort<
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async keepsManagedKey(
+    key: PoolKey,
+    workspaceId: WorkspaceId,
+  ): Promise<boolean> {
+    if (!key.equals(PoolKey.managed())) {
+      return false;
+    }
+
+    return (
+      this.managed !== null ||
+      (await this.pools.inWorkspace(workspaceId)).some((each) => each.isManaged)
+    );
   }
 }
