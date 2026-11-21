@@ -88,7 +88,7 @@ describe('WorkspaceMembers on the mock API', () => {
     ).toBeInTheDocument();
   });
 
-  it('suspends a member after a confirmation, marks them, and lists them under the Suspended filter', async () => {
+  it('suspends a member after a confirmation, and lists them in the Suspended section', async () => {
     await opened();
 
     await userEvent.click(
@@ -104,28 +104,18 @@ describe('WorkspaceMembers on the mock API', () => {
       ),
     );
 
-    expect(
-      await within(rowOf('Members', 'Maya Chen')).findByText(
-        'Suspended',
-        undefined,
-        WAIT,
-      ),
-    ).toBeInTheDocument();
+    const suspended = await screen.findByRole(
+      'list',
+      { name: 'Suspended' },
+      WAIT,
+    );
+
+    expect(within(suspended).getByText('Maya Chen')).toBeInTheDocument();
+    expect(within(suspended).getByText('Suspended')).toBeInTheDocument();
     await waitFor(
       () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
       WAIT,
     );
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Filter members' }),
-    );
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Show: Everyone' }, WAIT),
-    );
-    await userEvent.click(
-      await screen.findByRole('menuitemradio', { name: 'Suspended' }, WAIT),
-    );
-
     expect(
       await screen.findByRole('heading', { name: /Suspended\s*1/ }, WAIT),
     ).toBeInTheDocument();

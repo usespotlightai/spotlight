@@ -108,7 +108,6 @@ export const MEMBER_SHOWS = [
   { value: 'owner', label: 'Owners' },
   { value: 'admin', label: 'Admins' },
   { value: 'member', label: 'Members' },
-  { value: 'suspended', label: 'Suspended' },
   { value: 'invited', label: 'Pending invites' },
 ] as const;
 
@@ -130,14 +129,14 @@ export const visibleMembers = (
     return null;
   }
 
-  if (show === null) {
-    return [...members];
-  }
+  const active = members.filter((each) => each.suspendedAt === null);
 
-  return show === 'suspended'
-    ? members.filter((each) => each.suspendedAt !== null)
-    : members.filter((each) => each.role === show);
+  return show === null ? active : active.filter((each) => each.role === show);
 };
+
+export const suspendedMembers = (
+  members: readonly WorkspaceMember[],
+): WorkspaceMember[] => members.filter((each) => each.suspendedAt !== null);
 
 export const showsInvites = (show: MemberShow | null): boolean =>
   show === null || show === 'invited';

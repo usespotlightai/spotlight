@@ -137,10 +137,9 @@ const showing = (at = '/w/acme/settings/members') =>
     </MemoryRouter>,
   );
 
-const rowOf = (name: string) =>
-  within(membersList()).getByText(name).closest('li') as HTMLElement;
-
 const membersList = () => screen.getByRole('list', { name: 'Members' });
+
+const suspendedList = () => screen.getByRole('list', { name: 'Suspended' });
 
 const invitesList = () => screen.getByRole('list', { name: 'Pending invites' });
 
@@ -423,11 +422,13 @@ describe('WorkspaceMembers', () => {
     ]);
     showing();
 
+    const row = within(suspendedList()).getByText('Maya Chen').closest('li');
+
     expect(
-      within(rowOf('Maya Chen')).getByText('Suspended'),
+      within(row as HTMLElement).getByText('Suspended'),
     ).toBeInTheDocument();
     expect(
-      within(rowOf('Sam Rivera')).queryByText('Suspended'),
+      within(membersList()).queryByText('Maya Chen'),
     ).not.toBeInTheDocument();
 
     await userEvent.click(
@@ -445,7 +446,7 @@ describe('WorkspaceMembers', () => {
     expect(unsuspend).toHaveBeenCalledWith('user_3', expect.anything());
   });
 
-  it('shows only the suspended members under the Suspended filter', () => {
+  it('lists suspended members in their own section, apart from the members', () => {
     members.mockReturnValue([
       member({}),
       member({
@@ -456,26 +457,23 @@ describe('WorkspaceMembers', () => {
         suspendedAt: '2026-11-01T09:00:00.000Z',
       }),
     ]);
-    showing('/w/acme/settings/members?show=suspended');
+    showing();
 
     expect(
       screen.getByRole('heading', { name: /Suspended\s*1/ }),
     ).toBeInTheDocument();
-    expect(within(membersList()).getByText('Maya Chen')).toBeInTheDocument();
+    expect(within(suspendedList()).getByText('Maya Chen')).toBeInTheDocument();
     expect(
-      within(membersList()).queryByText('Sam Rivera'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('list', { name: 'Pending invites' }),
+      within(suspendedList()).queryByText('Sam Rivera'),
     ).not.toBeInTheDocument();
   });
 
-  it('says nothing matches when nobody is suspended', () => {
-    showing('/w/acme/settings/members?show=suspended');
+  it('shows no Suspended section when nobody is suspended', () => {
+    showing();
 
     expect(
-      screen.getByText(/No suspended match\. Please clear the filter/),
-    ).toBeInTheDocument();
+      screen.queryByRole('list', { name: 'Suspended' }),
+    ).not.toBeInTheDocument();
   });
 
   it('lets the signed-in member leave, and goes to the start once they have', async () => {
