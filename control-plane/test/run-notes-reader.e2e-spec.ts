@@ -85,6 +85,7 @@ const taskOnLine = async (...names: string[]) => {
     runId: string | null,
     body: string,
     kind: 'message' | 'asked' | 'answered' | 'passed' = 'message',
+    from: { voice: 'world'; source: 'slack' } | null = null,
   ) =>
     db.insert(schema.taskNote).values({
       taskId,
@@ -97,6 +98,7 @@ const taskOnLine = async (...names: string[]) => {
       authorId: runId ? null : 'user_1',
       runId,
       kind,
+      ...from,
     });
 
   const run = async (
@@ -207,6 +209,10 @@ describe('the notes of a run', () => {
     const atTriage = { stationId: triage, station: 'Triage' };
     await note(atTriage, triaged, 'Which queue?', 'asked');
     await note(atTriage, null, 'The billing queue.', 'answered');
+    await note(atTriage, null, 'Only the EU part.', 'answered', {
+      voice: 'world',
+      source: 'slack',
+    });
     await note(atTriage, triaged, 'Drain the billing queue.', 'passed');
     await note(
       { stationId: implementation, station: 'Implementation' },
@@ -221,17 +227,21 @@ describe('the notes of a run', () => {
 
     expect(others).toEqual([]);
     expect(visit?.first.body).toBe('Which queue?');
-    expect(visit?.to).toBe(2);
+    expect(visit?.to).toBe(3);
     expect(visit?.closing?.body).toBe('Drain the billing queue.');
-    expect(visit?.answer?.body).toBe('The billing queue.');
+    expect(visit?.answers.map((each) => each.body)).toEqual([
+      'The billing queue.',
+      'Only the EU part.',
+    ]);
     expect(visit?.sentBack).toBe(false);
     expect(
-      (await reader.taskNotesBetween(TaskId.of(taskId), 0, 2))?.found.map(
+      (await reader.taskNotesBetween(TaskId.of(taskId), 0, 3))?.found.map(
         (each) => each.body,
       ),
     ).toEqual([
       'Which queue?',
       'The billing queue.',
+      'Only the EU part.',
       'Drain the billing queue.',
     ]);
   });

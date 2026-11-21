@@ -226,7 +226,7 @@ describe('ReadInboxItemHandler', () => {
           to: 0,
           endedAt: new Date('2026-09-26T09:20:00.000Z'),
           closing: null,
-          answer: note(null),
+          answers: [note(null)],
           sentBack: false,
         },
       ],
@@ -243,7 +243,9 @@ describe('ReadInboxItemHandler', () => {
 
     expect(visit?.first.at).toBe('2026-09-26T09:15:00.000Z');
     expect(visit?.endedAt).toBe('2026-09-26T09:20:00.000Z');
-    expect(visit?.answer?.at).toBe('2026-09-26T09:15:00.000Z');
+    expect(visit?.answers.map((each) => each.at)).toEqual([
+      '2026-09-26T09:15:00.000Z',
+    ]);
   });
 
   it('hands back nothing for an item the caller cannot see', async () => {

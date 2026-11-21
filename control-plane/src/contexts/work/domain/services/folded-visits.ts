@@ -1,10 +1,12 @@
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
-import type { VoiceKind } from '@work/domain/value-objects/voice.vo';
+import {
+  ANSWERS_A_QUESTION,
+  CLOSES_A_CONVERSATION,
+} from '@work/domain/services/conversations';
 
 export interface VisitedNote {
   readonly position: number;
   readonly kind: TaskNoteKind;
-  readonly voice: VoiceKind;
   readonly stationId: string;
   readonly stationPosition: number | null;
 }
@@ -12,7 +14,7 @@ export interface VisitedNote {
 export interface FoldedVisit<T extends VisitedNote> {
   readonly notes: readonly T[];
   readonly closing: T | null;
-  readonly answer: T | null;
+  readonly answers: readonly T[];
   readonly sentBack: boolean;
 }
 
@@ -51,10 +53,8 @@ const stretchesOf = <T extends VisitedNote>(
     return stretches;
   }, []);
 
-const answerIn = <T extends VisitedNote>(notes: readonly T[]): T | null =>
-  lastOf(
-    notes.filter((note) => note.voice === 'person' && note.kind === 'answered'),
-  ) ?? null;
+const answersIn = <T extends VisitedNote>(notes: readonly T[]): T[] =>
+  notes.filter((note) => note.kind === ANSWERS_A_QUESTION);
 
 const wentBack = (
   closing: VisitedNote | null,
@@ -78,12 +78,13 @@ export const foldedVisits = <T extends VisitedNote>(
 
     return stretchesOf(visit, shown).map((notes) => {
       const end = lastOf(notes);
-      const closing = end && end === last && end.kind === 'passed' ? end : null;
+      const closing =
+        end && end === last && end.kind === CLOSES_A_CONVERSATION ? end : null;
 
       return {
         notes,
         closing,
-        answer: answerIn(notes),
+        answers: answersIn(notes),
         sentBack: wentBack(closing, next),
       };
     });

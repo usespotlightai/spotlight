@@ -484,7 +484,7 @@ describe('Conversation', () => {
         to: 5,
         endedAt: LATER,
         closing: null,
-        answer: null,
+        answers: [],
         sentBack: false,
       },
     ]);

@@ -74,10 +74,7 @@ export const foldedAround = (
           to: end.position,
           endedAt: end.at,
           closing,
-          answer:
-            notes.findLast(
-              (note) => note.voice === 'person' && note.kind === 'answered',
-            ) ?? null,
+          answers: notes.filter((note) => note.kind === 'answered'),
           sentBack: Boolean(
             closing && next && next.stationPosition < closing.stationPosition,
           ),

@@ -457,11 +457,10 @@ export class FoldedVisitResponseDto {
   readonly closing: NoteResponseDto | null;
 
   @ApiProperty({
-    type: NoteResponseDto,
-    nullable: true,
-    description: 'The last answer a person gave in this visit',
+    type: [NoteResponseDto],
+    description: 'Every answer given in this visit, oldest first',
   })
-  readonly answer: NoteResponseDto | null;
+  readonly answers: NoteResponseDto[];
 
   @ApiProperty({
     example: false,
@@ -474,14 +473,14 @@ export class FoldedVisitResponseDto {
     to: number,
     endedAt: string,
     closing: NoteResponseDto | null,
-    answer: NoteResponseDto | null,
+    answers: NoteResponseDto[],
     sentBack: boolean,
   ) {
     this.first = first;
     this.to = to;
     this.endedAt = endedAt;
     this.closing = closing;
-    this.answer = answer;
+    this.answers = answers;
     this.sentBack = sentBack;
   }
 }
