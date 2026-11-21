@@ -16,7 +16,7 @@ subscribers.registerSink(subscribing('test.every', [], heard), {
 });
 
 const listening = (kind: string) =>
-  subscribers.listeningTo(kind).map((each) => each.name);
+  subscribers.hearing(kind).map((each) => each.name);
 
 describe('EventSubscribers', () => {
   it('matches a subscriber that names the kind', () => {
@@ -58,7 +58,10 @@ describe('EventSubscribers', () => {
     expect(subscribers.hears('test.gone', 'task.opened')).toBe(false);
   });
 
-  it('names the sinks, which go in a lane of their own', () => {
-    expect(subscribers.sinks()).toEqual(['test.work', 'test.every']);
+  it('puts the sinks in the sinks lane, and the other subscribers in the contexts lane', () => {
+    expect(subscribers.lane('sinks')).toEqual(['test.work', 'test.every']);
+    expect(subscribers.lane('contexts')).toEqual(['test.exact']);
+    expect(subscribers.isSink('test.work')).toBe(true);
+    expect(subscribers.isSink('test.exact')).toBe(false);
   });
 });

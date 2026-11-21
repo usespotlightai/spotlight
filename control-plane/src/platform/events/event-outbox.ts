@@ -86,7 +86,7 @@ export class EventOutbox implements DomainEventDispatcher {
       for (const event of events) {
         const published = this.mappers.of(event, at);
         const publishes = published.some(
-          (each) => this.subscribers.listeningTo(each.kind).length > 0,
+          (each) => this.subscribers.hearing(each.kind).length > 0,
         );
 
         await this.stored(event, publishes, {
@@ -131,7 +131,7 @@ export class EventOutbox implements DomainEventDispatcher {
       readonly recorded: Record<string, unknown>[];
     },
   ): Promise<void> {
-    const listening = this.subscribers.listeningTo(event.kind);
+    const listening = this.subscribers.hearing(event.kind);
     const payload = this.#codec.encode(event);
     const kept = listening.length > 0 || publishes;
     const id = kept ? this.ids.generate() : null;

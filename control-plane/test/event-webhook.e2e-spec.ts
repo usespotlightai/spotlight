@@ -295,13 +295,13 @@ describe('deployment event webhook (e2e)', () => {
           since: later,
         })
       ).body,
-    ).toEqual({ queued: 0 });
+    ).toEqual({ queued: 0, more: false });
 
     const redelivered = await admin()
       .post('/api/admin/event-webhook/redeliver', { since })
       .expect(200);
 
-    expect(redelivered.body).toEqual({ queued: 1 });
+    expect(redelivered.body).toEqual({ queued: 1, more: false });
 
     const delivered = await eventually(async () => {
       const row = await deliveryOf(id);

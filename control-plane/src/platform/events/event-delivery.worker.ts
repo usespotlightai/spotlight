@@ -5,11 +5,9 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import {
-  type DeliveryLane,
-  EventDelivery,
-} from '@platform/events/event-delivery';
+import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
+import type { DeliveryLane } from '@platform/events/event-subscribers';
 import { LiveWrites } from '@platform/live/live-writes';
 import { detached } from '@platform/telemetry/detached';
 import {
@@ -24,9 +22,9 @@ interface LaneState {
   again: boolean;
 }
 
-const LANES: readonly DeliveryLane[] = ['subscribers', 'sinks'];
+const LANES: readonly DeliveryLane[] = ['contexts', 'sinks'];
 
-// Each lane ticks on its own, so a slow sink never holds up the subscribers.
+// Each lane ticks on its own, so a slow sink never holds up the subscribers of the contexts.
 @Injectable()
 export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
   readonly #lanes = new Map<DeliveryLane, LaneState>(
@@ -88,7 +86,7 @@ export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
     try {
       do {
         state.again = false;
-        await this.delivery.processDue(100, lane);
+        await this.delivery.processDue(lane);
       } while (state.again && !this.#stopped);
     } catch (error) {
       this.logger.error({ err: error, lane }, 'Delivering domain events');

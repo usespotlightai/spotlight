@@ -27,18 +27,26 @@ export type ErrorReportingResponseDto = {
   release: string | null;
 };
 
-export type EventWebhookRedeliveryRequestDto = {
+export type RedeliverEventWebhookRequestDto = {
   /**
    * Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time
    */
   since: string;
+  /**
+   * At most this many dead letters, 10000 when left out, up to 100000. While the answer says more, send the same request again
+   */
+  limit?: number;
 };
 
-export type EventWebhookRedeliveryResponseDto = {
+export type RedeliverEventWebhookResponseDto = {
   /**
    * How many dead letters Spotlight queued again. Each gets all its attempts again
    */
   queued: number;
+  /**
+   * Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them
+   */
+  more: boolean;
 };
 
 export type StationJudgeResponseDto = {
@@ -9615,7 +9623,7 @@ export type GetErrorReportingResponses = {
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
 
 export type RedeliverEventWebhookData = {
-  body: EventWebhookRedeliveryRequestDto;
+  body: RedeliverEventWebhookRequestDto;
   path?: never;
   query?: never;
   url: '/admin/event-webhook/redeliver';
@@ -9623,7 +9631,7 @@ export type RedeliverEventWebhookData = {
 
 export type RedeliverEventWebhookErrors = {
   /**
-   * A body without since as an ISO 8601 time
+   * A body without since as an ISO 8601 time, or a limit that is not a whole number from 1 to 100000
    */
   400: unknown;
   /**
@@ -9641,7 +9649,7 @@ export type RedeliverEventWebhookErrors = {
 };
 
 export type RedeliverEventWebhookResponses = {
-  200: EventWebhookRedeliveryResponseDto;
+  200: RedeliverEventWebhookResponseDto;
 };
 
 export type RedeliverEventWebhookResponse = RedeliverEventWebhookResponses[keyof RedeliverEventWebhookResponses];

@@ -36,7 +36,7 @@ export const getErrorReporting = <ThrowOnError extends boolean = false>(options?
 /**
  * Send the dead letters of the event webhook again
  *
- * Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again.
+ * Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again. One request queues at most limit dead letters; while the answer says more, send it again.
  */
 export const redeliverEventWebhook = <ThrowOnError extends boolean = false>(options: Options<RedeliverEventWebhookData, ThrowOnError>): RequestResult<RedeliverEventWebhookResponses, RedeliverEventWebhookErrors, ThrowOnError> => (options.client ?? client).post<RedeliverEventWebhookResponses, RedeliverEventWebhookErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],

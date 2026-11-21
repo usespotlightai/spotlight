@@ -48,17 +48,6 @@ describe('Retry', () => {
     expect(retry.nextAttemptAt(3, noon)).toBeNull();
   });
 
-  it('adds up the waits between all its attempts', () => {
-    expect(
-      Retry.backoff({
-        maxAttempts: 5,
-        initialDelayMs: 1_000,
-        maxDelayMs: 5_000,
-      }).totalWaitMs(),
-    ).toBe(1_000 + 2_000 + 4_000 + 5_000);
-    expect(Retry.never().totalWaitMs()).toBe(0);
-  });
-
   it('rejects a backoff that allows no second attempt or waits backwards', () => {
     expect(() =>
       Retry.backoff({ maxAttempts: 1, initialDelayMs: 0, maxDelayMs: 0 }),

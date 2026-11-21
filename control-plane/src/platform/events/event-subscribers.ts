@@ -5,6 +5,9 @@ import {
 } from '@shared-kernel/application/integration-events/integration-event';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 
+// The contexts lane holds the subscribers of the contexts. The sinks lane holds the sinks, which send events out of Spotlight, so a slow receiver does not hold up the subscribers of the contexts.
+export type DeliveryLane = 'contexts' | 'sinks';
+
 @Injectable()
 export class EventSubscribers {
   readonly #named = new Map<string, DomainEventSubscriber>();
@@ -22,7 +25,7 @@ export class EventSubscribers {
     }
   }
 
-  // A sink sends integration events out of Spotlight. It also hears each integration event that a context of the prefixes publishes, but never a domain event; the empty prefix matches every integration event. Its deliveries go in a lane of their own, so a slow receiver does not hold up the other subscribers. Only the platform registers a sink: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
+  // A sink sends integration events out of Spotlight. It also hears each integration event that a context of the prefixes publishes, but never a domain event; the empty prefix matches every integration event. Its deliveries go in the sinks lane. Only the platform registers a sink: a context hears only the upstream events it names, and the architecture tests refuse this call in a context.
   registerSink(
     subscriber: DomainEventSubscriber,
     { prefixes }: { readonly prefixes: readonly string[] },
@@ -41,7 +44,8 @@ export class EventSubscribers {
     this.#prefixes.set(subscriber.name, prefixes);
   }
 
-  listeningTo(kind: string): readonly DomainEventSubscriber[] {
+  // The subscribers that hear the kind.
+  hearing(kind: string): readonly DomainEventSubscriber[] {
     return [...this.#named.values()].filter((each) => this.matches(each, kind));
   }
 
@@ -56,8 +60,15 @@ export class EventSubscribers {
     return this.#named.get(name) ?? null;
   }
 
-  sinks(): readonly string[] {
-    return [...this.#prefixes.keys()];
+  isSink(name: string): boolean {
+    return this.#prefixes.has(name);
+  }
+
+  // The names of the subscribers in the lane.
+  lane(lane: DeliveryLane): readonly string[] {
+    return [...this.#named.keys()].filter(
+      (name) => this.isSink(name) === (lane === 'sinks'),
+    );
   }
 
   private matches(subscriber: DomainEventSubscriber, kind: string): boolean {

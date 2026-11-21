@@ -10,6 +10,7 @@ import {
   asc,
   eq,
   gt,
+  gte,
   inArray,
   isNull,
   lt,
@@ -30,7 +31,7 @@ const OUTBOX_RETENTION_LIMITS: OutboxRetentionLimits = {
   batches: 50,
 };
 
-// An event stays while a delivery of it waits, or while a subscriber keeps a dead letter of it that it still hears: it is registered, and it hears the kind. The other dead letters go with their event, such as those of the event webhook once SPOTLIGHT_EVENT_WEBHOOK_URL is unset, or of a kind that SPOTLIGHT_EVENT_WEBHOOK_KINDS no longer names.
+// An event stays while a subscriber of this instance hears one of its open deliveries: it is registered, and it hears the kind. An event older than the retention age whose open deliveries nobody here hears goes, with its dead letters and its deliveries that waited untouched since then, such as those of the event webhook once SPOTLIGHT_EVENT_WEBHOOK_URL is unset, of a kind that SPOTLIGHT_EVENT_WEBHOOK_KINDS no longer names, or of a subscriber that is gone.
 export class OutboxRetention {
   // The last event that a sweep of dead letters looked at, so that the next sweep goes on after it.
   #after: string | null = null;
@@ -99,12 +100,11 @@ export class OutboxRetention {
     return removed.length;
   }
 
-  // The events whose open deliveries are all dead letters that no subscriber still hears.
+  // The events whose open deliveries no subscriber of this instance hears, where each open delivery is a dead letter or has waited untouched since before the retention age.
   private async deleteUnheard(
     before: Date,
   ): Promise<{ readonly removed: number; readonly more: boolean }> {
-    const db = this.context.db;
-    const dead = await db
+    const abandoned = await this.context.db
       .select({
         id: eventOutbox.id,
         kind: eventOutbox.kind,
@@ -125,10 +125,12 @@ export class OutboxRetention {
         ),
       )
       .groupBy(eventOutbox.id)
-      .having(sql`bool_and(${eventDelivery.deadLetteredAt} is not null)`)
+      .having(
+        sql`bool_and(${eventDelivery.deadLetteredAt} is not null or ${eventDelivery.dueAt} < ${before.toISOString()}::timestamptz)`,
+      )
       .orderBy(asc(eventOutbox.id))
       .limit(this.limits.batch);
-    const unheard = dead
+    const unheard = abandoned
       .filter(
         (event) =>
           !event.subscribers.some((each) =>
@@ -136,36 +138,48 @@ export class OutboxRetention {
           ),
       )
       .map((event) => event.id);
-    const more = dead.length === this.limits.batch;
+    const more = abandoned.length === this.limits.batch;
 
-    this.#after = more ? (dead[dead.length - 1]?.id ?? null) : null;
+    this.#after = more ? (abandoned[abandoned.length - 1]?.id ?? null) : null;
 
     if (unheard.length === 0) {
       return { removed: 0, more };
     }
 
-    // Another instance may queue a dead letter again in the meantime, as during a deploy that sets more kinds. An event with a waiting delivery stays.
-    const removed = await db
-      .delete(eventOutbox)
-      .where(
-        and(
-          inArray(eventOutbox.id, unheard),
-          lt(eventOutbox.recordedAt, before),
-          notExists(
-            db
-              .select({ one: sql`1` })
-              .from(eventDelivery)
-              .where(
-                and(
-                  eq(eventDelivery.eventId, eventOutbox.id),
-                  isNull(eventDelivery.deliveredAt),
-                  isNull(eventDelivery.deadLetteredAt),
+    const removed = await this.context.inTransaction(async () => {
+      const db = this.context.db;
+
+      // Waits for an instance that queues one of these dead letters again right now. The delete then reads a fresh snapshot.
+      await db
+        .select({ eventId: eventDelivery.eventId })
+        .from(eventDelivery)
+        .where(inArray(eventDelivery.eventId, unheard))
+        .for('update');
+
+      // An event with a delivery that waits again, as one queued again or claimed by another instance, stays.
+      return db
+        .delete(eventOutbox)
+        .where(
+          and(
+            inArray(eventOutbox.id, unheard),
+            lt(eventOutbox.recordedAt, before),
+            notExists(
+              db
+                .select({ one: sql`1` })
+                .from(eventDelivery)
+                .where(
+                  and(
+                    eq(eventDelivery.eventId, eventOutbox.id),
+                    isNull(eventDelivery.deliveredAt),
+                    isNull(eventDelivery.deadLetteredAt),
+                    gte(eventDelivery.dueAt, before),
+                  ),
                 ),
-              ),
+            ),
           ),
-        ),
-      )
-      .returning({ id: eventOutbox.id });
+        )
+        .returning({ id: eventOutbox.id });
+    });
 
     return { removed: removed.length, more };
   }

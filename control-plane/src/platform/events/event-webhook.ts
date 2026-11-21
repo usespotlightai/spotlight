@@ -60,7 +60,11 @@ export const EVENT_WEBHOOK_RETRY = Retry.backoff({
 
 // How long Spotlight tries before a delivery is a dead letter, in whole hours.
 export const EVENT_WEBHOOK_RETRY_HOURS = Math.round(
-  EVENT_WEBHOOK_RETRY.totalWaitMs() / 3_600_000,
+  Array.from(
+    { length: EVENT_WEBHOOK_RETRY.maxAttempts - 1 },
+    (_, index) =>
+      EVENT_WEBHOOK_RETRY.nextAttemptAt(index + 1, new Date(0))?.getTime() ?? 0,
+  ).reduce((sum, each) => sum + each, 0) / 3_600_000,
 );
 
 export interface EventWebhookSettings {
