@@ -1,39 +1,31 @@
 import type { CatalogCallResult } from '@catalog/application/contracts/catalog.contract';
-import { CatalogEntitledMapper } from '@catalog/application/mappers/catalog-entitled.mapper';
+import { CatalogShapeMapper } from '@catalog/application/mappers/catalog-shape.mapper';
 import type { CatalogCallLedgerPort } from '@catalog/application/ports/catalog-call-ledger.port';
 import type { CatalogServicePort } from '@catalog/application/ports/catalog-service.port';
 import type {
   CatalogCallRequest,
   CatalogCallsPort,
 } from '@catalog/application/ports/catalog.port';
-import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
 import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
-import { resolveEntitled } from '@catalog/domain/services/entitlement-resolution';
+import { resolveItem } from '@catalog/domain/services/catalog-resolution';
 import { CatalogCall } from '@catalog/domain/value-objects/catalog-call.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 export class CatalogCalls implements CatalogCallsPort {
   constructor(
     private readonly catalog: CatalogItems,
-    private readonly terms: PlanTermsPort,
     private readonly ledger: CatalogCallLedgerPort,
     private readonly service: CatalogServicePort,
     private readonly clock: ClockPort,
   ) {}
 
   async call(request: CatalogCallRequest): Promise<CatalogCallResult> {
-    const result = resolveEntitled(
-      request.id,
-      'tool',
-      this.catalog,
-      await this.terms.of(request.workspaceId),
-      this.clock.now(),
-    );
+    const result = resolveItem(request.id, 'tool', this.catalog);
 
-    if (!result.entitled) {
+    if (!result.resolved) {
       return {
         kind: 'denied',
-        denial: CatalogEntitledMapper.toDenial(result.denial),
+        denial: CatalogShapeMapper.toDenial(result.denial),
       };
     }
 

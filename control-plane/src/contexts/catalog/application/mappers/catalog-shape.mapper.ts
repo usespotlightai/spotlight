@@ -1,16 +1,16 @@
 import type {
   CatalogDenial,
-  CatalogSkillEntitled,
-  CatalogToolEntitled,
+  CatalogSkillShape,
+  CatalogToolShape,
 } from '@catalog/application/contracts/catalog.contract';
 import type {
   CatalogSkill,
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
-import type { Denial } from '@catalog/domain/services/entitlement-resolution';
+import type { Denial } from '@catalog/domain/services/catalog-resolution';
 
-export const CatalogEntitledMapper = {
-  toTool: (tool: CatalogTool): CatalogToolEntitled => ({
+export const CatalogShapeMapper = {
+  toTool: (tool: CatalogTool): CatalogToolShape => ({
     id: tool.id.value,
     description: tool.metadata.description,
     inputs: tool.inputs.map((each) => ({
@@ -19,7 +19,7 @@ export const CatalogEntitledMapper = {
     })),
   }),
 
-  toSkill: (skill: CatalogSkill): CatalogSkillEntitled => ({
+  toSkill: (skill: CatalogSkill): CatalogSkillShape => ({
     id: skill.id.value,
     description: skill.metadata.description,
     files: skill.files,

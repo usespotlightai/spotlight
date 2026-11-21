@@ -1018,10 +1018,6 @@ export type CatalogToolResponseDto = {
    * The constraint it was resolved against
    */
   constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
   description: string;
 };
 
@@ -1039,10 +1035,6 @@ export type CatalogSkillResponseDto = {
    * The constraint it was resolved against
    */
   constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
   description: string;
   /**
    * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
@@ -12301,10 +12293,6 @@ export type ReadCatalogToolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-tool; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
-  /**
    * No such catalog-tool, or no workspace here that you may see
    */
   404: ProblemResponseDto;
@@ -12362,10 +12350,6 @@ export type ReadCatalogSkillErrors = {
    * No valid credentials
    */
   401: ProblemResponseDto;
-  /**
-   * The workspace’s plan does not include the catalog-skill; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
   /**
    * No such catalog-skill, or no workspace here that you may see
    */

@@ -63,10 +63,7 @@ export class CreateLineHandler implements CommandHandlerPort<
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const denied = await this.catalog.deniedIn(
-        team.workspaceId,
-        compiled.line,
-      );
+      const denied = await this.catalog.deniedIn(compiled.line);
 
       if (denied.length > 0) {
         return { outcome: 'invalid', problems: denied };

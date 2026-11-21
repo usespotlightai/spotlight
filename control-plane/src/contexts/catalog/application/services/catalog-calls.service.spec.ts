@@ -1,8 +1,6 @@
 import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import type { CatalogTool } from '@catalog/domain/entities/catalog-item.entity';
 import type { CatalogCall } from '@catalog/domain/value-objects/catalog-call.vo';
-import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
-import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
@@ -22,7 +20,6 @@ const calling = (id: string) => ({
 });
 
 const catalogCalls = (
-  term: PlanTerm,
   answering: (tool: CatalogTool) => Promise<unknown> = async () =>
     'Three pages.',
 ) => {
@@ -32,7 +29,6 @@ const catalogCalls = (
 
   const service = new CatalogCalls(
     new StaticCatalog(CATALOG_ITEMS),
-    { of: async () => term, ofWorkspaces: async (ids) => ids.map(() => term) },
     {
       record: async (call) => {
         recorded.push(call);
@@ -56,7 +52,7 @@ const catalogCalls = (
 
 describe('CatalogCalls', () => {
   it('records each call it makes, by the version called', async () => {
-    const { service, recorded } = catalogCalls(PlanTerm.of(Plan.team));
+    const { service, recorded } = catalogCalls();
 
     await expect(
       service.call(calling('catalog.web-search@1.1.0')),
@@ -73,7 +69,7 @@ describe('CatalogCalls', () => {
   });
 
   it('records a call the catalog service failed, as failed and not billable', async () => {
-    const { service, recorded } = catalogCalls(PlanTerm.of(Plan.team), () =>
+    const { service, recorded } = catalogCalls(() =>
       Promise.reject(new UpstreamError('calling', 'down')),
     );
 
@@ -88,23 +84,21 @@ describe('CatalogCalls', () => {
     ).toEqual([{ succeeded: false, billable: false }]);
   });
 
-  it('calls and records nothing the plan no longer covers', async () => {
-    const { service, recorded, called } = catalogCalls(
-      PlanTerm.of(Plan.team, new Date('2026-09-01T00:00:00.000Z')),
-    );
+  it('calls and records nothing the catalog does not have', async () => {
+    const { service, recorded, called } = catalogCalls();
 
     await expect(
-      service.call(calling('catalog.web-search@1.1.0')),
+      service.call(calling('catalog.web-search@9.0.0')),
     ).resolves.toMatchObject({
       kind: 'denied',
-      denial: { reason: 'expired' },
+      denial: { reason: 'unknown' },
     });
     expect(called).toEqual([]);
     expect(recorded).toEqual([]);
   });
 
   it('calls no skill, as the wrong kind', async () => {
-    const { service, called } = catalogCalls(PlanTerm.of(Plan.team));
+    const { service, called } = catalogCalls();
 
     await expect(
       service.call(calling('catalog.research@1.0.0')),

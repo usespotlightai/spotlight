@@ -1,7 +1,7 @@
 import type {
   CatalogDenial,
-  CatalogSkillEntitled,
-  CatalogToolEntitled,
+  CatalogSkillShape,
+  CatalogToolShape,
 } from '@catalog/application/contracts/catalog.contract';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
@@ -10,8 +10,8 @@ import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-ite
 
 const SPOTLIGHT_CATALOG = 'the Spotlight catalog';
 
-export const CatalogEntitledMapper = {
-  toDeclared(tool: CatalogToolEntitled): DeclaredTool {
+export const CatalogItemMapper = {
+  toDeclared(tool: CatalogToolShape): DeclaredTool {
     return ToolDeclarationMapper.toDeclared({
       tool: tool.id,
       integrationName: SPOTLIGHT_CATALOG,
@@ -23,7 +23,7 @@ export const CatalogEntitledMapper = {
     });
   },
 
-  toFolder(skill: CatalogSkillEntitled): ReadySkillFolder {
+  toFolder(skill: CatalogSkillShape): ReadySkillFolder {
     return {
       skill: {
         key: skill.id,

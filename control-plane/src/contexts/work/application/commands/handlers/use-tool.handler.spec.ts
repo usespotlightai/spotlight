@@ -322,11 +322,11 @@ const using = (
   const called: Called[] = [];
   const denial = (id: string): CatalogDenial => ({
     id,
-    reason: over.denied?.reason ?? 'expired',
+    reason: over.denied?.reason ?? 'unknown',
     because: 'denied here',
   });
   const catalog = new RunCatalog({
-    entitledTo: async (_workspace, named) =>
+    resolve: async (named) =>
       over.denied?.when === 'before'
         ? {
             tools: [],
@@ -592,33 +592,20 @@ describe('UseToolHandler', () => {
       expect(called[0]?.inputs.values).toEqual({ query: 'queues' });
     });
 
-    it('is denied as entitlement_expired once the plan no longer covers it, and nothing is called', async () => {
-      const { useTool, called } = using(searching(), {
-        denied: { when: 'before', reason: 'expired' },
+    it('is denied as the catalog denies the call itself', async () => {
+      const { useTool } = using(searching(), {
+        denied: { when: 'during', reason: 'wrong-kind' },
       });
 
       await expect(
         useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
-        message: expect.stringContaining('entitlement_expired') as unknown,
-      });
-      expect(called).toEqual([]);
-    });
-
-    it('is denied as entitlement_expired when the plan expires as it is called', async () => {
-      const { useTool } = using(searching(), {
-        denied: { when: 'during', reason: 'expired' },
-      });
-
-      await expect(
-        useTool('catalog.web-search', { query: 'queues' }),
-      ).rejects.toMatchObject({
-        message: expect.stringContaining('entitlement_expired') as unknown,
+        message: 'catalog_item_wrong_kind: denied here',
       });
     });
 
-    it('is denied as catalog_item_unknown, not as expired, once the catalog no longer has it', async () => {
+    it('is denied as catalog_item_unknown once the catalog no longer has it, and nothing is called', async () => {
       const { useTool, called } = using(searching(), {
         denied: { when: 'before', reason: 'unknown' },
       });

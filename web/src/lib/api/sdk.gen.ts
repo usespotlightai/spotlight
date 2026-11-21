@@ -583,7 +583,7 @@ export const verifyMyEmail = <ThrowOnError extends boolean = false>(options: Opt
 export const watchLive = <ThrowOnError extends boolean = false>(options?: Options<WatchLiveData, ThrowOnError>): RequestResult<WatchLiveResponses, WatchLiveErrors, ThrowOnError> => (options?.client ?? client).get<WatchLiveResponses, WatchLiveErrors, ThrowOnError>({ url: '/me/live', ...options });
 
 /**
- * Resolve a catalog tool by name and version constraint, if the workspace’s plan includes it
+ * Resolve a catalog tool by name and version constraint
  */
 export const readCatalogTool = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogToolData, ThrowOnError>): RequestResult<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
@@ -592,7 +592,7 @@ export const readCatalogTool = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
- * Resolve a catalog skill by name and version constraint, if the workspace’s plan includes it
+ * Resolve a catalog skill by name and version constraint
  */
 export const readCatalogSkill = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogSkillData, ThrowOnError>): RequestResult<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],

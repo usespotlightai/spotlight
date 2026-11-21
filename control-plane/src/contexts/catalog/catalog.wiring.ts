@@ -17,10 +17,7 @@ import {
   CATALOG,
   type CatalogPort,
 } from '@catalog/application/ports/catalog.port';
-import {
-  PLAN_TERMS,
-  type PlanTermsPort,
-} from '@catalog/application/ports/plan-terms.port';
+import { PLAN_TERMS } from '@catalog/application/ports/plan-terms.port';
 import { ListWorkspaceSummariesHandler } from '@catalog/application/queries/handlers/list-workspace-summaries.handler';
 import { ReadWorkspaceSummaryHandler } from '@catalog/application/queries/handlers/read-workspace-summary.handler';
 import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers/resolve-catalog-item.handler';
@@ -28,7 +25,7 @@ import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-w
 import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
-import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
+import { CatalogResolutions } from '@catalog/application/services/catalog-resolutions.service';
 import { DeleteWorkspacePlanOfDeletedWorkspace } from '@catalog/application/services/delete-workspace-plan-of-deleted-workspace.service';
 import {
   WORKSPACE_PLANS,
@@ -94,42 +91,30 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: CatalogEntitlements,
-    inject: [StaticCatalog, PLAN_TERMS, CLOCK],
-    useFactory: (
-      catalog: StaticCatalog,
-      terms: PlanTermsPort,
-      clock: ClockPort,
-    ) => new CatalogEntitlements(catalog, terms, clock),
+    provide: CatalogResolutions,
+    inject: [StaticCatalog],
+    useFactory: (catalog: StaticCatalog) => new CatalogResolutions(catalog),
   },
 
   {
     provide: CatalogCalls,
-    inject: [
-      StaticCatalog,
-      PLAN_TERMS,
-      CATALOG_CALL_LEDGER,
-      CATALOG_SERVICE,
-      CLOCK,
-    ],
+    inject: [StaticCatalog, CATALOG_CALL_LEDGER, CATALOG_SERVICE, CLOCK],
     useFactory: (
       catalog: StaticCatalog,
-      terms: PlanTermsPort,
       ledger: CatalogCallLedgerPort,
       service: CatalogServicePort,
       clock: ClockPort,
-    ) => new CatalogCalls(catalog, terms, ledger, service, clock),
+    ) => new CatalogCalls(catalog, ledger, service, clock),
   },
 
   {
     provide: CATALOG,
-    inject: [CatalogEntitlements, CatalogCalls],
+    inject: [CatalogResolutions, CatalogCalls],
     useFactory: (
-      entitlements: CatalogEntitlements,
+      resolutions: CatalogResolutions,
       calls: CatalogCalls,
     ): CatalogPort => ({
-      entitledTo: (workspaceId, request) =>
-        entitlements.entitledTo(workspaceId, request),
+      resolve: (request) => resolutions.resolve(request),
       call: (request) => calls.call(request),
     }),
   },
@@ -160,8 +145,6 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ResolveCatalogItemQuery, ResolveCatalogItemHandler, [
     WORKSPACE_ACCESS,
     StaticCatalog,
-    PLAN_TERMS,
-    CLOCK,
   ]),
 
   ...bindQueryHandler(

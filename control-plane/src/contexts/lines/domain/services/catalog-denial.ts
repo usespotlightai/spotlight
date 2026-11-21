@@ -11,12 +11,9 @@ export type CataloguedItem =
       readonly at: FieldPath;
     };
 
-export interface Entitlement {
-  readonly skills: readonly {
-    readonly id: string;
-    readonly tools: readonly string[];
-  }[];
-  readonly denied: readonly { readonly id: string; readonly because: string }[];
+export interface ItemDenial {
+  readonly id: string;
+  readonly because: string;
 }
 
 export interface DeniedItem {
@@ -52,17 +49,10 @@ export const cataloguedIn = (plan: LinePlan): CataloguedItem[] =>
 
 export const deniedIn = (
   items: readonly CataloguedItem[],
-  entitlement: Entitlement,
+  denials: readonly ItemDenial[],
 ): DeniedItem[] =>
-  entitlement.denied.flatMap((denial) => {
-    const denied = [
-      denial.id,
-      ...entitlement.skills
-        .filter((skill) => skill.tools.includes(denial.id))
-        .map((skill) => skill.id),
-    ];
-
-    return items
-      .filter((each) => denied.includes(each.item.value))
-      .map((item) => ({ item, because: denial.because }));
-  });
+  denials.flatMap((denial) =>
+    items
+      .filter((each) => each.item.value === denial.id)
+      .map((item) => ({ item, because: denial.because })),
+  );

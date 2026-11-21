@@ -22,7 +22,7 @@ import { createTeam } from './support/team';
 const DELIVERY = randomUUID();
 const BUILD = randomUUID();
 const DENIED =
-  'entitlement_expired: Catalog item catalog.web-search@1.1.0 requires the Team plan. The workspace’s Team plan has expired.';
+  'catalog_item_unknown: Catalog has no item catalog.web-search@1.1.0.';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -155,7 +155,9 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
     expect(notes).toEqual([
       expect.objectContaining({
         runId,
-        body: expect.stringContaining('requires the Team plan') as unknown,
+        body: expect.stringContaining(
+          'Catalog has no item catalog.web-search@1.1.0.',
+        ) as unknown,
       }),
     ]);
   });

@@ -4,7 +4,6 @@ import { CatalogCalls } from '@catalog/application/services/catalog-calls.servic
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
-import { DrizzlePlanTerms } from '@catalog/infrastructure/persistence/drizzle/readers/plan-terms.reader';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
@@ -62,13 +61,6 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
   let workspace: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const onPlan = (plan: string, expiresAt: Date | null = null) =>
-    db.insert(schema.workspacePlan).values({
-      workspaceId: workspace,
-      plan,
-      expiresAt,
-    });
-
   const read = async (
     kind: 'tools' | 'skills',
     query: Record<string, string>,
@@ -94,15 +86,10 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
   });
 
   afterEach(async () => {
-    await db
-      .delete(schema.workspacePlan)
-      .where(eq(schema.workspacePlan.workspaceId, workspace));
     await seat.unseat();
   });
 
   it('resolves a name and constraint to the newest version it accepts, with the version in the id', async () => {
-    await onPlan('team');
-
     const answer = await read('tools', {
       name: 'web-search',
       version: '~> 1.0',
@@ -115,14 +102,11 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
       name: 'web-search',
       version: '1.1.0',
       constraint: '~> 1.0',
-      plan: 'team',
       description: expect.any(String) as unknown,
     });
   });
 
   it('answers a skill with the tools it uses, and never its files', async () => {
-    await onPlan('team');
-
     const answer = await read('skills', { name: 'research', version: '1.0.0' });
 
     expect(answer.status).toBe(200);
@@ -134,53 +118,26 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     expect(answer.body).not.toHaveProperty('files');
   });
 
-  it('fails the plan for an item the workspace’s plan does not include, saying which plan it requires', async () => {
-    const answer = await read('tools', {
-      name: 'web-search',
-      version: '~> 1.0',
-    });
+  it('resolves every item for every workspace, web-search and fetch-page alike', async () => {
+    for (const [name, id] of [
+      ['web-search', 'catalog.web-search@1.0.0'],
+      ['fetch-page', 'catalog.fetch-page@1.0.0'],
+    ]) {
+      const answer = await read('tools', { name, version: '1.0.0' });
 
-    expect(answer.status).toBe(403);
-    expect(answer.headers['content-type']).toContain(PROBLEM);
-    expect(answer.body).toMatchObject({
-      type: 'urn:spotlight:problem:not-entitled',
-      status: 403,
-      detail:
-        'Catalog item catalog.web-search@1.1.0 requires the Team plan. Workspace plan: Free',
-    });
-  });
-
-  it('fails it just the same once the plan has expired', async () => {
-    await onPlan('team', new Date('2020-01-01T00:00:00.000Z'));
-
-    const answer = await read('tools', {
-      name: 'web-search',
-      version: '1.0.0',
-    });
-
-    expect(answer.status).toBe(403);
-    expect(answer.body.detail).toContain('requires the Team plan');
-  });
-
-  it('resolves what the free plan includes without any plan on record', async () => {
-    const answer = await read('tools', {
-      name: 'fetch-page',
-      version: '~> 1.0',
-    });
-
-    expect(answer.status).toBe(200);
-    expect(answer.body.id).toBe('catalog.fetch-page@1.0.0');
+      expect(answer.status).toBe(200);
+      expect(answer.body.id).toBe(id);
+    }
   });
 
   it('says which versions there are when none matches', async () => {
-    await onPlan('team');
-
     const answer = await read('tools', {
       name: 'web-search',
       version: '~> 2.0',
     });
 
     expect(answer.status).toBe(404);
+    expect(answer.headers['content-type']).toContain(PROBLEM);
     expect(answer.body.detail).toBe(
       'No version of catalog tool web-search matches ~> 2.0. Available versions: 1.0.0, 1.1.0',
     );
@@ -196,8 +153,6 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
   });
 
   it('answers a workspace token that may read the workspace', async () => {
-    await onPlan('team');
-
     const issued = await served(app)
       .post(`/api/v1/resources/workspaces/${workspace}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
@@ -222,8 +177,6 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
   });
 
   it('answers nobody outside the workspace', async () => {
-    await onPlan('team');
-
     const answer = await read(
       'tools',
       { name: 'web-search', version: '~> 1.0' },
@@ -233,7 +186,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     expect(answer.status).toBe(404);
   });
 
-  it('documents both data sources, and how a plan can fail them', () => {
+  it('documents both data sources, and how a query can fail them', () => {
     const operations = Object.values(buildOpenApiDocument(app).paths).flatMap(
       (methods) => Object.values(methods as Record<string, unknown>),
     ) as {
@@ -244,8 +197,9 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     for (const id of ['readCatalogTool', 'readCatalogSkill']) {
       const operation = operations.find((each) => each.operationId === id);
 
-      expect(operation?.responses['403']?.content).toHaveProperty([PROBLEM]);
+      expect(operation?.responses['404']?.content).toHaveProperty([PROBLEM]);
       expect(operation?.responses['422']?.content).toHaveProperty([PROBLEM]);
+      expect(operation?.responses).not.toHaveProperty(['403']);
     }
   });
 });
@@ -291,14 +245,8 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
     await db
       .delete(schema.idempotentCreate)
       .where(eq(schema.idempotentCreate.scope, seat.owner));
-    await db
-      .delete(schema.workspacePlan)
-      .where(eq(schema.workspacePlan.workspaceId, team));
     await seat.unseat();
   });
-
-  const onTheTeamPlan = () =>
-    db.insert(schema.workspacePlan).values({ workspaceId: team, plan: 'team' });
 
   const created = async (body: object): Promise<Answer<Problem>> =>
     served(app)
@@ -307,23 +255,28 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
-  it('rejects a line naming a catalog item the plan does not include, pointing at where it is named', async () => {
+  it('lets any workspace enable web-search and the skill that uses it', async () => {
+    const made = await created(
+      enabling(['catalog.web-search@1.1.0'], ['catalog.research@1.0.0']),
+    );
+
+    expect(made.status).toBe(201);
+  });
+
+  it('rejects a line naming a catalog tool the catalog does not have, pointing at where it is named', async () => {
     const at = definitionOf(BUILT_IN_LINES[0]).stations[1]?.tools.length;
-    const rejected = await created(enabling(['catalog.web-search@1.1.0'], []));
+    const rejected = await created(enabling(['catalog.web-search@9.0.0'], []));
 
     expect(rejected.status).toBe(422);
     expect(rejected.body.errors).toEqual([
       expect.objectContaining({
         path: `stations[1].tools[${at}]`,
-        message:
-          'Catalog item catalog.web-search@1.1.0 requires the Team plan. Workspace plan: Free',
+        message: 'Catalog has no item catalog.web-search@9.0.0.',
       }),
     ]);
   });
 
-  it('rejects a line naming something the catalog does not have', async () => {
-    await onTheTeamPlan();
-
+  it('rejects a line naming a catalog skill the catalog does not have', async () => {
     const rejected = await created(enabling([], ['catalog.research@9.0.0']));
 
     expect(rejected.status).toBe(422);
@@ -336,7 +289,6 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
   });
 
   it('stores the versions it names, so an upgrade reads back as a change to the station', async () => {
-    await onTheTeamPlan();
     const http = served(app);
     const made = (await http
       .post(`/api/v1/resources/teams/${team}/lines`)
@@ -392,25 +344,18 @@ describe('a catalog call (e2e)', () => {
   beforeAll(async () => {
     app = await openApp();
     db = app.get<DrizzleDatabase>(DRIZZLE);
-    await db
-      .insert(schema.workspacePlan)
-      .values({ workspaceId: workspace, plan: 'team' });
   });
 
   afterAll(async () => {
     await db
       .delete(schema.catalogCall)
       .where(eq(schema.catalogCall.workspaceId, workspace));
-    await db
-      .delete(schema.workspacePlan)
-      .where(eq(schema.workspacePlan.workspaceId, workspace));
     await app.close();
   });
 
   it('is recorded, by workspace, run and the version called', async () => {
     const calls = new CatalogCalls(
       new StaticCatalog(CATALOG_ITEMS),
-      new DrizzlePlanTerms(db),
       new DrizzleCatalogCallLedger(new DrizzleContext(db), {
         generate: () => randomUUID(),
       }),
@@ -465,9 +410,8 @@ describe('a catalog call (e2e)', () => {
         refusal: [
           DeniedCatalogItem.of({
             id: 'catalog.web-search@1.1.0',
-            reason: 'expired',
-            because:
-              'Catalog item catalog.web-search@1.1.0 requires the Team plan. The workspace’s Team plan has expired. Expired at: 2026-09-01T00:00:00.000Z',
+            reason: 'unknown',
+            because: 'Catalog has no item catalog.web-search@1.1.0.',
           }),
         ],
       }),
@@ -476,7 +420,7 @@ describe('a catalog call (e2e)', () => {
     const stored = await runs.findById(id);
 
     expect(stored?.state).toBe('failed');
-    expect(stored?.outcome?.detail).toMatch(/^entitlement_expired: /);
+    expect(stored?.outcome?.detail).toMatch(/^catalog_item_unknown: /);
     expect(stored?.spec.value.catalog).toEqual(['catalog.web-search@1.1.0']);
 
     await db.delete(schema.run).where(eq(schema.run.id, id.value));

@@ -5,11 +5,9 @@ import type {
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
 import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
-import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
-import type { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 
-type DenialReason = 'unknown' | 'wrong-kind' | 'not-entitled' | 'expired';
+type DenialReason = 'unknown' | 'wrong-kind';
 
 export interface Denial {
   readonly id: string;
@@ -17,24 +15,24 @@ export interface Denial {
   readonly detail: string;
 }
 
-interface Entitled<T extends CatalogItem> {
-  readonly entitled: true;
+interface Resolved<T extends CatalogItem> {
+  readonly resolved: true;
   readonly item: T;
 }
 
 interface Denied {
-  readonly entitled: false;
+  readonly resolved: false;
   readonly denial: Denial;
 }
 
-export type EntitlementResult<T extends CatalogItem> = Entitled<T> | Denied;
+type ItemResolution<T extends CatalogItem> = Resolved<T> | Denied;
 
-export interface EntitlementRequest {
+interface ItemRequest {
   readonly tools: readonly string[];
   readonly skills: readonly string[];
 }
 
-export interface EntitledItems {
+export interface ResolvedItems {
   readonly tools: readonly CatalogTool[];
   readonly skills: readonly CatalogSkill[];
   readonly denied: readonly Denial[];
@@ -45,29 +43,15 @@ type ItemOf<K extends CatalogKind> = K extends 'tool'
   : CatalogSkill;
 
 const denied = (id: string, reason: DenialReason, detail: string): Denied => ({
-  entitled: false,
+  resolved: false,
   denial: { id, reason, detail },
 });
 
-export const resolveEntitledItem = <T extends CatalogItem>(
-  item: T,
-  term: PlanTerm,
-  now: Date,
-): EntitlementResult<T> => {
-  const entitlement = entitlementTo(item, term, now);
-
-  return entitlement.entitled
-    ? { entitled: true, item }
-    : denied(item.id.value, entitlement.reason, entitlement.because);
-};
-
-export const resolveEntitled = <K extends CatalogKind>(
+export const resolveItem = <K extends CatalogKind>(
   id: string,
   kind: K,
   catalog: CatalogItems,
-  term: PlanTerm,
-  now: Date,
-): EntitlementResult<ItemOf<K>> => {
+): ItemResolution<ItemOf<K>> => {
   let parsed: CatalogItemId;
 
   try {
@@ -90,19 +74,13 @@ export const resolveEntitled = <K extends CatalogKind>(
     );
   }
 
-  const result = resolveEntitledItem(item as ItemOf<K>, term, now);
-
-  return result.entitled
-    ? result
-    : denied(id, result.denial.reason, result.denial.detail);
+  return { resolved: true, item: item as ItemOf<K> };
 };
 
-export const resolveEntitledFor = (
-  request: EntitlementRequest,
+export const resolveItems = (
+  request: ItemRequest,
   catalog: CatalogItems,
-  term: PlanTerm,
-  now: Date,
-): EntitledItems => {
+): ResolvedItems => {
   const tools: CatalogTool[] = [];
   const skills: CatalogSkill[] = [];
   const denials: Denial[] = [];
@@ -122,9 +100,9 @@ export const resolveEntitledFor = (
       return;
     }
 
-    const result = resolveEntitled(id, 'tool', catalog, term, now);
+    const result = resolveItem(id, 'tool', catalog);
 
-    if (result.entitled) {
+    if (result.resolved) {
       tools.push(result.item);
     } else {
       denials.push(result.denial);
@@ -136,9 +114,9 @@ export const resolveEntitledFor = (
       return;
     }
 
-    const result = resolveEntitled(id, 'skill', catalog, term, now);
+    const result = resolveItem(id, 'skill', catalog);
 
-    if (!result.entitled) {
+    if (!result.resolved) {
       denials.push(result.denial);
       return;
     }

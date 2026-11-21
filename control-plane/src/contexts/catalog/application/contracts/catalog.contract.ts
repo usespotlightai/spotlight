@@ -9,24 +9,20 @@ interface CatalogToolInputShape {
   readonly stdin: boolean;
 }
 
-export interface CatalogToolEntitled {
+export interface CatalogToolShape {
   readonly id: string;
   readonly description: string;
   readonly inputs: readonly CatalogToolInputShape[];
 }
 
-export interface CatalogSkillEntitled {
+export interface CatalogSkillShape {
   readonly id: string;
   readonly description: string;
   readonly files: readonly { readonly path: string; readonly text: string }[];
   readonly tools: readonly string[];
 }
 
-export type CatalogDenialReason =
-  | 'unknown'
-  | 'wrong-kind'
-  | 'not-entitled'
-  | 'expired';
+export type CatalogDenialReason = 'unknown' | 'wrong-kind';
 
 export interface CatalogDenial {
   readonly id: string;
@@ -39,9 +35,9 @@ export interface CatalogRequest {
   readonly skills: readonly string[];
 }
 
-export interface EntitledItems {
-  readonly tools: readonly CatalogToolEntitled[];
-  readonly skills: readonly CatalogSkillEntitled[];
+export interface ResolvedItems {
+  readonly tools: readonly CatalogToolShape[];
+  readonly skills: readonly CatalogSkillShape[];
   readonly denied: readonly CatalogDenial[];
 }
 
