@@ -6,12 +6,12 @@ import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
-import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
 export const RUNNER_DEFINITIONS = Symbol('RUNNER_DEFINITIONS');
 
@@ -38,7 +38,7 @@ export type ParsedPoolAccess =
   | {
       readonly mode: 'push';
       readonly url: ProvisionUrl;
-      readonly secret: ProvisionSecret | null;
+      readonly secret: SigningSecret | null;
       readonly secretVersion: number | null;
       readonly egress: EgressReference | null;
       readonly egressTraffic: EgressTraffic;

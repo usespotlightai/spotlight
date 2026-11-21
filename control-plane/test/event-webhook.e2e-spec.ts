@@ -89,11 +89,6 @@ describe('deployment event webhook (e2e)', () => {
   let unseat: () => Promise<void>;
 
   const admin = () => ({
-    put: (path: string, body: object) =>
-      served(app)
-        .put(path)
-        .set('Authorization', `Bearer ${ADMIN_TOKEN}`)
-        .send(body),
     post: (path: string, body?: object) =>
       served(app)
         .post(path)
@@ -121,13 +116,14 @@ describe('deployment event webhook (e2e)', () => {
     return row ?? null;
   };
 
-  const setPlan = (plan: string) =>
-    admin()
-      .put(`/api/admin/workspaces/${workspaceId}/plan`, {
-        plan,
-        expiresAt: null,
-      })
-      .expect(200);
+  const ROLE_CHANGED = 'identity.workspace-member-role-changed.v1';
+
+  const makeAdmin = () =>
+    served(app)
+      .patch(`/api/workspaces/${workspaceId}/members/${member}`)
+      .set(TEST_USER_HEADER, owner)
+      .send({ role: 'admin' })
+      .expect(204);
 
   beforeAll(async () => {
     receiver = await receiving();
@@ -158,19 +154,16 @@ describe('deployment event webhook (e2e)', () => {
 
   afterEach(async () => {
     await db
-      .delete(schema.workspacePlan)
-      .where(eq(schema.workspacePlan.workspaceId, workspaceId));
-    await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await unseat();
   });
 
   it('sends an integration event as one POST, signed per Standard Webhooks, with the id of its outbox record as webhook-id', async () => {
-    await setPlan('team');
+    await makeAdmin();
 
     const [call] = await eventually(async () => {
-      const found = callsOf('catalog.workspace-plan-created.v1');
+      const found = callsOf(ROLE_CHANGED);
       return found.length > 0 ? found : null;
     });
     const id = String(call?.headers['webhook-id']);
@@ -185,24 +178,20 @@ describe('deployment event webhook (e2e)', () => {
         .update(`${id}.${timestamp}.${call?.body}`)
         .digest('base64')}`,
     );
-    expect(event?.kind).toBe('catalog.workspace-plan-created.v1');
+    expect(event?.kind).toBe(ROLE_CHANGED);
     expect(call?.sent).toEqual({
-      type: 'catalog.workspace-plan-created.v1',
+      type: ROLE_CHANGED,
       timestamp: event?.recordedAt.toISOString(),
-      data: { workspaceId, plan: 'team', expiresAt: null },
+      data: { workspaceId, userId: member, role: 'admin' },
     });
     expect((await deliveryOf(id))?.deliveredAt).not.toBeNull();
   });
 
   it('sends integration events of every context, and no domain event', async () => {
-    await served(app)
-      .patch(`/api/workspaces/${workspaceId}/members/${member}`)
-      .set(TEST_USER_HEADER, owner)
-      .send({ role: 'admin' })
-      .expect(204);
+    await makeAdmin();
 
     const [call] = await eventually(async () => {
-      const found = callsOf('identity.workspace-member-role-changed.v1');
+      const found = callsOf(ROLE_CHANGED);
       return found.length > 0 ? found : null;
     });
 
@@ -217,11 +206,11 @@ describe('deployment event webhook (e2e)', () => {
   });
 
   it('tries again after an answer other than 2xx, with the same webhook-id', async () => {
-    receiver.failing.set(`catalog.workspace-plan-created.v1 ${workspaceId}`, 1);
-    await setPlan('team');
+    receiver.failing.set(`${ROLE_CHANGED} ${workspaceId}`, 1);
+    await makeAdmin();
 
     const [failed] = await eventually(async () => {
-      const found = callsOf('catalog.workspace-plan-created.v1');
+      const found = callsOf(ROLE_CHANGED);
       return found.length > 0 ? found : null;
     });
     const id = String(failed?.headers['webhook-id']);
@@ -253,19 +242,17 @@ describe('deployment event webhook (e2e)', () => {
 
     expect(delivered.attempts).toBe(2);
     expect(
-      callsOf('catalog.workspace-plan-created.v1').map((each) =>
-        String(each.headers['webhook-id']),
-      ),
+      callsOf(ROLE_CHANGED).map((each) => String(each.headers['webhook-id'])),
     ).toEqual([id, id]);
   });
 
   it('keeps a dead letter after the last attempt, and sends it again when the admin API redelivers it', async () => {
     const since = new Date(Date.now() - 1000).toISOString();
-    receiver.failing.set(`catalog.workspace-plan-created.v1 ${workspaceId}`, 2);
-    await setPlan('team');
+    receiver.failing.set(`${ROLE_CHANGED} ${workspaceId}`, 2);
+    await makeAdmin();
 
     const [failed] = await eventually(async () => {
-      const found = callsOf('catalog.workspace-plan-created.v1');
+      const found = callsOf(ROLE_CHANGED);
       return found.length > 0 ? found : null;
     });
     const id = String(failed?.headers['webhook-id']);
@@ -309,7 +296,7 @@ describe('deployment event webhook (e2e)', () => {
     });
 
     expect(delivered).toMatchObject({ attempts: 1, deadLetteredAt: null });
-    expect(callsOf('catalog.workspace-plan-created.v1')).toHaveLength(3);
+    expect(callsOf(ROLE_CHANGED)).toHaveLength(3);
   });
 
   it('refuses a redelivery without since as an ISO 8601 time, or without the admin token', async () => {

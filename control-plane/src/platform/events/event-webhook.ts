@@ -2,7 +2,7 @@ import type { SinkRegistration } from '@platform/events/event-subscribers';
 import { failureOf } from '@platform/outbound/outbound-failure';
 import type { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import { keyOf, signatureOf } from '@platform/outbound/standard-webhooks';
+import { signatureOf } from '@platform/outbound/standard-webhooks';
 import {
   type IntegrationEvent,
   isIntegrationEventKind,
@@ -13,6 +13,7 @@ import {
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
 const TIMEOUT_MS = 10_000;
 
@@ -69,7 +70,7 @@ export const EVENT_WEBHOOK_RETRY_HOURS = Math.round(
 
 export interface EventWebhookSettings {
   readonly url: string;
-  readonly secret: string;
+  readonly secret: SigningSecret;
 }
 
 // The deployment event webhook (SPOTLIGHT_EVENT_WEBHOOK_URL). Each integration event is one POST, signed per Standard Webhooks. The order is not guaranteed, and an event can come again: a receiver drops repeats by webhook-id and reads the current state from the admin API.
@@ -83,7 +84,7 @@ export class EventWebhook {
     private readonly clock: ClockPort,
   ) {
     this.#url = settings.url;
-    this.#key = keyOf(settings.secret);
+    this.#key = settings.secret.key;
   }
 
   // The call goes out under the deployment's allow-list only, not the list of a workspace. It throws when the webhook does not answer 2xx, so that the outbox tries again.
@@ -144,7 +145,7 @@ export class EventWebhook {
 
 // SPOTLIGHT_EVENT_WEBHOOK_KINDS names integration event kinds in full, such as runs.run-usage-recorded.v1, or contexts, such as identity. With no kinds, the subscriber hears every integration event. It never hears a domain event.
 // Many integration events carry content, such as task text, pull request titles, review comments and run messages. The operator sends fewer kinds to send less of it.
-export const eventWebhookSubscription = (
+export const eventWebhookSink = (
   webhook: EventWebhook,
   kinds: readonly string[],
 ): SinkRegistration => ({

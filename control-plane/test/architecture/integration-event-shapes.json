@@ -103,12 +103,5 @@
   "workspace-member-joined.integration-event.ts:WorkspaceMemberJoinedIntegrationEvent": "export type WorkspaceMemberJoinedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_JOINED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };",
   "workspace-member-joined.integration-event.ts:WorkspaceRolePublished": "export type WorkspaceRolePublished = 'owner' | 'admin' | 'member';",
   "workspace-member-role-changed.integration-event.ts:WORKSPACE_MEMBER_ROLE_CHANGED": "export const WORKSPACE_MEMBER_ROLE_CHANGED = 'identity.workspace-member-role-changed.v1';",
-  "workspace-member-role-changed.integration-event.ts:WorkspaceMemberRoleChangedIntegrationEvent": "export type WorkspaceMemberRoleChangedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_ROLE_CHANGED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };",
-  "workspace-plan-created.integration-event.ts:PlanPublished": "export type PlanPublished = 'free' | 'team' | 'enterprise';",
-  "workspace-plan-created.integration-event.ts:WORKSPACE_PLAN_CREATED": "export const WORKSPACE_PLAN_CREATED = 'catalog.workspace-plan-created.v1';",
-  "workspace-plan-created.integration-event.ts:WorkspacePlanCreatedIntegrationEvent": "export type WorkspacePlanCreatedIntegrationEvent = { readonly kind: typeof WORKSPACE_PLAN_CREATED; readonly workspaceId: string; readonly plan: PlanPublished; readonly expiresAt: string | null; };",
-  "workspace-plan-deleted.integration-event.ts:WORKSPACE_PLAN_DELETED": "export const WORKSPACE_PLAN_DELETED = 'catalog.workspace-plan-deleted.v1';",
-  "workspace-plan-deleted.integration-event.ts:WorkspacePlanDeletedIntegrationEvent": "export type WorkspacePlanDeletedIntegrationEvent = { readonly kind: typeof WORKSPACE_PLAN_DELETED; readonly workspaceId: string; };",
-  "workspace-plan-updated.integration-event.ts:WORKSPACE_PLAN_UPDATED": "export const WORKSPACE_PLAN_UPDATED = 'catalog.workspace-plan-updated.v1';",
-  "workspace-plan-updated.integration-event.ts:WorkspacePlanUpdatedIntegrationEvent": "export type WorkspacePlanUpdatedIntegrationEvent = { readonly kind: typeof WORKSPACE_PLAN_UPDATED; readonly workspaceId: string; readonly plan: PlanPublished; readonly expiresAt: string | null; };"
+  "workspace-member-role-changed.integration-event.ts:WorkspaceMemberRoleChangedIntegrationEvent": "export type WorkspaceMemberRoleChangedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_ROLE_CHANGED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };"
 }

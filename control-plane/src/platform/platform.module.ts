@@ -18,10 +18,7 @@ import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import {
-  EventWebhook,
-  eventWebhookSubscription,
-} from '@platform/events/event-webhook';
+import { EventWebhook, eventWebhookSink } from '@platform/events/event-webhook';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { OutboxRetention } from '@platform/events/outbox-retention';
 import { OutboxRetentionWorker } from '@platform/events/outbox-retention.worker';
@@ -91,6 +88,7 @@ import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
 // Registers the event webhook subscriber when SPOTLIGHT_EVENT_WEBHOOK_URL is set.
 const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
@@ -247,17 +245,14 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
           const webhook = new EventWebhook(
             {
               url: env.SPOTLIGHT_EVENT_WEBHOOK_URL,
-              secret: env.SPOTLIGHT_EVENT_WEBHOOK_SECRET,
+              secret: SigningSecret.of(env.SPOTLIGHT_EVENT_WEBHOOK_SECRET),
             },
             guard,
             clock,
           );
 
           subscribers.registerSink(
-            eventWebhookSubscription(
-              webhook,
-              env.SPOTLIGHT_EVENT_WEBHOOK_KINDS,
-            ),
+            eventWebhookSink(webhook, env.SPOTLIGHT_EVENT_WEBHOOK_KINDS),
           );
         }
 

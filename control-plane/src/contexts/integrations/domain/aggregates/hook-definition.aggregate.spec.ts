@@ -12,7 +12,6 @@ import { HookDefinitionId } from '@integrations/domain/value-objects/hook-defini
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
-import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -20,6 +19,7 @@ import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -33,9 +33,7 @@ const ID = HookDefinitionId.of('hook_1');
 const BY = changeActorIn();
 
 const secret = (fill: string) =>
-  HookSigningSecret.of(
-    `whsec_${Buffer.from(fill.repeat(32)).toString('base64')}`,
-  );
+  SigningSecret.of(`whsec_${Buffer.from(fill.repeat(32)).toString('base64')}`);
 
 const hook = ({
   key = 'grafana-reads',

@@ -2,19 +2,16 @@ import type {
   CatalogItemDto,
   CatalogResolution,
 } from '@catalog/application/dto/catalog-item.dto';
-import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
 import type { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogProblems } from '@catalog/application/rendering/catalog-problems';
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
 import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
-import { resolveEntitledItem } from '@catalog/domain/services/entitlement-resolution';
 import { newestMatching } from '@catalog/domain/services/newest-matching';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { VersionConstraint } from '@catalog/domain/value-objects/version-constraint.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -27,7 +24,6 @@ const itemDto = (
   name: item.metadata.name.value,
   version: item.metadata.version.value,
   constraint: constraint.value,
-  plan: item.metadata.requiredPlan.value,
   description: item.metadata.description,
   tools: item.kind === 'skill' ? item.tools.map((each) => each.value) : [],
 });
@@ -55,8 +51,6 @@ export class ResolveCatalogItemHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly catalog: CatalogItems,
-    private readonly terms: PlanTermsPort,
-    private readonly clock: ClockPort,
   ) {}
 
   async execute(
@@ -99,15 +93,7 @@ export class ResolveCatalogItemHandler implements QueryHandlerPort<
         return { outcome: 'unmatched', because: match.because };
       }
 
-      const result = resolveEntitledItem(
-        match.item,
-        await this.terms.of(permissions.workspaceId),
-        this.clock.now(),
-      );
-
-      return result.entitled
-        ? { outcome: 'resolved', item: itemDto(result.item, constraint) }
-        : { outcome: 'not-entitled', because: result.denial.detail };
+      return { outcome: 'resolved', item: itemDto(match.item, constraint) };
     } catch (error) {
       rethrowAsApplicationError(error);
     }

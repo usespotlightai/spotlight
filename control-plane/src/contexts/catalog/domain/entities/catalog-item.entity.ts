@@ -1,7 +1,6 @@
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import type { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo';
-import type { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
@@ -26,7 +25,6 @@ export interface CatalogSkillFile {
 interface CatalogItemMetadata {
   readonly name: CatalogName;
   readonly version: CatalogVersion;
-  readonly requiredPlan: Plan;
   readonly description: string;
 }
 

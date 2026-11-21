@@ -1,24 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
-import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
-import { WorkspacePlanAlreadyExistsError } from '@catalog/domain/exceptions/workspace-plan-already-exists.error';
-import { WorkspacePlanVersionConflictError } from '@catalog/domain/exceptions/workspace-plan-version-conflict.error';
-import {
-  WORKSPACE_PLANS,
-  type WorkspacePlanRepository,
-} from '@catalog/domain/repositories/workspace-plan.repository';
-import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
-import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
-import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 
 const ADMIN_TOKEN = `admin.${randomUUID()}`;
@@ -29,21 +16,11 @@ interface AdminWorkspace {
   readonly name: string;
   readonly createdAt: string;
   readonly memberCount: number;
-  readonly term: { readonly plan: string; readonly expiresAt: string | null };
 }
 
 interface AdminPage {
   readonly items: readonly AdminWorkspace[];
   readonly next: string | null;
-}
-
-interface Change {
-  readonly resource: string;
-  readonly resourceId: string;
-  readonly key: string;
-  readonly action: string;
-  readonly by: { readonly kind: string };
-  readonly details: Record<string, unknown>;
 }
 
 const at = (day: number) => new Date(Date.UTC(2026, 8, day, 9, 0, 0));
@@ -67,23 +44,7 @@ describe('admin API (e2e)', () => {
   const admin = (token = ADMIN_TOKEN) => ({
     get: (path: string) =>
       served(app).get(path).set('Authorization', `Bearer ${token}`),
-    put: (path: string, body: object) =>
-      served(app).put(path).set('Authorization', `Bearer ${token}`).send(body),
-    delete: (path: string) =>
-      served(app).delete(path).set('Authorization', `Bearer ${token}`),
   });
-
-  const changesOf = async (slug: string): Promise<readonly Change[]> => {
-    const answer = await served(app)
-      .get(`/api/workspaces/${slug}/configuration-changes`)
-      .set(TEST_USER_HEADER, owner);
-
-    expect(answer.status).toBe(200);
-
-    return (answer.body as readonly Change[]).filter(
-      (each) => each.resource === 'workspace-plan',
-    );
-  };
 
   beforeAll(async () => {
     app = await openApp(undefined, {
@@ -129,11 +90,6 @@ describe('admin API (e2e)', () => {
       () => http().get('/api/admin/workspaces'),
       () => http().get(`/api/admin/workspaces/${acme.id}`),
       () => http().get(`/api/admin/workspaces/${acme.id}/members`),
-      () =>
-        http()
-          .put(`/api/admin/workspaces/${acme.id}/plan`)
-          .send({ plan: 'team', expiresAt: null }),
-      () => http().delete(`/api/admin/workspaces/${acme.id}/plan`),
       () =>
         http()
           .post('/api/admin/event-webhook/redeliver')
@@ -189,7 +145,6 @@ describe('admin API (e2e)', () => {
       name: 'admin-acme',
       createdAt: at(1).toISOString(),
       memberCount: 2,
-      term: { plan: 'free', expiresAt: null },
     });
     expect(page.next).not.toBeNull();
 
@@ -225,10 +180,12 @@ describe('admin API (e2e)', () => {
       .get(`/api/admin/workspaces/${globex.id}`)
       .expect(200);
 
-    expect(answer.body).toMatchObject({
+    expect(answer.body).toEqual({
       id: globex.id,
+      slug: 'admin-globex',
+      name: 'admin-globex',
+      createdAt: at(2).toISOString(),
       memberCount: 1,
-      term: { plan: 'free', expiresAt: null },
     });
     await admin().get(`/api/admin/workspaces/${randomUUID()}`).expect(404);
   });
@@ -259,155 +216,13 @@ describe('admin API (e2e)', () => {
       .expect(404);
   });
 
-  it('sets, changes and removes the plan of a workspace, and records each change as made by Spotlight', async () => {
-    const plan = `/api/admin/workspaces/${globex.id}/plan`;
-    const expiresAt = '2099-01-01T00:00:00.000Z';
-
-    expect(
-      (await admin().put(plan, { plan: 'team', expiresAt }).expect(200)).body,
-    ).toEqual({ plan: 'team', expiresAt });
-    expect(
-      (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ term: { plan: 'team', expiresAt } });
-
-    await admin().put(plan, { plan: 'team', expiresAt }).expect(200);
-    await admin()
-      .put(plan, { plan: 'enterprise', expiresAt: null })
-      .expect(200);
-    expect(
-      (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ term: { plan: 'enterprise', expiresAt: null } });
-
-    await admin().delete(plan).expect(204);
-    await admin().delete(plan).expect(204);
-    expect(
-      (await admin().get(`/api/admin/workspaces/${globex.id}`)).body,
-    ).toMatchObject({ term: { plan: 'free', expiresAt: null } });
-    expect(
-      await db
-        .select()
-        .from(schema.workspacePlan)
-        .where(eq(schema.workspacePlan.workspaceId, globex.id)),
-    ).toEqual([]);
-
-    expect(
-      (await changesOf('admin-globex')).map((each) => [
-        each.action,
-        each.by.kind,
-        each.resourceId,
-        each.key,
-        each.details,
-      ]),
-    ).toEqual([
-      ['deleted', 'spotlight', globex.id, 'plan', {}],
-      [
-        'updated',
-        'spotlight',
-        globex.id,
-        'plan',
-        { plan: 'enterprise', expiresAt: null },
-      ],
-      ['created', 'spotlight', globex.id, 'plan', { plan: 'team', expiresAt }],
-    ]);
-  });
-
-  it('lists the plan of each workspace that has one', async () => {
-    await admin()
-      .put(`/api/admin/workspaces/${initech.id}/plan`, { plan: 'team' })
-      .expect(200);
-
-    const page = (await admin().get('/api/admin/workspaces').expect(200))
-      .body as AdminPage;
-
-    expect(
-      page.items.map((each) => [
-        each.slug,
-        each.term.plan,
-        each.term.expiresAt,
-      ]),
-    ).toEqual([
-      ['admin-acme', 'free', null],
-      ['admin-globex', 'free', null],
-      ['admin-initech', 'team', null],
-    ]);
-  });
-
-  it('refuses a plan that does not exist, a missing plan, a bad end and a workspace that does not exist, and stores nothing for the free plan', async () => {
-    const plan = `/api/admin/workspaces/${acme.id}/plan`;
-
-    await admin().put(plan, { plan: 'gold', expiresAt: null }).expect(422);
-    await admin().put(plan, { plan: 'team', expiresAt: 'soon' }).expect(400);
-    await admin().put(plan, { plan: 'team', expiresAt: 7 }).expect(400);
-    await admin()
-      .put(plan, { plan: 'team', expiresAt: 'March 3, 2099' })
-      .expect(400);
-    await admin()
-      .put(plan, { plan: 'team', expiresAt: '2020-01-01T00:00:00Z' })
-      .expect(422);
-    await admin().put(plan, { expiresAt: null }).expect(400);
-    await admin()
-      .put(plan, { plan: 'free', expiresAt: '2099-01-01T00:00:00Z' })
-      .expect(200);
-    await admin()
-      .put(`/api/admin/workspaces/${randomUUID()}/plan`, { plan: 'team' })
-      .expect(404);
-    await admin()
-      .delete(`/api/admin/workspaces/${randomUUID()}/plan`)
-      .expect(404);
-    expect(await changesOf('admin-acme')).toEqual([]);
-  });
-
-  it('removes the plan of a workspace that is deleted', async () => {
-    const planOf = () =>
-      db
-        .select()
-        .from(schema.workspacePlan)
-        .where(eq(schema.workspacePlan.workspaceId, initech.id));
-
-    expect(await planOf()).toHaveLength(1);
-
+  it('finds no workspace once it is deleted', async () => {
     await served(app)
       .delete(`/api/v1/resources/workspaces/${initech.id}`)
       .set(TEST_USER_HEADER, outsider)
       .set('If-Match', '"0"')
       .expect(204);
 
-    expect(
-      await eventually(async () => ((await planOf()).length === 0 ? [] : null)),
-    ).toEqual([]);
     await admin().get(`/api/admin/workspaces/${initech.id}`).expect(404);
-  });
-
-  it('refuses a second plan created at the same time, and a change to a plan that changed since it was read', async () => {
-    const plans = app.get<WorkspacePlanRepository>(WORKSPACE_PLANS);
-    const workspaceId = WorkspaceId.of(acme.id);
-    const by = ChangeActor.spotlight(workspaceId);
-    const now = new Date();
-    const create = (term: PlanTerm) =>
-      WorkspacePlan.create({ workspaceId, term, by, now }) as WorkspacePlan;
-
-    await plans.add(create(PlanTerm.of(Plan.team)));
-    await expect(
-      plans.add(create(PlanTerm.of(Plan.enterprise))),
-    ).rejects.toBeInstanceOf(WorkspacePlanAlreadyExistsError);
-
-    const first = (await plans.find(workspaceId)) as WorkspacePlan;
-    const second = (await plans.find(workspaceId)) as WorkspacePlan;
-
-    await plans.save(
-      first.set(PlanTerm.of(Plan.enterprise), by, now) as WorkspacePlan,
-    );
-    await expect(
-      plans.save(
-        second.set(
-          PlanTerm.of(Plan.team, new Date('2099-01-01T00:00:00Z')),
-          by,
-          now,
-        ) as WorkspacePlan,
-      ),
-    ).rejects.toBeInstanceOf(WorkspacePlanVersionConflictError);
-    expect(
-      (await admin().get(`/api/admin/workspaces/${acme.id}`).expect(200)).body,
-    ).toMatchObject({ term: { plan: 'enterprise', expiresAt: null } });
   });
 });

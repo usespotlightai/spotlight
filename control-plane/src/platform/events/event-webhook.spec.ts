@@ -8,12 +8,13 @@ import {
   EVENT_WEBHOOK_RETRY_HOURS,
   EVENT_WEBHOOK_SUBSCRIBER,
   EventWebhook,
-  eventWebhookSubscription,
+  eventWebhookSink,
 } from '@platform/events/event-webhook';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 const KEY = Buffer.from('w'.repeat(32));
@@ -82,7 +83,7 @@ beforeEach(() => {
 
 const webhook = (path = '/events', hosts = '127.0.0.1') =>
   new EventWebhook(
-    { url: `${base}${path}`, secret: SECRET },
+    { url: `${base}${path}`, secret: SigningSecret.of(SECRET) },
     new OutboundGuard(HostAllowList.listed(hosts), true),
     { now: () => NOW, sleep: async () => undefined },
   );
@@ -142,10 +143,10 @@ describe('EventWebhook', () => {
   });
 });
 
-describe('eventWebhookSubscription', () => {
+describe('eventWebhookSink', () => {
   const listening = (kinds: readonly string[]) => {
     const subscribers = new EventSubscribers();
-    subscribers.registerSink(eventWebhookSubscription(webhook(), kinds));
+    subscribers.registerSink(eventWebhookSink(webhook(), kinds));
 
     return (kind: string) =>
       subscribers.subscribersHearing(kind).map((each) => each.name);
@@ -178,7 +179,7 @@ describe('eventWebhookSubscription', () => {
   });
 
   it('calls out, and retries for about 13 hours with waits of at most one hour', () => {
-    const { subscriber, retry } = eventWebhookSubscription(webhook(), []);
+    const { subscriber, retry } = eventWebhookSink(webhook(), []);
     const waits = Array.from(
       { length: EVENT_WEBHOOK_RETRY.maxAttempts - 1 },
       (_, index) =>
@@ -200,7 +201,7 @@ describe('eventWebhookSubscription', () => {
   });
 
   it('sends the event with its outbox record, and raises nothing', async () => {
-    const { subscriber } = eventWebhookSubscription(webhook(), []);
+    const { subscriber } = eventWebhookSink(webhook(), []);
 
     await expect(
       subscriber.handle(JOINED as unknown as DomainEvent, RECORD),

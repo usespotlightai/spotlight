@@ -812,7 +812,6 @@ describe('the configuration the export spec renders (e2e)', () => {
     workspaceId = `fixture-${randomUUID().slice(0, 8)}`;
     seat = await seatTeam(db, workspaceId);
     teams.clear();
-    await db.insert(schema.workspacePlan).values({ workspaceId, plan: 'team' });
   });
 
   afterEach(async () => {
@@ -846,9 +845,6 @@ describe('the configuration the export spec renders (e2e)', () => {
     await db
       .delete(schema.idempotentCreate)
       .where(eq(schema.idempotentCreate.scope, `person:${seat.owner}`));
-    await db
-      .delete(schema.workspacePlan)
-      .where(eq(schema.workspacePlan.workspaceId, workspaceId));
     await db
       .delete(schema.oidcTrust)
       .where(eq(schema.oidcTrust.workspaceId, workspaceId));

@@ -18,7 +18,6 @@ import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
-import { EgressToken } from '@runners/domain/value-objects/egress-token.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
@@ -37,8 +36,6 @@ import {
 } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
-import { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
-import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -63,7 +60,6 @@ export const RUNNERS_PAYLOAD_TYPES = [
   EgressKey,
   EgressReference,
   EgressTraffic,
-  EgressToken,
   EgressUrl,
   EncryptedProvisionSecret,
   HarnessVersion,
@@ -76,9 +72,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   MaxRuns,
   PoolKey,
   PoolOccupancy,
-  PoolToken,
   RunnerWork,
-  ProvisionSecret,
   ProvisionUrl,
   PlatformAccess,
   PullAccess,

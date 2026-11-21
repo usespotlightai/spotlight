@@ -3,13 +3,13 @@ import { createHmac } from 'node:crypto';
 import { scopedTo } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
-import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const SECRET = ProvisionSecret.of(
+const SECRET = SigningSecret.of(
   `whsec_${Buffer.from('k'.repeat(32)).toString('base64')}`,
 );
 
@@ -122,7 +122,7 @@ describe('SignedProvisionCalls', () => {
 
     expect(url).toBe('https://provision.example.com/runs');
     expect(sent.headers['webhook-signature']).toBe(
-      `v1,${createHmac('sha256', Buffer.from(SECRET.encodedKey, 'base64')).update(signed).digest('base64')}`,
+      `v1,${createHmac('sha256', SECRET.key).update(signed).digest('base64')}`,
     );
     expect(JSON.parse(sent.body)).toEqual({
       type: 'work.provision',

@@ -206,6 +206,37 @@ describe('ClaimReviewWork', () => {
     expect(waitingIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
   });
 
+  it('claims in the order of review work, whatever order the repository gives', async () => {
+    const first = waitingCheck();
+    const later = StackCheck.begin({
+      stackId: ChangeStackId.of('stack_2'),
+      runId: first.runId,
+      taskId: null,
+      teamId: TeamId.of('team_1'),
+      trial: false,
+      workspaceId: first.workspaceId,
+      request: first.request,
+      entries: first.entries,
+      now: NOW,
+    });
+    const saved: StackCheck[] = [];
+
+    await new ClaimReviewWork(
+      {
+        waitingIn: async () => [later, first],
+        save: async (check: StackCheck) => {
+          saved.push(check);
+        },
+      } as unknown as StackCheckRepository,
+      { find: async () => completed() } as unknown as ChangeStackRepository,
+      { patchOf: () => 'diff' },
+      { inTransaction: (work) => work() },
+      NO_DIFFS,
+    ).claimNext(WorkspaceId.of('ws_1'), RUNNER, LAPTOP, NOW);
+
+    expect(saved.map((each) => each.stackId.value)).toEqual(['stack_1']);
+  });
+
   it('claims the next waiting check when another runner took the first one meanwhile', async () => {
     const first = waitingCheck();
     const second = StackCheck.begin({

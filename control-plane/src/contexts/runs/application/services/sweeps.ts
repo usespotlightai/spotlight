@@ -3,7 +3,7 @@ interface Kept<Cursor> {
   readonly page: number;
 }
 
-// For one kind of waiting work: where the page past the head starts in each workspace. The head is page 1. Each tick reads the head and one page past it, so every waiting item in the first maxPages pages is read within maxPages - 1 ticks.
+// For one kind of waiting work: where the page past the head starts in each workspace. The head is page 1. Each tick reads the head and one page past it, so every item that waits in the first maxPages pages when a sweep starts is read within maxPages - 1 ticks, unless new work is added after the cursor. An item that waits again before the cursor, as when its back-off ends, is read in the next sweep.
 export class Sweeps<Cursor> {
   readonly #kept = new Map<string, Kept<Cursor>>();
 

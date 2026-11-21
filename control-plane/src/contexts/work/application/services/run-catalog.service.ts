@@ -4,7 +4,7 @@ import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
-import { CatalogEntitledMapper } from '@work/application/mappers/catalog-entitled.mapper';
+import { CatalogItemMapper } from '@work/application/mappers/catalog-item.mapper';
 import type {
   ResolvedTool,
   ToolContext,
@@ -12,7 +12,6 @@ import type {
 import { CatalogItemDeniedError } from '@work/domain/exceptions/catalog-item-denied.error';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
-import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 
 interface StationItems {
@@ -41,25 +40,19 @@ const NOTHING: CatalogAtStation = { skills: [], tools: [], denied: [] };
 export class RunCatalog {
   constructor(private readonly catalog: CatalogPort) {}
 
-  async enabledAt(line: LineMap, station: Station): Promise<CatalogAtStation> {
+  async enabledAt(station: Station): Promise<CatalogAtStation> {
     const request = fromCatalog(station);
 
     if (!namesAny(request)) {
       return NOTHING;
     }
 
-    const entitled = await this.catalog.entitledTo(line.workspaceId, request);
+    const resolved = await this.catalog.resolve(request);
 
     return {
-      skills: entitled.skills.map((each) =>
-        CatalogEntitledMapper.toFolder(each),
-      ),
-      tools: entitled.tools.map((each) =>
-        CatalogEntitledMapper.toDeclared(each),
-      ),
-      denied: entitled.denied.map((each) =>
-        CatalogEntitledMapper.toDenied(each),
-      ),
+      skills: resolved.skills.map((each) => CatalogItemMapper.toFolder(each)),
+      tools: resolved.tools.map((each) => CatalogItemMapper.toDeclared(each)),
+      denied: resolved.denied.map((each) => CatalogItemMapper.toDenied(each)),
     };
   }
 
@@ -77,21 +70,21 @@ export class RunCatalog {
       return null;
     }
 
-    const entitled = await this.catalog.entitledTo(context.workspaceId, {
+    const resolved = await this.catalog.resolve({
       tools: [pinned.value],
       skills: [],
     });
-    const [denied] = entitled.denied;
+    const [denied] = resolved.denied;
 
     if (denied) {
-      throw new CatalogItemDeniedError(CatalogEntitledMapper.toDenied(denied));
+      throw new CatalogItemDeniedError(CatalogItemMapper.toDenied(denied));
     }
 
-    const found = entitled.tools.find((each) => each.id === pinned.value);
+    const found = resolved.tools.find((each) => each.id === pinned.value);
 
     return found
       ? {
-          declared: CatalogEntitledMapper.toDeclared(found),
+          declared: CatalogItemMapper.toDeclared(found),
           actingAs: null,
           missing: null,
           personRule: null,
@@ -106,7 +99,7 @@ export class RunCatalog {
 
             if (answer.kind === 'denied') {
               throw new CatalogItemDeniedError(
-                CatalogEntitledMapper.toDenied(answer.denial),
+                CatalogItemMapper.toDenied(answer.denial),
               );
             }
 
