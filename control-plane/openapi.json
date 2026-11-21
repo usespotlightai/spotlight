@@ -5964,6 +5964,57 @@
         ]
       }
     },
+    "/runs/{runId}/sandbox-env": {
+      "post": {
+        "description": "The runner calls this once per attempt, before the setup commands. Each variable holds the real value of a secret with sandbox = \"env\". Spotlight logs each reveal with the run and the secret names.",
+        "operationId": "revealSandboxEnv",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevealSandboxEnvRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxEnvResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run"
+          },
+          "409": {
+            "description": "The run is not leased by this runner on that attempt"
+          }
+        },
+        "summary": "Get the secrets that the run’s harness profile puts in its sandbox as environment variables",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/starting-point": {
       "post": {
         "description": "The runner reports this once the working copy is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.",
@@ -7339,6 +7390,15 @@
                       }
                     }
                   },
+                  "sandbox": {
+                    "type": "string",
+                    "enum": [
+                      "stand-in",
+                      "env"
+                    ],
+                    "default": "stand-in",
+                    "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it"
+                  },
                   "valueWo": {
                     "type": "string",
                     "writeOnly": true,
@@ -7746,6 +7806,15 @@
                         }
                       }
                     }
+                  },
+                  "sandbox": {
+                    "type": "string",
+                    "enum": [
+                      "stand-in",
+                      "env"
+                    ],
+                    "default": "stand-in",
+                    "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it"
                   },
                   "valueWo": {
                     "type": "string",
@@ -17041,6 +17110,16 @@
                       "STAGING_VIEWER"
                     ],
                     "description": "Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has."
+                  },
+                  "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "example": {
+                      "GITHUB_APP_PRIVATE_KEY": "DEV_GITHUB_APP_KEY"
+                    },
+                    "description": "Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = \"env\". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused."
                   }
                 }
               }
@@ -17401,6 +17480,16 @@
                       "STAGING_VIEWER"
                     ],
                     "description": "Workspace secrets that the runs of this profile get, by name. Egress puts each value in place of its stand-in in the requests a run sends to the hosts the secret is bound to, and the run never sees the value. The run’s briefing says where to send each stand-in. Each name must be a secret the workspace has."
+                  },
+                  "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "example": {
+                      "GITHUB_APP_PRIVATE_KEY": "DEV_GITHUB_APP_KEY"
+                    },
+                    "description": "Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = \"env\". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused."
                   }
                 }
               }
@@ -26639,6 +26728,75 @@
           "image"
         ]
       },
+      "RevealSandboxEnvRequestDto": {
+        "type": "object",
+        "properties": {
+          "attempt": {
+            "type": "number",
+            "example": 1,
+            "description": "The attempt of the run assigned to the runner, as the claim named it"
+          }
+        },
+        "required": [
+          "attempt"
+        ]
+      },
+      "SandboxEnvVariableResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "GITHUB_APP_PRIVATE_KEY"
+          },
+          "value": {
+            "type": "string",
+            "description": "The real value of the secret. The runner sets it in the sandbox and redacts it from what it reports"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "DeniedSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_API_KEY"
+          },
+          "reason": {
+            "type": "string",
+            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
+          }
+        },
+        "required": [
+          "secret",
+          "reason"
+        ]
+      },
+      "SandboxEnvResponseDto": {
+        "type": "object",
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SandboxEnvVariableResponseDto"
+            }
+          },
+          "denied": {
+            "description": "Secrets the run cannot get, with why. The runner fails the run before setup if any is listed",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeniedSecretResponseDto"
+            }
+          }
+        },
+        "required": [
+          "variables",
+          "denied"
+        ]
+      },
       "CheckoutHeadRequestDto": {
         "type": "object",
         "properties": {
@@ -27194,23 +27352,6 @@
           "name",
           "prefix",
           "sealed"
-        ]
-      },
-      "DeniedSecretResponseDto": {
-        "type": "object",
-        "properties": {
-          "secret": {
-            "type": "string",
-            "example": "LINEAR_API_KEY"
-          },
-          "reason": {
-            "type": "string",
-            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
-          }
-        },
-        "required": [
-          "secret",
-          "reason"
         ]
       },
       "HarnessKeysResponseDto": {
@@ -27938,6 +28079,14 @@
           "prefix"
         ]
       },
+      "SecretSandbox": {
+        "type": "string",
+        "enum": [
+          "stand-in",
+          "env"
+        ],
+        "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it"
+      },
       "SecretResourceResponseDto": {
         "type": "object",
         "properties": {
@@ -27980,6 +28129,15 @@
               "$ref": "#/components/schemas/SecretBindingResponseDto"
             }
           },
+          "sandbox": {
+            "example": "stand-in",
+            "description": "Whether a run can get the value itself: stand-in (the default) keeps the value out of every sandbox, and egress puts it only in requests to the bound hosts; env lets a harness profile give the value to its runs as an environment variable, where the agent and every process in the sandbox can read it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretSandbox"
+              }
+            ]
+          },
           "valueWoVersion": {
             "type": "number",
             "nullable": true,
@@ -28000,6 +28158,7 @@
           "workspaceId",
           "name",
           "bindings",
+          "sandbox",
           "valueWoVersion",
           "rotatedAt"
         ]
@@ -28045,6 +28204,15 @@
               "type": "string"
             }
           },
+          "sandbox": {
+            "example": "stand-in",
+            "description": "stand-in keeps the value out of every sandbox; env lets a harness profile give the value to its runs as an environment variable",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretSandbox"
+              }
+            ]
+          },
           "valueOrigin": {
             "example": "awaiting",
             "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)",
@@ -28068,6 +28236,7 @@
         "required": [
           "name",
           "hosts",
+          "sandbox",
           "valueOrigin",
           "valueSetAt",
           "settable"
@@ -34043,6 +34212,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "GITHUB_APP_PRIVATE_KEY": "DEV_GITHUB_APP_KEY"
+            },
+            "description": "Environment variables that the runs of this profile get, each the real value of a workspace secret, as in GITHUB_APP_PRIVATE_KEY = DEV_GITHUB_APP_KEY. The agent and every process in the sandbox can read the value, so name only secrets made for this. Each secret must have sandbox = \"env\". PATH, HOME, SPOTLIGHT_ variables, the proxy variables and the CA variables are set by the runner and are refused."
           }
         },
         "required": [
@@ -34055,7 +34234,8 @@
           "permissions",
           "mcpServers",
           "native",
-          "secrets"
+          "secrets",
+          "env"
         ]
       },
       "HarnessProfileResourceListResponseDto": {

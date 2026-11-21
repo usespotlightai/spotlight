@@ -488,6 +488,7 @@ describe('TaskBriefing', () => {
       name: SecretName.of(name),
       bindings,
       awaitingValue: false,
+      entersSandbox: false,
     });
 
     it('says where to send the stand-in of each secret, and never a value', () => {

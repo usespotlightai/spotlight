@@ -36,6 +36,13 @@
       "when": 1795186337240,
       "tag": "20261120145217_harness_profile_secrets",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795209457412,
+      "tag": "20261120211737_sandbox_env_secrets",
+      "breakpoints": true
     }
   ]
 }

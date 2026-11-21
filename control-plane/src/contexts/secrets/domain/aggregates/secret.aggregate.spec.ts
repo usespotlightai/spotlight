@@ -2,9 +2,12 @@ import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { ReservedSecretValueError } from '@secrets/domain/exceptions/reserved-secret-value.error';
 import { SecretAwaitingValueError } from '@secrets/domain/exceptions/secret-awaiting-value.error';
+import { SecretInSandboxError } from '@secrets/domain/exceptions/secret-in-sandbox.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
+import { SecretKeptOutOfSandboxError } from '@secrets/domain/exceptions/secret-kept-out-of-sandbox.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
+import { SecretTooShortForSandboxError } from '@secrets/domain/exceptions/secret-too-short-for-sandbox.error';
 import { SecretValueFromTerraformError } from '@secrets/domain/exceptions/secret-value-from-terraform.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type { InjectedSecret } from '@secrets/domain/value-objects/secret-binding.vo';
@@ -41,6 +44,7 @@ const rehydrated = (made: Secret, valueVersion = made.valueVersion) =>
     workspaceId: made.workspaceId,
     name: made.name,
     bindings: made.bindings,
+    sandbox: made.sandbox,
     valueVersion,
     holdsValue: made.holdsValue,
     rotatedAt: made.rotatedAt,
@@ -106,6 +110,7 @@ describe('Secret', () => {
             origin: SecretValueOrigin.of({ valueVersion: 1, holdsValue: true }),
             valueVersion: 1,
             targets: ['api.linear.app'],
+            sandbox: 'stand-in',
           }),
         ),
       ]);
@@ -120,6 +125,7 @@ describe('Secret', () => {
             valueOrigin: 'terraform',
             valueVersion: 1,
             targets: ['api.linear.app'],
+            sandbox: 'stand-in',
           },
         ],
       ]);
@@ -132,7 +138,11 @@ describe('Secret', () => {
           'LINEAR_API_KEY',
           'created',
           BY,
-          { valueOrigin: 'awaiting', targets: ['api.linear.app'] },
+          {
+            valueOrigin: 'awaiting',
+            targets: ['api.linear.app'],
+            sandbox: 'stand-in',
+          },
         ],
       ]);
     });
@@ -192,6 +202,7 @@ describe('Secret', () => {
         definition({ value: 'lin_api_ignored' }),
         BY,
         LATER,
+        SecretUses.none(),
       );
 
       expect(updated).toBe(existing);
@@ -208,6 +219,7 @@ describe('Secret', () => {
         }),
         BY,
         LATER,
+        SecretUses.none(),
       );
 
       expect(pendingOf(updated)).toBeNull();
@@ -228,6 +240,7 @@ describe('Secret', () => {
         definition({ value: 'lin_api_2', valueVersion: 2 }),
         BY,
         LATER,
+        SecretUses.none(),
       );
 
       expect(pendingOf(rotated)).toBe('lin_api_2');
@@ -250,6 +263,7 @@ describe('Secret', () => {
           definition({ value: 'a\nb', valueVersion: 2 }),
           BY,
           LATER,
+          SecretUses.none(),
         ),
       ).toThrow(
         expect.objectContaining({
@@ -267,6 +281,7 @@ describe('Secret', () => {
           definition({ value: 'lin_api_tf', valueVersion: null }),
           BY,
           LATER,
+          SecretUses.none(),
         ),
       ).toThrow(/set only together with valueWoVersion/);
     });
@@ -277,6 +292,7 @@ describe('Secret', () => {
           definition({ value: null, valueVersion: 2 }),
           BY,
           LATER,
+          SecretUses.none(),
         ),
       ).toThrow(/required when valueWoVersion changes/);
     });
@@ -291,6 +307,7 @@ describe('Secret', () => {
         definition({ value: null, valueVersion: null }),
         BY,
         LATER,
+        SecretUses.none(),
       );
 
       expect(existing.holdsValue).toBe(true);
@@ -304,6 +321,7 @@ describe('Secret', () => {
         definition({ value: null, valueVersion: null }),
         BY,
         LATER,
+        SecretUses.none(),
       );
 
       expect(pendingOf(handedOver)).toBeNull();
@@ -327,6 +345,7 @@ describe('Secret', () => {
         definition({ value: 'lin_api_tf', valueVersion: 3 }),
         BY,
         LATER,
+        SecretUses.none(),
       );
 
       expect(pendingOf(taken)).toBe('lin_api_tf');
@@ -347,6 +366,7 @@ describe('Secret', () => {
         definition({ bindings: [{ host: 'uploads.linear.app' }] }),
         BY,
         LATER,
+        SecretUses.none(),
       );
 
       expect(recorded(rebound)).toEqual([
@@ -362,7 +382,12 @@ describe('Secret', () => {
 
     it('keeps its name for life', () => {
       expect(() =>
-        stored().update(definition({ name: 'LINEAR_TOKEN' }), BY, LATER),
+        stored().update(
+          definition({ name: 'LINEAR_TOKEN' }),
+          BY,
+          LATER,
+          SecretUses.none(),
+        ),
       ).toThrow(ImmutableFieldError);
     });
 
@@ -464,12 +489,77 @@ describe('Secret', () => {
           workspaceId: awaiting.workspaceId,
           name: awaiting.name,
           bindings: awaiting.bindings,
+          sandbox: awaiting.sandbox,
           valueVersion: ValueVersion.of(2),
           holdsValue: false,
           rotatedAt: awaiting.rotatedAt,
           version: 1,
         }),
       ).toThrow(InconsistentStateError);
+    });
+  });
+
+  describe('sandbox', () => {
+    const IN_SANDBOX = SecretUses.of([
+      { kind: 'harness-profile', key: 'core/full-app', inSandbox: true },
+    ]);
+    const NAMED = SecretUses.of([
+      { kind: 'harness-profile', key: 'core/full-app', inSandbox: false },
+    ]);
+
+    it('keeps its value out of every sandbox unless it says otherwise', () => {
+      expect(set().sandbox).toBe('stand-in');
+      expect(() => stored().assertEntersSandbox()).toThrow(
+        SecretKeptOutOfSandboxError,
+      );
+    });
+
+    it('lets its value enter a sandbox once it is set to env, and records the change', () => {
+      const updated = stored().update(
+        definition({ sandbox: 'env' }),
+        BY,
+        LATER,
+        SecretUses.none(),
+      );
+
+      expect(updated.sandbox).toBe('env');
+      expect(() => updated.assertEntersSandbox()).not.toThrow();
+      expect(recorded(updated)).not.toEqual([]);
+    });
+
+    it('is not set back to stand-in while a harness profile puts it in a sandbox', () => {
+      expect(() =>
+        stored({ sandbox: 'env' }).update(definition(), BY, LATER, IN_SANDBOX),
+      ).toThrow(SecretInSandboxError);
+    });
+
+    it('is set back to stand-in when its uses only name it', () => {
+      expect(
+        stored({ sandbox: 'env' }).update(definition(), BY, LATER, NAMED)
+          .sandbox,
+      ).toBe('stand-in');
+    });
+
+    it('gives a sandbox a value only when the secret allows it and the value is long enough to replace', () => {
+      expect(() =>
+        stored().sandboxValue(SecretValue.of('ghp_long_enough')),
+      ).toThrow(SecretKeptOutOfSandboxError);
+      expect(() =>
+        stored({ sandbox: 'env' }).sandboxValue(SecretValue.of('hunter2')),
+      ).toThrow(SecretTooShortForSandboxError);
+      expect(
+        stored({ sandbox: 'env' })
+          .sandboxValue(SecretValue.of('hunter22'))
+          .revealed(),
+      ).toBe('hunter22');
+    });
+
+    it('lets no value of a deleted secret enter a sandbox', () => {
+      expect(() =>
+        stored({ sandbox: 'env' })
+          .delete(SecretUses.none(), BY)
+          .assertEntersSandbox(),
+      ).toThrow(/after it was deleted/);
     });
   });
 
@@ -515,7 +605,9 @@ describe('Secret', () => {
     it('is not deleted while an integration still uses it', () => {
       expect(() =>
         stored().delete(
-          SecretUses.of([{ kind: 'integration', key: 'core/linear' }]),
+          SecretUses.of([
+            { kind: 'integration', key: 'core/linear', inSandbox: false },
+          ]),
           BY,
         ),
       ).toThrow(SecretInUseError);

@@ -3,6 +3,7 @@ import type { ResourceType } from '@shared-kernel/domain/value-objects/configura
 interface SecretUse {
   readonly kind: ResourceType;
   readonly key: string;
+  readonly inSandbox: boolean;
 }
 
 const described = (use: SecretUse): string =>
@@ -25,6 +26,10 @@ export class SecretUses {
 
   get isEmpty(): boolean {
     return this.by.length === 0;
+  }
+
+  get inSandbox(): SecretUses {
+    return new SecretUses(this.by.filter((each) => each.inSandbox));
   }
 
   get described(): readonly string[] {

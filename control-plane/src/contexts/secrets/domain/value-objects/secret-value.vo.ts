@@ -35,6 +35,10 @@ export class SecretValue implements Secret {
     return !/[\r\n\0]/.test(this.#value);
   }
 
+  isShorterThan(characters: number): boolean {
+    return this.#value.length < characters;
+  }
+
   revealed(): string {
     return this.#value;
   }

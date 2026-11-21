@@ -1,0 +1,23 @@
+{
+  "variables": [
+    "ALL_PROXY",
+    "COLORTERM",
+    "CURL_CA_BUNDLE",
+    "GIT_SSL_CAINFO",
+    "HOME",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "LOGNAME",
+    "NODE_EXTRA_CA_CERTS",
+    "NODE_USE_ENV_PROXY",
+    "NO_PROXY",
+    "PATH",
+    "REQUESTS_CA_BUNDLE",
+    "SHELL",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "TERM",
+    "USER"
+  ],
+  "prefix": "SPOTLIGHT_"
+}

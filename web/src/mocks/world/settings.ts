@@ -362,6 +362,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
   {
     name: 'LINEAR_API_KEY',
     hosts: ['api.linear.app'],
+    sandbox: 'stand-in',
     valueOrigin: 'terraform',
     valueSetAt: daysAgo(30),
     settable: false,
@@ -369,6 +370,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
   {
     name: 'STAGING_LOGIN_PASSWORD',
     hosts: ['staging.acme.dev'],
+    sandbox: 'stand-in',
     valueOrigin: 'awaiting',
     valueSetAt: null,
     settable: true,
@@ -376,8 +378,17 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
   {
     name: 'STAGING_VIEWER_TOKEN',
     hosts: ['staging.acme.dev', 'api.staging.acme.dev'],
+    sandbox: 'stand-in',
     valueOrigin: 'spotlight',
     valueSetAt: daysAgo(2),
+    settable: true,
+  },
+  {
+    name: 'DEV_GITHUB_APP_KEY',
+    hosts: [],
+    sandbox: 'env',
+    valueOrigin: 'spotlight',
+    valueSetAt: daysAgo(5),
     settable: true,
   },
 ];

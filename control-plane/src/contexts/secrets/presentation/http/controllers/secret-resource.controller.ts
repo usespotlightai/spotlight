@@ -22,7 +22,11 @@ import { ImportSecretQuery } from '@secrets/application/queries/import-secret.qu
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
-import { SecretResourceResponseDto } from '@secrets/presentation/http/dto/secret-resource.response.dto';
+import { SECRET_SANDBOXES } from '@secrets/domain/value-objects/secret-sandbox.vo';
+import {
+  SECRET_SANDBOX,
+  SecretResourceResponseDto,
+} from '@secrets/presentation/http/dto/secret-resource.response.dto';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -68,6 +72,12 @@ const DEFINITION = ApiBody({
             prefix: { type: 'string', default: '', example: 'Bearer ' },
           },
         },
+      },
+      sandbox: {
+        type: 'string',
+        enum: [...SECRET_SANDBOXES],
+        default: 'stand-in',
+        description: SECRET_SANDBOX,
       },
       valueWo: {
         type: 'string',

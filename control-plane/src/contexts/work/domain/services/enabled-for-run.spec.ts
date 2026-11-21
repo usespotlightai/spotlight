@@ -122,6 +122,7 @@ describe('enabledAt, for a station that names a harness profile', () => {
     native: {},
     secrets: [],
     injectedSecrets: [],
+    sandboxEnv: [],
   };
 
   it('enables the profile the team has for the run', () => {

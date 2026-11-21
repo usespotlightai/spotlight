@@ -13,6 +13,7 @@ export interface BoundSecretShape {
   readonly name: string;
   readonly bindings: readonly BoundSecretBindingShape[];
   readonly awaitingValue: boolean;
+  readonly entersSandbox: boolean;
 }
 
 export interface BoundSecretsPort {

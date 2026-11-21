@@ -33,10 +33,12 @@ import {
   RecordRunImageCommand,
   RecordStartingPointCommand,
   RenewReviewWorkLeaseCommand,
+  RevealSandboxEnvCommand,
   RenewLeaseCommand,
 } from '@runs/application/commands/runner.commands';
 import type { HarnessDto } from '@runs/application/dto/harness.dto';
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
+import type { SandboxEnvDto } from '@runs/application/dto/sandbox-env.dto';
 import type { ReviewWorkLeaseRenewal } from '@runs/application/ports/review-work.port';
 import { HarnessCatalogueQuery } from '@runs/application/queries/list-harnesses.query';
 import { RunStopRequestedQuery } from '@runs/application/queries/run-stop-requested.query';
@@ -46,12 +48,14 @@ import {
   CompleteRunRequestDto,
   RecordRunImageRequestDto,
   RecordStartingPointRequestDto,
+  RevealSandboxEnvRequestDto,
 } from '@runs/presentation/http/dto/runner.request.dto';
 import {
   ClaimedWorkResponseDto,
   RenewReviewWorkLeaseResponseDto,
   RenewLeaseResponseDto,
 } from '@runs/presentation/http/dto/runner.response.dto';
+import { SandboxEnvResponseDto } from '@runs/presentation/http/dto/sandbox-env.response.dto';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 
 const textAt = (raw: unknown, key: string): string => {
@@ -63,7 +67,9 @@ const textAt = (raw: unknown, key: string): string => {
   return typeof value === 'string' ? value : '';
 };
 
-const attemptIn = (body: RecordStartingPointRequestDto | undefined): number => {
+const attemptIn = (
+  body: RecordStartingPointRequestDto | RevealSandboxEnvRequestDto | undefined,
+): number => {
   if (typeof body?.attempt !== 'number') {
     throw new UnprocessableEntityException('attempt must be a number');
   }
@@ -270,6 +276,33 @@ export class RunnerController {
   ): Promise<void> {
     await this.commandBus.execute(
       new RecordRunImageCommand(runId, runnerId, body?.image ?? ''),
+    );
+  }
+
+  @Post('runs/:runId/sandbox-env')
+  @RecordsMachineHeartbeat()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'revealSandboxEnv',
+    summary:
+      'Get the secrets that the run’s harness profile puts in its sandbox as environment variables',
+    description:
+      'The runner calls this once per attempt, before the setup commands. Each variable holds the real value of a secret with sandbox = "env". Spotlight logs each reveal with the run and the secret names.',
+  })
+  @ApiOkResponse({ type: SandboxEnvResponseDto })
+  @ApiNotFoundResponse({ description: 'No such run' })
+  @ApiConflictResponse({
+    description: 'The run is not leased by this runner on that attempt',
+  })
+  async revealSandboxEnv(
+    @Param('runId') runId: string,
+    @CurrentMachine() runnerId: string,
+    @Body() body: RevealSandboxEnvRequestDto,
+  ): Promise<SandboxEnvResponseDto> {
+    return new SandboxEnvResponseDto(
+      await this.commandBus.execute<RevealSandboxEnvCommand, SandboxEnvDto>(
+        new RevealSandboxEnvCommand(runId, runnerId, attemptIn(body)),
+      ),
     );
   }
 

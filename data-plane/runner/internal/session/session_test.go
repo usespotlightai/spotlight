@@ -56,6 +56,9 @@ type journal struct {
 	completeErr            error
 	proposed               []protocol.CandidateProposal
 	caused                 []protocol.CauseRecord
+	sandboxEnv             protocol.SandboxEnv
+	sandboxEnvErr          error
+	sandboxEnvAsked        []int
 }
 
 type remembered struct {
@@ -278,6 +281,14 @@ func (j *journal) RecordStartingPoint(_ context.Context, _ string, point protoco
 	return nil
 }
 
+func (j *journal) SandboxEnv(_ context.Context, _ string, attempt int) (protocol.SandboxEnv, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.calls = append(j.calls, "sandbox-env")
+	j.sandboxEnvAsked = append(j.sandboxEnvAsked, attempt)
+	return j.sandboxEnv, j.sandboxEnvErr
+}
+
 func (j *journal) typed(kind protocol.EventType) []protocol.Event {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -422,6 +433,11 @@ type runOptions struct {
 	frames        bool
 	protocol      string
 	log           *slog.Logger
+	sandboxEnv    []protocol.SandboxEnvVariable
+	fetched       protocol.SandboxEnv
+	fetchErr      error
+	wantErr       bool
+	controlPlane  string
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -433,16 +449,18 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	}
 
 	written := &journal{
-		messages:    settings.messages,
-		stopAfter:   settings.stopAfter,
-		files:       settings.files,
-		decision:    settings.decision,
-		archives:    settings.archives,
-		memory:      settings.memory,
-		memoryErr:   settings.memoryErr,
-		memoryTakes: settings.memoryTakes,
-		startErr:    settings.startErr,
-		completeErr: settings.completeErr,
+		messages:      settings.messages,
+		stopAfter:     settings.stopAfter,
+		files:         settings.files,
+		decision:      settings.decision,
+		archives:      settings.archives,
+		memory:        settings.memory,
+		memoryErr:     settings.memoryErr,
+		memoryTakes:   settings.memoryTakes,
+		startErr:      settings.startErr,
+		completeErr:   settings.completeErr,
+		sandboxEnv:    settings.fetched,
+		sandboxEnvErr: settings.fetchErr,
 	}
 	if settings.sandbox == nil {
 		settings.sandbox = new(session.Sandbox)
@@ -481,6 +499,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			Replay:        settings.replay,
 			Search:        settings.search,
 			Checkouts:     settings.checkouts,
+			SandboxEnv:    settings.sandboxEnv,
 		},
 	}, session.Options{
 		Workspace:      settings.root,
@@ -494,8 +513,9 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		SettleQuiet:    settings.quiet,
 		Sandbox:        held,
 		HarnessFrames:  settings.frames,
+		ControlPlane:   settings.controlPlane,
 	})
-	if err != nil && settings.stopOnce == "" && settings.completeErr == nil {
+	if err != nil && settings.stopOnce == "" && settings.completeErr == nil && !settings.wantErr {
 		t.Fatalf("execute: %v", err)
 	}
 

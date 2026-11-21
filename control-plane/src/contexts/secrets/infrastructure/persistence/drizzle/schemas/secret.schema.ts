@@ -1,4 +1,5 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
+import type { SecretSandbox } from '@secrets/domain/value-objects/secret-sandbox.vo';
 import {
   boolean,
   index,
@@ -24,6 +25,10 @@ export const secret = pgTable(
     workspaceId: text('workspace_id').notNull(),
     name: text('name').notNull(),
     bindings: jsonb('bindings').$type<SecretBindingRow[]>().notNull(),
+    sandbox: text('sandbox')
+      .$type<SecretSandbox>()
+      .notNull()
+      .default('stand-in'),
     valueVersion: integer('value_version'),
     rotatedAt: timestamptz('rotated_at').notNull(),
     version: integer('version').notNull().default(0),

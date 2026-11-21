@@ -36,6 +36,7 @@ export class WorkspaceSecrets implements WorkspaceSecretsPort {
       name,
       bindings: SecretBindings.none(),
       value,
+      sandbox: existing?.sandbox ?? ('stand-in' as const),
     };
 
     if (!existing) {
@@ -52,7 +53,12 @@ export class WorkspaceSecrets implements WorkspaceSecretsPort {
     const valueVersion = value
       ? ValueVersion.of((existing.valueVersion?.value ?? 0) + 1)
       : existing.valueVersion;
-    const updated = existing.update({ ...definition, valueVersion }, by, at);
+    const updated = existing.update(
+      { ...definition, valueVersion },
+      by,
+      at,
+      SecretUses.none(),
+    );
 
     if (updated !== existing) {
       await this.secrets.save(updated);

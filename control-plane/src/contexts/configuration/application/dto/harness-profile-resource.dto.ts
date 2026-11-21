@@ -22,6 +22,7 @@ export interface HarnessProfileResourceDto {
   readonly mcpServers: readonly McpServerDto[];
   readonly native: Readonly<Record<string, unknown>>;
   readonly secrets: readonly string[];
+  readonly env: Readonly<Record<string, string>>;
   readonly secretReferences: readonly SecretReferenceAt[];
   readonly warnings: readonly ConfigurationProblem[];
 }

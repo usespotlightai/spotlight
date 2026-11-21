@@ -12,6 +12,7 @@ export const WorkspaceSecretMapper = {
     return {
       name: record.name,
       hosts: record.bindings.map((each) => each.host),
+      sandbox: record.sandbox,
       valueOrigin: origin.kind,
       valueSetAt: record.holdsValue ? record.rotatedAt : null,
       settable: managesSecrets && origin.settable,

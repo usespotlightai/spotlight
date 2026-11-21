@@ -5,6 +5,7 @@ import {
   type PermissionDecision,
   PermissionRule,
 } from '@configuration/domain/value-objects/permission-rule.vo';
+import { SandboxVariable } from '@configuration/domain/value-objects/sandbox-variable.vo';
 import { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
@@ -23,6 +24,7 @@ export interface RawSettings {
   }[];
   readonly native: Readonly<Record<string, unknown>>;
   readonly secrets: readonly string[];
+  readonly env: Readonly<Record<string, string>>;
 }
 
 const secretAt = (raw: string, at: number): SecretName => {
@@ -48,6 +50,7 @@ export class ProfileSettings {
     readonly mcpServers: readonly McpServer[],
     readonly native: Readonly<Record<string, unknown>>,
     readonly secrets: readonly SecretName[],
+    readonly env: readonly SandboxVariable[],
   ) {}
 
   static fromRaw(settings: RawSettings): ProfileSettings {
@@ -62,6 +65,9 @@ export class ProfileSettings {
       ),
       native: settings.native,
       secrets: settings.secrets.map((raw, at) => secretAt(raw, at)),
+      env: Object.entries(settings.env).map(([variable, secret]) =>
+        SandboxVariable.of(variable, secret),
+      ),
     });
   }
 
@@ -70,6 +76,7 @@ export class ProfileSettings {
     mcpServers: readonly McpServer[];
     native: Readonly<Record<string, unknown>>;
     secrets: readonly SecretName[];
+    env: readonly SandboxVariable[];
   }): ProfileSettings {
     input.rules.forEach((rule, at) => {
       const earlier = input.rules
@@ -106,6 +113,17 @@ export class ProfileSettings {
       }
     });
 
+    input.env.forEach((each, at) => {
+      if (
+        input.env.slice(0, at).some((other) => other.variable === each.variable)
+      ) {
+        throw new InvalidHarnessProfileError(
+          ['env', each.variable],
+          `sets ${each.variable} twice`,
+        );
+      }
+    });
+
     return new ProfileSettings(
       Object.freeze([...input.rules]),
       Object.freeze([...input.mcpServers]),
@@ -113,6 +131,7 @@ export class ProfileSettings {
         JSON.parse(JSON.stringify(input.native)) as Record<string, unknown>,
       ),
       Object.freeze([...input.secrets]),
+      Object.freeze([...input.env]),
     );
   }
 
@@ -137,17 +156,34 @@ export class ProfileSettings {
       ...this.secrets.map((secret, at) =>
         SecretReference.at(FieldPath.of(['secrets', at]), secret),
       ),
+      ...this.sandboxReferences,
     ];
+  }
+
+  get sandboxReferences(): readonly SecretReference[] {
+    return this.env.map(({ variable, secret }) =>
+      SecretReference.at(FieldPath.of(['env', variable]), secret),
+    );
   }
 
   uses(secret: SecretName): boolean {
     return this.secretReferences.some((each) => each.isTo(secret));
   }
 
+  putsInSandbox(secret: SecretName): boolean {
+    return this.sandboxReferences.some((each) => each.isTo(secret));
+  }
+
   equals(other: ProfileSettings): boolean {
     return (
       this.kind === other.kind &&
       JSON.stringify(this.snapshot) === JSON.stringify(other.snapshot)
+    );
+  }
+
+  get environment(): Record<string, string> {
+    return Object.fromEntries(
+      this.env.map((each) => [each.variable, each.secret.value]),
     );
   }
 
@@ -163,6 +199,7 @@ export class ProfileSettings {
       mcpServers: this.mcpServers,
       native: this.native,
       secrets: this.secrets.map((each) => each.value),
+      env: this.environment,
     };
   }
 }

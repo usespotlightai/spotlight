@@ -4,9 +4,12 @@ import { SecretUpdated } from '@secrets/domain/events/secret-updated.event';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { ReservedSecretValueError } from '@secrets/domain/exceptions/reserved-secret-value.error';
 import { SecretAwaitingValueError } from '@secrets/domain/exceptions/secret-awaiting-value.error';
+import { SecretInSandboxError } from '@secrets/domain/exceptions/secret-in-sandbox.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
+import { SecretKeptOutOfSandboxError } from '@secrets/domain/exceptions/secret-kept-out-of-sandbox.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
+import { SecretTooShortForSandboxError } from '@secrets/domain/exceptions/secret-too-short-for-sandbox.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import { isReservedSecretName } from '@secrets/domain/value-objects/reserved-secret-name';
 import type {
@@ -20,6 +23,11 @@ import {
 } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
+import {
+  allowsSandboxes,
+  SHORTEST_SANDBOX_VALUE,
+  type SecretSandbox,
+} from '@secrets/domain/value-objects/secret-sandbox.vo';
 import type { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValueOrigin } from '@secrets/domain/value-objects/secret-value-origin.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
@@ -36,6 +44,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface SecretDefinition {
   readonly name: SecretName;
   readonly bindings: SecretBindings;
+  readonly sandbox: SecretSandbox;
   readonly value: SecretValue | null;
   readonly valueVersion: ValueVersion | null;
 }
@@ -45,6 +54,7 @@ interface Props {
   readonly workspaceId: WorkspaceId;
   readonly name: SecretName;
   readonly bindings: SecretBindings;
+  readonly sandbox: SecretSandbox;
   readonly valueVersion: ValueVersion | null;
   readonly holdsValue: boolean;
   readonly rotatedAt: Date;
@@ -131,6 +141,7 @@ export class Secret extends EventRecorder {
       workspaceId: input.workspaceId,
       name: definition.name,
       bindings: definition.bindings,
+      sandbox: definition.sandbox,
       valueVersion: definition.valueVersion,
       holdsValue: valueToStore !== null,
       rotatedAt: input.at,
@@ -152,6 +163,7 @@ export class Secret extends EventRecorder {
             origin: created.valueOrigin,
             valueVersion: created.valueVersion?.value ?? null,
             targets: created.bindings.hosts,
+            sandbox: created.sandbox,
           }),
         ),
       ),
@@ -189,7 +201,12 @@ export class Secret extends EventRecorder {
     }
   }
 
-  update(definition: SecretDefinition, by: ChangeActor, at: Date): Secret {
+  update(
+    definition: SecretDefinition,
+    by: ChangeActor,
+    at: Date,
+    uses: SecretUses,
+  ): Secret {
     this.assertNotDeleted();
 
     if (!definition.name.equals(this.name)) {
@@ -214,15 +231,25 @@ export class Secret extends EventRecorder {
       ? valueFor(definition, 'is required when valueWoVersion changes')
       : null;
     const rebound = !definition.bindings.equals(this.bindings);
+    const resandboxed = definition.sandbox !== this.sandbox;
 
     assertSendable(this.name, definition.bindings, valueToStore, VALUE_FIELD);
 
-    if (!rotating && !rebound && !handedOver) {
+    if (
+      resandboxed &&
+      definition.sandbox === 'stand-in' &&
+      !uses.inSandbox.isEmpty
+    ) {
+      throw new SecretInSandboxError(this.name.value, uses.inSandbox);
+    }
+
+    if (!rotating && !rebound && !handedOver && !resandboxed) {
       return this;
     }
 
     const updated = this.with({
       bindings: definition.bindings,
+      sandbox: definition.sandbox,
       valueVersion: definition.valueVersion,
       holdsValue: valueToStore !== null || this.state.holdsValue,
       rotatedAt: valueToStore ? at : this.rotatedAt,
@@ -240,6 +267,7 @@ export class Secret extends EventRecorder {
       valueVersion: definition.valueVersion?.value ?? null,
       rebound,
       targets: definition.bindings.hosts,
+      sandbox: resandboxed ? definition.sandbox : null,
     });
 
     updated.record(
@@ -284,6 +312,7 @@ export class Secret extends EventRecorder {
             valueVersion: null,
             rebound: false,
             targets: this.bindings.hosts,
+            sandbox: null,
           }),
         ),
       ),
@@ -360,6 +389,27 @@ export class Secret extends EventRecorder {
     return this.bindingForUrl(url).standIn(this.name);
   }
 
+  assertEntersSandbox(): void {
+    this.assertNotDeleted();
+
+    if (!allowsSandboxes(this.sandbox)) {
+      throw new SecretKeptOutOfSandboxError(this.name.value);
+    }
+  }
+
+  sandboxValue(value: SecretValue): SecretValue {
+    this.assertEntersSandbox();
+
+    if (value.isShorterThan(SHORTEST_SANDBOX_VALUE)) {
+      throw new SecretTooShortForSandboxError(
+        this.name.value,
+        SHORTEST_SANDBOX_VALUE,
+      );
+    }
+
+    return value;
+  }
+
   injectable(value: SecretValue): SecretValue {
     if (!value.fitsOneLine) {
       throw new SecretNotInjectableError(this.name.value);
@@ -429,6 +479,10 @@ export class Secret extends EventRecorder {
 
   get bindings(): SecretBindings {
     return this.state.bindings;
+  }
+
+  get sandbox(): SecretSandbox {
+    return this.state.sandbox;
   }
 
   get valueVersion(): ValueVersion | null {

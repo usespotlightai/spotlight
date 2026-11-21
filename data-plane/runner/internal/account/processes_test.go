@@ -5,8 +5,11 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
+
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func process(t *testing.T, root, pid, state, uid string) {
@@ -79,5 +82,20 @@ func TestSaysWhenAProcessOutlivesEveryRound(t *testing.T) {
 
 	if _, err := stopOwned(root, 1000, func(int, syscall.Signal) error { return nil }, 0); err == nil {
 		t.Error("a process that never stopped went unreported")
+	}
+}
+
+func TestNoSecretMayTakeTheNameOfAVariableTheAccountSets(t *testing.T) {
+	t.Setenv("TERM", "dumb")
+	t.Setenv("COLORTERM", "no")
+
+	for _, entry := range Environment(nil, &User{Name: "agent", Home: "/home/agent", Shell: "/bin/agent-shell"}) {
+		name, value, _ := strings.Cut(entry, "=")
+		if inherited, ok := os.LookupEnv(name); ok && inherited == value {
+			continue
+		}
+		if !protocol.SetByTheRunner(name) {
+			t.Errorf("the agent's account sets %s, which protocol.RunnerSetVariables does not list", name)
+		}
 	}
 }

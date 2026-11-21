@@ -1,5 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteSecretCommand } from '@secrets/application/commands/delete-secret.command';
+import type { SecretUseLocksPort } from '@secrets/application/ports/secret-use-locks.port';
 import type { SecretUsesPort } from '@secrets/application/ports/secret-uses.port';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
@@ -23,6 +24,7 @@ export class DeleteSecretHandler implements CommandHandlerPort<
     private readonly access: WorkspaceAccessPort,
     private readonly secrets: SecretRepository,
     private readonly uses: SecretUsesPort,
+    private readonly locks: SecretUseLocksPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -48,21 +50,23 @@ export class DeleteSecretHandler implements CommandHandlerPort<
 
       existing.assertVersion(command.expectedVersion);
 
-      const uses = SecretUses.of(
-        await this.uses.of({
-          workspaceId: existing.workspaceId.value,
-          name: existing.name.value,
-        }),
-      );
+      await this.transaction.inTransaction(async () => {
+        await this.locks.lockUsesIn(existing.workspaceId);
 
-      await this.transaction.inTransaction(() =>
-        this.secrets.save(
+        const uses = SecretUses.of(
+          await this.uses.of({
+            workspaceId: existing.workspaceId.value,
+            name: existing.name.value,
+          }),
+        );
+
+        await this.secrets.save(
           existing.delete(
             uses,
             ChangeActor.of(command.actor, existing.workspaceId),
           ),
-        ),
-      );
+        );
+      });
 
       return { outcome: 'deleted' };
     } catch (error) {

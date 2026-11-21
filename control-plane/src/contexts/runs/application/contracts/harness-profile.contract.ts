@@ -18,12 +18,18 @@ interface McpServerShape {
   readonly env: Readonly<Record<string, string>>;
 }
 
+interface SandboxVariableShape {
+  readonly variable: string;
+  readonly secret: SecretName;
+}
+
 export interface HarnessProfileShape {
   readonly key: string;
   readonly rules: readonly PermissionRuleShape[];
   readonly mcpServers: readonly McpServerShape[];
   readonly native: Readonly<Record<string, unknown>>;
   readonly secrets: readonly SecretName[];
+  readonly sandboxEnv: readonly SandboxVariableShape[];
 }
 
 export type HarnessNote =
@@ -42,6 +48,11 @@ export type HarnessNote =
   | {
       readonly about: 'mcp-servers';
       readonly harness: string;
+      readonly reason: string;
+    }
+  | {
+      readonly about: 'env';
+      readonly variable: string;
       readonly reason: string;
     };
 

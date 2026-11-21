@@ -27,6 +27,7 @@ const profile = (
   mcpServers: [],
   native: {},
   secrets: [],
+  sandboxEnv: [],
   ...over,
 });
 
@@ -441,6 +442,81 @@ describe('what a harness asks Spotlight about', () => {
 });
 
 describe('reviewing a harness profile', () => {
+  const putting = (variable: string) =>
+    harnesses.review(
+      profile({
+        sandboxEnv: [{ variable, secret: SecretName.of('DEV_GITHUB_APP_KEY') }],
+      }),
+    ).problems;
+
+  it.each([
+    'PATH',
+    'HOME',
+    'SPOTLIGHT_URL',
+    'https_proxy',
+    'SSL_CERT_FILE',
+    'USER',
+  ])('rejects a secret in %s, which the runner sets', (variable) => {
+    expect(putting(variable)).toEqual([
+      {
+        about: 'env',
+        variable,
+        reason: `sets ${variable}, which the runner sets in every sandbox`,
+      },
+    ]);
+  });
+
+  it('rejects a secret in a variable a harness sets itself, naming each harness', () => {
+    expect(putting('ANTHROPIC_API_KEY')).toEqual([
+      {
+        about: 'env',
+        variable: 'ANTHROPIC_API_KEY',
+        reason:
+          'sets ANTHROPIC_API_KEY, which a harness sets itself: claude-code, opencode',
+      },
+    ]);
+    expect(putting('CODEX_CONFIG')).toEqual([
+      expect.objectContaining({ variable: 'CODEX_CONFIG' }),
+    ]);
+    expect(putting('ANTHROPIC_MODEL')).toEqual([
+      expect.objectContaining({ variable: 'ANTHROPIC_MODEL' }),
+    ]);
+    expect(putting('GITHUB_APP_PRIVATE_KEY')).toEqual([]);
+  });
+
+  it.each(['claude-code', 'cursor', 'codex', 'opencode'])(
+    'rejects a secret in each variable the %s command sets for the profile',
+    (harness) => {
+      const shape = profile({ ...CAREFUL, native: {} });
+      const command = harnesses.preparedFor(HarnessId.of(harness), {
+        model: null,
+        effort: null,
+        profile: {
+          ...shape,
+          key: ProfileKey.of(shape.key),
+          injectedSecrets: [],
+        },
+      })?.command;
+
+      expect(Object.keys(command?.env ?? {}).length).toBeGreaterThan(0);
+
+      for (const variable of Object.keys(command?.env ?? {})) {
+        const problems = harnesses.review(
+          profile({
+            ...shape,
+            sandboxEnv: [
+              { variable, secret: SecretName.of('DEV_GITHUB_APP_KEY') },
+            ],
+          }),
+        ).problems;
+
+        expect(problems).toEqual([
+          expect.objectContaining({ about: 'env', variable }),
+        ]);
+      }
+    },
+  );
+
   it('rejects native settings for a harness Spotlight does not run', () => {
     expect(
       harnesses.review(profile({ native: { aider: {} } })).problems,

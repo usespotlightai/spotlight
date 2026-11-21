@@ -786,6 +786,9 @@ describe('workspaceTerraform', () => {
         '    }',
         '  }',
         '  secrets = [spotlight_secret.linear_signing.name]',
+        '  env = {',
+        '    LINEAR_SIGNING_KEY = spotlight_secret.linear_signing.name',
+        '  }',
         '}',
       ].join('\n'),
     );

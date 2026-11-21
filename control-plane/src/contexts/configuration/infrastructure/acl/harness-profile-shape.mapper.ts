@@ -14,6 +14,10 @@ export const HarnessProfileShapeMapper = {
       mcpServers: HarnessProfileMapper.servers(parsed.settings),
       native: parsed.settings.native,
       secrets: parsed.settings.secrets,
+      sandboxEnv: parsed.settings.env.map(({ variable, secret }) => ({
+        variable,
+        secret,
+      })),
     };
   },
 };

@@ -12,6 +12,7 @@ const record = (
   workspaceId: WORKSPACE,
   name,
   bindings: [],
+  sandbox: 'stand-in',
   valueVersion: null,
   holdsValue: false,
   rotatedAt: NOW,

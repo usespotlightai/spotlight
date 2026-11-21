@@ -164,6 +164,15 @@ export class CheckoutHeadRequestDto {
   readonly commit!: string;
 }
 
+export class RevealSandboxEnvRequestDto {
+  @ApiProperty({
+    example: 1,
+    description:
+      'The attempt of the run assigned to the runner, as the claim named it',
+  })
+  readonly attempt!: number;
+}
+
 export class RecordStartingPointRequestDto {
   @ApiProperty({
     example: 1,

@@ -126,7 +126,7 @@ func TestASetupIsSentWhileItRuns(t *testing.T) {
 	failures := Options{}.setUp(context.Background(), dir, []protocol.Checkout{
 		{Path: "web", Setup: "touch installed"},
 		{Path: "api", Setup: "exit 3"},
-	}, setUps{}, journal, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	}, sandboxEnv{}, setUps{}, journal, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	journal.drain(context.Background())
 
 	if len(failures) != 1 || failures[0].path != "api" {

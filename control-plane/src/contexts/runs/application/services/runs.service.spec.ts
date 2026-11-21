@@ -114,7 +114,7 @@ const harnessKeys = (held: readonly string[] = []) =>
         },
       ],
     } as unknown as HarnessLaunchPort,
-    { namesIn: async () => held },
+    { namesIn: async () => held, namesInSandboxIn: async () => [] },
   );
 
 const inMemory = (held: readonly string[] = []) => {

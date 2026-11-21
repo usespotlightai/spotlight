@@ -28,6 +28,7 @@ import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port
 import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
 import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetches.port';
+import { SANDBOX_ENV_REVEALS } from '@secrets/application/ports/sandbox-env-reveals.port';
 import { SECRET_CONFIGURATION } from '@secrets/application/ports/secret-configuration.port';
 import { SECRET_DEFINITIONS } from '@secrets/application/ports/secret-definitions.port';
 import { SECRET_INJECTION } from '@secrets/application/ports/secret-injection.port';
@@ -44,6 +45,7 @@ import {
   SECRET_STORE,
   type SecretStorePort,
 } from '@secrets/application/ports/secret-store.port';
+import { SECRET_USE_LOCKS } from '@secrets/application/ports/secret-use-locks.port';
 import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
 import { WORKSPACE_SECRETS } from '@secrets/application/ports/workspace-secrets.port';
 import { ImportSecretHandler } from '@secrets/application/queries/handlers/import-secret.handler';
@@ -62,6 +64,7 @@ import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.s
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
 import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunSecretFetches } from '@secrets/application/services/run-secret-fetches.service';
+import { SandboxEnvReveals } from '@secrets/application/services/sandbox-env-reveals.service';
 import { SealedSecrets } from '@secrets/application/services/sealed-secrets';
 import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
@@ -89,6 +92,7 @@ import { LocalKeyManagement } from '@secrets/infrastructure/kms/local-key-manage
 import { DrizzleSecretResources } from '@secrets/infrastructure/persistence/drizzle/readers/secret-resources.reader';
 import { DrizzleRunGrants } from '@secrets/infrastructure/persistence/drizzle/repositories/run-grants.repository';
 import { DrizzleSecrets } from '@secrets/infrastructure/persistence/drizzle/repositories/secrets.repository';
+import { DrizzleSecretUseLocks } from '@secrets/infrastructure/persistence/drizzle/secret-use-locks';
 import { X25519SecretSealing } from '@secrets/infrastructure/sealing/secret-sealing';
 import { EncryptedSecretStore } from '@secrets/infrastructure/store/encrypted-secret.store';
 import { secretsSubscribers } from '@secrets/presentation/events/secrets.subscribers';
@@ -173,6 +177,7 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   DrizzleSecretResources,
   { provide: SECRET_RESOURCES, useExisting: DrizzleSecretResources },
   { provide: DEFINED_SECRETS, useExisting: DrizzleSecretResources },
+  { provide: SECRET_USE_LOCKS, useClass: DrizzleSecretUseLocks },
   {
     provide: BOUND_SECRETS,
     inject: [SECRET_RESOURCES],
@@ -233,6 +238,15 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       store: SecretStorePort,
       sealing: SecretSealingPort,
     ) => new RunSecretFetches(secrets, changes, store, sealing),
+  },
+  {
+    provide: SANDBOX_ENV_REVEALS,
+    inject: [SECRETS, SECRET_STORE, LOGGER],
+    useFactory: (
+      secrets: SecretRepository,
+      store: SecretStorePort,
+      logger: LoggerPort,
+    ) => new SandboxEnvReveals(secrets, store, logger),
   },
   {
     provide: SealedSecrets,
@@ -337,6 +351,8 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     SECRET_DEFINITIONS,
     SECRETS,
+    SECRET_USES,
+    SECRET_USE_LOCKS,
     CLOCK,
     TRANSACTION,
   ]),
@@ -350,6 +366,7 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     SECRETS,
     SECRET_USES,
+    SECRET_USE_LOCKS,
     TRANSACTION,
   ]),
   ...bindQueryHandler(ReadSecretQuery, ReadSecretHandler, [
