@@ -13,7 +13,7 @@ import {
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Page } from '@work/application/dto/page.dto';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type {
   TaskListing,
   TaskNoteSummary,

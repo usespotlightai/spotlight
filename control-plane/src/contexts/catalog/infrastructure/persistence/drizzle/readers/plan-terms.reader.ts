@@ -1,4 +1,4 @@
-import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
+import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { termOf } from '@catalog/infrastructure/persistence/drizzle/plan-term-row';
 import { workspacePlan } from '@catalog/infrastructure/persistence/drizzle/schemas/catalog.schema';
@@ -9,7 +9,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { eq, inArray } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleWorkspacePlans implements WorkspacePlansPort {
+export class DrizzlePlanTerms implements PlanTermsPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async of(workspaceId: WorkspaceId): Promise<PlanTerm> {
@@ -22,7 +22,7 @@ export class DrizzleWorkspacePlans implements WorkspacePlansPort {
     return row ? termOf(row) : PlanTerm.free;
   }
 
-  async ofEach(
+  async ofWorkspaces(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly PlanTerm[]> {
     const rows =

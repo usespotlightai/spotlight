@@ -5,7 +5,7 @@ import {
   SetWorkspacePlanCommand,
 } from '@catalog/application/commands/workspace-plan.commands';
 import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
-import { EndedPlanTermError } from '@catalog/domain/exceptions/ended-plan-term.error';
+import { ExpiredPlanTermError } from '@catalog/domain/exceptions/expired-plan-term.error';
 import { InvalidPlanError } from '@catalog/domain/exceptions/invalid-plan.error';
 import type { WorkspacePlanRepository } from '@catalog/domain/repositories/workspace-plan.repository';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
@@ -120,18 +120,18 @@ describe('SetWorkspacePlanHandler', () => {
     );
     expect(added).toEqual([]);
   });
-});
 
-it('refuses an end that is not in the future as invalid', async () => {
-  const { set, added } = handling();
-  const refused: unknown = await set
-    .execute(new SetWorkspacePlanCommand('ws_1', 'team', NOW))
-    .catch((error: unknown) => error);
+  it('refuses an end that is not in the future as invalid', async () => {
+    const { set, added } = handling();
+    const refused: unknown = await set
+      .execute(new SetWorkspacePlanCommand('ws_1', 'team', NOW))
+      .catch((error: unknown) => error);
 
-  expect((refused as TranslatedDomainError).refusal).toBeInstanceOf(
-    EndedPlanTermError,
-  );
-  expect(added).toEqual([]);
+    expect((refused as TranslatedDomainError).refusal).toBeInstanceOf(
+      ExpiredPlanTermError,
+    );
+    expect(added).toEqual([]);
+  });
 });
 
 describe('DeleteWorkspacePlanHandler', () => {

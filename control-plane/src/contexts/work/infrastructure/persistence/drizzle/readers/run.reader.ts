@@ -24,7 +24,8 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type {

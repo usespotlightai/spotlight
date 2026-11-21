@@ -1,4 +1,4 @@
-import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
+import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
 import { ListWorkspaceSummariesHandler } from '@catalog/application/queries/handlers/list-workspace-summaries.handler';
 import { ReadWorkspaceSummaryHandler } from '@catalog/application/queries/handlers/read-workspace-summary.handler';
 import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-workspace-summaries.query';
@@ -37,9 +37,10 @@ const workspaces = (
   ),
 });
 
-const plans: WorkspacePlansPort = {
+const plans: PlanTermsPort = {
   of: async (id) => TERMS.get(id.value) ?? PlanTerm.free,
-  ofEach: async (ids) => ids.map((id) => TERMS.get(id.value) ?? PlanTerm.free),
+  ofWorkspaces: async (ids) =>
+    ids.map((id) => TERMS.get(id.value) ?? PlanTerm.free),
 };
 
 describe('ListWorkspaceSummariesHandler', () => {
@@ -59,12 +60,12 @@ describe('ListWorkspaceSummariesHandler', () => {
           name: 'ws_acme',
           createdAt: '2026-09-01T00:00:00.000Z',
           memberCount: 3,
-          plan: { plan: 'team', expiresAt: '2027-01-01T00:00:00.000Z' },
+          term: { plan: 'team', expiresAt: '2027-01-01T00:00:00.000Z' },
         },
         expect.objectContaining({
           id: 'ws_globex',
           memberCount: 1,
-          plan: { plan: 'free', expiresAt: null },
+          term: { plan: 'free', expiresAt: null },
         }),
       ],
       next: 'cursor_2',
@@ -85,7 +86,7 @@ describe('ReadWorkspaceSummaryHandler', () => {
       ),
     ).resolves.toMatchObject({
       id: 'ws_acme',
-      plan: { plan: 'team' },
+      term: { plan: 'team' },
       memberCount: 3,
     });
   });

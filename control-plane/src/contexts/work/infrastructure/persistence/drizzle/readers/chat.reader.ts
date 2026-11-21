@@ -16,11 +16,8 @@ import {
 } from '@runs/application/ports/run-progress.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import {
-  mapPage,
-  type Page,
-  type PageRequest,
-} from '@work/application/dto/page.dto';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 import type {
   ChatOwnership,
   ChatReaderPort,

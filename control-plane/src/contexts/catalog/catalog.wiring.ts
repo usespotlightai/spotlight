@@ -17,9 +17,9 @@ import {
   type CatalogPort,
 } from '@catalog/application/ports/catalog.port';
 import {
-  WORKSPACE_PLANS,
-  type WorkspacePlansPort,
-} from '@catalog/application/ports/workspace-plans.port';
+  PLAN_TERMS,
+  type PlanTermsPort,
+} from '@catalog/application/ports/plan-terms.port';
 import { ListWorkspaceSummariesHandler } from '@catalog/application/queries/handlers/list-workspace-summaries.handler';
 import { ReadWorkspaceSummaryHandler } from '@catalog/application/queries/handlers/read-workspace-summary.handler';
 import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers/resolve-catalog-item.handler';
@@ -33,7 +33,7 @@ import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { CATALOG_PAYLOAD_TYPES } from '@catalog/infrastructure/events/catalog-payload-types';
 import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
-import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
+import { DrizzlePlanTerms } from '@catalog/infrastructure/persistence/drizzle/readers/plan-terms.reader';
 import { DrizzleWorkspacePlanRepository } from '@catalog/infrastructure/persistence/drizzle/repositories/workspace-plan.repository';
 import { HttpCatalogClient } from '@catalog/infrastructure/service/http-catalog.client';
 import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscribers';
@@ -64,7 +64,7 @@ export const CATALOG_CONTROLLERS: readonly Type[] = [
 export const CATALOG_PROVIDERS: readonly Provider[] = [
   { provide: StaticCatalog, useValue: new StaticCatalog(CATALOG_ITEMS) },
 
-  { provide: WORKSPACE_PLANS, useClass: DrizzleWorkspacePlans },
+  { provide: PLAN_TERMS, useClass: DrizzlePlanTerms },
 
   DrizzleWorkspacePlanRepository,
 
@@ -89,30 +89,30 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CatalogEntitlements,
-    inject: [StaticCatalog, WORKSPACE_PLANS, CLOCK],
+    inject: [StaticCatalog, PLAN_TERMS, CLOCK],
     useFactory: (
       catalog: StaticCatalog,
-      plans: WorkspacePlansPort,
+      terms: PlanTermsPort,
       clock: ClockPort,
-    ) => new CatalogEntitlements(catalog, plans, clock),
+    ) => new CatalogEntitlements(catalog, terms, clock),
   },
 
   {
     provide: CatalogCalls,
     inject: [
       StaticCatalog,
-      WORKSPACE_PLANS,
+      PLAN_TERMS,
       CATALOG_CALL_LEDGER,
       CATALOG_SERVICE,
       CLOCK,
     ],
     useFactory: (
       catalog: StaticCatalog,
-      plans: WorkspacePlansPort,
+      terms: PlanTermsPort,
       ledger: CatalogCallLedgerPort,
       service: CatalogServicePort,
       clock: ClockPort,
-    ) => new CatalogCalls(catalog, plans, ledger, service, clock),
+    ) => new CatalogCalls(catalog, terms, ledger, service, clock),
   },
 
   {
@@ -151,19 +151,19 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ResolveCatalogItemQuery, ResolveCatalogItemHandler, [
     WORKSPACE_ACCESS,
     StaticCatalog,
-    WORKSPACE_PLANS,
+    PLAN_TERMS,
     CLOCK,
   ]),
 
   ...bindQueryHandler(
     ListWorkspaceSummariesQuery,
     ListWorkspaceSummariesHandler,
-    [WORKSPACE_DIRECTORY, WORKSPACE_PLANS],
+    [WORKSPACE_DIRECTORY, PLAN_TERMS],
   ),
 
   ...bindQueryHandler(ReadWorkspaceSummaryQuery, ReadWorkspaceSummaryHandler, [
     WORKSPACE_DIRECTORY,
-    WORKSPACE_PLANS,
+    PLAN_TERMS,
   ]),
 
   ...bindCommandHandler(SetWorkspacePlanCommand, SetWorkspacePlanHandler, [

@@ -6,10 +6,5 @@ export interface WorkspaceSummaryDto {
   readonly name: string;
   readonly createdAt: string;
   readonly memberCount: number;
-  readonly plan: PlanTermDto;
-}
-
-export interface WorkspaceSummaryPageDto {
-  readonly items: readonly WorkspaceSummaryDto[];
-  readonly next: string | null;
+  readonly term: PlanTermDto;
 }

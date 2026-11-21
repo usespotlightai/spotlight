@@ -18,7 +18,8 @@ import {
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {

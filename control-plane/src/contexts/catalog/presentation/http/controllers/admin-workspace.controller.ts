@@ -3,10 +3,7 @@ import {
   SetWorkspacePlanCommand,
 } from '@catalog/application/commands/workspace-plan.commands';
 import type { PlanTermDto } from '@catalog/application/dto/plan-term.dto';
-import type {
-  WorkspaceSummaryDto,
-  WorkspaceSummaryPageDto,
-} from '@catalog/application/dto/workspace-summary.dto';
+import type { WorkspaceSummaryDto } from '@catalog/application/dto/workspace-summary.dto';
 import { ListWorkspaceSummariesQuery } from '@catalog/application/queries/list-workspace-summaries.query';
 import { ReadWorkspaceSummaryQuery } from '@catalog/application/queries/read-workspace-summary.query';
 import { PLANS } from '@catalog/domain/value-objects/plan.vo';
@@ -19,7 +16,6 @@ import {
 import {
   BadRequestException,
   Body,
-  Controller,
   Delete,
   Get,
   HttpCode,
@@ -40,21 +36,16 @@ import {
   ApiOperation,
   ApiParam,
   ApiQuery,
-  ApiTags,
-  ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { AdminOnly } from '@platform/http/decorators/admin-only.decorator';
+import { AdminController } from '@platform/http/decorators/admin-controller.decorator';
+import { isoTimeOf } from '@platform/http/iso-time';
 import { pageLimitOf } from '@platform/http/page-limit';
-import { ADMIN } from '@platform/http/routes';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import {
   LONGEST_PAGE,
   PAGE_LIMIT,
-} from '@shared-kernel/application/dto/page-limits.dto';
-
-// An ISO 8601 date and time, with seconds and a time zone where given.
-const ISO_TIME =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/;
+} from '@shared-kernel/application/dto/page.dto';
 
 const WORKSPACE = ApiParam({
   name: 'workspaceId',
@@ -64,18 +55,6 @@ const WORKSPACE = ApiParam({
 const NOT_FOUND = ApiNotFoundResponse({
   description: 'No such workspace, or no admin token is set',
 });
-
-const timeOf = (field: string, raw: string): Date => {
-  const time = new Date(raw);
-
-  if (!ISO_TIME.test(raw) || Number.isNaN(time.getTime())) {
-    throw new BadRequestException(
-      `Sorry, ${field} must be an ISO 8601 time, such as 2027-01-01T00:00:00Z.`,
-    );
-  }
-
-  return time;
-};
 
 const expiryOf = (raw: unknown): Date | null => {
   if (raw === undefined || raw === null) {
@@ -88,7 +67,7 @@ const expiryOf = (raw: unknown): Date | null => {
     );
   }
 
-  return timeOf('expiresAt', raw);
+  return isoTimeOf('expiresAt', raw);
 };
 
 const planOf = (raw: unknown): string => {
@@ -101,13 +80,7 @@ const planOf = (raw: unknown): string => {
   return raw;
 };
 
-@ApiTags('admin')
-@ApiUnauthorizedResponse({
-  description:
-    'The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token',
-})
-@AdminOnly()
-@Controller(`${ADMIN}/workspaces`)
+@AdminController('workspaces')
 export class AdminWorkspaceController {
   constructor(
     private readonly commandBus: CommandBus,
@@ -154,12 +127,12 @@ export class AdminWorkspaceController {
   ): Promise<WorkspaceSummaryPageResponseDto> {
     const page = await this.queryBus.execute<
       ListWorkspaceSummariesQuery,
-      WorkspaceSummaryPageDto
+      Page<WorkspaceSummaryDto>
     >(
       new ListWorkspaceSummariesQuery(
         after || null,
         pageLimitOf(limit),
-        createdAfter ? timeOf('createdAfter', createdAfter) : null,
+        createdAfter ? isoTimeOf('createdAfter', createdAfter) : null,
       ),
     );
 

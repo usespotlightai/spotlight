@@ -1,5 +1,4 @@
 import type {
-  DirectoryPage,
   DirectoryPageRequest,
   DirectoryWorkspace,
   WorkspaceDirectoryPort,
@@ -17,6 +16,7 @@ import {
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
 import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, gt, type SQL, sql } from 'drizzle-orm';
 
@@ -52,7 +52,7 @@ const listed = (row: DirectoryRow): DirectoryWorkspace => ({
 export class DrizzleWorkspaceDirectory implements WorkspaceDirectoryPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async list(request: DirectoryPageRequest): Promise<DirectoryPage> {
+  async list(request: DirectoryPageRequest): Promise<Page<DirectoryWorkspace>> {
     const cursor = timeCursorOf(request.after);
     const conditions: SQL[] = [
       ...(request.createdAfter

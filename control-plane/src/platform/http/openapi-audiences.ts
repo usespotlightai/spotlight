@@ -42,6 +42,24 @@ const IMPLIED: Readonly<Partial<Record<Credential, Audience>>> = {
   admin: 'admin',
 };
 
+// What the bearer token is in an audience where it is not a workspace token.
+const BEARER_TOKENS: Readonly<Partial<Record<Audience, string>>> = {
+  admin:
+    'The admin token of this Spotlight (SPOTLIGHT_ADMIN_TOKEN). Without it set, every admin route answers 404',
+};
+
+const securitySchemesFor = (
+  audience: Audience,
+  schemes: NonNullable<OpenAPIObject['components']>['securitySchemes'],
+): NonNullable<OpenAPIObject['components']>['securitySchemes'] => {
+  const bearer = schemes?.bearer;
+  const description = BEARER_TOKENS[audience];
+
+  return bearer && description && !('$ref' in bearer)
+    ? { ...schemes, bearer: { ...bearer, description } }
+    : schemes;
+};
+
 const MARKERS: readonly (readonly [symbol, Credential])[] = [
   [MACHINE_ONLY, 'machine'],
   [ADMIN_ONLY, 'admin'],
@@ -236,6 +254,10 @@ export const documentsByAudience = (
           paths: used,
           components: {
             ...document.components,
+            securitySchemes: securitySchemesFor(
+              audience,
+              document.components?.securitySchemes,
+            ),
             schemas: schemasReachedFrom(
               used,
               document.components?.schemas ?? {},

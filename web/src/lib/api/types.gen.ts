@@ -392,7 +392,7 @@ export type LineResourceListResponseDto = {
   items: Array<LineResourceResponseDto>;
 };
 
-export type AdminWorkspaceMemberResponseDto = {
+export type WorkspaceMemberSummaryResponseDto = {
   id: string;
   email: string;
   name: string;
@@ -1046,9 +1046,9 @@ export type WorkspaceSummaryResponseDto = {
    */
   memberCount: number;
   /**
-   * The plan set for the workspace; the free plan when none is set
+   * The plan set for the workspace and when it ends; the free plan when none is set
    */
-  plan: PlanTermResponseDto;
+  term: PlanTermResponseDto;
 };
 
 export type WorkspaceSummaryPageResponseDto = {
@@ -9940,7 +9940,7 @@ export type ListLinesResponses = {
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
 
-export type ListAdminWorkspaceMembersData = {
+export type ListWorkspaceMemberSummariesData = {
   body?: never;
   path: {
     workspaceId: string;
@@ -9949,7 +9949,7 @@ export type ListAdminWorkspaceMembersData = {
   url: '/admin/workspaces/{workspaceId}/members';
 };
 
-export type ListAdminWorkspaceMembersErrors = {
+export type ListWorkspaceMemberSummariesErrors = {
   /**
    * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
    */
@@ -9960,11 +9960,11 @@ export type ListAdminWorkspaceMembersErrors = {
   404: unknown;
 };
 
-export type ListAdminWorkspaceMembersResponses = {
-  200: Array<AdminWorkspaceMemberResponseDto>;
+export type ListWorkspaceMemberSummariesResponses = {
+  200: Array<WorkspaceMemberSummaryResponseDto>;
 };
 
-export type ListAdminWorkspaceMembersResponse = ListAdminWorkspaceMembersResponses[keyof ListAdminWorkspaceMembersResponses];
+export type ListWorkspaceMemberSummariesResponse = ListWorkspaceMemberSummariesResponses[keyof ListWorkspaceMemberSummariesResponses];
 
 export type RemoveWorkspaceAvatarData = {
   body?: never;

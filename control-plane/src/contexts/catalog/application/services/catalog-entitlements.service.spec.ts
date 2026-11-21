@@ -13,7 +13,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const entitlements = (term: PlanTerm) => ({
   service: new CatalogEntitlements(
     new StaticCatalog(CATALOG_ITEMS),
-    { of: async () => term, ofEach: async () => [] },
+    { of: async () => term, ofWorkspaces: async (ids) => ids.map(() => term) },
     { now: () => NOW, sleep: async () => {} },
   ),
 });
