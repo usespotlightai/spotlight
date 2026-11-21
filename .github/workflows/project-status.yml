@@ -1,0 +1,62 @@
+name: Project status
+
+# When a release is published, every issue that a pull request in the release
+# closed moves to Released on the Spotlight project. Pull requests are
+# squash-merged, so each commit subject ends in "(#<number>)".
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  released:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_OWNER: usespotlightai
+      PROJECT_NUMBER: ${{ vars.SPOTLIGHT_PROJECT_NUMBER }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Generate a token for the project
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_PRIVATE_KEY }}
+          owner: usespotlightai
+      - name: Move released issues
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          previous=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | head -n1 || true)
+          range=${previous:+$previous..}$TAG
+          pulls=$(git log --format=%s "$range" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p' | sort -un)
+
+          project_id=$(gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --jq .id)
+          fields=$(gh project field-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json)
+          field_id=$(jq -r '.fields[] | select(.name == "Status") | .id' <<<"$fields")
+          option_id=$(jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "Released") | .id' <<<"$fields")
+
+          for pull in $pulls; do
+            items=$(gh api graphql -F owner="${GITHUB_REPOSITORY%/*}" -F repo="${GITHUB_REPOSITORY#*/}" -F pull="$pull" -f query='
+              query($owner: String!, $repo: String!, $pull: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $pull) {
+                    closingIssuesReferences(first: 25) {
+                      nodes { projectItems(first: 20) { nodes { id project { id } } } }
+                    }
+                  }
+                }
+              }' --jq ".data.repository.pullRequest.closingIssuesReferences.nodes[].projectItems.nodes[] | select(.project.id == \"$project_id\") | .id")
+            for item in $items; do
+              gh project item-edit --id "$item" --project-id "$project_id" --field-id "$field_id" --single-select-option-id "$option_id" >/dev/null
+              echo "#$pull: moved $item to Released"
+            done
+          done
