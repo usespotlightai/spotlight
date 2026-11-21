@@ -408,14 +408,14 @@
       "EventWebhookRedeliveryResponseDto": {
         "type": "object",
         "properties": {
-          "count": {
+          "queued": {
             "type": "number",
             "example": 12,
             "description": "How many dead letters Spotlight queued again. Each gets all its attempts again"
           }
         },
         "required": [
-          "count"
+          "queued"
         ]
       },
       "WorkspaceMemberSummaryResponseDto": {

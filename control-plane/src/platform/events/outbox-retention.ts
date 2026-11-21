@@ -1,14 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
-import {
-  CLOCK,
-  type ClockPort,
-} from '@shared-kernel/application/ports/clock.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
   and,
   asc,
@@ -22,35 +18,44 @@ import {
 } from 'drizzle-orm';
 
 export const OUTBOX_RETENTION_MS = 7 * 24 * 60 * 60_000;
-const OUTBOX_RETENTION_BATCH = 1_000;
-const OUTBOX_RETENTION_BATCHES = 50;
+
+// A sweep deletes at most batches times batch events in each of its two passes.
+export interface OutboxRetentionLimits {
+  readonly batch: number;
+  readonly batches: number;
+}
+
+const OUTBOX_RETENTION_LIMITS: OutboxRetentionLimits = {
+  batch: 1_000,
+  batches: 50,
+};
 
 // An event stays while a delivery of it waits, or while a subscriber keeps a dead letter of it that it still hears: it is registered, and it hears the kind. The other dead letters go with their event, such as those of the event webhook once SPOTLIGHT_EVENT_WEBHOOK_URL is unset, or of a kind that SPOTLIGHT_EVENT_WEBHOOK_KINDS no longer names.
-@Injectable()
 export class OutboxRetention {
   // The last event that a sweep of dead letters looked at, so that the next sweep goes on after it.
   #after: string | null = null;
 
   constructor(
     private readonly context: DrizzleContext,
-    @Inject(CLOCK) private readonly clock: ClockPort,
+    private readonly clock: ClockPort,
     private readonly subscribers: EventSubscribers,
+    private readonly limits: OutboxRetentionLimits = OUTBOX_RETENTION_LIMITS,
   ) {}
 
   async sweep(): Promise<number> {
     const before = new Date(this.clock.now().getTime() - OUTBOX_RETENTION_MS);
     let deleted = 0;
 
-    for (let batch = 0; batch < OUTBOX_RETENTION_BATCHES; batch += 1) {
+    for (let batch = 0; batch < this.limits.batches; batch += 1) {
       const removed = await this.deleteDelivered(before);
       deleted += removed;
 
-      if (removed < OUTBOX_RETENTION_BATCH) {
+      if (removed < this.limits.batch) {
         break;
       }
     }
 
-    for (let batch = 0; batch < OUTBOX_RETENTION_BATCHES; batch += 1) {
+    for (let batch = 0; batch < this.limits.batches; batch += 1) {
       const { removed, more } = await this.deleteUnheard(before);
       deleted += removed;
 
@@ -84,7 +89,7 @@ export class OutboxRetention {
           ),
         ),
       )
-      .limit(OUTBOX_RETENTION_BATCH);
+      .limit(this.limits.batch);
 
     const removed = await db
       .delete(eventOutbox)
@@ -122,7 +127,7 @@ export class OutboxRetention {
       .groupBy(eventOutbox.id)
       .having(sql`bool_and(${eventDelivery.deadLetteredAt} is not null)`)
       .orderBy(asc(eventOutbox.id))
-      .limit(OUTBOX_RETENTION_BATCH);
+      .limit(this.limits.batch);
     const unheard = dead
       .filter(
         (event) =>
@@ -131,7 +136,7 @@ export class OutboxRetention {
           ),
       )
       .map((event) => event.id);
-    const more = dead.length === OUTBOX_RETENTION_BATCH;
+    const more = dead.length === this.limits.batch;
 
     this.#after = more ? (dead[dead.length - 1]?.id ?? null) : null;
 
@@ -139,9 +144,27 @@ export class OutboxRetention {
       return { removed: 0, more };
     }
 
+    // Another instance may queue a dead letter again in the meantime, as during a deploy that sets more kinds. An event with a waiting delivery stays.
     const removed = await db
       .delete(eventOutbox)
-      .where(inArray(eventOutbox.id, unheard))
+      .where(
+        and(
+          inArray(eventOutbox.id, unheard),
+          lt(eventOutbox.recordedAt, before),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(eventDelivery)
+              .where(
+                and(
+                  eq(eventDelivery.eventId, eventOutbox.id),
+                  isNull(eventDelivery.deliveredAt),
+                  isNull(eventDelivery.deadLetteredAt),
+                ),
+              ),
+          ),
+        ),
+      )
       .returning({ id: eventOutbox.id });
 
     return { removed: removed.length, more };

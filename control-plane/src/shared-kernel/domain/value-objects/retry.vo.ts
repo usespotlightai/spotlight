@@ -46,12 +46,25 @@ export class Retry {
       return null;
     }
 
-    const wait = Math.min(
+    return new Date(now.getTime() + this.waitAfter(attempts));
+  }
+
+  // How long all the waits between the attempts take together, before the last attempt.
+  totalWaitMs(): number {
+    let total = 0;
+
+    for (let attempts = 1; attempts < this.maxAttempts; attempts += 1) {
+      total += this.waitAfter(attempts);
+    }
+
+    return total;
+  }
+
+  private waitAfter(attempts: number): number {
+    return Math.min(
       this.initialDelayMs * 2 ** (Math.max(attempts, 1) - 1),
       this.maxDelayMs,
     );
-
-    return new Date(now.getTime() + wait);
   }
 
   equals(other: Retry): boolean {

@@ -273,15 +273,15 @@ const memberRegistrations = (file: SourceFile): Violation[] =>
       at: at(file, call),
     }));
 
-// A subscriber registered by prefix hears the integration events of every context it names, also downstream ones. Only the platform registers one.
-const prefixRegistrations = (file: SourceFile): Violation[] =>
+// A sink hears the integration events of every context it names, also downstream ones. Only the platform registers one.
+const sinkRegistrations = (file: SourceFile): Violation[] =>
   descendants(file.tree, ts.isCallExpression)
     .filter(
       (call) =>
         (ts.isPropertyAccessExpression(call.expression) &&
-          call.expression.name.text === 'registerByPrefix') ||
+          call.expression.name.text === 'registerSink') ||
         (ts.isIdentifier(call.expression) &&
-          call.expression.text === 'registerByPrefix'),
+          call.expression.text === 'registerSink'),
     )
     .map((call) => ({
       key: `${file.path}: calls ${call.expression.getText()}, which only the platform may call`,
@@ -295,7 +295,7 @@ export const eventSubscriptionsIn = (file: SourceFile): Violation[] => [
   ...handBuiltSubscribers(file),
   ...subscriberClasses(file),
   ...memberRegistrations(file),
-  ...prefixRegistrations(file),
+  ...sinkRegistrations(file),
 ];
 
 export const eventSubscriptionViolations = (): Violation[] =>

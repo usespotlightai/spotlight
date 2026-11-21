@@ -36,7 +36,9 @@ import {
   inArray,
   isNotNull,
   isNull,
+  gt,
   lte,
+  notInArray,
 } from 'drizzle-orm';
 
 // A subscriber that sets no retry gets 8 attempts. The outbox waits 2 seconds after the first attempt, twice as long after each next one, and never longer than one hour.
@@ -55,6 +57,21 @@ export const LONGEST_LEASE_MS = 30 * 60 * 1000;
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
 const REDELIVERY_BATCH = 1_000;
+
+// The subscribers lane holds the subscribers of the contexts. The sinks lane holds the sinks, which send events out of Spotlight (EventSubscribers.registerSink), so a slow receiver does not hold up the other subscribers.
+export type DeliveryLane = 'subscribers' | 'sinks';
+
+// The subscriber is gone, or it no longer hears the kind, as when the operator unsets SPOTLIGHT_EVENT_WEBHOOK_URL or narrows SPOTLIGHT_EVENT_WEBHOOK_KINDS. The delivery is a dead letter at once, and it is not an error: a redelivery sends it again.
+class KindNotHeardError extends Error {
+  constructor(subscriber: string, kind: string, gone: boolean) {
+    super(
+      gone
+        ? `No subscriber is called ${subscriber} any more`
+        : `${subscriber} does not hear ${kind} any more`,
+    );
+    this.name = 'KindNotHeardError';
+  }
+}
 
 const because = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).replaceAll(
@@ -100,10 +117,13 @@ export class EventDelivery {
     @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
-  async processDue(limit = 100): Promise<number> {
+  async processDue(
+    limit = 100,
+    lane: DeliveryLane = 'subscribers',
+  ): Promise<number> {
     let worked = 0;
 
-    while (worked < limit && (await this.deliverOne())) {
+    while (worked < limit && (await this.deliverOne(lane))) {
       worked += 1;
     }
 
@@ -115,6 +135,7 @@ export class EventDelivery {
 
     for (;;) {
       await this.processDue();
+      await this.processDue(100, 'sinks');
 
       if ((await this.stillDue()) === 0 || Date.now() > until) {
         return;
@@ -127,50 +148,58 @@ export class EventDelivery {
   // Queues the dead letters of one subscriber again, for the events recorded at or after the time whose kind it still hears. Each gets all its attempts again. Returns how many it queued.
   async redeliver(subscriber: string, since: Date): Promise<number> {
     const db = this.context.db;
-    const dead = await db
-      .select({ eventId: eventDelivery.eventId, kind: eventOutbox.kind })
-      .from(eventDelivery)
-      .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
-      .where(
-        and(
-          eq(eventDelivery.subscriber, subscriber),
-          isNull(eventDelivery.deliveredAt),
-          isNotNull(eventDelivery.deadLetteredAt),
-          gte(eventOutbox.recordedAt, since),
-        ),
-      );
-    const heard = dead
-      .filter((each) => this.subscribers.hears(subscriber, each.kind))
-      .map((each) => each.eventId);
+    let after: string | null = null;
     let queued = 0;
+    let skipped = 0;
 
-    for (let at = 0; at < heard.length; at += REDELIVERY_BATCH) {
-      const written = await db
-        .update(eventDelivery)
-        .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
+    for (;;) {
+      const dead = await db
+        .select({ eventId: eventDelivery.eventId, kind: eventOutbox.kind })
+        .from(eventDelivery)
+        .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
         .where(
           and(
             eq(eventDelivery.subscriber, subscriber),
             isNull(eventDelivery.deliveredAt),
             isNotNull(eventDelivery.deadLetteredAt),
-            inArray(
-              eventDelivery.eventId,
-              heard.slice(at, at + REDELIVERY_BATCH),
-            ),
+            gte(eventOutbox.recordedAt, since),
+            after ? gt(eventDelivery.eventId, after) : undefined,
           ),
         )
-        .returning({ eventId: eventDelivery.eventId });
+        .orderBy(asc(eventDelivery.eventId))
+        .limit(REDELIVERY_BATCH);
+      const heard = dead
+        .filter((each) => this.subscribers.hears(subscriber, each.kind))
+        .map((each) => each.eventId);
 
-      queued += written.length;
+      skipped += dead.length - heard.length;
+
+      if (heard.length > 0) {
+        const written = await db
+          .update(eventDelivery)
+          .set({ attempts: 0, deadLetteredAt: null, dueAt: this.clock.now() })
+          .where(
+            and(
+              eq(eventDelivery.subscriber, subscriber),
+              isNull(eventDelivery.deliveredAt),
+              isNotNull(eventDelivery.deadLetteredAt),
+              inArray(eventDelivery.eventId, heard),
+            ),
+          )
+          .returning({ eventId: eventDelivery.eventId });
+
+        queued += written.length;
+      }
+
+      if (dead.length < REDELIVERY_BATCH) {
+        break;
+      }
+
+      after = dead[dead.length - 1]?.eventId ?? null;
     }
 
     this.logger.info(
-      {
-        subscriber,
-        since: since.toISOString(),
-        queued,
-        skipped: dead.length - heard.length,
-      },
+      { subscriber, since: since.toISOString(), queued, skipped },
       'Queued dead letters again',
     );
 
@@ -192,8 +221,8 @@ export class EventDelivery {
     return row?.due ?? 0;
   }
 
-  private async deliverOne(): Promise<boolean> {
-    const claim = await this.claimNext();
+  private async deliverOne(lane: DeliveryLane): Promise<boolean> {
+    const claim = await this.claimNext(lane);
 
     if (claim.kind === 'leased') {
       await this.deliverLeased(claim.due, claim.lease);
@@ -202,7 +231,7 @@ export class EventDelivery {
     return claim.kind !== 'none';
   }
 
-  private async claimNext(): Promise<Claim> {
+  private async claimNext(lane: DeliveryLane): Promise<Claim> {
     const claimed: { due: Due | null; failure: { error: unknown } | null } = {
       due: null,
       failure: null,
@@ -210,7 +239,7 @@ export class EventDelivery {
 
     try {
       const outcome = await this.context.inTransaction(async () => {
-        const due = await this.nextDue();
+        const due = await this.nextDue(lane);
         claimed.due = due;
 
         if (!due) {
@@ -483,7 +512,13 @@ export class EventDelivery {
     );
   }
 
-  private async nextDue(): Promise<Due | null> {
+  private async nextDue(lane: DeliveryLane): Promise<Due | null> {
+    const sinks = [...this.subscribers.sinks()];
+
+    if (lane === 'sinks' && sinks.length === 0) {
+      return null;
+    }
+
     const [row] = await this.context.db
       .select({
         eventId: eventDelivery.eventId,
@@ -502,6 +537,11 @@ export class EventDelivery {
           isNull(eventDelivery.deliveredAt),
           isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
+          lane === 'sinks'
+            ? inArray(eventDelivery.subscriber, sinks)
+            : sinks.length > 0
+              ? notInArray(eventDelivery.subscriber, sinks)
+              : undefined,
         ),
       )
       .orderBy(asc(eventDelivery.dueAt), asc(eventOutbox.recordedAt))
@@ -517,13 +557,8 @@ export class EventDelivery {
   ): Promise<T> {
     const subscriber = this.subscribers.named(due.subscriber);
 
-    if (!subscriber) {
-      throw new Error(`No subscriber is called ${due.subscriber} any more`);
-    }
-
-    // The subscriber does not hear the kind any more, as when the operator narrows SPOTLIGHT_EVENT_WEBHOOK_KINDS. It fails like a subscriber that is gone: retried, as another instance can still hear it during a deploy, and then a dead letter.
-    if (!this.subscribers.hears(due.subscriber, due.kind)) {
-      throw new Error(`${due.subscriber} does not hear ${due.kind} any more`);
+    if (!subscriber || !this.subscribers.hears(due.subscriber, due.kind)) {
+      throw new KindNotHeardError(due.subscriber, due.kind, !subscriber);
     }
 
     return this.telemetry.inSpan(
@@ -555,7 +590,10 @@ export class EventDelivery {
   ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
-    const next = this.retryOf(due).nextAttemptAt(attempts, now);
+    const next =
+      error instanceof KindNotHeardError
+        ? null
+        : this.retryOf(due).nextAttemptAt(attempts, now);
 
     const written = await this.context.db
       .update(eventDelivery)
@@ -575,13 +613,29 @@ export class EventDelivery {
     return next ? 'retried' : 'dead_lettered';
   }
 
-  // A subscriber that sets no retry, or that is gone, gets the default. The deliveries of a subscriber that is gone end as dead letters.
+  // A subscriber that sets no retry gets the default.
   private retryOf(due: Due): Retry {
     return this.subscribers.named(due.subscriber)?.retry ?? DEFAULT_RETRY;
   }
 
   private reported(due: Due, error: unknown): void {
     const attempts = due.attempts + 1;
+
+    if (error instanceof KindNotHeardError) {
+      this.logger.warn(
+        {
+          err: error,
+          eventId: due.eventId,
+          eventKind: due.kind,
+          subscriber: due.subscriber,
+          attempts,
+          ...idsOf(due.payload),
+        },
+        'Dead-lettering a domain event delivery that its subscriber does not hear',
+      );
+      return;
+    }
+
     const deadLettering = this.retryOf(due).exhaustedAfter(attempts);
 
     this.logger.error(

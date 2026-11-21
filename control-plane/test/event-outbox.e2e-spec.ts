@@ -96,7 +96,9 @@ const logger = {
   error: () => undefined,
 };
 
-const outboxWith = () => {
+const outboxWith = (
+  more: (subscribers: EventSubscribers) => void = () => undefined,
+) => {
   const types = new PayloadTypes();
   types.register('test', [Marker, Rang, Answered, Reconfigured, Called]);
   types.register('shared-kernel', SHARED_KERNEL_PAYLOAD_TYPES);
@@ -135,6 +137,7 @@ const outboxWith = () => {
       received.push(`flaky ${event.marker.value}`);
     }),
   ]);
+  more(subscribers);
   const mappers = new IntegrationEventMappers();
   mappers.register([
     mapping<Rang>('bell.rang', (event) => ({
@@ -691,5 +694,177 @@ describe('the rows the event outbox keeps', () => {
       deliveredAt: null,
     });
     expect(await Promise.all(untouched.map(stateOf))).toEqual(before);
+  });
+
+  const deliveryRow = async (
+    id: string,
+    kind: string,
+    recordedAt: Date,
+    subscriber: string,
+  ) => {
+    await database.db
+      .insert(eventOutbox)
+      .values({ id, kind, payload: {}, recordedAt });
+    await database.db.insert(eventDelivery).values({
+      eventId: id,
+      subscriber,
+      attempts: 8,
+      dueAt: recordedAt,
+      deliveredAt: null,
+      deadLetteredAt: recordedAt,
+    });
+  };
+
+  const keptIds = async (ids: readonly string[]) =>
+    (
+      await database.db
+        .select({ id: eventOutbox.id })
+        .from(eventOutbox)
+        .where(inArray(eventOutbox.id, [...ids]))
+    )
+      .map((each) => each.id)
+      .sort();
+
+  it('keeps an event that another instance queues again between the read and the delete of a sweep', async () => {
+    const at = new Date('2001-01-10T00:00:00.000Z');
+    const old = new Date('2001-01-01T00:00:00.000Z');
+    const id = randomUUID();
+    await deliveryRow(id, 'bell.raced', old, 'test.raced');
+    const elsewhere = new EventSubscribers();
+    elsewhere.register([
+      subscribing('test.raced', ['bell.raced'], async () => []),
+    ]);
+    const { outbox } = outboxWith();
+    const redelivery = new EventDelivery(
+      context,
+      outbox,
+      elsewhere,
+      { now: () => at } as ClockPort,
+      logger,
+      causation,
+      { report: vi.fn() },
+      new OtelTelemetry(),
+    );
+    let deletes = 0;
+    // The second delete of the sweep is the delete of the dead letters that nobody hears. The other instance queues the dead letter again just before it.
+    const db = context.db;
+    const racingDb = new Proxy(db, {
+      get: (inner, member): unknown =>
+        member === 'delete'
+          ? (table: typeof eventOutbox) => ({
+              where: (
+                condition: Parameters<ReturnType<typeof db.delete>['where']>[0],
+              ) => ({
+                returning: async (columns: { id: typeof eventOutbox.id }) => {
+                  deletes += 1;
+
+                  if (deletes === 2) {
+                    await redelivery.redeliver('test.raced', old);
+                  }
+
+                  return inner
+                    .delete(table)
+                    .where(condition)
+                    .returning(columns);
+                },
+              }),
+            })
+          : (Reflect.get(inner, member) as unknown),
+    });
+    const racing = { db: racingDb } as unknown as DrizzleContext;
+
+    await new OutboxRetention(
+      racing,
+      { now: () => at } as ClockPort,
+      new EventSubscribers(),
+    ).sweep();
+
+    expect(deletes).toBe(2);
+    expect(await keptIds([id])).toEqual([id]);
+    expect(
+      await database.db
+        .select({
+          attempts: eventDelivery.attempts,
+          deadLetteredAt: eventDelivery.deadLetteredAt,
+        })
+        .from(eventDelivery)
+        .where(eq(eventDelivery.eventId, id)),
+    ).toEqual([{ attempts: 0, deadLetteredAt: null }]);
+
+    await database.db.delete(eventOutbox).where(eq(eventOutbox.id, id));
+  });
+
+  it('goes on after the dead letters it keeps in the next sweep, and starts again once it reached the end', async () => {
+    const at = new Date('1990-01-10T00:00:00.000Z');
+    const old = new Date('1990-01-01T00:00:00.000Z');
+    const idOf = (n: number) =>
+      `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const [u0, h1, h2, u1, u2] = [0, 1, 2, 3, 4].map(idOf);
+    await deliveryRow(h1, 'bell.cursor', old, 'test.cursor');
+    await deliveryRow(h2, 'bell.cursor', old, 'test.cursor');
+    await deliveryRow(u1, 'bell.cursor', old, 'test.cursor-gone');
+    await deliveryRow(u2, 'bell.cursor', old, 'test.cursor-gone');
+    const registered = new EventSubscribers();
+    registered.register([
+      subscribing('test.cursor', ['bell.cursor'], async () => []),
+    ]);
+    const retention = new OutboxRetention(
+      context,
+      { now: () => at } as ClockPort,
+      registered,
+      { batch: 2, batches: 1 },
+    );
+    const all = [u0, h1, h2, u1, u2];
+
+    expect(await retention.sweep()).toBe(0);
+    expect(await keptIds(all)).toEqual([h1, h2, u1, u2]);
+    expect(await retention.sweep()).toBe(2);
+    expect(await keptIds(all)).toEqual([h1, h2]);
+
+    await deliveryRow(u0, 'bell.cursor', old, 'test.cursor-gone');
+
+    expect(await retention.sweep()).toBe(0);
+    expect(await retention.sweep()).toBe(1);
+    expect(await keptIds(all)).toEqual([h1, h2]);
+
+    await database.db.delete(eventOutbox).where(inArray(eventOutbox.id, all));
+  });
+});
+
+describe('the lanes of event delivery', () => {
+  it('delivers to the other subscribers while a sink waits for a slow receiver', async () => {
+    let release = () => undefined as void;
+    const holding = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const sunk: string[] = [];
+    const { outbox, delivery } = outboxWith((subscribers) =>
+      subscribers.registerSink(
+        subscribing<{ kind: string; marker: string }>(
+          'test.sink',
+          [],
+          async (event) => {
+            await holding;
+            sunk.push(event.marker);
+          },
+          { callsOut: true },
+        ),
+        { prefixes: ['bell.'] },
+      ),
+    );
+
+    await outbox.record([new Rang(Marker.of('lane'))]);
+
+    const sinking = delivery.processDue(100, 'sinks');
+
+    await delivery.processDue();
+
+    expect(received).toContain('rang lane');
+    expect(sunk).toEqual([]);
+
+    release();
+    await sinking;
+
+    expect(sunk).toEqual(['lane']);
   });
 });
