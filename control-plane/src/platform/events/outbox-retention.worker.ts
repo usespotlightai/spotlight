@@ -35,11 +35,11 @@ export class OutboxRetentionWorker implements OnModuleDestroy {
       .sweep()
       .then((deleted) => {
         if (deleted > 0) {
-          this.logger.info({ deleted }, 'Deleted delivered events');
+          this.logger.info({ deleted }, 'Deleted old events');
         }
       })
       .catch((error: unknown) => {
-        this.logger.error({ err: error }, 'Deleting delivered events');
+        this.logger.error({ err: error }, 'Deleting old events');
       });
     await this.#ticking;
     this.#ticking = null;

@@ -131,6 +131,7 @@ import { ListWorkspaceInvitesHandler } from '@identity/application/queries/handl
 import { ListWorkspaceMemberSummariesHandler } from '@identity/application/queries/handlers/list-workspace-member-summaries.handler';
 import { ListWorkspaceMembersHandler } from '@identity/application/queries/handlers/list-workspace-members.handler';
 import { ListWorkspaceResourcesHandler } from '@identity/application/queries/handlers/list-workspace-resources.handler';
+import { ListWorkspaceSummariesHandler } from '@identity/application/queries/handlers/list-workspace-summaries.handler';
 import { ListWorkspacesHandler } from '@identity/application/queries/handlers/list-workspaces.handler';
 import {
   ImportOidcTrustHandler,
@@ -140,6 +141,7 @@ import {
 import { ReadAvatarHandler } from '@identity/application/queries/handlers/read-avatar.handler';
 import { ReadInviteHandler } from '@identity/application/queries/handlers/read-invite.handler';
 import { ReadTeamHandler } from '@identity/application/queries/handlers/read-team.handler';
+import { ReadWorkspaceSummaryHandler } from '@identity/application/queries/handlers/read-workspace-summary.handler';
 import { ReadWorkspaceHandler } from '@identity/application/queries/handlers/read-workspace.handler';
 import { WatchedWorkspacesHandler } from '@identity/application/queries/handlers/watched-workspaces.handler';
 import {
@@ -158,6 +160,7 @@ import { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-wo
 import { ListWorkspaceMemberSummariesQuery } from '@identity/application/queries/list-workspace-member-summaries.query';
 import { ListWorkspaceMembersQuery } from '@identity/application/queries/list-workspace-members.query';
 import { ListWorkspaceResourcesQuery } from '@identity/application/queries/list-workspace-resources.query';
+import { ListWorkspaceSummariesQuery } from '@identity/application/queries/list-workspace-summaries.query';
 import { ListWorkspacesQuery } from '@identity/application/queries/list-workspaces.query';
 import {
   ImportOidcTrustQuery,
@@ -167,6 +170,7 @@ import {
 import { ReadAvatarQuery } from '@identity/application/queries/read-avatar.query';
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
 import { ReadTeamQuery } from '@identity/application/queries/read-team.query';
+import { ReadWorkspaceSummaryQuery } from '@identity/application/queries/read-workspace-summary.query';
 import { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
 import { WatchedWorkspacesQuery } from '@identity/application/queries/watched-workspaces.query';
 import {
@@ -247,6 +251,7 @@ import { UserEmailController } from '@identity/presentation/http/controllers/use
 import { WorkloadTokenExchangeController } from '@identity/presentation/http/controllers/workload-token-exchange.controller';
 import { WorkspaceMemberSummaryController } from '@identity/presentation/http/controllers/workspace-member-summary.controller';
 import { WorkspaceResourceController } from '@identity/presentation/http/controllers/workspace-resource.controller';
+import { WorkspaceSummaryController } from '@identity/presentation/http/controllers/workspace-summary.controller';
 import { WorkspaceTokenResourceController } from '@identity/presentation/http/controllers/workspace-token-resource.controller';
 import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
 import { FORBIDDEN_TEXTS } from '@identity/presentation/http/forbidden-texts';
@@ -300,6 +305,7 @@ const IDENTITY_API_DOCUMENTATION = Symbol('IDENTITY_API_DOCUMENTATION');
 const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
 
 export const IDENTITY_CONTROLLERS: readonly Type[] = [
+  WorkspaceSummaryController,
   WorkspaceMemberSummaryController,
   WorkspaceAvatarController,
   TeamAvatarController,
@@ -515,6 +521,14 @@ const handlers: Provider[] = [
   ...bindQueryHandler(ListWorkspaceMembersQuery, ListWorkspaceMembersHandler, [
     DrizzleWorkspaceRepository,
     MEMBER_READER,
+  ]),
+  ...bindQueryHandler(
+    ListWorkspaceSummariesQuery,
+    ListWorkspaceSummariesHandler,
+    [WORKSPACE_DIRECTORY],
+  ),
+  ...bindQueryHandler(ReadWorkspaceSummaryQuery, ReadWorkspaceSummaryHandler, [
+    WORKSPACE_DIRECTORY,
   ]),
   ...bindQueryHandler(
     ListWorkspaceMemberSummariesQuery,

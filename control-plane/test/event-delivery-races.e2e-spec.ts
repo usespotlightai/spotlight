@@ -6,7 +6,7 @@ import { CauseCarrier } from '@platform/events/cause-carrier';
 import {
   EventDelivery,
   LEASE_MS,
-  MAX_ATTEMPTS,
+  DEFAULT_RETRY,
 } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
@@ -26,7 +26,7 @@ import {
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { type DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
@@ -102,7 +102,10 @@ const failures = fc.oneof(
   { arbitrary: fc.constant(0), weight: 4 },
   { arbitrary: fc.integer({ min: 1, max: 3 }), weight: 2 },
   {
-    arbitrary: fc.integer({ min: MAX_ATTEMPTS - 1, max: MAX_ATTEMPTS + 1 }),
+    arbitrary: fc.integer({
+      min: DEFAULT_RETRY.maxAttempts - 1,
+      max: DEFAULT_RETRY.maxAttempts + 1,
+    }),
     weight: 1,
   },
 );
@@ -274,7 +277,7 @@ const deliveryFor = (): EventDelivery =>
   );
 
 const worked = (): Promise<number> =>
-  holders.run({ since: now }, () => deliveryFor().processDue(1000));
+  holders.run({ since: now }, () => deliveryFor().processDue('contexts', 1000));
 
 const planOf = (marker: string): Plan => {
   const found = seen.plans.get(marker);
@@ -493,10 +496,14 @@ const performed = async (prefix: string, action: Action): Promise<void> => {
       now += action.byMs;
       return;
     case 'sweep':
-      await new OutboxRetention(context, {
-        now: () => new Date(now + action.aheadMs),
-        sleep: async () => {},
-      }).sweep();
+      await new OutboxRetention(
+        context,
+        {
+          now: () => new Date(now + action.aheadMs),
+          sleep: async () => {},
+        },
+        subscribers,
+      ).sweep();
       return;
   }
 };
@@ -573,7 +580,7 @@ const settled = async (paced: readonly number[]): Promise<void> => {
 
   for (
     let pass = 0;
-    pass <= MAX_ATTEMPTS + 1 && (await pending()) > 0;
+    pass <= DEFAULT_RETRY.maxAttempts + 1 && (await pending()) > 0;
     pass += 1
   ) {
     now += SETTLE_MS;
@@ -606,7 +613,7 @@ const raced = async (
   const left = await pending();
 
   now += OUTBOX_RETENTION_MS + 1;
-  await new OutboxRetention(context, clock).sweep();
+  await new OutboxRetention(context, clock, subscribers).sweep();
 
   const kept = await database.db
     .select({ payload: eventOutbox.payload })
@@ -713,8 +720,9 @@ describe('domain events raced by delivery workers, failing subscribers, lost lea
         (result) =>
           result.rows.every(
             (each) =>
-              each.attempts <= MAX_ATTEMPTS &&
-              (!each.deadLettered || each.attempts === MAX_ATTEMPTS),
+              each.attempts <= DEFAULT_RETRY.maxAttempts &&
+              (!each.deadLettered ||
+                each.attempts === DEFAULT_RETRY.maxAttempts),
           ) &&
           result.seen.committed.every((marker) =>
             HEARING_RANG.every(
@@ -795,8 +803,9 @@ describe('domain events raced by delivery workers, failing subscribers, lost lea
           const calls = result.seen.calls.get(keyOf(FLAKY, marker)) ?? [];
 
           return (
-            calls.length === Math.min(failing + 1, MAX_ATTEMPTS) &&
-            gaveUp(result, FLAKY, marker) === failing >= MAX_ATTEMPTS &&
+            calls.length === Math.min(failing + 1, DEFAULT_RETRY.maxAttempts) &&
+            gaveUp(result, FLAKY, marker) ===
+              failing >= DEFAULT_RETRY.maxAttempts &&
             calls.every(
               (at, index) =>
                 index === 0 ||

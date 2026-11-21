@@ -1,4 +1,5 @@
 import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -30,6 +31,7 @@ describe('workSubscribers', () => {
         PullRequestUrl.of('https://github.com/acme/infra/pull/12'),
         new Date('2026-10-11T09:00:00.000Z'),
       ),
+      anOutboxRecord(),
     );
 
     expect(reconciling?.kinds).toEqual(['chat.setup-pull-request-opened']);
@@ -50,7 +52,7 @@ describe('workSubscribers', () => {
       null,
     );
 
-    await taking?.handle(answered);
+    await taking?.handle(answered, anOutboxRecord());
 
     expect(taking?.kinds).toEqual(['task.answered']);
     expect(taking?.callsOut).toBe(true);
@@ -65,14 +67,17 @@ describe('workSubscribers', () => {
       (each) => each.name === 'work.take-turn',
     );
 
-    await taking?.handle({
-      kind: RUN_SUSPENDED,
-      runId: 'run_1',
-      workspaceId: 'ws_1',
-      requester: requestedBy.task('task_1', 0),
-      attempt: 2,
-      at: '2026-11-07T10:00:00.000Z',
-    } as never);
+    await taking?.handle(
+      {
+        kind: RUN_SUSPENDED,
+        runId: 'run_1',
+        workspaceId: 'ws_1',
+        requester: requestedBy.task('task_1', 0),
+        attempt: 2,
+        at: '2026-11-07T10:00:00.000Z',
+      } as never,
+      anOutboxRecord(),
+    );
 
     expect(taking?.kinds).toEqual(['runs.run-suspended.v1']);
     expect(taking?.callsOut).toBe(true);

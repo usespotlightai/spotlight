@@ -27,6 +27,28 @@ export type ErrorReportingResponseDto = {
   release: string | null;
 };
 
+export type RedeliverEventWebhookRequestDto = {
+  /**
+   * Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time
+   */
+  since: string;
+  /**
+   * At most this many dead letters, 1000 when left out, up to 100000. While the answer is truncated, send the same request again
+   */
+  limit?: number;
+};
+
+export type RedeliverEventWebhookResponseDto = {
+  /**
+   * How many dead letters Spotlight queued again. Each gets all its attempts again
+   */
+  queued: number;
+  /**
+   * Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them
+   */
+  truncated: boolean;
+};
+
 export type StationJudgeResponseDto = {
   /**
    * Checkable claims the judge marks met or not met, in order
@@ -390,6 +412,28 @@ export type LineResourceListResponseDto = {
    * Every one there is, each as a read returns it, in address order
    */
   items: Array<LineResourceResponseDto>;
+};
+
+export type WorkspaceSummaryResponseDto = {
+  id: string;
+  slug: string;
+  name: string;
+  createdAt: string;
+  /**
+   * How many people are in it
+   */
+  memberCount: number;
+};
+
+export type WorkspaceSummaryPageResponseDto = {
+  /**
+   * Oldest first
+   */
+  items: Array<WorkspaceSummaryResponseDto>;
+  /**
+   * Pass as `after` to read the next page; null on the last
+   */
+  next: string | null;
 };
 
 export type WorkspaceMemberSummaryResponseDto = {
@@ -996,10 +1040,6 @@ export type CatalogToolResponseDto = {
    * The constraint it was resolved against
    */
   constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
   description: string;
 };
 
@@ -1017,57 +1057,11 @@ export type CatalogSkillResponseDto = {
    * The constraint it was resolved against
    */
   constraint: string;
-  /**
-   * The lowest plan that includes the item
-   */
-  plan: 'free' | 'team' | 'enterprise';
   description: string;
   /**
    * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
    */
   tools: Array<string>;
-};
-
-export type PlanTermResponseDto = {
-  plan: 'free' | 'team' | 'enterprise';
-  /**
-   * When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan
-   */
-  expiresAt: string | null;
-};
-
-export type WorkspaceSummaryResponseDto = {
-  id: string;
-  slug: string;
-  name: string;
-  createdAt: string;
-  /**
-   * How many people are in it
-   */
-  memberCount: number;
-  /**
-   * The plan set for the workspace and when it ends; the free plan when none is set
-   */
-  term: PlanTermResponseDto;
-};
-
-export type WorkspaceSummaryPageResponseDto = {
-  /**
-   * Oldest first
-   */
-  items: Array<WorkspaceSummaryResponseDto>;
-  /**
-   * Pass as `after` to read the next page; null on the last
-   */
-  next: string | null;
-};
-
-export type SetWorkspacePlanRequestDto = {
-  plan: 'free' | 'team' | 'enterprise';
-  /**
-   * When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end. The free plan does not end, so Spotlight ignores an end on it
-   */
-  expiresAt?: string | null;
 };
 
 export type EnqueueRunRequestDto = {
@@ -9600,6 +9594,38 @@ export type GetErrorReportingResponses = {
 
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
 
+export type RedeliverEventWebhookData = {
+  body: RedeliverEventWebhookRequestDto;
+  path?: never;
+  query?: never;
+  url: '/admin/event-webhook/redeliver';
+};
+
+export type RedeliverEventWebhookErrors = {
+  /**
+   * A body without since as an ISO 8601 time, or a limit that is not a whole number from 1 to 100000
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No admin token is set
+   */
+  404: unknown;
+  /**
+   * This deployment sets no event webhook
+   */
+  409: unknown;
+};
+
+export type RedeliverEventWebhookResponses = {
+  200: RedeliverEventWebhookResponseDto;
+};
+
+export type RedeliverEventWebhookResponse = RedeliverEventWebhookResponses[keyof RedeliverEventWebhookResponses];
+
 export type ListTeamLinesData = {
   body?: never;
   path: {
@@ -9964,6 +9990,77 @@ export type ListLinesResponses = {
 };
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
+
+export type ListWorkspaceSummariesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Only the workspaces created at or after this time, as an ISO 8601 time
+     */
+    since?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+    /**
+     * The `next` cursor of the page before
+     */
+    after?: string;
+  };
+  url: '/admin/workspaces';
+};
+
+export type ListWorkspaceSummariesErrors = {
+  /**
+   * A page limit that is not a whole number above 0, or a since that is not an ISO 8601 time
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No admin token is set
+   */
+  404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
+};
+
+export type ListWorkspaceSummariesResponses = {
+  200: WorkspaceSummaryPageResponseDto;
+};
+
+export type ListWorkspaceSummariesResponse = ListWorkspaceSummariesResponses[keyof ListWorkspaceSummariesResponses];
+
+export type ReadWorkspaceSummaryData = {
+  body?: never;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}';
+};
+
+export type ReadWorkspaceSummaryErrors = {
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+};
+
+export type ReadWorkspaceSummaryResponses = {
+  200: WorkspaceSummaryResponseDto;
+};
+
+export type ReadWorkspaceSummaryResponse = ReadWorkspaceSummaryResponses[keyof ReadWorkspaceSummaryResponses];
 
 export type ListWorkspaceMemberSummariesData = {
   body?: never;
@@ -12247,10 +12344,6 @@ export type ReadCatalogToolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-tool; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
-  /**
    * No such catalog-tool, or no workspace here that you may see
    */
   404: ProblemResponseDto;
@@ -12309,10 +12402,6 @@ export type ReadCatalogSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-skill; the detail names the plan that it requires
-   */
-  403: ProblemResponseDto;
-  /**
    * No such catalog-skill, or no workspace here that you may see
    */
   404: ProblemResponseDto;
@@ -12332,148 +12421,6 @@ export type ReadCatalogSkillResponses = {
 };
 
 export type ReadCatalogSkillResponse = ReadCatalogSkillResponses[keyof ReadCatalogSkillResponses];
-
-export type ListWorkspaceSummariesData = {
-  body?: never;
-  path?: never;
-  query?: {
-    /**
-     * Only the workspaces created at or after this time, as an ISO 8601 time
-     */
-    since?: string;
-    /**
-     * At most this many, 50 by default, up to 200
-     */
-    limit?: number;
-    /**
-     * The `next` cursor of the page before
-     */
-    after?: string;
-  };
-  url: '/admin/workspaces';
-};
-
-export type ListWorkspaceSummariesErrors = {
-  /**
-   * A page limit that is not a whole number above 0, or a since that is not an ISO 8601 time
-   */
-  400: unknown;
-  /**
-   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
-   */
-  401: unknown;
-  /**
-   * No admin token is set
-   */
-  404: unknown;
-  /**
-   * A page cursor that this list did not give
-   */
-  422: unknown;
-};
-
-export type ListWorkspaceSummariesResponses = {
-  200: WorkspaceSummaryPageResponseDto;
-};
-
-export type ListWorkspaceSummariesResponse = ListWorkspaceSummariesResponses[keyof ListWorkspaceSummariesResponses];
-
-export type ReadWorkspaceSummaryData = {
-  body?: never;
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/admin/workspaces/{workspaceId}';
-};
-
-export type ReadWorkspaceSummaryErrors = {
-  /**
-   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
-   */
-  401: unknown;
-  /**
-   * No such workspace, or no admin token is set
-   */
-  404: unknown;
-};
-
-export type ReadWorkspaceSummaryResponses = {
-  200: WorkspaceSummaryResponseDto;
-};
-
-export type ReadWorkspaceSummaryResponse = ReadWorkspaceSummaryResponses[keyof ReadWorkspaceSummaryResponses];
-
-export type DeleteWorkspacePlanData = {
-  body?: never;
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/admin/workspaces/{workspaceId}/plan';
-};
-
-export type DeleteWorkspacePlanErrors = {
-  /**
-   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
-   */
-  401: unknown;
-  /**
-   * No such workspace, or no admin token is set
-   */
-  404: unknown;
-  /**
-   * The plan changed at the same time; try again
-   */
-  409: unknown;
-};
-
-export type DeleteWorkspacePlanResponses = {
-  /**
-   * The workspace has the free plan
-   */
-  204: void;
-};
-
-export type DeleteWorkspacePlanResponse = DeleteWorkspacePlanResponses[keyof DeleteWorkspacePlanResponses];
-
-export type SetWorkspacePlanData = {
-  body: SetWorkspacePlanRequestDto;
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/admin/workspaces/{workspaceId}/plan';
-};
-
-export type SetWorkspacePlanErrors = {
-  /**
-   * A body without a plan, or an expiresAt that is not a time
-   */
-  400: unknown;
-  /**
-   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
-   */
-  401: unknown;
-  /**
-   * No such workspace, or no admin token is set
-   */
-  404: unknown;
-  /**
-   * The plan changed at the same time; try again
-   */
-  409: unknown;
-  /**
-   * No such plan, or an end that is not in the future
-   */
-  422: unknown;
-};
-
-export type SetWorkspacePlanResponses = {
-  200: PlanTermResponseDto;
-};
-
-export type SetWorkspacePlanResponse = SetWorkspacePlanResponses[keyof SetWorkspacePlanResponses];
 
 export type EnqueueRunData = {
   body: EnqueueRunRequestDto;

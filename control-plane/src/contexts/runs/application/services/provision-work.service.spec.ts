@@ -188,7 +188,9 @@ const provisioning = (
   const checks = {
     awaiting: vi.fn<ReviewWorkProvisioningPort['awaiting']>(
       async (_workspaceId, _at, page) =>
-        page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
+        page.after === null
+          ? { waiting: waitingChecks.awaiting ?? [], next: 'cursor_1' }
+          : { waiting: [], next: null },
     ),
     reserve: vi.fn<ReviewWorkProvisioningPort['reserve']>(
       async (_check, _runner, _pool, at) =>
@@ -923,6 +925,42 @@ describe('ProvisionWork', () => {
   });
 
   describe('for change-stack checks', () => {
+    it('reads the checks behind a full head page from the cursor of the head, and goes on from the cursor of that page in the next tick', async () => {
+      const { provisioner, provision, checks } = provisioning(
+        [],
+        [aPlatformPool(['arm'])],
+        {},
+        NOON,
+        0,
+        { awaiting: [aWaitingCheck('stack_1', ['gpu'])] },
+      );
+      const blocked = (from: number) =>
+        Array.from({ length: 200 }, (_, index) =>
+          aWaitingCheck(`blocked_${from + index}`, ['gpu']),
+        );
+      checks.awaiting.mockImplementation(async (_workspaceId, _at, page) =>
+        page.after === null
+          ? { waiting: blocked(0), next: 'after_head' }
+          : {
+              waiting: [
+                ...blocked(200).slice(1),
+                aWaitingCheck('arm_1', ['arm']),
+              ],
+              next: `after_${page.after}`,
+            },
+      );
+
+      await provisioner.due();
+      await provisioner.due();
+
+      expect(
+        checks.awaiting.mock.calls.map(([, , page]) => page.after),
+      ).toEqual([null, 'after_head', null, 'after_after_head']);
+      expect(
+        provision.mock.calls.some(([request]) => request.work.id === 'arm_1'),
+      ).toBe(true);
+    });
+
     it('reserves a waiting check for a new runner and requests a fitting pool to start it for that check', async () => {
       const { provisioner, provision, checks } = provisioning(
         [],
@@ -1037,7 +1075,7 @@ describe('ProvisionWork', () => {
         WorkspaceId.of('ws_1'),
         NOON,
         {
-          skip: 0,
+          after: null,
           max: 200,
         },
       );

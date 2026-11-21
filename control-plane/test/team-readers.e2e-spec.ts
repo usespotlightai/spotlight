@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
+import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -143,6 +145,8 @@ beforeAll(async () => {
     ending: 'completed',
     visit: 1,
   });
+  // The test writes the run record directly, so no event projects its facts. The check of run facts can run before this insert, and then it does not run again for six hours. Thus, project the facts here.
+  await app.get(ProjectRunFacts).ofRuns([RunId.of(RUN)]);
 });
 
 afterAll(async () => {

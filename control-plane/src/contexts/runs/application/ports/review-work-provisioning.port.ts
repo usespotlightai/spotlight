@@ -20,12 +20,21 @@ export interface ExpiredReviewWork {
   readonly until: Date;
 }
 
+// Where a page of waiting review work ends. Only the provider reads it: the caller gives it back to read the next page. A cursor stays valid when the item at it leaves the queue, so no waiting item moves back past it.
+export type ReviewWorkCursor = string;
+
+export interface ReviewWorkPage {
+  readonly waiting: readonly WaitingReviewWork[];
+  readonly next: ReviewWorkCursor | null;
+}
+
 export interface ReviewWorkProvisioningPort {
+  // The review work that waits for Spotlight to provision a runner now, in the order of review work: the first page with no cursor, else the page after the cursor.
   awaiting(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly max: number },
-  ): Promise<readonly WaitingReviewWork[]>;
+    page: { readonly after: ReviewWorkCursor | null; readonly max: number },
+  ): Promise<ReviewWorkPage>;
 
   // The workspaces that have review work that waits for Spotlight to provision a runner now. It leaves out reserved work and work that backs off.
   workspacesAwaiting(now: Date): Promise<readonly WorkspaceId[]>;

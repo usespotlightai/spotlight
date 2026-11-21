@@ -1,4 +1,5 @@
 import { databaseSchema, envSchema } from '@platform/config/env.schema';
+import { SIGNING_SECRET_RULE } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { describe, expect, it } from 'vitest';
 
 const url = 'postgres://localhost/spotlight';
@@ -81,6 +82,19 @@ describe('envSchema platform pool', () => {
     ).toBe(false);
   });
 
+  it('refuses a platform pool secret of more than 64 bytes, and says what a secret must be', () => {
+    const parsed = envSchema.safeParse({
+      ...required,
+      SPOTLIGHT_PLATFORM_POOL_URL: 'https://provision.example.com/runs',
+      SPOTLIGHT_PLATFORM_POOL_SECRET: `whsec_${Buffer.alloc(65, 1).toString('base64')}`,
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((each) => each.message)).toContain(
+      SIGNING_SECRET_RULE,
+    );
+  });
+
   it('names the platform egress only where the deployment has one', () => {
     const platform = {
       ...required,
@@ -139,6 +153,113 @@ describe('envSchema platform pool', () => {
         SPOTLIGHT_PLATFORM_EGRESS_URL: 'https://egress.example.com',
         SPOTLIGHT_PLATFORM_EGRESS_TOKEN: 't'.repeat(32),
         SPOTLIGHT_PLATFORM_POOL_EGRESS: 'spotlight',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('envSchema event webhook', () => {
+  const required = {
+    DATABASE_URL: url,
+    BETTER_AUTH_SECRET: 'b'.repeat(32),
+    BETTER_AUTH_URL: 'http://localhost:3000',
+    GITHUB_CLIENT_ID: 'id',
+    GITHUB_CLIENT_SECRET: 'secret',
+    GITHUB_APP_ID: 'app',
+    GITHUB_APP_PRIVATE_KEY: 'key',
+    SPOTLIGHT_SECRETS_KEY: 'k',
+    S3_BUCKET: 'files',
+  };
+  const SECRET = `whsec_${Buffer.from('e'.repeat(32)).toString('base64')}`;
+  const webhook = {
+    ...required,
+    SPOTLIGHT_EVENT_WEBHOOK_URL: 'https://events.example.com/spotlight',
+    SPOTLIGHT_EVENT_WEBHOOK_SECRET: SECRET,
+  };
+
+  it('sends no events when the URL is empty', () => {
+    expect(
+      envSchema.parse({ ...required, SPOTLIGHT_EVENT_WEBHOOK_URL: '' }),
+    ).toMatchObject({
+      SPOTLIGHT_EVENT_WEBHOOK_URL: undefined,
+      SPOTLIGHT_EVENT_WEBHOOK_KINDS: [],
+    });
+  });
+
+  it('takes the URL and the secret together, or neither', () => {
+    expect(envSchema.safeParse(webhook).success).toBe(true);
+    expect(
+      envSchema.safeParse({
+        ...webhook,
+        SPOTLIGHT_EVENT_WEBHOOK_SECRET: undefined,
+      }).success,
+    ).toBe(false);
+    expect(
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_EVENT_WEBHOOK_SECRET: SECRET,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a URL that is not HTTPS, and a secret that is not whsec_ and base64', () => {
+    expect(
+      envSchema.safeParse({
+        ...webhook,
+        SPOTLIGHT_EVENT_WEBHOOK_URL: 'http://events.example.com',
+      }).success,
+    ).toBe(false);
+    expect(
+      envSchema.safeParse({
+        ...webhook,
+        SPOTLIGHT_EVENT_WEBHOOK_SECRET: 'secret',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a secret of more than 64 bytes, and says what a secret must be', () => {
+    const parsed = envSchema.safeParse({
+      ...webhook,
+      SPOTLIGHT_EVENT_WEBHOOK_SECRET: `whsec_${Buffer.alloc(65, 1).toString('base64')}`,
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((each) => each.message)).toContain(
+      SIGNING_SECRET_RULE,
+    );
+  });
+
+  it('reads the kinds as a list of kinds or contexts, and refuses another value', () => {
+    expect(
+      envSchema.parse({
+        ...webhook,
+        SPOTLIGHT_EVENT_WEBHOOK_KINDS:
+          ' identity., runs.run-usage-recorded.v1 ,',
+      }).SPOTLIGHT_EVENT_WEBHOOK_KINDS,
+    ).toEqual(['identity.', 'runs.run-usage-recorded.v1']);
+
+    for (const kinds of [
+      'identity',
+      'Identity.',
+      '*',
+      'runs.run-ended.v',
+      'identity.workspace',
+      'work.task-',
+    ]) {
+      expect(
+        envSchema.safeParse({
+          ...webhook,
+          SPOTLIGHT_EVENT_WEBHOOK_KINDS: kinds,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it('refuses kinds with no URL', () => {
+    expect(
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_EVENT_WEBHOOK_KINDS: 'identity.',
       }).success,
     ).toBe(false);
   });

@@ -28,6 +28,7 @@ import {
   RunWorkingCopy,
   WorkingCopyKey,
 } from '@runs/domain/value-objects/working-copy-key.vo';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -100,7 +101,7 @@ const receivedBy = async (
   for (const event of published) {
     for (const subscriber of subscribers) {
       if (subscriber.kinds.includes(event.kind)) {
-        await subscriber.handle(event);
+        await subscriber.handle(event, anOutboxRecord());
       }
     }
   }
@@ -231,7 +232,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     for (const event of published) {
       for (const subscriber of subscribers) {
         if (subscriber.kinds.includes(event.kind)) {
-          await subscriber.handle(event);
+          await subscriber.handle(event, anOutboxRecord());
         }
       }
     }

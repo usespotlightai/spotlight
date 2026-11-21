@@ -18,7 +18,6 @@ import { pullRequestOpening } from '@integrations/domain/value-objects/hook-even
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
@@ -26,12 +25,13 @@ import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type { NetworkCallsPort } from '@runs/application/ports/network-calls.port';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');
 
-const SECRET = HookSigningSecret.of(
+const SECRET = SigningSecret.of(
   `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`,
 );
 
@@ -90,7 +90,7 @@ const requests = (
   reply: () => Promise<Response>,
   calls: NetworkCallsPort = network(),
   allowed = ['example.com', '*.example.com'],
-  secret: HookSigningSecret | null = SECRET,
+  secret: SigningSecret | null = SECRET,
   limits: OutboundLimitsPort = unlimited,
   hosts: WorkspaceOutboundScopePort = unscoped,
   signs = true,
