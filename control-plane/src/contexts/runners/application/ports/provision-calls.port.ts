@@ -19,7 +19,11 @@ export type ProvisionedWork =
     }
   | { readonly kind: 'diff'; readonly diffId: string };
 
+// Who gives the provisioner: the workspace for its own pools, the deployment for the platform pool.
+export type ProvisionerOwner = 'workspace' | 'deployment';
+
 export interface ProvisionCall {
+  readonly owner: ProvisionerOwner;
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
   readonly messageId: string;

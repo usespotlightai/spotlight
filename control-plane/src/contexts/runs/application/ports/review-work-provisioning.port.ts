@@ -27,6 +27,9 @@ export interface ReviewWorkProvisioningPort {
     page: { readonly skip: number; readonly max: number },
   ): Promise<readonly WaitingReviewWork[]>;
 
+  // The workspaces that have review work that waits for Spotlight to provision a runner now. It leaves out reserved work and work that backs off.
+  workspacesAwaiting(now: Date): Promise<readonly WorkspaceId[]>;
+
   reserve(
     work: ReviewWork,
     runner: RunnerId,

@@ -1984,12 +1984,23 @@ export type HostHeartbeatResponseDto = {
   drain: Array<string>;
 };
 
+export type PlatformPoolSourceResponseDto = {
+  /**
+   * The runs of the pool go out through the platform egress of this deployment
+   */
+  egress: boolean;
+};
+
 export type CredentialSourceResponseDto = {
   kind: 'pool' | 'trust';
   /**
    * The pool’s or trust’s key; null once it is gone
    */
   key: string | null;
+  /**
+   * Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it
+   */
+  platform: PlatformPoolSourceResponseDto | null;
 };
 
 export type IdleSandboxResponseDto = {
@@ -2321,6 +2332,20 @@ export type WorkspaceRunnersResourceListResponseDto = {
    * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceRunnersResourceResponseDto>;
+};
+
+export type SetWorkspacePlatformPoolRequestDto = {
+  /**
+   * True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace
+   */
+  enabled: boolean;
+};
+
+export type WorkspacePlatformPoolResponseDto = {
+  /**
+   * The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight
+   */
+  enabled: boolean;
 };
 
 export type RunAttachmentResponseDto = {
@@ -15448,6 +15473,40 @@ export type ImportWorkspaceRunnersResponses = {
 };
 
 export type ImportWorkspaceRunnersResponse = ImportWorkspaceRunnersResponses[keyof ImportWorkspaceRunnersResponses];
+
+export type SetWorkspacePlatformPoolData = {
+  body: SetWorkspacePlatformPoolRequestDto;
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/admin/workspaces/{workspaceId}/platform-pool';
+};
+
+export type SetWorkspacePlatformPoolErrors = {
+  /**
+   * A body without enabled as true or false
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No such workspace, or no admin token is set
+   */
+  404: unknown;
+  /**
+   * This deployment adds no platform pool, or the workspace has its own pool with the key spotlight, or the pool changed at the same time
+   */
+  409: unknown;
+};
+
+export type SetWorkspacePlatformPoolResponses = {
+  200: WorkspacePlatformPoolResponseDto;
+};
+
+export type SetWorkspacePlatformPoolResponse = SetWorkspacePlatformPoolResponses[keyof SetWorkspacePlatformPoolResponses];
 
 export type PendingMessagesData = {
   body?: never;

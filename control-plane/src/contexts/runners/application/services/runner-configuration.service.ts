@@ -19,6 +19,7 @@ import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runn
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+// Terraform neither exports nor changes the platform pool.
 export class RunnerConfiguration implements RunnerConfigurationPort {
   constructor(
     private readonly trusts: RunnerTrustRepository,
@@ -32,7 +33,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
     const [trusts, declared, pools, egresses] = await Promise.all([
       this.trusts.inWorkspace(workspaceId),
       this.workspaceRunners.ofWorkspace(workspaceId),
-      this.pools.inWorkspace(workspaceId),
+      this.pools.ownedIn(workspaceId),
       this.egresses.inWorkspace(workspaceId),
     ]);
 
@@ -53,7 +54,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   }
 
   async poolWithId(id: string): Promise<RunnerPoolView | null> {
-    const pool = await this.pools.find(PoolId.of(id));
+    const pool = await this.pools.findOwned(PoolId.of(id));
 
     return pool ? RunnerResourceMapper.configuredPool(pool) : null;
   }

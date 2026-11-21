@@ -7,7 +7,7 @@ export interface HostCredentials {
   readonly trust: string | undefined;
 }
 
-export type CredentialSourceKind = 'pool' | 'trust';
+type CredentialSourceKind = 'pool' | 'trust';
 
 export interface CredentialSourceRef {
   readonly kind: CredentialSourceKind;

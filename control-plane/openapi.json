@@ -12058,6 +12058,66 @@
         }
       }
     },
+    "/admin/workspaces/{workspaceId}/platform-pool": {
+      "put": {
+        "description": "The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. The workspace’s configuration changes record the change, made by Spotlight.",
+        "operationId": "setWorkspacePlatformPool",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWorkspacePlatformPoolRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePlatformPoolResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A body without enabled as true or false"
+          },
+          "401": {
+            "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
+          },
+          "404": {
+            "description": "No such workspace, or no admin token is set"
+          },
+          "409": {
+            "description": "This deployment adds no platform pool, or the workspace has its own pool with the key spotlight, or the pool changed at the same time"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Enable or disable the platform pool of a workspace",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/runs/{runId}/messages": {
       "get": {
         "operationId": "pendingMessages",
@@ -28590,6 +28650,19 @@
           "drain"
         ]
       },
+      "PlatformPoolSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "egress": {
+            "type": "boolean",
+            "example": true,
+            "description": "The runs of the pool go out through the platform egress of this deployment"
+          }
+        },
+        "required": [
+          "egress"
+        ]
+      },
       "CredentialSourceResponseDto": {
         "type": "object",
         "properties": {
@@ -28606,11 +28679,22 @@
             "nullable": true,
             "example": "build-farm",
             "description": "The pool’s or trust’s key; null once it is gone"
+          },
+          "platform": {
+            "nullable": true,
+            "description": "Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformPoolSourceResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "kind",
-          "key"
+          "key",
+          "platform"
         ]
       },
       "IdleSandboxResponseDto": {
@@ -29304,6 +29388,32 @@
         },
         "required": [
           "items"
+        ]
+      },
+      "SetWorkspacePlatformPoolRequestDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false,
+            "description": "True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "WorkspacePlatformPoolResponseDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false,
+            "description": "The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight"
+          }
+        },
+        "required": [
+          "enabled"
         ]
       },
       "RunAttachmentResponseDto": {

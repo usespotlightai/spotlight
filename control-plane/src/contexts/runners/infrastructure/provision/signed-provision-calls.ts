@@ -96,7 +96,12 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
     private readonly fetch: Fetch = settings.guard.fetch,
   ) {}
 
+  // A call to a provisioner of the deployment goes out under the deployment's allow-list only. A call to a provisioner of a workspace goes out under the workspace's list too.
   call(call: ProvisionCall): Promise<ProvisionAnswer> {
+    if (call.owner === 'deployment') {
+      return this.callInScope(call);
+    }
+
     return this.settings.scope.within(WorkspaceId.of(call.workspaceId), () =>
       this.callInScope(call),
     );

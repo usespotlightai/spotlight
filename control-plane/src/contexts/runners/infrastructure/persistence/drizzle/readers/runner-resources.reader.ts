@@ -15,8 +15,9 @@ import {
   runnerTrust,
   workspaceRunners,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type TrustRow = typeof runnerTrust.$inferSelect;
 type WorkspaceRunnersRow = typeof workspaceRunners.$inferSelect;
@@ -118,7 +119,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     const [found] = await this.db
       .select()
       .from(runnerPool)
-      .where(eq(runnerPool.id, id))
+      .where(and(eq(runnerPool.id, id), ownedPools))
       .limit(1);
 
     return found ? poolRecord(found) : null;
@@ -135,6 +136,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
         and(
           eq(runnerPool.workspaceId, workspaceId.value),
           eq(runnerPool.key, key),
+          ownedPools,
         ),
       )
       .limit(1);
@@ -149,16 +151,9 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       await this.db
         .select()
         .from(runnerPool)
-        .where(eq(runnerPool.workspaceId, workspaceId.value))
-    ).map(poolRecord);
-  }
-
-  async provisioningPools(): Promise<readonly RunnerPoolRecord[]> {
-    return (
-      await this.db
-        .select()
-        .from(runnerPool)
-        .where(isNotNull(runnerPool.provisionUrl))
+        .where(
+          and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
+        )
     ).map(poolRecord);
   }
 
@@ -231,7 +226,9 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       this.db
         .select({ key: runnerPool.key })
         .from(runnerPool)
-        .where(eq(runnerPool.workspaceId, workspaceId.value)),
+        .where(
+          and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
+        ),
     ]);
 
     return {

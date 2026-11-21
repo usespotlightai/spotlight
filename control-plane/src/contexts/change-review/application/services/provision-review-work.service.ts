@@ -70,6 +70,18 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
       .slice(page.skip, page.skip + page.max);
   }
 
+  async workspacesAwaiting(now: Date): Promise<readonly WorkspaceId[]> {
+    const [diffs, checks] = await Promise.all([
+      this.diffs.workspacesWaiting(now),
+      this.checks.workspacesWaiting(now),
+    ]);
+    const unique = new Map(
+      [...diffs, ...checks].map((each) => [each.value, each]),
+    );
+
+    return [...unique.values()];
+  }
+
   async reserve(
     work: ReviewWork,
     runner: RunnerId,
