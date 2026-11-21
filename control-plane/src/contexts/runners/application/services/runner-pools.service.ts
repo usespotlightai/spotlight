@@ -1,6 +1,7 @@
+import type { PlatformSetup } from '@runners/application/ports/platform-setup.port';
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type {
-  HostOfferAtWork,
+  OffersAtWork,
   PoolAtWork,
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
@@ -15,11 +16,6 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface RunnerPoolsSettings {
-  readonly platformEgress: boolean;
-  readonly platformPool: boolean;
-}
-
 export class RunnerPools implements RunnerPoolsPort {
   constructor(
     private readonly pools: RunnerPoolRepository,
@@ -27,7 +23,7 @@ export class RunnerPools implements RunnerPoolsPort {
     private readonly runners: RunnerRepository,
     private readonly placements: SandboxPlacementsPort,
     private readonly authenticator: RunnerAuthenticatorPort,
-    private readonly settings: RunnerPoolsSettings,
+    private readonly setup: PlatformSetup,
   ) {}
 
   async pulledWith(
@@ -51,29 +47,24 @@ export class RunnerPools implements RunnerPoolsPort {
     return pool ? this.atWork(pool) : null;
   }
 
-  async provisioning(
-    workspaceIds: readonly WorkspaceId[],
-  ): Promise<readonly PoolAtWork[]> {
-    return (await this.pools.inWorkspaces(workspaceIds))
-      .filter((pool) => pool.canProvision(this.settings.platformPool))
-      .map((pool) => this.atWork(pool));
-  }
-
-  async hostOffersIn(
-    workspaceIds: readonly WorkspaceId[],
-  ): Promise<readonly HostOfferAtWork[]> {
+  async offersIn(workspaceIds: readonly WorkspaceId[]): Promise<OffersAtWork> {
     const [pools, trusts] = await Promise.all([
       this.pools.inWorkspaces(workspaceIds),
       this.trusts.inWorkspaces(workspaceIds),
     ]);
 
-    return [...pools.filter((pool) => pool.acceptsPullToken), ...trusts].map(
-      (source) => ({
-        workspaceId: source.workspaceId,
-        labels: RunnerOffer.of(source.labels.values),
-        egress: true,
-      }),
-    );
+    return {
+      pools: pools
+        .filter((pool) => pool.canProvision(this.setup.platformPoolSet))
+        .map((pool) => this.atWork(pool)),
+      hosts: [...pools.filter((pool) => pool.acceptsPullToken), ...trusts].map(
+        (source) => ({
+          workspaceId: source.workspaceId,
+          labels: RunnerOffer.of(source.labels.values),
+          egress: true,
+        }),
+      ),
+    };
   }
 
   async running(poolId: string, now: Date): Promise<number> {
@@ -97,7 +88,7 @@ export class RunnerPools implements RunnerPoolsPort {
       workspaceId: pool.workspaceId,
       key: pool.key.value,
       labels: RunnerOffer.of(pool.labels.values),
-      egress: pool.egress?.usableWith(this.settings.platformEgress) ?? false,
+      egress: pool.egress?.usableWith(this.setup.platformEgressSet) ?? false,
       platform: pool.isPlatform,
     };
   }

@@ -16,8 +16,6 @@ export interface WorkspaceRecordsPort {
 
   slugOf(workspaceId: string): Promise<string | null>;
 
-  ids(): Promise<readonly string[]>;
-
   profileOf(workspaceId: string): Promise<WorkspaceProfile | null>;
 
   identifyTeam(

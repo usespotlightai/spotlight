@@ -27,7 +27,7 @@ import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-re
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, lte, or } from 'drizzle-orm';
 
 type Row = typeof stackCheck.$inferSelect;
 
@@ -268,11 +268,20 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return rows.map(toStackCheck);
   }
 
-  async workspacesWaiting(): Promise<readonly WorkspaceId[]> {
+  async workspacesWaiting(now: Date): Promise<readonly WorkspaceId[]> {
     const rows = await this.context.db
       .selectDistinct({ workspaceId: stackCheck.workspaceId })
       .from(stackCheck)
-      .where(eq(stackCheck.status, 'waiting'));
+      .where(
+        and(
+          eq(stackCheck.status, 'waiting'),
+          isNull(stackCheck.reservedFor),
+          or(
+            isNull(stackCheck.nextProvisionAttemptAt),
+            lte(stackCheck.nextProvisionAttemptAt, now),
+          ),
+        ),
+      );
 
     return rows.map((row) => WorkspaceId.of(row.workspaceId));
   }

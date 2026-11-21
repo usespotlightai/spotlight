@@ -1984,7 +1984,7 @@ export type HostHeartbeatResponseDto = {
   drain: Array<string>;
 };
 
-export type PlatformPoolResponseDto = {
+export type PlatformPoolSourceResponseDto = {
   /**
    * The runs of the pool go out through the platform egress of this deployment
    */
@@ -2000,7 +2000,7 @@ export type CredentialSourceResponseDto = {
   /**
    * Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it
    */
-  platform: PlatformPoolResponseDto | null;
+  platform: PlatformPoolSourceResponseDto | null;
 };
 
 export type IdleSandboxResponseDto = {
@@ -2336,14 +2336,14 @@ export type WorkspaceRunnersResourceListResponseDto = {
 
 export type SetWorkspacePlatformPoolRequestDto = {
   /**
-   * True to let the platform pool take the work of the workspace, false to disable it for this workspace
+   * True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace
    */
   enabled: boolean;
 };
 
 export type WorkspacePlatformPoolResponseDto = {
   /**
-   * The platform pool takes the work of the workspace. It stays so across restarts of Spotlight
+   * The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight
    */
   enabled: boolean;
 };

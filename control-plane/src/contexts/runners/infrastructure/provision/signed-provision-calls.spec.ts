@@ -17,9 +17,9 @@ const AT = new Date('2026-09-24T10:00:00.000Z');
 
 const calling = (
   url = 'https://provision.example.com/runs',
-  provisioner: ProvisionCall['provisioner'] = 'workspace',
+  owner: ProvisionCall['owner'] = 'workspace',
 ): ProvisionCall => ({
-  provisioner,
+  owner,
   url: ProvisionUrl.of(url),
   secret: SECRET,
   messageId: 'runner_1',

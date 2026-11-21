@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { IdleWorkingCopiesPort } from '@runners/application/ports/idle-working-copies.port';
+import type { PlatformSetup } from '@runners/application/ports/platform-setup.port';
 import type {
   CredentialSourceSummary,
   HostSummary,
@@ -37,10 +38,6 @@ interface SourceRow {
   readonly trustKey: string | null;
 }
 
-export interface RunnerReaderSettings {
-  readonly platformEgress: boolean;
-  readonly platformPool: boolean;
-}
 
 @Injectable()
 export class DrizzleRunnerReader
@@ -54,10 +51,10 @@ export class DrizzleRunnerReader
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
-    settings: RunnerReaderSettings,
+    setup: PlatformSetup,
   ) {
-    this.platform = settings.platformEgress;
-    this.pushes = settings.platformPool
+    this.platform = setup.platformEgressSet;
+    this.pushes = setup.platformPoolSet
       ? (or(
           isNotNull(runnerPool.provisionUrl),
           and(eq(runnerPool.platform, true), eq(runnerPool.disabled, false)),

@@ -11,8 +11,6 @@ export type PoolMode = 'pull' | 'push';
 export class PullAccess {
   readonly kind = 'pull' as const;
 
-  readonly mode = 'pull' as const;
-
   private constructor(
     readonly tokenHash: TokenHash,
     readonly tokenVersion: RotationVersion,
@@ -29,8 +27,6 @@ export class PullAccess {
 
 export class PushAccess {
   readonly kind = 'push' as const;
-
-  readonly mode = 'push' as const;
 
   private constructor(
     readonly url: ProvisionUrl,
@@ -69,14 +65,20 @@ export class PushAccess {
 export class PlatformAccess {
   readonly kind = 'platform' as const;
 
-  readonly mode = 'push' as const;
-
   readonly egressTraffic = EgressTraffic.all();
 
-  private constructor(readonly egress: EgressReference | null) {}
+  // The operator of the deployment can disable the platform pool of one workspace. No other pool can be disabled.
+  private constructor(
+    readonly egress: EgressReference | null,
+    readonly disabled: boolean,
+  ) {}
 
-  static of(egress: EgressReference | null): PlatformAccess {
-    return new PlatformAccess(egress);
+  static of(egress: EgressReference | null, disabled = false): PlatformAccess {
+    return new PlatformAccess(egress, disabled);
+  }
+
+  withDisabled(disabled: boolean): PlatformAccess {
+    return new PlatformAccess(this.egress, disabled);
   }
 
   usesEgress(egress: EgressReference): boolean {
@@ -85,3 +87,7 @@ export class PlatformAccess {
 }
 
 export type PoolAccess = PullAccess | PushAccess | PlatformAccess;
+
+// Hosts pull the runners of a pull pool. Spotlight asks a provisioner for the runners of the others.
+export const modeOf = (access: PoolAccess): PoolMode =>
+  access.kind === 'pull' ? 'pull' : 'push';

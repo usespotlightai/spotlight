@@ -497,7 +497,7 @@
           "enabled": {
             "type": "boolean",
             "example": false,
-            "description": "True to let the platform pool take the work of the workspace, false to disable it for this workspace"
+            "description": "True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace"
           }
         },
         "required": [
@@ -510,7 +510,7 @@
           "enabled": {
             "type": "boolean",
             "example": false,
-            "description": "The platform pool takes the work of the workspace. It stays so across restarts of Spotlight"
+            "description": "The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight"
           }
         },
         "required": [

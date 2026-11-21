@@ -9,7 +9,6 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DisablePlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
 import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -318,14 +317,7 @@ describe('platform runner pool (e2e)', () => {
 
   it('provisions nothing through the platform pool of a workspace whose operator disabled it, also after a restart', async () => {
     await expect(
-      app
-        .get(CommandBus)
-        .execute(
-          new DisablePlatformPoolCommand(
-            workspaceId,
-            ChangeActor.spotlight(WorkspaceId.of(workspaceId)),
-          ),
-        ),
+      app.get(CommandBus).execute(new DisablePlatformPoolCommand(workspaceId)),
     ).resolves.toEqual({ outcome: 'disabled' });
     await platformPools().reconcile();
     const runId = await queue();

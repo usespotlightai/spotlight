@@ -73,7 +73,7 @@ export const RunnerResourceMapper = {
       key: pool.key.value,
       labels: pool.labels.values,
       maxRuns: pool.maxRuns?.value ?? null,
-      tokenVersion: access.mode === 'pull' ? access.tokenVersion.value : null,
+      tokenVersion: access.kind === 'pull' ? access.tokenVersion.value : null,
       provision: provision
         ? {
             url: provision.url.value,

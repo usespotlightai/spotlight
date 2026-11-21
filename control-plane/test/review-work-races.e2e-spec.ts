@@ -44,6 +44,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -54,7 +55,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import fc from 'fast-check';
-import { afterAll, beforeAll, describe, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
@@ -925,4 +926,49 @@ describe('a leased push diff raced by its runner, another runner, the sweeper an
       RUNS,
     );
   }, 120_000);
+});
+
+describe('the workspaces with review work that waits for a runner', () => {
+  it('names each workspace once, and leaves out work that is reserved or backs off until a later time', async () => {
+    await clearedReviewWork();
+
+    const waitingOnly = WorkspaceId.of(`waiting-${randomUUID()}`);
+    const reservedOnly = WorkspaceId.of(`reserved-${randomUUID()}`);
+    const backingOff = WorkspaceId.of(`backing-off-${randomUUID()}`);
+    const checked = WorkspaceId.of(`checked-${randomUUID()}`);
+    const task = () => TaskId.of(randomUUID());
+
+    await waitingDiff(waitingOnly, task(), { since: NOW });
+    await waitingDiff(waitingOnly, task(), { since: NOW, head: 'c' });
+    const reserved = await waitingDiff(reservedOnly, task(), { since: NOW });
+    await diffs.save(reserved.reservedFor(OUTSIDER, POOL, NOW));
+    const failing = await waitingDiff(backingOff, task(), { since: NOW });
+    const reservedFailing = failing.reservedFor(OUTSIDER, POOL, NOW);
+    await diffs.save(reservedFailing);
+    await diffs.save(
+      (await storedDiff(failing.id)).provisionFailed(
+        OUTSIDER,
+        ProvisionFailure.of('unreachable', 'The provisioner answered nothing'),
+        NOW,
+      ),
+    );
+    await waitingCheck(checked, NOW);
+
+    const values = (ids: readonly WorkspaceId[]) =>
+      ids.map((each) => each.value).sort();
+
+    expect(values(await diffs.workspacesWaiting(NOW))).toEqual([
+      waitingOnly.value,
+    ]);
+    expect(
+      values(
+        await diffs.workspacesWaiting(new Date(NOW.getTime() + 86_400_000)),
+      ),
+    ).toEqual([backingOff.value, waitingOnly.value].sort());
+    expect(values(await checks.workspacesWaiting(NOW))).toEqual([
+      checked.value,
+    ]);
+
+    await clearedReviewWork();
+  });
 });

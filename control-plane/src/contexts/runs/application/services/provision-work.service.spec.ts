@@ -205,11 +205,18 @@ const provisioning = (
   } satisfies ReviewWorkProvisioningPort;
   let generated = 0;
   const failures = new ProvisionFailures(runs);
-  const offering = vi.fn(async (workspaceIds: readonly WorkspaceId[]) =>
-    pools.filter((each) =>
-      workspaceIds.some((id) => id.equals(each.workspaceId)),
-    ),
-  );
+  const inWorkspaces =
+    (workspaceIds: readonly WorkspaceId[]) =>
+    <Each extends { readonly workspaceId: WorkspaceId }>(
+      all: readonly Each[],
+    ) =>
+      all.filter((each) =>
+        workspaceIds.some((id) => id.equals(each.workspaceId)),
+      );
+  const offering = vi.fn(async (workspaceIds: readonly WorkspaceId[]) => ({
+    pools: inWorkspaces(workspaceIds)(pools),
+    hosts: inWorkspaces(workspaceIds)(hostOffers),
+  }));
 
   return {
     provision,
@@ -223,11 +230,7 @@ const provisioning = (
       runs,
       checks,
       {
-        provisioning: offering,
-        hostOffersIn: async (workspaceIds: readonly WorkspaceId[]) =>
-          hostOffers.filter((each) =>
-            workspaceIds.some((id) => id.equals(each.workspaceId)),
-          ),
+        offersIn: offering,
         roomIn: async (poolId: string) => {
           const maxRuns =
             pools.find((each) => each.poolId === poolId)?.maxRuns ?? null;

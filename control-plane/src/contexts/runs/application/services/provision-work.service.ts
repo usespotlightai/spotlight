@@ -14,6 +14,7 @@ import type {
   WaitingReviewWork,
 } from '@runs/application/ports/review-work-provisioning.port';
 import type { ProvisionFailures } from '@runs/application/services/provision-failures.service';
+import { Sweeps } from '@runs/application/services/sweeps';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -74,14 +75,8 @@ interface Read<Cursor> {
 
 // One kind of waiting work: the runs, or the review work. A page starts at a cursor, and at the head with none.
 interface Source<Cursor> {
-  readonly name: string;
+  readonly sweeps: Sweeps<Cursor>;
   readonly page: (from: Cursor | null) => Promise<Read<Cursor>>;
-}
-
-// Where the next page past the head starts, and how many pages from the head it is.
-interface Sweep {
-  readonly from: unknown;
-  readonly pages: number;
 }
 
 const rethrown = (thrown: readonly unknown[]): void => {
@@ -129,8 +124,10 @@ const unique = (
 export class ProvisionWork {
   readonly #noted = new OncePer(NOTED_FOR_MS);
 
-  // For each workspace and kind of work: the next page past the head to read. Each tick reads the head and at most this one page more, so every waiting item in the first MAX_PAGES pages is read within MAX_PAGES ticks.
-  readonly #sweeps = new Map<string, Sweep>();
+  // Each tick reads the head and at most one page past it, for each kind of work.
+  readonly #runSweeps = new Sweeps<ClaimCursor>(MAX_PAGES);
+
+  readonly #reviewWorkSweeps = new Sweeps<number>(MAX_PAGES);
 
   constructor(
     private readonly runs: RunRepository,
@@ -148,11 +145,14 @@ export class ProvisionWork {
     await this.expired();
 
     const awaiting = await this.workspacesAwaiting();
-    const [offered, hostOffers] = await Promise.all([
-      this.pools.provisioning(awaiting),
-      this.pools.hostOffersIn(awaiting),
-    ]);
-    const hostsBy = byWorkspace(hostOffers);
+    const waiting = new Set(awaiting.map((each) => each.value));
+
+    this.#runSweeps.keepOnly(waiting);
+    this.#reviewWorkSweeps.keepOnly(waiting);
+
+    const offers = await this.pools.offersIn(awaiting);
+    const offered = offers.pools;
+    const hostsBy = byWorkspace(offers.hosts);
 
     await awaitAll(
       [
@@ -175,7 +175,7 @@ export class ProvisionWork {
   private async workspacesAwaiting(): Promise<readonly WorkspaceId[]> {
     const [runs, reviewWork] = await Promise.all([
       this.runs.workspacesAwaitingProvision(this.clock.now()),
-      this.reviewWork.workspacesAwaiting(),
+      this.reviewWork.workspacesAwaiting(this.clock.now()),
     ]);
 
     return unique([...runs, ...reviewWork]);
@@ -243,7 +243,7 @@ export class ProvisionWork {
     const withEgress = pools.some((offered) => offered.egress);
 
     await this.swept(first.workspaceId, place, more, {
-      name: 'runs',
+      sweeps: this.#runSweeps,
       page: async (from: ClaimCursor | null) => {
         const queued = await this.runs.awaitingProvision(
           first.workspaceId,
@@ -268,7 +268,7 @@ export class ProvisionWork {
       },
     });
     await this.swept(first.workspaceId, place, more, {
-      name: 'review-work',
+      sweeps: this.#reviewWorkSweeps,
       page: async (from: number | null) => {
         const skip = from ?? 0;
         const awaiting = await this.reviewWork.awaiting(
@@ -309,7 +309,7 @@ export class ProvisionWork {
     );
   }
 
-  // Reads the head page, then one page past it from where the last tick stopped. The platform pool has no run limit, so room alone does not end the reading. The sweep starts again at the head after a short page or MAX_PAGES pages.
+  // Reads the head page, then one page past it from where the last tick stopped. The platform pool has no run limit, so room alone does not end the reading.
   private async swept<Cursor>(
     workspaceId: WorkspaceId,
     place: (provisionable: Provisionable) => void,
@@ -320,13 +320,13 @@ export class ProvisionWork {
       return;
     }
 
-    const at = `${workspaceId.value}:${source.name}`;
+    const at = workspaceId.value;
     const head = await source.page(null);
 
     head.found.forEach(place);
 
-    if (head.read < PAGE || !head.next) {
-      this.#sweeps.delete(at);
+    if (head.read < PAGE || head.next === null) {
+      source.sweeps.restart(at);
       return;
     }
 
@@ -334,18 +334,14 @@ export class ProvisionWork {
       return;
     }
 
-    const kept = this.#sweeps.get(at);
-    const from = (kept?.from as Cursor | undefined) ?? head.next;
-    const pages = (kept?.pages ?? 1) + 1;
+    const { from, page } = source.sweeps.next(at, head.next);
     const past = await source.page(from);
 
     past.found.forEach(place);
-
-    if (past.read < PAGE || !past.next || pages >= MAX_PAGES) {
-      this.#sweeps.delete(at);
-    } else {
-      this.#sweeps.set(at, { from: past.next, pages });
-    }
+    source.sweeps.read(at, page, {
+      full: past.read === PAGE,
+      next: past.next,
+    });
   }
 
   private async expired(): Promise<void> {

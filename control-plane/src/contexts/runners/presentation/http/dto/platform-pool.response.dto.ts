@@ -4,7 +4,7 @@ export class WorkspacePlatformPoolResponseDto {
   @ApiProperty({
     example: false,
     description:
-      'The platform pool takes the work of the workspace. It stays so across restarts of Spotlight',
+      'The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight',
   })
   readonly enabled: boolean;
 

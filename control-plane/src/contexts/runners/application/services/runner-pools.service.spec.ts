@@ -61,8 +61,8 @@ const pooling = (
     } as unknown as SandboxPlacementsPort,
     { authenticate } satisfies RunnerAuthenticatorPort,
     {
-      platformEgress: stored.platform ?? true,
-      platformPool: stored.platformPool ?? true,
+      platformEgressSet: stored.platform ?? true,
+      platformPoolSet: stored.platformPool ?? true,
     },
   );
 
@@ -126,21 +126,21 @@ describe('RunnerPools', () => {
     });
   });
 
-  describe('the pools that provision', () => {
+  describe('the pools that provision, and what hosts take', () => {
     const PLATFORM = EgressReference.platform();
     const NAMED = EgressReference.to(EgressId.of('egress_1'));
 
-    it('reads the pools of the workspaces it is given', async () => {
+    it('reads the pools and trusts of the workspaces it is given, once', async () => {
       const { pools, inWorkspaces } = pooling(null, {
         provisioning: [aPushPool()],
       });
 
-      await pools.provisioning([WORKSPACE]);
+      await pools.offersIn([WORKSPACE]);
 
-      expect(inWorkspaces).toHaveBeenCalledWith([WORKSPACE]);
+      expect(inWorkspaces).toHaveBeenCalledExactlyOnceWith([WORKSPACE]);
     });
 
-    it('says of each whether it names an egress', async () => {
+    it('says of each pool whether it names an egress', async () => {
       const { pools } = pooling(null, {
         provisioning: [
           aPushPool({ egress: PLATFORM }),
@@ -149,7 +149,7 @@ describe('RunnerPools', () => {
         ],
       });
 
-      await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
         expect.objectContaining({ egress: true }),
         expect.objectContaining({ egress: true }),
         expect.objectContaining({ egress: false }),
@@ -165,7 +165,7 @@ describe('RunnerPools', () => {
         platform: false,
       });
 
-      await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
         expect.objectContaining({ egress: false }),
         expect.objectContaining({ egress: true }),
       ]);
@@ -176,7 +176,7 @@ describe('RunnerPools', () => {
         provisioning: [aPushPool(), aPlatformPool({ egress: PLATFORM })],
       });
 
-      await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
         expect.objectContaining({ key: 'sandboxes', platform: false }),
         expect.objectContaining({
           key: 'spotlight',
@@ -186,30 +186,24 @@ describe('RunnerPools', () => {
       ]);
     });
 
-    it('offers no pull pool, which hosts pull from', async () => {
-      const { pools } = pooling(null, {
-        provisioning: [aPullPool(), aPushPool()],
-      });
-
-      await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
-        expect.objectContaining({ key: 'sandboxes' }),
-      ]);
-    });
-
-    it('says what the hosts of the pull pools and trusts can take, naming no pool, so that such work stays off the platform pool', async () => {
+    it('offers no pull pool as a pool, and says what the hosts of the pull pools and trusts can take, naming no pool', async () => {
       const { pools } = pooling(null, {
         provisioning: [aPullPool(), aPushPool(), aPlatformPool()],
         trusts: [aTrust()],
       });
 
-      const offers = await pools.hostOffersIn([WORKSPACE]);
+      const offers = await pools.offersIn([WORKSPACE]);
 
-      expect(offers.map((each) => each.labels.values)).toEqual([
+      expect(offers.pools.map((each) => each.key)).toEqual([
+        'sandboxes',
+        'spotlight',
+      ]);
+      expect(offers.hosts.map((each) => each.labels.values)).toEqual([
         ['linux'],
         ['vpc-internal'],
       ]);
-      expect(offers.every((each) => each.egress)).toBe(true);
-      expect(offers.every((each) => !('poolId' in each))).toBe(true);
+      expect(offers.hosts.every((each) => each.egress)).toBe(true);
+      expect(offers.hosts.every((each) => !('poolId' in each))).toBe(true);
     });
 
     it('leaves out a disabled platform pool', async () => {
@@ -217,7 +211,7 @@ describe('RunnerPools', () => {
         provisioning: [aPlatformPool({ disabled: true })],
       });
 
-      await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([]);
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([]);
     });
 
     it('leaves out the platform pool while the deployment sets no platform provisioner', async () => {
@@ -226,7 +220,7 @@ describe('RunnerPools', () => {
         platformPool: false,
       });
 
-      await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
         expect.objectContaining({ key: 'sandboxes' }),
       ]);
     });

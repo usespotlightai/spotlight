@@ -392,7 +392,7 @@ export class Runners implements RunnersPort {
     }
 
     return this.calls.call({
-      provisioner: provisioner.owner,
+      owner: provisioner.owner,
       url: provisioner.url,
       secret: secret.secret,
       messageId: request.runnerId.value,

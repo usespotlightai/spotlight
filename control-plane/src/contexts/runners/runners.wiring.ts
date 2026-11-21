@@ -4,6 +4,10 @@ import {
   type WorkspaceDependentsPort,
 } from '@identity/application/ports/workspace-dependents.port';
 import {
+  WORKSPACE_DIRECTORY,
+  type WorkspaceDirectoryPort,
+} from '@identity/application/ports/workspace-directory.port';
+import {
   WORKSPACE_OUTBOUND_SCOPE,
   type WorkspaceOutboundScopePort,
 } from '@identity/application/ports/workspace-outbound-scope.port';
@@ -302,6 +306,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     inject: [
       DrizzleRunnerPoolRepository,
       WORKSPACE_READER,
+      WORKSPACE_DIRECTORY,
       PLATFORM_POOL,
       ID_GENERATOR,
       TRANSACTION,
@@ -310,12 +315,21 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
       workspaces: WorkspaceReaderPort,
+      directory: WorkspaceDirectoryPort,
       settings: PlatformPoolSettings | null,
       ids: IdGeneratorPort,
       transaction: TransactionPort,
       logger: LoggerPort,
     ) =>
-      new PlatformPools(pools, workspaces, settings, ids, transaction, logger),
+      new PlatformPools(
+        pools,
+        workspaces,
+        directory,
+        settings,
+        ids,
+        transaction,
+        logger,
+      ),
   },
   {
     provide: RUNNERS_EVENTS,
@@ -704,8 +718,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       platformPool: PlatformPoolSettings | null,
     ) =>
       new RunnerPools(pools, trusts, runners, placements, authenticator, {
-        platformEgress: platformEgress !== null,
-        platformPool: platformPool !== null,
+        platformEgressSet: platformEgress !== null,
+        platformPoolSet: platformPool !== null,
       }),
   },
   { provide: INSTALLER_ASSETS, useClass: InstallerAssets },
@@ -730,8 +744,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       platformPool: PlatformPoolSettings | null,
     ) =>
       new DrizzleRunnerReader(db, clock, {
-        platformEgress: platformEgress !== null,
-        platformPool: platformPool !== null,
+        platformEgressSet: platformEgress !== null,
+        platformPoolSet: platformPool !== null,
       }),
   },
   { provide: IDLE_WORKING_COPIES, useExisting: RUNNER_READER },

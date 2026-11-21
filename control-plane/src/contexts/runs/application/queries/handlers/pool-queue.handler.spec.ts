@@ -36,8 +36,7 @@ const queueOf = (
       {
         pulledWith: async (token: string | undefined, poolId: string) =>
           token === 'pool-token' && poolId === POOL.poolId ? POOL : null,
-        provisioning: async () => [],
-        hostOffersIn: async () => [],
+        offersIn: async () => ({ pools: [], hosts: [] }),
         running: async () => running,
         roomIn: async () => room,
       } satisfies RunnerPoolsPort,

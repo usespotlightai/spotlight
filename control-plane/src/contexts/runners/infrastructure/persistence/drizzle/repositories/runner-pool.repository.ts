@@ -45,19 +45,19 @@ const written = (pool: RunnerPool) => {
     key: pool.key.value,
     labels: [...pool.labels.values],
     maxRuns: pool.maxRuns?.value ?? null,
-    tokenHash: access.mode === 'pull' ? access.tokenHash.value : null,
-    tokenVersion: access.mode === 'pull' ? access.tokenVersion.value : null,
+    tokenHash: access.kind === 'pull' ? access.tokenHash.value : null,
+    tokenVersion: access.kind === 'pull' ? access.tokenVersion.value : null,
     provisionUrl: pushed?.url.value ?? null,
     provisionSecret: pushed?.secret.value ?? null,
     provisionSecretVersion: pushed?.secretVersion.value ?? null,
     provisionEgress:
-      access.mode === 'push' ? (access.egress?.value ?? null) : null,
+      access.kind === 'pull' ? null : (access.egress?.value ?? null),
     provisionEgressTraffic:
-      access.mode === 'push' && access.egress
+      access.kind !== 'pull' && access.egress
         ? access.egressTraffic.value
         : null,
     platform: access.kind === 'platform',
-    disabled: pool.isDisabled,
+    disabled: access.kind === 'platform' && access.disabled,
   };
 };
 
@@ -66,7 +66,7 @@ const egressOf = (row: Row): EgressReference | null =>
 
 const accessOf = (row: Row): PoolAccess => {
   if (row.platform) {
-    return PlatformAccess.of(egressOf(row));
+    return PlatformAccess.of(egressOf(row), row.disabled);
   }
 
   if (row.tokenHash) {
@@ -102,7 +102,6 @@ const toPool = (row: Row): RunnerPool =>
     labels: RunnerLabels.of(row.labels),
     maxRuns: row.maxRuns === null ? null : MaxRuns.of(row.maxRuns),
     access: accessOf(row),
-    disabled: row.disabled,
     version: row.version,
   });
 
@@ -207,6 +206,16 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
 
   withKey(key: PoolKey): Promise<readonly RunnerPool[]> {
     return this.all(eq(runnerPool.key, key.value));
+  }
+
+  findByKey(workspaceId: WorkspaceId, key: PoolKey): Promise<RunnerPool | null> {
+    return this.one(
+      and(
+        eq(runnerPool.workspaceId, workspaceId.value),
+        eq(runnerPool.key, key.value),
+      ) as SQL,
+      { locked: false },
+    );
   }
 
   findOwned(id: PoolId): Promise<RunnerPool | null> {

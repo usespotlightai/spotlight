@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class PlatformPoolResponseDto {
+export class PlatformPoolSourceResponseDto {
   @ApiProperty({
     example: true,
     description:
@@ -26,17 +26,17 @@ export class CredentialSourceResponseDto {
   readonly key: string | null;
 
   @ApiProperty({
-    type: PlatformPoolResponseDto,
+    type: PlatformPoolSourceResponseDto,
     nullable: true,
     description:
       'Set for the platform pool, which Spotlight adds to each workspace with the provisioner of the deployment. Terraform does not change it',
   })
-  readonly platform: PlatformPoolResponseDto | null;
+  readonly platform: PlatformPoolSourceResponseDto | null;
 
   constructor(
     kind: 'pool' | 'trust',
     key: string | null,
-    platform: PlatformPoolResponseDto | null,
+    platform: PlatformPoolSourceResponseDto | null,
   ) {
     this.kind = kind;
     this.key = key;

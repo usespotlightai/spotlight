@@ -606,7 +606,7 @@ describe('Runners', () => {
     expect(screen.getByText('Push pool with egress')).toBeInTheDocument();
   });
 
-  it('names the platform pool, and says that its runs go out through the Spotlight egress', () => {
+  it('names the Spotlight pool, and says that its runs go out through the Spotlight egress', () => {
     const platform = {
       kind: 'pool',
       key: 'spotlight',
@@ -620,11 +620,11 @@ describe('Runners', () => {
     renderPage();
 
     expect(screen.getByText('spotlight')).toBeInTheDocument();
-    expect(screen.getByText('Platform pool with egress')).toBeInTheDocument();
+    expect(screen.getByText('Spotlight pool with egress')).toBeInTheDocument();
     expect(screen.queryByText('Push pool')).not.toBeInTheDocument();
   });
 
-  it('names the platform pool with no egress', () => {
+  it('names the Spotlight pool with no egress', () => {
     const platform = {
       kind: 'pool',
       key: 'spotlight',
@@ -637,7 +637,7 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(screen.getByText('Platform pool')).toBeInTheDocument();
+    expect(screen.getByText('Spotlight pool')).toBeInTheDocument();
   });
 
   it('shows only the hosts in the chosen filter, and remembers it', async () => {

@@ -21,21 +21,19 @@ export interface HostOfferAtWork {
   readonly egress: boolean;
 }
 
+export interface OffersAtWork {
+  readonly pools: readonly PoolAtWork[];
+  readonly hosts: readonly HostOfferAtWork[];
+}
+
 export interface RunnerPoolsPort {
   pulledWith(
     token: string | undefined,
     poolId: string,
   ): Promise<PoolAtWork | null>;
 
-  // The pools of these workspaces that Spotlight can ask for runners now.
-  provisioning(
-    workspaceIds: readonly WorkspaceId[],
-  ): Promise<readonly PoolAtWork[]>;
-
-  // What the hosts of these workspaces can take, so that such work stays off the platform pool.
-  hostOffersIn(
-    workspaceIds: readonly WorkspaceId[],
-  ): Promise<readonly HostOfferAtWork[]>;
+  // The pools of these workspaces that Spotlight can ask for runners now, and what their hosts can take, so that such work stays off the platform pool.
+  offersIn(workspaceIds: readonly WorkspaceId[]): Promise<OffersAtWork>;
 
   running(poolId: string, now: Date): Promise<number>;
 

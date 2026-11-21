@@ -8243,7 +8243,7 @@
           "efforts"
         ]
       },
-      "PlatformPoolResponseDto": {
+      "PlatformPoolSourceResponseDto": {
         "type": "object",
         "properties": {
           "egress": {
@@ -8279,7 +8279,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/PlatformPoolResponseDto"
+                "$ref": "#/components/schemas/PlatformPoolSourceResponseDto"
               }
             ]
           }

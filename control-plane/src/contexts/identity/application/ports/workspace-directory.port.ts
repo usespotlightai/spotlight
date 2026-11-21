@@ -18,7 +18,7 @@ export interface DirectoryPageRequest {
   readonly since: Date | null;
 }
 
-// Not viewer-scoped. Use it only for callers with the admin token.
+// Not viewer-scoped. Use it only for work of the whole deployment, such as the admin API and the reconcilers that run at start.
 export interface WorkspaceDirectoryPort {
   // Oldest first. Pass next as after to read the page after.
   list(request: DirectoryPageRequest): Promise<Page<DirectoryWorkspace>>;
