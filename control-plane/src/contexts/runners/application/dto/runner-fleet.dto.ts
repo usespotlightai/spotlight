@@ -1,10 +1,12 @@
-import type { CredentialSourceKind } from '@runners/application/ports/runner-authenticator.port';
 import type { LiveSandboxStatus } from '@runners/domain/aggregates/sandbox.aggregate';
 
-export interface CredentialSourceDto {
-  readonly kind: CredentialSourceKind;
-  readonly key: string | null;
-}
+export type CredentialSourceDto =
+  | {
+      readonly kind: 'pool';
+      readonly key: string | null;
+      readonly platform: { readonly egress: boolean } | null;
+    }
+  | { readonly kind: 'trust'; readonly key: string | null };
 
 interface HostHarnessDto {
   readonly id: string;

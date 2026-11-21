@@ -1,39 +1,43 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/admin/workspaces/{workspaceId}/members": {
-      "get": {
-        "operationId": "listWorkspaceMemberSummaries",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
-              "type": "string"
+    "/admin/event-webhook/redeliver": {
+      "post": {
+        "description": "Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again. One request queues at most limit dead letters; while the answer is truncated, send it again.",
+        "operationId": "redeliverEventWebhook",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeliverEventWebhookRequestDto"
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/WorkspaceMemberSummaryResponseDto"
-                  }
+                  "$ref": "#/components/schemas/RedeliverEventWebhookResponseDto"
                 }
               }
             }
+          },
+          "400": {
+            "description": "A body without since as an ISO 8601 time, or a limit that is not a whole number from 1 to 100000"
           },
           "401": {
             "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
           },
           "404": {
-            "description": "No such workspace, or no admin token is set"
+            "description": "No admin token is set"
+          },
+          "409": {
+            "description": "This deployment sets no event webhook"
           }
         },
         "security": [
@@ -41,7 +45,7 @@
             "bearer": []
           }
         ],
-        "summary": "List everyone in a workspace, with their role",
+        "summary": "Send the dead letters of the event webhook again",
         "tags": [
           "admin"
         ]
@@ -152,16 +156,62 @@
             "bearer": []
           }
         ],
-        "summary": "Read one workspace, with its member count and plan",
+        "summary": "Read one workspace, with its member count",
         "tags": [
           "admin"
         ]
       }
     },
-    "/admin/workspaces/{workspaceId}/plan": {
+    "/admin/workspaces/{workspaceId}/members": {
+      "get": {
+        "operationId": "listWorkspaceMemberSummaries",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceMemberSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
+          },
+          "404": {
+            "description": "No such workspace, or no admin token is set"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List everyone in a workspace, with their role",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/workspaces/{workspaceId}/platform-pool": {
       "put": {
-        "description": "The workspace’s configuration changes record the change, made by Spotlight. The free plan is the same as no plan. An end must be in the future.",
-        "operationId": "setWorkspacePlan",
+        "description": "The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. The workspace’s configuration changes record the change, made by Spotlight.",
+        "operationId": "setWorkspacePlatformPool",
         "parameters": [
           {
             "name": "workspaceId",
@@ -178,7 +228,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetWorkspacePlanRequestDto"
+                "$ref": "#/components/schemas/SetWorkspacePlatformPoolRequestDto"
               }
             }
           }
@@ -189,13 +239,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanTermResponseDto"
+                  "$ref": "#/components/schemas/WorkspacePlatformPoolResponseDto"
                 }
               }
             }
           },
           "400": {
-            "description": "A body without a plan, or an expiresAt that is not a time"
+            "description": "A body without enabled as true or false"
           },
           "401": {
             "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
@@ -204,10 +254,7 @@
             "description": "No such workspace, or no admin token is set"
           },
           "409": {
-            "description": "The plan changed at the same time; try again"
-          },
-          "422": {
-            "description": "No such plan, or an end that is not in the future"
+            "description": "This deployment adds no platform pool, or the workspace has its own pool with the key spotlight, or the pool changed at the same time"
           }
         },
         "security": [
@@ -215,45 +262,7 @@
             "bearer": []
           }
         ],
-        "summary": "Set the plan of a workspace",
-        "tags": [
-          "admin"
-        ]
-      },
-      "delete": {
-        "description": "Deletes the plan set for the workspace. The workspace’s configuration changes record the change, made by Spotlight.",
-        "operationId": "deleteWorkspacePlan",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "The workspace has the free plan"
-          },
-          "401": {
-            "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
-          },
-          "404": {
-            "description": "No such workspace, or no admin token is set"
-          },
-          "409": {
-            "description": "The plan changed at the same time; try again"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Put a workspace back on the free plan",
+        "summary": "Enable or disable the platform pool of a workspace",
         "tags": [
           "admin"
         ]
@@ -282,6 +291,97 @@
       }
     },
     "schemas": {
+      "RedeliverEventWebhookRequestDto": {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "example": "2026-11-01T00:00:00Z",
+            "description": "Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time"
+          },
+          "limit": {
+            "type": "number",
+            "example": 1000,
+            "description": "At most this many dead letters, 1000 when left out, up to 100000. While the answer is truncated, send the same request again"
+          }
+        },
+        "required": [
+          "since"
+        ]
+      },
+      "RedeliverEventWebhookResponseDto": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "type": "number",
+            "example": 12,
+            "description": "How many dead letters Spotlight queued again. Each gets all its attempts again"
+          },
+          "truncated": {
+            "type": "boolean",
+            "example": false,
+            "description": "Spotlight stopped at the limit, and more dead letters may wait. Send the same request again to queue them"
+          }
+        },
+        "required": [
+          "queued",
+          "truncated"
+        ]
+      },
+      "WorkspaceSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57"
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme-inc"
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme Inc"
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-09-12T09:00:00.000Z"
+          },
+          "memberCount": {
+            "type": "number",
+            "example": 4,
+            "description": "How many people are in it"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "createdAt",
+          "memberCount"
+        ]
+      },
+      "WorkspaceSummaryPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceSummaryResponseDto"
+            }
+          },
+          "next": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass as `after` to read the next page; null on the last"
+          }
+        },
+        "required": [
+          "items",
+          "next"
+        ]
+      },
       "WorkspaceMemberSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -321,114 +421,30 @@
           "joinedAt"
         ]
       },
-      "PlanTermResponseDto": {
+      "SetWorkspacePlatformPoolRequestDto": {
         "type": "object",
         "properties": {
-          "plan": {
-            "type": "string",
-            "enum": [
-              "free",
-              "team",
-              "enterprise"
-            ],
-            "example": "team"
-          },
-          "expiresAt": {
-            "type": "string",
-            "nullable": true,
-            "example": "2027-01-01T00:00:00.000Z",
-            "description": "When the plan ends; the workspace then has the free plan. Null when it does not end, and always for the free plan"
+          "enabled": {
+            "type": "boolean",
+            "example": false,
+            "description": "True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace"
           }
         },
         "required": [
-          "plan",
-          "expiresAt"
+          "enabled"
         ]
       },
-      "WorkspaceSummaryResponseDto": {
+      "WorkspacePlatformPoolResponseDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57"
-          },
-          "slug": {
-            "type": "string",
-            "example": "acme-inc"
-          },
-          "name": {
-            "type": "string",
-            "example": "Acme Inc"
-          },
-          "createdAt": {
-            "type": "string",
-            "example": "2026-09-12T09:00:00.000Z"
-          },
-          "memberCount": {
-            "type": "number",
-            "example": 4,
-            "description": "How many people are in it"
-          },
-          "term": {
-            "description": "The plan set for the workspace and when it ends; the free plan when none is set",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PlanTermResponseDto"
-              }
-            ]
+          "enabled": {
+            "type": "boolean",
+            "example": false,
+            "description": "The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight"
           }
         },
         "required": [
-          "id",
-          "slug",
-          "name",
-          "createdAt",
-          "memberCount",
-          "term"
-        ]
-      },
-      "WorkspaceSummaryPageResponseDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "description": "Oldest first",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspaceSummaryResponseDto"
-            }
-          },
-          "next": {
-            "type": "string",
-            "nullable": true,
-            "description": "Pass as `after` to read the next page; null on the last"
-          }
-        },
-        "required": [
-          "items",
-          "next"
-        ]
-      },
-      "SetWorkspacePlanRequestDto": {
-        "type": "object",
-        "properties": {
-          "plan": {
-            "type": "string",
-            "enum": [
-              "free",
-              "team",
-              "enterprise"
-            ],
-            "example": "team"
-          },
-          "expiresAt": {
-            "type": "string",
-            "nullable": true,
-            "example": "2027-01-01T00:00:00.000Z",
-            "description": "When the plan ends, as an ISO 8601 time; the workspace then has the free plan. Null or left out when it does not end. The free plan does not end, so Spotlight ignores an end on it"
-          }
-        },
-        "required": [
-          "plan"
+          "enabled"
         ]
       }
     }

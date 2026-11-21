@@ -2,21 +2,24 @@ import type {
   AuthenticatedHost,
   RunnerAuthenticatorPort,
 } from '@runners/application/ports/runner-authenticator.port';
-import type {
-  RunnerPoolRecord,
-  RunnerResourcesPort,
-} from '@runners/application/ports/runner-resources.port';
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
+  aPlatformPool,
   aPullPool,
+  aPushPool,
   aRunner,
+  aTrust,
   POOL_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -32,8 +35,10 @@ const pooling = (
     pool?: RunnerPool | null;
     alive?: readonly Runner[];
     idleSandboxes?: readonly SandboxId[];
-    provisioning?: readonly RunnerPoolRecord[];
+    provisioning?: readonly RunnerPool[];
+    trusts?: readonly RunnerTrust[];
     platform?: boolean;
+    platformPool?: boolean;
   } = {},
 ) => {
   const authenticate = vi.fn(async () => authenticated);
@@ -41,22 +46,27 @@ const pooling = (
     stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
   );
 
+  const inWorkspaces = vi.fn(async () => stored.provisioning ?? []);
+
   const pools = new RunnerPools(
-    { find } as unknown as RunnerPoolRepository,
+    { find, inWorkspaces } as unknown as RunnerPoolRepository,
+    {
+      inWorkspaces: vi.fn(async () => stored.trusts ?? []),
+    } as unknown as RunnerTrustRepository,
     {
       aliveIn: vi.fn(async () => stored.alive ?? []),
     } as unknown as RunnerRepository,
     {
       idleInPool: vi.fn(async () => stored.idleSandboxes ?? []),
     } as unknown as SandboxPlacementsPort,
-    {
-      provisioningPools: vi.fn(async () => stored.provisioning ?? []),
-    } as unknown as RunnerResourcesPort,
     { authenticate } satisfies RunnerAuthenticatorPort,
-    stored.platform ?? true,
+    {
+      platformEgressSet: stored.platform ?? true,
+      platformPoolSet: stored.platformPool ?? true,
+    },
   );
 
-  return { pools, authenticate, find };
+  return { pools, authenticate, find, inWorkspaces };
 };
 
 const THROUGH_POOL: AuthenticatedHost = {
@@ -77,6 +87,7 @@ describe('RunnerPools', () => {
         key: 'ephemeral',
         labels: expect.objectContaining({ values: ['linux'] }) as unknown,
         egress: false,
+        platform: false,
       });
       expect(authenticate).toHaveBeenCalledWith({
         bearer: 'pool-token',
@@ -115,44 +126,102 @@ describe('RunnerPools', () => {
     });
   });
 
-  describe('the pools that provision', () => {
-    const stored = (egress: string | null): RunnerPoolRecord => ({
-      id: `pool_${egress ?? 'none'}`,
-      version: 0,
-      workspaceId: WORKSPACE,
-      key: 'sandboxes',
-      labels: ['sandbox'],
-      maxRuns: null,
-      tokenVersion: null,
-      provision: {
-        url: 'https://provision.example.com/runs',
-        secretVersion: 1,
-        egress,
-        egressTraffic: 'all',
-      },
-    });
+  describe('the pools that provision, and what hosts take', () => {
+    const PLATFORM = EgressReference.platform();
+    const NAMED = EgressReference.to(EgressId.of('egress_1'));
 
-    it('says of each whether it names an egress', async () => {
-      const { pools } = pooling(null, {
-        provisioning: [stored('spotlight'), stored('egress_1'), stored(null)],
+    it('reads the pools and trusts of the workspaces it is given, once', async () => {
+      const { pools, inWorkspaces } = pooling(null, {
+        provisioning: [aPushPool()],
       });
 
-      await expect(pools.provisioning()).resolves.toEqual([
-        expect.objectContaining({ poolId: 'pool_spotlight', egress: true }),
-        expect.objectContaining({ poolId: 'pool_egress_1', egress: true }),
-        expect.objectContaining({ poolId: 'pool_none', egress: false }),
+      await pools.offersIn([WORKSPACE]);
+
+      expect(inWorkspaces).toHaveBeenCalledExactlyOnceWith([WORKSPACE]);
+    });
+
+    it('says of each pool whether it names an egress', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [
+          aPushPool({ egress: PLATFORM }),
+          aPushPool({ egress: NAMED }),
+          aPushPool(),
+        ],
+      });
+
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
+        expect.objectContaining({ egress: true }),
+        expect.objectContaining({ egress: true }),
+        expect.objectContaining({ egress: false }),
       ]);
     });
 
     it('counts the platform egress only where the deployment has one', async () => {
       const { pools } = pooling(null, {
-        provisioning: [stored('spotlight'), stored('egress_1')],
+        provisioning: [
+          aPushPool({ egress: PLATFORM }),
+          aPushPool({ egress: NAMED }),
+        ],
         platform: false,
       });
 
-      await expect(pools.provisioning()).resolves.toEqual([
-        expect.objectContaining({ poolId: 'pool_spotlight', egress: false }),
-        expect.objectContaining({ poolId: 'pool_egress_1', egress: true }),
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
+        expect.objectContaining({ egress: false }),
+        expect.objectContaining({ egress: true }),
+      ]);
+    });
+
+    it('marks the platform pool, which has no run limit', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [aPushPool(), aPlatformPool({ egress: PLATFORM })],
+      });
+
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
+        expect.objectContaining({ key: 'sandboxes', platform: false }),
+        expect.objectContaining({
+          key: 'spotlight',
+          platform: true,
+          egress: true,
+        }),
+      ]);
+    });
+
+    it('offers no pull pool as a pool, and says what the hosts of the pull pools and trusts can take, naming no pool', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [aPullPool(), aPushPool(), aPlatformPool()],
+        trusts: [aTrust()],
+      });
+
+      const offers = await pools.offersIn([WORKSPACE]);
+
+      expect(offers.pools.map((each) => each.key)).toEqual([
+        'sandboxes',
+        'spotlight',
+      ]);
+      expect(offers.hostOffers.map((each) => each.labels.values)).toEqual([
+        ['linux'],
+        ['vpc-internal'],
+      ]);
+      expect(offers.hostOffers.every((each) => each.egress)).toBe(true);
+      expect(offers.hostOffers.every((each) => !('poolId' in each))).toBe(true);
+    });
+
+    it('leaves out a disabled platform pool', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [aPlatformPool({ disabled: true })],
+      });
+
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([]);
+    });
+
+    it('leaves out the platform pool while the deployment sets no platform provisioner', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [aPushPool(), aPlatformPool()],
+        platformPool: false,
+      });
+
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
+        expect.objectContaining({ key: 'sandboxes' }),
       ]);
     });
   });

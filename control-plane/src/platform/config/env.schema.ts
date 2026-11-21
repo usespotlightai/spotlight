@@ -1,3 +1,15 @@
+import {
+  isContextPrefix,
+  isIntegrationEventKind,
+} from '@shared-kernel/application/integration-events/integration-event';
+import {
+  MAX_SLUG_LENGTH,
+  SLUG_SHAPE,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import {
+  SIGNING_SECRET_RULE,
+  SigningSecret,
+} from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { z } from 'zod';
 
 const LOG_LEVELS = [
@@ -76,6 +88,64 @@ export const envSchema = databaseSchema
       .string()
       .regex(/^[A-Za-z0-9._~-]{32,255}$/)
       .optional(),
+    // The provision URL of the platform pool, which Spotlight adds to each workspace. With no value, Spotlight adds no platform pool.
+    SPOTLIGHT_PLATFORM_POOL_URL: unsetWhenEmpty(
+      z.url({ protocol: /^https?$/ }),
+    ),
+    SPOTLIGHT_PLATFORM_POOL_SECRET: unsetWhenEmpty(
+      z.string().refine(SigningSecret.isWellFormed, SIGNING_SECRET_RULE),
+    ),
+    // The labels that the platform pool serves, separated by commas. With no value, it serves only work that names no runners.
+    SPOTLIGHT_PLATFORM_POOL_LABELS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((each) => each.trim())
+          .filter((each) => each !== ''),
+      )
+      .pipe(
+        z
+          .array(
+            z
+              .string()
+              .max(MAX_SLUG_LENGTH)
+              .regex(
+                new RegExp(`^${SLUG_SHAPE}$`),
+                'is lowercase words joined by dashes, as in vpc-internal',
+              ),
+          )
+          .refine((labels) => new Set(labels).size === labels.length, {
+            message: 'names a label twice',
+          }),
+      ),
+    SPOTLIGHT_PLATFORM_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
+    // The deployment event webhook: Spotlight sends the integration events of every workspace to this URL, signed per Standard Webhooks. With no value, it sends none.
+    SPOTLIGHT_EVENT_WEBHOOK_URL: unsetWhenEmpty(z.url({ protocol: /^https$/ })),
+    SPOTLIGHT_EVENT_WEBHOOK_SECRET: unsetWhenEmpty(
+      z.string().refine(SigningSecret.isWellFormed, SIGNING_SECRET_RULE),
+    ),
+    // The integration event kinds to send in full, or the contexts whose integration events to send, separated by commas, as in identity.,runs.run-usage-recorded.v1. With no value, Spotlight sends every integration event.
+    SPOTLIGHT_EVENT_WEBHOOK_KINDS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((each) => each.trim())
+          .filter((each) => each !== ''),
+      )
+      .pipe(
+        z.array(
+          z
+            .string()
+            .refine(
+              (each) => isIntegrationEventKind(each) || isContextPrefix(each),
+              'is an integration event kind, such as runs.run-usage-recorded.v1, or a context, such as identity.',
+            ),
+        ),
+      ),
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
@@ -140,6 +210,57 @@ export const envSchema = databaseSchema
       path: ['SPOTLIGHT_PLATFORM_EGRESS_TOKEN'],
       message:
         'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Set both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
+    },
+  )
+  .refine(
+    (env) =>
+      (env.SPOTLIGHT_PLATFORM_POOL_URL === undefined) ===
+      (env.SPOTLIGHT_PLATFORM_POOL_SECRET === undefined),
+    {
+      path: ['SPOTLIGHT_PLATFORM_POOL_SECRET'],
+      message:
+        'goes with SPOTLIGHT_PLATFORM_POOL_URL. Set both to add the platform pool to each workspace, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
+    },
+  )
+  .refine(
+    (env) =>
+      env.SPOTLIGHT_PLATFORM_POOL_URL !== undefined ||
+      (env.SPOTLIGHT_PLATFORM_POOL_LABELS.length === 0 &&
+        env.SPOTLIGHT_PLATFORM_POOL_EGRESS === undefined),
+    {
+      path: ['SPOTLIGHT_PLATFORM_POOL_URL'],
+      message:
+        'is not set, so Spotlight adds no platform pool. Please set it, or leave SPOTLIGHT_PLATFORM_POOL_LABELS and SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
+    },
+  )
+  .refine(
+    (env) =>
+      env.SPOTLIGHT_PLATFORM_POOL_EGRESS === undefined ||
+      env.SPOTLIGHT_PLATFORM_EGRESS_URL !== undefined,
+    {
+      path: ['SPOTLIGHT_PLATFORM_POOL_EGRESS'],
+      message:
+        'names the platform egress. Please set SPOTLIGHT_PLATFORM_EGRESS_URL and SPOTLIGHT_PLATFORM_EGRESS_TOKEN, or leave SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
+    },
+  )
+  .refine(
+    (env) =>
+      (env.SPOTLIGHT_EVENT_WEBHOOK_URL === undefined) ===
+      (env.SPOTLIGHT_EVENT_WEBHOOK_SECRET === undefined),
+    {
+      path: ['SPOTLIGHT_EVENT_WEBHOOK_SECRET'],
+      message:
+        'goes with SPOTLIGHT_EVENT_WEBHOOK_URL. Set both to send events to the deployment event webhook, or neither; generate a secret with: echo "whsec_$(openssl rand -base64 32)"',
+    },
+  )
+  .refine(
+    (env) =>
+      env.SPOTLIGHT_EVENT_WEBHOOK_URL !== undefined ||
+      env.SPOTLIGHT_EVENT_WEBHOOK_KINDS.length === 0,
+    {
+      path: ['SPOTLIGHT_EVENT_WEBHOOK_URL'],
+      message:
+        'is not set, so Spotlight sends no events. Please set it, or leave SPOTLIGHT_EVENT_WEBHOOK_KINDS empty',
     },
   )
   .refine(

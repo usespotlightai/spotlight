@@ -7,6 +7,10 @@ import {
 import { Interval } from '@nestjs/schedule';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
+import {
+  DELIVERY_LANES,
+  type DeliveryLane,
+} from '@platform/events/event-subscribers';
 import { LiveWrites } from '@platform/live/live-writes';
 import { detached } from '@platform/telemetry/detached';
 import {
@@ -16,10 +20,17 @@ import {
 
 const EVERY_MS = 1000;
 
+interface LaneState {
+  ticking: Promise<void> | null;
+  again: boolean;
+}
+
+// Each lane ticks on its own, so a slow sink never holds up the subscribers of the contexts.
 @Injectable()
 export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
-  #ticking: Promise<void> | null = null;
-  #again = false;
+  readonly #lanes = new Map<DeliveryLane, LaneState>(
+    DELIVERY_LANES.map((lane) => [lane, { ticking: null, again: false }]),
+  );
   #stopped = false;
   #unsubscribe: (() => void) | null = null;
 
@@ -40,33 +51,46 @@ export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
     this.#unsubscribe?.();
-    await this.#ticking;
+    await Promise.all(
+      [...this.#lanes.values()].flatMap((each) =>
+        each.ticking ? [each.ticking] : [],
+      ),
+    );
   }
 
   @Interval(EVERY_MS)
   async tick(): Promise<void> {
-    if (this.#stopped) {
-      return;
-    }
-
-    if (this.#ticking) {
-      this.#again = true;
-      return;
-    }
-
-    this.#ticking = this.processDue();
-    await this.#ticking;
-    this.#ticking = null;
+    await Promise.all(DELIVERY_LANES.map((lane) => this.tickLane(lane)));
   }
 
-  private async processDue(): Promise<void> {
+  private async tickLane(lane: DeliveryLane): Promise<void> {
+    const state = this.#lanes.get(lane);
+
+    if (!state || this.#stopped) {
+      return;
+    }
+
+    if (state.ticking) {
+      state.again = true;
+      return;
+    }
+
+    state.ticking = this.processDue(lane, state);
+    await state.ticking;
+    state.ticking = null;
+  }
+
+  private async processDue(
+    lane: DeliveryLane,
+    state: LaneState,
+  ): Promise<void> {
     try {
       do {
-        this.#again = false;
-        await this.delivery.processDue();
-      } while (this.#again && !this.#stopped);
+        state.again = false;
+        await this.delivery.processDue(lane);
+      } while (state.again && !this.#stopped);
     } catch (error) {
-      this.logger.error({ err: error }, 'Delivering domain events');
+      this.logger.error({ err: error, lane }, 'Delivering domain events');
     }
   }
 }

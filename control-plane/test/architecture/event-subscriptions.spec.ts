@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   domainEventKindsDeclaredTwice,
+  domainEventKindsWithVersions,
   eventSubscriptionsIn,
   eventSubscriptionViolations,
 } from './event-subscriptions';
@@ -73,6 +74,16 @@ describe('event subscriptions', () => {
     ]);
   });
 
+  it('finds a sink, which hears every context it names', () => {
+    expect(
+      problemsIn(`import { subscribing } from '${SUBSCRIBER}';
+        subscribers.registerSink({ subscriber: subscribing('memory.a', [], handle), prefixes: ['insights.'], retry: null });`),
+    ).toEqual([
+      'memory.a hears no kind the check can resolve',
+      'calls subscribers.registerSink, which only the platform may call',
+    ]);
+  });
+
   it('finds another context domain event heard by its kind', () => {
     expect(
       problemsIn(`import { subscribing } from '${SUBSCRIBER}';
@@ -110,6 +121,10 @@ describe('event subscriptions', () => {
 
   it('gives every domain event kind one owning context', () => {
     expect(domainEventKindsDeclaredTwice()).toEqual([]);
+  });
+
+  it('gives no domain event kind a version, so that no integration event prefix matches one', () => {
+    expect(domainEventKindsWithVersions()).toEqual([]);
   });
 
   it('hears only its own domain events and upstream integration events', () => {

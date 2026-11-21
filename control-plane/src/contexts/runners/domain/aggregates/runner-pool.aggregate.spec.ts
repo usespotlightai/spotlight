@@ -1,5 +1,8 @@
 import { EGRESS_ID } from '@runners/domain/aggregates/egress.fake-spec';
+import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
+  anOwnPoolWithThePlatformKey,
+  aPlatformPool,
   aPullPool,
   aPushPool,
   encryptedOf,
@@ -12,13 +15,18 @@ import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runne
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
+import { PlatformAccess } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const BY = changeActorIn();
@@ -304,5 +312,169 @@ describe('RunnerPool egress', () => {
         .delete(BY)
         .usesEgress(EgressReference.platform()),
     ).toBe(false);
+  });
+});
+
+describe('RunnerPool for the platform', () => {
+  const recordedOf = (pool: RunnerPool) =>
+    pool
+      .pullEvents()
+      .flatMap((each) =>
+        each instanceof RunnerPoolUpdated ? [each.change.recordedDetail] : [],
+      );
+
+  it('is created with the platform key, no run limit and no provision URL or secret of its own', () => {
+    const pool = aPlatformPool({ labels: ['linux'] });
+    const [created] = pool.pullEvents();
+
+    expect(pool.key.equals(PoolKey.platform())).toBe(true);
+    expect(pool.isPlatform).toBe(true);
+    expect(pool.access.kind).toBe('platform');
+    expect(pool.maxRuns).toBeNull();
+    expect(pool.provision).toBeNull();
+    expect(pool.mode).toBe('push');
+    expect(pool.roomFor(occupied(500))).toBeNull();
+    expect(pool.capacity('push', occupied(500))).toBe('open');
+    expect(created).toBeInstanceOf(RunnerPoolCreated);
+  });
+
+  it('provisions only while the deployment sets its provisioner, and a pool of the workspace provisions either way', () => {
+    expect(aPlatformPool().canProvision(true)).toBe(true);
+    expect(aPlatformPool().canProvision(false)).toBe(false);
+    expect(aPushPool().canProvision(false)).toBe(true);
+    expect(aPullPool().canProvision(true)).toBe(false);
+  });
+
+  it('keeps the platform key for the platform pool', () => {
+    expect(() =>
+      RunnerPool.create({
+        id: PoolId.of('pool_2'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        ...definition('spotlight'),
+        access: { mode: 'pull', tokenHash: hashOf('a'), tokenVersion: null },
+        by: BY,
+      }),
+    ).toThrow(InvalidRunnerPoolError);
+    expect(anOwnPoolWithThePlatformKey().isPlatform).toBe(false);
+  });
+
+  it('is deleted only by Spotlight', () => {
+    expect(() => aPlatformPool().delete(BY)).toThrow(InconsistentStateError);
+    expect(
+      aPlatformPool().delete(ChangeActor.spotlight(WorkspaceId.of('ws_1')))
+        .isDeleted,
+    ).toBe(true);
+  });
+
+  it('goes out through the egress the deployment names for it', () => {
+    const pool = aPlatformPool({ egress: EgressReference.platform() });
+
+    expect(pool.usesEgress(EgressReference.platform())).toBe(true);
+    expect(pool.servesEgressNeed(true)).toBe(true);
+    expect(pool.egressTraffic.value).toBe('all');
+    expect(aPlatformPool().servesEgressNeed(true)).toBe(false);
+  });
+
+  it('takes the labels and egress the deployment sets now, and changes nothing when they are the same', () => {
+    const pool = aPlatformPool({ labels: ['linux'] });
+    pool.pullEvents();
+
+    expect(
+      pool.reconcile({ labels: RunnerLabels.of(['linux']), egress: null }, BY),
+    ).toBe(pool);
+
+    const reconciled = pool.reconcile(
+      {
+        labels: RunnerLabels.of(['linux', 'gpu']),
+        egress: EgressReference.platform(),
+      },
+      BY,
+    );
+
+    expect(reconciled.labels.values).toEqual(['linux', 'gpu']);
+    expect(reconciled.egress?.isPlatform).toBe(true);
+    expect(recordedOf(reconciled)).toEqual([
+      { mode: 'push', egressChanged: true },
+    ]);
+  });
+
+  it('provisions nothing once disabled, and keeps disabled when the deployment changes its labels', () => {
+    const disabled = aPlatformPool().disable(BY);
+
+    expect(disabled.isDisabled).toBe(true);
+    expect(disabled.canProvision(true)).toBe(false);
+    expect(disabled.roomFor(occupied(0))).toBe(0);
+    expect(disabled.capacity('push', occupied(0))).toBe('gone');
+    expect(
+      disabled.reconcile({ labels: RunnerLabels.of(['gpu']), egress: null }, BY)
+        .isDisabled,
+    ).toBe(true);
+  });
+
+  it('records each change to disabled or enabled, and nothing when it is already so', () => {
+    const pool = aPlatformPool();
+    pool.pullEvents();
+    const disabled = pool.disable(BY);
+
+    expect(recordedOf(disabled)).toEqual([{ mode: 'push', disabled: true }]);
+    expect(disabled.disable(BY)).toBe(disabled);
+    expect(recordedOf(disabled.enable(BY))).toEqual([
+      { mode: 'push', disabled: false },
+    ]);
+  });
+
+  it('refuses the changes of a workspace pool, and a workspace pool refuses the changes of the platform pool', () => {
+    expect(() =>
+      aPlatformPool().update(
+        { key: PoolKey.platform(), labels: RunnerLabels.none(), maxRuns: null },
+        { mode: 'pull', tokenHash: hashOf('a'), tokenVersion: null },
+        BY,
+      ),
+    ).toThrow(InconsistentStateError);
+    expect(() => aPushPool().disable(BY)).toThrow(InconsistentStateError);
+    expect(() =>
+      aPushPool().reconcile({ labels: RunnerLabels.none(), egress: null }, BY),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('does not read back as the platform pool with another key or a run limit', () => {
+    const stored = {
+      id: PoolId.of('pool_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      labels: RunnerLabels.none(),
+      access: PlatformAccess.of(null),
+      version: 0,
+    };
+
+    expect(() =>
+      RunnerPool.rehydrate({
+        ...stored,
+        key: PoolKey.of('sandboxes'),
+        maxRuns: null,
+      }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      RunnerPool.rehydrate({
+        ...stored,
+        key: PoolKey.platform(),
+        maxRuns: MaxRuns.of(2),
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('reads back disabled from the access of the platform pool, the only access that can be disabled', () => {
+    const pool = RunnerPool.rehydrate({
+      id: PoolId.of('pool_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      key: PoolKey.platform(),
+      labels: RunnerLabels.none(),
+      maxRuns: null,
+      access: PlatformAccess.of(null, true),
+      version: 0,
+    });
+
+    expect(pool.isDisabled).toBe(true);
+    expect(pool.mode).toBe('push');
+    expect(aPushPool().isDisabled).toBe(false);
   });
 });

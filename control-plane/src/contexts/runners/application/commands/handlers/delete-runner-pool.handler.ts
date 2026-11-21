@@ -28,7 +28,7 @@ export class DeleteRunnerPoolHandler implements CommandHandlerPort<
     const id = PoolId.of(command.poolId);
 
     try {
-      const existing = await this.pools.find(id);
+      const existing = await this.pools.findOwned(id);
       const permissions = existing
         ? await this.access.permissionsIn(
             existing.workspaceId,
@@ -57,7 +57,7 @@ export class DeleteRunnerPoolHandler implements CommandHandlerPort<
       return { outcome: 'deleted' };
     } catch (error) {
       if (error instanceof RunnerPoolVersionConflictError) {
-        const current = await this.pools.find(id);
+        const current = await this.pools.findOwned(id);
 
         return current
           ? { outcome: 'version-conflict', currentVersion: current.version }

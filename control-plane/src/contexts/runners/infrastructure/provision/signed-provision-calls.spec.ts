@@ -3,13 +3,13 @@ import { createHmac } from 'node:crypto';
 import { scopedTo } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
-import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const SECRET = ProvisionSecret.of(
+const SECRET = SigningSecret.of(
   `whsec_${Buffer.from('k'.repeat(32)).toString('base64')}`,
 );
 
@@ -17,7 +17,9 @@ const AT = new Date('2026-09-24T10:00:00.000Z');
 
 const calling = (
   url = 'https://provision.example.com/runs',
+  owner: ProvisionCall['owner'] = 'workspace',
 ): ProvisionCall => ({
+  owner,
   url: ProvisionUrl.of(url),
   secret: SECRET,
   messageId: 'runner_1',
@@ -75,6 +77,34 @@ describe('SignedProvisionCalls', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('posts a call to the provisioner of the deployment under the deployment’s allow-list only', async () => {
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
+      { workspaceHosts: ['hooks.example.com'] },
+    );
+
+    await expect(
+      provision.call(calling(undefined, 'deployment')),
+    ).resolves.toEqual({ outcome: 'accepted' });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('posts nothing to a provisioner of the deployment that the deployment does not allow', async () => {
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
+      { hosts: ['hooks.example.com'] },
+    );
+
+    await expect(
+      provision.call(calling(undefined, 'deployment')),
+    ).resolves.toEqual({
+      outcome: 'not-allowed',
+      detail:
+        'This deployment’s outbound allow-list doesn’t include provision.example.com.',
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('posts the run, its labels, its image and a one-run token, signed with the pool secret', async () => {
     const { fetch, provision } = calls(
       async () => new Response(null, { status: 202 }),
@@ -92,7 +122,7 @@ describe('SignedProvisionCalls', () => {
 
     expect(url).toBe('https://provision.example.com/runs');
     expect(sent.headers['webhook-signature']).toBe(
-      `v1,${createHmac('sha256', Buffer.from(SECRET.encodedKey, 'base64')).update(signed).digest('base64')}`,
+      `v1,${createHmac('sha256', SECRET.key).update(signed).digest('base64')}`,
     );
     expect(JSON.parse(sent.body)).toEqual({
       type: 'work.provision',

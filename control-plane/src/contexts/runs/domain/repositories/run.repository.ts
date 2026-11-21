@@ -57,12 +57,15 @@ export interface RunRepository {
     workspaceId: WorkspaceId,
     now: Date,
     page: {
-      readonly skip: number;
+      readonly after: ClaimCursor | null;
       readonly max: number;
       readonly withSecrets: boolean;
       readonly avoiding: readonly WorkingCopyKey[];
     },
   ): Promise<QueuedRuns>;
+
+  // The workspaces that have a run that waits for Spotlight to provision a runner now.
+  workspacesAwaitingProvision(now: Date): Promise<readonly WorkspaceId[]>;
 
   withExpiredReservations(now: Date): Promise<readonly Run[]>;
 

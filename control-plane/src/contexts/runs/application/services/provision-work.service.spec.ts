@@ -1,4 +1,5 @@
 import type {
+  HostOfferAtWork,
   PoolAtWork,
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
@@ -20,6 +21,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import type { ClaimCursor } from '@runs/domain/services/claim-order';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
@@ -92,13 +94,24 @@ const aPool = (
   key: string,
   labels: string[] = [],
   egress = false,
+  platform = false,
 ): BoundedPool => ({
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
   key,
   labels: RunnerOffer.of(labels),
   egress,
+  platform,
   maxRuns: null,
+});
+
+const aPlatformPool = (labels: string[] = [], egress = false): BoundedPool =>
+  aPool('spotlight', labels, egress, true);
+
+const hostsServing = (labels: string[] = []): HostOfferAtWork => ({
+  workspaceId: WorkspaceId.of('ws_1'),
+  labels: RunnerOffer.of(labels),
+  egress: true,
 });
 
 const provisioning = (
@@ -113,6 +126,7 @@ const provisioning = (
     readonly reserves?: boolean;
   } = {},
   liveKeys: readonly string[] = [],
+  hostOffers: readonly HostOfferAtWork[] = [],
 ) => {
   const logger = {
     debug: vi.fn(),
@@ -126,21 +140,27 @@ const provisioning = (
       workspaceId: WorkspaceId,
       at: Date,
       page: {
-        readonly skip: number;
+        readonly after: ClaimCursor | null;
         readonly max: number;
         readonly withSecrets: boolean;
         readonly avoiding: readonly WorkingCopyKey[];
       },
-    ) => ({
-      waiting: [...stored.values()]
-        .filter(
-          (each) =>
-            each.workspaceId.equals(workspaceId) &&
-            each.provisionableAt(at, page.withSecrets),
-        )
-        .slice(page.skip, page.skip + page.max),
-      leasedRequesters: [],
-    }),
+    ) => {
+      const order = [...stored.keys()];
+      const from = page.after ? order.indexOf(page.after.id) + 1 : 0;
+
+      return {
+        waiting: [...stored.values()]
+          .filter(
+            (each) =>
+              order.indexOf(each.id.value) >= from &&
+              each.workspaceId.equals(workspaceId) &&
+              each.provisionableAt(at, page.withSecrets),
+          )
+          .slice(0, page.max),
+        leasedRequesters: [],
+      };
+    },
   );
   const recorded: DomainEvent[] = [];
   const runs = {
@@ -150,6 +170,13 @@ const provisioning = (
       stored.set(run.id.value, run);
     },
     awaitingProvision,
+    workspacesAwaitingProvision: async (at: Date) => [
+      ...new Map(
+        [...stored.values()]
+          .filter((each) => each.provisionableAt(at, true))
+          .map((each) => [each.workspaceId.value, each.workspaceId]),
+      ).values(),
+    ],
     withExpiredReservations: async (at: Date) =>
       [...stored.values()].filter((each) => each.reservationExpiredAt(at)),
   } as unknown as RunRepository;
@@ -161,7 +188,9 @@ const provisioning = (
   const checks = {
     awaiting: vi.fn<ReviewWorkProvisioningPort['awaiting']>(
       async (_workspaceId, _at, page) =>
-        page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
+        page.after === null
+          ? { waiting: waitingChecks.awaiting ?? [], next: 'cursor_1' }
+          : { waiting: [], next: null },
     ),
     reserve: vi.fn<ReviewWorkProvisioningPort['reserve']>(
       async (_check, _runner, _pool, at) =>
@@ -172,12 +201,28 @@ const provisioning = (
     unreserve: vi.fn(async () => {}),
     failed: vi.fn(async () => {}),
     expired: vi.fn(async () => waitingChecks.expired ?? []),
+    workspacesAwaiting: vi.fn(async () =>
+      (waitingChecks.awaiting ?? []).length > 0 ? [WorkspaceId.of('ws_1')] : [],
+    ),
   } satisfies ReviewWorkProvisioningPort;
   let generated = 0;
   const failures = new ProvisionFailures(runs);
+  const inWorkspaces =
+    (workspaceIds: readonly WorkspaceId[]) =>
+    <Each extends { readonly workspaceId: WorkspaceId }>(
+      all: readonly Each[],
+    ) =>
+      all.filter((each) =>
+        workspaceIds.some((id) => id.equals(each.workspaceId)),
+      );
+  const offering = vi.fn(async (workspaceIds: readonly WorkspaceId[]) => ({
+    pools: inWorkspaces(workspaceIds)(pools),
+    hostOffers: inWorkspaces(workspaceIds)(hostOffers),
+  }));
 
   return {
     provision,
+    offering,
     release,
     recorded,
     checks,
@@ -187,7 +232,7 @@ const provisioning = (
       runs,
       checks,
       {
-        provisioning: async () => pools,
+        offersIn: offering,
         roomIn: async (poolId: string) => {
           const maxRuns =
             pools.find((each) => each.poolId === poolId)?.maxRuns ?? null;
@@ -650,6 +695,189 @@ describe('ProvisionWork', () => {
     expect(provision).not.toHaveBeenCalled();
   });
 
+  it('hands a run to the platform pool when no pool of the workspace fits it', async () => {
+    const { provisioner, provision } = provisioning(
+      [waiting('run_1', ['gpu']), waiting('run_2', ['arm'])],
+      [aPool('burst', ['gpu']), aPlatformPool(['arm'])],
+    );
+
+    await provisioner.due();
+
+    expect(
+      provision.mock.calls.map(([request]) => [
+        request.work.id,
+        request.poolId,
+      ]),
+    ).toEqual([
+      ['run_1', 'pool_burst'],
+      ['run_2', 'pool_spotlight'],
+    ]);
+  });
+
+  it('keeps a run off the platform pool while a full pool of the workspace fits it', async () => {
+    const { provisioner, provision, run } = provisioning(
+      [waiting('run_1', ['gpu'])],
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aPlatformPool(['gpu'])],
+      {},
+      NOON,
+      1,
+    );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(run('run_1').reservation).toBeNull();
+  });
+
+  it('keeps a run that the hosts of a pull pool or a trust fit off the platform pool, and says why', async () => {
+    const { provisioner, provision, run, logger } = provisioning(
+      [waiting('run_1', ['on-premises']), waiting('run_2', ['vpc'])],
+      [aPlatformPool(['on-premises', 'vpc'])],
+      {},
+      NOON,
+      0,
+      {},
+      [],
+      [hostsServing(['on-premises']), hostsServing(['vpc'])],
+    );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(run('run_1').reservation).toBeNull();
+    expect(run('run_2').reservation).toBeNull();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: 'run_1', reason: 'hosts-pull' }),
+      'Did not provision a runner',
+    );
+  });
+
+  it('visits no workspace that only hosts serve', async () => {
+    const { provisioner, awaitingProvision } = provisioning(
+      [waiting('run_1', ['on-premises'])],
+      [],
+      {},
+      NOON,
+      0,
+      {},
+      [],
+      [hostsServing(['on-premises'])],
+    );
+
+    await provisioner.due();
+
+    expect(awaitingProvision).not.toHaveBeenCalled();
+  });
+
+  const ticksUntilProvisioned = async (
+    tick: () => Promise<void>,
+    provisioned: () => boolean,
+    reads: () => number,
+  ): Promise<{ ticks: number; mostReads: number }> => {
+    let mostReads = 0;
+
+    for (let ticks = 1; ticks <= 10; ticks++) {
+      const before = reads();
+      await tick();
+      mostReads = Math.max(mostReads, reads() - before);
+
+      if (provisioned()) {
+        return { ticks, mostReads };
+      }
+    }
+
+    return { ticks: Infinity, mostReads };
+  };
+
+  const blockedAhead = (count: number, labels: string[], at: number) => [
+    ...Array.from({ length: at }, (_, index) =>
+      waiting(`blocked_${index}`, labels),
+    ),
+    waiting('arm_1', ['arm']),
+    ...Array.from({ length: count - at }, (_, index) =>
+      waiting(`blocked_${at + index}`, labels),
+    ),
+  ];
+
+  it('reaches work that only the platform pool fits behind 450 runs that wait for a full pool, reading at most two pages a tick', async () => {
+    const { provisioner, provision, awaitingProvision } = provisioning(
+      blockedAhead(450, ['gpu'], 300),
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aPlatformPool(['arm'])],
+      {},
+      NOON,
+      1,
+    );
+
+    const reached = await ticksUntilProvisioned(
+      () => provisioner.due(),
+      () =>
+        provision.mock.calls.some(([request]) => request.work.id === 'arm_1'),
+      () => awaitingProvision.mock.calls.length,
+    );
+
+    expect(reached.ticks).toBeLessThanOrEqual(10);
+    expect(reached.mostReads).toBeLessThanOrEqual(2);
+    expect(provision.mock.calls.map(([request]) => request.poolId)).toEqual([
+      'pool_spotlight',
+    ]);
+  });
+
+  it('reaches work that only the platform pool fits behind 450 runs that wait for hosts that are down, reading at most two pages a tick', async () => {
+    const { provisioner, provision, awaitingProvision } = provisioning(
+      blockedAhead(450, ['on-premises'], 300),
+      [aPlatformPool(['arm'])],
+      {},
+      NOON,
+      0,
+      {},
+      [],
+      [hostsServing(['on-premises'])],
+    );
+
+    const reached = await ticksUntilProvisioned(
+      () => provisioner.due(),
+      () =>
+        provision.mock.calls.some(([request]) => request.work.id === 'arm_1'),
+      () => awaitingProvision.mock.calls.length,
+    );
+
+    expect(reached.ticks).toBeLessThanOrEqual(10);
+    expect(reached.mostReads).toBeLessThanOrEqual(2);
+  });
+
+  it('sweeps one page further each tick, and starts at the head again after a short page', async () => {
+    const { provisioner, provision, awaitingProvision } = provisioning(
+      blockedAhead(1_000, ['gpu'], 900),
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aPlatformPool(['arm'])],
+      {},
+      NOON,
+      1,
+    );
+
+    const reached = await ticksUntilProvisioned(
+      () => provisioner.due(),
+      () =>
+        provision.mock.calls.some(([request]) => request.work.id === 'arm_1'),
+      () => awaitingProvision.mock.calls.length,
+    );
+
+    expect(reached.ticks).toBe(4);
+    expect(reached.mostReads).toBe(2);
+  });
+
+  it('visits only the workspaces with work that waits', async () => {
+    const ws2 = { ...aPlatformPool(), workspaceId: WorkspaceId.of('ws_2') };
+    const { provisioner, provision, offering } = provisioning(
+      [waiting('run_1')],
+      [aPlatformPool(), ws2],
+    );
+
+    await provisioner.due();
+
+    expect(offering).toHaveBeenCalledExactlyOnceWith([WorkspaceId.of('ws_1')]);
+    expect(provision).toHaveBeenCalledOnce();
+  });
+
   it('fails a reservation nobody claimed in time, saving that its runner is to be released', async () => {
     const expiring = waiting('run_1').reservedFor(
       RunnerId.of('pooled_9'),
@@ -697,6 +925,42 @@ describe('ProvisionWork', () => {
   });
 
   describe('for change-stack checks', () => {
+    it('reads the checks behind a full head page from the cursor of the head, and goes on from the cursor of that page in the next tick', async () => {
+      const { provisioner, provision, checks } = provisioning(
+        [],
+        [aPlatformPool(['arm'])],
+        {},
+        NOON,
+        0,
+        { awaiting: [aWaitingCheck('stack_1', ['gpu'])] },
+      );
+      const blocked = (from: number) =>
+        Array.from({ length: 200 }, (_, index) =>
+          aWaitingCheck(`blocked_${from + index}`, ['gpu']),
+        );
+      checks.awaiting.mockImplementation(async (_workspaceId, _at, page) =>
+        page.after === null
+          ? { waiting: blocked(0), next: 'after_head' }
+          : {
+              waiting: [
+                ...blocked(200).slice(1),
+                aWaitingCheck('arm_1', ['arm']),
+              ],
+              next: `after_${page.after}`,
+            },
+      );
+
+      await provisioner.due();
+      await provisioner.due();
+
+      expect(
+        checks.awaiting.mock.calls.map(([, , page]) => page.after),
+      ).toEqual([null, 'after_head', null, 'after_after_head']);
+      expect(
+        provision.mock.calls.some(([request]) => request.work.id === 'arm_1'),
+      ).toBe(true);
+    });
+
     it('reserves a waiting check for a new runner and requests a fitting pool to start it for that check', async () => {
       const { provisioner, provision, checks } = provisioning(
         [],
@@ -811,7 +1075,7 @@ describe('ProvisionWork', () => {
         WorkspaceId.of('ws_1'),
         NOON,
         {
-          skip: 0,
+          after: null,
           max: 200,
         },
       );

@@ -64,7 +64,7 @@ export const RunnerResourceMapper = {
   },
 
   configuredPool(pool: RunnerPool): RunnerPoolView {
-    const { access } = pool;
+    const { access, provision } = pool;
 
     return {
       id: pool.id.value,
@@ -73,16 +73,15 @@ export const RunnerResourceMapper = {
       key: pool.key.value,
       labels: pool.labels.values,
       maxRuns: pool.maxRuns?.value ?? null,
-      tokenVersion: access.mode === 'pull' ? access.tokenVersion.value : null,
-      provision:
-        access.mode === 'push'
-          ? {
-              url: access.url.value,
-              secretVersion: access.secretVersion.value,
-              egress: access.egress?.value ?? null,
-              egressTraffic: access.egressTraffic.value,
-            }
-          : null,
+      tokenVersion: access.kind === 'pull' ? access.tokenVersion.value : null,
+      provision: provision
+        ? {
+            url: provision.url.value,
+            secretVersion: provision.secretVersion.value,
+            egress: provision.egress?.value ?? null,
+            egressTraffic: provision.egressTraffic.value,
+          }
+        : null,
     };
   },
 

@@ -18,6 +18,7 @@ import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
+import { EventWebhook, eventWebhookSink } from '@platform/events/event-webhook';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { OutboxRetention } from '@platform/events/outbox-retention';
 import { OutboxRetentionWorker } from '@platform/events/outbox-retention.worker';
@@ -30,6 +31,7 @@ import { PostgresReadiness } from '@platform/health/postgres-readiness';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { ReadinessGauges } from '@platform/health/readiness-gauges';
 import { ApiConventions } from '@platform/http/api-conventions';
+import { AdminEventWebhookController } from '@platform/http/controllers/admin-event-webhook.controller';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
@@ -68,7 +70,10 @@ import { SystemClock } from '@platform/time/system-clock';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
-import { CLOCK } from '@shared-kernel/application/ports/clock.port';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ERROR_REPORTS } from '@shared-kernel/application/ports/error-reports.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
@@ -83,6 +88,10 @@ import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
+
+// Registers the event webhook subscriber when SPOTLIGHT_EVENT_WEBHOOK_URL is set.
+const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
 
 @Global()
 @Module({
@@ -93,7 +102,11 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     CqrsModule,
     DiscoveryModule,
   ],
-  controllers: [HealthController, ErrorReportingController],
+  controllers: [
+    HealthController,
+    ErrorReportingController,
+    AdminEventWebhookController,
+  ],
   providers: [
     {
       provide: GracefulShutdown,
@@ -206,8 +219,46 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
-    OutboxRetention,
+    {
+      provide: OutboxRetention,
+      inject: [DrizzleContext, CLOCK, EventSubscribers],
+      useFactory: (
+        context: DrizzleContext,
+        clock: ClockPort,
+        subscribers: EventSubscribers,
+      ) => new OutboxRetention(context, clock, subscribers),
+    },
     OutboxRetentionWorker,
+    {
+      provide: EVENT_WEBHOOK_REGISTRATION,
+      inject: [ENV, OutboundGuard, CLOCK, EventSubscribers],
+      useFactory: (
+        env: Env,
+        guard: OutboundGuard,
+        clock: ClockPort,
+        subscribers: EventSubscribers,
+      ) => {
+        if (
+          env.SPOTLIGHT_EVENT_WEBHOOK_URL &&
+          env.SPOTLIGHT_EVENT_WEBHOOK_SECRET
+        ) {
+          const webhook = new EventWebhook(
+            {
+              url: env.SPOTLIGHT_EVENT_WEBHOOK_URL,
+              secret: SigningSecret.of(env.SPOTLIGHT_EVENT_WEBHOOK_SECRET),
+            },
+            guard,
+            clock,
+          );
+
+          subscribers.registerSink(
+            eventWebhookSink(webhook, env.SPOTLIGHT_EVENT_WEBHOOK_KINDS),
+          );
+        }
+
+        return true;
+      },
+    },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
