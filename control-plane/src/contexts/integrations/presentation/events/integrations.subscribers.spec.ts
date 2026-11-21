@@ -11,11 +11,11 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
-import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import {
   WORKSPACE_MEMBER_ACCESS_ENDED,
   type WorkspaceMemberAccessEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

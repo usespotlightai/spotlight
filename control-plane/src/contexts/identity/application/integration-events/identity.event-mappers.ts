@@ -3,8 +3,8 @@ import type { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import type { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import type { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import type { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
-import type { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
 import type { WorkspaceMemberLeft } from '@identity/domain/events/workspace-member-left.event';
+import type { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
 import type { WorkspaceMemberSuspended } from '@identity/domain/events/workspace-member-suspended.event';
 import {
   TEAM_CREATED,
@@ -23,6 +23,10 @@ import {
   type WorkspaceDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import {
+  WORKSPACE_MEMBER_ACCESS_ENDED,
+  type WorkspaceMemberAccessEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
+import {
   WORKSPACE_MEMBER_JOINED,
   type WorkspaceMemberJoinedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-member-joined.integration-event';
@@ -30,10 +34,6 @@ import {
   WORKSPACE_MEMBER_ROLE_CHANGED,
   type WorkspaceMemberRoleChangedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-member-role-changed.integration-event';
-import {
-  WORKSPACE_MEMBER_ACCESS_ENDED,
-  type WorkspaceMemberAccessEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 const accessEnded = (
