@@ -1,5 +1,11 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 
+// The outbox record of the event that a subscriber gets: its id and when the outbox recorded it.
+export interface OutboxRecord {
+  readonly id: string;
+  readonly recordedAt: Date;
+}
+
 export interface DomainEventSubscriber {
   readonly name: string;
 
@@ -7,20 +13,23 @@ export interface DomainEventSubscriber {
 
   readonly callsOut: boolean;
 
-  handle(event: DomainEvent): Promise<readonly DomainEvent[]>;
+  handle(
+    event: DomainEvent,
+    record: OutboxRecord,
+  ): Promise<readonly DomainEvent[]>;
 }
 
 export const subscribing = <E extends DomainEvent>(
   name: string,
   kinds: readonly string[],
-  handle: (event: E) => Promise<unknown>,
+  handle: (event: E, record: OutboxRecord) => Promise<unknown>,
   { callsOut } = { callsOut: false },
 ): DomainEventSubscriber => ({
   name,
   kinds,
   callsOut,
-  handle: async (event) => {
-    const raised = await handle(event as E);
+  handle: async (event, record) => {
+    const raised = await handle(event as E, record);
 
     return Array.isArray(raised) ? (raised as readonly DomainEvent[]) : [];
   },

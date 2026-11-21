@@ -6,11 +6,18 @@ import {
   CredentialSourceResponseDto,
   HostResponseDto,
   LiveRunnerResponseDto,
+  PlatformPoolSourceResponseDto,
   RunnerFleetResponseDto,
 } from '@runners/presentation/http/dto/runner-fleet.response.dto';
 
 const sourceOf = (dto: CredentialSourceDto) =>
-  new CredentialSourceResponseDto(dto.kind, dto.key);
+  new CredentialSourceResponseDto(
+    dto.kind,
+    dto.key,
+    dto.kind === 'pool' && dto.platform
+      ? new PlatformPoolSourceResponseDto(dto.platform.egress)
+      : null,
+  );
 
 export const RunnerFleetHttpMapper = {
   toResponse(dto: RunnerFleetDto): RunnerFleetResponseDto {

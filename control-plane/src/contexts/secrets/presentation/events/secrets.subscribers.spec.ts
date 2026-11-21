@@ -19,6 +19,7 @@ import {
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
 import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -72,7 +73,7 @@ describe('secretsSubscribers', () => {
       .find(
         (each) => each.name === 'secrets.delete-secrets-of-deleted-workspace',
       )
-      ?.handle(deletedWorkspace);
+      ?.handle(deletedWorkspace, anOutboxRecord());
 
     expect(await secrets.inWorkspace(WORKSPACE)).toEqual([]);
     expect(store.has(SecretId.of('secret_linear'))).toBe(false);
@@ -88,7 +89,7 @@ describe('secretsSubscribers', () => {
       .find(
         (each) => each.name === 'secrets.delete-data-key-of-deleted-workspace',
       )
-      ?.handle(deletedWorkspace);
+      ?.handle(deletedWorkspace, anOutboxRecord());
 
     expect(deletedKeys.map((each) => each.value)).toEqual([WORKSPACE.value]);
   });
@@ -101,7 +102,7 @@ describe('secretsSubscribers', () => {
         (each) =>
           each.name === 'secrets.delete-run-grants-of-deleted-workspace',
       )
-      ?.handle(deletedWorkspace);
+      ?.handle(deletedWorkspace, anOutboxRecord());
 
     expect(grants.of('run_1')).toBeNull();
   });

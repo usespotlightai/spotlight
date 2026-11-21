@@ -18,7 +18,8 @@ export class RunnerDependents implements WorkspaceDependentSource {
     const [trusts, declared, pools, egresses] = await Promise.all([
       this.trusts.inWorkspace(workspaceId),
       this.workspaceRunners.ofWorkspace(workspaceId),
-      this.pools.inWorkspace(workspaceId),
+      // Spotlight deletes the platform pool with its workspace, so it does not keep the workspace.
+      this.pools.ownedIn(workspaceId),
       this.egresses.inWorkspace(workspaceId),
     ]);
 

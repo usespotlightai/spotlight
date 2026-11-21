@@ -75,6 +75,7 @@ import { TASK_OPENED } from '@shared-kernel/application/integration-events/task-
 import { TASK_PASSED } from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -293,7 +294,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       throw new Error(`no subscriber ${name}`);
     }
 
-    await subscriber.handle(event as never);
+    await subscriber.handle(event as never, anOutboxRecord());
   };
 
   return {

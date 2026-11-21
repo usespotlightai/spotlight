@@ -1,3 +1,4 @@
+import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
 import ts from 'typescript';
 
 import {
@@ -48,7 +49,6 @@ export const reachableFrom = (context: string): ReadonlySet<string> => {
 };
 
 const INTEGRATION_EVENTS = 'shared-kernel/application/integration-events/';
-const INTEGRATION_EVENT_KIND = /^([a-z-]+)\.[a-z-]+\.v\d+$/;
 
 const publisherOf = (module: string): string | null => {
   const kinds = descendants(

@@ -1,6 +1,7 @@
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
+import { SIGNING_SECRET_RULE } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { describe, expect, it } from 'vitest';
 
 const definitions = new RunnerDefinitions();
@@ -121,6 +122,24 @@ describe('RunnerDefinitions', () => {
           }),
         ),
       ).toEqual(['maxRuns', 'provision.url', 'provision.secret']);
+    });
+
+    it('says what a signing secret must be', () => {
+      const compiled = definitions.pool({
+        key: 'sandboxes',
+        provision: {
+          url: 'https://provision.example.com/runs',
+          secret: 'hunter2',
+        },
+      });
+
+      expect(
+        compiled.ok
+          ? []
+          : compiled.problems
+              .filter((each) => dottedOf(each.field) === 'provision.secret')
+              .map((each) => each.reason),
+      ).toEqual([SIGNING_SECRET_RULE]);
     });
   });
 

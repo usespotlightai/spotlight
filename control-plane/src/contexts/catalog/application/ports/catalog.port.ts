@@ -2,7 +2,7 @@ import type {
   CatalogCallResult,
   CatalogInputValues,
   CatalogRequest,
-  EntitledItems,
+  ResolvedItems,
 } from '@catalog/application/contracts/catalog.contract';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,16 +16,12 @@ export interface CatalogCallRequest {
   readonly inputs: CatalogInputValues;
 }
 
-export interface CatalogEntitlementsPort {
-  entitledTo(
-    workspaceId: WorkspaceId,
-    request: CatalogRequest,
-  ): Promise<EntitledItems>;
+export interface CatalogResolutionsPort {
+  resolve(request: CatalogRequest): Promise<ResolvedItems>;
 }
 
 export interface CatalogCallsPort {
   call(request: CatalogCallRequest): Promise<CatalogCallResult>;
 }
 
-export interface CatalogPort
-  extends CatalogEntitlementsPort, CatalogCallsPort {}
+export interface CatalogPort extends CatalogResolutionsPort, CatalogCallsPort {}

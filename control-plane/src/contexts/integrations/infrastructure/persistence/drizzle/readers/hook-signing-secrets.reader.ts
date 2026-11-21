@@ -1,6 +1,5 @@
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import { secretLabel } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-definitions.repository';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -9,6 +8,7 @@ import {
   CREDENTIAL_ENCRYPTION,
   type CredentialEncryptionPort,
 } from '@secrets/application/ports/credential-encryption.port';
+import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { eq } from 'drizzle-orm';
 
 @Injectable()
@@ -21,7 +21,7 @@ export class DrizzleHookSigningSecrets implements HookSigningSecretsPort {
 
   async signingSecretOf(
     hookId: HookDefinitionId,
-  ): Promise<HookSigningSecret | null> {
+  ): Promise<SigningSecret | null> {
     const [found] = await this.context.db
       .select({
         workspaceId: hookDefinition.workspaceId,
@@ -35,7 +35,7 @@ export class DrizzleHookSigningSecrets implements HookSigningSecretsPort {
       return null;
     }
 
-    return HookSigningSecret.rehydrate(
+    return SigningSecret.rehydrate(
       (
         await this.encryption.decrypt(
           found.workspaceId,

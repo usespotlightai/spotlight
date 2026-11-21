@@ -151,7 +151,8 @@ CREATE TABLE "catalog_call" (
 CREATE TABLE "workspace_plan" (
 	"workspace_id" text PRIMARY KEY NOT NULL,
 	"plan" text NOT NULL,
-	"expires_at" timestamp (3) with time zone
+	"expires_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "change_stack" (
@@ -1892,10 +1893,15 @@ CREATE TABLE "runner_pool" (
 	"provision_secret_version" integer,
 	"provision_egress" text,
 	"provision_egress_traffic" text,
+	"platform" boolean DEFAULT false NOT NULL,
+	"disabled" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "runner_pool_one_mode" CHECK (("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null)),
-	CONSTRAINT "runner_pool_egress_pushes" CHECK ("runner_pool"."provision_egress" is null or "runner_pool"."provision_url" is not null)
+	CONSTRAINT "runner_pool_one_mode" CHECK (case when "runner_pool"."platform" then "runner_pool"."token_hash" is null and "runner_pool"."token_version" is null and "runner_pool"."provision_url" is null and "runner_pool"."provision_secret" is null and "runner_pool"."provision_secret_version" is null else ("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null) end),
+	CONSTRAINT "runner_pool_egress_pushes" CHECK ("runner_pool"."provision_egress" is null or "runner_pool"."provision_url" is not null or "runner_pool"."platform"),
+	CONSTRAINT "runner_pool_platform_key" CHECK (not "runner_pool"."platform" or "runner_pool"."key" = 'spotlight'),
+	CONSTRAINT "runner_pool_platform_unbounded" CHECK (not "runner_pool"."platform" or "runner_pool"."max_runs" is null),
+	CONSTRAINT "runner_pool_disabled_platform" CHECK (not "runner_pool"."disabled" or "runner_pool"."platform")
 );
 --> statement-breakpoint
 CREATE TABLE "runner_trust" (

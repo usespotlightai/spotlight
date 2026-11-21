@@ -6,18 +6,11 @@ import {
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo';
-import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
-const metadata = (
-  name: string,
-  version: string,
-  requiredPlan: Plan,
-  description: string,
-) => ({
+const metadata = (name: string, version: string, description: string) => ({
   name: CatalogName.of(name),
   version: CatalogVersion.of(version),
-  requiredPlan,
   description,
 });
 
@@ -42,10 +35,8 @@ Cite each page an answer rests on by its address. Say so when the web does not a
 `;
 
 export const CATALOG_ITEMS: readonly CatalogItem[] = [
-  CatalogTool.of(metadata('web-search', '1.0.0', Plan.team, WEB_SEARCH), [
-    QUERY,
-  ]),
-  CatalogTool.of(metadata('web-search', '1.1.0', Plan.team, WEB_SEARCH), [
+  CatalogTool.of(metadata('web-search', '1.0.0', WEB_SEARCH), [QUERY]),
+  CatalogTool.of(metadata('web-search', '1.1.0', WEB_SEARCH), [
     QUERY,
     {
       name: 'limit',
@@ -60,7 +51,6 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
     metadata(
       'fetch-page',
       '1.0.0',
-      Plan.free,
       'Fetch a web page, and answer with its readable text.',
     ),
     [
@@ -78,7 +68,6 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
     metadata(
       'research',
       '1.0.0',
-      Plan.team,
       'Research a question on the web before answering it, citing the pages the answer rests on.',
     ),
     [{ path: 'SKILL.md', text: RESEARCH_SKILL }],

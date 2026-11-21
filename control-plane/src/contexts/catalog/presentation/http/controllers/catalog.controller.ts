@@ -4,11 +4,10 @@ import {
   CatalogSkillResponseDto,
   CatalogToolResponseDto,
 } from '@catalog/presentation/http/dto/catalog-item.response.dto';
-import { HttpStatus, Param, Query } from '@nestjs/common';
+import { Param, Query } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiParam } from '@nestjs/swagger';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
-import { ApiProblemResponse } from '@platform/http/resources/conventional-api';
 import {
   type DataSourceQuery,
   dataSourceApi,
@@ -49,20 +48,6 @@ const WORKSPACE = ApiParam({
   example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
 });
 
-const ApiNotEntitledResponse = (kind: string) =>
-  ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    `The workspace’s plan does not include the ${kind}; the detail names the plan that it requires`,
-  );
-
-const notEntitled = (kind: string, detail: string): ProblemException =>
-  ProblemException.of({
-    slug: 'not-entitled',
-    title: `The workspace’s plan does not include this ${kind}`,
-    status: HttpStatus.FORBIDDEN,
-    detail,
-  });
-
 const respondResolved = <R>(
   kind: string,
   resolution: CatalogResolution | null,
@@ -75,8 +60,6 @@ const respondResolved = <R>(
       throw ProblemException.invalid(kind, resolution.problems);
     case 'unmatched':
       throw ProblemException.notFound(kind, resolution.because);
-    case 'not-entitled':
-      throw notEntitled(kind, resolution.because);
     case undefined:
       throw ProblemException.notFound(kind);
   }
@@ -88,9 +71,8 @@ export class CatalogController {
 
   @CatalogTools.Read(
     'workspaces/:workspaceId/catalog/tools',
-    'Resolve a catalog tool by name and version constraint, if the workspace’s plan includes it',
+    'Resolve a catalog tool by name and version constraint',
   )
-  @ApiNotEntitledResponse(TOOL)
   @WORKSPACE
   async tool(
     @Param('workspaceId') workspaceId: string,
@@ -107,9 +89,8 @@ export class CatalogController {
 
   @CatalogSkills.Read(
     'workspaces/:workspaceId/catalog/skills',
-    'Resolve a catalog skill by name and version constraint, if the workspace’s plan includes it',
+    'Resolve a catalog skill by name and version constraint',
   )
-  @ApiNotEntitledResponse(SKILL)
   @WORKSPACE
   async skill(
     @Param('workspaceId') workspaceId: string,

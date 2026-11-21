@@ -16,11 +16,8 @@ import {
 } from '@runs/application/ports/run-progress.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import {
-  mapPage,
-  type Page,
-  type PageRequest,
-} from '@work/application/dto/page.dto';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 import type {
   ChatOwnership,
   ChatReaderPort,
@@ -41,7 +38,7 @@ import {
   chatInboxFactsOf,
 } from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
 import { currentRunReadings } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
-import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
+import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,

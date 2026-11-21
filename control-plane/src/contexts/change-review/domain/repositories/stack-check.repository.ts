@@ -28,6 +28,9 @@ export interface StackCheckRepository {
 
   waitingIn(workspaceId: WorkspaceId): Promise<readonly StackCheck[]>;
 
+  // The workspaces with work that waits, is reserved for no runner, and does not back off at this time.
+  workspacesWaiting(now: Date): Promise<readonly WorkspaceId[]>;
+
   reserved(): Promise<readonly StackCheck[]>;
 
   reservedFor(runner: RunnerId): Promise<readonly StackCheck[]>;

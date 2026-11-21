@@ -85,23 +85,31 @@ see.
 
 | Term | Meaning |
 |---|---|
-| Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). |
+| Admin token | The token for the whole deployment, `SPOTLIGHT_ADMIN_TOKEN`, that gives access to `/api/admin` (`AdminOnly`, `AdminGuard`). It is not the workspace admin role. |
+| Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). A change made with the admin token shows as Spotlight. |
+| Delivery lane | One of the two sets of event deliveries that the outbox worker delivers apart from each other (`DeliveryLane`, `DELIVERY_LANES`): `contexts` for the subscribers of the contexts, and `sinks` for the event sinks. Each lane is a filter on `event_delivery`. The worker ticks each lane on its own, so a slow or failing sink does not stop the subscribers of the contexts. |
 | Error kind | The class of a domain or application error (`ErrorKind`), such as `invalid` or `conflict`. The HTTP filters map it to a status code. |
-| Event delivery | One outbox event for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |
+| Event delivery | One outbox record for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |
+| Event sink | A subscriber of the platform that sends integration events out of Spotlight, such as the event webhook (`EventSubscribers.registerSink`). It hears integration events by context, and its deliveries go in the sinks lane (`DeliveryLane`), apart from the contexts lane of the subscribers of the contexts, so a slow receiver does not hold them up. |
+| Event webhook | The one URL of the deployment, `SPOTLIGHT_EVENT_WEBHOOK_URL`, that gets the integration events of every workspace as signed Standard Webhooks calls (`EventWebhook`, the subscriber `platform.send-event-webhook`). `SPOTLIGHT_EVENT_WEBHOOK_KINDS` limits it to kinds in full or to contexts (`EventSubscribers.registerSink`). A failed event delivery becomes a dead letter after its last attempt (`EVENT_WEBHOOK_RETRY`), and `POST /api/admin/event-webhook/redeliver` queues it again. While the URL is set, the outbox keeps the dead letters of the kinds it still sends, and their events, until they are delivered; once the URL is unset or the kinds no longer name them, retention deletes them after 7 days. It is not a hook, which a team sets (`spotlight_hook`), and not a webhook delivery, which comes in. |
 | Hand-over | Terraform removes `valueWoVersion` from a secret. Spotlight keeps the stored value, and from then on a person sets it (`valueChange: handed-over` in the change history). |
+| Hearing | The event kinds that one subscriber hears (`Hearing`): the kinds it names in full, and, for an event sink only, each integration event kind that starts with one of its prefixes. A prefix is a context, such as `identity.`, or the empty prefix, which matches every integration event. `EventSubscribers.hears` and the outbox queries (`heardDeliveries`) read the same hearings, so an instance claims only the deliveries that it can handle. |
 | Job loop | The loop that processes the due pending jobs of one kind (`JobLoop`, `PendingJobsPort.processDue`). |
 | Ledger | A table gateway that is not an aggregate repository (`*.ledger.ts`). |
-| Metered call | One usage row for each catalog tool call (`MeteredCall`). |
+| Outbox record | The id and the record time of one event in the outbox (`event_outbox`, `OutboxRecord`). A subscriber gets it with the event; the event webhook sends the id as `webhook-id`. |
 | Pending job | A row that a job loop must process, with its attempts and next attempt time (`job_attempts`, `job_due_at`). |
+| Platform pool | The push pool that Spotlight adds to each workspace when the deployment sets `SPOTLIGHT_PLATFORM_POOL_URL` (`runner_pool.platform`). The deployment gives its provision URL and secret, so the row keeps neither. It takes only work that no other pool or trust of the workspace fits, and the operator can disable it for one workspace. Terraform does not see or change it. Compare the platform egress. |
 | Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
 | Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
 | Recipient | The public key that Spotlight seals a run's secrets to: one key for each run in an egress sidecar, one key for each process in a shared egress. |
 | Refused run | A run that Spotlight creates and ends failed before it starts, because the station needs something that is missing (`RefusalReason`, such as `SecretAwaitingValue`). A reply to its inbox item orders a new run. Compare run not started. |
 | Resume key | The key of a working copy archive (`task-<id>` or `chat-<id>`). A run restores the archive of its resume key. |
 | Run not started | A task that has no run, because Spotlight cannot start the station's harness (`RunNotStarted`). Try again or a message starts it. Compare refused run. |
+| Signing secret | A Standard Webhooks secret, `whsec_` followed by 24 to 64 base64-encoded random bytes, that signs outgoing calls (`SigningSecret`, `SIGNING_SECRET_RULE`). Hooks, push pools, the platform pool and the event webhook use it. A push pool calls it its provision secret (`provision.secret`, and `EncryptedProvisionSecret` when it is stored). `SigningSecret.of` refuses a bad secret with `InvalidSigningSecretError`, and the definition schemas show its reason at the field (`madeBy`). A context that names the field in its own error checks `SigningSecret.isWellFormed` first, as a hook does at `signing.secret`. |
 | Tombstone | A row that Spotlight keeps after it deletes data, so that it does not restore the data (`deleted_*` tables). |
 | Value origin | Where a secret's value comes from (`SecretValueOrigin`): `awaiting` (no value yet), `spotlight` (a person set it, or Terraform handed it over) or `terraform` (`valueWoVersion` is set). |
 | Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |
+| Workspace directory | Every workspace of the deployment, not scoped to a viewer (`WorkspaceDirectoryPort`). |
 
 ## Releases
 

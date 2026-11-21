@@ -440,6 +440,13 @@
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         }
       },
       "indexes": {},
@@ -15325,6 +15332,20 @@
           "primaryKey": false,
           "notNull": false
         },
+        "platform": {
+          "name": "platform",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "disabled": {
+          "name": "disabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -15385,11 +15406,23 @@
       "checkConstraints": {
         "runner_pool_one_mode": {
           "name": "runner_pool_one_mode",
-          "value": "(\"runner_pool\".\"token_hash\" is null) <> (\"runner_pool\".\"provision_url\" is null) and (\"runner_pool\".\"provision_url\" is null) = (\"runner_pool\".\"provision_secret\" is null)"
+          "value": "case when \"runner_pool\".\"platform\" then \"runner_pool\".\"token_hash\" is null and \"runner_pool\".\"token_version\" is null and \"runner_pool\".\"provision_url\" is null and \"runner_pool\".\"provision_secret\" is null and \"runner_pool\".\"provision_secret_version\" is null else (\"runner_pool\".\"token_hash\" is null) <> (\"runner_pool\".\"provision_url\" is null) and (\"runner_pool\".\"provision_url\" is null) = (\"runner_pool\".\"provision_secret\" is null) end"
         },
         "runner_pool_egress_pushes": {
           "name": "runner_pool_egress_pushes",
-          "value": "\"runner_pool\".\"provision_egress\" is null or \"runner_pool\".\"provision_url\" is not null"
+          "value": "\"runner_pool\".\"provision_egress\" is null or \"runner_pool\".\"provision_url\" is not null or \"runner_pool\".\"platform\""
+        },
+        "runner_pool_platform_key": {
+          "name": "runner_pool_platform_key",
+          "value": "not \"runner_pool\".\"platform\" or \"runner_pool\".\"key\" = 'spotlight'"
+        },
+        "runner_pool_platform_unbounded": {
+          "name": "runner_pool_platform_unbounded",
+          "value": "not \"runner_pool\".\"platform\" or \"runner_pool\".\"max_runs\" is null"
+        },
+        "runner_pool_disabled_platform": {
+          "name": "runner_pool_disabled_platform",
+          "value": "not \"runner_pool\".\"disabled\" or \"runner_pool\".\"platform\""
         }
       },
       "isRLSEnabled": false

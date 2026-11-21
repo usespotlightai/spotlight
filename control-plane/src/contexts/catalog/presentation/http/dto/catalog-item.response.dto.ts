@@ -1,5 +1,4 @@
 import type { CatalogItemDto } from '@catalog/application/dto/catalog-item.dto';
-import { PLANS } from '@catalog/domain/value-objects/plan.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CatalogToolResponseDto {
@@ -25,13 +24,6 @@ export class CatalogToolResponseDto {
   })
   readonly constraint: string;
 
-  @ApiProperty({
-    example: 'team',
-    enum: PLANS,
-    description: 'The lowest plan that includes the item',
-  })
-  readonly plan: string;
-
   @ApiProperty({ example: 'Search the web, and answer with the pages…' })
   readonly description: string;
 
@@ -40,7 +32,6 @@ export class CatalogToolResponseDto {
     this.name = item.name;
     this.version = item.version;
     this.constraint = item.constraint;
-    this.plan = item.plan;
     this.description = item.description;
   }
 }

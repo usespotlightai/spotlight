@@ -28,6 +28,7 @@ import {
 } from '@shared-kernel/application/integration-events/pull-request-pushed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
 import type { TaskRunAssignedIntegrationEvent } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -84,7 +85,7 @@ describe('change review receiving a review comment on GitHub', () => {
   it('receives it in the workspace GitHub named', async () => {
     const { subscriber, receive } = receiving();
 
-    await subscriber.handle(RECEIVED);
+    await subscriber.handle(RECEIVED, anOutboxRecord());
 
     expect(receive).toHaveBeenCalledWith({
       workspaceId: WorkspaceId.of('ws_1'),
@@ -114,7 +115,7 @@ describe('change review receiving a review comment on GitHub', () => {
       writtenAt: null,
     };
 
-    await subscriber.handle(unwritten);
+    await subscriber.handle(unwritten, anOutboxRecord());
 
     expect(receive).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -166,7 +167,7 @@ describe('change review receiving a run begin and end', () => {
       runId: 'run_1',
     };
 
-    await receiving(handed.kind).handle(handed);
+    await receiving(handed.kind).handle(handed, anOutboxRecord());
 
     expect(began).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
   });
@@ -193,15 +194,15 @@ describe('change review receiving a run begin and end', () => {
       taskId: null,
     };
 
-    await subscriber.handle(ofTask);
-    await subscriber.handle(ofChat);
+    await subscriber.handle(ofTask, anOutboxRecord());
+    await subscriber.handle(ofChat, anOutboxRecord());
     const ofTurn: DispatchEndedIntegrationEvent = {
       ...ofTask,
       runId: 'run_3',
       driver: 'person',
     };
 
-    await subscriber.handle(ofTurn);
+    await subscriber.handle(ofTurn, anOutboxRecord());
 
     expect(ended).toHaveBeenCalledTimes(2);
     expect(ended).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
@@ -240,21 +241,21 @@ describe('change review receiving a run end', () => {
       asked: false,
     };
 
-    await subscriber?.handle(ofTask);
+    await subscriber?.handle(ofTask, anOutboxRecord());
     const ofChat: DispatchEndedIntegrationEvent = {
       ...ofTask,
       runId: 'run_2',
       taskId: null,
     };
 
-    await subscriber?.handle(ofChat);
+    await subscriber?.handle(ofChat, anOutboxRecord());
     const ofTurn: DispatchEndedIntegrationEvent = {
       ...ofTask,
       runId: 'run_3',
       driver: 'person',
     };
 
-    await subscriber?.handle(ofTurn);
+    await subscriber?.handle(ofTurn, anOutboxRecord());
 
     expect(subscriber?.kinds).toEqual(['work.dispatch-ended.v1']);
     expect(runEnded).toHaveBeenCalledTimes(2);
@@ -301,7 +302,7 @@ describe('change review receiving a pull request close', () => {
       closedAt: '2026-09-21T09:30:00.000Z',
     };
 
-    await subscriber?.handle(merged);
+    await subscriber?.handle(merged, anOutboxRecord());
 
     expect(closed).toHaveBeenCalledWith({
       workspaceId: WorkspaceId.of('ws_1'),
@@ -354,6 +355,7 @@ describe('change review receiving a stack’s check end', () => {
         false,
         new Date('2026-10-02T09:30:00.000Z'),
       ),
+      anOutboxRecord(),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
@@ -367,6 +369,7 @@ describe('change review receiving a stack’s check end', () => {
         StackCheckId.first(ChangeStackId.of('stack_1')),
         RunId.of('run_1'),
       ),
+      anOutboxRecord(),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
@@ -402,6 +405,7 @@ describe('change review receiving that a check was deleted while a runner leased
       new LeasedStackCheckDeleted(
         StackCheckId.first(ChangeStackId.of('stack_1')),
       ),
+      anOutboxRecord(),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
@@ -444,6 +448,7 @@ describe('change review receiving a check drop the runner reserved for it', () =
         StackCheckId.first(ChangeStackId.of('stack_1')),
         RunnerId.of('pooled_1'),
       ),
+      anOutboxRecord(),
     );
 
     expect(reservationDropped).toHaveBeenCalledWith(RunnerId.of('pooled_1'));
@@ -501,7 +506,7 @@ describe('change review receiving a push to a pull request', () => {
       pushedAt: '2026-09-16T09:00:00.000Z',
     };
 
-    await subscriber.handle(event);
+    await subscriber.handle(event, anOutboxRecord());
 
     expect(subscriber.callsOut).toBe(true);
     expect(pushed).toHaveBeenCalledWith({
@@ -520,7 +525,10 @@ describe('change review receiving a push to a pull request', () => {
       'change-review.supersede-earlier-pushes',
     );
 
-    await subscriber.handle(new PushDiffRecorded(PushDiffId.of('diff_1')));
+    await subscriber.handle(
+      new PushDiffRecorded(PushDiffId.of('diff_1')),
+      anOutboxRecord(),
+    );
 
     expect(subscriber.kinds).toEqual(['push-diff.recorded']);
     expect(subscriber.callsOut).toBe(true);
@@ -532,7 +540,10 @@ describe('change review receiving a push to a pull request', () => {
       'change-review.release-runner-of-push-diff',
     );
 
-    await subscriber.handle(new PushDiffLeaseReleased(PushDiffId.of('diff_1')));
+    await subscriber.handle(
+      new PushDiffLeaseReleased(PushDiffId.of('diff_1')),
+      anOutboxRecord(),
+    );
 
     expect(diffReleased).toHaveBeenCalledWith(PushDiffId.of('diff_1'));
   });
@@ -547,6 +558,7 @@ describe('change review receiving a push to a pull request', () => {
         PushDiffId.of('diff_1'),
         RunnerId.of('pooled_1'),
       ),
+      anOutboxRecord(),
     );
 
     expect(reservationDropped).toHaveBeenCalledWith(RunnerId.of('pooled_1'));
@@ -626,11 +638,14 @@ describe('change review removing what a deleted task or team owned', () => {
     );
 
     expect(subscriber?.kinds).toEqual(['work.task-deleted.v1']);
-    await subscriber?.handle({
-      kind: 'work.task-deleted.v1',
-      workspaceId: 'ws_1',
-      taskId: 'task_1',
-    } as never);
+    await subscriber?.handle(
+      {
+        kind: 'work.task-deleted.v1',
+        workspaceId: 'ws_1',
+        taskId: 'task_1',
+      } as never,
+      anOutboxRecord(),
+    );
 
     expect(removePushDiffs).toHaveBeenCalledWith(TaskId.of('task_1'));
   });
@@ -641,12 +656,15 @@ describe('change review removing what a deleted task or team owned', () => {
         each.name === 'change-review.remove-change-stacks-of-deleted-team',
     );
 
-    await subscriber?.handle({
-      kind: 'identity.team-deleted.v1',
-      workspaceId: 'ws_1',
-      teamId: 'team_1',
-      key: 'core',
-    } as never);
+    await subscriber?.handle(
+      {
+        kind: 'identity.team-deleted.v1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        key: 'core',
+      } as never,
+      anOutboxRecord(),
+    );
 
     expect(removeStacks).toHaveBeenCalledWith(TeamId.of('team_1'));
   });

@@ -3,6 +3,7 @@ import type { DeleteTeamSkills } from '@configuration/application/services/delet
 import type { DeleteWorkspaceStates } from '@configuration/application/services/delete-workspace-states.service';
 import type { PruneStateBodies } from '@configuration/application/services/prune-state-bodies.service';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
+import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,12 +20,15 @@ describe('configuration learning that a team is deleted', () => {
       (each) => each.name === 'configuration.delete-skills-of-deleted-team',
     );
 
-    await subscriber?.handle({
-      kind: 'identity.team-deleted.v1',
-      workspaceId: 'ws_1',
-      teamId: 'team_1',
-      key: 'core',
-    } as never);
+    await subscriber?.handle(
+      {
+        kind: 'identity.team-deleted.v1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        key: 'core',
+      } as never,
+      anOutboxRecord(),
+    );
 
     expect(deleting.deleteForTeam).toHaveBeenCalledWith(
       TeamId.of('team_1'),
@@ -47,11 +51,14 @@ describe('configuration learning that a workspace is deleted', () => {
         'configuration.delete-terraform-states-of-deleted-workspace',
     );
 
-    await subscriber?.handle({
-      kind: 'identity.workspace-deleted.v1',
-      workspaceId: 'ws_1',
-      slug: 'acme',
-    } as never);
+    await subscriber?.handle(
+      {
+        kind: 'identity.workspace-deleted.v1',
+        workspaceId: 'ws_1',
+        slug: 'acme',
+      } as never,
+      anOutboxRecord(),
+    );
 
     expect(deleting.deleteForWorkspace).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),

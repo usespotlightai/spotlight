@@ -239,7 +239,7 @@ const approvalRequested = async (task: Task, runId: RunId) => {
 const awaitingProvision = async () =>
   ClaimOrder.provisionable(
     await runs.awaitingProvision(team.workspaceId, new Date(), {
-      skip: 0,
+      after: null,
       max: 1_000,
       withSecrets: false,
       avoiding: [],

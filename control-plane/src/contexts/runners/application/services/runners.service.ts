@@ -1,9 +1,11 @@
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
+import type { PlatformPoolSettings } from '@runners/application/ports/platform-pool-settings.port';
 import type {
   ProvisionAnswer,
   ProvisionCallsPort,
   ProvisionEgress,
   ProvisionedWork,
+  ProvisionerOwner,
 } from '@runners/application/ports/provision-calls.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
@@ -35,8 +37,11 @@ import type { EgressReference } from '@runners/domain/value-objects/egress-refer
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
-import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
-import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
+import type {
+  PoolMode,
+  PushAccess,
+} from '@runners/domain/value-objects/pool-access.vo';
+import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -51,6 +56,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
+import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 type Began<Through> =
@@ -73,6 +79,15 @@ type ResolvedEgress =
   | { readonly outcome: 'found'; readonly url: EgressUrl | null }
   | Unusable;
 
+interface Provisioner {
+  readonly owner: ProvisionerOwner;
+  readonly url: ProvisionUrl;
+}
+
+type ResolvedSecret =
+  | { readonly outcome: 'found'; readonly secret: SigningSecret }
+  | Unusable;
+
 const NO_EGRESS_NAMED: ProvisionedRunner = {
   outcome: 'failed',
   kind: 'unusable',
@@ -83,6 +98,7 @@ const NO_EGRESS_NAMED: ProvisionedRunner = {
 export interface RunnersSettings {
   readonly insecureAllowed: boolean;
   readonly platformEgress: PlatformEgressSettings | null;
+  readonly platformPool: PlatformPoolSettings | null;
 }
 
 const provisionedWork = (work: WorkToProvision): ProvisionedWork => {
@@ -327,23 +343,16 @@ export class Runners implements RunnersPort {
     credential: NewToken | null,
     at: Date,
   ): Promise<Answered> {
-    const access = pool.provision;
+    const provisioner = this.provisionerOf(pool);
 
-    if (!access) {
-      throw new InconsistentStateError(
-        'runner pool',
-        'was started for provisioning while it is pulled from',
-      );
-    }
-
-    if (!allowsUrl(access.url, this.settings.insecureAllowed)) {
+    if (!allowsUrl(provisioner.url, this.settings.insecureAllowed)) {
       return {
         outcome: 'not-allowed',
         detail: 'Provision URL must be https. Its calls carry a one-run token.',
       };
     }
 
-    const resolved = await this.resolveEgress(pool, access.egress);
+    const resolved = await this.resolveEgress(pool, pool.egress);
 
     if (resolved.outcome !== 'found') {
       return resolved;
@@ -376,25 +385,16 @@ export class Runners implements RunnersPort {
       );
     }
 
-    let secret: ProvisionSecret;
+    const secret = await this.secretOf(pool);
 
-    try {
-      secret = await this.secrets.decrypt(pool, access.secret);
-    } catch (error) {
-      if (error instanceof ProvisionSecretDecryptionFailedError) {
-        return {
-          outcome: 'unusable',
-          detail:
-            'Cannot decrypt the provision secret with the keys of this deployment.',
-        };
-      }
-
-      throw error;
+    if (secret.outcome !== 'found') {
+      return secret;
     }
 
     return this.calls.call({
-      url: access.url,
-      secret,
+      owner: provisioner.owner,
+      url: provisioner.url,
+      secret: secret.secret,
       messageId: request.runnerId.value,
       at,
       pool: pool.key.value,
@@ -408,6 +408,66 @@ export class Runners implements RunnersPort {
       claimBy: request.claimBy,
       egress,
     });
+  }
+
+  private provisionerOf(pool: RunnerPool): Provisioner {
+    if (pool.isPlatform) {
+      return { owner: 'deployment', url: this.platformPool().url };
+    }
+
+    return { owner: 'workspace', url: this.pushAccessOf(pool).url };
+  }
+
+  private async secretOf(pool: RunnerPool): Promise<ResolvedSecret> {
+    if (pool.isPlatform) {
+      return { outcome: 'found', secret: this.platformPool().secret };
+    }
+
+    try {
+      return {
+        outcome: 'found',
+        secret: await this.secrets.decrypt(
+          pool,
+          this.pushAccessOf(pool).secret,
+        ),
+      };
+    } catch (error) {
+      if (error instanceof ProvisionSecretDecryptionFailedError) {
+        return {
+          outcome: 'unusable',
+          detail:
+            'Cannot decrypt the provision secret with the keys of this deployment.',
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  private platformPool(): PlatformPoolSettings {
+    const platform = this.settings.platformPool;
+
+    if (!platform) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was started as the platform pool while the deployment sets no platform provisioner',
+      );
+    }
+
+    return platform;
+  }
+
+  private pushAccessOf(pool: RunnerPool): PushAccess {
+    const access = pool.provision;
+
+    if (!access) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was started for provisioning while it is pulled from',
+      );
+    }
+
+    return access;
   }
 
   private async resolveEgress(
@@ -495,7 +555,11 @@ export class Runners implements RunnersPort {
     return this.transaction.inTransaction(async () => {
       const pool = await this.pools.findForStart(id);
 
-      if (!pool) {
+      if (
+        !pool ||
+        (mode === 'push' &&
+          !pool.canProvision(this.settings.platformPool !== null))
+      ) {
         return { outcome: 'gone' };
       }
 

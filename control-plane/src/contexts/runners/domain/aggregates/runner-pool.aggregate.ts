@@ -8,13 +8,15 @@ import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
+  modeOf,
+  PlatformAccess,
   type PoolAccess,
   type PoolMode,
   PullAccess,
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
 import type { PoolCapacity } from '@runners/domain/value-objects/pool-capacity';
-import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
@@ -50,6 +52,12 @@ export type AccessInput =
       readonly egressTraffic?: EgressTraffic;
     };
 
+// What the deployment sets for the platform pool of every workspace.
+export interface PlatformPoolDefinition {
+  readonly labels: RunnerLabels;
+  readonly egress: EgressReference | null;
+}
+
 const SECRET_FIELD = 'provision.secret';
 
 const sameEgress = (
@@ -80,6 +88,13 @@ export class RunnerPool extends EventRecorder {
       by: ChangeActor;
     },
   ): RunnerPool {
+    if (input.key.equals(PoolKey.platform())) {
+      throw new InvalidRunnerPoolError(
+        'key',
+        `is ${input.key.value}, the key of the platform pool that Spotlight adds to each workspace. Please give the pool another key`,
+      );
+    }
+
     const access = RunnerPool.firstAccess(input.access);
     const created = new RunnerPool(
       input.id,
@@ -88,6 +103,40 @@ export class RunnerPool extends EventRecorder {
       input.labels,
       input.maxRuns,
       access,
+      0,
+      false,
+    );
+
+    created.record(
+      new RunnerPoolCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
+        ConfigurationChange.created(
+          created.whatChanged,
+          input.by,
+          RunnerPoolChangeDetail.created(created.mode),
+        ),
+      ),
+    );
+
+    return created;
+  }
+
+  static createPlatform(
+    input: PlatformPoolDefinition & {
+      id: PoolId;
+      workspaceId: WorkspaceId;
+      by: ChangeActor;
+    },
+  ): RunnerPool {
+    const created = new RunnerPool(
+      input.id,
+      input.workspaceId,
+      PoolKey.platform(),
+      input.labels,
+      null,
+      PlatformAccess.of(input.egress),
       0,
       false,
     );
@@ -120,6 +169,18 @@ export class RunnerPool extends EventRecorder {
       throw new InconsistentStateError(
         'runner pool',
         `has an impossible version (${input.version})`,
+      );
+    }
+
+    const platform = input.access.kind === 'platform';
+
+    if (
+      platform &&
+      (!input.key.equals(PoolKey.platform()) || input.maxRuns !== null)
+    ) {
+      throw new InconsistentStateError(
+        'runner pool',
+        `is a platform pool with key ${input.key.value} and run limit ${input.maxRuns?.value ?? 'none'}. A platform pool has key ${PoolKey.platform().value} and no run limit`,
       );
     }
 
@@ -167,15 +228,33 @@ export class RunnerPool extends EventRecorder {
   }
 
   get mode(): PoolMode {
-    return this.access.mode;
+    return modeOf(this.access);
+  }
+
+  get isDisabled(): boolean {
+    return this.access.kind === 'platform' && this.access.disabled;
   }
 
   get tokenHash(): TokenHash | null {
-    return this.access.mode === 'pull' ? this.access.tokenHash : null;
+    return this.access.kind === 'pull' ? this.access.tokenHash : null;
   }
 
   get provision(): PushAccess | null {
-    return this.access.mode === 'push' ? this.access : null;
+    return this.access.kind === 'push' ? this.access : null;
+  }
+
+  get isPlatform(): boolean {
+    return this.access.kind === 'platform';
+  }
+
+  // The deployment gives the provisioner of the platform pool. With no provisioner set, the platform pool provisions nothing.
+  canProvision(platformPoolSet: boolean): boolean {
+    return (
+      !this.isDeleted &&
+      this.mode === 'push' &&
+      !this.isDisabled &&
+      (platformPoolSet || !this.isPlatform)
+    );
   }
 
   belongsTo(workspaceId: WorkspaceId): boolean {
@@ -187,11 +266,13 @@ export class RunnerPool extends EventRecorder {
   }
 
   get egress(): EgressReference | null {
-    return this.provision?.egress ?? null;
+    return this.access.kind === 'pull' ? null : this.access.egress;
   }
 
   get egressTraffic(): EgressTraffic {
-    return this.provision?.egressTraffic ?? EgressTraffic.all();
+    return this.access.kind === 'pull'
+      ? EgressTraffic.all()
+      : this.access.egressTraffic;
   }
 
   servesEgressNeed(needsEgress: boolean): boolean {
@@ -199,11 +280,15 @@ export class RunnerPool extends EventRecorder {
   }
 
   usesEgress(egress: EgressReference): boolean {
-    return !this.isDeleted && (this.provision?.usesEgress(egress) ?? false);
+    return (
+      !this.isDeleted &&
+      this.access.kind !== 'pull' &&
+      this.access.usesEgress(egress)
+    );
   }
 
   roomFor(occupancy: PoolOccupancy): number | null {
-    if (this.isDeleted) {
+    if (this.isDeleted || this.isDisabled) {
       return 0;
     }
 
@@ -211,7 +296,7 @@ export class RunnerPool extends EventRecorder {
   }
 
   capacity(mode: PoolMode, occupancy: PoolOccupancy): PoolCapacity {
-    if (this.isDeleted || mode !== this.mode) {
+    if (this.isDeleted || this.isDisabled || mode !== this.mode) {
       return 'gone';
     }
 
@@ -230,6 +315,7 @@ export class RunnerPool extends EventRecorder {
     by: ChangeActor,
   ): RunnerPool {
     this.assertNotDeleted();
+    this.assertNotPlatform();
 
     if (!definition.key.equals(this.key)) {
       const because = `can't change its key to ${definition.key.value}. Please replace the pool instead`;
@@ -253,8 +339,8 @@ export class RunnerPool extends EventRecorder {
 
     const access = this.nextAccess(accessInput);
     const tokenRotated =
-      access.mode === 'pull' &&
-      this.access.mode === 'pull' &&
+      access.kind === 'pull' &&
+      this.access.kind === 'pull' &&
       !access.tokenHash.equals(this.access.tokenHash);
     const updated = this.with({
       labels: definition.labels,
@@ -285,8 +371,43 @@ export class RunnerPool extends EventRecorder {
     return updated;
   }
 
+  // Gives the platform pool the labels and egress that the deployment sets now.
+  reconcile(definition: PlatformPoolDefinition, by: ChangeActor): RunnerPool {
+    const access = this.assertPlatform();
+    const egressChanged = !sameEgress(access.egress, definition.egress);
+
+    if (definition.labels.equals(this.labels) && !egressChanged) {
+      return this;
+    }
+
+    return this.updatePlatform(
+      {
+        labels: definition.labels,
+        access: PlatformAccess.of(definition.egress, access.disabled),
+      },
+      by,
+      { egressChanged },
+    );
+  }
+
+  disable(by: ChangeActor): RunnerPool {
+    return this.setDisabled(true, by);
+  }
+
+  enable(by: ChangeActor): RunnerPool {
+    return this.setDisabled(false, by);
+  }
+
+  // Only Spotlight deletes the platform pool: when its workspace is deleted, or when the deployment sets no platform provisioner.
   delete(by: ChangeActor): RunnerPool {
     this.assertNotDeleted();
+
+    if (this.isPlatform && by.actor !== null) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'is the platform pool, which only Spotlight deletes',
+      );
+    }
 
     const deleted = this.with({ deleted: true });
 
@@ -302,8 +423,60 @@ export class RunnerPool extends EventRecorder {
     return deleted;
   }
 
+  private setDisabled(disabled: boolean, by: ChangeActor): RunnerPool {
+    const access = this.assertPlatform();
+
+    if (access.disabled === disabled) {
+      return this;
+    }
+
+    return this.updatePlatform({ access: access.withDisabled(disabled) }, by, {
+      disabled,
+    });
+  }
+
+  private updatePlatform(
+    part: { labels?: RunnerLabels; access: PlatformAccess },
+    by: ChangeActor,
+    moved: { egressChanged?: boolean; disabled?: boolean },
+  ): RunnerPool {
+    const updated = this.with(part);
+
+    updated.record(
+      new RunnerPoolUpdated(
+        this.id,
+        this.workspaceId,
+        this.key,
+        ConfigurationChange.updated(
+          this.whatChanged,
+          by,
+          RunnerPoolChangeDetail.updated(this.mode, {
+            tokenRotated: false,
+            secretRotated: false,
+            ...moved,
+          }),
+        ),
+      ),
+    );
+
+    return updated;
+  }
+
+  private assertPlatform(): PlatformAccess {
+    this.assertNotDeleted();
+
+    if (this.access.kind !== 'platform') {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was changed as the platform pool while its workspace owns it',
+      );
+    }
+
+    return this.access;
+  }
+
   private nextAccess(accessInput: AccessInput): PoolAccess {
-    if (accessInput.mode === 'pull' && this.access.mode === 'pull') {
+    if (accessInput.mode === 'pull' && this.access.kind === 'pull') {
       if (
         !accessInput.tokenHash &&
         this.access.rotatesOn(RotationVersion.of(accessInput.tokenVersion))
@@ -320,7 +493,7 @@ export class RunnerPool extends EventRecorder {
       );
     }
 
-    if (accessInput.mode === 'push' && this.access.mode === 'push') {
+    if (accessInput.mode === 'push' && this.access.kind === 'push') {
       if (
         !accessInput.secret &&
         this.access.rotatesOn(RotationVersion.of(accessInput.secretVersion))
@@ -352,6 +525,15 @@ export class RunnerPool extends EventRecorder {
       id: this.id.value,
       key: this.key.value,
     };
+  }
+
+  private assertNotPlatform(): void {
+    if (this.isPlatform) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'was changed as a workspace pool while it is the platform pool',
+      );
+    }
   }
 
   private assertNotDeleted(): void {

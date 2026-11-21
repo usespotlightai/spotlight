@@ -18,7 +18,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 type Row = typeof runnerTrust.$inferSelect;
 
@@ -113,6 +113,26 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
       .select()
       .from(runnerTrust)
       .where(eq(runnerTrust.workspaceId, workspaceId.value));
+
+    return rows.map(toTrust);
+  }
+
+  async inWorkspaces(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly RunnerTrust[]> {
+    if (workspaceIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(runnerTrust)
+      .where(
+        inArray(
+          runnerTrust.workspaceId,
+          workspaceIds.map((each) => each.value),
+        ),
+      );
 
     return rows.map(toTrust);
   }

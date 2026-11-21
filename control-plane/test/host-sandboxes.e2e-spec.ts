@@ -73,7 +73,10 @@ const runner = (over: Partial<typeof schema.runner.$inferInsert>) => ({
 beforeAll(async () => {
   database = await openDatabase('host_sandboxes');
   db = database.db;
-  reader = new DrizzleRunnerReader(db, { now: () => NOW } as never, false);
+  reader = new DrizzleRunnerReader(db, { now: () => NOW } as never, {
+    platformEgressSet: false,
+    platformPoolSet: false,
+  });
   runners = new DrizzleRunnerRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });

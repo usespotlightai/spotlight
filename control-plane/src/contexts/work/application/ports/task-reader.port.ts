@@ -1,6 +1,7 @@
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { Progress } from '@work/domain/value-objects/progress';
 

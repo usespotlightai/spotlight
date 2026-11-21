@@ -11,6 +11,7 @@ import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
+import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
@@ -221,15 +222,28 @@ describe('the inbox item of a setup list', () => {
 });
 
 describe('whether a workspace is ready to run', () => {
-  const runners = () =>
+  const runners = (platformPool = false) =>
     new DrizzleRunnerReader(
       db,
       {
         now: () => NOW,
         sleep: async () => {},
       },
-      true,
+      { platformEgressSet: true, platformPoolSet: platformPool },
     );
+
+  const platformPooled = (
+    workspaceId: WorkspaceId,
+    over: { disabled?: boolean; egress?: string | null } = {},
+  ) =>
+    db.insert(schema.runnerPool).values({
+      id: randomUUID(),
+      workspaceId: workspaceId.value,
+      key: 'spotlight',
+      platform: true,
+      disabled: over.disabled ?? false,
+      provisionEgress: over.egress ?? null,
+    });
 
   const pooled = async (workspaceId: WorkspaceId, mode: 'pull' | 'push') => {
     const id = randomUUID();
@@ -350,6 +364,63 @@ describe('whether a workspace is ready to run', () => {
     });
 
     await expect(runners().readyToRun(workspace)).resolves.toBe(false);
+  });
+
+  it('is ready with the platform pool while the deployment sets its provisioner, and goes out through its egress', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    await platformPooled(workspace, { egress: 'spotlight' });
+
+    await expect(runners(true).readyToRun(workspace)).resolves.toBe(true);
+    await expect(runners(true).hasEgressCapableRunner(workspace)).resolves.toBe(
+      true,
+    );
+  });
+
+  it('is not ready with only the platform pool while the deployment sets no provisioner for it, or once it is disabled', async () => {
+    const unset = WorkspaceId.of(randomUUID());
+    const disabled = WorkspaceId.of(randomUUID());
+
+    await platformPooled(unset, { egress: 'spotlight' });
+    await platformPooled(disabled, { disabled: true, egress: 'spotlight' });
+
+    await expect(runners(false).readyToRun(unset)).resolves.toBe(false);
+    await expect(runners(false).hasEgressCapableRunner(unset)).resolves.toBe(
+      false,
+    );
+    await expect(runners(true).readyToRun(disabled)).resolves.toBe(false);
+  });
+
+  it('counts a pool as RunnerPool.canProvision does, for each kind of pool, with and without the platform provisioner', async () => {
+    const pools = new DrizzleRunnerPoolRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
+    });
+    const kinds: Record<string, (workspace: WorkspaceId) => Promise<unknown>> =
+      {
+        push: (workspace) => pooled(workspace, 'push'),
+        pull: (workspace) => pooled(workspace, 'pull'),
+        platform: (workspace) => platformPooled(workspace),
+        'disabled platform': (workspace) =>
+          platformPooled(workspace, { disabled: true }),
+      };
+
+    for (const [kind, add] of Object.entries(kinds)) {
+      for (const platformPool of [true, false]) {
+        const workspace = WorkspaceId.of(randomUUID());
+        await add(workspace);
+        const [pool] = await pools.inWorkspace(workspace);
+
+        expect({
+          kind,
+          platformPool,
+          ready: await runners(platformPool).readyToRun(workspace),
+        }).toEqual({
+          kind,
+          platformPool,
+          ready: pool?.canProvision(platformPool),
+        });
+      }
+    }
   });
 
   it('does not count a host or push pool in another workspace', async () => {

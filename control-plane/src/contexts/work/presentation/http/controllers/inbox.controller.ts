@@ -27,6 +27,7 @@ import {
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
 import {
   MarkChatReadCommand,
@@ -47,7 +48,6 @@ import type {
   InboxItemViewDto,
   InboxNoticeDto,
 } from '@work/application/dto/inbox.dto';
-import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type {
   JournalledRunDto,
   RunJournalDto,

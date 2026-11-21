@@ -1,5 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { LONGEST_PAGE, PAGE_LIMIT } from '@work/application/dto/page.dto';
+import {
+  LONGEST_PAGE,
+  PAGE_LIMIT,
+} from '@shared-kernel/application/dto/page.dto';
 import { pageRequestOf } from '@work/presentation/http/paging';
 import { describe, expect, it } from 'vitest';
 

@@ -28,7 +28,7 @@ import {
   UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
-import { and, asc, eq, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, lte, or } from 'drizzle-orm';
 
 const isHeadWaiting = (error: unknown): boolean =>
   violates(error, UNIQUE_VIOLATION, 'push_diff_waiting_head_idx');
@@ -181,6 +181,24 @@ export class DrizzlePushDiffRepository implements PushDiffRepository {
       .orderBy(asc(pushDiff.recordedAt));
 
     return rows.map(toPushDiff);
+  }
+
+  async workspacesWaiting(now: Date): Promise<readonly WorkspaceId[]> {
+    const rows = await this.context.db
+      .selectDistinct({ workspaceId: pushDiff.workspaceId })
+      .from(pushDiff)
+      .where(
+        and(
+          eq(pushDiff.status, 'waiting'),
+          isNull(pushDiff.reservedFor),
+          or(
+            isNull(pushDiff.nextProvisionAttemptAt),
+            lte(pushDiff.nextProvisionAttemptAt, now),
+          ),
+        ),
+      );
+
+    return rows.map((row) => WorkspaceId.of(row.workspaceId));
   }
 
   async reserved(): Promise<readonly PushDiff[]> {
