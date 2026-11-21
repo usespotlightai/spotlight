@@ -2,22 +2,30 @@ name: Project status
 
 # When a release is published, every issue that a pull request in the release
 # closed moves to Released on the Spotlight project. Pull requests are
-# squash-merged, so each commit subject ends in "(#<number>)".
+# squash-merged, so each commit subject ends in "(#<number>)". The
+# infrastructure repository publishes the draft with an app token, which starts
+# this workflow. Run it by hand with a tag to repeat a release.
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, such as v0.2.0
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   released:
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && startsWith(github.event.release.tag_name, 'v'))
     runs-on: ubuntu-latest
     env:
       PROJECT_OWNER: usespotlightai
       PROJECT_NUMBER: ${{ vars.SPOTLIGHT_PROJECT_NUMBER }}
-      TAG: ${{ github.event.release.tag_name }}
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          previous=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | head -n1 || true)
+          previous=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null || true)
           range=${previous:+$previous..}$TAG
           pulls=$(git log --format=%s "$range" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p' | sort -un)
 
@@ -44,8 +52,9 @@ jobs:
           field_id=$(jq -r '.fields[] | select(.name == "Status") | .id' <<<"$fields")
           option_id=$(jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "Released") | .id' <<<"$fields")
 
+          failed=0
           for pull in $pulls; do
-            items=$(gh api graphql -F owner="${GITHUB_REPOSITORY%/*}" -F repo="${GITHUB_REPOSITORY#*/}" -F pull="$pull" -f query='
+            if ! items=$(gh api graphql -F owner="${GITHUB_REPOSITORY%/*}" -F repo="${GITHUB_REPOSITORY#*/}" -F pull="$pull" -f query='
               query($owner: String!, $repo: String!, $pull: Int!) {
                 repository(owner: $owner, name: $repo) {
                   pullRequest(number: $pull) {
@@ -54,9 +63,18 @@ jobs:
                     }
                   }
                 }
-              }' --jq ".data.repository.pullRequest.closingIssuesReferences.nodes[].projectItems.nodes[] | select(.project.id == \"$project_id\") | .id")
+              }' --jq ".data.repository.pullRequest.closingIssuesReferences.nodes[]?.projectItems.nodes[]? | select(.project.id == \"$project_id\") | .id"); then
+              echo "::warning::#$pull: could not read the closed issues"
+              failed=$((failed + 1))
+              continue
+            fi
             for item in $items; do
-              gh project item-edit --id "$item" --project-id "$project_id" --field-id "$field_id" --single-select-option-id "$option_id" >/dev/null
-              echo "#$pull: moved $item to Released"
+              if gh project item-edit --id "$item" --project-id "$project_id" --field-id "$field_id" --single-select-option-id "$option_id" >/dev/null; then
+                echo "#$pull: moved $item to Released"
+              else
+                echo "::warning::#$pull: could not move $item"
+                failed=$((failed + 1))
+              fi
             done
           done
+          [ "$failed" -eq 0 ] || { echo "::error::$failed updates failed"; exit 1; }
