@@ -81,7 +81,7 @@ export class WorkspacePlan extends EventRecorder {
     );
   }
 
-  // Deleted for the free plan, and null when the term does not change.
+  // Deleted for the free plan, and null when the term does not change. It refuses an expired term, also the term it has.
   set(term: PlanTerm, by: ChangeActor, now: Date): WorkspacePlan | null {
     this.assertNotDeleted();
 
@@ -89,11 +89,11 @@ export class WorkspacePlan extends EventRecorder {
       return this.delete(by);
     }
 
+    assertNotExpired(term, now);
+
     if (term.equals(this.term)) {
       return null;
     }
-
-    assertNotExpired(term, now);
 
     const updated = this.with(term, false);
 

@@ -3,9 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { WorkspacePlan } from '@catalog/domain/aggregates/workspace-plan.aggregate';
 import { WorkspacePlanAlreadyExistsError } from '@catalog/domain/exceptions/workspace-plan-already-exists.error';
 import { WorkspacePlanVersionConflictError } from '@catalog/domain/exceptions/workspace-plan-version-conflict.error';
+import {
+  WORKSPACE_PLANS,
+  type WorkspacePlanRepository,
+} from '@catalog/domain/repositories/workspace-plan.repository';
 import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
-import { DrizzleWorkspacePlanRepository } from '@catalog/infrastructure/persistence/drizzle/repositories/workspace-plan.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -196,9 +199,9 @@ describe('admin API (e2e)', () => {
     expect(second.next).toBeNull();
   });
 
-  it('lists only the workspaces created after a time', async () => {
+  it('lists only the workspaces created at or after a time', async () => {
     const answer = await admin()
-      .get(`/api/admin/workspaces?createdAfter=${at(1).toISOString()}`)
+      .get(`/api/admin/workspaces?since=${at(2).toISOString()}`)
       .expect(200);
 
     expect((answer.body as AdminPage).items.map((each) => each.slug)).toEqual([
@@ -210,7 +213,7 @@ describe('admin API (e2e)', () => {
   it('refuses a cursor it did not give, a bad limit and a bad time', async () => {
     await admin().get('/api/admin/workspaces?after=nonsense').expect(422);
     await admin().get('/api/admin/workspaces?limit=0').expect(400);
-    await admin().get('/api/admin/workspaces?createdAfter=soon').expect(400);
+    await admin().get('/api/admin/workspaces?since=soon').expect(400);
   });
 
   it('reads one workspace, and finds none for an id that names none', async () => {
@@ -372,7 +375,7 @@ describe('admin API (e2e)', () => {
   });
 
   it('refuses a second plan created at the same time, and a change to a plan that changed since it was read', async () => {
-    const plans = app.get(DrizzleWorkspacePlanRepository);
+    const plans = app.get<WorkspacePlanRepository>(WORKSPACE_PLANS);
     const workspaceId = WorkspaceId.of(acme.id);
     const by = ChangeActor.spotlight(workspaceId);
     const now = new Date();

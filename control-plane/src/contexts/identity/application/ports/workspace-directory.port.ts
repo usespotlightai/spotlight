@@ -14,7 +14,8 @@ export interface DirectoryWorkspace {
 export interface DirectoryPageRequest {
   readonly after: string | null;
   readonly limit: number;
-  readonly createdAfter: Date | null;
+  // Only the workspaces created at or after this time.
+  readonly since: Date | null;
 }
 
 // Not viewer-scoped. Use it only for callers with the admin token.

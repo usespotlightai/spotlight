@@ -29,6 +29,10 @@ import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-ca
 import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
 import { DeleteWorkspacePlanOfDeletedWorkspace } from '@catalog/application/services/delete-workspace-plan-of-deleted-workspace.service';
+import {
+  WORKSPACE_PLANS,
+  type WorkspacePlanRepository,
+} from '@catalog/domain/repositories/workspace-plan.repository';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { CATALOG_PAYLOAD_TYPES } from '@catalog/infrastructure/events/catalog-payload-types';
@@ -66,12 +70,12 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   { provide: PLAN_TERMS, useClass: DrizzlePlanTerms },
 
-  DrizzleWorkspacePlanRepository,
+  { provide: WORKSPACE_PLANS, useClass: DrizzleWorkspacePlanRepository },
 
   {
     provide: DeleteWorkspacePlanOfDeletedWorkspace,
-    inject: [DrizzleWorkspacePlanRepository],
-    useFactory: (plans: DrizzleWorkspacePlanRepository) =>
+    inject: [WORKSPACE_PLANS],
+    useFactory: (plans: WorkspacePlanRepository) =>
       new DeleteWorkspacePlanOfDeletedWorkspace(plans),
   },
 
@@ -168,13 +172,13 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(SetWorkspacePlanCommand, SetWorkspacePlanHandler, [
     WORKSPACE_READER,
-    DrizzleWorkspacePlanRepository,
+    WORKSPACE_PLANS,
     CLOCK,
   ]),
 
   ...bindCommandHandler(
     DeleteWorkspacePlanCommand,
     DeleteWorkspacePlanHandler,
-    [WORKSPACE_READER, DrizzleWorkspacePlanRepository],
+    [WORKSPACE_READER, WORKSPACE_PLANS],
   ),
 ];

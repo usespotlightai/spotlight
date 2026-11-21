@@ -121,10 +121,13 @@ describe('WorkspacePlan', () => {
       ).toThrow(ExpiredPlanTermError);
     });
 
-    it('keeps a stored plan that has expired until it is set again', () => {
+    it('refuses its own expired term set again, and deletes it', () => {
       const expired = PlanTerm.of(Plan.team, new Date('2026-01-01T00:00:00Z'));
 
-      expect(stored(expired).set(expired, BY, NOW)).toBeNull();
+      expect(() => stored(expired).set(expired, BY, NOW)).toThrow(
+        ExpiredPlanTermError,
+      );
+      expect(stored(expired).set(PlanTerm.free, BY, NOW)?.isDeleted).toBe(true);
       expect(stored(expired).delete(BY).isDeleted).toBe(true);
     });
   });

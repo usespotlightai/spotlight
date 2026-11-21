@@ -73,7 +73,7 @@ describe('ListWorkspaceSummariesHandler', () => {
     expect(listed.list).toHaveBeenCalledWith({
       after: 'cursor_1',
       limit: 2,
-      createdAfter: created,
+      since: created,
     });
   });
 });

@@ -12313,9 +12313,9 @@ export type ListWorkspaceSummariesData = {
   path?: never;
   query?: {
     /**
-     * Only the workspaces created after this time
+     * Only the workspaces created at or after this time, as an ISO 8601 time
      */
-    createdAfter?: string;
+    since?: string;
     /**
      * At most this many, 50 by default, up to 200
      */
@@ -12330,7 +12330,7 @@ export type ListWorkspaceSummariesData = {
 
 export type ListWorkspaceSummariesErrors = {
   /**
-   * A page limit that is not a whole number above 0, or a createdAfter that is not a time
+   * A page limit that is not a whole number above 0, or a since that is not an ISO 8601 time
    */
   400: unknown;
   /**
