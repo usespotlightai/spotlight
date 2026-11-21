@@ -75,7 +75,9 @@ type overV2 struct {
 
 func (h overV2) Prompt(ctx context.Context, text string) (Turn, error) {
 	result, err := h.Client.Prompt(ctx, text)
-	return turnOf(v2.StopOf(result.StopReason), result.StopReason, result.Heard), err
+	turn := turnOf(v2.StopOf(result.StopReason), result.StopReason, result.Heard)
+	turn.Error = result.Error
+	return turn, err
 }
 
 func (h overV2) Settle(ctx context.Context) (Work, bool) {

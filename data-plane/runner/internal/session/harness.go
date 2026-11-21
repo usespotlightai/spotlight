@@ -18,6 +18,7 @@ const (
 type Turn struct {
 	End    TurnEnd
 	Reason string
+	Error  string
 	Silent bool
 }
 

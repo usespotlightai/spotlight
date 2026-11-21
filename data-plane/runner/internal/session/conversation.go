@@ -34,6 +34,7 @@ type conversation struct {
 	waitLimit    time.Duration
 	keepLost     func([]workspace.LostTask)
 	lost         []workspace.LostTask
+	failure      string
 	log          *slog.Logger
 	leaseLost    atomic.Bool
 
@@ -183,10 +184,15 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 
 		if err != nil {
 			c.log.Warn("the agent stopped short", "error", err)
+			c.failure = err.Error()
 			return -1
 		}
 
-		c.log.Info("turn finished", "stopReason", result.Reason)
+		if result.Error != "" {
+			c.log.Warn("turn finished", "stopReason", result.Reason, "error", result.Error)
+		} else {
+			c.log.Info("turn finished", "stopReason", result.Reason)
+		}
 
 		// A harness can end the turn immediately after a cancel and not read the prompt.
 		if steered && !resent && result.Silent && result.End == TurnEnded {
@@ -197,6 +203,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		steered, resent = result.End == TurnCancelled, false
 
 		if result.End == TurnFailed {
+			c.failure = result.Error
 			return 1
 		}
 
@@ -326,13 +333,17 @@ func (c *conversation) complete(ctx context.Context, exitCode int) (*heldArchive
 
 	c.handedOver()
 	c.leaveLostBehind()
+	failed := !stopped && exitCode != 0
 	turn := protocol.Completion{
 		ExitCode:  exitCode,
-		Failed:    !stopped && exitCode != 0,
+		Failed:    failed,
 		Stopped:   stopped,
 		Handover:  c.handover,
 		SessionID: c.sessionID,
 		Heads:     c.archiver.heads(ctx),
+	}
+	if failed {
+		turn.Message = c.failure
 	}
 
 	_ = c.harness.Close()
