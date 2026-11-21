@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_plan" ADD COLUMN "version" integer DEFAULT 0 NOT NULL;

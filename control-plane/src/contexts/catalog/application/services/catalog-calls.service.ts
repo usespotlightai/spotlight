@@ -6,7 +6,7 @@ import type {
   CatalogCallRequest,
   CatalogCallsPort,
 } from '@catalog/application/ports/catalog.port';
-import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
+import type { PlanTermsPort } from '@catalog/application/ports/plan-terms.port';
 import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import { resolveEntitled } from '@catalog/domain/services/entitlement-resolution';
 import { CatalogCall } from '@catalog/domain/value-objects/catalog-call.vo';
@@ -15,7 +15,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 export class CatalogCalls implements CatalogCallsPort {
   constructor(
     private readonly catalog: CatalogItems,
-    private readonly plans: WorkspacePlansPort,
+    private readonly terms: PlanTermsPort,
     private readonly ledger: CatalogCallLedgerPort,
     private readonly service: CatalogServicePort,
     private readonly clock: ClockPort,
@@ -26,7 +26,7 @@ export class CatalogCalls implements CatalogCallsPort {
       request.id,
       'tool',
       this.catalog,
-      await this.plans.of(request.workspaceId),
+      await this.terms.of(request.workspaceId),
       this.clock.now(),
     );
 

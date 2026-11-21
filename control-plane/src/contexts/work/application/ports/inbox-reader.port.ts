@@ -1,5 +1,6 @@
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxSection } from '@work/application/read-models/inbox-section';
 import type {

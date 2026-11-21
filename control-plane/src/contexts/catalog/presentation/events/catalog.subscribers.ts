@@ -1,5 +1,5 @@
 import type { CatalogCallLedgerPort } from '@catalog/application/ports/catalog-call-ledger.port';
-import type { WorkspacePlanDeletionPort } from '@catalog/application/ports/workspace-plan-deletion.port';
+import type { DeleteWorkspacePlanOfDeletedWorkspace } from '@catalog/application/services/delete-workspace-plan-of-deleted-workspace.service';
 import {
   WORKSPACE_DELETED,
   type WorkspaceDeletedIntegrationEvent,
@@ -11,14 +11,14 @@ import {
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const catalogSubscribers = (reactions: {
-  plans: WorkspacePlanDeletionPort;
+  deleting: DeleteWorkspacePlanOfDeletedWorkspace;
   calls: CatalogCallLedgerPort;
 }): readonly DomainEventSubscriber[] => [
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'catalog.delete-plan-of-deleted-workspace',
     [WORKSPACE_DELETED],
     (event) =>
-      reactions.plans.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
+      reactions.deleting.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'catalog.delete-calls-of-deleted-workspace',

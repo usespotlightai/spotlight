@@ -5,6 +5,7 @@ export const workspacePlan = pgTable('workspace_plan', {
   workspaceId: text('workspace_id').primaryKey(),
   plan: text('plan').notNull(),
   expiresAt: timestamptz('expires_at'),
+  version: integer('version').default(0).notNull(),
 });
 
 export const catalogCall = pgTable(

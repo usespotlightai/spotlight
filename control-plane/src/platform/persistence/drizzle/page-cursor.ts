@@ -3,17 +3,17 @@ import {
   decodeCursor,
   isSortableTime,
 } from '@platform/persistence/drizzle/keyset';
-import { InvalidPageCursorError } from '@work/application/errors/invalid-page-cursor.error';
+import { InvalidPageCursorError } from '@shared-kernel/application/errors/invalid-page-cursor.error';
 
 export const cursorOf = (
-  before: string | null,
+  raw: string | null,
   fits: (key: string) => boolean = () => true,
 ): Cursor | null => {
-  if (before === null) {
+  if (raw === null) {
     return null;
   }
 
-  const cursor = decodeCursor(before);
+  const cursor = decodeCursor(raw);
 
   if (!cursor || !fits(cursor.key)) {
     throw new InvalidPageCursorError();
@@ -22,5 +22,5 @@ export const cursorOf = (
   return cursor;
 };
 
-export const timeCursorOf = (before: string | null): Cursor | null =>
-  cursorOf(before, isSortableTime);
+export const timeCursorOf = (raw: string | null): Cursor | null =>
+  cursorOf(raw, isSortableTime);

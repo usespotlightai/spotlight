@@ -5,3 +5,5 @@ export const RESOURCE_API = 'v1';
 export const RESOURCES = `${RESOURCE_API}/resources`;
 
 export const COLLAB = 'collab';
+
+export const ADMIN = 'admin';

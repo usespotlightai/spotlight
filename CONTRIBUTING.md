@@ -85,7 +85,8 @@ see.
 
 | Term | Meaning |
 |---|---|
-| Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). |
+| Admin token | The token for the whole deployment, `SPOTLIGHT_ADMIN_TOKEN`, that gives access to `/api/admin` (`AdminOnly`, `AdminGuard`). It is not the workspace admin role. |
+| Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). A change made with the admin token shows as Spotlight. |
 | Error kind | The class of a domain or application error (`ErrorKind`), such as `invalid` or `conflict`. The HTTP filters map it to a status code. |
 | Event delivery | One outbox event for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |
 | Hand-over | Terraform removes `valueWoVersion` from a secret. Spotlight keeps the stored value, and from then on a person sets it (`valueChange: handed-over` in the change history). |
@@ -93,6 +94,7 @@ see.
 | Ledger | A table gateway that is not an aggregate repository (`*.ledger.ts`). |
 | Metered call | One usage row for each catalog tool call (`MeteredCall`). |
 | Pending job | A row that a job loop must process, with its attempts and next attempt time (`job_attempts`, `job_due_at`). |
+| Plan term | A plan and the time it ends, if it ends (`PlanTerm`). The free plan never ends. |
 | Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
 | Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
 | Recipient | The public key that Spotlight seals a run's secrets to: one key for each run in an egress sidecar, one key for each process in a shared egress. |
@@ -102,6 +104,8 @@ see.
 | Tombstone | A row that Spotlight keeps after it deletes data, so that it does not restore the data (`deleted_*` tables). |
 | Value origin | Where a secret's value comes from (`SecretValueOrigin`): `awaiting` (no value yet), `spotlight` (a person set it, or Terraform handed it over) or `terraform` (`valueWoVersion` is set). |
 | Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |
+| Workspace directory | Every workspace of the deployment, not scoped to a viewer (`WorkspaceDirectoryPort`). |
+| Workspace plan | The plan term stored for one workspace (`WorkspacePlan`). A workspace without a workspace plan has the free plan. |
 
 ## Releases
 

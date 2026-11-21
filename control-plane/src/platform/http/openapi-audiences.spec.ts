@@ -32,6 +32,7 @@ describe('audienceOf', () => {
     [route('/runs/{runId}/events', 'machine', null, 'post'), 'hosts'],
     [route('/hosts/claim', 'anonymous', 'hosts', 'post'), 'hosts'],
     [route('/hook-callbacks/task', 'anonymous', 'public'), 'public'],
+    [route('/admin/workspaces', 'admin'), 'admin'],
   ])('puts %o in %s', (each, audience) => {
     expect(audienceOf(each)).toBe(audience);
   });
@@ -56,6 +57,24 @@ describe('audienceOf', () => {
     ).toThrow(
       'GET /teams/{teamId}/insights/cost (anonymous) is in the automation audience, which takes workspace-token routes only.',
     );
+  });
+
+  it('fails for an admin route outside /admin', () => {
+    expect(() => audienceOf(route('/v1/admin/workspaces', 'admin'))).toThrow(
+      'GET /v1/admin/workspaces (admin) must be an admin route under /admin, and only admin routes may be there.',
+    );
+  });
+
+  it('fails for a route under /admin that takes another credential', () => {
+    expect(() => audienceOf(route('/admin/workspaces', 'session'))).toThrow(
+      'must be an admin route under /admin',
+    );
+  });
+
+  it('fails for an admin route in another audience', () => {
+    expect(() =>
+      audienceOf(route('/admin/workspaces', 'admin', 'automation')),
+    ).toThrow('which takes workspace-token routes only');
   });
 });
 
@@ -116,6 +135,36 @@ describe('documentsByAudience', () => {
     ]);
     expect(documents.hosts.components?.schemas).toEqual({});
     expect(documents.web.paths).toEqual({});
+  });
+
+  it('says in the admin document that the bearer token is the admin token', () => {
+    const documents = documentsByAudience(
+      {
+        ...document,
+        components: {
+          ...document.components,
+          securitySchemes: {
+            bearer: {
+              type: 'http',
+              scheme: 'bearer',
+              description: 'A workspace token',
+            },
+          },
+        },
+      },
+      routes,
+    );
+
+    expect(documents.admin.components?.securitySchemes?.bearer).toMatchObject({
+      type: 'http',
+      scheme: 'bearer',
+      description: expect.stringContaining('SPOTLIGHT_ADMIN_TOKEN') as string,
+    });
+    expect(documents.resources.components?.securitySchemes?.bearer).toEqual({
+      type: 'http',
+      scheme: 'bearer',
+      description: 'A workspace token',
+    });
   });
 
   it('fails for an operation that matches no controller route', () => {

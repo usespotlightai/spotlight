@@ -107,6 +107,7 @@ import {
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
+import { WORKSPACE_DIRECTORY } from '@identity/application/ports/workspace-directory.port';
 import {
   WORKSPACE_OUTBOUND_HOSTS,
   type WorkspaceOutboundHostsPort,
@@ -127,6 +128,7 @@ import { ListOidcTrustsHandler } from '@identity/application/queries/handlers/li
 import { ListTeamResourcesHandler } from '@identity/application/queries/handlers/list-team-resources.handler';
 import { ListUserEmailsHandler } from '@identity/application/queries/handlers/list-user-emails.handler';
 import { ListWorkspaceInvitesHandler } from '@identity/application/queries/handlers/list-workspace-invites.handler';
+import { ListWorkspaceMemberSummariesHandler } from '@identity/application/queries/handlers/list-workspace-member-summaries.handler';
 import { ListWorkspaceMembersHandler } from '@identity/application/queries/handlers/list-workspace-members.handler';
 import { ListWorkspaceResourcesHandler } from '@identity/application/queries/handlers/list-workspace-resources.handler';
 import { ListWorkspacesHandler } from '@identity/application/queries/handlers/list-workspaces.handler';
@@ -153,6 +155,7 @@ import { ListOidcTrustsQuery } from '@identity/application/queries/list-oidc-tru
 import { ListTeamResourcesQuery } from '@identity/application/queries/list-team-resources.query';
 import { ListUserEmailsQuery } from '@identity/application/queries/list-user-emails.query';
 import { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-workspace-invites.query';
+import { ListWorkspaceMemberSummariesQuery } from '@identity/application/queries/list-workspace-member-summaries.query';
 import { ListWorkspaceMembersQuery } from '@identity/application/queries/list-workspace-members.query';
 import { ListWorkspaceResourcesQuery } from '@identity/application/queries/list-workspace-resources.query';
 import { ListWorkspacesQuery } from '@identity/application/queries/list-workspaces.query';
@@ -211,6 +214,7 @@ import { DrizzleMemberReader } from '@identity/infrastructure/persistence/drizzl
 import { DrizzleOidcTrustReader } from '@identity/infrastructure/persistence/drizzle/readers/oidc-trust.reader';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleUserEmailReader } from '@identity/infrastructure/persistence/drizzle/readers/user-email.reader';
+import { DrizzleWorkspaceDirectory } from '@identity/infrastructure/persistence/drizzle/readers/workspace-directory.reader';
 import { DrizzleWorkspaceRecords } from '@identity/infrastructure/persistence/drizzle/readers/workspace-records.reader';
 import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/drizzle/readers/workspace-roles.reader';
 import { DrizzleAvatarRepository } from '@identity/infrastructure/persistence/drizzle/repositories/avatar.repository';
@@ -241,6 +245,7 @@ import { TeamResourceController } from '@identity/presentation/http/controllers/
 import { TeamController } from '@identity/presentation/http/controllers/team.controller';
 import { UserEmailController } from '@identity/presentation/http/controllers/user-email.controller';
 import { WorkloadTokenExchangeController } from '@identity/presentation/http/controllers/workload-token-exchange.controller';
+import { WorkspaceMemberSummaryController } from '@identity/presentation/http/controllers/workspace-member-summary.controller';
 import { WorkspaceResourceController } from '@identity/presentation/http/controllers/workspace-resource.controller';
 import { WorkspaceTokenResourceController } from '@identity/presentation/http/controllers/workspace-token-resource.controller';
 import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
@@ -295,6 +300,7 @@ const IDENTITY_API_DOCUMENTATION = Symbol('IDENTITY_API_DOCUMENTATION');
 const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
 
 export const IDENTITY_CONTROLLERS: readonly Type[] = [
+  WorkspaceMemberSummaryController,
   WorkspaceAvatarController,
   TeamAvatarController,
   WorkspaceResourceController,
@@ -350,6 +356,7 @@ const adapters: Provider[] = [
   },
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
+  { provide: WORKSPACE_DIRECTORY, useClass: DrizzleWorkspaceDirectory },
   { provide: OIDC_TRUST_READER, useClass: DrizzleOidcTrustReader },
   { provide: MEMBER_DIRECTORY, useClass: DrizzleMemberDirectory },
   { provide: INVITE_READER, useClass: DrizzleInviteReader },
@@ -509,6 +516,11 @@ const handlers: Provider[] = [
     DrizzleWorkspaceRepository,
     MEMBER_READER,
   ]),
+  ...bindQueryHandler(
+    ListWorkspaceMemberSummariesQuery,
+    ListWorkspaceMemberSummariesHandler,
+    [WORKSPACE_READER, MEMBER_READER],
+  ),
   ...bindQueryHandler(ListWorkspaceInvitesQuery, ListWorkspaceInvitesHandler, [
     WorkspaceAdministration,
     INVITE_READER,

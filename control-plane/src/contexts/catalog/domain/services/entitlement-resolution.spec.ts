@@ -12,8 +12,8 @@ import {
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo';
+import { PlanTerm } from '@catalog/domain/value-objects/plan-term.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
-import { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-23T12:00:00.000Z');
@@ -65,7 +65,7 @@ describe('resolveEntitled', () => {
       'catalog.web-search@1.0.0',
       'tool',
       CATALOG,
-      WorkspacePlan.of(Plan.team),
+      PlanTerm.of(Plan.team),
       NOW,
     );
 
@@ -76,7 +76,7 @@ describe('resolveEntitled', () => {
 
   it('denies an id the catalog cannot read as unknown', () => {
     expect(
-      resolveEntitled('web-search', 'tool', CATALOG, WorkspacePlan.free, NOW),
+      resolveEntitled('web-search', 'tool', CATALOG, PlanTerm.free, NOW),
     ).toEqual({
       entitled: false,
       denial: {
@@ -93,7 +93,7 @@ describe('resolveEntitled', () => {
         'catalog.web-search@9.0.0',
         'tool',
         CATALOG,
-        WorkspacePlan.of(Plan.enterprise),
+        PlanTerm.of(Plan.enterprise),
         NOW,
       ),
     ).toMatchObject({ entitled: false, denial: { reason: 'unknown' } });
@@ -105,7 +105,7 @@ describe('resolveEntitled', () => {
         'catalog.research@1.0.0',
         'tool',
         CATALOG,
-        WorkspacePlan.of(Plan.team),
+        PlanTerm.of(Plan.team),
         NOW,
       ),
     ).toEqual({
@@ -124,7 +124,7 @@ describe('resolveEntitled', () => {
         'catalog.web-search@1.0.0',
         'tool',
         CATALOG,
-        WorkspacePlan.free,
+        PlanTerm.free,
         NOW,
       ),
     ).toEqual({
@@ -144,7 +144,7 @@ describe('resolveEntitled', () => {
         'catalog.web-search@1.0.0',
         'tool',
         CATALOG,
-        WorkspacePlan.of(Plan.team, EXPIRED),
+        PlanTerm.of(Plan.team, EXPIRED),
         NOW,
       ),
     ).toMatchObject({ entitled: false, denial: { reason: 'expired' } });
@@ -153,10 +153,10 @@ describe('resolveEntitled', () => {
   it('denies what an expired plan never included as not entitled, not as expired', () => {
     expect(
       resolveEntitled(
-        'catalog.web-search@1.0.0',
+        'catalog.audit-log@1.0.0',
         'tool',
         CATALOG,
-        WorkspacePlan.of(Plan.free, EXPIRED),
+        PlanTerm.of(Plan.team, EXPIRED),
         NOW,
       ),
     ).toMatchObject({ entitled: false, denial: { reason: 'not-entitled' } });
@@ -166,11 +166,7 @@ describe('resolveEntitled', () => {
 describe('resolveEntitledItem', () => {
   it('denies an item already found by the same entitlement rule', () => {
     expect(
-      resolveEntitledItem(
-        tool('web-search', Plan.team),
-        WorkspacePlan.free,
-        NOW,
-      ),
+      resolveEntitledItem(tool('web-search', Plan.team), PlanTerm.free, NOW),
     ).toMatchObject({
       entitled: false,
       denial: { id: 'catalog.web-search@1.0.0', reason: 'not-entitled' },
@@ -183,7 +179,7 @@ describe('resolveEntitledFor', () => {
     const entitled = resolveEntitledFor(
       { tools: [], skills: ['catalog.research@1.0.0'] },
       CATALOG,
-      WorkspacePlan.of(Plan.team),
+      PlanTerm.of(Plan.team),
       NOW,
     );
 
@@ -199,7 +195,7 @@ describe('resolveEntitledFor', () => {
     const entitled = resolveEntitledFor(
       { tools: [], skills: ['catalog.research@1.0.0'] },
       CATALOG,
-      WorkspacePlan.free,
+      PlanTerm.free,
       NOW,
     );
 
@@ -214,7 +210,7 @@ describe('resolveEntitledFor', () => {
     const entitled = resolveEntitledFor(
       { tools: [], skills: ['catalog.compliance@1.0.0'] },
       CATALOG,
-      WorkspacePlan.of(Plan.team),
+      PlanTerm.of(Plan.team),
       NOW,
     );
 
@@ -237,7 +233,7 @@ describe('resolveEntitledFor', () => {
         skills: ['catalog.research@1.0.0', 'catalog.research@1.0.0'],
       },
       CATALOG,
-      WorkspacePlan.of(Plan.team),
+      PlanTerm.of(Plan.team),
       NOW,
     );
 
@@ -258,7 +254,7 @@ describe('resolveEntitledFor', () => {
         skills: ['catalog.fetch-page@1.0.0'],
       },
       CATALOG,
-      WorkspacePlan.of(Plan.team),
+      PlanTerm.of(Plan.team),
       NOW,
     );
 

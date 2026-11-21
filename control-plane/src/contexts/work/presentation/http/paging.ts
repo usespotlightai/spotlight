@@ -1,20 +1,17 @@
-import {
-  applyDecorators,
-  BadRequestException,
-  type Type,
-} from '@nestjs/common';
+import { applyDecorators, type Type } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiProperty,
   ApiQuery,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { pageLimitOf } from '@platform/http/page-limit';
 import {
   LONGEST_PAGE,
   PAGE_LIMIT,
-  type Page,
-  type PageRequest,
-} from '@work/application/dto/page.dto';
+} from '@shared-kernel/application/dto/page.dto';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 
 export const ApiPageQuery = () =>
   applyDecorators(
@@ -41,17 +38,10 @@ export const ApiPageQuery = () =>
 export const pageRequestOf = (
   before: string | undefined,
   limit: string | undefined,
-): PageRequest => {
-  const asked = limit === undefined ? PAGE_LIMIT : Number(limit);
-
-  if (!Number.isInteger(asked) || asked < 1) {
-    throw new BadRequestException(
-      'Sorry, the page limit must be a whole number above 0.',
-    );
-  }
-
-  return { before: before || null, limit: Math.min(asked, LONGEST_PAGE) };
-};
+): PageRequest => ({
+  before: before || null,
+  limit: pageLimitOf(limit),
+});
 
 export const pageResponseOf = <R>(representation: Type<R>): Type<Page<R>> => {
   class PageResponseDto implements Page<R> {

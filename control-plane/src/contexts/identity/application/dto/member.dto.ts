@@ -14,3 +14,8 @@ export interface WorkspaceMemberDto extends MemberDto {
   readonly teams: readonly TeamRef[];
   readonly joinedAt: string;
 }
+
+export type WorkspaceMemberSummaryDto = Pick<
+  WorkspaceMemberDto,
+  'id' | 'email' | 'name' | 'role' | 'joinedAt'
+>;
