@@ -29,7 +29,6 @@ import { HarnessCommand } from '@runs/domain/value-objects/harness-command.vo';
 import { HarnessSession as RunHarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { Money } from '@runs/domain/value-objects/money.vo';
 import { NetworkCallId } from '@runs/domain/value-objects/network-call-id.vo';
-import { NetworkRequest } from '@runs/domain/value-objects/network-request.vo';
 import { NetworkResponse } from '@runs/domain/value-objects/network-response.vo';
 import { RequeueCount } from '@runs/domain/value-objects/requeue-count.vo';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
@@ -79,7 +78,6 @@ export const RUNS_PAYLOAD_TYPES = [
   RunUsage,
   NetworkResponse,
   NetworkCallId,
-  NetworkRequest,
   RunAttempt,
   RunApiGrant,
   RunExtensions,
