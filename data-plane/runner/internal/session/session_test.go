@@ -1780,6 +1780,10 @@ process.stdin.on("data", (chunk) => {
       continue;
     }
     state("running");
+    if ("` + finish + `" === "limited") {
+      state("idle", { stopReason: "error", error: { code: -32603, message: "You've hit your weekly limit" } });
+      continue;
+    }
     update("terminal_update", { terminalId: "t1", command: "npx vitest run" });
     say("started the tests");
     jobs = [{ type: "terminal", terminalId: "t1" }];
@@ -1848,6 +1852,17 @@ func TestTheRunWaitsForBackgroundWorkThatWakesTheAgent(t *testing.T) {
 	}
 	if lost := written.typed(protocol.EventBackgroundLost); len(lost) != 0 {
 		t.Errorf("lost %+v", lost)
+	}
+}
+
+func TestAFailedTurnReportsTheHarnessError(t *testing.T) {
+	written := run(t, backgrounding(t, "limited"), backgroundOptions)
+
+	if written.done == nil || !written.done.Failed || written.done.ExitCode != 1 {
+		t.Fatalf("completion %+v", written.done)
+	}
+	if written.done.Message != "You've hit your weekly limit" {
+		t.Errorf("message %q", written.done.Message)
 	}
 }
 
