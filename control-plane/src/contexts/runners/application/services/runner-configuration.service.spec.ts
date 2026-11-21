@@ -60,7 +60,7 @@ const configuration = new RunnerConfiguration(
   { slugOf: async () => 'acme' } as unknown as WorkspaceReaderPort,
   {
     inWorkspace: async () => [pool, aPlatformPool()],
-    listOwned: async () => [pool],
+    ownedIn: async () => [pool],
     find: async () => aPlatformPool(),
     findOwned: async () => pool,
   } as unknown as RunnerPoolRepository,

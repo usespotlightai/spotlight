@@ -33,7 +33,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
     const [trusts, declared, pools, egresses] = await Promise.all([
       this.trusts.inWorkspace(workspaceId),
       this.workspaceRunners.ofWorkspace(workspaceId),
-      this.pools.listOwned(workspaceId),
+      this.pools.ownedIn(workspaceId),
       this.egresses.inWorkspace(workspaceId),
     ]);
 

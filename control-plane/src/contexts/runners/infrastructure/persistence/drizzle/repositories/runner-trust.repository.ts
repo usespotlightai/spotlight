@@ -117,7 +117,7 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
     return rows.map(toTrust);
   }
 
-  async findAllByWorkspaces(
+  async inWorkspaces(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly RunnerTrust[]> {
     if (workspaceIds.length === 0) {

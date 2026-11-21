@@ -192,7 +192,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     return rows.map(toPool);
   }
 
-  findAllByWorkspaces(
+  inWorkspaces(
     workspaceIds: readonly WorkspaceId[],
   ): Promise<readonly RunnerPool[]> {
     return workspaceIds.length === 0
@@ -205,7 +205,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
         );
   }
 
-  findAllByKey(key: PoolKey): Promise<readonly RunnerPool[]> {
+  withKey(key: PoolKey): Promise<readonly RunnerPool[]> {
     return this.all(eq(runnerPool.key, key.value));
   }
 
@@ -215,7 +215,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     });
   }
 
-  listOwned(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]> {
+  ownedIn(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]> {
     return this.all(
       and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools) as SQL,
     );

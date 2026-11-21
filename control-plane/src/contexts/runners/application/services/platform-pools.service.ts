@@ -9,6 +9,7 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -17,7 +18,7 @@ const lostRace = (error: unknown): boolean =>
   error instanceof RunnerPoolAlreadyExistsError ||
   error instanceof RunnerPoolVersionConflictError;
 
-// Keeps one platform pool in each workspace while the deployment sets the platform provisioner. While it sets none, only the disabled platform pools stay. Another instance can do the same work at the same time, so each step accepts that it lost a race. The operator of the deployment is the actor of each change.
+// Keeps one platform pool in each workspace while the deployment sets the platform provisioner. While it sets none, only the disabled platform pools stay. Another instance can do the same work at the same time, so each step accepts that it lost a race. Spotlight is the actor of each change, except a change that the operator asks for.
 export class PlatformPools {
   constructor(
     private readonly pools: RunnerPoolRepository,
@@ -30,17 +31,31 @@ export class PlatformPools {
 
   // Each instance walks every workspace, one at a time, at each start. That is one read of the pools and one write for each workspace that changes.
   async reconcile(): Promise<void> {
-    const keyed = await this.pools.findAllByKey(PoolKey.platform());
+    // The pools are read before the workspaces, so that the platform pool of a workspace created in between is not taken for one of a deleted workspace.
+    const keyed = await this.pools.withKey(PoolKey.platform());
+    const open = await this.workspaces.openIds();
+    const opened = new Set(open.map((each) => each.value));
+    const platform = keyed.filter((each) => each.isPlatform);
+
+    // A platform pool can outlive its workspace, when the workspace is deleted while Spotlight adds the pool.
+    await this.deleteEach(
+      platform.filter((each) => !opened.has(each.workspaceId.value)),
+    );
 
     if (!this.settings) {
-      await this.deleteEnabled(keyed);
+      // A disabled platform pool provisions nothing. It keeps the choice of the operator until the deployment sets the platform provisioner again.
+      await this.deleteEach(
+        platform.filter(
+          (each) => opened.has(each.workspaceId.value) && !each.isDisabled,
+        ),
+      );
       return;
     }
 
     const settings = this.settings;
     const found = new Map(keyed.map((each) => [each.workspaceId.value, each]));
 
-    for (const workspaceId of await this.workspaces.openIds()) {
+    for (const workspaceId of open) {
       const pool = found.get(workspaceId.value);
 
       await this.step(workspaceId, () =>
@@ -72,18 +87,32 @@ export class PlatformPools {
   }
 
   // The platform pool of the workspace stays disabled across restarts, until it is enabled again.
-  disable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
-    return this.change(workspaceId, true);
+  disable(
+    workspaceId: WorkspaceId,
+    by: ChangeActor,
+  ): Promise<PlatformPoolChangeDto | null> {
+    return this.change(workspaceId, true, by);
   }
 
-  enable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
-    return this.change(workspaceId, false);
+  enable(
+    workspaceId: WorkspaceId,
+    by: ChangeActor,
+  ): Promise<PlatformPoolChangeDto | null> {
+    return this.change(workspaceId, false, by);
   }
 
   private async change(
     workspaceId: WorkspaceId,
     disabled: boolean,
+    by: ChangeActor,
   ): Promise<PlatformPoolChangeDto | null> {
+    if (!by.workspaceId.equals(workspaceId)) {
+      throw new InconsistentStateError(
+        'platform pool change',
+        'names an actor of another workspace',
+      );
+    }
+
     if (!this.settings) {
       return { outcome: 'unset' };
     }
@@ -98,7 +127,6 @@ export class PlatformPools {
       return { outcome: 'key-taken' };
     }
 
-    const by = ChangeActor.spotlight(workspaceId);
     const pool =
       found ??
       RunnerPool.createPlatform({
@@ -168,18 +196,13 @@ export class PlatformPools {
     }
   }
 
-  // A disabled platform pool provisions nothing. It keeps the choice of the operator until the deployment sets the platform provisioner again.
-  private async deleteEnabled(keyed: readonly RunnerPool[]): Promise<void> {
-    for (const pool of keyed) {
-      if (pool.isPlatform && !pool.isDisabled) {
-        await this.step(pool.workspaceId, () =>
-          this.transaction.inTransaction(() =>
-            this.pools.save(
-              pool.delete(ChangeActor.spotlight(pool.workspaceId)),
-            ),
-          ),
-        );
-      }
+  private async deleteEach(pools: readonly RunnerPool[]): Promise<void> {
+    for (const pool of pools) {
+      await this.step(pool.workspaceId, () =>
+        this.transaction.inTransaction(() =>
+          this.pools.save(pool.delete(ChangeActor.spotlight(pool.workspaceId))),
+        ),
+      );
     }
   }
 

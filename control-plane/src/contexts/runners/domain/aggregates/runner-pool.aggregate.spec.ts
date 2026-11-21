@@ -23,6 +23,7 @@ import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -355,6 +356,14 @@ describe('RunnerPool for the platform', () => {
       }),
     ).toThrow(InvalidRunnerPoolError);
     expect(anOwnPoolWithThePlatformKey().isPlatform).toBe(false);
+  });
+
+  it('is deleted only by Spotlight', () => {
+    expect(() => aPlatformPool().delete(BY)).toThrow(InconsistentStateError);
+    expect(
+      aPlatformPool().delete(ChangeActor.spotlight(WorkspaceId.of('ws_1')))
+        .isDeleted,
+    ).toBe(true);
   });
 
   it('goes out through the egress the deployment names for it', () => {

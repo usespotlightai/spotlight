@@ -406,8 +406,16 @@ export class RunnerPool extends EventRecorder {
     return this.setDisabled(false, by);
   }
 
+  // Only Spotlight deletes the platform pool: when its workspace is deleted, or when the deployment sets no platform provisioner.
   delete(by: ChangeActor): RunnerPool {
     this.assertNotDeleted();
+
+    if (this.isPlatform && by.actor !== null) {
+      throw new InconsistentStateError(
+        'runner pool',
+        'is the platform pool, which only Spotlight deletes',
+      );
+    }
 
     const deleted = this.with({ deleted: true });
 

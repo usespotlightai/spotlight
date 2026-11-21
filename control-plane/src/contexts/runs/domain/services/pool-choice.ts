@@ -8,10 +8,14 @@ export interface PoolOnOffer {
   readonly key: string;
   readonly labels: RunnerOffer;
   readonly egress: boolean;
-  // Spotlight adds the platform pool to each workspace. It takes only work that no other pool or trust of the workspace fits.
+  // Spotlight adds the platform pool to each workspace. It takes only work that no other pool or host of the workspace fits.
   readonly platform: boolean;
-  // Spotlight asks the pool for runners. Hosts pull the runners of a pull pool or a trust, so Spotlight never chooses those.
-  readonly provisions: boolean;
+}
+
+// What the hosts of a pull pool or a trust can take. Hosts pull their runners, so Spotlight never chooses a host offer.
+export interface HostOffer {
+  readonly labels: RunnerOffer;
+  readonly egress: boolean;
 }
 
 // The workspace's own pools come first, by key. The platform pool comes last.
@@ -29,18 +33,11 @@ const roomy = (left: number | null | undefined): boolean =>
 export class PoolRoom {
   private constructor(
     private readonly left: ReadonlyMap<string, number | null>,
-    private readonly platform: ReadonlySet<string>,
-    private readonly fellThrough: boolean,
   ) {}
 
-  static of(
-    rooms: readonly (readonly [PoolId, number | null])[],
-    platform: readonly PoolId[] = [],
-  ): PoolRoom {
+  static of(rooms: readonly (readonly [PoolId, number | null])[]): PoolRoom {
     return new PoolRoom(
       new Map(rooms.map(([pool, left]) => [pool.value, left])),
-      new Set(platform.map((each) => each.value)),
-      false,
     );
   }
 
@@ -57,44 +54,19 @@ export class PoolRoom {
 
     return left === null || left === undefined
       ? this
-      : new PoolRoom(
-          new Map(this.left).set(pool.value, Math.max(0, left - 1)),
-          this.platform,
-          this.fellThrough,
-        );
+      : new PoolRoom(new Map(this.left).set(pool.value, Math.max(0, left - 1)));
   }
 
-  // Work placed on the platform pool fell through the pools of the workspace, so more such work can wait in the next page.
-  afterPlacing(offered: PoolOnOffer): PoolRoom {
-    const taken = this.afterTaking(offered.pool);
-
-    return offered.platform && !taken.fellThrough
-      ? new PoolRoom(taken.left, taken.platform, true)
-      : taken;
-  }
-
-  // The platform pool has no run limit. Its room counts only once some work fell through to it, so that work that waits for full pools of the workspace is not read again and again.
   get anyLeft(): boolean {
-    return [...this.left.entries()].some(
-      ([pool, left]) =>
-        (this.fellThrough || !this.platform.has(pool)) && roomy(left),
-    );
-  }
-
-  // The first page is read while any pool has room, because work in it can fall through to the platform pool.
-  readsPage(page: number): boolean {
-    return (
-      this.anyLeft ||
-      (page === 0 &&
-        [...this.platform].some((pool) => roomy(this.left.get(pool))))
-    );
+    return [...this.left.values()].some(roomy);
   }
 }
 
-// A platform pool takes work only when no other pool or trust of the workspace fits it. Work that a full or pulled pool of the workspace fits waits for that pool.
+// The platform pool takes work only when no other pool of the workspace and no host offer fits it. Work that a full pool or the hosts of the workspace fit waits for them.
 export const poolChoiceFor = <Pool extends PoolOnOffer>(
   placement: RunnerPlacement,
   pools: readonly Pool[],
+  hostOffers: readonly HostOffer[],
   room: PoolRoom,
   needsEgress = false,
 ): readonly Pool[] => {
@@ -102,8 +74,13 @@ export const poolChoiceFor = <Pool extends PoolOnOffer>(
     poolFits(placement, offered, needsEgress),
   );
   const owned = fitting.filter((offered) => !offered.platform);
+  const hostsFit = hostOffers.some((offer) =>
+    poolFits(placement, offer, needsEgress),
+  );
+  const chosen =
+    owned.length > 0 || hostsFit
+      ? owned
+      : fitting.filter((offered) => offered.platform);
 
-  return (
-    owned.length > 0 ? owned : fitting.filter((offered) => offered.platform)
-  ).filter((offered) => offered.provisions && room.hasRoomIn(offered.pool));
+  return chosen.filter((offered) => room.hasRoomIn(offered.pool));
 };

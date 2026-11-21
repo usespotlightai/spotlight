@@ -11,6 +11,7 @@ import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
+import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
@@ -388,6 +389,38 @@ describe('whether a workspace is ready to run', () => {
       false,
     );
     await expect(runners(true).readyToRun(disabled)).resolves.toBe(false);
+  });
+
+  it('counts a pool as RunnerPool.canProvision does, for each kind of pool, with and without the platform provisioner', async () => {
+    const pools = new DrizzleRunnerPoolRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
+    });
+    const kinds: Record<string, (workspace: WorkspaceId) => Promise<unknown>> =
+      {
+        push: (workspace) => pooled(workspace, 'push'),
+        pull: (workspace) => pooled(workspace, 'pull'),
+        platform: (workspace) => platformPooled(workspace),
+        'disabled platform': (workspace) =>
+          platformPooled(workspace, { disabled: true }),
+      };
+
+    for (const [kind, add] of Object.entries(kinds)) {
+      for (const platformPool of [true, false]) {
+        const workspace = WorkspaceId.of(randomUUID());
+        await add(workspace);
+        const [pool] = await pools.inWorkspace(workspace);
+
+        expect({
+          kind,
+          platformPool,
+          ready: await runners(platformPool).readyToRun(workspace),
+        }).toEqual({
+          kind,
+          platformPool,
+          ready: pool?.canProvision(platformPool),
+        });
+      }
+    }
   });
 
   it('does not count a host or push pool in another workspace', async () => {

@@ -20,7 +20,6 @@ const POOL: PoolAtWork = {
   labels: RunnerOffer.of(['linux', 'gpu']),
   egress: false,
   platform: false,
-  provisions: false,
 };
 
 const queueOf = (
@@ -38,6 +37,7 @@ const queueOf = (
         pulledWith: async (token: string | undefined, poolId: string) =>
           token === 'pool-token' && poolId === POOL.poolId ? POOL : null,
         provisioning: async () => [],
+        hostOffersIn: async () => [],
         running: async () => running,
         roomIn: async () => room,
       } satisfies RunnerPoolsPort,

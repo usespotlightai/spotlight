@@ -46,12 +46,12 @@ const pooling = (
     stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
   );
 
-  const findAllByWorkspaces = vi.fn(async () => stored.provisioning ?? []);
+  const inWorkspaces = vi.fn(async () => stored.provisioning ?? []);
 
   const pools = new RunnerPools(
-    { find, findAllByWorkspaces } as unknown as RunnerPoolRepository,
+    { find, inWorkspaces } as unknown as RunnerPoolRepository,
     {
-      findAllByWorkspaces: vi.fn(async () => stored.trusts ?? []),
+      inWorkspaces: vi.fn(async () => stored.trusts ?? []),
     } as unknown as RunnerTrustRepository,
     {
       aliveIn: vi.fn(async () => stored.alive ?? []),
@@ -66,7 +66,7 @@ const pooling = (
     },
   );
 
-  return { pools, authenticate, find, findAllByWorkspaces };
+  return { pools, authenticate, find, inWorkspaces };
 };
 
 const THROUGH_POOL: AuthenticatedHost = {
@@ -86,9 +86,8 @@ describe('RunnerPools', () => {
         workspaceId: WORKSPACE,
         key: 'ephemeral',
         labels: expect.objectContaining({ values: ['linux'] }) as unknown,
-        egress: true,
+        egress: false,
         platform: false,
-        provisions: false,
       });
       expect(authenticate).toHaveBeenCalledWith({
         bearer: 'pool-token',
@@ -132,13 +131,13 @@ describe('RunnerPools', () => {
     const NAMED = EgressReference.to(EgressId.of('egress_1'));
 
     it('reads the pools of the workspaces it is given', async () => {
-      const { pools, findAllByWorkspaces } = pooling(null, {
+      const { pools, inWorkspaces } = pooling(null, {
         provisioning: [aPushPool()],
       });
 
       await pools.provisioning([WORKSPACE]);
 
-      expect(findAllByWorkspaces).toHaveBeenCalledWith([WORKSPACE]);
+      expect(inWorkspaces).toHaveBeenCalledWith([WORKSPACE]);
     });
 
     it('says of each whether it names an egress', async () => {
@@ -151,9 +150,9 @@ describe('RunnerPools', () => {
       });
 
       await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
-        expect.objectContaining({ egress: true, provisions: true }),
-        expect.objectContaining({ egress: true, provisions: true }),
-        expect.objectContaining({ egress: false, provisions: true }),
+        expect.objectContaining({ egress: true }),
+        expect.objectContaining({ egress: true }),
+        expect.objectContaining({ egress: false }),
       ]);
     });
 
@@ -182,31 +181,35 @@ describe('RunnerPools', () => {
         expect.objectContaining({
           key: 'spotlight',
           platform: true,
-          provisions: true,
           egress: true,
         }),
       ]);
     });
 
-    it('offers the pull pools and trusts too, as pools Spotlight never asks for runners, so that the work hosts take stays off the platform pool', async () => {
+    it('offers no pull pool, which hosts pull from', async () => {
       const { pools } = pooling(null, {
-        provisioning: [aPullPool()],
-        trusts: [aTrust()],
+        provisioning: [aPullPool(), aPushPool()],
       });
 
       await expect(pools.provisioning([WORKSPACE])).resolves.toEqual([
-        expect.objectContaining({
-          key: 'ephemeral',
-          provisions: false,
-          egress: true,
-        }),
-        expect.objectContaining({
-          key: 'cluster',
-          provisions: false,
-          egress: true,
-          platform: false,
-        }),
+        expect.objectContaining({ key: 'sandboxes' }),
       ]);
+    });
+
+    it('says what the hosts of the pull pools and trusts can take, naming no pool, so that such work stays off the platform pool', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [aPullPool(), aPushPool(), aPlatformPool()],
+        trusts: [aTrust()],
+      });
+
+      const offers = await pools.hostOffersIn([WORKSPACE]);
+
+      expect(offers.map((each) => each.labels.values)).toEqual([
+        ['linux'],
+        ['vpc-internal'],
+      ]);
+      expect(offers.every((each) => each.egress)).toBe(true);
+      expect(offers.every((each) => !('poolId' in each))).toBe(true);
     });
 
     it('leaves out a disabled platform pool', async () => {

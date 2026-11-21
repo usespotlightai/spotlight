@@ -57,7 +57,7 @@ export interface RunRepository {
     workspaceId: WorkspaceId,
     now: Date,
     page: {
-      readonly skip: number;
+      readonly after: ClaimCursor | null;
       readonly max: number;
       readonly withSecrets: boolean;
       readonly avoiding: readonly WorkingCopyKey[];
