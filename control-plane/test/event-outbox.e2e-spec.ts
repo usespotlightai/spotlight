@@ -6,11 +6,7 @@ import { configurationChange } from '@identity/infrastructure/persistence/drizzl
 import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { CauseCarrier } from '@platform/events/cause-carrier';
-import {
-  EventDelivery,
-  LEASE_MS,
-  MAX_ATTEMPTS,
-} from '@platform/events/event-delivery';
+import { EventDelivery, LEASE_MS } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -31,7 +27,10 @@ import {
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import {
+  DEFAULT_RETRIES,
+  subscribing,
+} from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -309,12 +308,16 @@ describe('the event outbox', () => {
   });
 
   it('dead-letters the delivery to a subscriber that keeps failing, and reports only the last failure', async () => {
-    failing = MAX_ATTEMPTS + 5;
+    failing = DEFAULT_RETRIES.maxAttempts + 5;
     const { outbox, delivery, reports } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('three'))]);
 
-    for (let attempt = 0; attempt < MAX_ATTEMPTS + 2; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < DEFAULT_RETRIES.maxAttempts + 2;
+      attempt += 1
+    ) {
       await delivery.processDue();
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     }
@@ -326,7 +329,7 @@ describe('the event outbox', () => {
     const deadLettered = rows.filter((each) => each.deadLetteredAt !== null);
 
     expect(deadLettered).toHaveLength(1);
-    expect(deadLettered[0]?.attempts).toBe(MAX_ATTEMPTS);
+    expect(deadLettered[0]?.attempts).toBe(DEFAULT_RETRIES.maxAttempts);
     expect(deadLettered[0]?.lastError).toBe('not yet');
     expect(reports.report).toHaveBeenCalledExactlyOnceWith(
       new Error('not yet'),

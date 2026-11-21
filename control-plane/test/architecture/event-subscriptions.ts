@@ -289,3 +289,9 @@ export const domainEventKindsDeclaredTwice = (): string[] =>
   [...DOMAIN_EVENT_OWNERS]
     .filter(([, owners]) => owners.length > 1)
     .map(([kind, owners]) => `${kind}: ${owners.join(', ')}`);
+
+// A subscriber can hear integration events by the start of their kind. Only the version tells them apart from domain events.
+export const domainEventKindsWithVersions = (): string[] =>
+  [...DOMAIN_EVENT_OWNERS.keys()].filter((kind) =>
+    INTEGRATION_EVENT_KIND.test(kind),
+  );

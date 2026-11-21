@@ -134,6 +134,10 @@ describe('admin API (e2e)', () => {
           .put(`/api/admin/workspaces/${acme.id}/plan`)
           .send({ plan: 'team', expiresAt: null }),
       () => http().delete(`/api/admin/workspaces/${acme.id}/plan`),
+      () =>
+        http()
+          .post('/api/admin/events/redeliver')
+          .send({ since: '2026-11-01T00:00:00Z' }),
     ];
 
     for (const call of calls) {

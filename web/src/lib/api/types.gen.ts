@@ -27,6 +27,20 @@ export type ErrorReportingResponseDto = {
   release: string | null;
 };
 
+export type EventRedeliveryRequestDto = {
+  /**
+   * Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time
+   */
+  since: string;
+};
+
+export type EventRedeliveryResponseDto = {
+  /**
+   * How many dead letters Spotlight queued again. Each gets all its attempts again
+   */
+  count: number;
+};
+
 export type StationJudgeResponseDto = {
   /**
    * Checkable claims the judge marks met or not met, in order
@@ -9599,6 +9613,34 @@ export type GetErrorReportingResponses = {
 };
 
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
+
+export type RedeliverEventsData = {
+  body: EventRedeliveryRequestDto;
+  path?: never;
+  query?: never;
+  url: '/admin/events/redeliver';
+};
+
+export type RedeliverEventsErrors = {
+  /**
+   * A body without since as an ISO 8601 time
+   */
+  400: unknown;
+  /**
+   * The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token
+   */
+  401: unknown;
+  /**
+   * No event webhook is set, or no admin token is set
+   */
+  404: unknown;
+};
+
+export type RedeliverEventsResponses = {
+  200: EventRedeliveryResponseDto;
+};
+
+export type RedeliverEventsResponse = RedeliverEventsResponses[keyof RedeliverEventsResponses];
 
 export type ListTeamLinesData = {
   body?: never;

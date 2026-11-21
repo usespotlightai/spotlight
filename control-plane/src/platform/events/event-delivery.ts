@@ -14,6 +14,10 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import {
+  DEFAULT_RETRIES,
+  type RetryPolicy,
+} from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import {
   ERROR_REPORTS,
   type ErrorReportsPort,
 } from '@shared-kernel/application/ports/error-reports.port';
@@ -28,8 +32,6 @@ import {
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
 
-export const MAX_ATTEMPTS = 8;
-
 export const LEASE_MS = 5 * 60 * 1000;
 
 export const LEASE_RENEWAL_MS = 60 * 1000;
@@ -38,8 +40,8 @@ export const LONGEST_LEASE_MS = 30 * 60 * 1000;
 
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
-const backoffMs = (attempts: number): number =>
-  Math.min(2 ** attempts * 1000, 60 * 60 * 1000);
+export const backoffMs = (retries: RetryPolicy, attempts: number): number =>
+  Math.min(2 ** attempts * 1000, retries.maxBackoffMs);
 
 const because = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).replaceAll(
@@ -69,6 +71,7 @@ interface Due {
   readonly payload: unknown;
   readonly cause: unknown;
   readonly traceparent: string | null;
+  readonly recordedAt: Date;
 }
 
 @Injectable()
@@ -424,6 +427,7 @@ export class EventDelivery {
         payload: eventOutbox.payload,
         cause: eventOutbox.cause,
         traceparent: eventOutbox.traceparent,
+        recordedAt: eventOutbox.recordedAt,
       })
       .from(eventDelivery)
       .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
@@ -464,6 +468,7 @@ export class EventDelivery {
         this.causes.runWith(due.cause, async () => {
           const raised = await subscriber.handle(
             this.outbox.decode(due.payload),
+            { id: due.eventId, recordedAt: due.recordedAt },
           );
 
           return then(raised);
@@ -479,14 +484,15 @@ export class EventDelivery {
   ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
-    const deadLettering = attempts >= MAX_ATTEMPTS;
+    const retries = this.retriesOf(due);
+    const deadLettering = attempts >= retries.maxAttempts;
 
     const written = await this.context.db
       .update(eventDelivery)
       .set({
         attempts,
         lastError: because(error).slice(0, 2000),
-        dueAt: new Date(now.getTime() + backoffMs(attempts)),
+        dueAt: new Date(now.getTime() + backoffMs(retries, attempts)),
         deadLetteredAt: deadLettering ? now : null,
       })
       .where(this.open(due, lease))
@@ -499,9 +505,14 @@ export class EventDelivery {
     return deadLettering ? 'dead_lettered' : 'retried';
   }
 
+  // A subscriber that is gone keeps the default, so its deliveries end as dead letters.
+  private retriesOf(due: Due): RetryPolicy {
+    return this.subscribers.named(due.subscriber)?.retries ?? DEFAULT_RETRIES;
+  }
+
   private reported(due: Due, error: unknown): void {
     const attempts = due.attempts + 1;
-    const deadLettering = attempts >= MAX_ATTEMPTS;
+    const deadLettering = attempts >= this.retriesOf(due).maxAttempts;
 
     this.logger.error(
       {

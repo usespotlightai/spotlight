@@ -17,7 +17,12 @@ import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
+import { EventRedelivery } from '@platform/events/event-redelivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
+import {
+  EventWebhook,
+  eventWebhookSubscriber,
+} from '@platform/events/event-webhook';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { OutboxRetention } from '@platform/events/outbox-retention';
 import { OutboxRetentionWorker } from '@platform/events/outbox-retention.worker';
@@ -30,6 +35,7 @@ import { PostgresReadiness } from '@platform/health/postgres-readiness';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { ReadinessGauges } from '@platform/health/readiness-gauges';
 import { ApiConventions } from '@platform/http/api-conventions';
+import { AdminEventController } from '@platform/http/controllers/admin-event.controller';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
@@ -68,7 +74,10 @@ import { SystemClock } from '@platform/time/system-clock';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
-import { CLOCK } from '@shared-kernel/application/ports/clock.port';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ERROR_REPORTS } from '@shared-kernel/application/ports/error-reports.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
@@ -84,6 +93,8 @@ import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
+const EVENT_WEBHOOK_EVENTS = Symbol('EVENT_WEBHOOK_EVENTS');
+
 @Global()
 @Module({
   imports: [
@@ -93,7 +104,11 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     CqrsModule,
     DiscoveryModule,
   ],
-  controllers: [HealthController, ErrorReportingController],
+  controllers: [
+    HealthController,
+    ErrorReportingController,
+    AdminEventController,
+  ],
   providers: [
     {
       provide: GracefulShutdown,
@@ -208,6 +223,34 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     EventDeliveryWorker,
     OutboxRetention,
     OutboxRetentionWorker,
+    EventRedelivery,
+    {
+      provide: EVENT_WEBHOOK_EVENTS,
+      inject: [ENV, OutboundGuard, CLOCK, EventSubscribers],
+      useFactory: (
+        env: Env,
+        guard: OutboundGuard,
+        clock: ClockPort,
+        subscribers: EventSubscribers,
+      ) => {
+        if (env.SPOTLIGHT_EVENTS_URL && env.SPOTLIGHT_EVENTS_SECRET) {
+          const webhook = new EventWebhook(
+            {
+              url: env.SPOTLIGHT_EVENTS_URL,
+              secret: env.SPOTLIGHT_EVENTS_SECRET,
+            },
+            guard,
+            clock,
+          );
+
+          subscribers.register([
+            eventWebhookSubscriber(webhook, env.SPOTLIGHT_EVENTS_KINDS),
+          ]);
+        }
+
+        return true;
+      },
+    },
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },

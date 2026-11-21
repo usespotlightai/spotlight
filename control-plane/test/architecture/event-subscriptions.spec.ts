@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   domainEventKindsDeclaredTwice,
+  domainEventKindsWithVersions,
   eventSubscriptionsIn,
   eventSubscriptionViolations,
 } from './event-subscriptions';
@@ -110,6 +111,10 @@ describe('event subscriptions', () => {
 
   it('gives every domain event kind one owning context', () => {
     expect(domainEventKindsDeclaredTwice()).toEqual([]);
+  });
+
+  it('gives no domain event kind a version, so that no integration event prefix matches one', () => {
+    expect(domainEventKindsWithVersions()).toEqual([]);
   });
 
   it('hears only its own domain events and upstream integration events', () => {

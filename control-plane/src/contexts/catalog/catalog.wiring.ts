@@ -4,6 +4,7 @@ import {
   DeleteWorkspacePlanCommand,
   SetWorkspacePlanCommand,
 } from '@catalog/application/commands/workspace-plan.commands';
+import { CATALOG_EVENT_MAPPERS } from '@catalog/application/integration-events/catalog.event-mappers';
 import {
   CATALOG_CALL_LEDGER,
   type CatalogCallLedgerPort,
@@ -52,6 +53,7 @@ import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import {
   CLOCK,
@@ -136,17 +138,20 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
     provide: CATALOG_EVENTS,
     inject: [
       PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       DeleteWorkspacePlanOfDeletedWorkspace,
       CATALOG_CALL_LEDGER,
     ],
     useFactory: (
       types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       deleting: DeleteWorkspacePlanOfDeletedWorkspace,
       calls: CatalogCallLedgerPort,
     ) => {
       types.register('catalog', CATALOG_PAYLOAD_TYPES);
+      mappers.register(CATALOG_EVENT_MAPPERS);
       subscribers.register(catalogSubscribers({ deleting, calls }));
       return true;
     },
