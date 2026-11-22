@@ -76,15 +76,13 @@ export class ReadTaskHandler implements QueryHandlerPort<
     try {
       const teamId = TeamId.of(query.teamId);
       const viewer = UserId.of(query.viewerId);
-      const [standing, lines] = await Promise.all([
+      const [standing, found, lines] = await Promise.all([
         this.access.standingOn(teamId, viewer),
+        this.tasks.findInTeam(teamId, TaskId.of(query.taskId)),
         this.lines.ofTeam(teamId),
       ]);
-      const found =
-        standing.seesTasks &&
-        (await this.tasks.findInTeam(teamId, TaskId.of(query.taskId)));
 
-      return found
+      return standing.seesTasks && found
         ? TaskMapper.summaryToDto(
             found,
             messageReadingOf({ person: viewer, team: standing }, lines),
