@@ -71,7 +71,7 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
       const line = await this.lines.findByStation(task.stationId);
 
       await this.tasks.save(
-        task.addMessage({
+        task.notedByStation({
           line,
           body: noteBody,
           at: this.clock.now(),

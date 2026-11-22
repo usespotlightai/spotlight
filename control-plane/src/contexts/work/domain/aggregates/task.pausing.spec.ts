@@ -28,15 +28,28 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
+const senderOf = (
+  note: Parameters<Task['receiveMessage']>[1],
+  team: TeamStanding,
+): Parameters<Task['receiveMessage']>[3] => ({
+  person: note.voice.author ?? UserId.of('user_nobody'),
+  team,
+});
+
+const ACTING = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
+
 const NOW = new Date('2026-09-29T09:00:00.000Z');
 const RUN = RunId.of('run_1');
-const NOBODY = TeamMembers.of([]);
 const BUILD = StationId.of('station_build');
 const SHIP = StationId.of('station_ship');
 
@@ -98,7 +111,8 @@ const paused = () =>
   );
 
 const answer = (task: Task) =>
-  task.answer(
+  task.answerAs(
+    { person: UserId.of('user_1'), team: ACTING },
     NotePosition.of(0),
     newNote('The default one.', Voice.person(UserId.of('user_1'))),
   );
@@ -188,7 +202,10 @@ describe('a task put to a person by its current run', () => {
       RUN,
       newNote('The default one.', Voice.person(UserId.of('user_1'))),
       BUILD,
-      NOBODY,
+      senderOf(
+        newNote('The default one.', Voice.person(UserId.of('user_1'))),
+        ACTING,
+      ),
     );
 
     expect(received.awaitingReview).toBe(false);
@@ -213,7 +230,10 @@ describe('a task put to a person by its current run', () => {
       RUN,
       newNote('Why do you need it?', Voice.person(UserId.of('user_1'))),
       BUILD,
-      NOBODY,
+      senderOf(
+        newNote('Why do you need it?', Voice.person(UserId.of('user_1'))),
+        ACTING,
+      ),
     );
 
     expect(approving.decisionPending).toBe(true);
@@ -229,7 +249,10 @@ describe('a task put to a person by its current run', () => {
       RUN,
       newNote('Use the staging queue.', Voice.person(UserId.of('user_1'))),
       BUILD,
-      NOBODY,
+      senderOf(
+        newNote('Use the staging queue.', Voice.person(UserId.of('user_1'))),
+        ACTING,
+      ),
     );
 
     expect(received.notes[0]?.kind).toBe('message');

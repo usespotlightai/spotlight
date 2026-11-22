@@ -26,6 +26,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -107,7 +108,7 @@ const scopeOf = (viewer: UserId, actsOnTeam = true): InboxScope => ({
   viewer,
   teamsSeen: new Set([teamId]),
   teamsActedOn: new Set(actsOnTeam ? [teamId] : []),
-  teamsJoined: new Set([teamId]),
+  teamsJoined: new Set(actsOnTeam ? [teamId] : []),
 });
 
 const heldAndAsking = async (): Promise<Task> => {
@@ -128,20 +129,24 @@ const heldAndAsking = async (): Promise<Task> => {
     newId: () => randomUUID(),
   })
     .assignRun(RunId.of(randomUUID()), line)
-    .hold({
-      id: HoldId.of(randomUUID()),
-      by: holder,
-      members: TeamMembers.of([holder, asked]),
-      line,
-      currentRunStarted: true,
-      at: NOW,
-    })
-    .addMessage({
-      line,
-      body: TaskNoteBody.of('Use a bounded queue.'),
-      at: NOW,
-      voice: Voice.person(holder),
-    })
+    .heldOnMessage(
+      null,
+      {
+        id: HoldId.of(randomUUID()),
+        members: TeamMembers.of([holder, asked]),
+        line,
+        currentRunStarted: true,
+        at: NOW,
+      },
+      {
+        line,
+        body: TaskNoteBody.of('Use a bounded queue.'),
+        at: NOW,
+        voice: Voice.person(holder),
+      },
+      implementation.id,
+      onTeam(holder),
+    )
     .assignRun(turn, line)
     .askToConnect(
       turn,
@@ -171,6 +176,14 @@ const conversationIn = (entries: readonly InboxEntrySummary[], task: Task) =>
   );
 
 const MEMBERS = () => TeamMembers.of([holder, asked]);
+const onTeam = (person: UserId) => ({
+  person,
+  team: TeamStanding.of({
+    seesTeam: true,
+    actsOnTeam: true,
+    memberOfTeam: true,
+  }),
+});
 
 const added = (): Task => {
   const implementation = line.stationKeyed(StationKey.of('implementation'));
@@ -259,7 +272,7 @@ describe('a held task whose turn asks another person (e2e)', () => {
     }
 
     await tasks.save(
-      task.resolveAs(holder, TeamMembers.of([holder, asked]), from, {
+      task.resolveAs(onTeam(holder), from, {
         line,
         body: TaskNoteBody.of('Resolved without an answer.'),
         at: NOW,
@@ -280,6 +293,75 @@ describe('a held task whose turn asks another person (e2e)', () => {
 
     expect((await resolvedFor(true))?.reopenable).toBe(true);
     expect((await resolvedFor(false))?.reopenable).toBe(false);
+  });
+
+  it('lists the ask for an admin off the team who drove the hold, who may answer and resolve it, and nothing for one who did not write', async () => {
+    const implementation = line.stationKeyed(StationKey.of('implementation'));
+
+    if (!implementation) {
+      throw new Error('the delivery line has no implementation station');
+    }
+
+    const admin = UserId.of(`user_${randomUUID()}`);
+    const silent = UserId.of(`user_${randomUUID()}`);
+    const offTeam = (person: UserId) => ({
+      person,
+      team: TeamStanding.of({
+        seesTeam: true,
+        actsOnTeam: true,
+        memberOfTeam: false,
+      }),
+    });
+    const held = RunId.of(randomUUID());
+    const turn = RunId.of(randomUUID());
+    const task = added()
+      .assignRun(held, line)
+      .heldOnMessage(
+        held,
+        {
+          id: HoldId.of(randomUUID()),
+          members: MEMBERS(),
+          line,
+          currentRunStarted: true,
+          at: NOW,
+        },
+        said('Use a bounded queue.', Voice.person(holder)),
+        implementation.id,
+        onTeam(holder),
+      )
+      .receiveMessage(
+        held,
+        said('Cap it at a hundred.', Voice.person(admin)),
+        implementation.id,
+        offTeam(admin),
+      )
+      .assignRun(turn, line)
+      .askToConnect(
+        turn,
+        said('Connect Linear.', Voice.station(turn)),
+        ConnectionAsk.of({
+          teamId: line.teamId,
+          integration: LINEAR,
+          providedBy: 'Linear',
+          personId: asked,
+        }),
+      ).task;
+    await tasks.add(task);
+    const adminScope = (viewer: UserId): InboxScope => ({
+      ...scopeOf(viewer),
+      teamsJoined: new Set(),
+    });
+
+    expect(
+      conversationIn(await reader.open(adminScope(admin)), task),
+    ).toMatchObject({
+      standing: 'following',
+      answerable: true,
+      resolvable: true,
+    });
+    expect(
+      conversationIn(await reader.open(adminScope(silent)), task),
+    ).toBeUndefined();
   });
 
   it('lists nothing for a team member the ask does not name', async () => {
@@ -341,7 +423,7 @@ describe('a held task whose turn asks another person (e2e)', () => {
     );
   });
 
-  it('lets a member of the team answer and resolve a task with no assignee, only while they act on the team', async () => {
+  it('lets a member of the team answer and resolve a task with no assignee, and leaves it out of the inbox of a person who only sees the team', async () => {
     const turn = RunId.of(randomUUID());
     const task = added()
       .assignRun(turn, line)
@@ -361,7 +443,7 @@ describe('a held task whose turn asks another person (e2e)', () => {
       answerable: true,
       resolvable: true,
     });
-    expect(seenOnly).toMatchObject({ answerable: false, resolvable: false });
+    expect(seenOnly).toBeUndefined();
   });
 
   it('keeps an ask with the person it names after the task moves to someone else, when it is not on hold', async () => {
@@ -394,22 +476,25 @@ describe('a held task whose turn asks another person (e2e)', () => {
 
   it('lists a new approval in a conversation already answered in words for the person it names', async () => {
     const turn = RunId.of(randomUUID());
-    const question = added()
-      .assignRun(RunId.of(randomUUID()), line)
-      .hold({
-        id: HoldId.of(randomUUID()),
-        by: holder,
-        members: MEMBERS(),
-        line,
-        currentRunStarted: true,
-        at: NOW,
-      })
-      .addMessage(said('Use a bounded queue.', Voice.person(holder)))
+    const working = added().assignRun(RunId.of(randomUUID()), line);
+    const question = working
+      .heldOnMessage(
+        null,
+        {
+          id: HoldId.of(randomUUID()),
+          members: MEMBERS(),
+          line,
+          currentRunStarted: true,
+          at: NOW,
+        },
+        said('Use a bounded queue.', Voice.person(holder)),
+        working.stationId,
+        onTeam(holder),
+      )
       .assignRun(turn, line)
       .putToAPerson(turn, said('Which queue?', Voice.station(turn)));
     const answered = question.answerAs(
-      holder,
-      MEMBERS(),
+      onTeam(holder),
       question.openConversation?.from ?? NotePosition.of(0),
       said('The main one.', Voice.person(holder)),
     );
@@ -424,18 +509,22 @@ describe('a held task whose turn asks another person (e2e)', () => {
 
   it('asks nobody again when a person reopens a conversation whose approval is decided, leaving it to the people who drive the task', async () => {
     const turn = RunId.of(randomUUID());
+    const working = added().assignRun(RunId.of(randomUUID()), line);
     const asking = askingApproval(
-      added()
-        .assignRun(RunId.of(randomUUID()), line)
-        .hold({
-          id: HoldId.of(randomUUID()),
-          by: holder,
-          members: MEMBERS(),
-          line,
-          currentRunStarted: true,
-          at: NOW,
-        })
-        .addMessage(said('Use a bounded queue.', Voice.person(holder)))
+      working
+        .heldOnMessage(
+          null,
+          {
+            id: HoldId.of(randomUUID()),
+            members: MEMBERS(),
+            line,
+            currentRunStarted: true,
+            at: NOW,
+          },
+          said('Use a bounded queue.', Voice.person(holder)),
+          working.stationId,
+          onTeam(holder),
+        )
         .assignRun(turn, line),
       turn,
       asked,
@@ -448,19 +537,17 @@ describe('a held task whose turn asks another person (e2e)', () => {
 
     const reopened = asking
       .answerAs(
-        asked,
-        MEMBERS(),
+        onTeam(asked),
         from,
         said('Go ahead.', Voice.person(asked)),
         'approved',
       )
       .resolveAs(
-        holder,
-        MEMBERS(),
+        onTeam(holder),
         from,
         said('Resolved without an answer.', Voice.person(holder)),
       )
-      .reopenAt(from, said('Reopened.', Voice.person(holder)));
+      .reopenAs(onTeam(holder), from, said('Reopened.', Voice.person(holder)));
 
     await tasks.add(reopened);
 

@@ -18,6 +18,22 @@ const NOW = new Date('2026-09-27T10:00:00.000Z');
 const LATER = new Date('2026-09-27T11:00:00.000Z');
 const ADA = UserId.of('user_ada');
 const BEA = UserId.of('user_bea');
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
+const ADMIN = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: false,
+});
+const SEES = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: false,
+  memberOfTeam: false,
+});
+const OUTSIDE = TeamStanding.outside();
 
 const created = (
   change: { form?: string; about?: string; askedOf?: UserId } = {},
@@ -165,42 +181,37 @@ describe('InboxRequest', () => {
   });
 
   describe('who sees it', () => {
-    const attending = (change: Partial<InboxRequestVisibility>) =>
+    const attending = (
+      change: Partial<Omit<InboxRequestVisibility, 'team'>>,
+      team: TeamStanding = MEMBER,
+    ) =>
       InboxRequest.visibleTo({
         form: 'memories',
         viewer: BEA,
         assignee: null,
         askedOf: null,
-        seesTeam: true,
-        actsOnTeam: true,
+        team,
         ...change,
       });
 
     it('is the task’s assignee, and nobody else, while the task has one', () => {
-      expect(attending({ viewer: ADA, assignee: ADA, seesTeam: false })).toBe(
-        true,
-      );
+      expect(attending({ viewer: ADA, assignee: ADA }, OUTSIDE)).toBe(true);
       expect(attending({ viewer: BEA, assignee: ADA })).toBe(false);
     });
 
     it('is anyone who sees the task’s team while nobody is assigned, whether or not they read the team’s insights', () => {
-      expect(attending({ actsOnTeam: false })).toBe(true);
-      expect(attending({ seesTeam: false })).toBe(false);
+      expect(attending({}, SEES)).toBe(true);
+      expect(attending({}, OUTSIDE)).toBe(false);
     });
 
     it('creates an alert for everyone who acts on the team, whoever the task is assigned to', () => {
-      expect(attending({ form: 'alert', seesTeam: false })).toBe(true);
+      expect(attending({ form: 'alert' }, ADMIN)).toBe(true);
       expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'alert', actsOnTeam: false })).toBe(false);
+      expect(attending({ form: 'alert' }, SEES)).toBe(false);
       expect(
-        attending({
-          form: 'alert',
-          viewer: ADA,
-          assignee: ADA,
-          actsOnTeam: false,
-        }),
+        attending({ form: 'alert', viewer: ADA, assignee: ADA }, SEES),
       ).toBe(false);
     });
 
@@ -210,14 +221,14 @@ describe('InboxRequest', () => {
       expect(attending({ ...asked, viewer: ADA, assignee: BEA })).toBe(true);
       expect(attending({ ...asked, viewer: BEA, assignee: BEA })).toBe(false);
       expect(attending({ ...asked, viewer: BEA })).toBe(false);
-      expect(attending({ ...asked, viewer: ADA, seesTeam: false })).toBe(false);
+      expect(attending({ ...asked, viewer: ADA }, OUTSIDE)).toBe(false);
     });
 
     it('needs only the access its form requires', () => {
-      expect(InboxRequest.requiredAccess('memories')).toBe('seesTeam');
-      expect(InboxRequest.requiredAccess('alert')).toBe('actsOnTeam');
+      expect(InboxRequest.requiredAccess('memories')).toBe('seesTasks');
+      expect(InboxRequest.requiredAccess('alert')).toBe('actsOnTasks');
       expect(InboxRequest.requiredAccess('judge-disagreement')).toBe(
-        'seesTeam',
+        'seesTasks',
       );
     });
   });
@@ -225,7 +236,7 @@ describe('InboxRequest', () => {
   describe('how it reaches a person', () => {
     const seen = (
       assignee: UserId | null,
-      actsOnTeam: boolean,
+      team: TeamStanding,
       askedOf: UserId | null = null,
     ) =>
       InboxRequest.standingOf({
@@ -233,36 +244,62 @@ describe('InboxRequest', () => {
         viewer: ADA,
         assignee,
         askedOf,
-        seesTeam: true,
-        actsOnTeam,
+        team,
       });
 
     it('reaches its assignee as the assignee', () => {
-      expect(seen(ADA, false)).toBe('assignee');
+      expect(seen(ADA, SEES)).toBe('assignee');
     });
 
-    it('reaches a person who acts on the team while nobody is the assignee', () => {
-      expect(seen(null, true)).toBe('team');
+    it('reaches a member of the team while nobody is the assignee', () => {
+      expect(seen(null, MEMBER)).toBe('team');
+    });
+
+    it('reaches a workspace admin who is not on the team as neither, like a question with no assignee', () => {
+      expect(seen(null, ADMIN)).toBeNull();
     });
 
     it('reaches a person who only sees the team as neither', () => {
-      expect(seen(null, false)).toBeNull();
+      expect(seen(null, SEES)).toBeNull();
+    });
+
+    it('reaches every person who acts on the team with an alert while nobody is the assignee, a workspace admin too', () => {
+      const alerted = (team: TeamStanding) =>
+        InboxRequest.standingOf({
+          form: 'alert',
+          viewer: ADA,
+          assignee: null,
+          askedOf: null,
+          team,
+        });
+
+      expect(alerted(MEMBER)).toBe('team');
+      expect(alerted(ADMIN)).toBe('team');
+      expect(alerted(SEES)).toBeNull();
     });
 
     it('reaches nobody else as the assignee or the team', () => {
-      expect(seen(BEA, true)).toBeNull();
+      expect(seen(BEA, MEMBER)).toBeNull();
     });
 
     it('reaches only the person it asks, as the assignee', () => {
-      expect(seen(BEA, true, ADA)).toBe('assignee');
-      expect(seen(ADA, true, BEA)).toBeNull();
-      expect(seen(null, true, BEA)).toBeNull();
+      expect(seen(BEA, MEMBER, ADA)).toBe('assignee');
+      expect(seen(ADA, MEMBER, BEA)).toBeNull();
+      expect(seen(null, MEMBER, BEA)).toBeNull();
     });
   });
 
   describe('who can resolve or reopen it', () => {
-    const ACTS = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
-    const SEES = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+    const ACTS = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: true,
+    });
+    const SEES = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: false,
+      memberOfTeam: false,
+    });
 
     it('lets a person who acts on the team resolve it while it is open', () => {
       expect(InboxRequest.resolvableBy(ACTS, null)).toBe(true);

@@ -24,6 +24,7 @@ const task: TaskSummary = {
   progress: null,
   awaitingReview: null,
   finished: false,
+  running: false,
   pullRequests: [MERGED, UNSEEN],
   createdBy: null,
   assignee: null,

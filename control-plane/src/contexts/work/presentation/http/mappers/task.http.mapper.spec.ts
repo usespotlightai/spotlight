@@ -14,6 +14,8 @@ const dto: TaskDto = {
   createdAt: '2026-08-28T09:15:00.000Z',
   progress: 'in-progress',
   awaitingReview: null,
+  waitingForYou: false,
+  yourMessage: 'message',
   finished: false,
   pullRequests: [],
   createdBy: { id: 'user_1', name: 'Ada', image: null },

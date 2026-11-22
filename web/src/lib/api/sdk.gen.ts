@@ -1736,7 +1736,7 @@ export const resumeLine = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Send a message to a task at the station it stands at
  *
- * For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.
+ * For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station. It answers or drives as a message to a run there does, but it never puts the task on hold, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.
  */
 export const sendTaskMessage = <ThrowOnError extends boolean = false>(options: Options<SendTaskMessageData, ThrowOnError>): RequestResult<SendTaskMessageResponses, SendTaskMessageErrors, ThrowOnError> => (options.client ?? client).post<SendTaskMessageResponses, SendTaskMessageErrors, ThrowOnError>({
   url: '/teams/{teamId}/tasks/{taskId}/messages',

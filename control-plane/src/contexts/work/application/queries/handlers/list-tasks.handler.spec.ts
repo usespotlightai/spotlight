@@ -1,3 +1,4 @@
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
   TaskReaderPort,
@@ -5,6 +6,10 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import { ListTasksHandler } from '@work/application/queries/handlers/list-tasks.handler';
 import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
+import {
+  HARNESSED,
+  linesWhere,
+} from '@work/application/services/run-access.fake-spec';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -23,6 +28,7 @@ const summaries: TaskSummary[] = [
     progress: null,
     awaitingReview: null,
     finished: false,
+    running: false,
     pullRequests: [],
     createdBy: null,
     assignee: null,
@@ -42,6 +48,7 @@ const summaries: TaskSummary[] = [
     progress: null,
     awaitingReview: null,
     finished: false,
+    running: false,
     pullRequests: [],
     createdBy: null,
     assignee: null,
@@ -52,9 +59,11 @@ const summaries: TaskSummary[] = [
   },
 ];
 
-const asDto = (summary: TaskSummary) => ({
+const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
   ...summary,
   createdAt: summary.createdAt.toISOString(),
+  waitingForYou: false,
+  yourMessage: 'message',
 });
 
 const reader = (result: TaskSummary[]): TaskReaderPort => ({
@@ -62,12 +71,46 @@ const reader = (result: TaskSummary[]): TaskReaderPort => ({
   findInTeam: vi.fn(),
 });
 
-const seeing = (sees = true, acts = sees): WorkAccess =>
+const seeing = (sees = true, acts = sees, joined = acts): WorkAccess =>
   ({
     standingOn: vi.fn(async () =>
-      TeamStanding.of({ seesTeam: sees, actsOnTeam: acts }),
+      TeamStanding.of({
+        seesTeam: sees,
+        actsOnTeam: acts,
+        memberOfTeam: joined,
+      }),
     ),
   }) as unknown as WorkAccess;
+
+const ALICE = { id: 'user_alice', name: 'Alice', image: null };
+
+const asking = (
+  assignee: TaskSummary['assignee'],
+  askedOf: string | null = null,
+): TaskSummary => ({
+  ...summaries[0],
+  assignee,
+  awaitingReview: {
+    conversationId: 'task_1:3',
+    ask: askedOf
+      ? {
+          approval: { open: true, askedOf: UserId.of(askedOf) },
+          connectionAsk: null,
+        }
+      : null,
+  },
+});
+
+const waitingFor = async (
+  summary: TaskSummary,
+  viewer: string,
+  access = seeing(),
+) =>
+  (
+    await new ListTasksHandler(reader([summary]), access, linesWhere()).execute(
+      new ListTasksQuery('team_1', viewer, 'board', null, FIRST_PAGE),
+    )
+  )?.items[0]?.waitingForYou;
 
 const held = (chatId: string | null): TaskSummary => ({
   ...summaries[0],
@@ -84,7 +127,7 @@ const holdOf = async (summary: TaskSummary, access: WorkAccess) =>
   (await handle(reader([summary]), access))?.items[0]?.hold;
 
 const handle = (tasks: TaskReaderPort, access = seeing()) =>
-  new ListTasksHandler(tasks, access).execute(
+  new ListTasksHandler(tasks, access, linesWhere()).execute(
     new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
   );
 
@@ -113,7 +156,7 @@ describe('ListTasksHandler', () => {
   it('asks the reader for a page of completed tasks on a line', async () => {
     const tasks = reader([]);
 
-    await new ListTasksHandler(tasks, seeing()).execute(
+    await new ListTasksHandler(tasks, seeing(), linesWhere()).execute(
       new ListTasksQuery(
         'team_1',
         'user_1',
@@ -150,6 +193,95 @@ describe('ListTasksHandler', () => {
     ).resolves.toMatchObject({
       viewerDrives: false,
       viewerEnds: false,
+    });
+  });
+
+  describe('waiting for you', () => {
+    it('waits for Alice, who holds the task, and not for Bob on the same team', async () => {
+      await expect(waitingFor(asking(ALICE), 'user_alice')).resolves.toBe(true);
+      await expect(waitingFor(asking(ALICE), 'user_bob')).resolves.toBe(false);
+    });
+
+    it('waits for every member of the team while nobody holds the task', async () => {
+      await expect(waitingFor(asking(null), 'user_bob')).resolves.toBe(true);
+    });
+
+    it('does not wait for a workspace admin who is not on the team, because answering would assign the task to them', async () => {
+      await expect(
+        waitingFor(asking(null), 'user_admin', seeing(true, true, false)),
+      ).resolves.toBe(false);
+    });
+
+    it('waits for the person an approval names, though someone else holds the task', async () => {
+      await expect(
+        waitingFor(asking(ALICE, 'user_bob'), 'user_bob'),
+      ).resolves.toBe(true);
+    });
+
+    it('waits for nobody who only sees the team', async () => {
+      await expect(
+        waitingFor(asking(null), 'user_bob', seeing(true, false)),
+      ).resolves.toBe(false);
+    });
+
+    it('hands back the question without who it asks', async () => {
+      const found = await new ListTasksHandler(
+        reader([asking(ALICE, 'user_bob')]),
+        seeing(),
+        linesWhere(),
+      ).execute(
+        new ListTasksQuery('team_1', 'user_bob', 'board', null, FIRST_PAGE),
+      );
+
+      expect(found?.items[0]?.awaitingReview).toEqual({
+        conversationId: 'task_1:3',
+      });
+    });
+  });
+
+  describe('your message', () => {
+    const yourMessage = async (
+      summary: TaskSummary,
+      viewer: string,
+      access = seeing(),
+    ) =>
+      (
+        await new ListTasksHandler(
+          reader([summary]),
+          access,
+          linesWhere(),
+        ).execute(
+          new ListTasksQuery('team_1', viewer, 'board', null, FIRST_PAGE),
+        )
+      )?.items[0]?.yourMessage;
+    const harnessed = { ...summaries[0], stationId: HARNESSED };
+
+    it('answers the open question with a message from Alice, who holds the task, and refuses one from Bob', async () => {
+      await expect(yourMessage(asking(ALICE), 'user_alice')).resolves.toBe(
+        'answer',
+      );
+      await expect(yourMessage(asking(ALICE), 'user_bob')).resolves.toBe(
+        'awaits-another',
+      );
+    });
+
+    it('adds a message to a task at a station with a harness, from a member or an admin off the team, and puts nothing on hold', async () => {
+      await expect(yourMessage(harnessed, 'user_bob')).resolves.toBe('message');
+      await expect(
+        yourMessage(harnessed, 'user_admin', seeing(true, true, false)),
+      ).resolves.toBe('message');
+    });
+
+    it('adds a message to a task at a station with no harness', async () => {
+      await expect(yourMessage(summaries[0], 'user_bob')).resolves.toBe(
+        'message',
+      );
+    });
+
+    it('refuses a message from anybody who only sees the team', async () => {
+      await expect(
+        yourMessage(harnessed, 'user_bob', seeing(true, false)),
+      ).resolves.toBe('not-acting');
     });
   });
 

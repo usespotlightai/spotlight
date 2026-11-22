@@ -3,7 +3,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
@@ -21,11 +21,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
 
-const taskAssignedTo = (userId: string) =>
-  ({
-    id: TaskId.of('task_1'),
-    assignedToThem: (them: UserId) => them.value === userId,
-  }) as unknown as Task;
+const TASK = { id: TaskId.of('task_1') } as unknown as Task;
+const ALICE = UserId.of('user_alice');
 
 const dispatched = Dispatch.ordered({
   id: RunId.of('run_1'),
@@ -66,8 +63,8 @@ const stopping = (
 };
 
 describe('StopRunHandler', () => {
-  it('requests the stop when the person it is assigned to asks for it', async () => {
-    const { handler, runs, take } = stopping(taskAssignedTo('user_1'));
+  it('requests the stop when a person who acts on the team asks for it', async () => {
+    const { handler, runs, take } = stopping(TASK);
 
     await handler.execute(new StopRunCommand('run_1', 'user_1'));
 
@@ -77,7 +74,7 @@ describe('StopRunHandler', () => {
 
   it('has a turn its task still decides decided at once (R4)', async () => {
     const { handler, take } = stopping(
-      taskAssignedTo('user_1'),
+      TASK,
       workAccessSeeing(() => true),
       { requestStop: async () => ({ pendingTurn: 1 }) },
     );
@@ -87,18 +84,40 @@ describe('StopRunHandler', () => {
     expect(take).toHaveBeenCalledWith(RunId.of('run_1'), 1);
   });
 
-  it('rejects anyone the task is not assigned to', async () => {
-    const { handler, runs } = stopping(taskAssignedTo('user_1'));
+  it('requests the stop for Bob, another member, and for an admin who is not on the team, as for Alice, the assignee', async () => {
+    for (const [by, members] of [
+      ['user_alice', [ALICE]],
+      ['user_bob', [ALICE, UserId.of('user_bob')]],
+      ['user_admin', [ALICE]],
+    ] as const) {
+      const { handler, runs } = stopping(
+        TASK,
+        workAccessSeeing(() => true, { members }),
+      );
+
+      await handler.execute(new StopRunCommand('run_1', by));
+
+      expect(runs.requestStop).toHaveBeenCalledWith(RunId.of('run_1'));
+    }
+  });
+
+  it('refuses anybody who only sees the team', async () => {
+    const { handler, runs } = stopping(
+      TASK,
+      workAccessSeeing(() => true, { onTeam: () => false }),
+    );
 
     await expect(
-      handler.execute(new StopRunCommand('run_1', 'someone_else')),
-    ).rejects.toThrow('Run run_1 is not one you may stop.');
+      handler.execute(new StopRunCommand('run_1', 'user_reader')),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
+    });
     expect(runs.requestStop).not.toHaveBeenCalled();
   });
 
-  it('refuses the person it is assigned to once they are no longer on the team', async () => {
+  it('refuses a person who is no longer on the team', async () => {
     const { handler, runs } = stopping(
-      taskAssignedTo('user_1'),
+      TASK,
       workAccessSeeing(() => true, { onTeam: () => false }),
     );
 
@@ -112,7 +131,7 @@ describe('StopRunHandler', () => {
 
   it('passes on the refusal of a run that is no longer worked', async () => {
     const { handler, take } = stopping(
-      taskAssignedTo('user_1'),
+      TASK,
       workAccessSeeing(() => true),
       {
         requestStop: async () => {

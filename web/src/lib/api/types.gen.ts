@@ -3086,6 +3086,10 @@ export type InboxItemResponseDto = {
    */
   runId: string | null;
   /**
+   * Whether you may stop the run working it now while it is in progress: the run works at a station of the task, and you act on the tasks of the team
+   */
+  stoppableByYou: boolean;
+  /**
    * Something was asked here that they have not seen yet
    */
   unread: boolean;
@@ -3216,6 +3220,10 @@ export type InboxRunResponseDto = {
    * Never reopenable
    */
   reopenable: false;
+  /**
+   * Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team
+   */
+  stoppableByYou: boolean;
 };
 
 export type FoldedVisitResponseDto = {
@@ -3314,6 +3322,10 @@ export type InboxItemViewResponseDto = {
    * The run working it now, whose steps can be watched as they land
    */
   runId: string | null;
+  /**
+   * Whether you may stop the run working it now while it is in progress: the run works at a station of the task, and you act on the tasks of the team
+   */
+  stoppableByYou: boolean;
   /**
    * Something was asked here that they have not seen yet
    */
@@ -3522,7 +3534,15 @@ export type TaskResponseDto = {
    */
   awaitingReview: TaskReviewResponseDto | null;
   /**
-   * Whether the line finished the task. A message to a finished task sends it back to its station.
+   * Whether the open question waits for you: you act on the tasks of the team, and you are the assignee, it asks you by name, or the task has no assignee and you are a member of the team. False for a question someone else owes.
+   */
+  waitingForYou: boolean;
+  /**
+   * What a message from you to the task does. A message to the task puts nothing on hold, so it is never holds, not-on-team or moved-on. answer: it answers the open question. drives: it drives the next turn while a person holds the task. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message, and starts a run that did not start. awaits-another: it is refused, because the question waits for another person. not-acting: it is refused, because you do not act on the tasks of the team.
+   */
+  yourMessage: 'answer' | 'drives' | 'holds' | 'reopens' | 'waits-for-chat' | 'message' | 'awaits-another' | 'moved-on' | 'not-acting' | 'not-on-team';
+  /**
+   * Whether the line finished the task. A message to a finished task sends it back to its station, unless it finished at the completed station.
    */
   finished: boolean;
   /**
@@ -3610,6 +3630,18 @@ export type TeamRunResponseDto = {
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
+   * Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team
+   */
+  waitingForYou: boolean;
+  /**
+   * What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team.
+   */
+  yourMessage: 'answer' | 'drives' | 'holds' | 'reopens' | 'waits-for-chat' | 'message' | 'awaits-another' | 'moved-on' | 'not-acting' | 'not-on-team';
+  /**
+   * Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team
+   */
+  stoppableByYou: boolean;
+  /**
    * Who drove it: the line, or a person who put the task on hold, one turn per run
    */
   driver: 'line' | 'person';
@@ -3670,6 +3702,18 @@ export type LatestRunResponseDto = {
    * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team
+   */
+  waitingForYou: boolean;
+  /**
+   * What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team.
+   */
+  yourMessage: 'answer' | 'drives' | 'holds' | 'reopens' | 'waits-for-chat' | 'message' | 'awaits-another' | 'moved-on' | 'not-acting' | 'not-on-team';
+  /**
+   * Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team
+   */
+  stoppableByYou: boolean;
 };
 
 export type RunSpendResponseDto = {
@@ -3781,6 +3825,18 @@ export type TaskRunResponseDto = {
    * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team
+   */
+  waitingForYou: boolean;
+  /**
+   * What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team.
+   */
+  yourMessage: 'answer' | 'drives' | 'holds' | 'reopens' | 'waits-for-chat' | 'message' | 'awaits-another' | 'moved-on' | 'not-acting' | 'not-on-team';
+  /**
+   * Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team
+   */
+  stoppableByYou: boolean;
   /**
    * Who drove it: the line, or a person who put the task on hold, one turn per run
    */
@@ -16869,7 +16925,7 @@ export type SendMessageErrors = {
    */
   401: unknown;
   /**
-   * The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it
+   * The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it, or the message would put the task on hold and the caller is not a member of the team
    */
   403: unknown;
   /**
@@ -17190,7 +17246,7 @@ export type SendTaskMessageErrors = {
    */
   401: unknown;
   /**
-   * The caller is not a member of the team, nor a workspace admin
+   * The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it
    */
   403: unknown;
   /**

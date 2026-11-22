@@ -144,6 +144,7 @@ export interface InboxItemDto {
   readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
+  readonly stoppableByYou: boolean;
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailureDto | null;
@@ -205,6 +206,7 @@ export interface InboxRunDto {
   readonly section: InboxSection;
   readonly standing: InboxRunStanding;
   readonly reopenable: false;
+  readonly stoppableByYou: boolean;
 }
 
 export interface InboxChatDto {

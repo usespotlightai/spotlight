@@ -1,5 +1,6 @@
 import type { TaskPersonResponseDto } from '@/lib/api';
 import { world } from '@/mocks/world';
+import { seenAgain } from '@/mocks/world/work';
 
 export const onHoldBy = (
   teamId: string,
@@ -37,4 +38,5 @@ export const onHoldBy = (
         }
       : each,
   );
+  seenAgain(teamId, taskId);
 };

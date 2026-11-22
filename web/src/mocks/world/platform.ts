@@ -229,6 +229,8 @@ const task = (
   createdAt: hoursAgo(24),
   progress: null,
   awaitingReview: null,
+  waitingForYou: false,
+  yourMessage: 'message',
   finished: false,
   pullRequests: [],
   hold: null,
@@ -358,6 +360,9 @@ const run = (
     ...rest,
     driver: rest.driver ?? 'line',
     progress: progressOfState(rest.state ?? 'completed'),
+    waitingForYou: false,
+    yourMessage: 'message',
+    stoppableByYou: false,
   };
 };
 

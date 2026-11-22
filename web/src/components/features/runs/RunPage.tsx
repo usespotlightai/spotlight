@@ -17,7 +17,7 @@ import { useTaskPullRequests } from '@/hooks/api/useTaskPullRequests';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
-import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
+import { type RunJournal, workedOn } from '@/lib/inbox';
 import { shownProgress, type TeamRun, underway } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
@@ -64,7 +64,6 @@ export function RunPage({
 
   const notes = conversation?.notes ?? [];
   const progress = shownProgress(reportedProgress, latest.id, worked);
-  const deciding = decisionPending(notes);
   const decide = useRunDeciding(slug, run);
   const ran = workedOn(worked, notes, run.id);
   const [openAt, setOpenAt] = useState(() => followedOnAfter(notes, run.id));
@@ -82,7 +81,6 @@ export function RunPage({
       run={run}
       latest={latest}
       conversation={conversation}
-      deciding={deciding}
       onSent={() => setOpenAt(null)}
     />
   );
@@ -94,7 +92,6 @@ export function RunPage({
       run={run}
       conversation={conversation}
       ran={ran}
-      deciding={deciding}
     />
   );
 

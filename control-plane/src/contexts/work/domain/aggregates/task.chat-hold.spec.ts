@@ -112,10 +112,7 @@ const wordsFor = (task: Task) =>
     );
 
 const answers = (task: Task, viewer: ConversationViewer): boolean =>
-  ConversationAudience.mayAnswer(
-    TeamStanding.of({ seesTeam: true, actsOnTeam: viewer.actsOnTasks }),
-    task.conversantOf(viewer),
-  );
+  ConversationAudience.mayAnswer(viewer.team, task.conversantOf(viewer));
 
 describe('a task a chat opens a pull request for', () => {
   it('waits on hold for the chat at the station it opened at, with the chat’s branch', () => {
@@ -137,13 +134,26 @@ describe('a task a chat opens a pull request for', () => {
 
   it('lets nobody drive it while the chat holds it, not even a person who acts on the team', () => {
     const task = opened();
-    const maya = { person: MAYA, onTeam: true, actsOnTasks: true };
+    const maya = {
+      person: MAYA,
+      team: TeamStanding.of({
+        seesTeam: true,
+        actsOnTeam: true,
+        memberOfTeam: true,
+      }),
+    };
 
     expect(task.conversantOf(maya)).toEqual({ standing: null, drives: false });
     expect(answers(task, maya)).toBe(false);
     expect(
-      task.conversantOf({ person: LEON, onTeam: true, actsOnTasks: true })
-        .drives,
+      task.conversantOf({
+        person: LEON,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
+      }).drives,
     ).toBe(false);
   });
 
@@ -198,9 +208,39 @@ describe('a task a chat opens a pull request for', () => {
     const task = opened();
     task.pullEvents();
 
-    const noted = task
-      .addMessage(said('Checks failed on web.', Voice.world()))
-      .addMessage(said('Use the Film icon.', Voice.person(LEON)));
+    const checked = task.reactTo(
+      {
+        kind: 'stays',
+        line,
+        body: TaskNoteBody.of('Checks failed on web.'),
+        anchor: null,
+      },
+      {
+        at: LATER,
+        voice: Voice.world(),
+        attachments: [],
+        ranksAtDestination: [],
+        members: TeamMembers.of([LEON, MAYA]),
+      },
+    );
+
+    if (!checked) {
+      throw new Error('the task did not react to the happening');
+    }
+
+    const noted = checked.receiveMessage(
+      null,
+      said('Use the Film icon.', Voice.person(LEON)),
+      null,
+      {
+        person: LEON,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
+      },
+    );
     const words = wordsFor(noted);
 
     expect(words.map((each) => [each.body, each.wakes])).toEqual([

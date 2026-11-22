@@ -77,6 +77,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   reopenable: false,
   progress: null,
   runId: null,
+  stoppableByYou: false,
   unread: true,
   briefing: null,
   failure,

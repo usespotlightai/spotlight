@@ -3,7 +3,7 @@ import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskCompose
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { answerPlaceholder, followed, type InboxItem } from '@/lib/inbox';
-import type { Progress } from '@/lib/run';
+import { type Progress, stoppable } from '@/lib/run';
 
 type InboxItemFooterProps = {
   slug: string;
@@ -28,6 +28,7 @@ export function InboxItemFooter({
         label={`Answer ${item.station}`}
         placeholder={answerPlaceholder(item.station)}
         because="You follow this task. Its assignee answers here."
+        stopRunId={stoppable({ ...item, progress }) ? item.runId : null}
       />
     );
   }
@@ -60,7 +61,7 @@ export function InboxItemFooter({
           station={item.station}
           teamId={item.teamId}
           runId={item.runId}
-          running={progress === 'in-progress'}
+          stoppable={stoppable({ ...item, progress })}
         />
       </>
     );

@@ -13,6 +13,8 @@ const task = (id: string, stationId: string): Task => ({
   createdAt: '2026-08-04T09:15:00.000Z',
   progress: null,
   awaitingReview: null,
+  waitingForYou: false,
+  yourMessage: 'message',
   finished: false,
   createdBy: null,
   assignee: null,

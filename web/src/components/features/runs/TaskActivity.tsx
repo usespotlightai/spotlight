@@ -31,15 +31,16 @@ export function TaskActivity({
 
       <ul className="flex flex-col gap-0.5">
         {worked.flatMap((run) => [
-          run.review && (
-            <ReviewMarker
-              key={`${run.id}-review`}
-              slug={slug}
-              review={run.review}
-              runId={run.id}
-              at={run.updatedAt}
-            />
-          ),
+          run.review &&
+            (run.waitingForYou || run.review.state !== 'pending') && (
+              <ReviewMarker
+                key={`${run.id}-review`}
+                slug={slug}
+                review={run.review}
+                runId={run.id}
+                at={run.updatedAt}
+              />
+            ),
           <RunRow
             key={run.id}
             run={run}

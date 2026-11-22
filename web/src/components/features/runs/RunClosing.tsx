@@ -1,7 +1,7 @@
 import { RunActions } from '@/components/features/runs/RunActions';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { lastNoteAt, type RunJournal } from '@/lib/inbox';
-import { type TeamRun, waitsOnPerson } from '@/lib/run';
+import type { TeamRun } from '@/lib/run';
 import { type RunNotes, runThreadText } from '@/lib/run-notes';
 
 type RunClosingProps = {
@@ -10,7 +10,6 @@ type RunClosingProps = {
   run: TeamRun;
   conversation: RunNotes | undefined;
   ran: readonly RunJournal[];
-  deciding: boolean;
 };
 
 export function RunClosing({
@@ -19,7 +18,6 @@ export function RunClosing({
   run,
   conversation,
   ran,
-  deciding,
 }: RunClosingProps) {
   return (
     <div className="flex flex-col gap-6">
@@ -30,9 +28,7 @@ export function RunClosing({
         thread={runThreadText(conversation, run, ran)}
         at={lastNoteAt(conversation?.notes ?? [], ran) ?? run.updatedAt}
       />
-      {waitsOnPerson(run) && (
-        <RunWaiting slug={slug} run={run} deciding={deciding} />
-      )}
+      {run.waitingForYou && <RunWaiting slug={slug} run={run} />}
     </div>
   );
 }

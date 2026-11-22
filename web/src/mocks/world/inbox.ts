@@ -232,6 +232,7 @@ const conversation = ({
     folded: foldedAround(taskId, trail, numberedNotes),
     standing: 'assignee',
     ...over,
+    stoppableByYou: (over.runId ?? null) !== null,
   };
 };
 
@@ -281,6 +282,7 @@ const inboxRequestOf = ({
     resolved: false,
     progress: null,
     runId: null,
+    stoppableByYou: false,
     unread: false,
     briefing: null,
     failure: null,
@@ -586,6 +588,7 @@ const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
     resolved,
     progress: null,
     runId: null,
+    stoppableByYou: false,
     unread: !resolved,
     briefing: null,
     failure: null,
@@ -643,6 +646,7 @@ const runningOn = (
     unread: false,
     resolved: false,
     standing: 'assignee',
+    stoppableByYou: true,
   };
 };
 

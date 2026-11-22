@@ -41,6 +41,7 @@ import type { RepositoryName } from '@work/domain/value-objects/repository-name.
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -420,12 +421,21 @@ describe('OpenPullRequest', () => {
   it('records it on the task as it is when GitHub answers, not as it was read before', async () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
-        task.addMessage({
-          line: null,
-          body: TaskNoteBody.of('One more thing.'),
-          at: NOW,
-          voice: Voice.world(),
-        }),
+        task.reactTo(
+          {
+            kind: 'stays',
+            line: delivery(),
+            body: TaskNoteBody.of('One more thing.'),
+            anchor: null,
+          },
+          {
+            at: NOW,
+            voice: Voice.world(),
+            attachments: [],
+            ranksAtDestination: [],
+            members: TeamMembers.of([]),
+          },
+        ) ?? task,
     });
 
     await open(task());

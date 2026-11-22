@@ -26,7 +26,7 @@ export function useChatSend({
   clear,
 }: ChatSend) {
   const unsendable = disabled || empty || uploading || pending;
-  const stopping = !disabled && running && empty ? (onStop ?? null) : null;
+  const stopping = running && empty ? (onStop ?? null) : null;
 
   const send = (event?: SubmitEvent) => {
     event?.preventDefault();

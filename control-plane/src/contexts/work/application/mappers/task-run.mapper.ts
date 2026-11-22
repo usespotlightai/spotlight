@@ -6,9 +6,14 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
+import {
+  type MessageReading,
+  stoppableIn,
+  waitingIn,
+} from '@work/application/services/message-reading';
 
 export const TaskRunMapper = {
-  summaryToDto(summary: TaskRunSummary): TaskRunDto {
+  summaryToDto(summary: TaskRunSummary, reading: MessageReading): TaskRunDto {
     return {
       id: summary.id,
       state: summary.state,
@@ -24,13 +29,18 @@ export const TaskRunMapper = {
         conversationId: summary.review.conversationId,
       },
       progress: summary.progress,
+      ...waitingIn(summary.audience, reading),
+      stoppableByYou: stoppableIn(summary.audience, reading),
       driver: summary.driver,
     };
   },
 
-  teamSummaryToDto(summary: TeamRunSummary): TeamRunDto {
+  teamSummaryToDto(
+    summary: TeamRunSummary,
+    reading: MessageReading,
+  ): TeamRunDto {
     return {
-      ...TaskRunMapper.summaryToDto(summary),
+      ...TaskRunMapper.summaryToDto(summary, reading),
       taskId: summary.taskId,
       taskTitle: summary.taskTitle,
       taskDescription: summary.taskDescription,

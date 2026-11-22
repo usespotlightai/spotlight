@@ -5,7 +5,6 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -23,15 +22,14 @@ export class ResolveConversationHandler implements CommandHandlerPort<
 
   async execute(command: ResolveConversationCommand): Promise<void> {
     try {
-      const { item, task, line, members } = await this.conversations.putTo(
+      const { item, task, line, viewer } = await this.conversations.putTo(
         command.conversationId,
         command.resolvedBy,
-        (team, conversant) => ConversationAudience.mayResolve(team, conversant),
       );
       const resolvedBy = UserId.of(command.resolvedBy);
 
       await this.tasks.save(
-        task.resolveAs(resolvedBy, members, item.from, {
+        task.resolveAs(viewer, item.from, {
           line,
           body: TaskNoteBody.of(RESOLVED),
           at: this.clock.now(),

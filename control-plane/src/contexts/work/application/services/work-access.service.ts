@@ -56,25 +56,16 @@ export class WorkAccess {
     return (await this.seenTeam(teamId, viewer)) !== null;
   }
 
-  async actsOnTeam(teamId: TeamId, viewer: UserId): Promise<boolean> {
-    return (
-      (await this.access.permissionsAsTeamMember(
-        teamId,
-        PersonPrincipal.of(viewer),
-      )) !== null
-    );
-  }
-
-  joinsTeam(teamId: TeamId, viewer: UserId): Promise<boolean> {
-    return this.access.joinedTeam(teamId, PersonPrincipal.of(viewer));
-  }
-
   async standingOn(teamId: TeamId, viewer: UserId): Promise<TeamStanding> {
-    const actsOnTeam = await this.actsOnTeam(teamId, viewer);
+    const { actsOn, joined } = await this.access.accessOnTeam(
+      teamId,
+      PersonPrincipal.of(viewer),
+    );
 
     return TeamStanding.of({
-      actsOnTeam,
-      seesTeam: actsOnTeam || (await this.seesTeam(teamId, viewer)),
+      actsOnTeam: actsOn,
+      memberOfTeam: joined,
+      seesTeam: actsOn || (await this.seesTeam(teamId, viewer)),
     });
   }
 

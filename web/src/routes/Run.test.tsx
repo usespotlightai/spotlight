@@ -165,6 +165,9 @@ const run = (over: Record<string, unknown> = {}) => ({
   harness: 'claude-code',
   station: STATION,
   review: null,
+  waitingForYou: over.state === 'suspended',
+  yourMessage: over.state === 'suspended' ? 'answer' : 'message',
+  stoppableByYou: true,
   taskId: 'task_1',
   taskTitle: 'Fix the queue',
   taskDescription: 'The retry queue is stuck.',
@@ -438,7 +441,12 @@ describe('Run', () => {
       runs.mockReturnValue([run({ state: 'failed', exitCode: -1 })]);
       conversation.mockReturnValue({
         ...conversation(),
-        latestRun: { id: 'run_2', progress: null, ...latestRun },
+        latestRun: {
+          id: 'run_2',
+          progress: null,
+          stoppableByYou: true,
+          ...latestRun,
+        },
       });
     };
 
@@ -753,8 +761,9 @@ describe('Run', () => {
       },
     };
 
-    it('offers to send the finished work back to the station, which starts it again', () => {
+    it('offers to send the finished work back to the station, where the server says a message reopens it', () => {
       taskStation.mockReturnValue(idle);
+      runs.mockReturnValue([run({ yourMessage: 'reopens' })]);
 
       renderRun();
 
@@ -774,7 +783,12 @@ describe('Run', () => {
       taskStation.mockReturnValue(left);
       conversation.mockReturnValue({
         ...conversation(),
-        latestRun: { id: 'run_2', progress: null, state: 'queued' },
+        latestRun: {
+          id: 'run_2',
+          progress: null,
+          state: 'queued',
+          yourMessage: 'moved-on',
+        },
       });
 
       renderRun();
@@ -791,6 +805,7 @@ describe('Run', () => {
 
     it('says nothing about the station the task moved to until its runs load', () => {
       taskStation.mockReturnValue(left);
+      runs.mockReturnValue([run({ yourMessage: 'moved-on' })]);
       taskRuns.mockReturnValue(undefined);
 
       renderRun();
@@ -806,10 +821,12 @@ describe('Run', () => {
 
     it('gives the text bar to the station the task is at, once a run started there', async () => {
       taskStation.mockReturnValue(left);
+      runs.mockReturnValue([run({ yourMessage: 'moved-on' })]);
       taskRuns.mockReturnValue([
         run({
           id: 'run_2',
           station: { ...STATION, id: 'station_4', name: 'Review' },
+          yourMessage: 'reopens',
         }),
       ]);
 
@@ -828,6 +845,30 @@ describe('Run', () => {
         }),
         expect.objectContaining({ onError: expect.any(Function) as unknown }),
       );
+    });
+
+    it('closes the text bar of the station the task is at while its run waits for another person', () => {
+      taskStation.mockReturnValue(left);
+      runs.mockReturnValue([run({ yourMessage: 'moved-on' })]);
+      taskRuns.mockReturnValue([
+        run({
+          id: 'run_2',
+          state: 'suspended',
+          review: { state: 'pending', conversationId: 'task_1:0' },
+          waitingForYou: false,
+          yourMessage: 'awaits-another',
+          station: { ...STATION, id: 'station_4', name: 'Review' },
+        }),
+      ]);
+
+      renderRun();
+
+      expect(
+        screen.getByText('It waits for another person to answer.'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('textbox', { name: 'Message Review' }),
+      ).toHaveAttribute('aria-disabled', 'true');
     });
 
     describe('where the agent of the station did not start', () => {
@@ -858,6 +899,24 @@ describe('Run', () => {
           taskId: 'task_1',
         });
         expect(screen.queryByText(/Messages here reach no one\./)).toBeNull();
+      });
+
+      it('closes the text bar with the reason the task gives for a message from you', () => {
+        taskStation.mockReturnValue({
+          ...stuck,
+          task: { ...stuck.task, yourMessage: 'not-on-team' },
+        });
+
+        renderRun();
+
+        expect(
+          screen.getByText(
+            'Your message would put the task on hold, and a hold assigns the task to you. Only members of the team can do that.',
+          ),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole('textbox', { name: 'Message Review' }),
+        ).toHaveAttribute('aria-disabled', 'true');
       });
 
       it('sends a message to the task, which tries the agent again', async () => {
@@ -947,6 +1006,7 @@ describe('Run', () => {
 
     it('says a message puts the task on hold', () => {
       taskStation.mockReturnValue(working);
+      runs.mockReturnValue([run({ yourMessage: 'holds' })]);
 
       renderRun();
 
@@ -1064,6 +1124,7 @@ describe('Run', () => {
           },
         },
       });
+      runs.mockReturnValue([run({ yourMessage: 'drives' })]);
 
       renderRun();
 
@@ -1089,18 +1150,19 @@ describe('Run', () => {
           },
         },
       });
+      runs.mockReturnValue([run({ yourMessage: 'not-acting' })]);
 
       renderRun();
 
       expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
       expect(
         screen.getByText(
-          "Maya Chen put the task on hold. Only people who act on the team's tasks can send it turns.",
+          'You do not act on the tasks of this team, so you cannot message it.',
         ),
       ).toBeInTheDocument();
     });
 
-    it('tells a teammate that the agent reads their message after an agent chat hands the task to the line', () => {
+    it('tells a teammate that the agent chat reads their message once the task is handed to the line', () => {
       taskStation.mockReturnValue({
         ...working,
         task: {
@@ -1116,21 +1178,21 @@ describe('Run', () => {
           },
         },
       });
+      runs.mockReturnValue([run({ yourMessage: 'waits-for-chat' })]);
 
       renderRun();
 
       expect(
-        screen.getByText(
-          'An agent chat of Maya Chen holds the task. The agent reads new messages after they hand the task to the line.',
-        ),
-      ).toBeInTheDocument();
-      expect(
         screen.getByRole('textbox', { name: 'Message Implementation' }),
-      ).toHaveAttribute('aria-disabled', 'true');
+      ).toHaveAttribute(
+        'aria-placeholder',
+        'Your message goes to the agent chat that holds the task…',
+      );
     });
 
     it('asks the person who holds the task for the next turn', () => {
       taskStation.mockReturnValue(mine());
+      runs.mockReturnValue([run({ yourMessage: 'drives' })]);
 
       renderRun();
 
@@ -1154,6 +1216,85 @@ describe('Run', () => {
       expect(
         screen.getByRole('link', { name: 'Answer in the inbox' }),
       ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A0?run=run_1');
+    });
+
+    it('says nothing is waiting for you while the answer is someone else’s to give', () => {
+      runs.mockReturnValue([
+        run({
+          state: 'suspended',
+          review: PENDING,
+          waitingForYou: false,
+          yourMessage: 'awaits-another',
+        }),
+      ]);
+
+      const { container } = renderRun();
+
+      expect(
+        container.querySelector('[data-slot="run-waiting"]'),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('textbox', { name: 'Answer Implementation' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText('It waits for another person to answer.'),
+      ).toBeInTheDocument();
+    });
+
+    it('says why a person who does not act on the team cannot message the run', () => {
+      runs.mockReturnValue([
+        run({
+          state: 'suspended',
+          review: PENDING,
+          waitingForYou: false,
+          yourMessage: 'not-acting',
+        }),
+      ]);
+
+      renderRun();
+
+      expect(
+        screen.getByText(
+          'You do not act on the tasks of this team, so you cannot message it.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('says why an admin off the team cannot send a message that would put the task on hold', () => {
+      runs.mockReturnValue([run({ yourMessage: 'not-on-team' })]);
+
+      renderRun();
+
+      expect(
+        screen.getByText(
+          'Your message would put the task on hold, and a hold assigns the task to you. Only members of the team can do that.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('offers an admin off the team Stop beside the closed text bar, as the server lets them stop the run', async () => {
+      runs.mockReturnValue([
+        run({ state: 'claimed', yourMessage: 'not-on-team' }),
+      ]);
+
+      renderRun();
+      await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
+
+      expect(stop).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_1' });
+    });
+
+    it('offers no Stop where the server does not let the person stop the run', () => {
+      runs.mockReturnValue([
+        run({
+          state: 'claimed',
+          yourMessage: 'not-acting',
+          stoppableByYou: false,
+        }),
+      ]);
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
     });
 
     it('does not claim the agent is working, nor offer to stop it', () => {
@@ -1183,7 +1324,13 @@ describe('Run', () => {
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {
-      runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
+      runs.mockReturnValue([
+        run({
+          state: 'suspended',
+          review: PENDING,
+          yourMessage: 'message',
+        }),
+      ]);
       const approval = conversationOf().notes.map((note) => ({
         ...note,
         form: 'approval',

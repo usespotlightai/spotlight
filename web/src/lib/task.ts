@@ -39,34 +39,6 @@ export const createdOn = (createdAt: string): string => {
   });
 };
 
-type AtStation = { readonly id: string; readonly harness: string | null };
-
-const workedAt = (
-  currentStation: AtStation | undefined,
-  ranAt: string | undefined,
-): boolean => Boolean(currentStation?.harness && currentStation.id === ranAt);
-
-export const startsAgainOnMessage = (
-  task: Task | undefined,
-  currentStation: AtStation | undefined,
-  ranAt: string | undefined,
-): boolean =>
-  Boolean(
-    task?.finished &&
-    workedAt(currentStation, ranAt) &&
-    !task.progress &&
-    !task.awaitingReview,
-  );
-
-export const holdsOnMessage = (
-  task: Task | undefined,
-  currentStation: AtStation | undefined,
-  ranAt: string | undefined,
-): boolean =>
-  Boolean(
-    task && !task.finished && !task.hold && workedAt(currentStation, ranAt),
-  );
-
 type Placed = {
   readonly id: string;
   readonly kind: StationResponseDto['kind'];

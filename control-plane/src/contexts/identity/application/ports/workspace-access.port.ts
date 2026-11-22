@@ -100,7 +100,10 @@ export interface WorkspaceAccessPort {
     principal: Principal,
   ): Promise<TeamPermissions | null>;
 
-  joinedTeam(teamId: TeamId, principal: Principal): Promise<boolean>;
+  accessOnTeam(
+    teamId: TeamId,
+    principal: Principal,
+  ): Promise<Pick<TeamAccessEntry, 'actsOn' | 'joined'>>;
 
   mayPlan(principal: Principal): boolean;
 }

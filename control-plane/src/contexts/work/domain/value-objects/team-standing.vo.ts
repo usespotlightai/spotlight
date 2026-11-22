@@ -1,6 +1,7 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 
-type TeamReach = 'outside' | 'workspace' | 'team';
+type TeamReach = 'outside' | 'workspace' | 'actor' | 'member';
 
 export class TeamStanding {
   private constructor(private readonly reach: TeamReach) {}
@@ -8,12 +9,24 @@ export class TeamStanding {
   static of(input: {
     readonly seesTeam: boolean;
     readonly actsOnTeam: boolean;
+    readonly memberOfTeam: boolean;
   }): TeamStanding {
+    if (input.memberOfTeam && !input.actsOnTeam) {
+      throw new InconsistentStateError(
+        'team standing',
+        'makes a member of the team unable to act on its tasks.',
+      );
+    }
+
     if (input.actsOnTeam) {
-      return new TeamStanding('team');
+      return new TeamStanding(input.memberOfTeam ? 'member' : 'actor');
     }
 
     return new TeamStanding(input.seesTeam ? 'workspace' : 'outside');
+  }
+
+  static outside(): TeamStanding {
+    return new TeamStanding('outside');
   }
 
   get seesTasks(): boolean {
@@ -21,7 +34,11 @@ export class TeamStanding {
   }
 
   get actsOnTasks(): boolean {
-    return this.reach === 'team';
+    return this.reach === 'actor' || this.reach === 'member';
+  }
+
+  get takesTasks(): boolean {
+    return this.reach === 'member';
   }
 
   assertActsOnTasks(unseen: () => Error): void {

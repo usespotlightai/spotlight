@@ -651,6 +651,12 @@ export class InboxItemResponseDto {
   readonly runId: string | null;
 
   @ApiProperty({
+    description:
+      'Whether you may stop the run working it now while it is in progress: the run works at a station of the task, and you act on the tasks of the team',
+  })
+  readonly stoppableByYou: boolean;
+
+  @ApiProperty({
     example: true,
     description: 'Something was asked here that they have not seen yet',
   })
@@ -709,6 +715,7 @@ export class InboxItemResponseDto {
     this.reopenable = item.reopenable;
     this.progress = item.progress;
     this.runId = item.runId;
+    this.stoppableByYou = item.stoppableByYou;
     this.unread = item.unread;
     this.briefing = item.briefing;
     this.failure = item.failure;
@@ -941,6 +948,12 @@ export class InboxRunResponseDto {
   @ApiProperty({ enum: [false], description: 'Never reopenable' })
   readonly reopenable = false as const;
 
+  @ApiProperty({
+    description:
+      'Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team',
+  })
+  readonly stoppableByYou: boolean;
+
   constructor(entry: InboxRunDto) {
     this.id = entry.id;
     this.taskId = entry.taskId;
@@ -954,6 +967,7 @@ export class InboxRunResponseDto {
     this.askedAt = entry.askedAt;
     this.section = entry.section;
     this.standing = entry.standing;
+    this.stoppableByYou = entry.stoppableByYou;
   }
 }
 

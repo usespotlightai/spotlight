@@ -2,18 +2,15 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-to-another-person.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import {
-  type Conversant,
-  ConversationAudience,
-  type ConversationStanding,
+import type {
+  ConversationStanding,
+  ConversationViewer,
 } from '@work/domain/services/conversation-audience';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
-import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
 export interface Conversing {
   readonly item: ConversationId;
@@ -21,21 +18,18 @@ export interface Conversing {
   readonly standing: ConversationStanding | null;
 }
 
-export interface ActedOnConversation extends Conversing {
+export interface ActedOnConversation {
+  readonly item: ConversationId;
+  readonly task: Task;
   readonly line: LineMap;
-  readonly members: TeamMembers;
+  readonly viewer: ConversationViewer;
 }
 
-interface OnTeam {
-  readonly line: LineMap;
-  readonly members: TeamMembers;
-  readonly standing: TeamStanding;
-  readonly joined: boolean;
-}
-
-interface Seen extends Conversing {
-  readonly drives: boolean;
-  readonly team: OnTeam | null;
+interface Found {
+  readonly item: ConversationId;
+  readonly task: Task | null;
+  readonly line: LineMap | null;
+  readonly viewer: ConversationViewer;
 }
 
 export class ConversationLoader {
@@ -45,68 +39,36 @@ export class ConversationLoader {
     private readonly access: WorkAccess,
   ) {}
 
-  async putTo(
-    itemId: string,
-    them: string,
-    may: (team: TeamStanding, conversant: Conversant) => boolean = (
-      team,
-      conversant,
-    ) => ConversationAudience.mayAnswer(team, conversant),
-  ): Promise<ActedOnConversation> {
-    const { item, task, standing, drives, team } = await this.seen(
-      itemId,
-      them,
-    );
-    const unknown = () => new UnknownTaskError(task.id.value);
+  async putTo(itemId: string, them: string): Promise<ActedOnConversation> {
+    const { item, task, line, viewer } = await this.found(itemId, them);
 
-    if (!team) {
-      throw unknown();
+    if (!task || !line || !viewer.team.seesTasks) {
+      throw new UnknownTaskError(item.taskId.value);
     }
 
-    team.standing.assertActsOnTasks(unknown);
-
-    if (!may(team.standing, { standing, drives })) {
-      throw new AssignedToAnotherPersonError(task.id.value);
-    }
-
-    return { item, task, standing, line: team.line, members: team.members };
+    return { item, task, line, viewer };
   }
 
   async seenBy(itemId: string, them: string): Promise<Conversing> {
-    const { item, task, standing } = await this.seen(itemId, them);
+    const { item, task, viewer } = await this.found(itemId, them);
+    const conversant = task?.conversantOf(viewer);
 
-    return { item, task, standing };
-  }
-
-  private async seen(itemId: string, them: string): Promise<Seen> {
-    const item = ConversationId.parse(itemId);
-    const person = UserId.of(them);
-    const task = await this.tasks.find(item.taskId);
-    const line = task ? await this.lines.findByStation(task.stationId) : null;
-    const team = line ? await this.teamOf(line, person) : null;
-    const conversant = task?.conversantOf({
-      person,
-      onTeam: team?.joined ?? false,
-      actsOnTasks: team?.standing.actsOnTasks ?? false,
-    });
     if (!task || !conversant || (!conversant.standing && !conversant.drives)) {
       throw new UnknownTaskError(item.taskId.value);
     }
 
-    return {
-      item,
-      task,
-      standing: conversant.standing,
-      drives: conversant.drives,
-      team,
-    };
+    return { item, task, standing: conversant.standing };
   }
 
-  private async teamOf(line: LineMap, person: UserId): Promise<OnTeam> {
-    const standing = await this.access.standingOn(line.teamId, person);
-    const members = await this.access.membersOf(line.teamId);
-    const joined = await this.access.joinsTeam(line.teamId, person);
+  private async found(itemId: string, them: string): Promise<Found> {
+    const item = ConversationId.parse(itemId);
+    const person = UserId.of(them);
+    const task = await this.tasks.find(item.taskId);
+    const line = task ? await this.lines.findByStation(task.stationId) : null;
+    const team = line
+      ? await this.access.standingOn(line.teamId, person)
+      : TeamStanding.outside();
 
-    return { line, standing, joined, members: members ?? TeamMembers.of([]) };
+    return { item, task, line, viewer: { person, team } };
   }
 }

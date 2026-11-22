@@ -11,7 +11,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(ANA, {
         person: ANA,
-        onTeam: true,
+        takesTasks: true,
         wroteIn: true,
         asked: false,
       }),
@@ -22,7 +22,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(null, {
         person: ANA,
-        onTeam: true,
+        takesTasks: true,
         wroteIn: true,
         asked: false,
       }),
@@ -33,7 +33,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(BEN, {
         person: ANA,
-        onTeam: true,
+        takesTasks: true,
         wroteIn: true,
         asked: false,
       }),
@@ -44,7 +44,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(BEN, {
         person: ANA,
-        onTeam: true,
+        takesTasks: true,
         wroteIn: false,
         asked: false,
       }),
@@ -52,7 +52,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(null, {
         person: ANA,
-        onTeam: false,
+        takesTasks: false,
         wroteIn: false,
         asked: false,
       }),
@@ -63,7 +63,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(null, {
         person: ANA,
-        onTeam: false,
+        takesTasks: false,
         wroteIn: true,
         asked: false,
       }),
@@ -74,7 +74,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(BEN, {
         person: ANA,
-        onTeam: false,
+        takesTasks: false,
         wroteIn: true,
         asked: true,
       }),
@@ -82,7 +82,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(ANA, {
         person: ANA,
-        onTeam: true,
+        takesTasks: true,
         wroteIn: false,
         asked: true,
       }),
@@ -93,7 +93,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(null, {
         person: ANA,
-        onTeam: true,
+        takesTasks: true,
         wroteIn: false,
         asked: true,
       }),
@@ -101,7 +101,7 @@ describe('ConversationAudience', () => {
     expect(
       ConversationAudience.standingOf(null, {
         person: ANA,
-        onTeam: false,
+        takesTasks: false,
         wroteIn: false,
         asked: true,
       }),
@@ -130,10 +130,14 @@ describe('ConversationAudience', () => {
   });
 
   it('lets a person who drives a hold answer and resolve, though they stand nowhere', () => {
-    const acts = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+    const acts = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: true,
+    });
     const standing = ConversationAudience.standingOf(BEN, {
       person: ANA,
-      onTeam: true,
+      takesTasks: true,
       wroteIn: false,
       asked: false,
     });
@@ -151,7 +155,11 @@ describe('ConversationAudience', () => {
   });
 
   it('lets nobody who only sees the team drive', () => {
-    const sees = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+    const sees = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: false,
+      memberOfTeam: false,
+    });
 
     expect(
       ConversationAudience.mayAnswer(sees, {
@@ -176,8 +184,16 @@ describe('ConversationAudience', () => {
   });
 
   it('lets only a person who acts on the tasks of the team answer, resolve or reopen', () => {
-    const acts = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
-    const sees = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+    const acts = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: true,
+    });
+    const sees = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: false,
+      memberOfTeam: false,
+    });
 
     expect(
       ConversationAudience.mayAnswer(acts, {
@@ -215,6 +231,102 @@ describe('ConversationAudience', () => {
         drives: false,
       }),
     ).toBe(false);
+  });
+
+  describe('waitsFor', () => {
+    const member = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: true,
+    });
+    const admin = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: false,
+    });
+    const onlySees = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: false,
+      memberOfTeam: false,
+    });
+    const askedOfBen = {
+      approval: { open: true, askedOf: BEN },
+      connectionAsk: null,
+    };
+
+    it('waits for the assignee and for no other member of the team', () => {
+      expect(
+        ConversationAudience.waitsFor(ANA, null, { person: ANA, team: member }),
+      ).toBe(true);
+      expect(
+        ConversationAudience.waitsFor(ANA, null, { person: BEN, team: member }),
+      ).toBe(false);
+    });
+
+    it('waits for every member of the team while nobody is the assignee', () => {
+      expect(
+        ConversationAudience.waitsFor(null, null, {
+          person: BEN,
+          team: member,
+        }),
+      ).toBe(true);
+    });
+
+    it('does not wait for an admin off the team while nobody is the assignee, because answering assigns', () => {
+      expect(
+        ConversationAudience.waitsFor(null, null, { person: BEN, team: admin }),
+      ).toBe(false);
+    });
+
+    it('waits for the person an open ask names, though someone else is the assignee', () => {
+      expect(
+        ConversationAudience.waitsFor(ANA, askedOfBen, {
+          person: BEN,
+          team: admin,
+        }),
+      ).toBe(true);
+    });
+
+    it('waits for nobody who only sees the team, not even the assignee', () => {
+      expect(
+        ConversationAudience.waitsFor(ANA, null, {
+          person: ANA,
+          team: onlySees,
+        }),
+      ).toBe(false);
+    });
+
+    it('waits for nobody who only sees the team, not even a person an open ask names', () => {
+      expect(
+        ConversationAudience.waitsFor(ANA, askedOfBen, {
+          person: BEN,
+          team: onlySees,
+        }),
+      ).toBe(false);
+      expect(
+        ConversationAudience.waitsFor(null, null, {
+          person: BEN,
+          team: onlySees,
+        }),
+      ).toBe(false);
+    });
+
+    it('waits for nobody outside the workspace, whatever the task asks', () => {
+      const outside = TeamStanding.outside();
+
+      expect(
+        ConversationAudience.waitsFor(ANA, null, {
+          person: ANA,
+          team: outside,
+        }),
+      ).toBe(false);
+      expect(
+        ConversationAudience.waitsFor(ANA, askedOfBen, {
+          person: BEN,
+          team: outside,
+        }),
+      ).toBe(false);
+    });
   });
 
   describe('asks', () => {
@@ -263,5 +375,23 @@ describe('ConversationAudience', () => {
         false,
       );
     });
+  });
+});
+
+describe('answeredByMessage', () => {
+  it('takes a message as the answer, unless what is asked is an approval', () => {
+    expect(ConversationAudience.answeredByMessage(null)).toBe(true);
+    expect(
+      ConversationAudience.answeredByMessage({
+        approval: null,
+        connectionAsk: null,
+      }),
+    ).toBe(true);
+    expect(
+      ConversationAudience.answeredByMessage({
+        approval: { open: true, askedOf: null },
+        connectionAsk: null,
+      }),
+    ).toBe(false);
   });
 });

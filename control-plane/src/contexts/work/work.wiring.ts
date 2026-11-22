@@ -2037,11 +2037,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListTasksQuery, ListTasksHandler, [
     TASK_READER,
     WorkAccess,
+    LINE_MAPS,
   ]),
 
   ...bindQueryHandler(ReadTaskQuery, ReadTaskHandler, [
     TASK_READER,
     WorkAccess,
+    LINE_MAPS,
   ]),
 
   ...bindQueryHandler(ListTaskPullRequestsQuery, ListTaskPullRequestsHandler, [
@@ -2053,16 +2055,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListTaskRunsQuery, ListTaskRunsHandler, [
     RUN_READER,
     RunAccess,
+    LINE_MAPS,
   ]),
 
   ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [
     RUN_READER,
     RunAccess,
+    LINE_MAPS,
   ]),
 
   ...bindQueryHandler(ReadTeamRunQuery, ReadTeamRunHandler, [
     RUN_READER,
     RunAccess,
+    LINE_MAPS,
   ]),
 
   ...bindQueryHandler(ReadRunConfigQuery, ReadRunConfigHandler, [
@@ -2074,6 +2079,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUN_READER,
     RUN_USAGES,
     RunAccess,
+    LINE_MAPS,
   ]),
 
   ...bindQueryHandler(ReadTaskNotesQuery, ReadTaskNotesHandler, [

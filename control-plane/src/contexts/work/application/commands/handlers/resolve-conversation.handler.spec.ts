@@ -18,7 +18,7 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-to-another-person.error';
+import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -29,6 +29,7 @@ import {
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -159,12 +160,15 @@ describe('ResolveConversation', () => {
     expect(
       task.conversationStandingOf({
         person: ASKED,
-        onTeam: false,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: false,
+        }),
       }),
     ).toBe('asked');
     await expect(resolve(task, ASKED, [OPENER])).rejects.toMatchObject({
-      refusal: expect.any(AssignedToAnotherPersonError) as unknown,
+      refusal: expect.any(NotOnTheTeamAskedError) as unknown,
     });
     expect(saved).toBeUndefined();
   });

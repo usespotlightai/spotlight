@@ -16,6 +16,7 @@ import {
   type RunProgressPort,
 } from '@runs/application/ports/run-progress.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page } from '@shared-kernel/application/dto/page.dto';
@@ -63,8 +64,11 @@ import {
   worksOn,
 } from '@work/domain/services/conversations';
 import { HoldRights } from '@work/domain/services/hold-rights';
+import {
+  RunStopPolicy,
+  type StoppableRun,
+} from '@work/domain/services/run-stop-policy';
 import { anyUnread } from '@work/domain/services/unread';
-import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -92,6 +96,7 @@ import {
   newestNotesFor,
   noteKey,
   notesAt,
+  openAskOf,
   stationsPerLine,
   type TaskPlace,
   trailsFor,
@@ -103,8 +108,6 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/inbox-request.schema';
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 import {
-  type ApprovalRow,
-  type ConnectionAskRow,
   task,
   taskHold,
   taskNote,
@@ -207,26 +210,6 @@ const wroteInBy = (viewer: UserId): SQL =>
 const openlyAskedBy = (viewer: UserId): SQL =>
   sql`exists (select 1 from ${taskNote} where ${taskNote.taskId} = ${task.id} and ((${taskNote.approval}->>'askedOf' = ${viewer.value} and ${taskNote.approval}->>'status' = 'pending') or (${taskNote.connectionAsk}->>'personId' = ${viewer.value} and (${taskNote.connectionAsk}->>'met')::boolean = false)))`;
 
-const openAskOf = (note: {
-  readonly approval: ApprovalRow | null;
-  readonly connectionAsk: ConnectionAskRow | null;
-}): OpenAsk => ({
-  approval: note.approval
-    ? {
-        open: Approval.isPending(note.approval.status),
-        askedOf: note.approval.askedOf
-          ? UserId.of(note.approval.askedOf)
-          : null,
-      }
-    : null,
-  connectionAsk: note.connectionAsk
-    ? {
-        met: note.connectionAsk.met,
-        personId: UserId.of(note.connectionAsk.personId),
-      }
-    : null,
-});
-
 const openAsksOf = async (
   db: DrizzleDatabase,
   taskIds: readonly string[],
@@ -274,6 +257,7 @@ const teamStandingOf = (scope: InboxScope, teamId: string): TeamStanding =>
   TeamStanding.of({
     seesTeam: scope.teamsSeen.has(teamId),
     actsOnTeam: scope.teamsActedOn.has(teamId),
+    memberOfTeam: scope.teamsJoined.has(teamId),
   });
 
 const drivesHold = (
@@ -287,10 +271,7 @@ const drivesHold = (
   row.heldBy !== null &&
   HoldRights.drives(
     { chat: row.heldForChat ? ChatId.of(row.heldForChat) : null },
-    {
-      person: scope.viewer,
-      actsOnTasks: scope.teamsActedOn.has(row.teamId),
-    },
+    { person: scope.viewer, team: teamStandingOf(scope, row.teamId) },
   );
 
 const standingOf = (
@@ -306,7 +287,7 @@ const standingOf = (
     row.assigneeId ? UserId.of(row.assigneeId) : null,
     {
       person: scope.viewer,
-      onTeam: scope.teamsJoined.has(row.teamId),
+      takesTasks: teamStandingOf(scope, row.teamId).takesTasks,
       wroteIn: row.wroteIn,
       asked: ConversationAudience.asks(ask, scope.viewer),
     },
@@ -577,6 +558,11 @@ const closingOf = (
     ? { form: lastNote.form, byAPerson: lastNote.voice === 'person' }
     : null;
 
+const stoppableRunOf = (row: TaskRow): StoppableRun => ({
+  stationId: StationId.of(row.currentStationId),
+  taskId: TaskId.of(row.taskId),
+});
+
 const conversationItem = (
   row: TaskRow,
   conversation: MarkedConversation<ConversationMark>,
@@ -642,6 +628,14 @@ const conversationItem = (
       ),
     progress,
     runId: open ? row.working : null,
+    stoppableByYou:
+      open &&
+      row.working !== null &&
+      RunStopPolicy.allows(
+        stoppableRunOf(row),
+        { id: TaskId.of(row.taskId) },
+        row.team,
+      ),
     unread,
     briefing: (opening.runId && context.briefings.get(opening.runId)) || null,
     failure: failureIn(conversation.notes),
@@ -681,6 +675,11 @@ const runItem = (
         }),
         standing,
         reopenable: false,
+        stoppableByYou: RunStopPolicy.allows(
+          stoppableRunOf(row),
+          { id: TaskId.of(row.taskId) },
+          row.team,
+        ),
       }
     : null;
 };
@@ -695,8 +694,7 @@ const requestVisibilityOf = (
   viewer: scope.viewer,
   assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
   askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
-  seesTeam: scope.teamsSeen.has(row.teamId),
-  actsOnTeam: scope.teamsActedOn.has(row.teamId),
+  team: teamStandingOf(scope, row.teamId),
 });
 
 type NoticeRow = Awaited<ReturnType<typeof noticesWhere>>[number];
@@ -1253,6 +1251,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           ),
           progress: null,
           runId: null,
+          stoppableByYou: false,
           unread: InboxRequest.unread(row),
           briefing: null,
           failure: null,

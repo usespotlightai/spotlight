@@ -1,4 +1,8 @@
 import {
+  MESSAGE_OUTCOMES,
+  type MessageOutcome,
+} from '@work/domain/services/message-effect';
+import {
   RUN_DRIVERS,
   type RunDriver,
 } from '@work/domain/value-objects/dispatch-subject';
@@ -15,6 +19,8 @@ interface RunReviewDto {
 export const RUN_STATE_NAMES = TASK_RUN_STATES;
 
 export const RUN_DRIVER_NAMES = RUN_DRIVERS;
+
+export const MESSAGE_OUTCOME_NAMES = MESSAGE_OUTCOMES;
 
 type RunDriverName = RunDriver;
 
@@ -38,6 +44,9 @@ export interface TaskRunDto {
   readonly station: RunStationDto | null;
   readonly review: RunReviewDto | null;
   readonly progress: Progress | null;
+  readonly waitingForYou: boolean;
+  readonly yourMessage: MessageOutcome;
+  readonly stoppableByYou: boolean;
   readonly driver: RunDriverName;
 }
 

@@ -30,8 +30,15 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-11-16T09:00:00.000Z');
 const BUILD = StationId.of('station_build');
@@ -88,20 +95,24 @@ const LAST = 'b'.repeat(40);
 
 const driven = () =>
   running()
-    .hold({
-      id: HoldId.of('hold_1'),
-      by: UserId.of('user_1'),
-      members: TeamMembers.of([UserId.of('user_1')]),
-      line,
-      currentRunStarted: true,
-      at: NOW,
-    })
-    .addMessage({
-      line,
-      body: TaskNoteBody.of('Use a bounded queue.'),
-      at: NOW,
-      voice: Voice.person(UserId.of('user_1')),
-    })
+    .heldOnMessage(
+      null,
+      {
+        id: HoldId.of('hold_1'),
+        members: TeamMembers.of([UserId.of('user_1')]),
+        line,
+        currentRunStarted: true,
+        at: NOW,
+      },
+      {
+        line,
+        body: TaskNoteBody.of('Use a bounded queue.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      BUILD,
+      { person: UserId.of('user_1'), team: MEMBER },
+    )
     .assignRun(TURN, line)
     .putToAPerson(TURN, {
       line,

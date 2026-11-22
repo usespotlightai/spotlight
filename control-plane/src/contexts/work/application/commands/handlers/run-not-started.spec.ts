@@ -32,13 +32,24 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-11-20T09:00:00.000Z');
 const OWNER = UserId.of('user_1');
+const BOB = UserId.of('user_bob');
+const ADMIN_OFF_THE_TEAM = 'user_admin';
 const REVIEW = StationId.of('station_review');
 const OUTSIDER = 'outsider';
 
@@ -94,7 +105,7 @@ const world = (task: Task, at: LineMap = line) => {
   const access = workAccessSeeing(
     (_teamId, viewer) => viewer.value !== OUTSIDER,
     {
-      members: [OWNER],
+      members: [OWNER, BOB],
     },
   );
   const tasks = {
@@ -171,6 +182,18 @@ describe('a task whose agent did not start', () => {
     );
   });
 
+  it('starts a line run on a message from another member or an admin off the team, and holds nothing', async () => {
+    for (const sentBy of [BOB.value, ADMIN_OFF_THE_TEAM]) {
+      starts = RunId.of('run_2');
+
+      await world(waiting()).send('Try with the new image.', sentBy);
+
+      expect(saved?.currentRunId?.value).toBe('run_2');
+      expect(saved?.openHold).toBeNull();
+      expect(saved?.assignee).toEqual(OWNER);
+    }
+  });
+
   it('keeps the message and says why again when the agent still does not start', async () => {
     await world(waiting()).send('Try with the new image.');
 
@@ -209,14 +232,29 @@ describe('a task whose agent did not start', () => {
   });
 
   it('refuses Try again while someone holds the task without a message', async () => {
-    const held = waiting().hold({
-      id: HoldId.of('hold_1'),
-      by: UserId.of('maya'),
-      members: TeamMembers.of([OWNER, UserId.of('maya')]),
-      line,
-      currentRunStarted: false,
-      at: NOW,
-    });
+    const turn = RunId.of('run_turn');
+    const held = waiting()
+      .heldOnMessage(
+        null,
+        {
+          id: HoldId.of('hold_1'),
+          members: TeamMembers.of([OWNER, UserId.of('maya')]),
+          line,
+          currentRunStarted: false,
+          at: NOW,
+        },
+        {
+          line,
+          body: TaskNoteBody.of('Use a bounded queue.'),
+          at: NOW,
+          voice: Voice.person(UserId.of('maya')),
+        },
+        REVIEW,
+        { person: UserId.of('maya'), team: MEMBER },
+      )
+      .assignRun(turn, line)
+      .leaveRun(turn, NOW)
+      .notStartedOn(line);
 
     await expect(world(held).start()).rejects.toThrow(
       'Task task_1 cannot start a run now. It waits on a person or is on hold.',

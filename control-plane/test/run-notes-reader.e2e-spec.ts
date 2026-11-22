@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
@@ -267,8 +268,57 @@ describe('the notes of a run', () => {
       id: second,
       state: 'claimed',
       progress: 'stopping',
+      audience: {
+        teamId: TeamId.of('team_1'),
+        taskStationId: implementation,
+        waits: false,
+        task: { running: true, finished: false, hold: null, pending: null },
+        to: { toRun: true, currentRun: true, atTaskStation: true },
+        run: {
+          stationId: StationId.of(implementation),
+          taskId: TaskId.of(taskId),
+        },
+      },
     });
     expect(found?.progress).toBe('stopping');
+  });
+
+  it('names whom the newest run waits on while its question is open', async () => {
+    const { taskId, implementation, note, run } = await taskAtImplementation();
+    const asking = await run(
+      implementation,
+      'suspended',
+      '2026-10-20T09:00:00.000Z',
+    );
+    await note(
+      { stationId: implementation, station: 'Implementation' },
+      asking,
+      'Which queue?',
+      'asked',
+    );
+    await current(taskId, asking);
+
+    const found = (await reader.notesFor(RunId.of(asking)))?.found;
+
+    expect(found?.latestRun.audience).toEqual({
+      teamId: TeamId.of('team_1'),
+      taskStationId: implementation,
+      waits: true,
+      task: {
+        running: true,
+        finished: false,
+        hold: null,
+        pending: {
+          assignee: null,
+          ask: { approval: null, connectionAsk: null },
+        },
+      },
+      to: { toRun: true, currentRun: true, atTaskStation: true },
+      run: {
+        stationId: StationId.of(implementation),
+        taskId: TaskId.of(taskId),
+      },
+    });
   });
 
   it('no longer calls a run stopping once it has ended', async () => {
@@ -302,6 +352,17 @@ describe('the notes of a run', () => {
       id: here,
       state: 'completed',
       progress: null,
+      audience: {
+        teamId: TeamId.of('team_1'),
+        taskStationId: implementation,
+        waits: false,
+        task: { running: true, finished: false, hold: null, pending: null },
+        to: { toRun: true, currentRun: false, atTaskStation: true },
+        run: {
+          stationId: StationId.of(implementation),
+          taskId: TaskId.of(taskId),
+        },
+      },
     });
     expect(found?.progress).toBeNull();
   });
@@ -447,6 +508,107 @@ describe('the progress of a run once a person answered it', () => {
     const { taskId, runId } = await paused('suspended', false);
 
     expect(await listed(taskId, runId)).toEqual([null, null, null]);
+  });
+
+  const awaitedIn = async (taskId: string, runId: string) => {
+    const [forTask, forTeam] = await Promise.all([
+      reader.listForTask(TaskId.of(taskId)).then((runs) => runs?.found ?? []),
+      reader
+        .listForTeam(TeamId.of('team_1'), FIRST_PAGE)
+        .then((page) => page.items),
+    ]);
+
+    return [forTask, forTeam].map((runs) => {
+      const audience = runs.find((each) => each.id === runId)?.audience;
+
+      return (
+        audience && {
+          waits: audience.waits,
+          pending: audience.task.pending,
+          to: audience.to,
+        }
+      );
+    });
+  };
+
+  it('says in every run list that the current run waits on a person and an older suspended run does not, and names the open question of the task for both', async () => {
+    const { taskId, runId, older } = await paused('suspended', false);
+    const pending = {
+      assignee: null,
+      ask: { approval: null, connectionAsk: null },
+    };
+    const current = {
+      waits: true,
+      pending,
+      to: { toRun: true, currentRun: true, atTaskStation: true },
+    };
+    const before = {
+      waits: false,
+      pending,
+      to: { toRun: true, currentRun: false, atTaskStation: true },
+    };
+
+    expect(await awaitedIn(taskId, runId)).toEqual([current, current]);
+    expect(await awaitedIn(taskId, older)).toEqual([before, before]);
+  });
+
+  it('carries the open hold of the task in every run list, and whether an agent chat holds it', async () => {
+    const { taskId, runId } = await paused('suspended', false);
+    const [found] = await db
+      .select({ stationId: schema.task.stationId })
+      .from(schema.task)
+      .where(eq(schema.task.id, taskId));
+    await db.insert(schema.taskHold).values({
+      id: randomUUID(),
+      workspaceId: 'ws_1',
+      taskId,
+      stationId: found?.stationId ?? '',
+      heldBy: 'user_1',
+      verdict: 'not-right',
+      startedAt: new Date('2026-10-20T09:30:00.000Z'),
+    });
+
+    const holdIn = async () => {
+      const [forTask, forTeam] = await Promise.all([
+        reader.listForTask(TaskId.of(taskId)).then((runs) => runs?.found ?? []),
+        reader
+          .listForTeam(TeamId.of('team_1'), FIRST_PAGE)
+          .then((page) => page.items),
+      ]);
+
+      return [
+        ...[forTask, forTeam].map(
+          (runs) => runs.find((each) => each.id === runId)?.audience.task.hold,
+        ),
+        (await reader.notesFor(RunId.of(runId)))?.found.latestRun.audience.task
+          .hold,
+      ];
+    };
+
+    expect(await holdIn()).toEqual([
+      { chat: null },
+      { chat: null },
+      { chat: null },
+    ]);
+
+    await db
+      .update(schema.taskHold)
+      .set({ endedAt: new Date('2026-10-20T09:40:00.000Z'), end: 'continue' })
+      .where(eq(schema.taskHold.taskId, taskId));
+
+    expect(await holdIn()).toEqual([null, null, null]);
+  });
+
+  it('names nobody once the answer is in', async () => {
+    const { taskId, runId } = await paused('suspended', true);
+
+    const answered = {
+      waits: false,
+      pending: null,
+      to: { toRun: true, currentRun: true, atTaskStation: true },
+    };
+
+    expect(await awaitedIn(taskId, runId)).toEqual([answered, answered]);
   });
 
   it('says in the run notes that an answered run is queued again', async () => {

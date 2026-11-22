@@ -20,7 +20,7 @@ import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import type { DockedDecision } from '@/lib/decision-tray';
-import { decisionPending, showsInThread } from '@/lib/inbox';
+import { showsInThread } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { shownProgress } from '@/lib/run';
@@ -109,7 +109,6 @@ export function RunThread({
                         run={run}
                         latest={latest}
                         conversation={conversation}
-                        deciding={decisionPending(conversation.notes)}
                       />
                     ) : null
                   }

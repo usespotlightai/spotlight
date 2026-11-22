@@ -5,9 +5,7 @@ import { useSendMessage, useSendTaskMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
-import { drivesHold } from '@/lib/hold';
-import { LINE_SETS_REPOSITORIES } from '@/lib/run';
-import { holdsOnMessage, startsAgainOnMessage } from '@/lib/task';
+import { LINE_SETS_REPOSITORIES, type YourMessage } from '@/lib/run';
 
 type Target =
   | { runId: string; taskId: string | undefined }
@@ -17,20 +15,20 @@ type RunComposerProps = Target & {
   slug: string;
   teamId: string;
   station: string;
-  stationId: string | undefined;
-  running: boolean;
-  answering: boolean;
+  stoppable: boolean;
+  yourMessage: YourMessage;
   onSent?: () => void;
 };
 
-type Mode = 'answering' | 'driving' | 'holds' | 'restarts' | 'message';
+type Mode = 'answering' | 'driving' | 'holds' | 'restarts' | 'kept' | 'message';
 
-type Flags = Record<Exclude<Mode, 'message'>, boolean>;
-
-const modeOf = (flags: Flags): Mode =>
-  (['answering', 'driving', 'holds', 'restarts'] as const).find(
-    (each) => flags[each],
-  ) ?? 'message';
+const MODES: Partial<Record<YourMessage, Mode>> = {
+  answer: 'answering',
+  drives: 'driving',
+  holds: 'holds',
+  reopens: 'restarts',
+  'waits-for-chat': 'kept',
+};
 
 const labelFor = (mode: Mode, station: string): string => {
   if (mode === 'answering') {
@@ -49,11 +47,12 @@ const PLACEHOLDERS: Record<Mode, string> = {
   driving: 'Tell the agent what to do next…',
   holds: 'Your message puts the task on hold…',
   restarts: 'Say what to change…',
+  kept: 'Your message goes to the agent chat that holds the task…',
   message: WRITE_A_MESSAGE,
 };
 
-const placeholderFor = (mode: Mode, running: boolean): string =>
-  mode === 'holds' && running
+const placeholderFor = (mode: Mode, stoppable: boolean): string =>
+  mode === 'holds' && stoppable
     ? 'Your message stops the run and puts the task on hold…'
     : PLACEHOLDERS[mode];
 
@@ -61,9 +60,8 @@ export function RunComposer({
   slug,
   teamId,
   station,
-  stationId,
-  running,
-  answering,
+  stoppable,
+  yourMessage,
   onSent,
   ...target
 }: RunComposerProps) {
@@ -71,26 +69,18 @@ export function RunComposer({
   const send = useSendMessage();
   const sendToTask = useSendTaskMessage();
   const stop = useStopRun();
-  const {
-    line,
-    station: currentStation,
-    task,
-  } = useTaskStation(teamId, taskId);
-  const mode = modeOf({
-    answering,
-    driving: drivesHold(task?.hold),
-    holds: holdsOnMessage(task, currentStation, stationId),
-    restarts: startsAgainOnMessage(task, currentStation, stationId),
-  });
+  const { line, station: currentStation } = useTaskStation(teamId, taskId);
+  const answering = yourMessage === 'answer';
+  const mode = MODES[yourMessage] ?? 'message';
   const shared = useSharedDraft(taskId);
 
   return (
     <ChatInput
       slug={slug}
       label={labelFor(mode, station)}
-      placeholder={placeholderFor(mode, running)}
+      placeholder={placeholderFor(mode, stoppable)}
       pending={send.isPending || sendToTask.isPending}
-      running={running}
+      running={stoppable}
       shared={shared}
       settings={<FixedAgent agent={currentStation} />}
       below={
@@ -130,7 +120,7 @@ export function RunComposer({
             coAuthors,
             draftGeneration,
             answers: answering,
-            startsWork: mode !== 'message',
+            startsWork: mode !== 'message' && mode !== 'kept',
           },
           { onError: restore },
         );

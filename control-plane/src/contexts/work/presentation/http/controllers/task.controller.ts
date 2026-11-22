@@ -309,6 +309,9 @@ export class TaskController {
         found.latestRun.id,
         found.latestRun.state,
         found.latestRun.progress,
+        found.latestRun.waitingForYou,
+        found.latestRun.yourMessage,
+        found.latestRun.stoppableByYou,
       ),
       found.notes.map(NoteHttpMapper.toResponse),
       found.folded.map(NoteHttpMapper.foldedToResponse),
@@ -343,7 +346,7 @@ export class TaskController {
   })
   @ApiForbiddenResponse({
     description:
-      'The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it',
+      'The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it, or the message would put the task on hold and the caller is not a member of the team',
   })
   async sendMessage(
     @Param('runId') runId: string,
@@ -670,7 +673,7 @@ export class TaskController {
     operationId: 'sendTaskMessage',
     summary: 'Send a message to a task at the station it stands at',
     description:
-      'For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.',
+      'For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station. It answers or drives as a message to a run there does, but it never puts the task on hold, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.',
   })
   @ApiParam({
     name: 'taskId',
@@ -684,7 +687,7 @@ export class TaskController {
   })
   @ApiForbiddenResponse({
     description:
-      'The caller is not a member of the team, nor a workspace admin',
+      'The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it',
   })
   async sendTaskMessage(
     @Param('teamId') teamId: string,

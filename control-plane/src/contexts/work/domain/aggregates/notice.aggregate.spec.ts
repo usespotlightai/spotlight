@@ -172,8 +172,16 @@ describe('Notice', () => {
 });
 
 describe('who can resolve or reopen a notice', () => {
-  const ACTS = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
-  const SEES = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
+  const ACTS = TeamStanding.of({
+    seesTeam: true,
+    actsOnTeam: true,
+    memberOfTeam: true,
+  });
+  const SEES = TeamStanding.of({
+    seesTeam: true,
+    actsOnTeam: false,
+    memberOfTeam: false,
+  });
   const AT = new Date('2026-11-20T09:00:00.000Z');
 
   it('lets a person who acts on the team resolve it while it is open', () => {

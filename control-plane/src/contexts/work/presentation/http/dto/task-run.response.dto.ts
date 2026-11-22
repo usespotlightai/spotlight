@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  MESSAGE_OUTCOME_NAMES,
   REVIEW_STATE_NAMES,
   RUN_DRIVER_NAMES,
   RUN_STATE_NAMES,
@@ -135,10 +136,40 @@ export class LatestRunResponseDto {
   })
   readonly progress: string | null;
 
-  constructor(id: string, state: string, progress: string | null) {
+  @ApiProperty({
+    description:
+      'Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team',
+  })
+  readonly waitingForYou: boolean;
+
+  @ApiProperty({
+    enum: MESSAGE_OUTCOME_NAMES,
+    example: 'message',
+    description:
+      'What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team.',
+  })
+  readonly yourMessage: string;
+
+  @ApiProperty({
+    description:
+      'Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team',
+  })
+  readonly stoppableByYou: boolean;
+
+  constructor(
+    id: string,
+    state: string,
+    progress: string | null,
+    waitingForYou: boolean,
+    yourMessage: string,
+    stoppableByYou: boolean,
+  ) {
     this.id = id;
     this.state = state;
     this.progress = progress;
+    this.waitingForYou = waitingForYou;
+    this.yourMessage = yourMessage;
+    this.stoppableByYou = stoppableByYou;
   }
 }
 
@@ -298,6 +329,26 @@ export class TaskRunResponseDto {
   readonly progress: string | null;
 
   @ApiProperty({
+    description:
+      'Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team',
+  })
+  readonly waitingForYou: boolean;
+
+  @ApiProperty({
+    enum: MESSAGE_OUTCOME_NAMES,
+    example: 'message',
+    description:
+      'What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team.',
+  })
+  readonly yourMessage: string;
+
+  @ApiProperty({
+    description:
+      'Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team',
+  })
+  readonly stoppableByYou: boolean;
+
+  @ApiProperty({
     enum: RUN_DRIVER_NAMES,
     example: 'line',
     description:
@@ -317,6 +368,9 @@ export class TaskRunResponseDto {
     station: RunStationResponseDto | null,
     review: RunReviewResponseDto | null,
     progress: string | null,
+    waitingForYou: boolean,
+    yourMessage: string,
+    stoppableByYou: boolean,
     driver: string,
   ) {
     this.id = id;
@@ -330,6 +384,9 @@ export class TaskRunResponseDto {
     this.station = station;
     this.review = review;
     this.progress = progress;
+    this.waitingForYou = waitingForYou;
+    this.yourMessage = yourMessage;
+    this.stoppableByYou = stoppableByYou;
     this.driver = driver;
   }
 }
@@ -366,6 +423,9 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
       run.station,
       run.review,
       run.progress,
+      run.waitingForYou,
+      run.yourMessage,
+      run.stoppableByYou,
       run.driver,
     );
     this.taskId = taskId;

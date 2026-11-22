@@ -18,15 +18,14 @@ import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.
 import type { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
 import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
-export type InboxRequestAccess = 'seesTeam' | 'actsOnTeam';
+export type InboxRequestAccess = 'seesTasks' | 'actsOnTasks';
 
 export interface InboxRequestVisibility {
   readonly form: InboxRequestForm;
   readonly viewer: UserId;
   readonly assignee: UserId | null;
   readonly askedOf: UserId | null;
-  readonly seesTeam: boolean;
-  readonly actsOnTeam: boolean;
+  readonly team: TeamStanding;
 }
 
 export interface InboxRequestAudience {
@@ -173,9 +172,9 @@ export class InboxRequest extends EventRecorder {
     switch (form) {
       case 'memories':
       case 'judge-disagreement':
-        return 'seesTeam';
+        return 'seesTasks';
       case 'alert':
-        return 'actsOnTeam';
+        return 'actsOnTasks';
     }
   }
 
@@ -185,7 +184,7 @@ export class InboxRequest extends EventRecorder {
       assignee: viewer,
       unassigned: true,
       formsForTeamActors: INBOX_REQUEST_FORMS.filter(
-        (form) => InboxRequest.requiredAccess(form) === 'actsOnTeam',
+        (form) => InboxRequest.requiredAccess(form) === 'actsOnTasks',
       ),
     };
   }
@@ -196,19 +195,26 @@ export class InboxRequest extends EventRecorder {
     if (visibility.askedOf) {
       return (
         visibility.askedOf.equals(audience.askedOf) &&
-        (InboxRequest.requiredAccess(visibility.form) === 'actsOnTeam'
-          ? visibility.actsOnTeam
-          : visibility.seesTeam)
+        InboxRequest.allows(visibility.team, visibility.form)
       );
     }
 
     if (audience.formsForTeamActors.includes(visibility.form)) {
-      return visibility.actsOnTeam;
+      return visibility.team.actsOnTasks;
     }
 
     return visibility.assignee
       ? visibility.assignee.equals(audience.assignee)
-      : audience.unassigned && visibility.seesTeam;
+      : audience.unassigned && visibility.team.seesTasks;
+  }
+
+  private static allows(team: TeamStanding, form: InboxRequestForm): boolean {
+    switch (InboxRequest.requiredAccess(form)) {
+      case 'actsOnTasks':
+        return team.actsOnTasks;
+      case 'seesTasks':
+        return team.seesTasks;
+    }
   }
 
   static standingOf(
@@ -222,9 +228,12 @@ export class InboxRequest extends EventRecorder {
       return 'assignee';
     }
 
-    return visibility.assignee === null && visibility.actsOnTeam
-      ? 'team'
-      : null;
+    const forTheTeam =
+      InboxRequest.requiredAccess(visibility.form) === 'actsOnTasks'
+        ? visibility.team.actsOnTasks
+        : visibility.team.takesTasks;
+
+    return visibility.assignee === null && forTheTeam ? 'team' : null;
   }
 
   static unread(seen: {

@@ -92,6 +92,8 @@ const task = (
   createdAt: hoursAgo(24),
   progress: null,
   awaitingReview: null,
+  waitingForYou: false,
+  yourMessage: 'message',
   finished: false,
   pullRequests: [],
   hold: null,
@@ -159,6 +161,9 @@ const run = (
     ...rest,
     driver: rest.driver ?? 'line',
     progress: progressOfState(rest.state ?? 'completed'),
+    waitingForYou: false,
+    yourMessage: 'message',
+    stoppableByYou: false,
   };
 };
 
@@ -169,7 +174,10 @@ export const GROWTH_RUNS: Record<string, TaskRunResponseDto[]> = {
       stationId: 'station_design',
       startedHoursAgo: 2,
       durationHours: 0.3,
-      review: { state: 'pending', conversationId: 'task_onboarding_copy:0' },
+      review: {
+        state: 'pending',
+        conversationId: 'task_onboarding_copy:0',
+      },
     }),
   ],
   task_pricing_toggle: [

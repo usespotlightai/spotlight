@@ -5,8 +5,16 @@ import { describe, expect, it } from 'vitest';
 
 const ADA = UserId.of('user_1');
 const BEA = UserId.of('user_2');
-const SEES = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
-const OUTSIDE = TeamStanding.of({ seesTeam: false, actsOnTeam: false });
+const SEES = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: false,
+  memberOfTeam: false,
+});
+const OUTSIDE = TeamStanding.of({
+  seesTeam: false,
+  actsOnTeam: false,
+  memberOfTeam: false,
+});
 
 describe('ChatAccess', () => {
   it('opens a chat only to the person who started it', () => {

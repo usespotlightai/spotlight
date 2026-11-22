@@ -37,6 +37,12 @@ import {
 } from '@/mocks/world/run-stories';
 import { runStationOf } from '@/mocks/world/stations';
 import {
+  type MockAsk,
+  seenByTheViewer,
+  stationsAmong,
+  type StationsFacts,
+} from '@/mocks/world/waiting-for-you';
+import {
   addedIn,
   PUSH_CHANGE_STACKS,
   removedIn,
@@ -106,6 +112,49 @@ export const placeStation = (
 
   return undefined;
 };
+
+const stationsOfTeam = (teamId: string): StationsFacts =>
+  stationsAmong(...(world().lines[teamId] ?? []).map((line) => line.stations));
+
+const askOf = (task: TaskResponseDto): MockAsk => {
+  const runs = world().runs[task.id] ?? [];
+  const conversationId = task.awaitingReview?.conversationId;
+  const asking =
+    runs.find((each) => each.review?.conversationId === conversationId) ??
+    runs[0];
+  const opening = asking
+    ? storyOf(asking.id).notes.findLast((note) => note.kind === 'asked')
+    : undefined;
+
+  return {
+    approval: opening?.approval?.status === 'pending',
+    asksTheViewer:
+      opening?.approval?.askedOf?.id === SAM.id ||
+      (opening?.connection?.met === false &&
+        opening.connection.personId === SAM.id),
+  };
+};
+
+export const seenAgain = (teamId: string, taskId: string): void => {
+  const task = findTask(teamId, taskId);
+
+  if (task) {
+    seenByTheViewer(
+      task,
+      world().runs[taskId] ?? [],
+      stationsOfTeam(teamId),
+      askOf(task),
+    );
+  }
+};
+
+perWorld(() => {
+  for (const [teamId, tasks] of Object.entries(world().tasks)) {
+    for (const task of tasks) {
+      seenAgain(teamId, task.id);
+    }
+  }
+});
 
 export const runStationIn = (teamId: string, stationId: string) => {
   const line = (world().lines[teamId] ?? []).find((each) =>
@@ -229,6 +278,9 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
       id: located.run.id,
       state: located.run.state,
       progress: located.run.progress,
+      waitingForYou: located.run.waitingForYou,
+      yourMessage: located.run.yourMessage,
+      stoppableByYou: located.run.stoppableByYou,
     },
     notes: [...scripted, ...added],
     folded: foldedAround(

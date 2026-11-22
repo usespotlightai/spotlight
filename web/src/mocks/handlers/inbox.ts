@@ -36,6 +36,11 @@ import {
 import { SAM } from '@/mocks/world/people';
 import { journalOfTaskRun, journalRunsOfTask } from '@/mocks/world/run-stories';
 import { teamChats } from '@/mocks/world/team-chats';
+import {
+  actedOnByTheViewer,
+  reviewAnswered,
+} from '@/mocks/world/waiting-for-you';
+import { seenAgain } from '@/mocks/world/work';
 
 type Params = Record<string, string | readonly string[] | undefined>;
 
@@ -114,13 +119,11 @@ const nextPositionIn = (item: InboxConversation): number =>
 const answerReviewOf = (item: InboxConversation) => {
   const task = taskOf(item.taskId);
 
-  if (task?.awaitingReview?.conversationId === item.id) {
-    task.awaitingReview = null;
-  }
-  for (const run of world().runs[item.taskId] ?? []) {
-    if (run.review?.conversationId === item.id) {
-      run.review = { ...run.review, state: 'answered' };
-    }
+  reviewAnswered(task, world().runs[item.taskId] ?? [], item.id);
+
+  const teamId = teamOfTask(item.taskId);
+  if (teamId) {
+    seenAgain(teamId, item.taskId);
   }
 };
 
@@ -320,6 +323,7 @@ const conversationHandlers = [
       return problem(403, 'Another person is the assignee.');
     }
     notedBySam(item, 'passed', 'Resolved without an answer.');
+    actedOnByTheViewer(taskOf(item.taskId));
     item.resolved = true;
     item.standing = 'assignee';
     item.unread = false;

@@ -1,6 +1,6 @@
 import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type Run, waitsForYou } from '@/lib/run';
+import type { Run } from '@/lib/run';
 
 type RunPendingMarkerProps = {
   run: Run;
@@ -13,7 +13,7 @@ export function RunPendingMarker({
   reviewTo,
   inTrail,
 }: RunPendingMarkerProps) {
-  if (!waitsForYou(run) || (inTrail && run.review)) {
+  if (!run.waitingForYou || (inTrail && run.review)) {
     return null;
   }
 

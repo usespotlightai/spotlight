@@ -22,6 +22,7 @@ import { WorkAccess } from '@work/application/services/work-access.service';
 import { setupDoneNote } from '@work/domain/services/setup-list';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -123,16 +124,29 @@ describe('the open setup lists of a team', () => {
   });
 
   it('keeps one somebody answered', async () => {
-    const { teamId, list } = await createTeam('root');
-
-    await tasks.save(
-      list.answer(NotePosition.of(0), {
-        line: null,
+    const { teamId, line, list } = await createTeam('root');
+    const answered = list.reactTo(
+      {
+        kind: 'answers',
+        to: NotePosition.of(0),
+        line,
         body: TaskNoteBody.of('Working on it.'),
+        anchor: null,
+      },
+      {
         at: NOW,
         voice: Voice.station(),
-      }),
+        attachments: [],
+        ranksAtDestination: [],
+        members: TeamMembers.of([]),
+      },
     );
+
+    if (!answered) {
+      throw new Error('the station answered nothing');
+    }
+
+    await tasks.save(answered);
 
     await expect(tasks.settingUpFor(teamId)).resolves.not.toBeNull();
   });

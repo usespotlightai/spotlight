@@ -127,6 +127,7 @@ const taskItemFields = (
   reopenable: item.reopenable,
   progress: item.progress,
   runId: item.runId,
+  stoppableByYou: item.stoppableByYou,
   unread: item.unread,
   briefing: item.briefing,
   failure: item.failure ? new InboxFailureResponseDto(item.failure) : null,

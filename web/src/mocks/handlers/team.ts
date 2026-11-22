@@ -28,6 +28,7 @@ import {
   turnEndsAt,
 } from '@/mocks/world/team-chats';
 import { teamMemories } from '@/mocks/world/team-memories';
+import { seenAgain } from '@/mocks/world/work';
 
 const KINDS = [
   'rationale',
@@ -591,6 +592,8 @@ const chatHandlers = [
           createdAt: now(),
           progress: null,
           awaitingReview: null,
+          waitingForYou: false,
+          yourMessage: 'message',
           finished: false,
           pullRequests: [],
           createdBy: SAM,
@@ -601,6 +604,7 @@ const chatHandlers = [
           runNotStarted: null,
         },
       ];
+      seenAgain(teamId, taskId);
       proposal.state = 'created';
       proposal.taskId = taskId;
       record.chat.waitingForYou = false;

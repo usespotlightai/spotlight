@@ -38,8 +38,15 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-09-29T09:00:00.000Z');
 const OWNER = UserId.of('user_1');
@@ -233,15 +240,38 @@ describe('SendMessageHandler', () => {
     expect(saved?.unacknowledged[1]?.body.value).toBe('Rename the flag too.');
   });
 
-  it('makes a message from the person who holds the task their next turn', async () => {
-    const held = handed().hold({
-      id: HoldId.of('hold_0'),
-      by: OWNER,
-      members: TeamMembers.of([OWNER, UserId.of('teammate')]),
-      line,
-      currentRunStarted: true,
-      at: NOW,
+  it('refuses a message from an admin off the team that would put the task on hold, holding nothing', async () => {
+    await expect(
+      sendMessage(handed(), 'Rename the flag too.', 'admin_off_the_team'),
+    ).rejects.toMatchObject({
+      kind: 'not-allowed',
+      message: expect.stringMatching(
+        /goes on hold when you message it\. A hold assigns the task/,
+      ) as unknown,
     });
+    expect(saved).toBeUndefined();
+    expect(dispatched).toEqual([]);
+  });
+
+  it('makes a message from the person who holds the task their next turn', async () => {
+    const held = handed().heldOnMessage(
+      null,
+      {
+        id: HoldId.of('hold_0'),
+        members: TeamMembers.of([OWNER, UserId.of('teammate')]),
+        line,
+        currentRunStarted: true,
+        at: NOW,
+      },
+      {
+        line,
+        body: TaskNoteBody.of('Use a bounded queue.'),
+        at: NOW,
+        voice: Voice.person(OWNER),
+      },
+      REVIEW,
+      { person: OWNER, team: MEMBER },
+    );
 
     await sendMessage(held, 'Now the docs.');
 
@@ -251,14 +281,24 @@ describe('SendMessageHandler', () => {
   });
 
   it('makes a teammate’s message the next turn while someone else holds the task', async () => {
-    const held = handed().hold({
-      id: HoldId.of('hold_0'),
-      by: OWNER,
-      members: TeamMembers.of([OWNER, UserId.of('teammate')]),
-      line,
-      currentRunStarted: true,
-      at: NOW,
-    });
+    const held = handed().heldOnMessage(
+      null,
+      {
+        id: HoldId.of('hold_0'),
+        members: TeamMembers.of([OWNER, UserId.of('teammate')]),
+        line,
+        currentRunStarted: true,
+        at: NOW,
+      },
+      {
+        line,
+        body: TaskNoteBody.of('Use a bounded queue.'),
+        at: NOW,
+        voice: Voice.person(OWNER),
+      },
+      REVIEW,
+      { person: OWNER, team: MEMBER },
+    );
 
     await sendMessage(held, 'Also the docs.', 'teammate');
 
@@ -269,14 +309,24 @@ describe('SendMessageHandler', () => {
   });
 
   it('refuses the words of a person who does not act on the team while someone holds the task, starting no turn', async () => {
-    const held = handed().hold({
-      id: HoldId.of('hold_0'),
-      by: OWNER,
-      members: TeamMembers.of([OWNER, UserId.of('teammate')]),
-      line,
-      currentRunStarted: true,
-      at: NOW,
-    });
+    const held = handed().heldOnMessage(
+      null,
+      {
+        id: HoldId.of('hold_0'),
+        members: TeamMembers.of([OWNER, UserId.of('teammate')]),
+        line,
+        currentRunStarted: true,
+        at: NOW,
+      },
+      {
+        line,
+        body: TaskNoteBody.of('Use a bounded queue.'),
+        at: NOW,
+        voice: Voice.person(OWNER),
+      },
+      REVIEW,
+      { person: OWNER, team: MEMBER },
+    );
 
     await expect(
       sendMessage(held, 'Also the docs.', BYSTANDER),

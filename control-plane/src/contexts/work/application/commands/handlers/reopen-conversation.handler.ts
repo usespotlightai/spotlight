@@ -22,13 +22,13 @@ export class ReopenConversationHandler implements CommandHandlerPort<
 
   async execute(command: ReopenConversationCommand): Promise<void> {
     try {
-      const { item, task, line } = await this.conversations.putTo(
+      const { item, task, line, viewer } = await this.conversations.putTo(
         command.conversationId,
         command.reopenedBy,
       );
 
       await this.tasks.save(
-        task.reopenAt(item.from, {
+        task.reopenAs(viewer, item.from, {
           line,
           body: TaskNoteBody.of(REOPENED),
           at: this.clock.now(),
