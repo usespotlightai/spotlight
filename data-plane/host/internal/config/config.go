@@ -33,6 +33,7 @@ type Config struct {
 	Workload      trust.Workload
 	Capacity      int
 	SandboxMemory int64
+	Runtime       string
 	Images        images.Allowed
 	Registry      string
 	RunTimeout    time.Duration
@@ -67,6 +68,7 @@ const (
 	envTokenFile  = "SPOTLIGHT_OIDC_TOKEN_FILE"
 	envCapacity   = "SPOTLIGHT_CAPACITY"
 	envMemory     = "SPOTLIGHT_SANDBOX_MEMORY"
+	envRuntime    = "SPOTLIGHT_SANDBOX_RUNTIME"
 	envImage      = "SPOTLIGHT_RUNNER_IMAGE"
 	envRegistry   = "SPOTLIGHT_REGISTRY_CONFIG"
 	envRunTimeout = protocol.RunTimeoutVar
@@ -156,6 +158,7 @@ func parse(version string, saved map[string]string, fromEnv bool) (Config, error
 		URL:        strings.TrimSuffix(get(envURL), "/"),
 		PoolToken:  get(envPoolToken),
 		Workload:   trust.Workload{Trust: get(envTrust), TokenFile: get(envTokenFile)},
+		Runtime:    get(envRuntime),
 		Network:    get(envNetwork),
 		ExtraHosts: list(get(envHosts)),
 		State:      get(envState),

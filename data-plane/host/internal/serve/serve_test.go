@@ -46,6 +46,7 @@ type fakeEngine struct {
 	left      []string
 	found     []protocol.HarnessReport
 	release   string
+	runtimes  []string
 	images    map[string]sandbox.Image
 	pullTo    map[string]sandbox.Image
 	pulls     []string
@@ -82,11 +83,12 @@ type fakeEngine struct {
 
 func newEngine() *fakeEngine {
 	return &fakeEngine{
-		started: map[string]sandbox.Spec{},
-		exits:   map[string]chan int{},
-		release: leastRelease,
-		images:  map[string]sandbox.Image{egressImage: {ID: "sha256:egress"}},
-		pullTo:  map[string]sandbox.Image{},
+		started:  map[string]sandbox.Spec{},
+		exits:    map[string]chan int{},
+		release:  leastRelease,
+		runtimes: []string{"runc"},
+		images:   map[string]sandbox.Image{egressImage: {ID: "sha256:egress"}},
+		pullTo:   map[string]sandbox.Image{},
 
 		egresses: map[string]sandbox.Spec{},
 		networks: map[string]map[string]string{},
@@ -175,6 +177,12 @@ func imageAt(name, hex string) sandbox.Image {
 }
 
 func (e *fakeEngine) Describe(context.Context) (string, error) { return "fake engine", nil }
+
+func (e *fakeEngine) Runtimes(context.Context) ([]string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.runtimes), nil
+}
 
 func (e *fakeEngine) Inspect(_ context.Context, image string) (sandbox.Image, error) {
 	e.mu.Lock()

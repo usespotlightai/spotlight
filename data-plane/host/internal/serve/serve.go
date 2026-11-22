@@ -127,6 +127,7 @@ type Options struct {
 	EgressWait     time.Duration
 	Capacity       int
 	SandboxMemory  int64
+	Runtime        string
 	RunTimeout     time.Duration
 	ControlURL     string
 	SandboxURL     string
@@ -245,6 +246,9 @@ func (h *Host) Serve(ctx context.Context) error {
 		return quiet(ctx, err)
 	}
 	h.log.Info("reached the container runtime", "containerRuntime", h.containerRuntime)
+	if err := h.checkRuntime(ctx); err != nil {
+		return quiet(ctx, err)
+	}
 
 	left := h.takeOver(ctx)
 
@@ -290,7 +294,7 @@ func (h *Host) Serve(ctx context.Context) error {
 
 	if !h.wasUpdated() && !h.wasRestarted() {
 		h.log.Info("serving", "name", h.now().Name, "capacity", h.slots.size(), "sandboxMemoryBytes", h.now().SandboxMemory,
-			"default", h.now().Images.Default, "tookOver", len(left.taken))
+			"runtime", h.opts.Runtime, "default", h.now().Images.Default, "tookOver", len(left.taken))
 
 		reporting.Go(func() { h.watch(claiming, ctx, stop) })
 		reporting.Go(func() { h.sweep(claiming) })
@@ -643,6 +647,24 @@ func final(err error) bool {
 		control.HasReason(err, "host-unreported")
 }
 
+func (h *Host) checkRuntime(ctx context.Context) error {
+	if h.opts.Runtime == "" {
+		return nil
+	}
+	var runtimes []string
+	if err := retried(ctx, h.log, "could not read the container runtime's runtimes, still trying", func() (err error) {
+		runtimes, err = h.engine.Runtimes(ctx)
+		return err
+	}); err != nil {
+		return err
+	}
+	if !slices.Contains(runtimes, h.opts.Runtime) {
+		return fmt.Errorf("%s: the container runtime has no runtime %q, only %s. Install it, or unset %s for the default runtime",
+			runtimeSetting, h.opts.Runtime, strings.Join(runtimes, ", "), runtimeSetting)
+	}
+	return nil
+}
+
 func (h *Host) sandboxLimits() sandbox.Limits {
 	return sandbox.Limits{Memory: h.now().SandboxMemory, OOMScoreAdj: sandboxOOMScore}
 }
@@ -770,6 +792,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		Mounts:  mounts,
 		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
 		Network: sidecar.network,
+		Runtime: h.opts.Runtime,
 		Limits:  h.sandboxLimits(),
 	})
 	h.started(image, err == nil)

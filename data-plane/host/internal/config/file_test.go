@@ -76,6 +76,9 @@ func TestLooksUpAFriendlyKeyOrItsVariable(t *testing.T) {
 	if setting, err := config.Lookup("token"); err != nil || setting.Env != "SPOTLIGHT_POOL_TOKEN" || setting.Live || !setting.Secret {
 		t.Errorf("token: %+v, %v", setting, err)
 	}
+	if setting, err := config.Lookup("sandbox-runtime"); err != nil || setting.Env != "SPOTLIGHT_SANDBOX_RUNTIME" || setting.Live {
+		t.Errorf("sandbox-runtime: %+v, %v", setting, err)
+	}
 	if setting, err := config.Lookup("HTTPS_PROXY"); err != nil || setting.Live {
 		t.Errorf("another variable: %+v, %v", setting, err)
 	}

@@ -135,6 +135,7 @@ func run(version string) error {
 		AutoUpdate:    live.AutoUpdate,
 		Capacity:      live.Capacity,
 		SandboxMemory: live.SandboxMemory,
+		Runtime:       cfg.Runtime,
 		RunTimeout:    live.RunTimeout,
 		ControlURL:    cfg.URL,
 		SandboxURL:    live.SandboxURL,

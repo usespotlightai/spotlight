@@ -26,7 +26,7 @@ func isolated(t *testing.T) string {
 	dir := t.TempDir()
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_POOL_TOKEN", "SPOTLIGHT_TRUST", "SPOTLIGHT_OIDC_TOKEN_FILE",
-		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_SANDBOX_MEMORY", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT",
+		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_SANDBOX_MEMORY", "SPOTLIGHT_SANDBOX_RUNTIME", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT",
 		"SPOTLIGHT_SANDBOX_URL",
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
@@ -419,6 +419,18 @@ func TestReadsTheMemoryOfEachSandbox(t *testing.T) {
 		t.Setenv("SPOTLIGHT_SANDBOX_MEMORY", raw)
 		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v", raw, err)
+		}
+	}
+}
+
+func TestReadsTheRuntimeSandboxesRunUnder(t *testing.T) {
+	dir := isolated(t)
+	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://spotlight.test\nSPOTLIGHT_POOL_TOKEN=pool-token\n")
+
+	for raw, want := range map[string]string{"sysbox-runc": "sysbox-runc", " sysbox-runc ": "sysbox-runc", "": ""} {
+		t.Setenv("SPOTLIGHT_SANDBOX_RUNTIME", raw)
+		if cfg, err := config.Load("dev"); err != nil || cfg.Runtime != want {
+			t.Errorf("%q: runtime %q, %v", raw, cfg.Runtime, err)
 		}
 	}
 }

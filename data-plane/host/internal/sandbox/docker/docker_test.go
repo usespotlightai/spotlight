@@ -77,7 +77,7 @@ func recording(t *testing.T) (*Engine, <-chan []byte) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/info":
-			w.Write([]byte(`{"MemTotal":25000000000}`))
+			w.Write([]byte(`{"MemTotal":25000000000,"Runtimes":{"sysbox-runc":{"path":"/usr/bin/sysbox-runc"},"runc":{"path":"runc"}}}`))
 		case strings.HasPrefix(r.URL.Path, "/containers/create"):
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -125,6 +125,31 @@ func TestASandboxWithLimitsHasNoSwapAboveItsMemoryAndItsOOMScore(t *testing.T) {
 		if value, set := unlimited.HostConfig[key]; set {
 			t.Errorf("a container without limits sets %s to %s", key, value)
 		}
+	}
+}
+
+func TestASandboxRunsUnderItsRuntimeAndOneWithoutUsesTheDefault(t *testing.T) {
+	engine, bodies := recording(t)
+
+	for runtime, want := range map[string]string{"sysbox-runc": `"sysbox-runc"`, "": ""} {
+		if _, err := engine.Start(context.Background(), sandbox.Spec{Image: "runner", Runtime: runtime}); err != nil {
+			t.Fatal(err)
+		}
+		var body struct{ HostConfig map[string]json.RawMessage }
+		if err := json.Unmarshal(<-bodies, &body); err != nil {
+			t.Fatal(err)
+		}
+		if got := string(body.HostConfig["Runtime"]); got != want {
+			t.Errorf("%q: Runtime %s, want %s", runtime, got, want)
+		}
+	}
+}
+
+func TestReadsTheRuntimesOfTheContainerRuntime(t *testing.T) {
+	engine, _ := recording(t)
+
+	if runtimes, err := engine.Runtimes(context.Background()); err != nil || !slices.Equal(runtimes, []string{"runc", "sysbox-runc"}) {
+		t.Errorf("runtimes %v, %v", runtimes, err)
 	}
 }
 

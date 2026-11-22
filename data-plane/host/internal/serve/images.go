@@ -17,6 +17,8 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
+const runtimeSetting = "SPOTLIGHT_SANDBOX_RUNTIME"
+
 const notAllowed = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't allow this image."
 
 type served struct {
@@ -386,6 +388,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.Ha
 		Labels:  map[string]string{LabelHost: h.opts.HostID},
 		Files:   sidecar.files(),
 		Network: sidecar.network,
+		Runtime: h.opts.Runtime,
 		Limits:  h.sandboxLimits(),
 	})
 	defer h.destroy(id)
