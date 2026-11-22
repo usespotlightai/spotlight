@@ -561,6 +561,9 @@ describe('a replay check', () => {
           harness: 'claude-code',
           prompt: 'Build it.',
           check: 'make test',
+          diffs: false,
+          decisions: false,
+          memories: false,
           passesTo: ['ship'],
         }),
       )

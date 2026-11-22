@@ -132,13 +132,13 @@ describe('the repositories a line works', () => {
     ).toEqual(['repositories']);
   });
 
-  it('rejects, where a station checks its layers, a repository that does not say how its checkout is made ready', () => {
+  it('reads, where a station checks its layers, a repository that does not say how its checkout is made ready', () => {
     expect(
-      invalidAt(
+      read(
         [{ name: 'acme/api', setup: 'npm ci' }, { name: 'acme/web' }],
         CHECKING_STATIONS,
-      ),
-    ).toEqual(['repositories.1.setup']);
+      ).repositories.entries.map((each) => each.setup?.value ?? null),
+    ).toEqual(['npm ci', null]);
   });
 
   it('reads a line whose checking station works only repositories that say how they are made ready', () => {

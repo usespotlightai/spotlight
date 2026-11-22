@@ -141,6 +141,9 @@ export const CONFIG_LINE = `resource "spotlight_line" "core_delivery" {
     harness   = "claude-code"
     prompt    = file("\${path.module}/prompts/build.md")
     passes_to = ["ship"]
+    diffs     = false
+    decisions = false
+    memories  = false
 
     judge {
       claims        = ${JSON.stringify(CLAIMS)}

@@ -51,14 +51,31 @@ describe('compileLine', () => {
     ).toEqual(['backlog', 'code-review', 'completed']);
   });
 
-  it('keeps memories from only the stations that request them', () => {
+  it('gives every station that runs an agent its change stacks, decisions and memories when the line leaves them out', () => {
+    const compiled = compileLine(DELIVERY);
+
+    expect(
+      compiled.ok &&
+        compiled.line.stations.map((each) => [
+          each.diffs,
+          each.decisions,
+          each.memories,
+        ]),
+    ).toEqual([
+      [false, false, false],
+      [true, true, true],
+      [false, false, false],
+    ]);
+  });
+
+  it('keeps a switch off where the line turns it off', () => {
     const compiled = compileLine(
-      withStation(1, { ...DELIVERY.stations[1], memories: true }),
+      withStation(1, { ...DELIVERY.stations[1], memories: false }),
     );
 
     expect(
       compiled.ok && compiled.line.stations.map((each) => each.memories),
-    ).toEqual([false, true, false]);
+    ).toEqual([false, false, false]);
   });
 
   it('reads a station’s prompt exactly as written, and none where it has none', () => {
@@ -663,9 +680,9 @@ describe('compileLine', () => {
     ).toMatchObject({ field: FieldPath.dotted('stations.1.check') });
   });
 
-  it('rejects a station that checks its layers while a repository has no setup, pointing at that repository', () => {
+  it('compiles a station that checks its layers while a repository has no setup', () => {
     expect(
-      problemsOf({
+      compileLine({
         ...withStation(1, {
           key: 'code-review',
           name: 'Code Review',
@@ -677,11 +694,8 @@ describe('compileLine', () => {
           { name: 'acme/api', setup: 'npm ci' },
           { name: 'acme/web' },
         ],
-      })[0],
-    ).toMatchObject({
-      path: 'lines/delivery',
-      field: FieldPath.dotted('repositories.1.setup'),
-    });
+      }).ok,
+    ).toBe(true);
   });
 
   it('places a problem with a repository’s image at that repository', () => {

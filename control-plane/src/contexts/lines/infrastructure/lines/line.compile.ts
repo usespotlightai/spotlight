@@ -12,6 +12,7 @@ import { InvalidReplayCheckPolicyError } from '@lines/domain/exceptions/invalid-
 import { InvalidSearchPolicyError } from '@lines/domain/exceptions/invalid-search-policy.error';
 import { InvalidStationAlertError } from '@lines/domain/exceptions/invalid-station-alert.error';
 import { InvalidStationJudgeError } from '@lines/domain/exceptions/invalid-station-judge.error';
+import { agentFeaturesOf } from '@lines/domain/services/station-features';
 import { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
 import { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
@@ -276,9 +277,7 @@ const compileStation = (
       agentPrompt,
       check,
       placement,
-      diffs: station.diffs ?? false,
-      decisions: station.decisions ?? false,
-      memories: station.memories ?? false,
+      ...agentFeaturesOf(station.kind, station),
       judge,
       alerts,
       search,
@@ -365,15 +364,6 @@ const REACTION_FIELDS: Readonly<
   claim: [],
 };
 
-const sameRepository = (written: string, repository: Repository): boolean => {
-  try {
-    return Repository.of(written).equals(repository);
-  } catch (error) {
-    refusalOf(error);
-    return false;
-  }
-};
-
 const placed = (definition: LineFields, flaw: PlanFlaw): FieldPath => {
   switch (flaw.in) {
     case 'station': {
@@ -390,15 +380,6 @@ const placed = (definition: LineFields, flaw: PlanFlaw): FieldPath => {
               STATION_FIELDS[flaw.rule],
               ...(flaw.setting ? [flaw.setting] : []),
             ],
-      );
-    }
-    case 'repository': {
-      const at = definition.repositories.findIndex((each) =>
-        sameRepository(each.name, flaw.repository),
-      );
-
-      return FieldPath.of(
-        at < 0 ? ['repositories'] : ['repositories', at, flaw.rule],
       );
     }
     case 'reaction':

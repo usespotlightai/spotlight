@@ -34,9 +34,9 @@ const SEED: LineDefinitionStation = {
   kind: 'work',
   harness: 'claude-code',
   prompt: 'Build it.\n',
-  diffs: false,
-  decisions: false,
-  memories: false,
+  diffs: true,
+  decisions: true,
+  memories: true,
   alerts: [],
   tools: [],
   skills: [],
@@ -61,10 +61,19 @@ const edited = (
   });
 
 describe('HclStationSourceEdits', () => {
+  it('reads a switch a work station leaves out as on', async () => {
+    const answer = await edited({ model: 'opus' }, LINE, {
+      ...SEED,
+      memories: false,
+    });
+
+    expect(!answer.ok && answer.failure.code).toBe('base-changed');
+  });
+
   it('changes only the fields the candidate changed', async () => {
     const answer = await edited({
       prompt: 'Build it, in order.\n',
-      decisions: true,
+      decisions: false,
       model: 'opus',
     });
 
@@ -80,7 +89,7 @@ describe('HclStationSourceEdits', () => {
         '    prompt  = file("${path.module}/prompts/core/delivery/build.md")',
       ).replace(
         '    skills  = []\n',
-        '    skills  = []\n\n    model     = "opus"\n    decisions = true\n',
+        '    skills  = []\n\n    model     = "opus"\n    decisions = false\n',
       ),
     );
   });

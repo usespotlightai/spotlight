@@ -632,3 +632,27 @@ func TestPerformRunsTheCheckThroughTheLocalProxy(t *testing.T) {
 		t.Errorf("checked %+v", checked)
 	}
 }
+
+func TestPerformChecksWithoutAnInstallFoundFromTheLockfilesThatFailed(t *testing.T) {
+	r := setUp(t)
+	reported := &reporter{}
+	origin := filepath.Join(r.origin, "widgets")
+	write(t, filepath.Join(origin, "package-lock.json"), "not a lockfile npm can read\n")
+	git(t, origin, "add", "--all")
+	git(t, origin, "commit", "--quiet", "--message", "lock")
+	r.base = git(t, origin, "rev-parse", "HEAD")
+
+	check := r.check(protocol.CheckStep{ID: "whole", StopsOnFailure: true, RunsSetup: true})
+	check.Command = "true"
+
+	stackcheck.Perform(context.Background(), reported, check, r.options())
+
+	checked := reported.only()
+	if checked.Skipped != nil || len(checked.Steps) != 1 || !checked.Steps[0].Passed {
+		t.Fatalf("an install the line never asked for skipped or failed the check: %+v", checked)
+	}
+	if output := checked.Steps[0].Output; !strings.Contains(output, "ran without what these installs") ||
+		!strings.Contains(output, "setup failed at the root (`npm ci`)") {
+		t.Errorf("the check says %q, want the failed npm ci named", output)
+	}
+}

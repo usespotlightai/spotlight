@@ -15,6 +15,7 @@ import {
   LINE_DEFINITION_STATION_DEFAULTS,
   type LineDefinitionJudge,
   type LineDefinitionStation,
+  stationSwitchDefaultsOf,
 } from '@lines/application/contracts/line-definition.contract';
 import {
   editedHclBlock,
@@ -30,17 +31,24 @@ const TERRAFORM_FILE = '.tf';
 const directoryOf = (path: string): string =>
   path.slice(0, Math.max(path.lastIndexOf('/'), 0));
 
-const UNSET: Readonly<Record<StationSourceField, HclLiteral>> = {
-  prompt: null,
-  harness: null,
-  model: null,
-  effort: null,
-  profile: null,
-  skills: [],
-  tools: [],
-  decisions: LINE_DEFINITION_STATION_DEFAULTS.decisions,
-  memories: LINE_DEFINITION_STATION_DEFAULTS.memories,
-  description: null,
+/** What the station has when its block leaves a field out, so an attribute that says the same is dropped. */
+const unsetFor = (
+  station: LineDefinitionStation,
+): Readonly<Record<StationSourceField, HclLiteral>> => {
+  const { decisions, memories } = stationSwitchDefaultsOf(station.kind);
+
+  return {
+    prompt: null,
+    harness: null,
+    model: null,
+    effort: null,
+    profile: null,
+    skills: [],
+    tools: [],
+    decisions,
+    memories,
+    description: null,
+  };
 };
 
 const REFERENCES: Partial<Record<StationSourceField, HclReferenceRule>> = {
@@ -126,35 +134,39 @@ const literalIn = <T extends object>(
   return value;
 };
 
-const fieldsOf = (request: StationSourceEditRequest): readonly HclField[] => [
-  ...request.fields.map((name): HclField => ({
-    name,
-    expected: literalIn(request.seed, name, UNSET[name]),
-    desired: literalIn(request.candidate, name, UNSET[name]),
-    unset: UNSET[name],
-    ...(REFERENCES[name] ? { references: REFERENCES[name] } : {}),
-    ...(FILE_FIELDS.has(name)
-      ? {
-          freshFile: stationFileOf(
-            request.teamKey,
-            request.lineKey.value,
-            request.stationKey.value,
-            name,
-          ),
-        }
-      : {}),
-  })),
-  ...GUARDED.map(({ from, unset }): HclField => {
-    const was = literalIn(request.seed, from, unset);
+const fieldsOf = (request: StationSourceEditRequest): readonly HclField[] => {
+  const unset = unsetFor(request.candidate);
 
-    return {
-      name: terraformAttributeOf(from),
-      expected: was,
-      desired: was,
-      unset,
-    };
-  }),
-];
+  return [
+    ...request.fields.map((name): HclField => ({
+      name,
+      expected: literalIn(request.seed, name, unset[name]),
+      desired: literalIn(request.candidate, name, unset[name]),
+      unset: unset[name],
+      ...(REFERENCES[name] ? { references: REFERENCES[name] } : {}),
+      ...(FILE_FIELDS.has(name)
+        ? {
+            freshFile: stationFileOf(
+              request.teamKey,
+              request.lineKey.value,
+              request.stationKey.value,
+              name,
+            ),
+          }
+        : {}),
+    })),
+    ...GUARDED.map(({ from, unset }): HclField => {
+      const was = literalIn(request.seed, from, unset);
+
+      return {
+        name: terraformAttributeOf(from),
+        expected: was,
+        desired: was,
+        unset,
+      };
+    }),
+  ];
+};
 
 const claimsOf = (judge: LineDefinitionStation['judge']): HclLiteral =>
   typeof judge === 'object' && judge !== null

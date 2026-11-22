@@ -4,6 +4,7 @@ import {
   skillsProblem,
   toolsProblem,
 } from '@lines/domain/services/station-enables';
+import { agentFeaturesOf } from '@lines/domain/services/station-features';
 import type { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import type { StationSearchOverride } from '@lines/domain/value-objects/search-policy.vo';
 import { StationAlert } from '@lines/domain/value-objects/station-alert.vo';
@@ -103,7 +104,9 @@ export abstract class Station {
       case 'completed':
         return new Completed(...ends);
       case undefined:
-      case 'work':
+      case 'work': {
+        const features = agentFeaturesOf('work', input);
+
         return new WorkStation(
           ...ends,
           input.harness ?? null,
@@ -113,13 +116,14 @@ export abstract class Station {
           input.agentPrompt ?? null,
           input.check ?? null,
           input.placement ?? RunnerPlacement.anywhere(),
-          input.diffs ?? false,
-          input.decisions ?? false,
-          input.memories ?? false,
+          features.diffs,
+          features.decisions,
+          features.memories,
           input.judge ?? null,
           StationAlert.together(input.alerts ?? []),
           input.search ?? null,
         );
+      }
     }
   }
 

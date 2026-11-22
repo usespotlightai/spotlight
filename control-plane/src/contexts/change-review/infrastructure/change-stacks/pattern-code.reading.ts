@@ -6,6 +6,7 @@ const LOCKFILES = new Set([
   'npm-shrinkwrap.json',
   'yarn.lock',
   'pnpm-lock.yaml',
+  'bun.lock',
   'bun.lockb',
   'go.sum',
   'Cargo.lock',

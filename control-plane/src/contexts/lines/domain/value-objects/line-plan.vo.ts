@@ -6,7 +6,6 @@ import { idleStationProblem } from '@lines/domain/services/idle-station';
 import {
   reactionsProblem,
   searchProblem,
-  setupProblem,
   stationsProblem,
 } from '@lines/domain/services/line-layout';
 import {
@@ -192,16 +191,6 @@ export class LinePlan {
         input.key.value,
         `has repositories it cannot use. ${error.message.replace(/\.$/, '')}`,
         { in: 'line', rule: 'repositories' },
-      );
-    }
-
-    const unready = setupProblem(input.stations, repositories);
-
-    if (unready) {
-      throw new InvalidLinePlanError(
-        input.key.value,
-        unready.reason,
-        unready.flaw,
       );
     }
 

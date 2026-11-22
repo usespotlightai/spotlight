@@ -1,5 +1,4 @@
 import type { StationKind } from '@lines/domain/entities/station.entity';
-import type { LineRepositories } from '@lines/domain/value-objects/line-repositories.vo';
 import type { PlanFlaw } from '@lines/domain/value-objects/plan-flaw';
 import type {
   LineSearchPolicy,
@@ -126,31 +125,6 @@ export const stationsProblem = <R extends Reference<R>>(
   }
 
   return null;
-};
-
-interface CheckingStation {
-  readonly key: StationKey;
-  readonly check: unknown;
-  readonly diffs: boolean;
-}
-
-export const setupProblem = (
-  stations: readonly CheckingStation[],
-  repositories: LineRepositories,
-): LayoutProblem | null => {
-  const checking = stations.find((each) => each.check !== null && each.diffs);
-  const unready = repositories.entries.find((each) => !each.setup);
-
-  return checking && unready
-    ? {
-        reason: `needs a setup for repository ${unready.repository.value}. Station ${checking.key.value} checks its layers`,
-        flaw: {
-          in: 'repository',
-          repository: unready.repository,
-          rule: 'setup',
-        },
-      }
-    : null;
 };
 
 interface SearchingStation {
