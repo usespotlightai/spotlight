@@ -26,9 +26,16 @@ const subscribe = (storageKey: string, listener: () => void) => {
   const keyed = listeners.get(storageKey) ?? new Set();
   keyed.add(listener);
   listeners.set(storageKey, keyed);
+  const fromOtherTab = (event: StorageEvent) => {
+    if (event.key === storageKey || event.key === null) {
+      listener();
+    }
+  };
+  window.addEventListener('storage', fromOtherTab);
 
   return () => {
     keyed.delete(listener);
+    window.removeEventListener('storage', fromOtherTab);
   };
 };
 

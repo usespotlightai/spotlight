@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DecisionTray } from '@/components/shared/decision-tray/DecisionTray';
 import { Dockable } from '@/components/shared/decision-tray/Dockable';
@@ -53,8 +53,14 @@ const task = (id: string): DockedDecision => ({
   group: 'Tasks proposed',
 });
 
-function Docking({ decisions }: { decisions: readonly DockedDecision[] }) {
-  const tray = useDecisionTray(decisions);
+function Docking({
+  conversation = 'task-1',
+  decisions,
+}: {
+  conversation?: string;
+  decisions: readonly DockedDecision[];
+}) {
+  const tray = useDecisionTray(conversation, decisions);
 
   return (
     <DecisionTrayContext value={tray}>
@@ -73,7 +79,7 @@ function Docking({ decisions }: { decisions: readonly DockedDecision[] }) {
 }
 
 function Grouping({ decisions }: { decisions: readonly DockedDecision[] }) {
-  const tray = useDecisionTray(decisions);
+  const tray = useDecisionTray('task-1', decisions);
   const ids = ['first', 'second', 'between', 'third'];
   const runs = dockedRuns(tray, ids);
 
@@ -98,10 +104,19 @@ function Grouping({ decisions }: { decisions: readonly DockedDecision[] }) {
 }
 
 const tray = () => document.querySelector('[data-slot=decision-tray]');
+const pill = (name: string) =>
+  within(screen.getByRole('group', { name: 'Waiting for you' })).getByRole(
+    'button',
+    { name: `Show ${name}` },
+  );
 const trayShows = (text: string) =>
   screen.getByText(text, { selector: '[data-slot=decision-tray] p' });
 
 describe('DecisionTray', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('docks an open decision above the text bar, and keeps a pill in the thread', () => {
     render(<Docking decisions={[APPROVAL]} />);
 
@@ -168,18 +183,46 @@ describe('DecisionTray', () => {
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 
-  it('opens again on a new decision, and shows it', async () => {
+  it('stays collapsed on a new decision, and shows it when opened', async () => {
     const user = userEvent.setup();
     const shown = render(<Docking decisions={[APPROVAL]} />);
     await user.click(screen.getByRole('button', { name: 'Collapse' }));
 
     shown.rerender(<Docking decisions={[APPROVAL, CONNECTION]} />);
 
-    expect(tray()).toBeVisible();
+    expect(tray()).not.toBeVisible();
+    await user.click(pill('Connection'));
     expect(trayShows('Decide connection')).toBeVisible();
   });
 
-  it('opens again on a decision that comes back, and shows it', async () => {
+  it('opens expanded in another conversation, and stays collapsed in the one you collapsed', async () => {
+    const user = userEvent.setup();
+    const first = render(<Docking decisions={[APPROVAL]} />);
+    await user.click(screen.getByRole('button', { name: 'Collapse' }));
+    first.unmount();
+
+    const second = render(
+      <Docking conversation="task-2" decisions={[CONNECTION]} />,
+    );
+    expect(trayShows('Decide connection')).toBeVisible();
+    second.unmount();
+
+    render(<Docking decisions={[APPROVAL]} />);
+    expect(tray()).not.toBeVisible();
+  });
+
+  it('opens again in a conversation once you open a decision there', async () => {
+    const user = userEvent.setup();
+    const first = render(<Docking decisions={[APPROVAL]} />);
+    await user.click(screen.getByRole('button', { name: 'Collapse' }));
+    await user.click(pill('Approval'));
+    first.unmount();
+
+    render(<Docking decisions={[APPROVAL]} />);
+    expect(trayShows('Decide approval')).toBeVisible();
+  });
+
+  it('shows a decision that comes back when opened', async () => {
     const user = userEvent.setup();
     const shown = render(<Docking decisions={[APPROVAL, CONNECTION]} />);
     shown.rerender(<Docking decisions={[CONNECTION]} />);
@@ -187,7 +230,8 @@ describe('DecisionTray', () => {
 
     shown.rerender(<Docking decisions={[APPROVAL, CONNECTION]} />);
 
-    expect(tray()).toBeVisible();
+    expect(tray()).not.toBeVisible();
+    await user.click(pill('Approval'));
     expect(trayShows('Decide approval')).toBeVisible();
   });
 

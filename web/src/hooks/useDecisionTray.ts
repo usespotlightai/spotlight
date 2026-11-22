@@ -1,12 +1,18 @@
 import { useState } from 'react';
 
+import { useStoredState } from '@/hooks/useStoredState';
 import type { DecisionTray, DockedDecision } from '@/lib/decision-tray';
 
 export function useDecisionTray(
+  conversation: string,
   decisions: readonly DockedDecision[],
 ): DecisionTray {
   const [known, setKnown] = useState<ReadonlySet<string>>(() => new Set());
-  const [open, setOpen] = useState(true);
+  const [collapsed, storeCollapsed] = useStoredState(
+    `spotlight.decision-tray-collapsed.${conversation}`,
+    'false',
+  );
+  const open = collapsed !== 'true';
   const [at, setAt] = useState<string | null>(null);
   const [cover, setCover] = useState(0);
   const ids = new Set(decisions.map((decision) => decision.id));
@@ -18,7 +24,6 @@ export function useDecisionTray(
   }
 
   if (fresh) {
-    setOpen(true);
     setAt(fresh.id);
   }
 
@@ -34,9 +39,9 @@ export function useDecisionTray(
     measure: setCover,
     show: (id) => {
       setAt(id);
-      setOpen(true);
+      storeCollapsed('false');
     },
-    collapse: () => setOpen(false),
+    collapse: () => storeCollapsed('true'),
     step: (by) => {
       const next = decisions[place + by];
 

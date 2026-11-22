@@ -103,6 +103,7 @@ export function ChatThread({
     />
   );
   const tray = useDecisionTray(
+    `chat-${chat.id}`,
     moments.flatMap((moment): DockedDecision[] => {
       if (moment.kind === 'proposed' && STILL_OPEN.has(moment.proposal.state)) {
         return [
