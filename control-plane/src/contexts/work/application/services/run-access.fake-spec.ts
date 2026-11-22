@@ -46,7 +46,7 @@ export const runAccessWhere = (
 export const inWorkspace = <T>(found: T) => ({ workspaceId: WORKSPACE, found });
 
 export const HARNESSED = 'station_3';
-export const COMPLETED = 'station_completed';
+const COMPLETED = 'station_completed';
 
 export const linesWhere = (
   harnessed: readonly string[] = [HARNESSED],

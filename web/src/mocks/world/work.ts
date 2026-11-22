@@ -113,7 +113,7 @@ export const placeStation = (
   return undefined;
 };
 
-export const stationsOfTeam = (teamId: string): StationsFacts =>
+const stationsOfTeam = (teamId: string): StationsFacts =>
   stationsAmong(...(world().lines[teamId] ?? []).map((line) => line.stations));
 
 const askOf = (task: TaskResponseDto): MockAsk => {

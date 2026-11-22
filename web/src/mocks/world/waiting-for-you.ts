@@ -65,7 +65,7 @@ export type MockAsk = {
   readonly asksTheViewer: boolean;
 };
 
-export const A_QUESTION: MockAsk = { approval: false, asksTheViewer: false };
+const A_QUESTION: MockAsk = { approval: false, asksTheViewer: false };
 
 const taskWaitsForTheViewer = (task: AskedTask, ask: MockAsk): boolean =>
   (task.awaitingReview ?? null) !== null &&
