@@ -53,8 +53,14 @@ const task = (id: string): DockedDecision => ({
   group: 'Tasks proposed',
 });
 
-function Docking({ decisions }: { decisions: readonly DockedDecision[] }) {
-  const tray = useDecisionTray(decisions);
+function Docking({
+  conversation = 'task-1',
+  decisions,
+}: {
+  conversation?: string;
+  decisions: readonly DockedDecision[];
+}) {
+  const tray = useDecisionTray(conversation, decisions);
 
   return (
     <DecisionTrayContext value={tray}>
@@ -73,7 +79,7 @@ function Docking({ decisions }: { decisions: readonly DockedDecision[] }) {
 }
 
 function Grouping({ decisions }: { decisions: readonly DockedDecision[] }) {
-  const tray = useDecisionTray(decisions);
+  const tray = useDecisionTray('task-1', decisions);
   const ids = ['first', 'second', 'between', 'third'];
   const runs = dockedRuns(tray, ids);
 
@@ -189,16 +195,28 @@ describe('DecisionTray', () => {
     expect(trayShows('Decide connection')).toBeVisible();
   });
 
-  it('stays collapsed in another conversation, and opens again once opened', async () => {
+  it('opens expanded in another conversation, and stays collapsed in the one you collapsed', async () => {
     const user = userEvent.setup();
     const first = render(<Docking decisions={[APPROVAL]} />);
     await user.click(screen.getByRole('button', { name: 'Collapse' }));
     first.unmount();
 
-    const second = render(<Docking decisions={[CONNECTION]} />);
-    expect(tray()).not.toBeVisible();
-    await user.click(pill('Connection'));
+    const second = render(
+      <Docking conversation="task-2" decisions={[CONNECTION]} />,
+    );
+    expect(trayShows('Decide connection')).toBeVisible();
     second.unmount();
+
+    render(<Docking decisions={[APPROVAL]} />);
+    expect(tray()).not.toBeVisible();
+  });
+
+  it('opens again in a conversation once you open a decision there', async () => {
+    const user = userEvent.setup();
+    const first = render(<Docking decisions={[APPROVAL]} />);
+    await user.click(screen.getByRole('button', { name: 'Collapse' }));
+    await user.click(pill('Approval'));
+    first.unmount();
 
     render(<Docking decisions={[APPROVAL]} />);
     expect(trayShows('Decide approval')).toBeVisible();

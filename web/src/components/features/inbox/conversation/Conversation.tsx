@@ -150,7 +150,7 @@ export function Conversation({
   const placed = placeVisits(item.folded, shownNotes);
   const { data: session } = useSession();
   const asking = latestAskPosition(item.notes);
-  const tray = useDecisionTray([
+  const tray = useDecisionTray(`task-${item.taskId}`, [
     ...noteDecisions(shownNotes, {
       teamId: item.teamId,
       viewer: session?.user.id ?? null,

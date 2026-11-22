@@ -3,14 +3,13 @@ import { useState } from 'react';
 import { useStoredState } from '@/hooks/useStoredState';
 import type { DecisionTray, DockedDecision } from '@/lib/decision-tray';
 
-const TRAY_COLLAPSED_KEY = 'spotlight.decision-tray-collapsed';
-
 export function useDecisionTray(
+  conversation: string,
   decisions: readonly DockedDecision[],
 ): DecisionTray {
   const [known, setKnown] = useState<ReadonlySet<string>>(() => new Set());
   const [collapsed, storeCollapsed] = useStoredState(
-    TRAY_COLLAPSED_KEY,
+    `spotlight.decision-tray-collapsed.${conversation}`,
     'false',
   );
   const open = collapsed !== 'true';
