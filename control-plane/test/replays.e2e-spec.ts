@@ -1061,7 +1061,7 @@ describe('a replay ending', () => {
 
     for (const kind of [
       'work.dispatch-ended.v1',
-      'work.dispatch-briefed.v1',
+      'work.dispatch-briefed.v2',
       'work.task-run-assigned.v1',
     ]) {
       expect(await published(kind, replayId)).toEqual([]);

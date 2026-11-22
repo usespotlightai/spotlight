@@ -3,8 +3,8 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
-  DISPATCH_BRIEFED,
-  type DispatchBriefedIntegrationEvent,
+  DISPATCH_BRIEFED_V2,
+  type DispatchBriefedV2IntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
 import {
   DISPATCH_ENDED,
@@ -131,8 +131,8 @@ const noticeRaised = (
 export const WORK_EVENT_MAPPERS = [
   mapping<DispatchBriefed>(
     'dispatch.briefed',
-    (event): DispatchBriefedIntegrationEvent => ({
-      kind: DISPATCH_BRIEFED,
+    (event): DispatchBriefedV2IntegrationEvent => ({
+      kind: DISPATCH_BRIEFED_V2,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,

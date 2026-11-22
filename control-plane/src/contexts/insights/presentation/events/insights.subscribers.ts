@@ -39,8 +39,8 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
-  DISPATCH_BRIEFED,
-  type DispatchBriefedIntegrationEvent,
+  DISPATCH_BRIEFED_V2,
+  type DispatchBriefedV2IntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
 import {
   DISPATCH_ENDED,
@@ -55,8 +55,8 @@ import {
   type LineChangedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import {
-  MEMORIES_USED,
-  type MemoriesUsedIntegrationEvent,
+  MEMORIES_USED_V2,
+  type MemoriesUsedV2IntegrationEvent,
 } from '@shared-kernel/application/integration-events/memories-used.integration-event';
 import {
   PULL_REQUEST_OPENED,
@@ -333,14 +333,14 @@ export const insightsSubscribers = (
     [RUN_USAGE_RECORDED],
     (event) => handlers.recordingUsage.usageRecorded(event),
   ),
-  subscribing<MemoriesUsedIntegrationEvent>(
+  subscribing<MemoriesUsedV2IntegrationEvent>(
     'insights.record-run-memories',
-    [MEMORIES_USED],
+    [MEMORIES_USED_V2],
     (event) => handlers.remembering.used(event),
   ),
-  subscribing<DispatchBriefedIntegrationEvent>(
+  subscribing<DispatchBriefedV2IntegrationEvent>(
     'insights.record-cut-memories',
-    [DISPATCH_BRIEFED],
+    [DISPATCH_BRIEFED_V2],
     (event) => handlers.remembering.briefed(event),
   ),
   subscribing<TaskPassedIntegrationEvent>(
