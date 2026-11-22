@@ -178,7 +178,6 @@ describe('workspaceTerraform', () => {
       '.gitignore',
       'hooks-core.tf',
       'imports.tf',
-      'inference.tf',
       'integration-core-linear.tf',
       'line-core-delivery.tf',
       'line-core-review.tf',
@@ -238,8 +237,7 @@ describe('workspaceTerraform', () => {
           each.kind !== 'runner-pool' &&
           each.kind !== 'egress' &&
           each.kind !== 'secret' &&
-          each.kind !== 'hook' &&
-          each.kind !== 'inference-endpoint',
+          each.kind !== 'hook',
       ),
     };
 
@@ -290,7 +288,6 @@ describe('workspaceTerraform', () => {
       ['spotlight_runner_pool', 'burst', 'burst'],
       ['spotlight_runner_pool', 'k8s-jobs', 'k8s-jobs'],
       ['spotlight_workspace_runners', 'acme', 'acme'],
-      ['spotlight_inference_endpoint', 'acme', 'acme'],
       ['spotlight_team', 'core', 'core'],
       ['spotlight_line', 'core_delivery', 'core/delivery'],
       ['spotlight_line', 'core_review', 'core/review'],
@@ -624,59 +621,6 @@ describe('workspaceTerraform', () => {
     );
     expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       'variable "egress_shared_token" {\n  description = "The token the egress shared calls Spotlight with; left null, Spotlight issues one when it creates the egress"\n  type        = string\n  sensitive   = true\n  default     = null\n}\n',
-    );
-  });
-
-  it('writes the inference endpoint with its key read from a sensitive variable, never the key', () => {
-    expect(fileOf(CONFIGURATION, 'inference.tf')).toBe(
-      [
-        'resource "spotlight_inference_endpoint" "acme" {',
-        '  workspace_id       = spotlight_workspace.acme.id',
-        '  base_url           = "http://127.0.0.1:4000/v1"',
-        '  model              = "openai/gpt-5-mini"',
-        '  api_key_wo         = var.inference_api_key',
-        '  api_key_wo_version = 2',
-        '}',
-        '',
-      ].join('\n'),
-    );
-    expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
-      'variable "inference_api_key" {\n  description = "The API key of the inference endpoint, which Spotlight stores and never returns"\n  type        = string\n  sensitive   = true\n}\n',
-    );
-  });
-
-  it('writes no key, key version or variable for an inference endpoint without a key', () => {
-    const keyless = {
-      ...resourceOf('inference-endpoint'),
-      apiKeySet: false,
-      apiKeyVersion: null,
-    };
-
-    expect(resourceHcl(CONFIGURATION, keyless).hcl).toBe(
-      [
-        'import {',
-        '  to = spotlight_inference_endpoint.acme',
-        `  id = "${WORKSPACE_ID}/acme"`,
-        '}',
-        '',
-        'resource "spotlight_inference_endpoint" "acme" {',
-        '  workspace_id = spotlight_workspace.acme.id',
-        '  base_url     = "http://127.0.0.1:4000/v1"',
-        '  model        = "openai/gpt-5-mini"',
-        '}',
-        '',
-      ].join('\n'),
-    );
-  });
-
-  it('writes the key version of an inference endpoint exactly as the API answers it', () => {
-    const unversioned = {
-      ...resourceOf('inference-endpoint'),
-      apiKeyVersion: null,
-    };
-
-    expect(resourceHcl(CONFIGURATION, unversioned).hcl).toMatch(
-      /\n {2}api_key_wo += var\.inference_api_key\n}\n$/,
     );
   });
 
@@ -1042,7 +986,6 @@ describe('workspaceTerraform', () => {
       'spotlight_runner_pool.burst',
       'spotlight_runner_pool.k8s-jobs',
       'spotlight_workspace_runners.acme',
-      'spotlight_inference_endpoint.acme',
       'spotlight_team._3d',
       'spotlight_team.core',
       'spotlight_line.core_delivery',
@@ -1122,14 +1065,6 @@ describe('resourceHcl', () => {
         .hcl,
     ).toMatch(
       /^variable "hook_core_linear-comments_signing_secret" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_hook\.core_linear-comments\n/,
-    );
-  });
-
-  it('writes an inference endpoint after the variable its key is read from', () => {
-    expect(
-      resourceHcl(CONFIGURATION, resourceOf('inference-endpoint')).hcl,
-    ).toMatch(
-      /^variable "inference_api_key" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_inference_endpoint\.acme\n/,
     );
   });
 

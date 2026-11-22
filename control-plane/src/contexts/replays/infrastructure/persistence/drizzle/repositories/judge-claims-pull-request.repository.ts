@@ -40,6 +40,7 @@ const toPullRequest = (row: Row): JudgeClaimsPullRequest =>
       ? PendingJob.rehydrate({
           attempts: row.jobAttempts,
           nextAttemptAt: row.jobDueAt,
+          waitingSince: row.waitingSince,
         })
       : null,
     lastCommit: row.lastCommit ? CommitSha.of(row.lastCommit) : null,
@@ -55,6 +56,7 @@ const columnsOf = (stored: JudgeClaimsPullRequest) => ({
   pending: stored.job !== null,
   jobAttempts: stored.job?.attempts ?? 0,
   jobDueAt: stored.job?.nextAttemptAt ?? null,
+  waitingSince: stored.job?.waitingSince ?? null,
   lastCommit: stored.lastCommit,
   url: stored.url,
   reason: stored.reason,

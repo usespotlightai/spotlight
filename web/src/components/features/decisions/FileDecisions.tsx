@@ -17,7 +17,7 @@ export function FileDecisions({ path }: { path: string }) {
           key={decision.id}
           decision={decision}
           path={path}
-          reasoningAt={deciding.reasoningAt}
+          reasoningAt={deciding.reasoningAt(decision)}
           disputing={deciding.disputing}
         />
       ))}

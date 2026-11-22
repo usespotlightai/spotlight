@@ -7,10 +7,10 @@ import {
   type ClosedPullRequest,
 } from '@change-review/application/services/apply-pull-request-close.service';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
+import { Decision } from '@change-review/domain/entities/decision.entity';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
-import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
+import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
-import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -20,11 +20,9 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-21T10:00:00Z');
 
-const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const CLOSED_AT = new Date('2026-09-21T09:30:00Z');
 const TASK = TaskId.of('task_1');
 const RUN = RunId.of('run_1');
-const TURN = AgentTurn.of(RUN, 2, RUN_ORDERED_AT);
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 const MERGED: ClosedPullRequest = {
@@ -42,27 +40,18 @@ const decided = (paths: readonly string[] = ['api/src/uploads.ts']) =>
     id: DecisionSetId.of('set_1'),
     taskId: TASK,
     workspaceId: WORKSPACE,
-  })
-    .requestGeneration(TURN, NOW)
-    .recordGeneration({
-      turn: TURN,
-      newId: (() => {
-        let next = 0;
-        return () => `decision_${(next += 1)}`;
-      })(),
-      proposed: paths.map((path) => ({
-        kind: 'limitation' as const,
+  }).recordFromRun(
+    RUN,
+    paths.map((path, at) =>
+      Decision.of(DecisionId.of(`decision_${at + 1}`), RUN, {
+        kind: 'limitation',
         title: `Retries only once in ${path}`,
         why: 'Backoff is not in the client yet.',
         alternatives: [],
         paths: [path],
-        steps: [3],
-      })),
-      evidence: DecisionEvidence.of({
-        steps: [3],
-        changed: [...paths],
       }),
-    });
+    ),
+  );
 
 const applying = (
   over: {

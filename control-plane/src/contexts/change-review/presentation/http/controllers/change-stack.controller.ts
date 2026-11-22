@@ -37,7 +37,6 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -121,7 +120,7 @@ export class ChangeStackController {
   @ApiOperation({
     operationId: 'answerStackQuestion',
     summary:
-      'Answer a question about a layer of a change stack, and get it graded against the expected answer',
+      'Answer a question about a layer of a change stack. The reply comes back with the expected answer and a pending grade; a session grades it against the expected answer shortly after',
   })
   @ApiParam({ name: 'stackId', type: String })
   @ApiParam({ name: 'questionId', type: String })
@@ -138,10 +137,6 @@ export class ChangeStackController {
     description: 'No such change stack or question for this caller',
   })
   @ApiConflictResponse({ description: 'The caller already answered it' })
-  @ApiResponse({
-    status: 402,
-    description: 'The inference endpoint has no credits left',
-  })
   async answer(
     @Param('teamId') teamId: string,
     @Param('stackId') stackId: string,

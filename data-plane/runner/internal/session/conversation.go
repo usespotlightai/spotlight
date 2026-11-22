@@ -319,7 +319,7 @@ func earliest(a, b time.Time) time.Time {
 }
 
 func (c *conversation) owesHandover() bool {
-	return len(c.run.Spec.Handover.Options) > 0 && !replays(c.run) && !searches(c.run) && !c.handedOver()
+	return len(c.run.Spec.Handover.Options) > 0 && !replays(c.run) && !searches(c.run) && !assists(c.run) && !c.handedOver()
 }
 
 func (c *conversation) handedOver() bool {

@@ -169,6 +169,40 @@ var causeHelp = help.Command{
 	Docs: docs + "#spotlight-cause",
 }
 
+var decideHelp = help.Command{
+	Path:    "decide",
+	Summary: "Record a decision you made on the task, for the people who review it.",
+	Usage:   []string{"spotlight decide --kind <kind> --title <text> --why <text | @file> [--alternative <text>]... --path <path> [--path <path>]..."},
+	Flags: []help.Flag{
+		{Name: "kind", Value: "<kind>", Usage: "One of " + strings.Join(protocol.DecisionKinds, ", ") + ". Required."},
+		{Name: "title", Value: "<text>", Usage: "The decision in a few words, up to 120 characters. Required."},
+		{Name: "why", Value: "<text | @file>", Usage: "Why you decided it, up to 2000 characters. @file reads it from a file. Required."},
+		{Name: "alternative", Value: "<text>", Usage: "Another way you weighed. Repeat for more than one, up to 5."},
+		{Name: "path", Value: "<path>", Usage: "A changed file the decision bears on. Required. Repeat for more than one, up to 20."},
+	},
+	Examples: []help.Example{
+		{Command: `spotlight decide --kind trade-off --title "Retry in the client, not the queue" --why "The queue has no backoff." --alternative "Retry in the queue" --path api/src/webhook-client.ts`},
+		{Comment: "A long reason", Command: "spotlight decide --kind limitation --title \"Retries only once\" --why @why.md --path api/src/webhook-client.ts"},
+	},
+	Notes: []string{"Record one decision with each call. Record only what a reviewer cannot read from the diff."},
+	Docs:  docs + "#spotlight-decide",
+}
+
+var submitHelp = help.Command{
+	Path:    "submit",
+	Summary: "Submit the result of an assist session to Spotlight.",
+	Usage:   []string{"spotlight submit <result.json | ->"},
+	Examples: []help.Example{
+		{Command: "spotlight submit result.json"},
+		{Comment: "Read the result from standard input", Command: `jq -n '{verdict: "pass"}' | spotlight submit -`},
+	},
+	Notes: []string{
+		"The briefing says what the result contains. The files it names are in .spotlight/assist.",
+		"If Spotlight finds problems, it lists them. Fix the result and submit it again.",
+	},
+	Docs: docs + "#spotlight-submit",
+}
+
 var toolsHelp = help.Command{
 	Path:    "tools",
 	Summary: "List, find, read and call the tools of this run.",
@@ -220,5 +254,5 @@ var toolsCallHelp = help.Command{
 
 var Commands = []help.Command{
 	handoverHelp, replyHelp, traceHelp, historyHelp, recallHelp, rememberHelp, forgetHelp, hookHelp,
-	candidateHelp, causeHelp, toolsHelp, toolsSearchHelp, toolsDescribeHelp, toolsCallHelp,
+	candidateHelp, causeHelp, decideHelp, submitHelp, toolsHelp, toolsSearchHelp, toolsDescribeHelp, toolsCallHelp,
 }

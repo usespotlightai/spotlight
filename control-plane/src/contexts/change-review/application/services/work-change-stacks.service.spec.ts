@@ -1,4 +1,12 @@
-import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
+import type {
+  ChangeStackGenerationRequest,
+  ChangeStackGeneratorPort,
+  GeneratedChangeStack,
+} from '@change-review/application/ports/change-stack-generator.port';
+import {
+  SESSION_WAITING,
+  type SessionWaiting,
+} from '@change-review/application/ports/session-waiting';
 import { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
@@ -11,6 +19,8 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { DraftingRound } from '@change-review/domain/value-objects/drafting-round.vo';
+import { SessionFailure } from '@change-review/domain/value-objects/session-failure.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
@@ -105,10 +115,16 @@ const QUIET: LoggerPort = {
   error: () => undefined,
 };
 
+const drafting = (
+  cohorts: readonly ProposedCohort[],
+): Promise<GeneratedChangeStack> =>
+  Promise.resolve({ status: 'drafted', cohorts, usage: null });
+
 const working = (
   initial: ChangeStack,
-  answer: () => Promise<readonly ProposedCohort[]>,
-  available = true,
+  answer: (
+    request: ChangeStackGenerationRequest,
+  ) => Promise<GeneratedChangeStack | SessionWaiting>,
 ) => {
   let stored = initial;
   let now = NOW;
@@ -116,28 +132,14 @@ const working = (
 
   const stacks = {
     find: async () => stored,
+    ofTask: async () => [stored],
     save: async (stack: ChangeStack) => {
       stored = stack;
     },
     nextDueJob: async (at: Date) =>
       stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
   } as unknown as ChangeStackRepository;
-  const generator: ChangeStackGeneratorPort = {
-    availableTo: async () => available,
-    generate: async () => ({ cohorts: await generate(), usage: null }),
-    outline: async () => {
-      throw new Error('A diff this small is not split');
-    },
-    layers: async () => {
-      throw new Error('A diff this small is not split');
-    },
-    layerPlan: async () => {
-      throw new Error('A diff this small is not split');
-    },
-    layerDetails: async () => {
-      throw new Error('A diff this small is not split');
-    },
-  };
+  const generator: ChangeStackGeneratorPort = { generate };
   const clock = { now: () => now, sleep: async () => undefined };
 
   const checks = {
@@ -177,28 +179,26 @@ const working = (
 };
 
 describe('WorkChangeStacks', () => {
-  it('still fails a stack left generating as not generated once the model to generate it is gone', async () => {
-    const worked = working(
-      generating(),
-      async () => {
-        throw new Error('No model endpoint is set for change stacks');
-      },
-      false,
-    );
+  it('fails a stack as not generated at once when no harness can draft it, or its run is in another workspace', async () => {
+    for (const reason of ['no-harness', 'base-run-elsewhere'] as const) {
+      const worked = working(generating(), async () => ({
+        status: 'failed',
+        failure: SessionFailure.of(reason),
+      }));
 
-    for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
-      await worked.tick(new Date(NOW.getTime() + day * DAY));
+      await worked.tick(NOW);
+
+      expect(worked.generate).toHaveBeenCalledTimes(1);
+      expect(worked.stored().state).toBe('failed');
+      expect(worked.stored().failure).toBe('not-generated');
     }
-
-    expect(worked.generate).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
-    expect(worked.stored().state).toBe('failed');
   });
 
   it('generates a stack that is generating, leasing it while it does', async () => {
     let leasedWhileGenerating = false;
     const worked = working(generating(), async () => {
       leasedWhileGenerating = !worked.stored().job.isDue(NOW);
-      return layered([['h1'], ['h2']]);
+      return drafting(layered([['h1'], ['h2']]));
     });
 
     await worked.tick(NOW);
@@ -208,10 +208,28 @@ describe('WorkChangeStacks', () => {
     expect(worked.stored().hasPendingJob).toBe(false);
   });
 
-  it('retries a failed generation later rather than at once, then dead-letters it', async () => {
-    const worked = working(generating(), async () => {
-      throw new Error('overloaded');
-    });
+  it('drafts the stack in a session based on the run that made it', async () => {
+    const worked = working(generating(), () =>
+      drafting(layered([['h1'], ['h2']])),
+    );
+
+    await worked.tick(NOW);
+
+    expect(worked.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'workspace-1',
+        round: DraftingRound.draft(ChangeStackId.of('stack-1'), 1),
+        basedOnRun: RunId.of('run-1'),
+        problems: [],
+      }),
+    );
+  });
+
+  it('retries a session that gave no stack later, in a new round, then dead-letters it', async () => {
+    const worked = working(generating(), async () => ({
+      status: 'failed',
+      failure: SessionFailure.of('run-failed'),
+    }));
 
     await worked.tick(NOW);
     await worked.tick(NOW);
@@ -223,13 +241,76 @@ describe('WorkChangeStacks', () => {
       await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.generate).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
+    expect(
+      worked.generate.mock.calls.map(([request]) => request.round.attempt),
+    ).toEqual([1, 2, 3, 4]);
     expect(worked.stored().state).toBe('failed');
+    expect(worked.stored().failure).toBe('not-generated');
+  });
+
+  it('waits for its session in the same round, however long it runs, without spending attempts', async () => {
+    let waits = MAX_JOB_ATTEMPTS + 2;
+    const worked = working(generating(), async () => {
+      if (waits > 0) {
+        waits -= 1;
+        return SESSION_WAITING;
+      }
+      return drafting(layered([['h1'], ['h2']]));
+    });
+
+    for (let at = 0; at <= MAX_JOB_ATTEMPTS + 2; at += 1) {
+      await worked.tick(new Date(NOW.getTime() + at * 60_000));
+    }
+
+    expect(
+      new Set(
+        worked.generate.mock.calls.map(([request]) => request.round.attempt),
+      ),
+    ).toEqual(new Set([1]));
+    expect(worked.stored().state).toBe('ready');
+  });
+
+  it('drafts again with the problems of a stack that broke its rules, then settles it', async () => {
+    const worked = working(generating(), (request) =>
+      drafting(
+        request.problems.length === 0
+          ? layered([['h1']])
+          : layered([['h1'], ['h2']]),
+      ),
+    );
+
+    await worked.tick(NOW);
+
+    expect(worked.stored().state).toBe('generating');
+    expect(worked.stored().problems.map((each) => each.message)).toEqual([
+      'leaves h2 out',
+    ]);
+
+    await worked.tick(new Date(NOW.getTime() + DAY));
+
+    const [, again] = worked.generate.mock.calls.map(([request]) => request);
+    expect(again?.round.attempt).toBe(2);
+    expect(again?.problems.map((each) => each.message)).toEqual([
+      'leaves h2 out',
+    ]);
+    expect(worked.stored().state).toBe('ready');
+    expect(worked.stored().problems).toEqual([]);
+  });
+
+  it('stops a stack that keeps breaking its rules as broke-rules', async () => {
+    const worked = working(generating(), () => drafting(layered([['h1']])));
+
+    for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
+      await worked.tick(new Date(NOW.getTime() + day * DAY));
+    }
+
+    expect(worked.generate).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
+    expect(worked.stored().failure).toBe('broke-rules');
   });
 
   it('takes up a generation a restart interrupted once its lease runs out', async () => {
-    const worked = working(generating().leaseJob(NOW), async () =>
-      layered([['h1', 'h2']]),
+    const worked = working(generating().leaseJob(NOW), () =>
+      drafting(layered([['h1', 'h2']])),
     );
 
     await worked.tick(new Date(NOW.getTime() + 60_000));
@@ -244,7 +325,9 @@ describe('WorkChangeStacks', () => {
     for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
       interrupted = interrupted.leaseJob(new Date(NOW.getTime() + day * DAY));
     }
-    const worked = working(interrupted, async () => layered([['h1', 'h2']]));
+    const worked = working(interrupted, () =>
+      drafting(layered([['h1', 'h2']])),
+    );
 
     await worked.tick(new Date(NOW.getTime() + MAX_JOB_ATTEMPTS * DAY));
 
@@ -256,7 +339,9 @@ describe('WorkChangeStacks', () => {
     const redrafting = generating()
       .propose(layered([['h1'], ['h2']]), NOW)
       .requestRedraft();
-    const worked = working(redrafting, async () => layered([['h2'], ['h1']]));
+    const worked = working(redrafting, () =>
+      drafting(layered([['h2'], ['h1']])),
+    );
 
     await worked.tick(NOW);
 

@@ -4,6 +4,7 @@ import type { ChangeJudgingFailed } from '@replays/domain/events/change-judging-
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
 import type { JudgedChange } from '@replays/domain/value-objects/change-judgment';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -108,6 +109,18 @@ describe('ChangeJudging', () => {
     expect(event?.failure.code).toBe('unreadable');
   });
 
+  it('waits for its assist session without spending the attempt it leased', () => {
+    const at = new Date(NOW.getTime() + 15_000);
+    const waiting = requested().leaseJob(NOW).waitJob(at);
+
+    expect(waiting.hasPendingJob).toBe(true);
+    expect(waiting.job?.attempts).toBe(0);
+    expect(waiting.job?.nextAttemptAt).toEqual(
+      new Date(at.getTime() + WAIT_MS),
+    );
+    expect(waiting.job?.waitingSince).toEqual(at);
+  });
+
   it('fails at once, without retrying, when the judge has insufficient credits', () => {
     const broke = {
       judged: false,
@@ -131,5 +144,32 @@ describe('ChangeJudging', () => {
     expect(judging.isDeleted).toBe(false);
     expect(deleted.isDeleted).toBe(true);
     expect(deleted.version).toBe(judging.version);
+  });
+
+  it('judges in rounds: a calibration judging and a retried try each are a new round, a wait is not', () => {
+    const leased = requested().leaseJob(NOW);
+    const resumed = leased
+      .waitJob(NOW)
+      .leaseJob(new Date(NOW.getTime() + WAIT_MS));
+    const calibration = judgedOnce(null).requeued(NOW).leaseJob(NOW);
+
+    expect(leased.round).toMatchObject({ runId: RUN, judging: 1, attempt: 1 });
+    expect(resumed.round.equals(leased.round)).toBe(true);
+    expect(calibration.round).toMatchObject({ judging: 2, attempt: 1 });
+    expect(calibration.round.equals(leased.round)).toBe(false);
+  });
+
+  it('wakes when the session of the round it waits on settles, and only then', () => {
+    const leased = requested().leaseJob(NOW);
+    const waiting = leased.waitJob(NOW);
+    const at = new Date(NOW.getTime() + 1_000);
+    const woken = waiting.wake(leased.round, at);
+
+    expect(woken.job?.nextAttemptAt).toEqual(at);
+    expect(woken.wake(leased.round, at)).toBe(woken);
+    expect(leased.wake(leased.round, at)).toBe(leased);
+    expect(
+      waiting.wake(judgedOnce(null).requeued(NOW).leaseJob(NOW).round, at),
+    ).toBe(waiting);
   });
 });

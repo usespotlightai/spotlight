@@ -123,6 +123,7 @@ import {
   EXCLUSIVE_CLAIM_LOCKS,
   type ExclusiveClaimLocksPort,
 } from '@runs/application/ports/exclusive-claim-locks.port';
+import { HARNESS_COMMANDS } from '@runs/application/ports/harness-commands.port';
 import {
   HARNESS_LAUNCH,
   type HarnessLaunchPort,
@@ -140,6 +141,7 @@ import {
   REVIEW_WORK,
   type ReviewWorkPort,
 } from '@runs/application/ports/review-work.port';
+import { RUN_ARCHIVES } from '@runs/application/ports/run-archives.port';
 import {
   RUN_CONNECTION_LEDGER,
   type RunConnectionLedgerPort,
@@ -186,6 +188,7 @@ import {
   type SandboxHostsPort,
 } from '@runs/application/ports/sandbox-hosts.port';
 import { STARTING_POINT_HOLDS } from '@runs/application/ports/starting-point-holds.port';
+import { TEAM_RUNS } from '@runs/application/ports/team-runs.port';
 import {
   WARM_LINES,
   type WarmLinesPort,
@@ -284,6 +287,7 @@ import { LinesWarmLines } from '@runs/infrastructure/acl/lines-warm-lines.adapte
 import { RunnersWarmSandboxKeeping } from '@runs/infrastructure/acl/runners-warm-sandboxes.adapter';
 import { RUNS_PAYLOAD_TYPES } from '@runs/infrastructure/events/runs-payload-types';
 import { BuiltInHarnesses } from '@runs/infrastructure/harnesses/built-in-harnesses';
+import { HarnessCommands } from '@runs/infrastructure/harnesses/harness-commands';
 import { CheckedRunJournal } from '@runs/infrastructure/journal/checked-run-journal';
 import { HarnessToolNames } from '@runs/infrastructure/journal/harness-tools';
 import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/drizzle/archive-reference-locks';
@@ -462,6 +466,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_FACTS_READER, useClass: DrizzleRunFactsReader },
 
   { provide: RUN_FACTS, useExisting: RunReadModel },
+  { provide: TEAM_RUNS, useExisting: RunReadModel },
 
   {
     provide: RunViewing,
@@ -561,6 +566,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   { provide: ARCHIVE_REFERENCES, useClass: DrizzleArchiveReferences },
 
+  { provide: RUN_ARCHIVES, useExisting: RunReadModel },
+
   { provide: ARCHIVE_REFERENCE_LOCKS, useClass: DrizzleArchiveReferenceLocks },
 
   ArchiveHolders,
@@ -576,6 +583,12 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_REQUESTER_LABELS, useExisting: RunRequesterLabels },
 
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
+
+  {
+    provide: HARNESS_COMMANDS,
+    inject: [BuiltInHarnesses],
+    useFactory: (launch: BuiltInHarnesses) => new HarnessCommands(launch),
+  },
 
   { provide: HARNESS_TOOL_NAMES, useClass: HarnessToolNames },
 

@@ -677,9 +677,14 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
       ];
 };
 
-const stackAnswers = perWorld(
-  (): Record<string, QuestionAnswerResponseDto> => ({}),
-);
+interface StoredAnswer {
+  readonly answer: QuestionAnswerResponseDto;
+  readonly gradedAt: number;
+}
+
+const stackAnswers = perWorld((): Record<string, StoredAnswer> => ({}));
+
+const GRADING_MS = 4 * SECOND;
 
 const EXPECTED: Record<string, string> = {
   'c1.l2.q1':
@@ -696,17 +701,34 @@ export const answerStackQuestion = (
   const answer: QuestionAnswerResponseDto = {
     questionId,
     reply: reply?.trim() || null,
-    verdict: reply?.trim() ? 'partly-right' : 'missed',
-    feedback: reply?.trim()
-      ? 'You are right that it takes long. You missed that writes to invoices wait for it.'
-      : null,
+    grading: reply?.trim() ? 'pending' : 'graded',
+    verdict: reply?.trim() ? null : 'missed',
+    feedback: null,
     expected: EXPECTED[questionId] ?? 'The answer that the hunks show.',
     outdated: false,
   };
 
-  stackAnswers()[`${stackId}/${questionId}`] = answer;
+  stackAnswers()[`${stackId}/${questionId}`] = {
+    answer,
+    gradedAt: Date.now() + GRADING_MS,
+  };
   return answer;
 };
+
+/** A reply in words is graded a few seconds after it is given, the way a grading session lands. */
+const shownAnswer = ({
+  answer,
+  gradedAt,
+}: StoredAnswer): QuestionAnswerResponseDto =>
+  answer.grading === 'pending' && Date.now() >= gradedAt
+    ? {
+        ...answer,
+        grading: 'graded',
+        verdict: 'partly-right',
+        feedback:
+          'You are right that it takes long. You missed that writes to invoices wait for it.',
+      }
+    : answer;
 
 const withAnswers = (
   stacks: ChangeStackResponseDto[],
@@ -717,11 +739,14 @@ const withAnswers = (
       ...cohort,
       layers: cohort.layers.map((layer) => ({
         ...layer,
-        questions: layer.questions.map((question) => ({
-          ...question,
-          answered:
-            stackAnswers()[`${stack.id}/${question.id}`] ?? question.answered,
-        })),
+        questions: layer.questions.map((question) => {
+          const stored = stackAnswers()[`${stack.id}/${question.id}`];
+
+          return {
+            ...question,
+            answered: stored ? shownAnswer(stored) : question.answered,
+          };
+        }),
       })),
     })),
   }));

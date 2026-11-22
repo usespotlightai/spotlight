@@ -168,7 +168,6 @@ export class Remembering {
       scope: scopeOf(remembered, at.runContext),
       provenance: this.provenanceOf(at),
       source: at.fromOutside ? 'outside' : 'run',
-      proposedBy: 'agent',
       supersedes: supersedes?.id ?? null,
       recordedAt: now,
     });
@@ -195,7 +194,6 @@ export class Remembering {
       reason: input.because,
       provenance: this.provenanceOf(at),
       source: at.fromOutside ? 'outside' : 'run',
-      proposedBy: 'agent',
       recordedAt: now,
     });
   }

@@ -1,26 +1,32 @@
-import { decidesFrom } from '@change-review/domain/services/decision-policy';
+import { mayRecordDecisions } from '@change-review/domain/services/decision-policy';
 import { describe, expect, it } from 'vitest';
 
-const RECORDS = { decisions: true };
-const KEEPS = { reviewing: false };
+const RUN = { taskId: 'task_1', trial: false, decisions: true };
+const TASK = { reviewing: false };
 
-describe('decidesFrom', () => {
-  it('decides from a run or a turn that hands the work over to people', () => {
-    expect(decidesFrom(RECORDS, true, KEEPS)).toBe(true);
+describe('which runs may record decisions', () => {
+  it('lets a run of its own task on a station that keeps decisions record them', () => {
+    expect(mayRecordDecisions(RUN, TASK)).toBeNull();
   });
 
-  it('decides nothing from a run or a turn that hands nothing over', () => {
-    expect(decidesFrom(RECORDS, false, KEEPS)).toBe(false);
+  it('refuses a run of no task, and a trial', () => {
+    expect(mayRecordDecisions({ ...RUN, taskId: null }, null)).toBe(
+      'works-no-task',
+    );
+    expect(mayRecordDecisions({ ...RUN, trial: true }, TASK)).toBe(
+      'works-no-task',
+    );
   });
 
-  it.each([
-    ['its station records none', { decisions: false }, KEEPS],
-    [
-      'the task reviews a pull request opened elsewhere',
-      RECORDS,
-      { reviewing: true },
-    ],
-  ])('decides nothing where %s', (_, run, task) => {
-    expect(decidesFrom(run, true, task)).toBe(false);
+  it('refuses a run of a station that keeps no decisions', () => {
+    expect(mayRecordDecisions({ ...RUN, decisions: false }, TASK)).toBe(
+      'station-keeps-none',
+    );
+  });
+
+  it('refuses a task that reviews a pull request', () => {
+    expect(mayRecordDecisions(RUN, { reviewing: true })).toBe(
+      'reviews-pull-request',
+    );
   });
 });

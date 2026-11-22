@@ -1,4 +1,3 @@
-import type { JudgePort } from '@insights/application/ports/judge.port';
 import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
 import type { StationJudgesPort } from '@insights/application/ports/station-judges.port';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
@@ -30,14 +29,13 @@ export class BackfillJudgings {
     private readonly judgings: JudgingRepository,
     private readonly facts: StationFactsPort,
     private readonly judges: StationJudgesPort,
-    private readonly judge: JudgePort,
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
 
   async lineChanged(event: ChangedLine): Promise<void> {
-    if (event.deleted || !(await this.judge.availableTo(event.workspaceId))) {
+    if (event.deleted) {
       return;
     }
 

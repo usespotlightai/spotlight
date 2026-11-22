@@ -6,18 +6,23 @@ import {
   sharesAnswers,
 } from '@change-review/domain/services/shown-answer';
 import { assertOneOwner } from '@change-review/domain/services/stack-owner';
+import type { AnswerGrading } from '@change-review/domain/value-objects/answer-grading.vo';
 import type { AnswerVerdict } from '@change-review/domain/value-objects/answer-verdict.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { GradingRound } from '@change-review/domain/value-objects/grading-round.vo';
 import type { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import type { SessionFailure } from '@change-review/domain/value-objects/session-failure.vo';
 import type { LayerQuestion } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import {
   type ModelCall,
   ModelUsage,
 } from '@shared-kernel/domain/value-objects/model-usage.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -47,27 +52,43 @@ const replyOf = (raw: string | null): string | null => {
   return reply;
 };
 
-const gradedReply = (raw: string | null, graded: GradedReply | null) => {
+const feedbackOf = (raw: string): string | null =>
+  raw.trim().slice(0, MAX_FEEDBACK).trimEnd() || null;
+
+interface Answered {
+  readonly reply: string | null;
+  readonly grading: AnswerGrading;
+  readonly verdict: AnswerVerdict | null;
+}
+
+/** An answer in words waits for its grade; "I don't know" is missed at once. */
+const answeredWith = (raw: string | null): Answered => {
   const reply = replyOf(raw);
 
-  if (reply && !graded) {
-    throw new InvalidAnswerError('in words needs a grade');
-  }
-  if (!reply && graded) {
-    throw new InvalidAnswerError('without words has no grade');
-  }
-
-  const feedback =
-    graded?.grade.feedback.trim().slice(0, MAX_FEEDBACK).trimEnd() || null;
-
-  return {
-    reply,
-    verdict: graded?.grade.verdict ?? ('missed' as const),
-    feedback,
-  };
+  return reply
+    ? { reply, grading: 'pending', verdict: null }
+    : { reply: null, grading: 'graded', verdict: 'missed' };
 };
 
-export class QuestionAnswer extends EventRecorder {
+const assertGraded = (input: Answered): void => {
+  if (input.reply === null && input.verdict !== 'missed') {
+    throw new InconsistentStateError(
+      'question answer',
+      'has no words, yet is not missed',
+    );
+  }
+  if ((input.grading === 'graded') !== (input.verdict !== null)) {
+    throw new InconsistentStateError(
+      'question answer',
+      'has a verdict that does not match its grading',
+    );
+  }
+};
+
+export class QuestionAnswer
+  extends EventRecorder
+  implements HasPendingJob<QuestionAnswer>
+{
   private constructor(
     readonly id: QuestionAnswerId,
     readonly workspaceId: WorkspaceId,
@@ -80,17 +101,15 @@ export class QuestionAnswer extends EventRecorder {
     readonly asked: string,
     readonly expected: string,
     readonly reply: string | null,
-    readonly verdict: AnswerVerdict,
+    readonly grading: AnswerGrading,
+    readonly verdict: AnswerVerdict | null,
     readonly feedback: string | null,
     readonly usage: ModelUsage,
+    readonly job: PendingJob,
     readonly answeredAt: Date,
     readonly version: number,
   ) {
     super();
-  }
-
-  static replyOf(raw: string | null): string | null {
-    return replyOf(raw);
   }
 
   static given(input: {
@@ -102,10 +121,9 @@ export class QuestionAnswer extends EventRecorder {
     question: LayerQuestion;
     personId: UserId;
     reply: string | null;
-    graded: GradedReply | null;
     now: Date;
   }): QuestionAnswer {
-    const { reply, verdict, feedback } = gradedReply(input.reply, input.graded);
+    const { reply, grading, verdict } = answeredWith(input.reply);
     const { stack } = input;
 
     assertOneOwner('question answer', stack);
@@ -122,9 +140,11 @@ export class QuestionAnswer extends EventRecorder {
       input.question.question,
       input.question.answer,
       reply,
+      grading,
       verdict,
-      feedback,
-      ModelUsage.none().with(input.graded?.usage ?? null),
+      null,
+      ModelUsage.none(),
+      PendingJob.fresh(),
       input.now,
       0,
     );
@@ -142,20 +162,16 @@ export class QuestionAnswer extends EventRecorder {
     asked: string;
     expected: string;
     reply: string | null;
-    verdict: AnswerVerdict;
+    grading: AnswerGrading;
+    verdict: AnswerVerdict | null;
     feedback: string | null;
     usage: ModelUsage;
+    job: PendingJob;
     answeredAt: Date;
     version: number;
   }): QuestionAnswer {
     assertOneOwner('question answer', input);
-
-    if (input.reply === null && input.verdict !== 'missed') {
-      throw new InconsistentStateError(
-        'question answer',
-        'has no words, yet is not missed',
-      );
-    }
+    assertGraded(input);
 
     return new QuestionAnswer(
       input.id,
@@ -169,9 +185,11 @@ export class QuestionAnswer extends EventRecorder {
       input.asked,
       input.expected,
       input.reply,
+      input.grading,
       input.verdict,
       input.feedback,
       input.usage,
+      input.job,
       input.answeredAt,
       input.version,
     );
@@ -208,7 +226,6 @@ export class QuestionAnswer extends EventRecorder {
   answeredAgain(input: {
     question: LayerQuestion;
     reply: string | null;
-    graded: GradedReply | null;
     now: Date;
   }): QuestionAnswer {
     if (input.question.id !== this.questionId) {
@@ -216,9 +233,121 @@ export class QuestionAnswer extends EventRecorder {
     }
     this.refuseIfAnswered(input.question);
 
-    const { reply, verdict, feedback } = gradedReply(input.reply, input.graded);
+    const { reply, grading, verdict } = answeredWith(input.reply);
 
-    return new QuestionAnswer(
+    return this.with({
+      asked: input.question.question,
+      expected: input.question.answer,
+      reply,
+      grading,
+      verdict,
+      feedback: null,
+      job: PendingJob.fresh(),
+      answeredAt: input.now,
+    });
+  }
+
+  /** The session that grades this reply now: a retried job grades in a new round, a job that waits keeps its round. */
+  get gradingRound(): GradingRound {
+    return GradingRound.of({
+      answerId: this.id,
+      answeredAt: this.answeredAt,
+      attempt: this.job.attempts,
+    });
+  }
+
+  get hasPendingJob(): boolean {
+    return this.grading === 'pending';
+  }
+
+  get jobExhausted(): boolean {
+    return this.job.exhausted;
+  }
+
+  leaseJob(now: Date): QuestionAnswer {
+    if (!this.hasPendingJob) {
+      throw new InvalidAnswerError('has no grade to wait for');
+    }
+    if (!this.job.isDue(now) || this.job.exhausted) {
+      throw new InvalidAnswerError('cannot be graded again yet');
+    }
+
+    return this.with({ job: this.job.lease(now) });
+  }
+
+  scheduleRetry(now: Date): QuestionAnswer {
+    if (!this.hasPendingJob) {
+      return this;
+    }
+
+    return this.job.exhausted
+      ? this.deadLetter()
+      : this.with({ job: this.job.scheduleRetry(now) });
+  }
+
+  waitJob(now: Date): QuestionAnswer {
+    return this.hasPendingJob ? this.with({ job: this.job.wait(now) }) : this;
+  }
+
+  deadLetter(): QuestionAnswer {
+    return this.ungraded();
+  }
+
+  /**
+   * Looks again now at the session grading the reply, because that session settled. A round of another answer or of an
+   * earlier reply wakes nothing; a job that does not wait stays as it is.
+   */
+  wake(round: GradingRound, now: Date): QuestionAnswer {
+    if (!this.hasPendingJob || !round.gradesReplyOf(this.id, this.answeredAt)) {
+      return this;
+    }
+
+    const job = this.job.wake(now);
+
+    return job === this.job ? this : this.with({ job });
+  }
+
+  /**
+   * Settles a grade that its session failed to give. A failure the same session would meet again leaves the answer
+   * ungraded; any other failure grades it again later, until the attempts run out.
+   */
+  gradingFailed(failure: SessionFailure, now: Date): QuestionAnswer {
+    return failure.lasting ? this.ungraded() : this.scheduleRetry(now);
+  }
+
+  graded(graded: GradedReply): QuestionAnswer {
+    if (!this.hasPendingJob) {
+      throw new InvalidAnswerError('has no grade to wait for');
+    }
+
+    return this.with({
+      grading: 'graded',
+      verdict: graded.grade.verdict,
+      feedback: feedbackOf(graded.grade.feedback),
+      usage: this.usage.with(graded.usage),
+      job: PendingJob.fresh(),
+    });
+  }
+
+  /** Gives up on the grade; the reviewer keeps the expected answer to compare with. */
+  ungraded(): QuestionAnswer {
+    return this.hasPendingJob
+      ? this.with({ grading: 'failed', job: PendingJob.fresh() })
+      : this;
+  }
+
+  private with(change: {
+    asked?: string;
+    expected?: string;
+    reply?: string | null;
+    grading?: AnswerGrading;
+    verdict?: AnswerVerdict | null;
+    feedback?: string | null;
+    usage?: ModelUsage;
+    job?: PendingJob;
+    answeredAt?: Date;
+  }): QuestionAnswer {
+    const next = new QuestionAnswer(
       this.id,
       this.workspaceId,
       this.taskId,
@@ -227,14 +356,20 @@ export class QuestionAnswer extends EventRecorder {
       this.repository,
       this.questionId,
       this.personId,
-      input.question.question,
-      input.question.answer,
-      reply,
-      verdict,
-      feedback,
-      this.usage.with(input.graded?.usage ?? null),
-      input.now,
+      change.asked ?? this.asked,
+      change.expected ?? this.expected,
+      change.reply === undefined ? this.reply : change.reply,
+      change.grading ?? this.grading,
+      change.verdict === undefined ? this.verdict : change.verdict,
+      change.feedback === undefined ? this.feedback : change.feedback,
+      change.usage ?? this.usage,
+      change.job ?? this.job,
+      change.answeredAt ?? this.answeredAt,
       this.version,
     );
+
+    next.inheritEvents(this);
+
+    return next;
   }
 }

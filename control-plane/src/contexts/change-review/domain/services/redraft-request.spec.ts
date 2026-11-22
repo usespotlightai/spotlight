@@ -1,11 +1,6 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import {
-  cohortRedraft,
-  type NamedFile,
-  type RedraftRequest,
-  redraftRequestOf,
-} from '@change-review/domain/services/redraft-request';
+import { redraftRequestOf } from '@change-review/domain/services/redraft-request';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
@@ -181,49 +176,5 @@ describe('redraftRequestOf', () => {
         }),
       ),
     ).toBeNull();
-  });
-});
-
-describe('cohortRedraft', () => {
-  const failing = (cohort: number, named: NamedFile[] = []) => ({
-    cohort,
-    layer: 1,
-    title: 'Layer 2',
-    output: 'error TS2304',
-    named,
-  });
-  const inLayer = (hunk: string, layer: number | null) => ({
-    hunk: HunkId.of(hunk),
-    layer,
-  });
-  const REQUEST: RedraftRequest = {
-    command: 'npx tsc --noEmit',
-    stack: [
-      { title: 'Labels', layers: [{ title: 'Layer 1', hunks: [] }] },
-      { title: 'Filters', layers: [{ title: 'Layer 1', hunks: [] }] },
-    ],
-    failed: [
-      failing(1, [
-        {
-          path: 'src/filters.ts',
-          hunks: [inLayer('h3', 0), inLayer('h1', null)],
-        },
-        { path: 'src/labels.ts', hunks: [inLayer('h2', null)] },
-      ]),
-    ],
-  };
-
-  it('redrafts one cohort as if it were the whole stack, naming only the hunks it can move', () => {
-    expect(cohortRedraft(REQUEST, 1)).toEqual({
-      command: 'npx tsc --noEmit',
-      stack: [REQUEST.stack[1]],
-      failed: [
-        failing(0, [{ path: 'src/filters.ts', hunks: [inLayer('h3', 0)] }]),
-      ],
-    });
-  });
-
-  it('has nothing to redraft in a cohort whose layers all passed', () => {
-    expect(cohortRedraft(REQUEST, 0)).toBeNull();
   });
 });

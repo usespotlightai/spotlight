@@ -120,7 +120,10 @@ export const claimsRevision = pgTable(
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamptz('job_due_at'),
+    waitingSince: timestamptz('waiting_since'),
     judgeCalls: integer('judge_calls').notNull().default(0),
+    reservedRound: integer('reserved_round'),
+    reservedJudgeCalls: integer('reserved_judge_calls').notNull().default(0),
     pickedClaims: jsonb('picked_claims').$type<string[]>(),
     pickedAgreement: jsonb('picked_agreement').$type<RevisionAgreement>(),
     pickedAt: timestamptz('picked_at'),
@@ -137,6 +140,10 @@ export const claimsRevision = pgTable(
     check(
       'claims_revision_judge_calls_not_negative',
       sql`${table.judgeCalls} >= 0`,
+    ),
+    check(
+      'claims_revision_reservation_within_judge_calls',
+      sql`${table.reservedJudgeCalls} >= 0 and ${table.reservedJudgeCalls} <= ${table.judgeCalls} and (${table.reservedRound} is not null or ${table.reservedJudgeCalls} = 0)`,
     ),
     uniqueIndex('claims_revision_open_idx')
       .on(table.stationId)
@@ -167,6 +174,7 @@ export const claimsSource = pgTable(
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamptz('job_due_at'),
+    waitingSince: timestamptz('waiting_since'),
     lookups: integer('lookups').notNull().default(0),
     version: integer('version').notNull().default(0),
   },

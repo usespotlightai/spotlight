@@ -186,6 +186,10 @@ export class ClaimsSource
     return job ? this.with({ job: job.scheduleRetry(now) }) : this;
   }
 
+  waitJob(now: Date): ClaimsSource {
+    return this.job ? this.with({ job: this.job.wait(now) }) : this;
+  }
+
   deadLetter(now: Date): ClaimsSource {
     return this.resolved(null, now);
   }

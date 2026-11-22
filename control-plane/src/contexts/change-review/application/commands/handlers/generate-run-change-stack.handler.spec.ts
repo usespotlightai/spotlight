@@ -51,7 +51,6 @@ const generating = (
         Repository.of('acme/widgets'),
         Repository.of('acme/gadgets'),
       ],
-    reasoningThrough: async () => null,
     task: async () => null,
     taskWithPullRequest: async () => null,
   } satisfies WorkPort;

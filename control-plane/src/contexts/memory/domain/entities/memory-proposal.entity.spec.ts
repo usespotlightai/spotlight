@@ -30,7 +30,6 @@ const stored = (
       notes: [1],
     }),
     source: 'run',
-    proposedBy: 'agent',
     supersedes: null,
     retires,
     recordedAt: NOW,

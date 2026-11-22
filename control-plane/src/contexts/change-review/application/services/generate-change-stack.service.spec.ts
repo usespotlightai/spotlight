@@ -1,14 +1,13 @@
-import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
-import { GenerationError } from '@change-review/application/errors/generation.error';
 import type {
   ChangeStackGenerationRequest,
   ChangeStackGeneratorPort,
-  CohortLayersRequest,
+  GeneratedChangeStack,
 } from '@change-review/application/ports/change-stack-generator.port';
 import type {
   DiffReaderPort,
   DiffSource,
 } from '@change-review/application/ports/diff-reader.port';
+import { SESSION_WAITING } from '@change-review/application/ports/session-waiting';
 import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-indexer.port';
 import { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
@@ -18,18 +17,19 @@ import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.
 import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { CodeReading } from '@change-review/domain/services/code-reading';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { DraftingRound } from '@change-review/domain/value-objects/drafting-round.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
+import { SessionFailure } from '@change-review/domain/value-objects/session-failure.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
-import type {
-  OutlinedCohort,
-  ProposedCohort,
-  ProposedLayer,
-} from '@change-review/domain/value-objects/stack-cohort.vo';
+import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import {
@@ -38,6 +38,7 @@ import {
 } from '@change-review/domain/value-objects/symbol-index.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -114,73 +115,6 @@ const DIFF = written(
   changed('api.ts', ['before'], ['POST /invitations']),
 );
 
-const LARGE = written(
-  ...Array.from({ length: 90 }, (_, at) =>
-    changed(`f${at + 1}.ts`, ['before'], [`line ${at + 1}`]),
-  ),
-);
-
-const hunksFrom = (first: number, last: number): HunkId[] =>
-  Array.from({ length: last - first + 1 }, (_, at) => HunkId.at(first + at));
-
-const outlineOf = (title: string, hunks: HunkId[]): OutlinedCohort => ({
-  kind: 'change',
-  title,
-  intent: `The ${title.toLowerCase()} work`,
-  joinedBecause: 'One feature the code does not show',
-  hunks,
-});
-
-const HALVES = [
-  outlineOf('First half', hunksFrom(1, 45)),
-  outlineOf('Second half', hunksFrom(46, 90)),
-];
-
-const oneLayer = ({ part }: CohortLayersRequest): ProposedLayer[] => [
-  {
-    title: 'Change the files',
-    summary: 'Changes every file of the cohort',
-    dependsOn: [],
-    hunks: part.diff.hunks.map((hunk) => ({ hunk: hunk.id })),
-    notes: part.diff.files.map((file) => ({
-      path: file.path,
-      note: 'Why it changes',
-    })),
-    questions: [],
-  },
-];
-
-const splitInTwo = ({ part }: CohortLayersRequest): ProposedLayer[] => {
-  const [first, ...rest] = part.diff.files;
-
-  return [first ? [first] : [], rest].map((files, at) => ({
-    title: `Layer ${at + 1}`,
-    summary: `Layer ${at + 1} of the cohort`,
-    dependsOn: [],
-    hunks: files.flatMap((file) =>
-      file.hunks.map((hunk) => ({ hunk: hunk.id })),
-    ),
-    notes: files.map((file) => ({ path: file.path, note: 'Why it changes' })),
-    questions: [],
-  }));
-};
-
-const LONG = written(
-  changed(
-    'long.ts',
-    Array.from({ length: 800 }, (_, at) => `old ${at}`),
-    Array.from({ length: 800 }, (_, at) => `new ${at}`),
-  ),
-);
-
-const LARGE_INPUT = {
-  diff: LARGE,
-  owner: 'acme',
-  repository: null,
-  base: null,
-  request: null,
-};
-
 const RUN = {
   origin: StackOrigin.run(RunId.of('run-1')),
   taskId: null,
@@ -220,12 +154,13 @@ const QUIET: LoggerPort = {
   error: () => undefined,
 };
 
+type Undrafted = Extract<GeneratedChangeStack, { status: 'failed' }>;
+
+type Answer = readonly ProposedCohort[] | Undrafted | 'pending';
+
 const generating = (
   over: {
-    available?: boolean;
-    answers?: (readonly ProposedCohort[] | Error)[];
-    outlines?: (readonly OutlinedCohort[] | Error)[];
-    layers?: (request: CohortLayersRequest) => readonly ProposedLayer[] | Error;
+    answers?: Answer[];
     index?: SymbolIndexerPort['index'];
     logger?: LoggerPort;
     ids?: () => string;
@@ -237,9 +172,6 @@ const generating = (
   let transacting = false;
   const requests: ChangeStackGenerationRequest[] = [];
   const answers = [...(over.answers ?? [[cohort(['h1', 'h2'])]])];
-  const outlines = [...(over.outlines ?? [])];
-  const outlined: ChangeStackGenerationRequest[] = [];
-  const layered: CohortLayersRequest[] = [];
   const usage = {
     inputTokens: 1_000,
     outputTokens: 200,
@@ -278,61 +210,19 @@ const generating = (
   };
 
   const generator: ChangeStackGeneratorPort = {
-    availableTo: async () => over.available ?? true,
     generate: async (request) => {
       requests.push(request);
       const answer = answers.shift();
 
-      if (!answer || answer instanceof Error) {
-        throw answer ?? new Error('Requested too often');
+      if (!answer) {
+        throw new Error('Requested too often');
       }
-      return { cohorts: answer, usage };
-    },
-    outline: async (request) => {
-      outlined.push(request);
-      const answer = outlines.shift();
-
-      if (!answer || answer instanceof Error) {
-        throw answer ?? new Error('Outlined too often');
+      if (answer === 'pending') {
+        return SESSION_WAITING;
       }
-      return { cohorts: answer, usage };
-    },
-    layers: async (request) => {
-      layered.push(request);
-      const answer = over.layers?.(request) ?? new Error('No layers');
-
-      if (answer instanceof Error) {
-        throw answer;
-      }
-      return { layers: answer, usage };
-    },
-    layerPlan: async (request) => {
-      layered.push(request);
-      const answer = over.layers?.(request) ?? new Error('No layers');
-
-      if (answer instanceof Error) {
-        throw answer;
-      }
-      return {
-        layers: answer.map(({ notes: _, questions: __, ...layer }) => layer),
-        usage,
-      };
-    },
-    layerDetails: async (request) => {
-      const answer =
-        over.layers?.({ ...request, redraft: null, previous: null }) ??
-        new Error('No layers');
-
-      if (answer instanceof Error) {
-        throw answer;
-      }
-      return {
-        details: {
-          notes: answer.flatMap((layer) => layer.notes),
-          questions: [],
-        },
-        usage,
-      };
+      return 'failure' in answer
+        ? answer
+        : { status: 'drafted', cohorts: answer, usage };
     },
   };
 
@@ -377,8 +267,6 @@ const generating = (
     saved,
     steps,
     requests,
-    outlined,
-    layered,
     stacks,
     generator,
     dispatched,
@@ -432,12 +320,38 @@ describe('GenerateChangeStack', () => {
     expect(saved[1]?.cohorts[0]?.layers[0]?.hunks).toHaveLength(2);
   });
 
-  it('requests again with what was wrong, where the first stack broke the rules', async () => {
-    const { generated, saved, requests } = generating({
-      answers: [[cohort(['h1'])], [cohort(['h1', 'h2'])]],
-    });
+  it('drafts the whole stack in one session based on the run that made the diff, keeping its usage', async () => {
+    const { generated, saved, requests } = generating();
 
     await generated({
+      diff: DIFF,
+      owner: 'acme',
+      repository: 'web',
+      base: null,
+      request: null,
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      workspaceId: 'workspace-1',
+      round: DraftingRound.draft(ChangeStackId.of('stack-1'), 0),
+      basedOnRun: RunId.of('run-1'),
+      repository: { value: 'web' },
+      problems: [],
+      previous: null,
+    });
+    expect(saved[saved.length - 1]?.usage).toMatchObject({
+      calls: 1,
+      inputTokens: 1_000,
+      costs: [{ amount: 0.01, currency: 'USD' }],
+    });
+  });
+
+  it('drafts again later with what was wrong, where the stack broke the rules', async () => {
+    const { service, requests } = generating({
+      answers: [[cohort(['h1'])], [cohort(['h1', 'h2'])]],
+    });
+    const stack = await service.begin(RUN, {
       diff: DIFF,
       owner: 'acme',
       repository: null,
@@ -445,93 +359,70 @@ describe('GenerateChangeStack', () => {
       request: null,
     });
 
+    const broken = await service.generated(stack);
+
+    expect(broken.state).toBe('generating');
+    expect(broken.problems.map((each) => each.message)).toEqual([
+      'leaves h2 out',
+    ]);
+    expect(broken.job.isDue(new Date('2026-09-16T10:00:00Z'))).toBe(false);
+
+    const ready = await service.generated(broken);
+
     expect(
       requests.map((each) => each.problems.map((problem) => problem.message)),
     ).toEqual([[], ['leaves h2 out']]);
-    expect(saved[saved.length - 1]?.state).toBe('ready');
-    expect(saved[saved.length - 1]?.usage).toMatchObject({
+    expect(ready.state).toBe('ready');
+    expect(ready.usage).toMatchObject({
       calls: 2,
       inputTokens: 2_000,
       costs: [{ amount: 0.02, currency: 'USD' }],
     });
   });
 
-  it('fails the generation where the stack keeps breaking the rules', async () => {
-    const { generated, saved } = generating({
-      answers: [[cohort(['h1'])], [cohort(['h2'])]],
-    });
-
-    await generated({
+  it('fails the generation where the stack still breaks the rules on its last attempt', async () => {
+    const { service } = generating({ answers: [[cohort(['h1'])]] });
+    let stack = await service.begin(RUN, {
       diff: DIFF,
       owner: 'acme',
       repository: null,
       base: null,
       request: null,
     });
+    for (let at = 0; at < MAX_JOB_ATTEMPTS; at += 1) {
+      stack = stack.leaseJob(new Date(Date.UTC(2026, 8, 17 + at)));
+    }
 
-    expect(saved[saved.length - 1]?.state).toBe('failed');
-    expect(saved[saved.length - 1]?.failure).toBe('broke-rules');
-    expect(saved[saved.length - 1]?.usage.calls).toBe(2);
+    const failed = await service.generated(stack);
+
+    expect(failed.state).toBe('failed');
+    expect(failed.failure).toBe('broke-rules');
+    expect(failed.usage.calls).toBe(1);
   });
 
-  it('leaves the generation to be retried where the generator cannot answer', async () => {
-    const { service } = generating({ answers: [new Error('overloaded')] });
-    const stack = await service.begin(RUN, {
-      diff: DIFF,
-      owner: 'acme',
-      repository: null,
-      base: null,
-      request: null,
-    });
+  it('leaves the generation to be retried where the session gives no stack', async () => {
+    for (const failure of ['run-failed', 'no-result'] as const) {
+      const { service } = generating({
+        answers: [{ status: 'failed', failure: SessionFailure.of(failure) }],
+      });
+      const stack = await service.begin(RUN, {
+        diff: DIFF,
+        owner: 'acme',
+        repository: null,
+        base: null,
+        request: null,
+      });
 
-    const left = await service.generated(stack);
+      const left = await service.generated(stack);
 
-    expect(left.state).toBe('generating');
-    expect(left.usage.calls).toBe(0);
+      expect(left.state).toBe('generating');
+      expect(left.usage.calls).toBe(0);
+    }
   });
 
-  it('records the usage of every attempt when a later one fails, an unreadable answer included', async () => {
+  it('fails a stack as not generated at once where no harness can run its session', async () => {
     const { service } = generating({
-      answers: [
-        [cohort(['h1'])],
-        new GenerationError('length', {
-          inputTokens: 1_000,
-          outputTokens: 4_000,
-          cost: { amount: 0.05, currency: 'USD' },
-        }),
-      ],
-    });
-    const stack = await service.begin(RUN, {
-      diff: DIFF,
-      owner: 'acme',
-      repository: null,
-      base: null,
-      request: null,
-    });
-
-    const left = await service.generated(stack);
-
-    expect(left.state).toBe('generating');
-    expect(left.usage).toMatchObject({
-      calls: 2,
-      outputTokens: 4_200,
-      costs: [{ amount: 0.06, currency: 'USD' }],
-    });
-  });
-
-  it('fails a stack the model runs out of output tokens for, without a retry', async () => {
-    const { service } = generating({
-      answers: [
-        new GenerationError(
-          'length',
-          {
-            inputTokens: 1_000,
-            outputTokens: 65_536,
-            cost: { amount: 0.2, currency: 'USD' },
-          },
-          { truncated: true },
-        ),
-      ],
+      answers: [{ status: 'failed', failure: SessionFailure.of('no-harness') }],
     });
     const stack = await service.begin(RUN, {
       diff: DIFF,
@@ -544,23 +435,24 @@ describe('GenerateChangeStack', () => {
     const left = await service.generated(stack);
 
     expect(left.state).toBe('failed');
-    expect(left.failure).toBe('too-large');
+    expect(left.failure).toBe('not-generated');
     expect(left.hasPendingJob).toBe(false);
-    expect(left.usage).toMatchObject({ calls: 1, outputTokens: 65_536 });
   });
 
-  it('fails where this deployment cannot generate stacks', async () => {
-    const { service } = generating({ available: false });
+  it('lets the job loop wait while the session drafts the stack', async () => {
+    const { service } = generating({ answers: ['pending'] });
+    const stack = await service.begin(RUN, {
+      diff: DIFF,
+      owner: 'acme',
+      repository: null,
+      base: null,
+      request: null,
+    });
 
-    await expect(
-      service.begin(RUN, {
-        diff: DIFF,
-        owner: 'acme',
-        repository: null,
-        base: null,
-        request: null,
-      }),
-    ).rejects.toThrow(ChangeStacksUnavailableError);
+    const waiting = await service.generated(stack);
+
+    expect(waiting.hasPendingJob).toBe(true);
+    expect(waiting.job.waitingSince).not.toBeNull();
   });
 
   it('rejects text that is not a diff, storing nothing', async () => {
@@ -576,161 +468,6 @@ describe('GenerateChangeStack', () => {
       }),
     ).rejects.toThrow(InvalidDiffError);
     expect(saved).toEqual([]);
-  });
-
-  describe('for a diff too large for one call', () => {
-    it('outlines the cohorts, then plans the layers of each large cohort from only its own hunks and writes each layer apart', async () => {
-      const { service, requests, outlined, layered } = generating({
-        outlines: [HALVES],
-        layers: oneLayer,
-      });
-      const stack = await service.begin(RUN, LARGE_INPUT);
-
-      const ready = await service.generated(stack);
-
-      expect(requests).toHaveLength(0);
-      expect(outlined).toHaveLength(1);
-      expect(
-        layered.map((each) => [each.cohort.title, each.part.diff.hunks.length]),
-      ).toEqual([
-        ['First half', 45],
-        ['Second half', 45],
-      ]);
-      expect(layered[1]?.part.diff.hunks[0]?.id).toBe('h46');
-      expect(ready.state).toBe('ready');
-      expect(ready.cohorts.map((each) => each.title)).toEqual([
-        'First half',
-        'Second half',
-      ]);
-      expect(ready.cohorts[0]?.joinedBecause).toBe(
-        'One feature the code does not show',
-      );
-      expect(ready.usage).toMatchObject({ calls: 5, outputTokens: 1_000 });
-    });
-
-    it('outlines a diff with few hunks but more changed lines than one call should hold', async () => {
-      const { service, requests, outlined } = generating({
-        outlines: [[outlineOf('Rewrite', [HunkId.at(1)])]],
-        layers: oneLayer,
-      });
-      const stack = await service.begin(RUN, { ...LARGE_INPUT, diff: LONG });
-
-      await service.generated(stack);
-
-      expect(requests).toHaveLength(0);
-      expect(outlined).toHaveLength(1);
-    });
-
-    it('requests the outline again with its problems where it leaves hunks out', async () => {
-      const { service, outlined } = generating({
-        outlines: [[outlineOf('First half', hunksFrom(1, 45))], HALVES],
-        layers: oneLayer,
-      });
-      const stack = await service.begin(RUN, LARGE_INPUT);
-
-      const ready = await service.generated(stack);
-
-      expect(outlined[1]?.problems.map((each) => each.message)).toContain(
-        'leaves h46 out',
-      );
-      expect(ready.state).toBe('ready');
-    });
-
-    it('requests a cohort’s layers again with the problems found in that cohort alone', async () => {
-      let first = true;
-      const { service, layered } = generating({
-        outlines: [HALVES],
-        layers: (request) => {
-          const layers = oneLayer(request);
-
-          if (request.cohort.title === 'First half' && first) {
-            first = false;
-            return layers.map((layer) => ({
-              ...layer,
-              hunks: layer.hunks.slice(1),
-            }));
-          }
-          return layers;
-        },
-      });
-      const stack = await service.begin(RUN, LARGE_INPUT);
-
-      const ready = await service.generated(stack);
-
-      expect(ready.state).toBe('ready');
-      expect(layered).toHaveLength(3);
-      expect(
-        layered
-          .find((each) => each.problems.length > 0)
-          ?.problems.map((each) => each.message),
-      ).toContain('leaves h1 out');
-    });
-
-    it('fails the stack where a cohort’s layers run out of output tokens', async () => {
-      const { service } = generating({
-        outlines: [HALVES],
-        layers: (request) =>
-          request.cohort.title === 'Second half'
-            ? new GenerationError('length', null, { truncated: true })
-            : oneLayer(request),
-      });
-      const stack = await service.begin(RUN, LARGE_INPUT);
-
-      const left = await service.generated(stack);
-
-      expect(left.state).toBe('failed');
-      expect(left.failure).toBe('too-large');
-    });
-
-    it('leaves the generation to be retried where a cohort’s layers get no answer', async () => {
-      const { service } = generating({
-        outlines: [HALVES],
-        layers: (request) =>
-          request.cohort.title === 'Second half'
-            ? new Error('overloaded')
-            : oneLayer(request),
-      });
-      const stack = await service.begin(RUN, LARGE_INPUT);
-
-      const left = await service.generated(stack);
-
-      expect(left.state).toBe('generating');
-      expect(left.usage.calls).toBe(3);
-    });
-
-    it('asks again for only the cohort that broke its rules, and keeps the others', async () => {
-      let broken = 0;
-      const { service } = generating({
-        outlines: [HALVES],
-        layers: (request) => {
-          if (request.cohort.title === 'Second half' && broken < 3) {
-            broken += 1;
-            return oneLayer(request).map((layer) => ({ ...layer, notes: [] }));
-          }
-          return oneLayer(request);
-        },
-      });
-      const stack = await service.begin(RUN, LARGE_INPUT);
-
-      const left = await service.generated(stack);
-
-      expect(left.state).toBe('ready');
-      expect(left.usage.calls).toBe(7);
-    });
-
-    it('fails the stack where a cohort keeps breaking its rules', async () => {
-      const { service } = generating({
-        outlines: [HALVES],
-        layers: (request) =>
-          oneLayer(request).map((layer) => ({ ...layer, notes: [] })),
-      });
-      const stack = await service.begin(RUN, LARGE_INPUT);
-
-      const left = await service.generated(stack);
-
-      expect(left.state).toBe('failed');
-      expect(left.failure).toBe('broke-rules');
-    });
   });
 
   describe('with facts from the code', () => {
@@ -788,12 +525,9 @@ describe('GenerateChangeStack', () => {
       ).toEqual(['h3']);
     });
 
-    it('requests again where the stack splits what the code ties together, then gives up rather than store it', async () => {
-      const { generated, saved, requests } = generating({
-        answers: [apart, apart],
-      });
-
-      await generated({
+    it('drafts again where the stack splits what the code ties together, rather than store it', async () => {
+      const { service } = generating({ answers: [apart] });
+      const stack = await service.begin(RUN, {
         diff: LINKED,
         owner: 'acme',
         repository: null,
@@ -801,14 +535,16 @@ describe('GenerateChangeStack', () => {
         request: null,
       });
 
-      expect(requests[1]?.problems).toEqual([
+      const broken = await service.generated(stack);
+
+      expect(broken.problems).toEqual([
         {
           code: 'uses',
           message:
             'h2 uses createInvitation from h1, so they belong in the same cohort',
         },
       ]);
-      expect(saved[saved.length - 1]?.state).toBe('failed');
+      expect(broken.state).toBe('generating');
     });
 
     it('links what the parsed code ties together, beyond what the diff lines show', async () => {
@@ -902,7 +638,7 @@ describe('GenerateChangeStack', () => {
       expect(saved[saved.length - 1]?.state).toBe('ready');
     });
 
-    it('generates a diff of nothing but incidental changes without calling the model', async () => {
+    it('generates a diff of nothing but incidental changes without a session', async () => {
       const lockfileOnly = written(LOCKFILE);
       const { generated, saved, requests } = generating({ answers: [] });
 
@@ -943,9 +679,7 @@ describe('RedraftChangeStack', () => {
     ],
   };
 
-  const failedCheck = async (
-    answers: (readonly ProposedCohort[] | Error)[],
-  ) => {
+  const failedCheck = async (answers: Answer[]) => {
     const generated = generating({ answers: [[twoLayers], ...answers] });
     await generated.generated({
       diff: DIFF,
@@ -1033,21 +767,47 @@ describe('RedraftChangeStack', () => {
     expect(redrafted?.redrafting).toBe(false);
   });
 
-  it('retains the checked layers where the redrafted stack keeps breaking the rules', async () => {
+  it('redrafts in a session of its own, based on the run that made the stack', async () => {
+    const { service, requests, redrafting, check } = await failedCheck([
+      'pending',
+    ]);
+
+    const waiting = await service.redrafted(redrafting, check);
+
+    expect(waiting.job.waitingSince).not.toBeNull();
+    expect(requests[1]).toMatchObject({
+      round: DraftingRound.redraft(check.id, 0),
+      basedOnRun: RunId.of('run-1'),
+    });
+  });
+
+  it('redrafts again with the problems of a redraft that broke the rules, and keeps the checked layers once its attempts run out', async () => {
     const { service, redrafting, check } = await failedCheck([
       [cohort(['h1'])],
       [cohort(['h2'])],
     ]);
 
-    const redrafted = await service.redrafted(redrafting, check);
+    const broken = await service.redrafted(redrafting, check);
 
-    expect(redrafted.redrafting).toBe(false);
-    expect(redrafted.cohorts[0]?.layers).toHaveLength(2);
+    expect(broken.redrafting).toBe(true);
+    expect(broken.problems.map((each) => each.message)).toEqual([
+      'leaves h2 out',
+      'joins layers, leaving 1 where there were 2',
+    ]);
+
+    let exhausted = broken;
+    for (let at = 0; at < MAX_JOB_ATTEMPTS; at += 1) {
+      exhausted = exhausted.leaseJob(new Date(Date.UTC(2026, 8, 17 + at)));
+    }
+    const kept = await service.redrafted(exhausted, check);
+
+    expect(kept.redrafting).toBe(false);
+    expect(kept.cohorts[0]?.layers).toHaveLength(2);
   });
 
-  it('leaves the redrafting to be retried where the model cannot answer', async () => {
+  it('leaves the redrafting to be retried where the session gives no stack', async () => {
     const { service, redrafting, check } = await failedCheck([
-      new Error('overloaded'),
+      { status: 'failed', failure: SessionFailure.of('run-failed') },
     ]);
 
     const left = await service.redrafted(redrafting, check);
@@ -1055,85 +815,9 @@ describe('RedraftChangeStack', () => {
     expect(left.redrafting).toBe(true);
   });
 
-  it('redrafts only the failing cohort of a large stack, keeping the others as they were', async () => {
-    const generated = generating({ outlines: [HALVES], layers: splitInTwo });
-    await generated.generated({
-      ...LARGE_INPUT,
-      request: CheckRequest.of('npx tsc --noEmit', null),
-    });
-
-    const ready = generated.saved[generated.saved.length - 1];
-    const check = StackCheck.begin({
-      stackId: ready.id,
-      runId: ready.runId,
-      taskId: null,
-      teamId: TeamId.of('team_1'),
-      trial: false,
-      workspaceId: ready.workspaceId,
-      request: CheckRequest.of('npx tsc --noEmit', null),
-      stack: RepositoryStack.of({
-        repository: null,
-        startedAt: new Date('2026-09-16T10:00:00Z'),
-      }),
-      entries: ready.entries(),
-      now: new Date('2026-09-16T10:00:00Z'),
-    })
-      .claimedFor(
-        RunnerId.of('checker_1'),
-        RunnerOffer.none(),
-        new Date('2026-09-16T10:00:00Z'),
-      )
-      .recordResult(
-        RunnerId.of('checker_1'),
-        { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
-        [
-          { step: WHOLE_STEP, passed: true, output: '', durationMs: 1 },
-          {
-            step: LayerId.of('c2.l1'),
-            passed: false,
-            output: 'f46.ts(1,1): error TS2304',
-            durationMs: 1,
-          },
-        ],
-        new Date('2026-09-16T10:00:00Z'),
-      );
-    const redrafting = ready.requestRedraft();
-    const before = generated.layered.length;
-
-    const redrafted = await new RedraftChangeStack(
-      generated.stacks,
-      generated.generator,
-      {
-        now: () => new Date('2026-09-16T10:05:00Z'),
-        sleep: async () => undefined,
-      },
-      QUIET,
-    ).redrafted(redrafting, check);
-
-    const asked = generated.layered.slice(before);
-    expect(asked.map((each) => each.cohort.title)).toEqual(['Second half']);
-    expect(asked[0]?.redraft?.stack.map((each) => each.title)).toEqual([
-      'Second half',
-    ]);
-    expect(
-      asked[0]?.redraft?.failed.map((each) => [each.cohort, each.layer]),
-    ).toEqual([[0, 0]]);
-    expect(generated.requests).toHaveLength(0);
-    expect(redrafted.redrafting).toBe(false);
-    expect(redrafted.cohorts[0]).toEqual(ready.cohorts[0]);
-  });
-
-  it('keeps the checked layers where the model runs out of output tokens for the redraft', async () => {
+  it('keeps the checked layers where no harness can run the redraft', async () => {
     const { service, redrafting, check } = await failedCheck([
-      new GenerationError(
-        'length',
-        {
-          inputTokens: 1_000,
-          outputTokens: 65_536,
-          cost: { amount: 0.2, currency: 'USD' },
-        },
-        { truncated: true },
-      ),
+      { status: 'failed', failure: SessionFailure.of('no-harness') },
     ]);
 
     const left = await service.redrafted(redrafting, check);
@@ -1144,128 +828,6 @@ describe('RedraftChangeStack', () => {
   });
 });
 
-describe('the problems a broken stack is settled with', () => {
-  const MOVED = ['moved one', 'moved two', 'moved three'];
-  const loggedProblems = () => {
-    const logged: string[][] = [];
-    const logger: LoggerPort = {
-      ...QUIET,
-      warn: (fields) => {
-        const problems = (fields as { problems?: string[] }).problems;
-        if (problems) {
-          logged.push(problems);
-        }
-      },
-    };
-    return { logged, logger };
-  };
-  const layersOf = (
-    { part }: CohortLayersRequest,
-    sizes: number[],
-  ): ProposedLayer[] => {
-    let at = 0;
-
-    return sizes.map((size, l) => {
-      const files =
-        l === sizes.length - 1
-          ? part.diff.files.slice(at)
-          : part.diff.files.slice(at, at + size);
-      at += size;
-
-      return {
-        title: `Layer ${l + 1}`,
-        summary: `Layer ${l + 1} of the cohort`,
-        dependsOn: [],
-        hunks: files.flatMap((file) =>
-          file.hunks.map((hunk) => ({ hunk: hunk.id })),
-        ),
-        notes: files.map((file) => ({
-          path: file.path,
-          note: 'Why it changes',
-        })),
-        questions: [],
-      };
-    });
-  };
-
-  it('names the moved code the model left apart in a redraft that joins layers', async () => {
-    const text = written(
-      ...Array.from({ length: 45 }, (_, at) =>
-        changed(`f${at + 1}.ts`, ['before'], [`line ${at + 1}`]),
-      ),
-      changed('f46.ts', MOVED, ['line 46']),
-      changed('f47.ts', ['before'], MOVED),
-      ...Array.from({ length: 43 }, (_, at) =>
-        changed(`f${at + 48}.ts`, ['before'], [`line ${at + 48}`]),
-      ),
-    );
-    const generated = generating({
-      outlines: [HALVES],
-      layers: (request) =>
-        layersOf(request, request.redraft ? [1, 1] : [2, 1, 1]),
-    });
-    await generated.generated({
-      diff: text,
-      owner: 'acme',
-      repository: null,
-      base: null,
-      request: CheckRequest.of('npx tsc --noEmit', null),
-    });
-
-    const ready = generated.saved[generated.saved.length - 1];
-    const check = StackCheck.begin({
-      stackId: ready.id,
-      runId: ready.runId,
-      taskId: null,
-      teamId: TeamId.of('team_1'),
-      trial: false,
-      workspaceId: ready.workspaceId,
-      request: CheckRequest.of('npx tsc --noEmit', null),
-      stack: RepositoryStack.of({
-        repository: null,
-        startedAt: new Date('2026-09-16T10:00:00Z'),
-      }),
-      entries: ready.entries(),
-      now: new Date('2026-09-16T10:00:00Z'),
-    })
-      .claimedFor(
-        RunnerId.of('checker_1'),
-        RunnerOffer.none(),
-        new Date('2026-09-16T10:00:00Z'),
-      )
-      .recordResult(
-        RunnerId.of('checker_1'),
-        { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
-        [
-          { step: WHOLE_STEP, passed: true, output: '', durationMs: 1 },
-          {
-            step: LayerId.of('c2.l1'),
-            passed: false,
-            output: 'f46.ts(1,1): error TS2304',
-            durationMs: 1,
-          },
-        ],
-        new Date('2026-09-16T10:00:00Z'),
-      );
-    const { logged, logger } = loggedProblems();
-
-    await new RedraftChangeStack(
-      generated.stacks,
-      generated.generator,
-      {
-        now: () => new Date('2026-09-16T10:05:00Z'),
-        sleep: async () => undefined,
-      },
-      logger,
-    ).redrafted(ready.requestRedraft(), check);
-
-    expect(ready.layers()).toHaveLength(6);
-    expect(logged[logged.length - 1]).toEqual([
-      'h47 is code moved from h46, so they belong in the same layer',
-      'joins layers, leaving 5 where there were 6',
-    ]);
-  });
-});
 describe('for a task that had a stack before', () => {
   const TASK_RUN = {
     ...RUN,
@@ -1285,10 +847,7 @@ describe('for a task that had a stack before', () => {
       return `stack-${made}`;
     };
   };
-  const twice = async (
-    second: string,
-    answers: (readonly ProposedCohort[])[],
-  ) => {
+  const twice = async (second: string, answers: Answer[]) => {
     const generation = generating({ ids: counted(), answers });
     const input = {
       owner: 'acme',
@@ -1406,7 +965,7 @@ describe('for a task that had a stack before', () => {
     expect(started.previous).toBeNull();
   });
 
-  it('reuses the earlier stack without a model call when the diff is the same', async () => {
+  it('reuses the earlier stack without a session when the diff is the same', async () => {
     const { next, done, requests } = await twice(DIFF, [
       [cohort(['h1', 'h2'])],
     ]);
@@ -1420,7 +979,7 @@ describe('for a task that had a stack before', () => {
     });
   });
 
-  it('tells the model what the earlier stack kept and which hunks changed', async () => {
+  it('tells the session what the earlier stack kept and which hunks changed', async () => {
     const { done, requests } = await twice(CHANGED, [
       [cohort(['h1', 'h2'])],
       [cohort(['h1', 'h2', 'h3'], CHANGED_PATHS)],
@@ -1453,5 +1012,61 @@ describe('for a task that had a stack before', () => {
     const stack = await team.service.begin(RUN, input);
 
     expect(stack.previous).toBeNull();
+  });
+
+  describe('pushed to the pull request', () => {
+    const PUSHED = {
+      ...TASK_RUN,
+      origin: StackOrigin.push(
+        CommitSha.parsed('b'.repeat(40)) as CommitSha,
+        Pusher.of('octocat'),
+      ),
+    };
+
+    it('drafts in a session based on the newest run of the task', async () => {
+      const generation = generating({
+        ids: counted(),
+        answers: [
+          [cohort(['h1', 'h2'])],
+          [cohort(['h1', 'h2', 'h3'], CHANGED_PATHS)],
+        ],
+      });
+      const input = {
+        owner: 'acme',
+        repository: 'web',
+        base: null,
+        request: null,
+      };
+      await generation.stacks.save(
+        await generation.service.generated(
+          await generation.service.begin(TASK_RUN, { ...input, diff: DIFF }),
+        ),
+      );
+
+      const pushed = await generation.service.generated(
+        await generation.service.begin(PUSHED, { ...input, diff: CHANGED }),
+      );
+
+      expect(generation.requests[1]?.basedOnRun).toEqual(RunId.of('run-1'));
+      expect(pushed.state).toBe('ready');
+    });
+
+    it('is not generated where the task has no run to base the session on', async () => {
+      const generation = generating();
+
+      const pushed = await generation.service.generated(
+        await generation.service.begin(PUSHED, {
+          diff: DIFF,
+          owner: 'acme',
+          repository: 'web',
+          base: null,
+          request: null,
+        }),
+      );
+
+      expect(generation.requests).toEqual([]);
+      expect(pushed.state).toBe('failed');
+      expect(pushed.failure).toBe('not-generated');
+    });
   });
 });

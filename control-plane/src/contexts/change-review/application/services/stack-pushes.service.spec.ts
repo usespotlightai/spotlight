@@ -1,4 +1,3 @@
-import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import type { ChangeStackLocksPort } from '@change-review/application/ports/change-stack-locks.port';
 import type {
   ReviewedTask,
@@ -734,25 +733,6 @@ describe('StackPushes', () => {
         pushes.diffed('diff_1', RUNNER, { diff: 'x', base: 'y' }),
       ).rejects.toThrow('the database went away');
       expect(diff('diff_1').status).toBe('waiting');
-    });
-
-    it('puts the diff back to wait when stacks cannot be made for now, counting the attempt', async () => {
-      for (const over of [
-        { refusing: new ChangeStacksUnavailableError() },
-        { refusingToPrepare: new ChangeStacksUnavailableError() },
-      ]) {
-        const { pushes, diff } = pushing({
-          stacks: [stack('stack_run', ofRun('run_1'))],
-          diffs: [leased()],
-          ...over,
-        });
-
-        await pushes.diffed('diff_1', RUNNER, { diff: 'x', base: 'y' });
-
-        expect(diff('diff_1').status).toBe('waiting');
-        expect(diff('diff_1').beingDiffedBy(RUNNER, NOW)).toBe(false);
-        expect(diff('diff_1').claim.attempts).toBe(1);
-      }
     });
 
     it('lets a stored repository name it cannot read through, rather than store it as the push failing', async () => {

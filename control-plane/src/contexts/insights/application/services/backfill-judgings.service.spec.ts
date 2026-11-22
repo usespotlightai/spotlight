@@ -1,4 +1,3 @@
-import type { JudgePort } from '@insights/application/ports/judge.port';
 import { BackfillJudgings } from '@insights/application/services/backfill-judgings.service';
 import { MAX_LABELLED_RUNS } from '@insights/domain/services/revision-split';
 import {
@@ -27,24 +26,13 @@ const LINE_CHANGED = {
   stationIds: ['station_1'],
 };
 
-const available: JudgePort = {
-  availableTo: async () => true,
-  judge: async () => {
-    throw new Error('not called');
-  },
-};
-
-const setUp = async (
-  runs: readonly StationRun[],
-  judge: JudgePort = available,
-) => {
+const setUp = async (runs: readonly StationRun[]) => {
   const station = await stationWith(runs);
   const judgings = new JudgingsInMemory();
   const backfilling = new BackfillJudgings(
     judgings,
     station.facts,
     judgesWith(NEXT_JUDGE),
-    judge,
     station.recorder,
     inTransaction,
     clockAt(),
@@ -132,18 +120,11 @@ describe('BackfillJudgings', () => {
     expect(judgings.stored.size).toBe(1);
   });
 
-  it('re-judges nothing on a deleted line or without a judge model', async () => {
-    const runs = [{ runId: 'run_1', acted: 'accepted' as const }];
-    const deleted = await setUp(runs);
-    const offline = await setUp(runs, {
-      ...available,
-      availableTo: async () => false,
-    });
+  it('re-judges nothing on a deleted line', async () => {
+    const deleted = await setUp([{ runId: 'run_1', acted: 'accepted' }]);
 
     await deleted.backfilling.lineChanged({ ...LINE_CHANGED, deleted: true });
-    await offline.backfilling.lineChanged(LINE_CHANGED);
 
     expect(deleted.judgings.stored.size).toBe(0);
-    expect(offline.judgings.stored.size).toBe(0);
   });
 });

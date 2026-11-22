@@ -52,9 +52,14 @@ const toRevision = (row: ClaimsRevisionRow): ClaimsRevision =>
       ? PendingJob.rehydrate({
           attempts: row.jobAttempts,
           nextAttemptAt: row.jobDueAt,
+          waitingSince: row.waitingSince,
         })
       : null,
     judgeCalls: row.judgeCalls,
+    reservation:
+      row.reservedRound === null
+        ? null
+        : { attempt: row.reservedRound, judgeCalls: row.reservedJudgeCalls },
     pick:
       row.pickedClaims && row.pickedAgreement
         ? { claims: row.pickedClaims, agreement: row.pickedAgreement }
@@ -78,7 +83,10 @@ const columnsOf = (stored: ClaimsRevision) => ({
   pending: stored.job !== null,
   jobAttempts: stored.job?.attempts ?? 0,
   jobDueAt: stored.job?.nextAttemptAt ?? null,
+  waitingSince: stored.job?.waitingSince ?? null,
   judgeCalls: stored.judgeCalls,
+  reservedRound: stored.reservation?.attempt ?? null,
+  reservedJudgeCalls: stored.reservation?.judgeCalls ?? 0,
   pickedClaims: stored.pick ? [...stored.pick.claims] : null,
   pickedAgreement: stored.pick?.agreement ?? null,
   pickedAt: stored.pickedAt,

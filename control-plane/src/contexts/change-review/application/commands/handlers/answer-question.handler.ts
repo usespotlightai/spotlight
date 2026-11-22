@@ -1,6 +1,4 @@
 import type { AnswerQuestionCommand } from '@change-review/application/commands/answer-question.command';
-import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
-import type { AnswerGraderPort } from '@change-review/application/ports/answer-grader.port';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
@@ -39,7 +37,6 @@ export class AnswerQuestionHandler implements CommandHandlerPort<
     private readonly access: TeamWorkAccess,
     private readonly stacks: ChangeStackRepository,
     private readonly answers: QuestionAnswerRepository,
-    private readonly grader: AnswerGraderPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -66,29 +63,14 @@ export class AnswerQuestionHandler implements CommandHandlerPort<
       const question = stack.question(questionIdOf(command.questionId));
       const personId = UserId.of(command.viewerId);
       const earlier = await this.unanswered(stack, question, personId);
-
-      const reply = QuestionAnswer.replyOf(command.reply);
-
-      if (reply && !(await this.grader.availableTo(stack.workspaceId.value))) {
-        throw new ChangeStacksUnavailableError();
-      }
-
-      const graded = reply
-        ? await this.grader.grade({
-            workspaceId: stack.workspaceId.value,
-            question: question.question,
-            expected: question.answer,
-            reply,
-            cited: stack.citedBy(question),
-          })
-        : null;
+      const { reply } = command;
       const now = this.clock.now();
 
       for (let attempt = 1, stored = earlier; ; attempt += 1) {
         try {
           if (stored) {
             await this.answers.save(
-              stored.answeredAgain({ question, reply, graded, now }),
+              stored.answeredAgain({ question, reply, now }),
             );
           } else {
             await this.answers.add(
@@ -98,7 +80,6 @@ export class AnswerQuestionHandler implements CommandHandlerPort<
                 question,
                 personId,
                 reply,
-                graded,
                 now,
               }),
             );

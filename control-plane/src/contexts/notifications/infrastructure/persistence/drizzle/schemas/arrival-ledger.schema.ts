@@ -25,6 +25,7 @@ export const arrivalLedger = pgTable(
     recountRequestedAt: timestamptz('recount_requested_at'),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamptz('job_due_at'),
+    waitingSince: timestamptz('waiting_since'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

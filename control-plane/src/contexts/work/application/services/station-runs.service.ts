@@ -4,6 +4,7 @@ import type { FingerprintedConfig } from '@work/application/contracts/station-co
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   EndedStationRun,
+  RunHarnessChoice,
   StationRunsPort,
   StationTaskRun,
   TracedRunsWanted,
@@ -39,6 +40,15 @@ export class StationRuns implements StationRunsPort {
           taskId: subject.taskId.value,
           teamId: dispatch.teamId.value,
         }
+      : null;
+  }
+
+  async harnessChoiceOf(runId: string): Promise<RunHarnessChoice | null> {
+    const dispatch = await this.dispatches.find(RunId.of(runId));
+    const parts = dispatch?.configuredAs?.parts;
+
+    return parts
+      ? { harness: parts.harness, model: parts.model, effort: parts.effort }
       : null;
   }
 

@@ -63,7 +63,7 @@ describe('SecretDefinitions', () => {
 
   it('refuses a name that Spotlight keeps for its own secrets', () => {
     expect(
-      problemsAt({ name: 'SPOTLIGHT_INFERENCE_API_KEY', valueWo: 'sk-1' }),
+      problemsAt({ name: 'SPOTLIGHT_GITHUB_KEY', valueWo: 'sk-1' }),
     ).toEqual(['name']);
   });
 });

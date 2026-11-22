@@ -4,6 +4,7 @@ import type { JudgeDisagreementInbox } from '@insights/application/services/judg
 import type { ProposeClaimsRevisions } from '@insights/application/services/propose-claims-revisions.service';
 import type { RaiseJudgeDisagreements } from '@insights/application/services/raise-judge-disagreements.service';
 import type { StartClaimsRevisions } from '@insights/application/services/start-claims-revisions.service';
+import type { WorkClaimsRevisions } from '@insights/application/services/work-claims-revisions.service';
 import type { ClaimsRevisionPicked } from '@insights/domain/events/claims-revision-picked.event';
 import type { JudgeDisagreementAnswered } from '@insights/domain/events/judge-disagreement-answered.event';
 import type { JudgeDisagreementOpened } from '@insights/domain/events/judge-disagreement-opened.event';
@@ -12,6 +13,11 @@ import type { PullRequestRecordClosed } from '@insights/domain/events/pull-reque
 import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
+import { settledSessionOf } from '@insights/presentation/events/session-settled.translation';
+import {
+  ASSIST_SESSION_SETTLED,
+  type AssistSessionSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/assist-session-settled.integration-event';
 import {
   LINE_CHANGED,
   type LineChangedIntegrationEvent,
@@ -28,6 +34,7 @@ export interface JudgeRepairHandlers {
   readonly proposing: ProposeClaimsRevisions;
   readonly backfilling: BackfillJudgings;
   readonly sourcing: ClaimsSources;
+  readonly waking: WorkClaimsRevisions;
 }
 
 type DisagreementMoved = JudgeDisagreementOpened | JudgeDisagreementAnswered;
@@ -47,6 +54,11 @@ const INBOX_REQUEST_MOVED = [
 export const judgeRepairSubscribers = (
   handlers: JudgeRepairHandlers,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<AssistSessionSettledIntegrationEvent>(
+    'insights.wake-claims-revision-after-assist-session-settled',
+    [ASSIST_SESSION_SETTLED],
+    (event) => handlers.waking.sessionSettled(settledSessionOf(event)),
+  ),
   subscribing<ScoreRecorded>(
     'insights.disagree-with-judge-after-score',
     ['score.recorded'],

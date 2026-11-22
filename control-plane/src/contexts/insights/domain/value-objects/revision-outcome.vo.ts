@@ -10,6 +10,7 @@ export const REVISION_END_REASONS = [
   'judge-changed',
   'pull-request-failed',
   'interrupted',
+  'unavailable',
 ] as const;
 
 export type RevisionEndReason = (typeof REVISION_END_REASONS)[number];

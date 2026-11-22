@@ -129,7 +129,6 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
 
     expect(proposal.provenance.steps).toEqual([7]);
     expect(proposal.provenance.notes).toEqual([]);
-    expect(proposal.proposedBy).toBe('agent');
     expect(proposal.source).toBe('run');
     expect(proposal.proposed).toBe(true);
   });

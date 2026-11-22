@@ -15,6 +15,8 @@ const REMEMBERING = `When you learn something the next run should know and the c
 
 const FORGETTING = `Where one no longer applies and nothing replaces it, run \`${FORGET_COMMAND} <handle> --because "…"\`; a person approves it before the team retires it.`;
 
+const ASKED_TO_REMEMBER = `This station keeps what its runs learn. Before you hand over, propose what later runs should know with \`${REMEMBER_COMMAND}\`, one memory each time. Propose nothing where you learned nothing new.`;
+
 const COPY =
   'Follow what you find where it bears on your work. The files are only a copy: changing them changes nothing the team remembers.';
 
@@ -54,7 +56,13 @@ export const Learned = {
     ].join('\n\n');
   },
 
+  /** How to propose a memory, for a station that leaves it to the agent. */
   remembering(): string {
     return ['## Remembering', REMEMBERING].join('\n\n');
+  },
+
+  /** How to propose a memory, and the ask to do it before handing over, for a station that keeps what runs learn. */
+  rememberingBeforeHandover(): string {
+    return ['## Remembering', REMEMBERING, ASKED_TO_REMEMBER].join('\n\n');
   },
 };

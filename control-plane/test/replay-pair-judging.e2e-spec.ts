@@ -110,20 +110,8 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const generator: ChangeStackGeneratorPort = {
-  availableTo: async () => true,
-  outline: async () => {
-    throw new Error('A diff this small is not split');
-  },
-  layers: async () => {
-    throw new Error('A diff this small is not split');
-  },
-  layerPlan: async () => {
-    throw new Error('A diff this small is not split');
-  },
-  layerDetails: async () => {
-    throw new Error('A diff this small is not split');
-  },
   generate: async ({ diff }) => ({
+    status: 'drafted' as const,
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -156,7 +144,7 @@ const generator: ChangeStackGeneratorPort = {
 const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
-  availableTo: async () => true,
+  roundOf: () => null,
   judge: async (request) => {
     requests.push(request);
     const fast = request.hunks.some((each) =>
@@ -165,6 +153,7 @@ const judge: JudgePort = {
     const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
     return {
+      status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
       verdict: {
@@ -181,7 +170,7 @@ const judge: JudgePort = {
 const pairRequests: SideBySideJudgeRequest[] = [];
 
 const pairJudge: SideBySideJudgePort = {
-  availableTo: async () => true,
+  roundOf: () => null,
   judgePair: async (request) => {
     pairRequests.push(request);
     const fastIsA = request.a.hunks.some((each) =>
@@ -196,6 +185,7 @@ const pairJudge: SideBySideJudgePort = {
           : ('B' as const);
 
     return {
+      status: 'judged' as const,
       model: 'stub/pair-judge',
       verdict: {
         preferred,

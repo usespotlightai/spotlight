@@ -115,6 +115,15 @@ describe('ArrivalLedger', () => {
     ).toEqual(['user_1 a', 'user_2 a']);
   });
 
+  it('waits without spending the recount it leased', () => {
+    const waiting = watched()
+      .recountRequested(at(2))
+      .leaseJob(at(2))
+      .waitJob(at(3));
+
+    expect(waiting.recount).toMatchObject({ attempts: 0, waitingSince: at(3) });
+  });
+
   it('keeps the lease of a running recount when another recount is asked for', () => {
     const leased = watched().recountRequested(at(2)).leaseJob(at(2));
     const askedAgain = leased.recountRequested(at(4));

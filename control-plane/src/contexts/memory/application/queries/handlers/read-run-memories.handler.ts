@@ -11,7 +11,7 @@ import type { MemoryReviews } from '@memory/application/services/memory-reviews.
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { TeamAccess } from '@memory/domain/services/team-access';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -31,7 +31,7 @@ export class ReadRunMemoriesHandler implements QueryHandlerPort<
     private readonly access: MemoryAccess,
     private readonly work: WorkPort,
     private readonly memories: MemoryRepository,
-    private readonly drafts: MemoryDraftRepository,
+    private readonly sets: MemoryProposalSetRepository,
     private readonly uses: MemoryUsesPort,
     private readonly reviews: MemoryReviews,
     private readonly views: TeamMemoryViews,
@@ -95,13 +95,13 @@ export class ReadRunMemoriesHandler implements QueryHandlerPort<
     taskId: TaskId,
     runId: RunId,
   ): Promise<RunProposalDto[]> {
-    const draft = await this.drafts.forTask(taskId);
+    const set = await this.sets.forTask(taskId);
 
-    if (!draft) {
+    if (!set) {
       return [];
     }
 
-    const review = await this.reviews.of(draft, runId);
+    const review = await this.reviews.of(set, runId);
 
     return Promise.all(
       review.memories.map(async (proposal) => {

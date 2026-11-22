@@ -28,6 +28,7 @@ const toLedger = (row: Row): ArrivalLedger =>
           requestedAt: row.recountRequestedAt,
           attempts: row.jobAttempts,
           dueAt: row.jobDueAt,
+          waitingSince: row.waitingSince,
         }
       : null,
     version: row.version,
@@ -44,6 +45,7 @@ const changing = (ledger: ArrivalLedger) => ({
   recountRequestedAt: ledger.recount?.requestedAt ?? null,
   jobAttempts: ledger.recount?.attempts ?? 0,
   jobDueAt: ledger.recount?.dueAt ?? null,
+  waitingSince: ledger.recount?.waitingSince ?? null,
 });
 
 @Injectable()

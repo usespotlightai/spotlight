@@ -1,8 +1,11 @@
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
-import type { ProposedDecision } from '@change-review/domain/entities/decision.entity';
+import {
+  Decision,
+  type ProposedDecision,
+} from '@change-review/domain/entities/decision.entity';
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
+import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
@@ -10,7 +13,6 @@ import { WorkingCopyPath } from '@change-review/domain/value-objects/working-cop
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -23,15 +25,8 @@ import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-09-21T10:00:00.000Z');
 
-const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
-const SECOND_ORDERED_AT = new Date('2026-09-01T01:00:00.000Z');
-const FIRST = AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT);
-const SECOND = AgentTurn.of(RunId.of('run_2'), 1, SECOND_ORDERED_AT);
-
-const EVIDENCE = DecisionEvidence.of({
-  steps: [3, 7],
-  changed: ['api/src/uploads.ts', 'api/src/retry.ts'],
-});
+const FIRST = RunId.of('run_1');
+const SECOND = RunId.of('run_2');
 
 const decided = (change: Partial<ProposedDecision> = {}): ProposedDecision => ({
   kind: 'trade-off',
@@ -39,26 +34,26 @@ const decided = (change: Partial<ProposedDecision> = {}): ProposedDecision => ({
   why: 'A queue would need a worker the service does not run.',
   alternatives: ['Retry from a queue'],
   paths: ['api/src/uploads.ts'],
-  steps: [3],
   ...change,
 });
 
-const generated = (
+const recorded = (
   set: DecisionSet,
-  turn: AgentTurn,
+  runId: RunId,
   decisions: readonly ProposedDecision[],
-  evidence: DecisionEvidence = EVIDENCE,
 ): DecisionSet => {
-  let made = 0;
-  return set.recordGeneration({
-    turn,
-    proposed: decisions,
-    evidence,
-    newId: () => {
+  let made = set.decisions.length;
+  return set.recordFromRun(
+    runId,
+    decisions.map((each) => {
       made += 1;
-      return `${set.id.value}_${turn.runId.value}_${turn.attempt}_${made}`;
-    },
-  });
+      return Decision.of(
+        DecisionId.of(`${set.id.value}_${runId.value}_${made}`),
+        runId,
+        each,
+      );
+    }),
+  );
 };
 
 const merge = (repository: string, at: Date) =>
@@ -93,109 +88,71 @@ afterAll(async () => {
 });
 
 describe('storing a task’s decisions', () => {
-  it('stores the decisions generated from a run, in order, and the run they come from', async () => {
-    const set = opened().requestGeneration(FIRST, NOW);
+  it('stores the decisions a run recorded, in order, each with its run', async () => {
+    const set = opened();
     await sets.add(set);
 
     await sets.save(
-      generated(set, FIRST, [
-        decided({
-          kind: 'limitation',
-          title: 'Retries only once',
-          steps: [7, 3],
-        }),
+      recorded(set, FIRST, [
+        decided({ kind: 'limitation', title: 'Retries only once' }),
         decided(),
       ]),
     );
 
     const read = await sets.forTask(set.taskId);
 
-    expect(read?.source?.equals(FIRST)).toBe(true);
-    expect(read?.hasPendingJob).toBe(false);
     expect(
-      read?.decisions.map((each) => [each.kind, each.title, each.journalSteps]),
+      read?.decisions.map((each) => [
+        each.kind,
+        each.title,
+        each.recordedIn.value,
+        each.journalSteps,
+      ]),
     ).toEqual([
-      ['limitation', 'Retries only once', [3, 7]],
-      ['trade-off', 'Retries uploads in the request', [3]],
+      ['limitation', 'Retries only once', FIRST.value, []],
+      ['trade-off', 'Retries uploads in the request', FIRST.value, []],
     ]);
     expect(read?.decisions[1]?.alternatives).toEqual(['Retry from a queue']);
   });
 
-  it('replaces what an earlier run decided with what the latest decided', async () => {
-    const set = opened().requestGeneration(FIRST, NOW);
+  it('keeps what an earlier run decided, with its run, beside what the latest recorded', async () => {
+    const set = opened();
     await sets.add(set);
     await sets.save(
-      generated(set, FIRST, [decided(), decided({ title: 'Second' })]),
+      recorded(set, FIRST, [decided(), decided({ title: 'Second' })]),
     );
 
-    const again = (await sets.forTask(set.taskId))?.requestGeneration(
-      SECOND,
-      NOW,
-    );
-    if (!again) throw new Error('not stored');
-    await sets.save(again);
     const read = await sets.forTask(set.taskId);
     if (!read) throw new Error('not stored');
     await sets.save(
-      generated(read, SECOND, [
+      recorded(read, SECOND, [
         decided({ kind: 'deviation', title: 'Skipped the retry banner' }),
       ]),
     );
 
     const latest = await sets.forTask(set.taskId);
 
-    expect(latest?.source?.equals(SECOND)).toBe(true);
-    expect(latest?.decisions.map((each) => each.title)).toEqual([
-      'Skipped the retry banner',
+    expect(
+      latest?.decisions.map((each) => [each.title, each.recordedIn.value]),
+    ).toEqual([
+      ['Retries uploads in the request', FIRST.value],
+      ['Second', FIRST.value],
+      ['Skipped the retry banner', SECOND.value],
     ]);
   });
 
-  it('keeps the turn of the run its decisions come from, so only a later turn generates again', async () => {
-    const kept = AgentTurn.of(RunId.of('run_kept'), 2, RUN_ORDERED_AT);
-    const set = opened().requestGeneration(kept, NOW);
-    await sets.add(set);
+  it('keeps one set for a task, even when two runs record its first decisions at once', async () => {
+    const first = opened();
+    const second = DecisionSet.open({
+      id: DecisionSetId.of(`${first.id.value}_twin`),
+      taskId: first.taskId,
+      workspaceId: first.workspaceId,
+    });
+    await sets.add(recorded(first, FIRST, [decided()]));
 
-    const waiting = await sets.forTask(set.taskId);
-    expect(waiting?.generation?.isFor(kept)).toBe(true);
-    if (!waiting) throw new Error('not stored');
-    await sets.save(generated(waiting, kept, [decided()]));
-
-    const read = await sets.forTask(set.taskId);
-    if (!read) throw new Error('not stored');
-
-    expect(read.source?.equals(kept)).toBe(true);
-    expect(read.requestGeneration(kept, NOW)).toBe(read);
-    expect(
-      read.requestGeneration(
-        AgentTurn.of(RunId.of('run_kept'), 1, RUN_ORDERED_AT),
-        NOW,
-      ),
-    ).toBe(read);
-    expect(
-      read.requestGeneration(
-        AgentTurn.of(RunId.of('run_kept'), 3, RUN_ORDERED_AT),
-        NOW,
-      ).hasPendingJob,
-    ).toBe(true);
-  });
-
-  it('hands out a set with a pending job once its lease runs out, and none while the lease runs', async () => {
-    await database.db.execute(sql`delete from decision_set`);
-    const set = opened().requestGeneration(FIRST, NOW);
-    await sets.add(set);
-
-    const due = await sets.nextDueJob(NOW);
-    expect(due?.id.equals(set.id)).toBe(true);
-
-    if (!due) throw new Error('not due');
-    await sets.save(due.leaseJob(NOW));
-
-    expect(await sets.nextDueJob(NOW)).toBeNull();
-    expect(
-      (
-        await sets.nextDueJob(new Date(NOW.getTime() + 31 * 60 * 1000))
-      )?.id.equals(set.id),
-    ).toBe(true);
+    await expect(
+      sets.add(recorded(second, SECOND, [decided()])),
+    ).rejects.toThrow(DecisionSetVersionConflictError);
   });
 
   it('stores the merge of its decisions', async () => {
@@ -214,17 +171,17 @@ describe('storing a task’s decisions', () => {
   it('does not write over a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
-    await sets.save(set.requestGeneration(FIRST, NOW));
+    await sets.save(recorded(set, FIRST, [decided()]));
 
-    await expect(sets.save(set.requestGeneration(SECOND, NOW))).rejects.toThrow(
-      DecisionSetVersionConflictError,
-    );
+    await expect(
+      sets.save(recorded(set, SECOND, [decided({ title: 'Second' })])),
+    ).rejects.toThrow(DecisionSetVersionConflictError);
   });
 
   it('deletes a task’s decisions with the task', async () => {
-    const set = opened().requestGeneration(FIRST, NOW);
+    const set = opened();
     await sets.add(set);
-    await sets.save(generated(set, FIRST, [decided()]));
+    await sets.save(recorded(set, FIRST, [decided()]));
 
     const read = await sets.forTask(set.taskId);
     if (!read) throw new Error('not stored');
@@ -240,9 +197,9 @@ describe('storing a task’s decisions', () => {
   });
 
   it('removes a set discarded when its pull request closed unmerged', async () => {
-    const set = opened().requestGeneration(FIRST, NOW);
+    const set = opened();
     await sets.add(set);
-    await sets.save(generated(set, FIRST, [decided()]));
+    await sets.save(recorded(set, FIRST, [decided()]));
 
     const read = await sets.forTask(set.taskId);
     if (!read) throw new Error('not stored');
@@ -254,18 +211,18 @@ describe('storing a task’s decisions', () => {
   it('does not discard a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
-    await sets.save(set.requestGeneration(FIRST, NOW));
+    await sets.save(recorded(set, FIRST, [decided()]));
 
     await expect(sets.remove(set)).rejects.toThrow(
       DecisionSetVersionConflictError,
     );
   });
 
-  it('stores who disputed a decision, and drops it with the decisions a later run replaces', async () => {
-    const set = opened().requestGeneration(FIRST, NOW);
+  it('stores who disputed a decision, and keeps it when a later run records more', async () => {
+    const set = opened();
     await sets.add(set);
     await sets.save(
-      generated(set, FIRST, [decided(), decided({ title: 'Second' })]),
+      recorded(set, FIRST, [decided(), decided({ title: 'Second' })]),
     );
 
     const read = await sets.forTask(set.taskId);
@@ -304,24 +261,20 @@ describe('storing a task’s decisions', () => {
     ]);
 
     if (!disputed) throw new Error('not stored');
-    const requested = disputed.requestGeneration(SECOND, NOW);
-    await sets.save(requested);
-    const again = await sets.forTask(set.taskId);
-    if (!again) throw new Error('not stored');
-    await sets.save(generated(again, SECOND, [decided()]));
+    await sets.save(recorded(disputed, SECOND, [decided({ title: 'Third' })]));
 
     expect(
-      (await sets.forTask(set.taskId))?.decisions.flatMap(
-        (each) => each.disputes,
+      (await sets.forTask(set.taskId))?.decisions.flatMap((each) =>
+        each.disputes.map((dispute) => dispute.reason),
       ),
-    ).toEqual([]);
+    ).toEqual(['The client retries twice already.']);
   });
 
   it('reads a task’s decisions deviations and limitations first', async () => {
-    const set = opened().requestGeneration(FIRST, NOW);
+    const set = opened();
     await sets.add(set);
     await sets.save(
-      generated(set, FIRST, [
+      recorded(set, FIRST, [
         decided({ title: 'Simple over fast' }),
         decided({ kind: 'limitation', title: 'Retries only once' }),
         decided({ kind: 'deviation', title: 'Skipped the banner' }),
@@ -332,7 +285,11 @@ describe('storing a task’s decisions', () => {
       new DrizzleContext(database.db),
     ).ofTask(set.taskId);
 
-    expect(found).toMatchObject({ runId: 'run_1', generating: false });
+    expect(found?.decisions.map((each) => each.runId)).toEqual([
+      'run_1',
+      'run_1',
+      'run_1',
+    ]);
     expect(found?.decisions.map((each) => each.title)).toEqual([
       'Skipped the banner',
       'Retries only once',
@@ -350,61 +307,42 @@ describe('reading the decisions that shipped', () => {
     repository: string,
     at: string,
     decisions: ProposedDecision[],
-    changed: string[],
   ) => {
     next += 1;
     const set = DecisionSet.open({
       id: DecisionSetId.of(`shipped_${next}`),
       taskId: TaskId.of(`shipped_task_${next}`),
       workspaceId: WORKSPACE,
-    }).requestGeneration(FIRST, NOW);
+    });
     await sets.add(set);
     await sets.save(
-      generated(
-        set,
-        FIRST,
-        decisions,
-        DecisionEvidence.of({ steps: [3, 7], changed }),
-      ).merge(merge(repository, new Date(at))),
+      recorded(set, FIRST, decisions).merge(merge(repository, new Date(at))),
     );
     return set;
   };
 
   beforeAll(async () => {
-    await shipped(
-      'acme/api',
-      '2026-09-10T00:00:00Z',
-      [
-        decided({
-          title: 'Retries only once',
-          kind: 'limitation',
-          paths: ['api/src/uploads/retry.ts'],
-        }),
-        decided({
-          title: 'Keeps the old client',
-          paths: ['api/src/client.ts'],
-        }),
-      ],
-      ['api/src/uploads/retry.ts', 'api/src/client.ts'],
-    );
-    await shipped(
-      'acme/api',
-      '2026-09-20T00:00:00Z',
-      [
-        decided({
-          title: 'Uploads skip the cache',
-          paths: ['api/src/uploads_cache.ts'],
-        }),
-      ],
-      ['api/src/uploads_cache.ts'],
-    );
-    await shipped(
-      'acme/web',
-      '2026-09-15T00:00:00Z',
-      [decided({ title: 'Polls every second', paths: ['web/src/poll.ts'] })],
-      ['web/src/poll.ts'],
-    );
-    const proposed = opened().requestGeneration(FIRST, NOW);
+    await shipped('acme/api', '2026-09-10T00:00:00Z', [
+      decided({
+        title: 'Retries only once',
+        kind: 'limitation',
+        paths: ['api/src/uploads/retry.ts'],
+      }),
+      decided({
+        title: 'Keeps the old client',
+        paths: ['api/src/client.ts'],
+      }),
+    ]);
+    await shipped('acme/api', '2026-09-20T00:00:00Z', [
+      decided({
+        title: 'Uploads skip the cache',
+        paths: ['api/src/uploads_cache.ts'],
+      }),
+    ]);
+    await shipped('acme/web', '2026-09-15T00:00:00Z', [
+      decided({ title: 'Polls every second', paths: ['web/src/poll.ts'] }),
+    ]);
+    const proposed = opened();
     await sets.add(proposed);
   });
 
@@ -485,21 +423,13 @@ describe('reading the decisions of a task with a pull request in each repository
       id: DecisionSetId.of('two_repositories'),
       taskId: TaskId.of('two_repositories_task'),
       workspaceId: WORKSPACE,
-    }).requestGeneration(FIRST, NOW);
+    });
     await sets.add(set);
     await sets.save(
-      generated(
-        set,
-        FIRST,
-        [
-          decided({ title: 'Retries uploads', paths: ['api/src/uploads.ts'] }),
-          decided({ title: 'Polls every second', paths: ['web/src/poll.ts'] }),
-        ],
-        DecisionEvidence.of({
-          steps: [3],
-          changed: ['api/src/uploads.ts', 'web/src/poll.ts'],
-        }),
-      ).merge(merge('acme/api', new Date('2026-09-22T00:00:00Z'))),
+      recorded(set, FIRST, [
+        decided({ title: 'Retries uploads', paths: ['api/src/uploads.ts'] }),
+        decided({ title: 'Polls every second', paths: ['web/src/poll.ts'] }),
+      ]).merge(merge('acme/api', new Date('2026-09-22T00:00:00Z'))),
     );
   });
 

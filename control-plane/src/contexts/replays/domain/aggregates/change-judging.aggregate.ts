@@ -1,6 +1,7 @@
 import { ChangeJudged } from '@replays/domain/events/change-judged.event';
 import { ChangeJudgingFailed } from '@replays/domain/events/change-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
+import { ChangeJudgingRound } from '@replays/domain/value-objects/change-judging-round.vo';
 import type { ChangeJudgment } from '@replays/domain/value-objects/change-judgment';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import type { JudgingAttempt } from '@replays/domain/value-objects/judging-attempt';
@@ -172,6 +173,39 @@ export class ChangeJudging
     return this.failed(JudgingFailure.of('errored', now));
   }
 
+  waitJob(now: Date): ChangeJudging {
+    return this.job ? this.with({ job: this.job.wait(now) }) : this;
+  }
+
+  /** The round the leased job runs: which judging of the run, and which try of it. */
+  get round(): ChangeJudgingRound {
+    if (!this.state.job) {
+      throw new InvalidJudgingError('has no round once it is done');
+    }
+
+    return this.roundOf(this.state.job.attempts);
+  }
+
+  /**
+   * Makes the job due now when a session it waits on has settled. A waiting job handed its try back, so it waits
+   * on the round of its next try; a job already due, or a session of any other round, is left as it is.
+   */
+  wake(round: ChangeJudgingRound, now: Date): ChangeJudging {
+    const { job } = this.state;
+
+    if (
+      !job ||
+      job.isDue(now) ||
+      !round.equals(this.roundOf(job.attempts + 1))
+    ) {
+      return this;
+    }
+
+    const woken = job.wake(now);
+
+    return woken === job ? this : this.with({ job: woken });
+  }
+
   deadLetter(now: Date): ChangeJudging {
     return this.ended(JudgingFailure.of('interrupted', now));
   }
@@ -224,6 +258,14 @@ export class ChangeJudging
       ),
     );
     return judged;
+  }
+
+  private roundOf(attempt: number): ChangeJudgingRound {
+    return ChangeJudgingRound.of({
+      runId: this.state.runId,
+      judging: this.state.attempt,
+      attempt,
+    });
   }
 
   private ended(failure: JudgingFailure): ChangeJudging {

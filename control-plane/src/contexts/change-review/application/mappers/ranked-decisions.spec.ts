@@ -9,6 +9,7 @@ const decision = (id: string, kind: DecisionDto['kind']): DecisionDto => ({
   why: 'Because.',
   alternatives: [],
   paths: ['api/src/uploads.ts'],
+  runId: 'run_1',
   journalSteps: [3],
   disputes: [],
 });

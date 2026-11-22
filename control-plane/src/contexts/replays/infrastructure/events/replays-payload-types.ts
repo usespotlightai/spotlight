@@ -41,6 +41,7 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
+import { ChangeJudgingRound } from '@replays/domain/value-objects/change-judging-round.vo';
 import { ChangeStackId } from '@replays/domain/value-objects/change-stack-id.vo';
 import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
@@ -91,12 +92,15 @@ import { SearchStartDetail } from '@replays/domain/value-objects/search-start-de
 import { SeedCandidate } from '@replays/domain/value-objects/seed-candidate.vo';
 import { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
 import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
+import { SideBySideJudgingRound } from '@replays/domain/value-objects/side-by-side-judging-round.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 export const REPLAYS_PAYLOAD_TYPES = [
+  ChangeJudgingRound,
+  SideBySideJudgingRound,
   ChangeJudged,
   ChangeJudgingFailed,
   SideBySideJudged,

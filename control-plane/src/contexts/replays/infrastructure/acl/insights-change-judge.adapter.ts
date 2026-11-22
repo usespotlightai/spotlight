@@ -6,7 +6,14 @@ import type {
   ChangeJudgeOrder,
   ChangeJudgePort,
 } from '@replays/application/ports/change-judge.port';
+import {
+  SESSION_WAITING,
+  type SessionWaiting,
+  type SettledSession,
+} from '@replays/application/ports/session-outcomes';
+import { ChangeJudgingRound } from '@replays/domain/value-objects/change-judging-round.vo';
 import type { ChangeJudgment } from '@replays/domain/value-objects/change-judgment';
+import { isJudgingAttempt } from '@replays/domain/value-objects/judging-attempt';
 
 const judgmentOf = (judgment: InsightsChangeJudgment): ChangeJudgment =>
   judgment.judged
@@ -31,20 +38,34 @@ const judgmentOf = (judgment: InsightsChangeJudgment): ChangeJudgment =>
 export class InsightsChangeJudge implements ChangeJudgePort {
   constructor(private readonly judgments: ChangeJudgmentsPort) {}
 
-  availableTo(workspaceId: string): Promise<boolean> {
-    return this.judgments.availableTo(workspaceId);
+  async judge(
+    order: ChangeJudgeOrder,
+  ): Promise<ChangeJudgment | SessionWaiting> {
+    const judgment = await this.judgments.judge({
+      workspaceId: order.workspaceId,
+      round: {
+        runId: order.round.runId,
+        judging: order.round.judging,
+        attempt: order.round.attempt,
+      },
+      criteria: order.criteria,
+      reference: order.reference,
+      guidanceRequested: order.guidanceRequested,
+      effectsBlocked: true,
+    });
+
+    return 'status' in judgment ? SESSION_WAITING : judgmentOf(judgment);
   }
 
-  async judge(order: ChangeJudgeOrder): Promise<ChangeJudgment> {
-    return judgmentOf(
-      await this.judgments.judge({
-        workspaceId: order.workspaceId,
-        runId: order.run,
-        criteria: order.criteria,
-        reference: order.reference,
-        guidanceRequested: order.guidanceRequested,
-        effectsBlocked: true,
-      }),
-    );
+  roundOf(session: SettledSession): ChangeJudgingRound | null {
+    const round = this.judgments.roundOf(session);
+
+    return round && isJudgingAttempt(round.judging)
+      ? ChangeJudgingRound.of({
+          runId: round.runId,
+          judging: round.judging,
+          attempt: round.attempt,
+        })
+      : null;
   }
 }

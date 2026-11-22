@@ -49,6 +49,7 @@ const answerOf = (answer: QuestionAnswerDto): QuestionAnswerResponseDto =>
   new QuestionAnswerResponseDto(
     answer.questionId,
     answer.reply,
+    answer.grading,
     answer.verdict,
     answer.feedback,
     answer.expected,

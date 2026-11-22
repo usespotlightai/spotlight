@@ -1,4 +1,3 @@
-import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import type { ChangeStackLocksPort } from '@change-review/application/ports/change-stack-locks.port';
 import type {
   ReviewedTask,
@@ -61,10 +60,6 @@ const isRetry = (attempt: Attempt): attempt is { readonly retry: string } =>
   typeof attempt === 'object' && 'retry' in attempt;
 
 const attemptOf = (error: unknown): Attempt => {
-  if (error instanceof ChangeStacksUnavailableError) {
-    return { retry: error.message };
-  }
-
   if (
     error instanceof InvalidDiffError ||
     error instanceof InvalidChangeStackError

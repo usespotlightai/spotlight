@@ -1075,8 +1075,8 @@ describe('a replay ending', () => {
     expect(
       await db
         .select()
-        .from(schema.memoryDraft)
-        .where(eq(schema.memoryDraft.taskId, original.taskId)),
+        .from(schema.memoryProposalSet)
+        .where(eq(schema.memoryProposalSet.taskId, original.taskId)),
     ).toEqual([]);
     expect(
       await db

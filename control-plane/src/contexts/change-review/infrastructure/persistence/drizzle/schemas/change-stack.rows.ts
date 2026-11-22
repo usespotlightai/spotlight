@@ -1,3 +1,4 @@
+import type { StackProblemCode } from '@change-review/domain/value-objects/stack-problem.vo';
 import type {
   FileClass,
   LinkKind,
@@ -59,6 +60,11 @@ export interface StoredRemovedLayer {
   readonly previous: string;
   readonly cohort: string;
   readonly title: string;
+}
+
+export interface StoredStackProblem {
+  readonly code: StackProblemCode;
+  readonly message: string;
 }
 
 export interface StoredCohort {

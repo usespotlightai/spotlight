@@ -5,6 +5,8 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
+import type { StoredStackProblem } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import {
   cohortRows,
   cohortsOf,
@@ -36,6 +38,11 @@ import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 
 type Row = typeof changeStack.$inferSelect;
+
+const problemRow = (problem: StackProblem): StoredStackProblem => ({
+  code: problem.code,
+  message: problem.message,
+});
 
 const usageRow = (usage: ModelUsage) => ({
   calls: usage.calls,
@@ -93,6 +100,7 @@ const toChangeStack = (row: Row): ChangeStack =>
     job: PendingJob.rehydrate({
       attempts: row.jobAttempts,
       nextAttemptAt: row.jobDueAt,
+      waitingSince: row.waitingSince,
     }),
     request: row.checkCommand
       ? CheckRequest.of(
@@ -112,6 +120,9 @@ const toChangeStack = (row: Row): ChangeStack =>
       ? ChangeStackId.of(row.previousStackId)
       : null,
     removed: removedOf(row.removedLayers),
+    problems: row.draftProblems.map((each) =>
+      StackProblem.of(each.code, each.message),
+    ),
     version: row.version,
   });
 
@@ -156,6 +167,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       facts: factRows(added.facts),
       jobAttempts: added.job.attempts,
       jobDueAt: added.job.nextAttemptAt,
+      waitingSince: added.job.waitingSince,
       checkCommand: added.request?.command ?? null,
       checkSetup: added.request?.setup ?? null,
       checkPlacement: added.request?.placement.labelGroups ?? [],
@@ -165,6 +177,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       usage: usageRow(added.usage),
       previousStackId: added.previous?.value ?? null,
       removedLayers: added.removed.map((each) => ({ ...each })),
+      draftProblems: added.problems.map(problemRow),
       version: added.version,
     });
   }
@@ -187,10 +200,12 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         completedAt: saved.completedAt,
         jobAttempts: saved.job.attempts,
         jobDueAt: saved.job.nextAttemptAt,
+        waitingSince: saved.job.waitingSince,
         redrafting: saved.redrafting,
         pendingJob: saved.hasPendingJob,
         usage: usageRow(saved.usage),
         removedLayers: saved.removed.map((each) => ({ ...each })),
+        draftProblems: saved.problems.map(problemRow),
       })
       .where(
         and(

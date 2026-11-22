@@ -7,6 +7,10 @@ export type ChangeStackState = (typeof CHANGE_STACK_STATES)[number];
 export const isShownForTask = (state: ChangeStackState): boolean =>
   state !== 'failed';
 
+/**
+ * Why a change stack stopped without being ready. Nothing fails a stack as `too-large` or `insufficient-credits` any
+ * more: those come from stacks Spotlight drafted with its own model calls, and stay so that stored stacks still read.
+ */
 export const STACK_FAILURES = [
   'not-generated',
   'too-large',
@@ -15,6 +19,12 @@ export const STACK_FAILURES = [
 ] as const;
 
 export type StackFailure = (typeof STACK_FAILURES)[number];
+
+/** The failures a stack can still come to. */
+export type ProducedStackFailure = Exclude<
+  StackFailure,
+  'too-large' | 'insufficient-credits'
+>;
 
 export class StackProgress {
   private constructor(
@@ -59,7 +69,7 @@ export class StackProgress {
   complete(
     state: Exclude<ChangeStackState, 'generating'>,
     now: Date,
-    change: { failure?: StackFailure } = {},
+    change: { failure?: ProducedStackFailure } = {},
   ): StackProgress {
     return new StackProgress(
       state,

@@ -1,6 +1,5 @@
 import { AnswerQuestionCommand } from '@change-review/application/commands/answer-question.command';
 import { AnswerQuestionHandler } from '@change-review/application/commands/handlers/answer-question.handler';
-import type { AnswerGraderPort } from '@change-review/application/ports/answer-grader.port';
 import type {
   ReviewedTask,
   WorkPort,
@@ -103,7 +102,6 @@ const answering = (
     onTeam?: boolean;
     earlier?: QuestionAnswer | null;
     answeredMeanwhile?: QuestionAnswer;
-    graderAvailable?: boolean;
     inTask?: readonly QuestionAnswer[];
     takenOnTask?: QuestionAnswer;
     takenOnSave?: QuestionAnswer;
@@ -113,10 +111,6 @@ const answering = (
   let stored = over.earlier ?? null;
   let taken: QuestionAnswer | null = null;
   const saved: QuestionAnswer[] = [];
-  const grade = vi.fn(async () => ({
-    grade: { verdict: 'partly-right' as const, feedback: 'Not the bot.' },
-    usage: null,
-  }));
 
   const handler = new AnswerQuestionHandler(
     over.access ??
@@ -137,6 +131,8 @@ const answering = (
       find: async () => over.stack ?? asking(),
     } as unknown as ChangeStackRepository,
     {
+      find: async () => stored,
+      nextDueGrading: async () => null,
       of: async () => stored,
       add: async (answer: QuestionAnswer) => {
         if (over.answeredMeanwhile && !stored) {
@@ -162,54 +158,40 @@ const answering = (
       ofTeam: async () => [],
       remove: async () => {},
     } satisfies QuestionAnswerRepository,
-    {
-      availableTo: async () => over.graderAvailable !== false,
-      grade,
-    } satisfies AnswerGraderPort,
     { generate: () => 'answer-1' },
     { now: () => NOW, sleep: async () => {} },
   );
 
-  return { handler, grade, added, saved };
+  return { handler, added, saved };
 };
 
 const answer = (reply: string | null, questionId = 'c1.l1.q1') =>
   new AnswerQuestionCommand('team_1', 'stack-1', questionId, 'user-1', reply);
 
 describe('AnswerQuestionHandler', () => {
-  it('grades an answer in words against the expected answer and the hunks that show it', async () => {
-    const { handler, grade, added } = answering();
+  it('saves an answer in words with the expected answer, to be graded after', async () => {
+    const { handler, added } = answering();
 
-    await handler.execute(answer('The bot signs it.'));
+    await handler.execute(answer(' The bot signs it. '));
 
-    expect(grade).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      question: 'Who signs when the member has left?',
-      expected: 'The integration signs it.',
-      reply: 'The bot signs it.',
-      cited: [
-        {
-          path: 'slack.ts',
-          patch: '@@ -1 +1 @@\n-bot\n+member ?? integration',
-        },
-      ],
-    });
     expect(added).toHaveLength(1);
     expect(added[0]).toMatchObject({
       questionId: 'c1.l1.q1',
       reply: 'The bot signs it.',
-      verdict: 'partly-right',
-      feedback: 'Not the bot.',
+      grading: 'pending',
+      verdict: null,
+      feedback: null,
       expected: 'The integration signs it.',
     });
+    expect(added[0]?.hasPendingJob).toBe(true);
   });
 
-  it('shows the expected answer without a model call when the reviewer does not know', async () => {
-    const { handler, grade, added } = answering({ graderAvailable: false });
+  it('counts the answer as missed at once when the reviewer does not know', async () => {
+    const { handler, added } = answering();
 
     await handler.execute(answer(null));
 
-    expect(grade).not.toHaveBeenCalled();
+    expect(added[0]?.grading).toBe('graded');
     expect(added[0]?.verdict).toBe('missed');
     expect(added[0]?.expected).toBe('The integration signs it.');
   });
@@ -270,28 +252,17 @@ describe('AnswerQuestionHandler', () => {
     expect(saved[0]?.asked).toBe('Who signs when the member has left?');
   });
 
-  it('refuses a reply too long before it pays for grading', async () => {
-    const { handler, grade } = answering();
+  it('refuses a reply too long', async () => {
+    const { handler, added } = answering();
 
     await expect(
       handler.execute(answer('x'.repeat(4_001))),
     ).rejects.toMatchObject({ kind: 'invalid' });
-    expect(grade).not.toHaveBeenCalled();
-  });
-
-  it('refuses a second answer before it pays for grading', async () => {
-    const { handler: first, added } = answering();
-    await first.execute(answer(null));
-    const { handler, grade } = answering({ earlier: added[0] });
-
-    await expect(handler.execute(answer('Again.'))).rejects.toMatchObject({
-      kind: 'conflict',
-    });
-    expect(grade).not.toHaveBeenCalled();
+    expect(added).toEqual([]);
   });
 
   it('refuses a workspace member outside the team, and records nothing', async () => {
-    const { handler, added, saved, grade } = answering({ onTeam: false });
+    const { handler, added, saved } = answering({ onTeam: false });
 
     await expect(
       handler.execute(answer('The integration.')),
@@ -300,7 +271,6 @@ describe('AnswerQuestionHandler', () => {
     });
     expect(added).toEqual([]);
     expect(saved).toEqual([]);
-    expect(grade).not.toHaveBeenCalled();
   });
 
   it('hides a stack the caller cannot see, and a question the stack does not ask', async () => {
@@ -313,14 +283,6 @@ describe('AnswerQuestionHandler', () => {
     await expect(
       answering().handler.execute(answer(null, 'not-a-question')),
     ).rejects.toMatchObject({ kind: 'not-found' });
-  });
-
-  it('cannot grade words when no model is set up', async () => {
-    await expect(
-      answering({ graderAvailable: false }).handler.execute(
-        answer('The integration.'),
-      ),
-    ).rejects.toMatchObject({ kind: 'upstream-error' });
   });
 
   it('refuses an answer again when one given meanwhile on another stack took the key while it answered anew', async () => {

@@ -17,9 +17,6 @@ vi.mock('@/hooks/api/useAnswerStackQuestion', () => ({
     mutate,
   }),
 }));
-vi.mock('@/hooks/useInferenceUnset', () => ({
-  useInferenceUnset: () => false,
-}));
 vi.mock('@/hooks/useMe', () => ({
   useMe: () => ({ id: 'user_1', name: 'Maya Chen', image: null }),
 }));
@@ -79,6 +76,7 @@ describe('LayerQuestionThread', () => {
         answered: {
           questionId: 'c1.l2.q1',
           reply: 'It adds the member.',
+          grading: 'graded',
           verdict: 'missed',
           feedback: 'The accept endpoint refuses it with 410.',
           expected: 'It answers 410 and adds no member.',
@@ -114,6 +112,7 @@ describe('LayerQuestionThread', () => {
       answered: {
         questionId: 'c1.l2.q1',
         reply: 'It adds the member.',
+        grading: 'graded',
         verdict: 'right',
         feedback: null,
         expected: null,
@@ -180,5 +179,54 @@ describe('LayerQuestionThread', () => {
       ).toBeInTheDocument();
       expect(screen.queryByRole('link')).toBeNull();
     });
+  });
+
+  it('shows the expected answer at once while the answer waits for its grade', () => {
+    shown({
+      ...QUESTION,
+      answered: {
+        questionId: 'c1.l2.q1',
+        reply: 'It adds the member.',
+        grading: 'pending',
+        verdict: null,
+        feedback: null,
+        expected: 'It answers 410 and adds no member.',
+        outdated: false,
+      },
+    });
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Grading your answer…',
+    );
+    expect(screen.getByText('Grading')).toBeTruthy();
+    expect(
+      screen.getByText('Expected answer: It answers 410 and adds no member.'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Missed')).toBeNull();
+  });
+
+  it('says when the answer could not be graded, and still shows the expected answer', () => {
+    shown({
+      ...QUESTION,
+      answered: {
+        questionId: 'c1.l2.q1',
+        reply: 'It adds the member.',
+        grading: 'failed',
+        verdict: null,
+        feedback: null,
+        expected: 'It answers 410 and adds no member.',
+        outdated: false,
+      },
+    });
+
+    expect(
+      screen.getByText(/Spotlight couldn’t grade your answer\./),
+    ).toBeTruthy();
+    expect(screen.getByText('Not graded')).toBeTruthy();
+    expect(
+      screen.getByText('Expected answer: It answers 410 and adds no member.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });

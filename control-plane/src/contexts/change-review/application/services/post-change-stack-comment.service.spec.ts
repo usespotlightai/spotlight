@@ -144,7 +144,6 @@ const posting = (
       },
       teamOfRun: async () => null,
       repositoriesOfRun: async () => [],
-      reasoningThrough: async () => null,
       task: async () => {
         if (over.failing === 'task') {
           return unreachable();

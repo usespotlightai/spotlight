@@ -1,5 +1,4 @@
 import type { CheckingPlan } from '@change-review/domain/value-objects/check-request.vo';
-import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -25,27 +24,6 @@ export interface RunForReview {
   readonly checkouts: number;
 }
 
-const REASONED_STEP_KINDS = [
-  'message',
-  'thought',
-  'planned',
-  'handover',
-  'remember',
-] as const;
-
-type ReasonedStepKind = (typeof REASONED_STEP_KINDS)[number];
-
-export interface ReasonedStep {
-  readonly index: number;
-  readonly kind: ReasonedStepKind;
-  readonly text: string;
-}
-
-export interface RunReasoning {
-  readonly steps: readonly ReasonedStep[];
-  readonly changed: readonly string[];
-}
-
 export interface ReviewedTask {
   readonly id: TaskId;
   readonly workspaceId: WorkspaceId;
@@ -63,8 +41,6 @@ export interface WorkPort {
   teamOfRun(runId: RunId): Promise<TeamId | null>;
 
   repositoriesOfRun(runId: RunId): Promise<readonly Repository[]>;
-
-  reasoningThrough(turn: AgentTurn): Promise<RunReasoning | null>;
 
   task(taskId: TaskId): Promise<ReviewedTask | null>;
 

@@ -248,24 +248,25 @@ describe('the Postgres upgrade reads the same everywhere', () => {
     }
   });
 
-  it('points every decision at journal steps that touch its files', async () => {
+  it('points every decision at journal steps of its run that touch its files', async () => {
     const { data: decisions } = await readTaskDecisions({
       path: { teamId, taskId: 'task_postgres' },
       throwOnError: true,
     });
-    const steps =
-      (await journalOf('task_postgres')).find(
-        (journal) => journal.runId === decisions.runId,
-      )?.steps ?? [];
-    const { data: changes } = await listRunChangeStacks({
-      path: { teamId, runId: decisions.runId ?? '' },
-      throwOnError: true,
-    });
-    const changed = new Set(
-      changes.stacks.flatMap((stack) => stack.files.map((each) => each.path)),
-    );
+    const journals = await journalOf('task_postgres');
 
     for (const decision of decisions.decisions) {
+      const steps =
+        journals.find((journal) => journal.runId === decision.runId)?.steps ??
+        [];
+      const { data: changes } = await listRunChangeStacks({
+        path: { teamId, runId: decision.runId },
+        throwOnError: true,
+      });
+      const changed = new Set(
+        changes.stacks.flatMap((stack) => stack.files.map((each) => each.path)),
+      );
+
       expect(decision.paths.every((each) => changed.has(each))).toBe(true);
       expect(
         decision.journalSteps.every((index) => steps[index] !== undefined),

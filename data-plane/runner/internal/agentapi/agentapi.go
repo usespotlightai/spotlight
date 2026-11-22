@@ -41,6 +41,10 @@ type Proposer func(ctx context.Context, proposal protocol.CandidateProposal) (js
 
 type CauseRecorder func(ctx context.Context, record protocol.CauseRecord) (json.RawMessage, error)
 
+type Submitter func(ctx context.Context, result json.RawMessage) (json.RawMessage, error)
+
+type Decider func(ctx context.Context, decision protocol.ProposedDecision) (json.RawMessage, error)
+
 type Attacher func(ctx context.Context, file protocol.HandedFile) (string, error)
 
 type Error struct {
@@ -77,7 +81,10 @@ type Server struct {
 	touched   Toucher
 	propose   Proposer
 	cause     CauseRecorder
+	submit    Submitter
+	decide    Decider
 	attach    Attacher
+	refusal   error
 
 	mu         sync.Mutex
 	handover   *protocol.Handover
@@ -160,6 +167,19 @@ func (s *Server) Candidates(propose Proposer) {
 
 func (s *Server) Causes(record CauseRecorder) {
 	s.cause = record
+}
+
+func (s *Server) Submits(submit Submitter) {
+	s.submit = submit
+}
+
+func (s *Server) Decisions(decide Decider) {
+	s.decide = decide
+}
+
+// RefuseHandover answers every handover with why this run takes none.
+func (s *Server) RefuseHandover(because error) {
+	s.refusal = because
 }
 
 func (s *Server) Attachments(attach Attacher) {
@@ -251,6 +271,21 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	if path.Clean(request.URL.Path) == protocol.AgentAPICausePath {
 		s.caused(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.AgentAPISubmitPath {
+		s.submitted(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.AgentAPIDecisionPath {
+		s.decided(writer, request)
+		return
+	}
+
+	if s.refusal != nil {
+		fail(writer, http.StatusUnprocessableEntity, s.refusal.Error())
 		return
 	}
 
@@ -586,7 +621,11 @@ func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	answer, err := s.propose(request.Context(), proposal)
+	s.relayed(writer, answer, err)
+}
 
+// relayed answers like answered, but hands on the field errors Spotlight found so the agent can fix them.
+func (s *Server) relayed(writer http.ResponseWriter, answer json.RawMessage, err error) {
 	var found unfit
 	if err != nil && errors.As(err, &found) {
 		if errs, ok := found.InvalidFields(); ok {
@@ -598,6 +637,105 @@ func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	s.answered(writer, func() (json.RawMessage, error) { return answer, err })
+}
+
+func (s *Server) submitted(writer http.ResponseWriter, request *http.Request) {
+	if s.submit == nil {
+		fail(writer, http.StatusNotImplemented, "this run cannot submit a result: only an assist session does")
+		return
+	}
+
+	body, err := io.ReadAll(io.LimitReader(request.Body, maxInput+1))
+	if err != nil || len(body) > maxInput {
+		fail(writer, http.StatusRequestEntityTooLarge, fmt.Sprintf("the result is larger than %d MB: submit a smaller one", maxInput>>20))
+		return
+	}
+
+	var submission protocol.AssistSubmission
+	if err := json.Unmarshal(body, &submission); err != nil {
+		fail(writer, http.StatusBadRequest, "unreadable result: post {\"result\": <JSON>}")
+		return
+	}
+
+	if len(submission.Result) == 0 || string(submission.Result) == "null" {
+		fail(writer, http.StatusUnprocessableEntity, "submit a JSON value: the briefing says what the result contains")
+		return
+	}
+
+	answer, err := s.submit(request.Context(), submission.Result)
+	s.relayed(writer, answer, err)
+}
+
+func (s *Server) decided(writer http.ResponseWriter, request *http.Request) {
+	if s.decide == nil {
+		fail(writer, http.StatusNotImplemented, "this run cannot record a decision")
+		return
+	}
+
+	var decision protocol.ProposedDecision
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&decision); err != nil {
+		fail(writer, http.StatusBadRequest, "unreadable decision")
+		return
+	}
+
+	decision.Kind = strings.TrimSpace(decision.Kind)
+	decision.Title = strings.TrimSpace(decision.Title)
+	decision.Why = strings.TrimSpace(decision.Why)
+
+	if because := unfitDecision(decision); because != "" {
+		fail(writer, http.StatusUnprocessableEntity, because)
+		return
+	}
+
+	if decision.Alternatives == nil {
+		decision.Alternatives = []string{}
+	}
+	if decision.Paths == nil {
+		decision.Paths = []string{}
+	}
+
+	answer, err := s.decide(request.Context(), decision)
+	s.relayed(writer, answer, err)
+}
+
+func unfitDecision(decision protocol.ProposedDecision) string {
+	switch {
+	case !protocol.IsDecisionKind(decision.Kind):
+		return fmt.Sprintf("%q is no kind of decision: a kind is one of %s", decision.Kind, strings.Join(protocol.DecisionKinds, ", "))
+	case decision.Title == "":
+		return "name the decision in a short title"
+	case textLength(decision.Title) > protocol.MaxDecisionTitle:
+		return fmt.Sprintf("the title is %d characters and the limit is %d: say it shorter", textLength(decision.Title), protocol.MaxDecisionTitle)
+	case decision.Why == "":
+		return "say why you decided it"
+	case textLength(decision.Why) > protocol.MaxDecisionWhy:
+		return fmt.Sprintf("the reason is %d characters and the limit is %d: say it shorter", textLength(decision.Why), protocol.MaxDecisionWhy)
+	case len(decision.Alternatives) > protocol.MaxDecisionAlternatives:
+		return fmt.Sprintf("you weighed %d alternatives and the limit is %d: name the ones that matter", len(decision.Alternatives), protocol.MaxDecisionAlternatives)
+	case len(decision.Paths) > protocol.MaxDecisionPaths:
+		return fmt.Sprintf("you named %d paths and the limit is %d: name the files the decision bears on most", len(decision.Paths), protocol.MaxDecisionPaths)
+	}
+
+	for _, alternative := range decision.Alternatives {
+		if strings.TrimSpace(alternative) == "" {
+			return "an alternative is empty: say what else you weighed"
+		}
+		if textLength(alternative) > protocol.MaxDecisionAlternative {
+			return fmt.Sprintf("an alternative is %d characters and the limit is %d: say it shorter", textLength(alternative), protocol.MaxDecisionAlternative)
+		}
+	}
+
+	for _, each := range decision.Paths {
+		if strings.TrimSpace(each) == "" {
+			return "a path is empty: name a file the decision bears on"
+		}
+	}
+
+	return ""
+}
+
+func textLength(text string) int {
+	return len(utf16.Encode([]rune(strings.TrimSpace(text))))
 }
 
 func (s *Server) caused(writer http.ResponseWriter, request *http.Request) {
@@ -680,7 +818,7 @@ func suggestion(suggest, next string) (string, bool) {
 }
 
 func noteLength(note string) int {
-	return len(utf16.Encode([]rune(strings.TrimSpace(note))))
+	return textLength(note)
 }
 
 func fail(writer http.ResponseWriter, status int, because string) {

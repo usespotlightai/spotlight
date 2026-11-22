@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
-import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import {
-  MEMORY_DRAFTS,
-  type MemoryDraftRepository,
-} from '@memory/domain/repositories/memory-draft.repository';
-import { DraftEvidence } from '@memory/domain/services/draft-evidence';
-import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
+  MEMORY_PROPOSAL_SETS,
+  type MemoryProposalSetRepository,
+} from '@memory/domain/repositories/memory-proposal-set.repository';
+import { Remembering } from '@memory/domain/services/remembering';
+import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -40,8 +40,6 @@ import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
-const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
-
 interface Recalled {
   readonly id: string;
   readonly handle: string;
@@ -58,7 +56,6 @@ interface Proposed {
   readonly id: string;
   readonly kind: string;
   readonly body: string;
-  readonly proposedBy: string;
   readonly state: string;
   readonly scope: string;
   readonly repository: string | null;
@@ -291,52 +288,41 @@ describe('recalling what the team remembers from inside a run', () => {
     });
 
     const proposedIn = RunId.of(randomUUID());
-    await app.get<MemoryDraftRepository>(MEMORY_DRAFTS).add(
-      MemoryDraft.create({
-        id: MemoryDraftId.of(randomUUID()),
+    await app.get<MemoryProposalSetRepository>(MEMORY_PROPOSAL_SETS).add(
+      MemoryProposalSet.create({
+        id: MemoryProposalSetId.of(randomUUID()),
         taskId: team.list.id,
         workspaceId: team.workspaceId,
-      })
-        .requestDrafting(
-          AgentTurn.of(proposedIn, 1, RUN_ORDERED_AT),
-          new Date(),
-        )
-        .recordDraft({
-          turn: AgentTurn.of(proposedIn, 1, RUN_ORDERED_AT),
-          proposed: [
-            {
-              kind: 'failure',
-              body: 'Uploads time out behind the proxy.',
-              scope: 'team',
-              repository: null,
-              paths: [],
-              steps: [1],
-              notes: [],
-              supersedes: null,
-              retires: null,
-            },
-          ],
-          evidence: DraftEvidence.of({
-            taskId: team.list.id,
-            turn: AgentTurn.of(proposedIn, 1, RUN_ORDERED_AT),
+      }).remember(
+        Remembering.of({
+          taskId: team.list.id,
+          runId: proposedIn,
+          asOf: null,
+          isolated: false,
+          trial: false,
+        }).proposalOf({
+          id: MemoryId.of(randomUUID()),
+          remembered: {
+            kind: 'failure',
+            body: 'Uploads time out behind the proxy.',
+            scope: 'team',
+            paths: [],
+            supersedes: null,
+          },
+          at: {
             runContext: {
               teamId: TeamId.of(team.teamId.value),
               lineId: LineId.of(DELIVERY),
               stationId: StationId.of(BUILD),
               repositories: [Repository.of('acme/api')],
             },
-            steps: [{ index: 1, kind: 'message', text: 'It timed out.' }],
-            notes: [],
-            notesRead: 0,
-            changed: [],
-            known: [],
-            used: [],
-            elsewhere: [],
+            steps: [{ index: 1, kind: 'remember' }],
+            cited: [],
             fromOutside: false,
-          }),
-          newId: () => randomUUID(),
+          },
           now: new Date(),
         }),
+      ),
     );
   });
 
@@ -501,7 +487,6 @@ describe('remembering from inside a run', () => {
     expect(proposed.body).toMatchObject({
       kind: 'rationale',
       body: 'Uploads retry in the request.',
-      proposedBy: 'agent',
       state: 'proposed',
       scope: 'line',
       repository: 'acme/api',
@@ -628,7 +613,6 @@ describe('forgetting from inside a run', () => {
     ).expect(201);
 
     expect(proposed.body).toMatchObject({
-      proposedBy: 'agent',
       state: 'proposed',
       editable: false,
       inactiveMemories: [],

@@ -39,7 +39,6 @@ const proposal = (
   },
 ): RunProposalResponseDto => ({
   source: 'run',
-  proposedBy: 'drafter',
   state: 'proposed',
   scope: 'team',
   repository: null,

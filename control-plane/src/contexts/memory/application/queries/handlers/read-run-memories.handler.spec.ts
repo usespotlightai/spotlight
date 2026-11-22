@@ -7,19 +7,18 @@ import { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memor
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
-import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
-import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -29,7 +28,6 @@ import { describe, expect, it } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
 
-const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 let made = 0;
@@ -51,13 +49,10 @@ const approved = (body: string, teamId = TEAM) => {
 };
 
 const draftProposing = () =>
-  MemoryDraft.rehydrate({
-    id: MemoryDraftId.of('draft_1'),
+  MemoryProposalSet.rehydrate({
+    id: MemoryProposalSetId.of('draft_1'),
     taskId: TaskId.of('task_1'),
     workspaceId: WORKSPACE,
-    drafting: null,
-    draftedIn: AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT),
-    notesRead: 0,
     proposals: [
       MemoryProposal.of({
         id: MemoryId.of('memory_proposed'),
@@ -71,12 +66,10 @@ const draftProposing = () =>
           notes: [],
         }),
         source: 'run',
-        proposedBy: 'drafter',
         supersedes: null,
         recordedAt: new Date('2026-09-27T10:00:00.000Z'),
       }),
     ],
-    failure: null,
     version: 0,
   });
 
@@ -93,7 +86,6 @@ const reading = (input: {
       id: RunId.of('run_1'),
       workspaceId: WORKSPACE,
       taskId: input.proposed ? TaskId.of('task_1') : null,
-      memories: false,
       briefed: input.briefed.map((each) => each.id.value),
       omitted: input.omitted.map((each) => each.id.value),
     }),
@@ -130,7 +122,7 @@ const reading = (input: {
     memories,
     {
       forTask: async () => (input.proposed ? draftProposing() : null),
-    } as unknown as MemoryDraftRepository,
+    } as unknown as MemoryProposalSetRepository,
     uses,
     new MemoryReviews(work, people, memories),
     new TeamMemoryViews(memories, people, uses),

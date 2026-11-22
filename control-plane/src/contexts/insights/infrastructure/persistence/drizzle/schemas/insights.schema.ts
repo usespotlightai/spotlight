@@ -526,6 +526,7 @@ export const judging = pgTable(
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamptz('job_due_at'),
+    waitingSince: timestamptz('waiting_since'),
     judgedAt: timestamptz('judged_at'),
     failure: judgingFailure('failure'),
     failedAt: timestamptz('failed_at'),

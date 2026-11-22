@@ -4695,9 +4695,6 @@
           "401": {
             "description": "No valid session"
           },
-          "402": {
-            "description": "The inference endpoint has no credits left"
-          },
           "403": {
             "description": "The caller is not a member of the team, nor a workspace admin"
           },
@@ -4708,7 +4705,7 @@
             "description": "The caller already answered it"
           }
         },
-        "summary": "Answer a question about a layer of a change stack, and get it graded against the expected answer",
+        "summary": "Answer a question about a layer of a change stack. The reply comes back with the expected answer and a pending grade; a session grades it against the expected answer shortly after",
         "tags": [
           "change-stacks"
         ]
@@ -4863,7 +4860,7 @@
             "description": "No such task for this caller"
           }
         },
-        "summary": "The decisions that Spotlight generated for review from the latest run of the task",
+        "summary": "The decisions the task’s agent recorded for review while it worked",
         "tags": [
           "decisions"
         ]
@@ -5663,7 +5660,7 @@
             "description": "No such memory for this caller"
           },
           "409": {
-            "description": "It was decided or redrafted meanwhile"
+            "description": "It was decided meanwhile"
           },
           "422": {
             "description": "No memories named, one named twice, an edit too long, or one from outside the team approved with others"
@@ -5730,7 +5727,7 @@
             "description": "No such memory for this caller"
           },
           "409": {
-            "description": "It was decided or redrafted meanwhile"
+            "description": "It was decided meanwhile"
           }
         },
         "summary": "Turn a proposed memory down; it stays stored, never briefed, and not proposed again",
@@ -13485,13 +13482,25 @@
             "nullable": true,
             "description": "What the reviewer answered; null when they did not know"
           },
+          "grading": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "graded",
+              "failed"
+            ],
+            "description": "Where grading the reply stands: pending until a session grades it, failed when none could, graded once the verdict is in. An answer of \"I don’t know\" is graded at once"
+          },
           "verdict": {
             "type": "string",
             "enum": [
               "right",
               "partly-right",
-              "missed"
-            ]
+              "missed",
+              null
+            ],
+            "nullable": true,
+            "description": "The grade of the reply; null until it is graded"
           },
           "feedback": {
             "type": "string",
@@ -13512,6 +13521,7 @@
         "required": [
           "questionId",
           "reply",
+          "grading",
           "verdict",
           "feedback",
           "expected",
@@ -14231,8 +14241,12 @@
               "type": "string"
             }
           },
+          "runId": {
+            "type": "string",
+            "description": "The run whose agent recorded it; its journal holds the journal steps"
+          },
           "journalSteps": {
-            "description": "Where the agent reasoned it, as numbers of steps in the run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0",
+            "description": "Where the agent reasoned it, as numbers of steps in the journal of its run: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0. Empty when the agent recorded the decision itself; only decisions drafted from a journal cite steps",
             "type": "array",
             "items": {
               "type": "number"
@@ -14253,6 +14267,7 @@
           "why",
           "alternatives",
           "paths",
+          "runId",
           "journalSteps",
           "disputes"
         ]
@@ -14260,15 +14275,6 @@
       "TaskDecisionsResponseDto": {
         "type": "object",
         "properties": {
-          "runId": {
-            "type": "string",
-            "nullable": true,
-            "description": "The run the decisions were generated from, if there is one"
-          },
-          "generating": {
-            "type": "boolean",
-            "description": "Whether decisions for a later run are being generated"
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -14292,8 +14298,6 @@
           }
         },
         "required": [
-          "runId",
-          "generating",
           "status",
           "merges",
           "decisions"
@@ -14324,10 +14328,6 @@
           "taskId": {
             "type": "string"
           },
-          "runId": {
-            "type": "string",
-            "nullable": true
-          },
           "repository": {
             "type": "string",
             "example": "acme/api"
@@ -14350,7 +14350,6 @@
         },
         "required": [
           "taskId",
-          "runId",
           "repository",
           "commit",
           "mergedAt",
@@ -15187,15 +15186,6 @@
             "example": "person",
             "description": "person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else"
           },
-          "proposedBy": {
-            "type": "string",
-            "enum": [
-              "drafter",
-              "agent"
-            ],
-            "example": "agent",
-            "description": "drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember"
-          },
           "state": {
             "type": "string",
             "enum": [
@@ -15295,7 +15285,6 @@
           "kind",
           "body",
           "source",
-          "proposedBy",
           "state",
           "scope",
           "repository",
@@ -15821,15 +15810,6 @@
             "example": "person",
             "description": "person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else"
           },
-          "proposedBy": {
-            "type": "string",
-            "enum": [
-              "drafter",
-              "agent"
-            ],
-            "example": "agent",
-            "description": "drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember"
-          },
           "state": {
             "type": "string",
             "enum": [
@@ -15941,7 +15921,6 @@
           "kind",
           "body",
           "source",
-          "proposedBy",
           "state",
           "scope",
           "repository",
@@ -15983,7 +15962,7 @@
             }
           },
           "proposed": {
-            "description": "What the run proposed, drafted or remembered",
+            "description": "What the run proposed or remembered",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RunProposalResponseDto"
@@ -16312,7 +16291,7 @@
           },
           "memories": {
             "type": "boolean",
-            "description": "Whether Spotlight drafts memories after its runs"
+            "description": "Whether its runs may propose memories with spotlight remember"
           },
           "judge": {
             "nullable": true,

@@ -9,13 +9,10 @@ export class RequestReplayRejudging {
   ) {}
 
   async requested(event: ReplayRejudgingRequested): Promise<void> {
-    const ordered = await this.judgings.requeue(event.run, event.workspaceId);
+    const ordered = await this.judgings.requeue(event.run);
 
     if (ordered !== 'requested') {
-      await this.verdicts.rejudgingFailed(
-        event.run,
-        ordered === 'unavailable' ? 'unavailable' : 'errored',
-      );
+      await this.verdicts.rejudgingFailed(event.run, 'errored');
     }
   }
 }

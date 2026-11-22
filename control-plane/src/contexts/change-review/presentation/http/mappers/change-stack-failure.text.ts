@@ -4,7 +4,7 @@ const TEXT: Readonly<Record<StackFailure, string>> = {
   'not-generated': 'Spotlight couldn’t generate the change stack.',
   'too-large': 'The change is too large for one change stack.',
   'insufficient-credits':
-    'The inference endpoint has no credits left. Please add credits at your provider.',
+    'The model provider had no credits left. Please add credits at your provider.',
   'broke-rules': 'The generated stack did not assign every hunk in order.',
 };
 

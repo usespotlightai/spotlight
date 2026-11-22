@@ -1,4 +1,5 @@
 import {
+  ANSWER_GRADING_NAMES,
   ANSWER_VERDICT_NAMES,
   CHANGE_STACK_STATE_NAMES,
   COHORT_KIND_NAMES,
@@ -114,8 +115,20 @@ export class QuestionAnswerResponseDto {
   })
   readonly reply: string | null;
 
-  @ApiProperty({ enum: ANSWER_VERDICT_NAMES })
-  readonly verdict: 'right' | 'partly-right' | 'missed';
+  @ApiProperty({
+    enum: ANSWER_GRADING_NAMES,
+    description:
+      'Where grading the reply stands: pending until a session grades it, failed when none could, graded once the verdict is in. An answer of "I don’t know" is graded at once',
+  })
+  readonly grading: 'pending' | 'graded' | 'failed';
+
+  @ApiProperty({
+    enum: [...ANSWER_VERDICT_NAMES, null],
+    nullable: true,
+    type: String,
+    description: 'The grade of the reply; null until it is graded',
+  })
+  readonly verdict: 'right' | 'partly-right' | 'missed' | null;
 
   @ApiProperty({
     nullable: true,
@@ -142,13 +155,15 @@ export class QuestionAnswerResponseDto {
   constructor(
     questionId: string,
     reply: string | null,
-    verdict: 'right' | 'partly-right' | 'missed',
+    grading: 'pending' | 'graded' | 'failed',
+    verdict: 'right' | 'partly-right' | 'missed' | null,
     feedback: string | null,
     expected: string | null,
     outdated: boolean,
   ) {
     this.questionId = questionId;
     this.reply = reply;
+    this.grading = grading;
     this.verdict = verdict;
     this.feedback = feedback;
     this.expected = expected;

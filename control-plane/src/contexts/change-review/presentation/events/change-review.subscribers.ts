@@ -8,9 +8,9 @@ import type { ReviewWorkRunnersPort } from '@change-review/application/ports/rev
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
-import type { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import type { StackPushes } from '@change-review/application/services/stack-pushes.service';
+import type { WakeSessionWaits } from '@change-review/application/services/wake-session-waits.service';
 import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import type { ChangeStackRedrafted } from '@change-review/domain/events/change-stack-redrafted.event';
 import type { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-stack-redrafting-ended.event';
@@ -30,6 +30,10 @@ import type { ReviewSubmitted } from '@change-review/domain/events/review-submit
 import type { StackCheckLayersFailed } from '@change-review/domain/events/stack-check-layers-failed.event';
 import type { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
 import type { StackChecked } from '@change-review/domain/events/stack-checked.event';
+import {
+  ASSIST_SESSION_SETTLED,
+  type AssistSessionSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/assist-session-settled.integration-event';
 import {
   DISPATCH_ENDED,
   type DispatchEndedIntegrationEvent,
@@ -90,12 +94,17 @@ export const changeReviewSubscribers = (
   receiving: ReceiveReviewComment,
   signalling: SignalReviewing,
   checks: StackCheckReactions,
-  deciding: RequestDecisions,
   pullRequestClose: ApplyPullRequestClose,
   decisions: DecisionReactions,
   runners: ReviewWorkRunnersPort,
   pushes: StackPushes,
+  waking: WakeSessionWaits,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<AssistSessionSettledIntegrationEvent>(
+    'change-review.wake-on-assist-session-settled',
+    [ASSIST_SESSION_SETTLED],
+    (event) => waking.settled({ purpose: event.purpose, key: event.key }),
+  ),
   subscribing<StackChecked | StackCheckLayersFailed>(
     'change-review.release-runner-of-checked-stack',
     ['stack-check.checked', 'stack-check.layers-failed'],
@@ -193,29 +202,6 @@ export const changeReviewSubscribers = (
     [TASK_TURN_AWAITED],
     (event) => signalling.signal(TaskId.of(event.taskId)),
     { callsOut: true },
-  ),
-  subscribing<TaskTurnAwaitedIntegrationEvent>(
-    'change-review.request-decisions-of-awaited-turn',
-    [TASK_TURN_AWAITED],
-    (event) =>
-      deciding.turnAwaited(
-        TaskId.of(event.taskId),
-        RunId.of(event.runId),
-        event.attempt,
-        event.handsOver,
-      ),
-  ),
-  subscribing<DispatchEndedIntegrationEvent>(
-    'change-review.request-decisions',
-    [DISPATCH_ENDED],
-    (event) =>
-      event.taskId
-        ? deciding.runEnded(
-            TaskId.of(event.taskId),
-            RunId.of(event.runId),
-            event.handsOver,
-          )
-        : Promise.resolve(),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'change-review.apply-pull-request-close',

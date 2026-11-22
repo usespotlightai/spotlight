@@ -8,7 +8,7 @@ export class InvalidMemoryError extends DomainError {
     this.name = 'InvalidMemoryError';
   }
 
-  static ofDraft(reason: string): InvalidMemoryError {
-    return new InvalidMemoryError(reason, 'memory draft');
+  static ofSet(reason: string): InvalidMemoryError {
+    return new InvalidMemoryError(reason, 'memory proposal set');
   }
 }

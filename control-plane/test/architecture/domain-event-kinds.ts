@@ -98,5 +98,8 @@ export const INTEGRATION_EVENT_KINDS: ReadonlySet<string> = new Set(
   ),
 );
 
+/** The context that publishes an integration event. A domain event may carry a version too, and has no publisher. */
 export const publisherOfKind = (kind: string): string | null =>
-  INTEGRATION_EVENT_KIND.exec(kind)?.[1] ?? null;
+  INTEGRATION_EVENT_KINDS.has(kind)
+    ? (INTEGRATION_EVENT_KIND.exec(kind)?.[1] ?? null)
+    : null;

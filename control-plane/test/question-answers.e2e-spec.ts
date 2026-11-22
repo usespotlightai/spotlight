@@ -30,6 +30,7 @@ const NOW = new Date('2026-11-02T10:00:00.000Z');
 const RUN = RunId.of('run_1');
 const ADA = UserId.of('user_ada');
 const BEA = UserId.of('user_bea');
+const CY = UserId.of('user_cy');
 
 const EVENTS = {
   dispatch: async () => {},
@@ -125,11 +126,10 @@ const answered = (
     question: asked,
     personId,
     reply: 'The bot.',
-    graded: {
-      grade: { verdict: 'missed', feedback: 'The integration signs it.' },
-      usage: { inputTokens: 200, outputTokens: 30, cost: null },
-    },
     now: NOW,
+  }).graded({
+    grade: { verdict: 'missed', feedback: 'The integration signs it.' },
+    usage: { inputTokens: 200, outputTokens: 30, cost: null },
   });
 
 const questionsFor = async (viewer: UserId) => {
@@ -168,6 +168,7 @@ describe('answers to the questions of a change stack', () => {
     expect((await questionsFor(ADA))?.[0]?.answered).toEqual({
       questionId: 'c1.l1.q1',
       reply: 'The bot.',
+      grading: 'graded',
       verdict: 'missed',
       feedback: 'The integration signs it.',
       expected: 'The integration signs it.',
@@ -233,11 +234,50 @@ describe('answers to the questions of a change stack', () => {
         (reworded as QuestionAnswer).answeredAgain({
           question,
           reply: null,
-          graded: null,
           now: NOW,
         }),
       ),
     ).rejects.toThrow(QuestionAnswerVersionConflictError);
+  });
+
+  it('keeps an answer waiting for its grade, and hands it to the grading job only while it is due', async () => {
+    const waiting = QuestionAnswer.given({
+      id: QuestionAnswerId.of('answer_waiting'),
+      stack: ready,
+      question,
+      personId: CY,
+      reply: 'The integration.',
+      now: NOW,
+    });
+    await answers.add(waiting);
+
+    expect((await answers.nextDueGrading(NOW))?.id.value).toBe(
+      'answer_waiting',
+    );
+
+    const leased = waiting.leaseJob(NOW);
+    await answers.save(leased);
+
+    expect(await answers.nextDueGrading(NOW)).toBeNull();
+    expect(await answers.find(waiting.id)).toMatchObject({
+      grading: 'pending',
+      verdict: null,
+      job: { attempts: 1 },
+    });
+
+    await answers.save(
+      ((await answers.find(waiting.id)) as QuestionAnswer).graded({
+        grade: { verdict: 'right', feedback: '' },
+        usage: null,
+      }),
+    );
+
+    expect(await answers.find(waiting.id)).toMatchObject({
+      grading: 'graded',
+      verdict: 'right',
+      feedback: null,
+    });
+    expect(await answers.nextDueGrading(NOW)).toBeNull();
   });
 
   it('finds the answers of a task and removes each, whether or not its change stack is still there', async () => {

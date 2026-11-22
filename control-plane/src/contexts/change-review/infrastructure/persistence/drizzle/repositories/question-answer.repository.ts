@@ -17,11 +17,12 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
 const isAnswerTaken = (error: unknown): boolean =>
   violates(error, UNIQUE_VIOLATION, 'question_answer_person_idx') ||
@@ -42,9 +43,15 @@ const toAnswer = (row: Row): QuestionAnswer =>
     asked: row.asked,
     expected: row.expected,
     reply: row.reply,
+    grading: row.grading,
     verdict: row.verdict,
     feedback: row.feedback,
     usage: ModelUsage.rehydrate(row.usage),
+    job: PendingJob.rehydrate({
+      attempts: row.jobAttempts,
+      nextAttemptAt: row.jobDueAt,
+      waitingSince: row.waitingSince,
+    }),
     answeredAt: row.answeredAt,
     version: row.version,
   });
@@ -61,8 +68,12 @@ const toRow = (answer: QuestionAnswer): Row => ({
   asked: answer.asked,
   expected: answer.expected,
   reply: answer.reply,
+  grading: answer.grading,
   verdict: answer.verdict,
   feedback: answer.feedback,
+  jobAttempts: answer.job.attempts,
+  jobDueAt: answer.job.nextAttemptAt,
+  waitingSince: answer.job.waitingSince,
   usage: {
     calls: answer.usage.calls,
     inputTokens: answer.usage.inputTokens,
@@ -119,6 +130,33 @@ export class DrizzleQuestionAnswerRepository
       }
       await this.events.dispatch(saved.pullEvents());
     });
+  }
+
+  async find(id: QuestionAnswerId): Promise<QuestionAnswer | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(questionAnswer)
+      .where(eq(questionAnswer.id, id.value))
+      .limit(1);
+
+    return row ? toAnswer(row) : null;
+  }
+
+  async nextDueGrading(now: Date): Promise<QuestionAnswer | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(questionAnswer)
+      .where(
+        and(
+          eq(questionAnswer.grading, 'pending'),
+          or(isNull(questionAnswer.jobDueAt), lte(questionAnswer.jobDueAt, now)),
+        ),
+      )
+      .orderBy(asc(questionAnswer.answeredAt))
+      .limit(1)
+      .for('update', { skipLocked: true });
+
+    return row ? toAnswer(row) : null;
   }
 
   async of(

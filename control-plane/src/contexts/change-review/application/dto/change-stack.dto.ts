@@ -21,6 +21,8 @@ export const ANSWER_VERDICT_NAMES = [
   'missed',
 ] as const;
 
+export const ANSWER_GRADING_NAMES = ['pending', 'graded', 'failed'] as const;
+
 export const LAYER_REVISION_STATUS_NAMES = [
   'unchanged',
   'modified',
@@ -54,7 +56,8 @@ export interface DiffFileDto {
 export interface QuestionAnswerDto {
   readonly questionId: string;
   readonly reply: string | null;
-  readonly verdict: (typeof ANSWER_VERDICT_NAMES)[number];
+  readonly grading: (typeof ANSWER_GRADING_NAMES)[number];
+  readonly verdict: (typeof ANSWER_VERDICT_NAMES)[number] | null;
   readonly feedback: string | null;
   readonly expected: string | null;
   readonly outdated: boolean;

@@ -29,33 +29,11 @@ export const decisionSet = pgTable(
     id: text('id').primaryKey(),
     taskId: text('task_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
-    sourceRunId: text('source_run_id'),
-    sourceAttempt: integer('source_attempt'),
-    sourceRunOrderedAt: timestamptz('source_run_ordered_at'),
-    generationRunId: text('generation_run_id'),
-    generationAttempt: integer('generation_attempt'),
-    generationRunOrderedAt: timestamptz('generation_run_ordered_at'),
-    generationRequestedAt: timestamptz('generation_requested_at'),
-    jobAttempts: integer('job_attempts').notNull(),
-    jobDueAt: timestamptz('job_due_at'),
     status: decisionStatus('status').$type<DecisionStatusValue>().notNull(),
     version: integer('version').notNull(),
   },
   (table) => [
-    check(
-      'decision_set_job_attempts_not_negative',
-      sql`${table.jobAttempts} >= 0`,
-    ),
-    check(
-      'decision_set_source_turn',
-      sql`(${table.sourceRunId} is null) = (${table.sourceAttempt} is null) and (${table.sourceRunId} is null) = (${table.sourceRunOrderedAt} is null) and coalesce(${table.sourceAttempt}, 1) >= 1`,
-    ),
-    check(
-      'decision_set_generation_turn',
-      sql`(${table.generationRunId} is null) = (${table.generationAttempt} is null) and (${table.generationRunId} is null) = (${table.generationRunOrderedAt} is null) and coalesce(${table.generationAttempt}, 1) >= 1`,
-    ),
     uniqueIndex('decision_set_task_idx').on(table.taskId),
-    index('decision_set_generation_idx').on(table.generationRequestedAt),
     index('decision_set_workspace_idx').on(table.workspaceId),
   ],
 );
@@ -92,6 +70,8 @@ export const decision = pgTable(
     why: text('why').notNull(),
     alternatives: jsonb('alternatives').$type<string[]>().notNull(),
     paths: jsonb('paths').$type<string[]>().notNull(),
+    /** The run whose agent recorded the decision; its journal holds `journal_steps`. */
+    runId: text('run_id').notNull(),
     journalSteps: jsonb('journal_steps').$type<number[]>().notNull(),
   },
   (table) => [

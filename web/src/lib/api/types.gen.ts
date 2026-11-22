@@ -4268,63 +4268,6 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
-export type InferenceEndpointResourceResponseDto = {
-  /**
-   * Issued by Spotlight when the resource is created, and never changed
-   */
-  id: string;
-  /**
-   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
-   */
-  version: number;
-  /**
-   * Names the resource within its workspace; terraform import takes it
-   */
-  address: string;
-  /**
-   * What would work better, though nothing stops it working; not settable
-   */
-  warnings: Array<FieldErrorResponseDto>;
-  /**
-   * The workspace it belongs to
-   */
-  workspaceId: string;
-  /**
-   * The base URL of an OpenAI-compatible API. Spotlight calls its /chat/completions
-   */
-  baseUrl: string;
-  /**
-   * The one model every Spotlight feature of the workspace uses
-   */
-  model: string;
-  /**
-   * Whether Spotlight holds an API key. The key is write-only and never returned
-   */
-  apiKeySet: boolean;
-  /**
-   * Changed, with a new key, to rotate the API key, which is write-only and never returned
-   */
-  apiKeyVersion: number | null;
-};
-
-export type InferenceEndpointResourceListResponseDto = {
-  /**
-   * Every one there is, each as a read returns it, in address order
-   */
-  items: Array<InferenceEndpointResourceResponseDto>;
-};
-
-export type ConnectionTestResponseDto = {
-  /**
-   * Whether the endpoint answered a minimal request
-   */
-  ok: boolean;
-  /**
-   * What happened, to show to a person
-   */
-  message: string;
-};
-
 export type PushKeyResponseDto = {
   /**
    * The VAPID public key to subscribe with, base64url. Null when this Spotlight sends no Web Push.
@@ -4356,6 +4299,19 @@ export type PushUnsubscriptionRequestDto = {
    * The push service address to stop sending to
    */
   endpoint: string;
+};
+
+export type SubmitAssistResultRequestDto = {
+  /**
+   * The one JSON result of the assist session, in the shape its kind asks for
+   */
+  result: {
+    [key: string]: unknown;
+  };
+};
+
+export type AssistResultAcceptedResponseDto = {
+  accepted: true;
 };
 
 export type TeamSkillResponseDto = {
@@ -4576,7 +4532,14 @@ export type QuestionAnswerResponseDto = {
    * What the reviewer answered; null when they did not know
    */
   reply: string | null;
-  verdict: 'right' | 'partly-right' | 'missed';
+  /**
+   * Where grading the reply stands: pending until a session grades it, failed when none could, graded once the verdict is in. An answer of "I don’t know" is graded at once
+   */
+  grading: 'pending' | 'graded' | 'failed';
+  /**
+   * The grade of the reply; null until it is graded
+   */
+  verdict: 'right' | 'partly-right' | 'missed' | null;
   /**
    * What the answer missed or got wrong, or one fact it left out
    */
@@ -4833,7 +4796,11 @@ export type DecisionResponseDto = {
    */
   paths: Array<string>;
   /**
-   * Where the agent reasoned it, as numbers of steps in the run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0
+   * The run whose agent recorded it; its journal holds the journal steps
+   */
+  runId: string;
+  /**
+   * Where the agent reasoned it, as numbers of steps in the journal of its run: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0. Empty when the agent recorded the decision itself; only decisions drafted from a journal cite steps
    */
   journalSteps: Array<number>;
   /**
@@ -4843,14 +4810,6 @@ export type DecisionResponseDto = {
 };
 
 export type TaskDecisionsResponseDto = {
-  /**
-   * The run the decisions were generated from, if there is one
-   */
-  runId: string | null;
-  /**
-   * Whether decisions for a later run are being generated
-   */
-  generating: boolean;
   status: 'proposed' | 'merged';
   /**
    * One merge for each repository whose pull request merged, oldest first
@@ -4875,7 +4834,6 @@ export type DisputeDecisionRequestDto = {
 
 export type MergedDecisionsResponseDto = {
   taskId: string;
-  runId: string | null;
   repository: string;
   /**
    * The commit the merge made
@@ -4962,6 +4920,40 @@ export type FailPushDiffRequestDto = {
    * Why the runner could not make the diff
    */
   reason: string;
+};
+
+export type RecordedDecisionRequestDto = {
+  kind: 'trade-off' | 'assumption' | 'limitation' | 'rejected-approach' | 'deviation';
+  /**
+   * What the agent chose, at most 120 characters
+   */
+  title: string;
+  /**
+   * What led the agent to it, and what it costs, at most 2000 characters
+   */
+  why: string;
+  /**
+   * At most five options the agent weighed and set aside
+   */
+  alternatives: Array<string>;
+  /**
+   * One to twenty changed files it covers, from the working copy root
+   */
+  paths: Array<string>;
+};
+
+export type RecordDecisionsRequestDto = {
+  /**
+   * One to twenty decisions
+   */
+  decisions: Array<RecordedDecisionRequestDto>;
+};
+
+export type RecordedDecisionsResponseDto = {
+  /**
+   * The id of each decision among the task’s decisions, in the order sent. A decision the task holds already keeps its id
+   */
+  ids: Array<string>;
 };
 
 export type PullRequestLandingResponseDto = {
@@ -5667,10 +5659,6 @@ export type ProposedMemoryResponseDto = {
    * person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else
    */
   source: 'person' | 'run' | 'outside';
-  /**
-   * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
-   */
-  proposedBy: 'drafter' | 'agent';
   state: 'proposed' | 'approved' | 'rejected' | 'lapsed';
   /**
    * Where it applies: the whole team, its line, or its station
@@ -5859,10 +5847,6 @@ export type RunProposalResponseDto = {
    * person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else
    */
   source: 'person' | 'run' | 'outside';
-  /**
-   * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
-   */
-  proposedBy: 'drafter' | 'agent';
   state: 'proposed' | 'approved' | 'rejected' | 'lapsed';
   /**
    * Where it applies: the whole team, its line, or its station
@@ -5926,7 +5910,7 @@ export type RunMemoriesResponseDto = {
    */
   recalled: Array<TeamMemoryResponseDto>;
   /**
-   * What the run proposed, drafted or remembered
+   * What the run proposed or remembered
    */
   proposed: Array<RunProposalResponseDto>;
   /**
@@ -6140,7 +6124,7 @@ export type InsightsStationConfigResponseDto = {
    */
   decisions: boolean;
   /**
-   * Whether Spotlight drafts memories after its runs
+   * Whether its runs may propose memories with spotlight remember
    */
   memories: boolean;
   judge: ConfigJudgeResponseDto | null;
@@ -17985,416 +17969,6 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
-export type ListInferenceEndpointsData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints';
-};
-
-export type ListInferenceEndpointsErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such workspace that you may see
-   */
-  404: ProblemResponseDto;
-};
-
-export type ListInferenceEndpointsError = ListInferenceEndpointsErrors[keyof ListInferenceEndpointsErrors];
-
-export type ListInferenceEndpointsResponses = {
-  /**
-   * Every inference-endpoint there, each as a read returns it, in address order
-   */
-  200: InferenceEndpointResourceListResponseDto;
-};
-
-export type ListInferenceEndpointsResponse = ListInferenceEndpointsResponses[keyof ListInferenceEndpointsResponses];
-
-export type CreateInferenceEndpointData = {
-  body: {
-    baseUrl: string;
-    model: string;
-    /**
-     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
-     */
-    apiKeyWo?: string;
-    /**
-     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
-     */
-    apiKeyWoVersion?: number;
-  };
-  headers: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-    /**
-     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
-     */
-    'Idempotency-Key': string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints';
-};
-
-export type CreateInferenceEndpointErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * Not allowed to do this to the inference-endpoint; the detail says why
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such inference-endpoint that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * A inference-endpoint already exists at that address
-   */
-  409: ProblemResponseDto;
-  /**
-   * What is wrong, field by field; or the Idempotency-Key was used for a different request
-   */
-  422: ProblemResponseDto;
-};
-
-export type CreateInferenceEndpointError = CreateInferenceEndpointErrors[keyof CreateInferenceEndpointErrors];
-
-export type CreateInferenceEndpointResponses = {
-  /**
-   * The inference-endpoint, as a read returns it
-   */
-  201: InferenceEndpointResourceResponseDto;
-};
-
-export type CreateInferenceEndpointResponse = CreateInferenceEndpointResponses[keyof CreateInferenceEndpointResponses];
-
-export type DeleteInferenceEndpointData = {
-  body?: never;
-  headers: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-    /**
-     * The ETag of the version this write was based on; a write to any other version fails with 409
-     */
-    'If-Match': string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/v1/resources/inference-endpoints/{id}';
-};
-
-export type DeleteInferenceEndpointErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * Not allowed to do this to the inference-endpoint; the detail says why
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such inference-endpoint that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
-   */
-  409: ProblemResponseDto;
-  /**
-   * If-Match is missing
-   */
-  428: ProblemResponseDto;
-};
-
-export type DeleteInferenceEndpointError = DeleteInferenceEndpointErrors[keyof DeleteInferenceEndpointErrors];
-
-export type DeleteInferenceEndpointResponses = {
-  /**
-   * Deleted
-   */
-  204: void;
-};
-
-export type DeleteInferenceEndpointResponse = DeleteInferenceEndpointResponses[keyof DeleteInferenceEndpointResponses];
-
-export type ReadInferenceEndpointData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/v1/resources/inference-endpoints/{id}';
-};
-
-export type ReadInferenceEndpointErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such inference-endpoint that you may see
-   */
-  404: ProblemResponseDto;
-};
-
-export type ReadInferenceEndpointError = ReadInferenceEndpointErrors[keyof ReadInferenceEndpointErrors];
-
-export type ReadInferenceEndpointResponses = {
-  /**
-   * The inference-endpoint, every field of it
-   */
-  200: InferenceEndpointResourceResponseDto;
-};
-
-export type ReadInferenceEndpointResponse = ReadInferenceEndpointResponses[keyof ReadInferenceEndpointResponses];
-
-export type UpdateInferenceEndpointData = {
-  body: {
-    baseUrl: string;
-    model: string;
-    /**
-     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
-     */
-    apiKeyWo?: string;
-    /**
-     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
-     */
-    apiKeyWoVersion?: number;
-  };
-  headers: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-    /**
-     * The ETag of the version this write was based on; a write to any other version fails with 409
-     */
-    'If-Match': string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/v1/resources/inference-endpoints/{id}';
-};
-
-export type UpdateInferenceEndpointErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * Not allowed to do this to the inference-endpoint; the detail says why
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such inference-endpoint that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
-   */
-  409: ProblemResponseDto;
-  /**
-   * What is wrong, field by field
-   */
-  422: ProblemResponseDto;
-  /**
-   * If-Match is missing
-   */
-  428: ProblemResponseDto;
-};
-
-export type UpdateInferenceEndpointError = UpdateInferenceEndpointErrors[keyof UpdateInferenceEndpointErrors];
-
-export type UpdateInferenceEndpointResponses = {
-  /**
-   * The inference-endpoint, as a read returns it
-   */
-  200: InferenceEndpointResourceResponseDto;
-};
-
-export type UpdateInferenceEndpointResponse = UpdateInferenceEndpointResponses[keyof UpdateInferenceEndpointResponses];
-
-export type ImportInferenceEndpointData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query: {
-    /**
-     * The inference-endpoint's address within the workspace
-     */
-    address: unknown;
-  };
-  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoints/import';
-};
-
-export type ImportInferenceEndpointErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such inference-endpoint that you may see
-   */
-  404: ProblemResponseDto;
-};
-
-export type ImportInferenceEndpointError = ImportInferenceEndpointErrors[keyof ImportInferenceEndpointErrors];
-
-export type ImportInferenceEndpointResponses = {
-  /**
-   * The inference-endpoint, as a read returns it
-   */
-  200: InferenceEndpointResourceResponseDto;
-};
-
-export type ImportInferenceEndpointResponse = ImportInferenceEndpointResponses[keyof ImportInferenceEndpointResponses];
-
-export type TestInferenceEndpointData = {
-  body: {
-    baseUrl: string;
-    model: string;
-    /**
-     * The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned
-     */
-    apiKeyWo?: string;
-    /**
-     * Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key
-     */
-    apiKeyWoVersion?: number;
-  };
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    workspaceId: string;
-  };
-  query?: never;
-  url: '/v1/resources/workspaces/{workspaceId}/inference-endpoint/test';
-};
-
-export type TestInferenceEndpointErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * Not allowed to test the inference endpoint; the detail says why
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such workspace that you may see
-   */
-  404: ProblemResponseDto;
-  /**
-   * What is wrong, field by field
-   */
-  422: ProblemResponseDto;
-};
-
-export type TestInferenceEndpointError = TestInferenceEndpointErrors[keyof TestInferenceEndpointErrors];
-
-export type TestInferenceEndpointResponses = {
-  200: ConnectionTestResponseDto;
-};
-
-export type TestInferenceEndpointResponse = TestInferenceEndpointResponses[keyof TestInferenceEndpointResponses];
-
 export type GetPushKeyData = {
   body?: never;
   path?: never;
@@ -18472,6 +18046,42 @@ export type SubscribeToPushResponses = {
 };
 
 export type SubscribeToPushResponse = SubscribeToPushResponses[keyof SubscribeToPushResponses];
+
+export type SubmitAssistResultData = {
+  body: SubmitAssistResultRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/assist-result';
+};
+
+export type SubmitAssistResultErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * This runner does not lease the run
+   */
+  404: ProblemResponseDto;
+  /**
+   * The run is no assist session, or its session accepted a result already or failed
+   */
+  409: ProblemResponseDto;
+  /**
+   * A result that does not fit the shape its kind asks for; errors name each problem’s path in the result
+   */
+  422: ProblemResponseDto;
+};
+
+export type SubmitAssistResultError = SubmitAssistResultErrors[keyof SubmitAssistResultErrors];
+
+export type SubmitAssistResultResponses = {
+  200: AssistResultAcceptedResponseDto;
+};
+
+export type SubmitAssistResultResponse = SubmitAssistResultResponses[keyof SubmitAssistResultResponses];
 
 export type ListTeamSkillsData = {
   body?: never;
@@ -19280,7 +18890,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'oidc-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners' | 'inference-endpoints';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'oidc-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners';
     id: string;
   };
   query?: never;
@@ -19384,10 +18994,6 @@ export type AnswerStackQuestionErrors = {
    * No valid session
    */
   401: unknown;
-  /**
-   * The inference endpoint has no credits left
-   */
-  402: unknown;
   /**
    * The caller is not a member of the team, nor a workspace admin
    */
@@ -19724,6 +19330,42 @@ export type FailPushDiffResponses = {
 };
 
 export type FailPushDiffResponse = FailPushDiffResponses[keyof FailPushDiffResponses];
+
+export type RecordDecisionsData = {
+  body: RecordDecisionsRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/decisions';
+};
+
+export type RecordDecisionsErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * Not a run this runner leases
+   */
+  404: ProblemResponseDto;
+  /**
+   * The run’s station keeps no decisions, the run works no task of its own or reviews a pull request, the task merged, or it holds as many decisions as it may
+   */
+  409: ProblemResponseDto;
+  /**
+   * An unknown kind, a missing or too long text, too many alternatives, or no changed file; errors name each problem’s path
+   */
+  422: ProblemResponseDto;
+};
+
+export type RecordDecisionsError = RecordDecisionsErrors[keyof RecordDecisionsErrors];
+
+export type RecordDecisionsResponses = {
+  201: RecordedDecisionsResponseDto;
+};
+
+export type RecordDecisionsResponse = RecordDecisionsResponses[keyof RecordDecisionsResponses];
 
 export type ReadTaskReviewData = {
   body?: never;
@@ -20907,7 +20549,7 @@ export type ApproveMemoriesErrors = {
    */
   404: unknown;
   /**
-   * It was decided or redrafted meanwhile
+   * It was decided meanwhile
    */
   409: unknown;
   /**
@@ -20977,7 +20619,7 @@ export type RejectMemoryErrors = {
    */
   404: unknown;
   /**
-   * It was decided or redrafted meanwhile
+   * It was decided meanwhile
    */
   409: unknown;
 };

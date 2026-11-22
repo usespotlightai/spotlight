@@ -10,6 +10,7 @@ import { JudgeDisagreementOpened } from '@insights/domain/events/judge-disagreem
 import { JudgeDisagreementWithdrawn } from '@insights/domain/events/judge-disagreement-withdrawn.event';
 import { ClaimAnswer } from '@insights/domain/value-objects/claim-answer.vo';
 import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
+import { ClaimsRevisionRound } from '@insights/domain/value-objects/claims-revision-round.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
 import { NotMetAnswer } from '@insights/domain/value-objects/not-met-answer.vo';
 import { RevisionOutcome } from '@insights/domain/value-objects/revision-outcome.vo';
@@ -17,6 +18,7 @@ import { RevisionOutcome } from '@insights/domain/value-objects/revision-outcome
 export const JUDGE_REPAIR_PAYLOAD_TYPES = [
   JudgeDisagreementId,
   ClaimsRevisionId,
+  ClaimsRevisionRound,
   JudgeDisagreementOpened,
   JudgeDisagreementClaimAnswered,
   JudgeDisagreementAnswered,

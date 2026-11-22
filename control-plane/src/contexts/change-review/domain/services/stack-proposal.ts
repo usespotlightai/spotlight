@@ -160,7 +160,6 @@ const checked = (
   proposal: Proposal,
   cohorts: readonly ProposedCohort[],
   checking: Checking,
-  modelProposal: readonly ProposedCohort[] = cohorts,
 ): ProposedCohort[] => {
   const problemsOf = (each: readonly ProposedCohort[]) => [
     ...shapeProblems(proposal.diff, each),
@@ -179,42 +178,20 @@ const checked = (
     return repairedCohorts;
   }
 
-  const found = problemsOf(cohorts);
-  const modelRepaired =
-    modelProposal === cohorts
-      ? repairedCohorts
-      : repaired(proposal, modelProposal, checking.changeLayersAtLeast);
-
-  throw new InvalidChangeStackError(
-    problemsOf(modelRepaired).length > 0 ? problemsOf(modelProposal) : found,
-  );
+  throw new InvalidChangeStackError(problemsOf(cohorts));
 };
-
-const checkedCohort = (
-  input: Proposal & {
-    readonly cohort: ProposedCohort;
-    readonly changeLayersAtLeast?: number;
-  },
-): ProposedCohort =>
-  checked(input, [input.cohort], {
-    changeLayersAtLeast: input.changeLayersAtLeast,
-    scope: 'cohort',
-  })[0] ?? input.cohort;
 
 const accepted = (
   input: Proposal & {
     readonly cohorts: readonly ProposedCohort[];
-    readonly modelProposal?: readonly ProposedCohort[];
     readonly changeLayersAtLeast?: number;
     readonly previous?: PreviousStack | null;
   },
 ): StackCohort[] => {
-  const cohorts = checked(
-    input,
-    input.cohorts,
-    { changeLayersAtLeast: input.changeLayersAtLeast, scope: 'stack' },
-    input.modelProposal,
-  );
+  const cohorts = checked(input, input.cohorts, {
+    changeLayersAtLeast: input.changeLayersAtLeast,
+    scope: 'stack',
+  });
 
   if (!input.previous) {
     return numbered(cohorts, input.facts, null);
@@ -225,4 +202,4 @@ const accepted = (
   return numbered(revised.cohorts, input.facts, revised.revisions);
 };
 
-export const StackProposal = { checkedCohort, accepted };
+export const StackProposal = { accepted };
