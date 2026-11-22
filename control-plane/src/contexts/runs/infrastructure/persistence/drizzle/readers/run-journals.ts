@@ -7,6 +7,7 @@ import type {
   RunStepCounts,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalsPort } from '@runs/application/ports/run-journals.port';
+import { stepNumber } from '@runs/domain/services/journal-step-numbers';
 import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
 import {
   CHANGED_PATHS_TYPES,
@@ -56,9 +57,12 @@ export class DrizzleRunJournals implements RunJournalsPort {
     return [...journals.entries()].map(([at, reading]) => {
       const [runId, attempt] = at.split(':');
 
+      const attempted = Number(attempt ?? 1);
+
       return {
         runId: runId ?? '',
-        attempt: Number(attempt ?? 1),
+        attempt: attempted,
+        firstStep: stepNumber(attempted, 0),
         steps: reading.journal.steps(),
         spans: reading.reported.spans(),
         ms: reading.journal.ms(),

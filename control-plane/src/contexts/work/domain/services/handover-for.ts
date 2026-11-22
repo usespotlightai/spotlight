@@ -52,7 +52,11 @@ export const HandoverFor = {
     currentStation: StationId,
   ): ResolvedHandover {
     if (handover.requestsReview()) {
-      return ResolvedHandover.review(
+      const toAPerson = handover.asksAPersonItself()
+        ? ResolvedHandover.asked
+        : ResolvedHandover.review;
+
+      return toAPerson(
         bodyOf(handover, 'The run asked for someone to look at this.'),
         ownWords(handover),
         handover.attachments,

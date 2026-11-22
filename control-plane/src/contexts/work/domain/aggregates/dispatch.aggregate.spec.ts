@@ -8,6 +8,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { InvalidDispatchTransitionError } from '@work/domain/exceptions/invalid-dispatch-transition.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -100,7 +101,6 @@ const ending = (
     outcome,
     failure,
     stopped: false,
-    askedAPerson: false,
   });
 
 const kinds = (dispatch: Dispatch) =>
@@ -278,16 +278,27 @@ describe('Dispatch', () => {
   });
 
   it('ends once, whether or not its enqueueing was marked first', () => {
-    const ended = ordered().ended(ending('completed'));
+    const ended = ordered().ended(ending('completed'), true);
     ended.pullEvents();
 
     expect(ended.ending?.outcome).toBe('completed');
-    expect(ended.ended(ending('failed', 'exited'))).toBe(ended);
+    expect(ended.ended(ending('failed', 'exited'), false)).toBe(ended);
     expect(ended.enqueuedAsRun().enqueued).toBe(true);
-    expect(kinds(ordered(CHAT).ended(ending('completed')))).toEqual([
+    expect(kinds(ordered(CHAT).ended(ending('completed'), true))).toEqual([
       'dispatch.ordered',
       'dispatch.ended',
     ]);
+  });
+
+  it('hands the work over at its end only where its run hands over', () => {
+    const handsOver = (runHandsOver: boolean) =>
+      ordered()
+        .ended(ending('completed'), runHandsOver)
+        .pullEvents()
+        .find((each) => each instanceof DispatchEnded)?.handsOver;
+
+    expect(handsOver(true)).toBe(true);
+    expect(handsOver(false)).toBe(false);
   });
 
   it('keeps the end of a trial to itself', () => {
@@ -296,7 +307,7 @@ describe('Dispatch', () => {
         Dispatch.trialOrdered({
           ...ordering(TRIAL),
           order: trialOrderOf(RUN),
-        }).ended(ending('completed')),
+        }).ended(ending('completed'), true),
       ),
     ).toEqual([]);
   });
@@ -305,7 +316,7 @@ describe('Dispatch', () => {
     const failed = ending('failed', 'exited');
 
     it('is superseded when its task let go of it and it then failed', () => {
-      const superseded = ordered().detached(NOW).ended(failed);
+      const superseded = ordered().detached(NOW).ended(failed, false);
 
       expect(superseded.superseded).toBe(true);
       expect(kinds(superseded)).toEqual([
@@ -316,7 +327,7 @@ describe('Dispatch', () => {
     });
 
     it('is superseded the same when it failed before its task let go of it', () => {
-      const ended = ordered().ended(failed);
+      const ended = ordered().ended(failed, false);
       ended.pullEvents();
       const superseded = ended.detached(LATER);
 
@@ -325,34 +336,37 @@ describe('Dispatch', () => {
     });
 
     it('is not superseded when it failed while its task still held it', () => {
-      expect(ordered().ended(failed).superseded).toBe(false);
+      expect(ordered().ended(failed, false).superseded).toBe(false);
     });
 
     it('is not superseded when it succeeded, was cancelled or was refused', () => {
       expect(
-        ordered().detached(NOW).ended(ending('completed')).superseded,
+        ordered().detached(NOW).ended(ending('completed'), true).superseded,
       ).toBe(false);
       expect(
-        ordered().detached(NOW).ended(ending('cancelled')).superseded,
+        ordered().detached(NOW).ended(ending('cancelled'), false).superseded,
       ).toBe(false);
       expect(
-        ordered().detached(NOW).ended(ending('failed', 'cancelled')).superseded,
+        ordered().detached(NOW).ended(ending('failed', 'cancelled'), false)
+          .superseded,
       ).toBe(false);
       expect(
-        ordered().refusedFor('withdrawn').detached(NOW).ended(failed)
+        ordered().refusedFor('withdrawn').detached(NOW).ended(failed, false)
           .superseded,
       ).toBe(false);
     });
 
     it('is never superseded for a chat or a trial', () => {
-      expect(ordered(CHAT).detached(NOW).ended(failed).superseded).toBe(false);
+      expect(ordered(CHAT).detached(NOW).ended(failed, false).superseded).toBe(
+        false,
+      );
       expect(
         Dispatch.trialOrdered({
           ...ordering(TRIAL),
           order: trialOrderOf(RUN),
         })
           .detached(NOW)
-          .ended(failed).superseded,
+          .ended(failed, false).superseded,
       ).toBe(false);
     });
   });

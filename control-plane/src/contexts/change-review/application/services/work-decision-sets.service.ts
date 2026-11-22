@@ -72,8 +72,8 @@ export class WorkDecisionSets implements PendingJobsPort {
       return set;
     }
 
-    const { runId } = set.generation;
-    const reasoning = await this.work.reasoning(runId);
+    const { turn } = set.generation;
+    const reasoning = await this.work.reasoningThrough(turn);
 
     if (!reasoning) {
       return set.deadLetter();
@@ -85,7 +85,7 @@ export class WorkDecisionSets implements PendingJobsPort {
     });
 
     return set.recordGeneration({
-      runId,
+      turn,
       proposed: evidence.canSupportAny
         ? await this.generator.generate(set.workspaceId.value, reasoning)
         : [],

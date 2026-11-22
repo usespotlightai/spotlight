@@ -1,4 +1,4 @@
-import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import type { JournalStep } from '@runs/application/contracts/run-journal.contract';
 import { referencesUnder } from '@work/application/services/journal-references';
 import { describe, expect, it } from 'vitest';
 
@@ -20,7 +20,7 @@ const step = (over: Record<string, unknown>) => ({
 });
 
 const journal = (steps: Record<string, unknown>[]) =>
-  ({ runId: 'run_1', steps: steps.map(step) }) as unknown as RunJournal;
+  steps.map(step) as unknown as JournalStep[];
 
 describe('what a run referred to under a folder', () => {
   it('finds the files a tool opened, by its title, its input and the locations it touched', () => {

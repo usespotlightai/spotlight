@@ -7,6 +7,7 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -18,6 +19,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 const TEAM = TeamId.of('team_1');
@@ -60,7 +63,7 @@ const KNOWN = [
 const evidence = (fromOutside = false) =>
   DraftEvidence.of({
     taskId: TaskId.of('task_1'),
-    runId: RunId.of('run_1'),
+    turn: AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT),
     runContext: {
       teamId: TEAM,
       lineId: LineId.of('line_1'),
@@ -273,7 +276,7 @@ describe('DraftEvidence', () => {
       );
       const shown = DraftEvidence.of({
         taskId: TaskId.of('task_1'),
-        runId: RunId.of('run_1'),
+        turn: AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT),
         runContext: {
           teamId: TEAM,
           lineId: LineId.of('line_1'),
@@ -307,7 +310,7 @@ describe('DraftEvidence', () => {
     }) =>
       DraftEvidence.of({
         taskId: TaskId.of('task_1'),
-        runId: RunId.of('run_1'),
+        turn: AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT),
         runContext: {
           teamId: TEAM,
           lineId: LineId.of('line_1'),

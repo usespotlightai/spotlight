@@ -1,4 +1,5 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
@@ -57,6 +58,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const SHARED_KERNEL_PAYLOAD_TYPES = [
+  AgentTurn,
   CheckoutHead,
   Actor,
   ChangeActor,

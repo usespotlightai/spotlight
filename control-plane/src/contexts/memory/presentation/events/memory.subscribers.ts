@@ -21,6 +21,10 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
+  TASK_TURN_AWAITED,
+  type TaskTurnAwaitedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
+import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
@@ -92,6 +96,17 @@ export const memorySubscribers = (
         event.driver === 'person',
       ),
   ),
+  subscribing<TaskTurnAwaitedIntegrationEvent>(
+    'memory.request-memories-of-awaited-turn',
+    [TASK_TURN_AWAITED],
+    (event) =>
+      requesting.turnAwaited(
+        TaskId.of(event.taskId),
+        RunId.of(event.runId),
+        event.attempt,
+        event.handsOver,
+      ),
+  ),
   subscribing<DispatchEndedIntegrationEvent>(
     'memory.request-memories',
     [DISPATCH_ENDED],
@@ -100,7 +115,7 @@ export const memorySubscribers = (
         ? requesting.runEnded(
             TaskId.of(event.taskId),
             RunId.of(event.runId),
-            event.driver === 'person',
+            event.handsOver,
           )
         : Promise.resolve(),
   ),

@@ -180,8 +180,8 @@ describe('EnqueueOrderedRun', () => {
         outcome: 'failed',
         failure: 'refused',
         stopped: false,
-        askedAPerson: false,
       }),
+      false,
     );
 
     await handler().on(event);

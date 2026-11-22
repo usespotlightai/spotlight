@@ -3,6 +3,7 @@ import { Decision } from '@change-review/domain/entities/decision.entity';
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
 import { DecisionGeneration } from '@change-review/domain/value-objects/decision-generation.vo';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
@@ -39,10 +40,32 @@ import { and, asc, eq, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
 type DecisionRow = typeof decision.$inferSelect;
 type DisputeRow = typeof decisionDispute.$inferSelect;
 
-const generationOf = (row: DecisionSetRow): DecisionGeneration | null => {
-  const runId = generationRunOf(row);
+const turnOf = (
+  runId: string | null,
+  attempt: number | null,
+  runOrderedAt: Date | null,
+): AgentTurn | null => {
+  if (runId === null && attempt === null && runOrderedAt === null) {
+    return null;
+  }
+  if (runId === null || attempt === null || runOrderedAt === null) {
+    throw new InconsistentStateError(
+      'decision set',
+      'names a run without the attempt and order time its decisions come from',
+    );
+  }
 
-  if (!runId) {
+  return AgentTurn.of(RunId.of(runId), attempt, runOrderedAt);
+};
+
+const generationOf = (row: DecisionSetRow): DecisionGeneration | null => {
+  const turn = turnOf(
+    generationRunOf(row),
+    row.generationAttempt,
+    row.generationRunOrderedAt,
+  );
+
+  if (!turn) {
     return null;
   }
   if (!row.generationRequestedAt) {
@@ -53,7 +76,7 @@ const generationOf = (row: DecisionSetRow): DecisionGeneration | null => {
   }
 
   return DecisionGeneration.rehydrate({
-    runId: RunId.of(runId),
+    turn,
     requestedAt: row.generationRequestedAt,
     job: PendingJob.rehydrate({
       attempts: row.jobAttempts,
@@ -112,7 +135,11 @@ const toDecisionSet = (
     id: DecisionSetId.of(row.id),
     taskId: TaskId.of(row.taskId),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    sourceRunId: row.sourceRunId ? RunId.of(row.sourceRunId) : null,
+    source: turnOf(
+      row.sourceRunId,
+      row.sourceAttempt,
+      row.sourceRunOrderedAt,
+    ),
     decisions: [...decisions]
       .sort((a, b) => a.position - b.position)
       .map((each) => toDecision(each, disputes)),
@@ -122,8 +149,12 @@ const toDecisionSet = (
   });
 
 const columnsOf = (set: DecisionSet) => ({
-  sourceRunId: set.sourceRunId?.value ?? null,
+  sourceRunId: set.source?.runId.value ?? null,
+  sourceAttempt: set.source?.attempt ?? null,
+  sourceRunOrderedAt: set.source?.runOrderedAt ?? null,
   generationRunId: set.generation?.runId.value ?? null,
+  generationAttempt: set.generation?.turn.attempt ?? null,
+  generationRunOrderedAt: set.generation?.turn.runOrderedAt ?? null,
   generationRequestedAt: set.generation?.requestedAt ?? null,
   jobAttempts: set.generation?.job.attempts ?? 0,
   jobDueAt: set.generation?.job.nextAttemptAt ?? null,

@@ -9,6 +9,7 @@ import {
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
@@ -93,6 +94,7 @@ const checkOf = (built = stack()) =>
     trial: false,
     workspaceId: built.workspaceId,
     request: CheckRequest.of('npx tsc --noEmit', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
     entries: built.entries(),
     now: NOW,
   })
@@ -173,6 +175,7 @@ describe('redraftRequestOf', () => {
           trial: false,
           workspaceId: built.workspaceId,
           request: CheckRequest.of('npx tsc --noEmit', null),
+          stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
           entries: [],
           now: NOW,
         }),

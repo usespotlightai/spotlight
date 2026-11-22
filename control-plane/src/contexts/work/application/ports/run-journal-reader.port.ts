@@ -24,8 +24,6 @@ export interface RunJournalReaderPort {
     runId: RunId,
   ): Promise<RunsInWorkspace<RunJournal[]> | null>;
 
-  ofRun(runId: RunId): Promise<RunJournal | null>;
-
   lastWordsReceivedAt(runId: RunId): Promise<Date | null>;
 
   attemptsOfRun(runId: RunId): Promise<RunJournal[]>;

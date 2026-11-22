@@ -270,6 +270,13 @@ export class RunJournalResponseDto {
   @ApiProperty({ example: 1 })
   readonly attempt: number;
 
+  @ApiProperty({
+    example: 0,
+    description:
+      'The number of the attempt’s first step, (attempt − 1) × 1,000,000. Each later step is numbered one more. A citation of a step names its number',
+  })
+  readonly firstStep: number;
+
   @ApiProperty({ type: JournalStepResponseDto, isArray: true })
   readonly steps: readonly JournalStepResponseDto[];
 
@@ -314,6 +321,7 @@ export class RunJournalResponseDto {
   constructor(
     runId: string,
     attempt: number,
+    firstStep: number,
     steps: readonly JournalStepResponseDto[],
     spans: readonly RunSpanResponseDto[],
     ms: number | null,
@@ -324,6 +332,7 @@ export class RunJournalResponseDto {
   ) {
     this.runId = runId;
     this.attempt = attempt;
+    this.firstStep = firstStep;
     this.steps = steps;
     this.spans = spans;
     this.ms = ms;

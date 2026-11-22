@@ -19,6 +19,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -27,6 +28,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 let made = 0;
@@ -53,7 +56,7 @@ const draftProposing = () =>
     taskId: TaskId.of('task_1'),
     workspaceId: WORKSPACE,
     drafting: null,
-    draftedIn: RunId.of('run_1'),
+    draftedIn: AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT),
     notesRead: 0,
     proposals: [
       MemoryProposal.of({
@@ -90,7 +93,6 @@ const reading = (input: {
       id: RunId.of('run_1'),
       workspaceId: WORKSPACE,
       taskId: input.proposed ? TaskId.of('task_1') : null,
-      completed: true,
       memories: false,
       briefed: input.briefed.map((each) => each.id.value),
       omitted: input.omitted.map((each) => each.id.value),

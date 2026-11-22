@@ -156,9 +156,20 @@ describe('HandoverFor.resolve', () => {
   it('asks a person when the run hands over to review', () => {
     const handover = resolved('review', 'Needs a decision on the retry cap.');
 
-    expect(handover.kind).toBe('review');
-    expect(handover.body.value).toBe('Needs a decision on the retry cap.');
+    expect(handover).toMatchObject({
+      kind: 'review',
+      asked: true,
+      body: { value: 'Needs a decision on the retry cap.' },
+    });
     expect(ResolvedHandover.suggestsClosing(handover)).toBe(false);
+  });
+
+  it('does not count a handover it could not follow as the run asking', () => {
+    expect(resolved('Code Review')).toMatchObject({ asked: false });
+    expect(resolved('backlog', 'Not ready yet.')).toMatchObject({
+      asked: false,
+    });
+    expect(HandoverFor.outcome(null)).toMatchObject({ asked: false });
   });
 
   it('asks a person with the suggestion to close the task, where the run made one', () => {

@@ -59,6 +59,7 @@ export const RunJournalHttpMapper = {
     return new RunJournalResponseDto(
       journal.runId,
       journal.attempt,
+      journal.firstStep,
       journal.steps.map(stepToResponse),
       journal.spans.map(spanToResponse),
       journal.ms,

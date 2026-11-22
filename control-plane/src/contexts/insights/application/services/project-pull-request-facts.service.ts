@@ -44,7 +44,10 @@ export class ProjectPullRequestFacts {
     const shape = record.owner
       ? await this.shapes.forTask(record.owner.taskId)
       : null;
-    const fact = pullRequestFactOf(record, shape?.shape ?? null);
+    const fact = pullRequestFactOf(
+      record,
+      shape?.shapeOf(record.pullRequest) ?? null,
+    );
 
     await (fact
       ? this.facts.put(record.workspaceId, record.pullRequest, fact)

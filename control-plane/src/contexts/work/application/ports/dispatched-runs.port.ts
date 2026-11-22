@@ -25,6 +25,7 @@ export interface DispatchedRun {
   readonly runId: RunId;
   readonly for: DispatchedFor;
   readonly briefedMemories: BriefedMemoriesParts;
+  readonly orderedAt: Date;
 }
 
 export interface DispatchedRunsPort {

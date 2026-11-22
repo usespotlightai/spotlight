@@ -10,5 +10,6 @@ export class TaskTurnAwaited implements DomainEvent {
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
     readonly turn: AwaitedTurn,
+    readonly handsOver: boolean,
   ) {}
 }

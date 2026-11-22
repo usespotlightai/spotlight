@@ -32,6 +32,33 @@ describe('RunEnd', () => {
     ).toThrow(InvalidOutcomeError);
   });
 
+  it('measures the time it spent queued and running, not the time between its start and end', () => {
+    const end = endOf({
+      queuedAt: new Date('2026-09-30T09:00:00.000Z'),
+      startedAt: new Date('2026-09-30T09:02:00.000Z'),
+      endedAt: new Date('2026-10-02T09:00:00.000Z'),
+      queuedMs: 180_000,
+      runningMs: 600_000,
+    });
+
+    expect(end.queuedMs).toBe(180_000);
+    expect(end.runningMs).toBe(600_000);
+  });
+
+  it('spends a whole number of milliseconds, and runs only once started', () => {
+    const startedAt = new Date('2026-09-30T09:02:00.000Z');
+
+    expect(() => endOf({ startedAt, queuedMs: -1 })).toThrow(
+      InvalidOutcomeError,
+    );
+    expect(() => endOf({ startedAt, runningMs: 1.5 })).toThrow(
+      InvalidOutcomeError,
+    );
+    expect(() => endOf({ startedAt: null, runningMs: 1_000 })).toThrow(
+      'cannot run without starting',
+    );
+  });
+
   it('measures no wait it never saw start', () => {
     expect(endOf({ queuedAt: null, startedAt: null }).queuedMs).toBeNull();
     expect(endOf({ startedAt: null }).runningMs).toBeNull();

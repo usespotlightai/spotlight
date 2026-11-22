@@ -219,6 +219,7 @@ describe('where a run started', () => {
         version: 0,
         queuedAt: NOW,
         createdAt: NOW,
+        spent: run.spent,
       });
     };
 

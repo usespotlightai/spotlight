@@ -14,6 +14,7 @@ import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-
 import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -23,8 +24,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-21T10:00:00Z');
-const FIRST = RunId.of('run-1');
-const SECOND = RunId.of('run-2');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
+const FIRST = AgentTurn.of(RunId.of('run-1'), 1, RUN_ORDERED_AT);
+const SECOND = AgentTurn.of(RunId.of('run-2'), 1, RUN_ORDERED_AT);
 const MAYA = UserId.of('user_maya');
 const MERGE = DecisionMerge.of({
   repository: Repository.of('acme/api'),
@@ -66,14 +69,14 @@ const opened = () =>
 
 const generating = (
   set: DecisionSet,
-  runId: RunId,
+  turn: AgentTurn,
   decisions: readonly ProposedDecision[],
 ): DecisionSet =>
   set.recordGeneration({
-    runId,
+    turn,
     proposed: decisions,
     evidence: EVIDENCE,
-    newId: counting(runId.value),
+    newId: counting(turn.runId.value),
   });
 
 const kinds = (set: DecisionSet) => set.pullEvents().map((each) => each.kind);
@@ -191,6 +194,48 @@ describe('a decision set, requested to generate', () => {
     expect(requested.generation?.isFor(SECOND)).toBe(true);
   });
 
+  it('generates decisions again for a later turn of the same run', () => {
+    const nextTurn = AgentTurn.of(FIRST.runId, 2, RUN_ORDERED_AT);
+    const generated = generating(
+      opened().requestGeneration(FIRST, NOW),
+      FIRST,
+      [proposed()],
+    );
+
+    const requested = generated.requestGeneration(nextTurn, NOW);
+
+    expect(requested.generation?.isFor(nextTurn)).toBe(true);
+    expect(generating(requested, nextTurn, [proposed()]).source).toBe(nextTurn);
+  });
+
+  it('takes no earlier turn of a run it already generated for', () => {
+    const laterTurn = AgentTurn.of(FIRST.runId, 2, RUN_ORDERED_AT);
+    const generated = generating(
+      opened().requestGeneration(laterTurn, NOW),
+      laterTurn,
+      [proposed()],
+    );
+
+    expect(generated.requestGeneration(FIRST, NOW)).toBe(generated);
+    expect(generated.requestGeneration(laterTurn, NOW)).toBe(generated);
+  });
+
+  it('keeps waiting for a later turn when an earlier one of the same run asks', () => {
+    const laterTurn = AgentTurn.of(FIRST.runId, 2, RUN_ORDERED_AT);
+    const requested = opened().requestGeneration(laterTurn, NOW);
+
+    expect(requested.requestGeneration(FIRST, NOW)).toBe(requested);
+  });
+
+  it('records no generation for a turn it no longer waits for', () => {
+    const laterTurn = AgentTurn.of(FIRST.runId, 2, RUN_ORDERED_AT);
+    const requested = opened()
+      .requestGeneration(FIRST, NOW)
+      .requestGeneration(laterTurn, NOW);
+
+    expect(generating(requested, FIRST, [proposed()])).toBe(requested);
+  });
+
   it('takes no later run after its decisions merge', () => {
     const merged = generating(opened().requestGeneration(FIRST, NOW), FIRST, [
       proposed(),
@@ -200,7 +245,7 @@ describe('a decision set, requested to generate', () => {
     const requested = merged.requestGeneration(SECOND, NOW);
 
     expect(requested.hasPendingJob).toBe(false);
-    expect(requested.sourceRunId?.equals(FIRST)).toBe(true);
+    expect(requested.source?.equals(FIRST)).toBe(true);
     expect(kinds(requested)).toEqual([]);
   });
 });
@@ -225,7 +270,7 @@ describe('a decision set, generated', () => {
       'Retries uploads in the request',
     ]);
     expect(generated.decisions[0]?.id.value).toBe('run-1_1');
-    expect(generated.sourceRunId?.equals(FIRST)).toBe(true);
+    expect(generated.source?.equals(FIRST)).toBe(true);
     expect(generated.hasPendingJob).toBe(false);
 
     const [recorded] = generated.pullEvents();
@@ -248,7 +293,7 @@ describe('a decision set, generated', () => {
     expect(generated.decisions.map((each) => each.title)).toEqual([
       'Retries only once',
     ]);
-    expect(generated.sourceRunId?.equals(SECOND)).toBe(true);
+    expect(generated.source?.equals(SECOND)).toBe(true);
   });
 
   it('records that a run decided nothing', () => {
@@ -282,7 +327,7 @@ describe('a decision set, generated', () => {
         id: DecisionSetId.of('set-1'),
         taskId: TaskId.of('task-1'),
         workspaceId: WorkspaceId.of('workspace-1'),
-        sourceRunId: FIRST,
+        source: FIRST,
         decisions: [decision, decision],
         generation: null,
         status: DecisionStatus.proposed(),
@@ -301,7 +346,7 @@ describe('a decision set, failing to generate', () => {
       .deadLetter();
 
     expect(failed.decisions).toHaveLength(1);
-    expect(failed.sourceRunId?.equals(FIRST)).toBe(true);
+    expect(failed.source?.equals(FIRST)).toBe(true);
     expect(failed.hasPendingJob).toBe(false);
   });
 
@@ -386,7 +431,7 @@ describe('a decision set, merged in more than one repository', () => {
     opened()
       .requestGeneration(FIRST, NOW)
       .recordGeneration({
-        runId: FIRST,
+        turn: FIRST,
         proposed: [
           proposed({ title: 'Retries uploads', paths: ['api/src/uploads.ts'] }),
           proposed({ title: 'Polls every second', paths: ['web/src/poll.ts'] }),
@@ -453,7 +498,7 @@ describe('a decision set, merged in more than one repository', () => {
     const spanning = opened()
       .requestGeneration(FIRST, NOW)
       .recordGeneration({
-        runId: FIRST,
+        turn: FIRST,
         proposed: [
           proposed({
             title: 'Shares the retry policy',
@@ -494,7 +539,7 @@ describe('a decision set, merged in one repository', () => {
     const merged = opened()
       .requestGeneration(FIRST, NOW)
       .recordGeneration({
-        runId: FIRST,
+        turn: FIRST,
         proposed: [
           proposed({ paths: ['api/src/uploads.ts'] }),
           proposed({ title: 'Second', paths: ['api/src/retry.ts'] }),

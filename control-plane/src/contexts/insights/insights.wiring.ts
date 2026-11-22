@@ -100,6 +100,7 @@ import { ProjectRunFacts } from '@insights/application/services/project-run-fact
 import { PurgeExpiredTombstones } from '@insights/application/services/purge-expired-tombstones.service';
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
 import { RecheckJudgeDisagreements } from '@insights/application/services/recheck-judge-disagreements.service';
+import { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
@@ -688,6 +689,15 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ) => new RecordChangeChecks(records, recorder, transaction),
   },
   {
+    provide: RecordAskingRun,
+    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
+    useFactory: (
+      records: DrizzleRunRecordRepository,
+      recorder: FactRecorder,
+      transaction: TransactionPort,
+    ) => new RecordAskingRun(records, recorder, transaction),
+  },
+  {
     provide: RecordRunAction,
     inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
@@ -837,6 +847,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       RecordRunEnding,
       RecordSupersededRun,
       RecordChangeChecks,
+      RecordAskingRun,
       RecordRunAction,
       DeleteInsights,
       RequestJudging,
@@ -862,6 +873,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       ending: RecordRunEnding,
       superseding: RecordSupersededRun,
       checking: RecordChangeChecks,
+      asking: RecordAskingRun,
       acting: RecordRunAction,
       deleting: DeleteInsights,
       judging: RequestJudging,
@@ -885,6 +897,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           ending,
           superseding,
           checking,
+          asking,
           acting,
           deleting,
           judging,

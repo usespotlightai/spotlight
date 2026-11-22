@@ -29,6 +29,8 @@ import { TaskHeld } from '@work/domain/events/task-held.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
+import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -57,6 +59,7 @@ const dispatchEnded = (
   outcome: DispatchOutcome,
   failure: RunFailureCode | null = null,
   stopped = false,
+  handsOver = outcome === 'completed' && !stopped,
 ) =>
   new DispatchEnded(
     RUN,
@@ -68,9 +71,9 @@ const dispatchEnded = (
       outcome,
       failure,
       stopped,
-      askedAPerson: false,
     }),
     'line',
+    handsOver,
   );
 
 const TASK = TaskId.of('task_1');
@@ -256,7 +259,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a task put to a person, when, and who drove the run that asked', () => {
+  it('publishes a task put to a person, when, which run asked, who drove it and whether it reports a failure', () => {
     expect(
       published(
         new TaskAsked(
@@ -265,7 +268,9 @@ describe('WORK_EVENT_MAPPERS', () => {
           StationId.of('station_1'),
           null,
           new Date('2026-09-26T09:00:00Z'),
+          RUN,
           'person',
+          true,
         ),
       ),
     ).toEqual([
@@ -275,7 +280,40 @@ describe('WORK_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         stationId: 'station_1',
         at: '2026-09-26T09:00:00.000Z',
+        runId: 'run_1',
         driver: 'person',
+        runAsked: true,
+      },
+    ]);
+    expect(
+      published(
+        new TaskAsked(
+          TASK,
+          WORKSPACE,
+          StationId.of('station_1'),
+          null,
+          new Date('2026-09-26T09:00:00Z'),
+          null,
+          'line',
+          false,
+        ),
+      )[0],
+    ).toEqual(expect.objectContaining({ runId: null, driver: 'line' }));
+  });
+
+  it('publishes the turn a task waits on a person for, and whether it hands the work over', () => {
+    expect(
+      published(
+        new TaskTurnAwaited(TASK, WORKSPACE, AwaitedTurn.of(RUN, 2), true),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.task-turn-awaited.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        runId: 'run_1',
+        attempt: 2,
+        handsOver: true,
       },
     ]);
   });
@@ -341,7 +379,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     expect(ended(dispatchEnded('cancelled'))).toBe('cancelled');
   });
 
-  it('says which station a dispatched run worked at, which failure ended it and whether a person stopped it', () => {
+  it('says which station a dispatched run worked at, which failure ended it, whether a person stopped it and whether it hands the work over', () => {
     expect(published(dispatchEnded('completed', null, true))).toEqual([
       {
         kind: 'work.dispatch-ended.v1',
@@ -352,12 +390,19 @@ describe('WORK_EVENT_MAPPERS', () => {
         outcome: 'completed',
         failure: null,
         stopped: true,
-        asked: false,
         driver: 'line',
+        handsOver: false,
       },
     ]);
+    expect(published(dispatchEnded('completed'))[0]).toEqual(
+      expect.objectContaining({ stopped: false, handsOver: true }),
+    );
     expect(published(dispatchEnded('exhausted', 'runner-lost'))[0]).toEqual(
-      expect.objectContaining({ failure: 'runner-lost', stopped: false }),
+      expect.objectContaining({
+        failure: 'runner-lost',
+        stopped: false,
+        handsOver: false,
+      }),
     );
   });
 

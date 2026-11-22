@@ -10,6 +10,7 @@ import {
 } from '@insights/domain/value-objects/insights-period.vo';
 import { type PullRequestType } from '@insights/domain/value-objects/pull-request-type';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
+import { sameRepositoryName } from '@shared-kernel/domain/services/repository-names';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -135,9 +136,6 @@ export const weeksOf = (window: Window): readonly string[] => {
   return weeks;
 };
 
-const sameRepository = (one: string, other: string): boolean =>
-  one.toLowerCase() === other.toLowerCase();
-
 const shareOf = (tallies: readonly MergedTally[]): Share => {
   const of = (author: PullRequestAuthor): number =>
     tallies
@@ -171,7 +169,7 @@ const repositoriesOf = (repositories: readonly string[]): readonly string[] => {
   const named: string[] = [];
 
   for (const repository of repositories) {
-    if (!named.some((each) => sameRepository(each, repository))) {
+    if (!named.some((each) => sameRepositoryName(each, repository))) {
       named.push(repository);
     }
   }
@@ -191,8 +189,8 @@ const spotlightShareFrom = (
     weeks: weeklyOf(counts.tallies, weeks),
     repositories: repositoriesOf([...teamRepositories, ...counts.named])
       .map((repository) => {
-        const here = counts.tallies.filter(
-          (each) => each.repository === repository.toLowerCase(),
+        const here = counts.tallies.filter((each) =>
+          sameRepositoryName(each.repository, repository),
         );
 
         return { repository, ...shareOf(here), weeks: weeklyOf(here, weeks) };

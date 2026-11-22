@@ -3,11 +3,18 @@ import { ChangeStackBecameReady } from '@change-review/domain/events/change-stac
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const STACK = RepositoryStack.of({
+  repository: RepositoryName.of('api'),
+  startedAt: new Date('2026-10-02T09:00:00.000Z'),
+});
 
 describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
   it('publishes whether a run’s change passed its checks, and for which task', () => {
@@ -18,6 +25,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       WorkspaceId.of('ws_1'),
       false,
       false,
+      STACK,
       new Date('2026-10-02T09:30:00.000Z'),
     );
 
@@ -32,16 +40,43 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
         taskId: 'task_1',
         workspaceId: 'ws_1',
         passed: false,
+        repository: 'api',
+        stackStartedAt: '2026-10-02T09:00:00.000Z',
         at: '2026-10-02T09:30:00.000Z',
       },
     ]);
   });
+  it('publishes a stack without a repository as one for the whole task', () => {
+    const checked = new StackChecked(
+      StackCheckId.of(ChangeStackId.of('stack_1'), false),
+      RunId.of('run_1'),
+      TaskId.of('task_1'),
+      WorkspaceId.of('ws_1'),
+      true,
+      false,
+      RepositoryStack.of({
+        repository: null,
+        startedAt: new Date('2026-10-02T09:00:00.000Z'),
+      }),
+      new Date('2026-10-02T09:30:00.000Z'),
+    );
+
+    expect(
+      CHANGE_REVIEW_EVENT_MAPPERS.filter(
+        (each) => each.from === checked.kind,
+      ).map((each) => each.map(checked, new Date())),
+    ).toMatchObject([
+      { repository: null, stackStartedAt: '2026-10-02T09:00:00.000Z' },
+    ]);
+  });
+
   it('publishes what the change cohorts of a run’s stack set out to do, leaving incidental ones out', () => {
     const ready = new ChangeStackBecameReady(
       ChangeStackId.of('stack_1'),
       RunId.of('run_1'),
       TaskId.of('task_1'),
       WorkspaceId.of('ws_1'),
+      STACK,
       [
         {
           kind: 'change',
@@ -65,6 +100,8 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         changeTitles: ['Fix retries'],
         changeIntents: ['Stop dropping uploads'],
+        repository: 'api',
+        stackStartedAt: '2026-10-02T09:00:00.000Z',
         at: '2026-09-30T10:00:00.000Z',
       },
     ]);
@@ -78,6 +115,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       WorkspaceId.of('ws_1'),
       true,
       true,
+      STACK,
       new Date('2026-10-02T09:30:00.000Z'),
     );
 
@@ -103,6 +141,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       WorkspaceId.of('ws_1'),
       false,
       true,
+      STACK,
       new Date('2026-10-02T09:30:00.000Z'),
     );
 
@@ -149,6 +188,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
         WorkspaceId.of('ws_1'),
         true,
         false,
+        STACK,
         new Date('2026-10-02T09:30:00.000Z'),
       );
 

@@ -80,6 +80,8 @@ export class Work implements WorkPort {
       queuedAt: run.queuedAt,
       startedAt: run.startedAt,
       endedAt: run.endedAt,
+      queuedMs: run.queuedMs,
+      runningMs: run.runningMs,
     };
   }
 
@@ -106,6 +108,7 @@ export class Work implements WorkPort {
     return run
       ? {
           runId: RunId.of(run.runId),
+          workspaceId: WorkspaceId.of(run.workspaceId),
           taskId: TaskId.of(run.taskId),
           teamId: TeamId.of(run.teamId),
         }

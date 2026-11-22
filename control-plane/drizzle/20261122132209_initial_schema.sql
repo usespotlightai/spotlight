@@ -199,13 +199,19 @@ CREATE TABLE "decision_set" (
 	"task_id" text NOT NULL,
 	"workspace_id" text NOT NULL,
 	"source_run_id" text,
+	"source_attempt" integer,
+	"source_run_ordered_at" timestamp (3) with time zone,
 	"generation_run_id" text,
+	"generation_attempt" integer,
+	"generation_run_ordered_at" timestamp (3) with time zone,
 	"generation_requested_at" timestamp (3) with time zone,
 	"job_attempts" integer NOT NULL,
 	"job_due_at" timestamp (3) with time zone,
 	"status" "decision_status" NOT NULL,
 	"version" integer NOT NULL,
-	CONSTRAINT "decision_set_job_attempts_not_negative" CHECK ("decision_set"."job_attempts" >= 0)
+	CONSTRAINT "decision_set_job_attempts_not_negative" CHECK ("decision_set"."job_attempts" >= 0),
+	CONSTRAINT "decision_set_source_turn" CHECK (("decision_set"."source_run_id" is null) = ("decision_set"."source_attempt" is null) and ("decision_set"."source_run_id" is null) = ("decision_set"."source_run_ordered_at" is null) and coalesce("decision_set"."source_attempt", 1) >= 1),
+	CONSTRAINT "decision_set_generation_turn" CHECK (("decision_set"."generation_run_id" is null) = ("decision_set"."generation_attempt" is null) and ("decision_set"."generation_run_id" is null) = ("decision_set"."generation_run_ordered_at" is null) and coalesce("decision_set"."generation_attempt", 1) >= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "decision_set_merge" (
@@ -353,6 +359,8 @@ CREATE TABLE "stack_check" (
 	"setup" text,
 	"placement" jsonb NOT NULL,
 	"placement_image" text,
+	"repository" text,
+	"stack_started_at" timestamp (3) with time zone NOT NULL,
 	"status" "stack_check_status" NOT NULL,
 	"entries" jsonb NOT NULL,
 	"redraft_count" integer NOT NULL,
@@ -770,6 +778,8 @@ CREATE TABLE "run_fact" (
 	"queued_at" timestamp (3) with time zone,
 	"started_at" timestamp (3) with time zone,
 	"ended_at" timestamp (3) with time zone NOT NULL,
+	"queued_ms" bigint,
+	"running_ms" bigint,
 	"began_at" timestamp (3) with time zone NOT NULL,
 	"ended_as" "run_record_ending" NOT NULL,
 	"ending" "run_record_ending" NOT NULL,
@@ -834,13 +844,14 @@ CREATE TABLE "run_record" (
 	"queued_at" timestamp (3) with time zone,
 	"started_at" timestamp (3) with time zone,
 	"ended_at" timestamp (3) with time zone,
+	"queued_ms" bigint,
+	"running_ms" bigint,
 	"ending" "run_record_ending",
 	"failure" text,
 	"run_number" integer,
 	"asked" boolean DEFAULT false NOT NULL,
 	"superseded_at" timestamp (3) with time zone,
-	"checks" "run_record_checks",
-	"checked_at" timestamp (3) with time zone,
+	"repository_checks" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"deciding_action" "deciding_action",
 	"deciding_action_at" timestamp (3) with time zone,
 	"deciding_action_by" text,
@@ -935,9 +946,7 @@ CREATE TABLE "task_change_shape" (
 	"task_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
-	"change_titles" text[] DEFAULT '{}' NOT NULL,
-	"change_intents" text[] DEFAULT '{}' NOT NULL,
-	"shaped_at" timestamp (3) with time zone NOT NULL,
+	"shapes" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1344,16 +1353,22 @@ CREATE TABLE "memory_draft" (
 	"task_id" text NOT NULL,
 	"workspace_id" text NOT NULL,
 	"drafting_run_id" text,
+	"drafting_attempt" integer,
+	"drafting_run_ordered_at" timestamp (3) with time zone,
 	"drafting_requested_at" timestamp (3) with time zone,
 	"job_attempts" integer DEFAULT 0 NOT NULL,
 	"job_due_at" timestamp (3) with time zone,
 	"drafted_in" text,
+	"drafted_in_attempt" integer,
+	"drafted_in_run_ordered_at" timestamp (3) with time zone,
 	"notes_read" integer DEFAULT 0 NOT NULL,
 	"failure" "memory_drafting_failure",
 	"failed_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "memory_draft_job_attempts_not_negative" CHECK ("memory_draft"."job_attempts" >= 0),
-	CONSTRAINT "memory_draft_notes_read_not_negative" CHECK ("memory_draft"."notes_read" >= 0)
+	CONSTRAINT "memory_draft_notes_read_not_negative" CHECK ("memory_draft"."notes_read" >= 0),
+	CONSTRAINT "memory_draft_drafting_turn" CHECK (("memory_draft"."drafting_run_id" is null) = ("memory_draft"."drafting_attempt" is null) and ("memory_draft"."drafting_run_id" is null) = ("memory_draft"."drafting_run_ordered_at" is null) and coalesce("memory_draft"."drafting_attempt", 1) >= 1),
+	CONSTRAINT "memory_draft_drafted_in_turn" CHECK (("memory_draft"."drafted_in" is null) = ("memory_draft"."drafted_in_attempt" is null) and ("memory_draft"."drafted_in" is null) = ("memory_draft"."drafted_in_run_ordered_at" is null) and coalesce("memory_draft"."drafted_in_attempt", 1) >= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "memory_proposal" (
@@ -2026,6 +2041,9 @@ CREATE TABLE "run" (
 	"requeue_count" integer DEFAULT 0 NOT NULL,
 	"suspended_attempts" integer[] DEFAULT '{}'::integer[] NOT NULL,
 	"started_at" timestamp (3) with time zone,
+	"first_started_at" timestamp (3) with time zone,
+	"queued_ms" bigint DEFAULT 0 NOT NULL,
+	"running_ms" bigint DEFAULT 0 NOT NULL,
 	"ended_at" timestamp (3) with time zone,
 	"started_from_archive_id" text,
 	"started_from_checkouts" jsonb,
@@ -2264,7 +2282,6 @@ CREATE TABLE "dispatch" (
 	"outcome" "dispatch_outcome",
 	"failure" text,
 	"stopped" boolean DEFAULT false NOT NULL,
-	"asked_a_person" boolean DEFAULT false NOT NULL,
 	"superseded" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "dispatch_station_config_check" CHECK (("dispatch"."station_config" is null) = ("dispatch"."station_fingerprint" is null)),

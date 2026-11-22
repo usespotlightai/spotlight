@@ -15,6 +15,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -317,6 +318,7 @@ describe('a task awaiting the turn its run handed over', () => {
       note: newNote('Which queue should I drain?', Voice.station(RUN)),
       session: HarnessSession.of('session_1'),
       runner: null,
+      runAsked: true,
     });
 
   it('puts itself to a person, records the session and remembers the turn it awaits', () => {
@@ -328,6 +330,31 @@ describe('a task awaiting the turn its run handed over', () => {
     expect(task.hasCurrentRun(RUN)).toBe(true);
   });
 
+  it('says whether the run itself asked when it puts the task to a person', () => {
+    const askedOf = (runAsked: boolean) =>
+      assigned()
+        .awaitTurn({
+          turn: TURN,
+          note: newNote('Which queue should I drain?', Voice.station(RUN)),
+          session: null,
+          runner: null,
+          runAsked,
+        })
+        .pullEvents()
+        .find((each) => each instanceof TaskAsked);
+
+    expect(askedOf(true)).toMatchObject({ runAsked: true });
+    expect(askedOf(false)).toMatchObject({ runAsked: false });
+  });
+
+  it('hands the work over for the turn a run of the line awaits', () => {
+    expect(
+      awaiting()
+        .pullEvents()
+        .find((each) => each instanceof TaskTurnAwaited),
+    ).toMatchObject({ turn: TURN, handsOver: true });
+  });
+
   it('awaits a turn once, so a redelivered turn asks nobody twice', () => {
     const task = awaiting();
 
@@ -337,6 +364,7 @@ describe('a task awaiting the turn its run handed over', () => {
         note: newNote('Which queue?', Voice.station(RUN)),
         session: null,
         runner: null,
+        runAsked: true,
       }),
     ).toBe(task);
   });
@@ -347,6 +375,7 @@ describe('a task awaiting the turn its run handed over', () => {
       note: newNote('A second question.', Voice.station(RUN)),
       session: null,
       runner: null,
+      runAsked: true,
     });
 
     expect(task.notes).toHaveLength(1);
@@ -388,6 +417,7 @@ describe('a task awaiting the turn its run handed over', () => {
         note: newNote('Which?', Voice.station(RunId.of('run_9'))),
         session: null,
         runner: null,
+        runAsked: true,
       }),
     ).toThrow(InvalidTaskTransitionError);
   });

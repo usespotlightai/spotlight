@@ -2,9 +2,11 @@ import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
+import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
+import { RunChecks } from '@insights/domain/value-objects/run-checks.vo';
 import {
   MemoryReference,
   RunMemories,
@@ -28,6 +30,12 @@ import { describe, expect, it } from 'vitest';
 const ACTOR = UserId.of('user_actor');
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
+
+const checkOf = (
+  verdict: CheckVerdict,
+  stackStartedAt: Date = RECEIVED_AT,
+  repository: string | null = 'api',
+) => ({ repository, stackStartedAt, verdict, checkedAt: RECEIVED_AT });
 
 const RUN = RunId.of('run_1');
 const EARLIER = new Date('2026-09-30T10:00:00.000Z');
@@ -71,9 +79,9 @@ describe('RunRecord', () => {
       .recordAction(PersonAction.of('sent-back', LATER, ACTOR))
       .recordAction(PersonAction.of('approved', LATER, ACTOR))
       .recordAction(PersonAction.of('dismissed', LATER, ACTOR))
-      .recordCheck('skipped', RECEIVED_AT)
-      .recordCheck('passed', RECEIVED_AT)
-      .recordCheck('failed', RECEIVED_AT)
+      .recordCheck(checkOf('skipped'))
+      .recordCheck(checkOf('passed'))
+      .recordCheck(checkOf('failed'))
       .recordUsage(usageOf(), RunTools.NONE)
       .recordUsage(usageOf({ amount: 2 }), RunTools.NONE);
 
@@ -122,20 +130,42 @@ describe('RunRecord', () => {
     expect(superseded.supersededByItsTask(RECEIVED_AT)).toBe(superseded);
   });
 
-  it('keeps the first verdict on its change', () => {
-    const failed = endedRecord('run_1').recordCheck('failed', RECEIVED_AT);
+  it('keeps the first verdict on the same stack', () => {
+    const failed = endedRecord('run_1').recordCheck(checkOf('failed'));
 
-    expect(failed.recordCheck('passed', RECEIVED_AT)).toBe(failed);
+    expect(failed.recordCheck(checkOf('passed'))).toBe(failed);
     expect(failed.checks).toBe('failed');
+  });
+
+  it('takes the verdict of a later handover in the same run', () => {
+    const failed = endedRecord('run_1').recordCheck(checkOf('failed', EARLIER));
+
+    expect(failed.recordCheck(checkOf('passed', LATER)).checks).toBe('passed');
+  });
+
+  it('fails when one of its repositories fails', () => {
+    const checked = endedRecord('run_1')
+      .recordCheck(checkOf('passed', AT, 'api'))
+      .recordCheck(checkOf('failed', AT, 'web'));
+
+    expect(checked.checks).toBe('failed');
+  });
+
+  it('records once that it asked a person', () => {
+    const asked = endedRecord('run_1').recordAsked();
+
+    expect(asked.asked).toBe(true);
+    expect(asked.recordAsked()).toBe(asked);
+    expect(asked.factWith(null, null, null)?.asked).toBe(true);
   });
 
   it('takes a real verdict over a skipped check, in either order', () => {
     const skippedFirst = endedRecord('run_1')
-      .recordCheck('skipped', RECEIVED_AT)
-      .recordCheck('passed', RECEIVED_AT);
+      .recordCheck(checkOf('skipped'))
+      .recordCheck(checkOf('passed'));
     const passedFirst = endedRecord('run_1')
-      .recordCheck('passed', RECEIVED_AT)
-      .recordCheck('skipped', RECEIVED_AT);
+      .recordCheck(checkOf('passed'))
+      .recordCheck(checkOf('skipped'));
 
     expect(skippedFirst.checks).toBe('passed');
     expect(passedFirst.checks).toBe('passed');
@@ -143,7 +173,7 @@ describe('RunRecord', () => {
 
   it('takes its verdict before its end is received', () => {
     const checked = RunRecord.empty(RUN, WORKSPACE)
-      .recordCheck('passed', RECEIVED_AT)
+      .recordCheck(checkOf('passed'))
       .recordEnd(endOf());
 
     expect(checked.checks).toBe('passed');
@@ -314,8 +344,8 @@ describe('RunRecord', () => {
       taskId: TaskId.of('task_1'),
       end: endOf(),
       supersededAt: null,
-      checks: null,
-      checkedAt: null,
+      asked: false,
+      checked: RunChecks.NONE,
       actions: RunActions.NONE,
       approvalAnsweredAt: null,
       usage: null,
@@ -328,7 +358,7 @@ describe('RunRecord', () => {
 
     expect(
       record
-        .recordCheck('passed', RECEIVED_AT)
+        .recordCheck(checkOf('passed'))
         .recordAction(PersonAction.of('accepted', AT, ACTOR)).version,
     ).toBe(3);
   });
@@ -373,8 +403,8 @@ describe('RunRecord', () => {
         taskId: TaskId.of('task_2'),
         end: endOf({ taskId: 'task_1' }),
         supersededAt: null,
-        checks: null,
-        checkedAt: null,
+        asked: false,
+        checked: RunChecks.NONE,
         actions: RunActions.NONE,
         approvalAnsweredAt: null,
         usage: null,
@@ -438,8 +468,8 @@ describe('RunRecord', () => {
         taskId: TaskId.of('task_1'),
         end: endOf({ taskId: 'task_1' }),
         supersededAt: null,
-        checks: null,
-        checkedAt: null,
+        asked: false,
+        checked: RunChecks.NONE,
         actions: RunActions.NONE,
         approvalAnsweredAt: null,
         usage,
@@ -570,7 +600,8 @@ describe('RunRecord', () => {
   it('turned out asking when it ended waiting on a person nobody has answered yet', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
-        .recordEnd(endOf({ asked: true }))
+        .recordEnd(endOf())
+        .recordAsked()
         .factWith(null, null, null)?.disposition,
     ).toBe('asked');
   });

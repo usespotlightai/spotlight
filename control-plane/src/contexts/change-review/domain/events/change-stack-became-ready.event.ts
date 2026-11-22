@@ -1,4 +1,5 @@
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import type { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import type { CohortKind } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -19,6 +20,7 @@ export class ChangeStackBecameReady implements DomainEvent {
     readonly runId: RunId,
     readonly taskId: TaskId | null,
     readonly workspaceId: WorkspaceId,
+    readonly stack: RepositoryStack,
     readonly cohorts: readonly ReadyCohort[],
     readonly at: Date,
   ) {}

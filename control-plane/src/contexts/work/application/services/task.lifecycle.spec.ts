@@ -471,6 +471,7 @@ const turnKept = (world: World, stale: boolean): Task => {
     note: said(world, 'Which queue should I drain?', Voice.station(run)),
     session: HarnessSession.of(`session_${run.value}`),
     runner: RunnerId.of('runner_1'),
+    runAsked: true,
   });
 };
 

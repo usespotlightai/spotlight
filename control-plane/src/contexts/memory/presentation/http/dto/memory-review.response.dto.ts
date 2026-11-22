@@ -16,7 +16,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class MemoryProvenanceStepResponseDto {
   @ApiProperty({
     example: 12,
-    description: 'The position of the step in its run',
+    description:
+      'The number of the step in its run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0',
   })
   readonly index: number;
 

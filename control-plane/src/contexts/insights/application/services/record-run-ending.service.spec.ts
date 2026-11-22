@@ -67,11 +67,7 @@ const recording = (runs: readonly EndedRun[]) => {
       new FactRecorder(deletions),
       inTransaction,
     ),
-    ended: (
-      runId: string,
-      ending: RunEnding | null = 'completed',
-      asked = false,
-    ) =>
+    ended: (runId: string, ending: RunEnding | null = 'completed') =>
       new RecordRunEnding(
         work,
         records,
@@ -84,7 +80,6 @@ const recording = (runs: readonly EndedRun[]) => {
         ending,
         failure: ending === 'failed' ? 'exited' : null,
         drivenByAPerson: false,
-        asked,
       }),
     stored: async (runId: string) => records.of(RunId.of(runId)),
   };
@@ -106,17 +101,32 @@ describe('recording that a run ended', () => {
     expect(record?.end?.runNumber).toBe(1);
   });
 
-  it('records that it ended waiting on a person', async () => {
-    const recorder = recording([endedRun('run_1'), endedRun('run_2')]);
+  it('records the time the run spent queued and running, not the time it waited on a person', async () => {
+    const recorder = recording([
+      endedRun('run_1', {
+        queuedAt: at(1),
+        startedAt: at(2),
+        endedAt: at(9),
+        queuedMs: 3_600_000,
+        runningMs: 1_800_000,
+      }),
+    ]);
 
-    await recorder.ended('run_1', 'completed', true);
-    await recorder.ended('run_2');
+    await recorder.ended('run_1');
 
-    expect((await recorder.stored('run_1'))?.end?.asked).toBe(true);
-    expect(
-      (await recorder.stored('run_1'))?.factWith(null, null, null)?.disposition,
-    ).toBe('asked');
-    expect((await recorder.stored('run_2'))?.end?.asked).toBe(false);
+    const end = (await recorder.stored('run_1'))?.end;
+    expect(end?.queuedMs).toBe(3_600_000);
+    expect(end?.runningMs).toBe(1_800_000);
+  });
+
+  it('records no time spent for a run that never started', async () => {
+    const recorder = recording([endedRun('run_1')]);
+
+    await recorder.ended('run_1');
+
+    const end = (await recorder.stored('run_1'))?.end;
+    expect(end?.queuedMs).toBeNull();
+    expect(end?.runningMs).toBeNull();
   });
 
   it('records a run a person stopped as stopped', async () => {

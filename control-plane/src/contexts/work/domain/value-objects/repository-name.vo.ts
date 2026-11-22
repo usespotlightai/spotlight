@@ -1,4 +1,5 @@
 import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid-repository.error';
+import { sameRepositoryName } from '@shared-kernel/domain/services/repository-names';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 const MAX_LENGTH = 100;
@@ -33,10 +34,10 @@ export class RepositoryName {
   }
 
   names(repository: Repository): boolean {
-    return repository.name.toLowerCase() === this.value.toLowerCase();
+    return sameRepositoryName(repository.name, this.value);
   }
 
   equals(other: RepositoryName): boolean {
-    return this.value.toLowerCase() === other.value.toLowerCase();
+    return sameRepositoryName(this.value, other.value);
   }
 }

@@ -81,7 +81,8 @@ const ran = async (runId: string) => {
       ending: 'completed',
       failure: null,
       runNumber: 1,
-      asked: false,
+      queuedMs: 0,
+      runningMs: 0,
     }),
   );
 

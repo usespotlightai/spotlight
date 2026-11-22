@@ -10,6 +10,7 @@ import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggre
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -18,9 +19,12 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-21T10:00:00Z');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const CLOSED_AT = new Date('2026-09-21T09:30:00Z');
 const TASK = TaskId.of('task_1');
 const RUN = RunId.of('run_1');
+const TURN = AgentTurn.of(RUN, 2, RUN_ORDERED_AT);
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 const MERGED: ClosedPullRequest = {
@@ -39,9 +43,9 @@ const decided = (paths: readonly string[] = ['api/src/uploads.ts']) =>
     taskId: TASK,
     workspaceId: WORKSPACE,
   })
-    .requestGeneration(RUN, NOW)
+    .requestGeneration(TURN, NOW)
     .recordGeneration({
-      runId: RUN,
+      turn: TURN,
       newId: (() => {
         let next = 0;
         return () => `decision_${(next += 1)}`;

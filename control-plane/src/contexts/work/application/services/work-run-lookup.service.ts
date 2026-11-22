@@ -1,7 +1,7 @@
 import type {
   JournalStep,
+  NumberedJournalStep,
   RunChanges,
-  RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
@@ -47,17 +47,19 @@ interface RunTeam {
 }
 
 const changesIn = (
-  journal: RunJournal,
+  runId: RunId,
+  steps: readonly JournalStep[],
   checkouts: readonly string[],
 ): RunChanges => ({
-  runId: journal.runId,
+  runId: runId.value,
   checkouts,
-  paths: journal.steps.flatMap((step) =>
-    step.change?.path ? [step.change.path] : [],
-  ),
+  paths: steps.flatMap((step) => (step.change?.path ? [step.change.path] : [])),
 });
 
-const reasoned = (step: JournalStep, index: number): ReasonedStep[] => {
+const stepsOf = (numbered: readonly NumberedJournalStep[]): JournalStep[] =>
+  numbered.map((each) => each.step);
+
+const reasoned = ({ step, index }: NumberedJournalStep): ReasonedStep[] => {
   const reasoning = reasoningIn({
     ...step,
     kind: RunReadingMapper.stepKind(step.kind),
@@ -123,8 +125,9 @@ export class WorkRunLookup implements WorkRunLookupPort {
       decisions: station?.decisions ?? false,
       memories: station?.memories ?? false,
       briefedWith: dispatched?.briefedMemories ?? BriefedMemories.none().value,
-      ended: run.ended,
-      completed: run.state === 'completed',
+      working: run.working,
+      attempt: run.attempt,
+      orderedAt: dispatched?.orderedAt ?? null,
       trial: dispatched?.for.kind === 'trial',
       isolated: !run.policy.actsBeyondItself,
       checkouts: run.checkouts.length,
@@ -150,21 +153,35 @@ export class WorkRunLookup implements WorkRunLookupPort {
       : null;
   }
 
-  async reasoning(runId: RunId): Promise<RunReasoning | null> {
+  async reasoning(
+    runId: RunId,
+    throughAttempt: number | null,
+  ): Promise<RunReasoning | null> {
     const [run] = await this.facts.of([runId]);
-    const journal = run ? await this.journals.ofRun(runId) : null;
+    const steps = run
+      ? this.readings.stepsThrough(
+          await this.journals.attemptsOfRun(runId),
+          throughAttempt,
+        )
+      : null;
 
-    if (!run || !journal) {
+    if (!run || !steps) {
       return null;
     }
 
     const taskId = taskOf(await this.dispatches.of(runId));
+    const own = changesIn(runId, stepsOf(steps), run.checkouts);
     const changes = taskId
-      ? await this.journals.changesOfTask(taskId)
-      : [changesIn(journal, run.checkouts)];
+      ? [
+          ...(await this.journals.changesOfTask(taskId)).filter(
+            (each) => each.runId !== runId.value,
+          ),
+          own,
+        ]
+      : [own];
 
     return {
-      steps: journal.steps.flatMap(reasoned),
+      steps: steps.flatMap(reasoned),
       changed: [
         ...new Set(
           changes.flatMap((each) => this.readings.workingCopyPathsIn(each)),
@@ -173,11 +190,19 @@ export class WorkRunLookup implements WorkRunLookupPort {
     };
   }
 
-  async changedBy(runId: RunId): Promise<readonly ChangedFile[] | null> {
+  async changedBy(
+    runId: RunId,
+    throughAttempt: number | null,
+  ): Promise<readonly ChangedFile[] | null> {
     const [run] = await this.facts.of([runId]);
-    const journal = run ? await this.journals.ofRun(runId) : null;
+    const steps = run
+      ? this.readings.stepsThrough(
+          await this.journals.attemptsOfRun(runId),
+          throughAttempt,
+        )
+      : null;
 
-    if (!run || !journal) {
+    if (!run || !steps) {
       return null;
     }
 
@@ -189,7 +214,9 @@ export class WorkRunLookup implements WorkRunLookupPort {
 
     return distinctFiles(
       filesChangedIn(
-        this.readings.workingCopyPathsIn(changesIn(journal, run.checkouts)),
+        this.readings.workingCopyPathsIn(
+          changesIn(runId, stepsOf(steps), run.checkouts),
+        ),
         repositories,
       ),
     );
@@ -231,9 +258,12 @@ export class WorkRunLookup implements WorkRunLookupPort {
     runId: RunId,
     under: FilesUnder,
   ): Promise<readonly string[] | null> {
-    const journal = await this.journals.ofRun(runId);
+    const steps = this.readings.stepsThrough(
+      await this.journals.attemptsOfRun(runId),
+      null,
+    );
 
-    return journal ? referencesUnder(journal, under) : null;
+    return steps ? referencesUnder(stepsOf(steps), under) : null;
   }
 
   private async contextOf(

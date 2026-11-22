@@ -36,8 +36,9 @@ export interface RunLookup {
     readonly briefed: readonly BriefedMemory[];
     readonly omitted: readonly BriefedMemory[];
   };
-  readonly ended: boolean;
-  readonly completed: boolean;
+  readonly working: boolean;
+  readonly attempt: number;
+  readonly orderedAt: Date | null;
   readonly trial: boolean;
   readonly isolated: boolean;
   readonly checkouts: number;
@@ -94,7 +95,13 @@ export interface WorkRunLookupPort {
     under: FilesUnder,
   ): Promise<readonly string[] | null>;
 
-  reasoning(runId: RunId): Promise<RunReasoning | null>;
+  reasoning(
+    runId: RunId,
+    throughAttempt: number | null,
+  ): Promise<RunReasoning | null>;
 
-  changedBy(runId: RunId): Promise<readonly ChangedFile[] | null>;
+  changedBy(
+    runId: RunId,
+    throughAttempt: number | null,
+  ): Promise<readonly ChangedFile[] | null>;
 }

@@ -1,7 +1,12 @@
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { MemoryReference } from '@insights/domain/value-objects/run-memories.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
-import { costedRecord, endedRecord, factOf } from '@insights/runs.fake-spec';
+import {
+  checkOf,
+  costedRecord,
+  endedRecord,
+  factOf,
+} from '@insights/runs.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -70,7 +75,7 @@ describe('RunFact', () => {
   it('knows what was known of it at a moment, its task’s pull request too', () => {
     const fact = endedRecord('run_1', { endedAt: EARLIER })
       .supersededByItsTask(LATER)
-      .recordCheck('passed', AT)
+      .recordCheck(checkOf('passed', AT))
       .recordAction(PersonAction.of('approved', LATER, ACTOR))
       .recordAction(PersonAction.of('accepted', LATER, ACTOR))
       .passTo(StationPass.of(StationId.of('station_2'), LATER))

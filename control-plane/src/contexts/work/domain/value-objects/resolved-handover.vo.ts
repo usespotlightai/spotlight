@@ -14,6 +14,7 @@ export type ResolvedHandover =
       readonly kind: 'review';
       readonly failure: TaskFailure | null;
       readonly suggestsClosing: boolean;
+      readonly asked: boolean;
     })
   | (HandoverNote & { readonly kind: 'done' })
   | (HandoverNote & { readonly kind: 'pass'; readonly stationId: StationId });
@@ -34,6 +35,22 @@ export const ResolvedHandover = {
     attachments,
     failure: null,
     suggestsClosing,
+    asked: false,
+  }),
+
+  asked: (
+    body: TaskNoteBody,
+    account: TaskNoteBody | null,
+    attachments: readonly Attachment[],
+    suggestsClosing: boolean,
+  ): ResolvedHandover => ({
+    kind: 'review',
+    body,
+    account,
+    attachments,
+    failure: null,
+    suggestsClosing,
+    asked: true,
   }),
 
   failed: (body: TaskNoteBody, failure: TaskFailure): ResolvedHandover => ({
@@ -43,6 +60,7 @@ export const ResolvedHandover = {
     attachments: [],
     failure,
     suggestsClosing: false,
+    asked: false,
   }),
 
   done: (

@@ -1,11 +1,11 @@
-import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import type { JournalStep } from '@runs/application/contracts/run-journal.contract';
 import type { FilesUnder } from '@work/application/ports/work-run-lookup.port';
 
 const escaped = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const referencesUnder = (
-  journal: RunJournal,
+  steps: readonly JournalStep[],
   under: FilesUnder,
 ): string[] => {
   const pattern = new RegExp(
@@ -14,7 +14,7 @@ export const referencesUnder = (
   );
   const found = new Set<string>();
 
-  for (const step of journal.steps) {
+  for (const step of steps) {
     if (step.kind !== 'tool') {
       continue;
     }

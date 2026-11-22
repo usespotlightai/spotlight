@@ -19,6 +19,7 @@ export class RecordChangeChecks {
     runId: RunId,
     workspaceId: WorkspaceId,
     taskId: TaskId | null,
+    stack: { repository: string | null; startedAt: Date },
     passed: boolean | null,
     at: Date,
   ): Promise<void> {
@@ -34,7 +35,13 @@ export class RecordChangeChecks {
         deleted: (existing) => existing.delete(),
         load: () => this.records.of(runId),
         fresh: () => RunRecord.empty(runId, workspaceId, taskId),
-        change: (record) => record.recordCheck(verdict, at),
+        change: (record) =>
+          record.recordCheck({
+            repository: stack.repository,
+            stackStartedAt: stack.startedAt,
+            verdict,
+            checkedAt: at,
+          }),
       }),
     );
   }

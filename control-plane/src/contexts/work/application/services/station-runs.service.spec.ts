@@ -35,6 +35,8 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
   queuedAt: QUEUED,
   startedAt: STARTED,
   endedAt: ENDED,
+  queuedMs: 120_000,
+  runningMs: 300_000,
   ...change,
 });
 
@@ -94,6 +96,8 @@ describe('StationRuns.ended', () => {
       queuedAt: QUEUED,
       startedAt: STARTED,
       endedAt: ENDED,
+      queuedMs: 120_000,
+      runningMs: 300_000,
     });
   });
 
@@ -306,6 +310,7 @@ describe('StationRuns.taskRunOf', () => {
 
     expect(await stations.taskRunOf('run_1')).toEqual({
       runId: 'run_1',
+      workspaceId: 'ws_1',
       taskId: 'task_1',
       teamId: 'team_1',
     });

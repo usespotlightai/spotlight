@@ -31,6 +31,7 @@ const stepOf = (
 const journalOf = (runId: string, steps: JournalStep[]): RunJournal => ({
   runId,
   attempt: 1,
+  firstStep: 0,
   activity: null,
   background: [],
   ms: null,
@@ -116,7 +117,7 @@ describe('RunCitationTargets', () => {
   it('opens the run’s steps at the cited step, and marks it', async () => {
     showing(citing('worker/services/retry.ts', 2));
 
-    await userEvent.click(screen.getByRole('button', { name: 'step 2' }));
+    await userEvent.click(screen.getByRole('button', { name: 'execute step' }));
 
     expect(screen.getByRole('button', { name: /^Worked/ })).toHaveAttribute(
       'aria-expanded',
@@ -145,10 +146,9 @@ describe('RunCitationTargets', () => {
   it('greys out a step past the run’s journal and a file of another run', () => {
     showing(citing('worker/queue.ts', 3));
 
-    expect(screen.getByRole('button', { name: 'step 3' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(
+      screen.getByRole('button', { name: 'execute step' }),
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('button', { name: 'queue.ts:2' }),
     ).toHaveAccessibleDescription(

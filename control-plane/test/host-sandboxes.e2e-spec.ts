@@ -245,12 +245,14 @@ describe('the image each working copy last ran in', () => {
       startedRun(task, {
         ranIn: pinned('runner', 'a'),
         startedAt: minutesAgo(50),
+        firstStartedAt: minutesAgo(50),
         endedAt: minutesAgo(40),
         createdAt: minutesAgo(50),
       }),
       startedRun(task, {
         ranIn: pinned('widgets', 'b'),
         startedAt: minutesAgo(30),
+        firstStartedAt: minutesAgo(30),
         endedAt: minutesAgo(20),
         createdAt: minutesAgo(30),
       }),
@@ -259,6 +261,7 @@ describe('the image each working copy last ran in', () => {
         workspaceId: 'ws_other',
         ranIn: pinned('other', 'c'),
         startedAt: minutesAgo(10),
+        firstStartedAt: minutesAgo(10),
         endedAt: minutesAgo(1),
         createdAt: minutesAgo(10),
       }),

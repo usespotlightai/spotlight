@@ -1,7 +1,7 @@
 import { StationAlertStatesInMemory } from '@insights/alerts.fake-spec';
 import { chatsInMemory } from '@insights/application/ports/chats.fake-spec';
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
-import type { EndedRun, WorkPort } from '@insights/application/ports/work.port';
+import type { TaskRun, WorkPort } from '@insights/application/ports/work.port';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { PurgeExpiredTombstones } from '@insights/application/services/purge-expired-tombstones.service';
@@ -77,20 +77,22 @@ const shaping = (repositories: Repositories) =>
     inTransaction,
   );
 
-const ENDED = {
+const RUN: TaskRun = {
   runId: RunId.of('run_1'),
   workspaceId: WORKSPACE,
   teamId: TEAM,
   taskId: TASK,
-} as EndedRun;
+};
 
-const work = { endedRun: async () => ENDED } as unknown as WorkPort;
+const work = { taskRunOf: async () => RUN } as unknown as WorkPort;
 
 const SHAPED = {
   runId: 'run_1',
   taskId: TASK.value,
   workspaceId: WORKSPACE.value,
   shape: {
+    repository: 'api',
+    stackStartedAt: SEEN_AT,
     changeTitles: ['Retry uploads'],
     changeIntents: ['fix'],
     at: SEEN_AT,
@@ -212,6 +214,36 @@ describe('recording the shape of a task’s change', () => {
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
     ]);
     expect(await repositories.shapes.forTask(TASK)).not.toBeNull();
+  });
+
+  it('records the shape of a run that has not ended, one for each repository', async () => {
+    const repositories = repositoriesInMemory();
+
+    await shaping(repositories).shaped(SHAPED);
+    await shaping(repositories).shaped({
+      ...SHAPED,
+      shape: {
+        ...SHAPED.shape,
+        repository: 'web',
+        changeTitles: ['Show retries'],
+      },
+    });
+
+    const shapes = await repositories.shapes.forTask(TASK);
+    expect(
+      shapes?.shapes.map((each) => [each.repository, each.changeTitles]),
+    ).toEqual([
+      ['api', ['Retry uploads']],
+      ['web', ['Show retries']],
+    ]);
+  });
+
+  it('records no shape for a run of another task', async () => {
+    const repositories = repositoriesInMemory();
+
+    await shaping(repositories).shaped({ ...SHAPED, taskId: 'task_other' });
+
+    expect(await repositories.shapes.forTask(TASK)).toBeNull();
   });
 
   it('records no shape for a deleted team', async () => {

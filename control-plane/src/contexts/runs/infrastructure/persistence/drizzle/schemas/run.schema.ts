@@ -115,6 +115,9 @@ export const run = pgTable(
       .notNull()
       .default(sql`'{}'::integer[]`),
     startedAt: timestamptz('started_at'),
+    firstStartedAt: timestamptz('first_started_at'),
+    queuedMs: bigint('queued_ms', { mode: 'number' }).notNull().default(0),
+    runningMs: bigint('running_ms', { mode: 'number' }).notNull().default(0),
     endedAt: timestamptz('ended_at'),
     startedFromArchiveId: text('started_from_archive_id'),
     startedFromCheckouts: jsonb('started_from_checkouts').$type<

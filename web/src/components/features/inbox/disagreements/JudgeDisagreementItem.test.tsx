@@ -158,7 +158,9 @@ describe('JudgeDisagreementItem', () => {
     expect(
       screen.getByRole('button', { name: 'retry.ts:1' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'step 2' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'read step' }),
+    ).toBeInTheDocument();
   });
 
   it('sends the answer and the note of one card for its own claim only', async () => {

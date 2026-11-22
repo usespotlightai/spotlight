@@ -1,4 +1,5 @@
 import { InvalidFilePathError } from '@change-review/domain/exceptions/invalid-file-path.error';
+import { sameRepositoryName } from '@shared-kernel/domain/services/repository-names';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 export class WorkingCopyPath {
@@ -37,7 +38,8 @@ export class WorkingCopyPath {
 
     return (
       within.length > 0 &&
-      checkout?.toLowerCase() === repository.name.toLowerCase()
+      checkout !== undefined &&
+      sameRepositoryName(checkout, repository.name)
     );
   }
 

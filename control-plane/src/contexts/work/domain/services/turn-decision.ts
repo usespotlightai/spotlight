@@ -14,7 +14,11 @@ import type { ResolvedHandover } from '@work/domain/value-objects/resolved-hando
 import type { RunResult } from '@work/domain/value-objects/run-result.vo';
 
 export type TurnDecision =
-  | { readonly kind: 'keep'; readonly handover: ResolvedHandover }
+  | {
+      readonly kind: 'keep';
+      readonly handover: ResolvedHandover;
+      readonly runAsked: boolean;
+    }
   | { readonly kind: 'resume'; readonly checkouts: readonly TaskCheckout[] }
   | { readonly kind: 'route'; readonly handover: ResolvedHandover };
 
@@ -40,9 +44,8 @@ export const TurnDecision = {
       return { kind: 'route', handover };
     }
 
-    const asksAPerson =
-      task.awaitingReview ||
-      putsItToAPerson(routeAfterRun(handover, line, task));
+    const routing = routeAfterRun(handover, line, task);
+    const asksAPerson = task.awaitingReview || putsItToAPerson(routing);
 
     if (!asksAPerson) {
       return { kind: 'route', handover };
@@ -55,6 +58,10 @@ export const TurnDecision = {
       };
     }
 
-    return { kind: 'keep', handover };
+    return {
+      kind: 'keep',
+      handover,
+      runAsked: routing.kind === 'ask' && routing.runAsked,
+    };
   },
 };

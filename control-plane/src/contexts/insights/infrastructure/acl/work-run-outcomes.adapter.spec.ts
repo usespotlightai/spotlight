@@ -5,6 +5,7 @@ import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.
 import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
+  checkOf,
   endedRecord,
   FIRST_CONFIG,
   RunRecordsInMemory,
@@ -25,7 +26,7 @@ describe('WorkRunOutcomes', () => {
     const pullRequestRecords = new PullRequestRecordsInMemory();
     await records.add(
       endedRecord('run_1', { runNumber: 2 })
-        .recordCheck('passed', RECEIVED_AT)
+        .recordCheck(checkOf('passed', RECEIVED_AT))
         .recordAction(PersonAction.of('accepted', AT, UserId.of('user_actor'))),
     );
     await records.add(RunRecord.empty(RunId.of('run_2'), WORKSPACE));
@@ -66,7 +67,7 @@ describe('WorkRunOutcomes', () => {
       new Date(AT.getTime() + hours * 60 * 60_000);
     await records.add(
       endedRecord('run_1', { runNumber: 2 })
-        .recordCheck('passed', later(2))
+        .recordCheck(checkOf('passed', later(2)))
         .recordAction(
           PersonAction.of('accepted', later(3), UserId.of('user_actor')),
         )

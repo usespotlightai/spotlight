@@ -2706,13 +2706,25 @@ describe('Task, a failure reported on it', () => {
     expect(raised?.at).toEqual(NOW);
   });
 
-  it('says when it put the failure to a person', () => {
+  it('says when it put the failure to a person, and that only a question of the run itself is the run asking', () => {
     const [asked] = withRun()
       .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
       .pullEvents()
       .filter((each) => each instanceof TaskAsked);
+    const [routed] = withRun()
+      .askedAbout(failure('A person stopped the run.'), RUN)
+      .pullEvents()
+      .filter((each) => each instanceof TaskAsked);
+    const [question] = withRun()
+      .askedBy(failure('Which bucket?'), RUN)
+      .pullEvents()
+      .filter((each) => each instanceof TaskAsked);
 
     expect(asked?.at).toEqual(NOW);
+    expect(asked?.runAsked).toBe(false);
+    expect(routed?.runAsked).toBe(false);
+    expect(question?.runAsked).toBe(true);
+    expect(question?.by).toEqual(RUN);
   });
 
   it('knows it has moved on from a station it is no longer at', () => {

@@ -36,6 +36,7 @@ export interface RunFacts {
   readonly suspendedAt: Date | null;
   readonly progress: RunProgressFact | null;
   readonly resumable: boolean;
+  readonly working: boolean;
   readonly claimedBy: RunnerId | null;
   readonly harness: HarnessId;
   readonly requester: RunRequesterContract;
@@ -48,6 +49,7 @@ export interface RunFacts {
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date | null;
+  readonly spent: RunTimeSpentFact;
   readonly started: boolean;
   readonly askedAPerson: boolean;
   readonly failed: boolean;
@@ -58,6 +60,12 @@ export interface RunFacts {
     readonly path: string;
     readonly commit: string;
   }[];
+}
+
+interface RunTimeSpentFact {
+  readonly queuedMs: number;
+  readonly runningMs: number;
+  readonly firstStartedAt: Date | null;
 }
 
 interface RunStartedFromFact {

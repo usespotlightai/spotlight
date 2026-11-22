@@ -7,7 +7,10 @@ import {
   ALERT_CONDITIONS,
   ALERT_MEASURES,
 } from '@insights/domain/value-objects/alert-rule.vo';
-import { CHECK_VERDICTS } from '@insights/domain/value-objects/check-verdict';
+import {
+  CHECK_VERDICTS,
+  type CheckVerdict,
+} from '@insights/domain/value-objects/check-verdict';
 import {
   type ActionKind,
   DECIDING_ACTIONS,
@@ -60,6 +63,21 @@ export interface StoredTools {
 export interface StoredMemories {
   readonly briefed: readonly string[];
   readonly recalled: readonly string[];
+}
+
+export interface StoredRepositoryShape {
+  readonly repository: string | null;
+  readonly stackStartedAt: string;
+  readonly changeTitles: readonly string[];
+  readonly changeIntents: readonly string[];
+  readonly at: string;
+}
+
+export interface StoredRepositoryCheck {
+  readonly repository: string | null;
+  readonly stackStartedAt: string;
+  readonly verdict: CheckVerdict;
+  readonly checkedAt: string;
 }
 
 export interface StoredDismissal {
@@ -144,13 +162,17 @@ export const runRecord = pgTable(
     queuedAt: timestamptz('queued_at'),
     startedAt: timestamptz('started_at'),
     endedAt: timestamptz('ended_at'),
+    queuedMs: bigint('queued_ms', { mode: 'number' }),
+    runningMs: bigint('running_ms', { mode: 'number' }),
     ending: runRecordEnding('ending'),
     failure: text('failure'),
     runNumber: integer('run_number'),
     asked: boolean('asked').notNull().default(false),
     supersededAt: timestamptz('superseded_at'),
-    checks: runRecordChecks('checks'),
-    checkedAt: timestamptz('checked_at'),
+    repositoryChecks: jsonb('repository_checks')
+      .$type<StoredRepositoryCheck[]>()
+      .notNull()
+      .default([]),
     decidingAction: decidingActionKind('deciding_action'),
     decidingActionAt: timestamptz('deciding_action_at'),
     decidingActionBy: text('deciding_action_by'),
@@ -211,6 +233,8 @@ export const runFact = pgTable(
     queuedAt: timestamptz('queued_at'),
     startedAt: timestamptz('started_at'),
     endedAt: timestamptz('ended_at').notNull(),
+    queuedMs: bigint('queued_ms', { mode: 'number' }),
+    runningMs: bigint('running_ms', { mode: 'number' }),
     beganAt: timestamptz('began_at').notNull(),
     endedAs: runRecordEnding('ended_as').notNull(),
     ending: runRecordEnding('ending').notNull(),
@@ -445,9 +469,10 @@ export const taskChangeShape = pgTable(
     taskId: text('task_id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    changeTitles: text('change_titles').array().notNull().default([]),
-    changeIntents: text('change_intents').array().notNull().default([]),
-    shapedAt: timestamptz('shaped_at').notNull(),
+    shapes: jsonb('shapes')
+      .$type<StoredRepositoryShape[]>()
+      .notNull()
+      .default([]),
     version: integer('version').notNull().default(0),
   },
   (table) => [

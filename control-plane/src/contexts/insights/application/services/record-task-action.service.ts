@@ -1,6 +1,10 @@
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { TaskActions } from '@insights/domain/aggregates/task-actions.aggregate';
 import type { TaskActionsRepository } from '@insights/domain/repositories/task-actions.repository';
+import {
+  type DrivenRun,
+  isLineWork,
+} from '@insights/domain/services/line-work';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import { actionKindOf } from '@insights/domain/value-objects/person-action.vo';
@@ -24,7 +28,7 @@ export interface TaskOpenedReceived {
   readonly at: string;
 }
 
-export interface TaskAskedReceived {
+export interface TaskAskedReceived extends DrivenRun {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly stationId: string;
@@ -64,6 +68,10 @@ export class RecordTaskAction {
   }
 
   asked(event: TaskAskedReceived): Promise<void> {
+    if (!isLineWork(event)) {
+      return Promise.resolve();
+    }
+
     const ask = InboxAsk.of(StationId.of(event.stationId), new Date(event.at));
 
     return this.recording(event, (taskActions) => taskActions.asked(ask));

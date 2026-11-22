@@ -3,6 +3,7 @@ import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-draft-already-open.error';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
@@ -37,8 +38,32 @@ import { and, asc, eq, isNotNull, isNull, lte, or } from 'drizzle-orm';
 type DraftRow = typeof memoryDraft.$inferSelect;
 type ProposalRow = typeof memoryProposal.$inferSelect;
 
+const turnOf = (
+  runId: string | null,
+  attempt: number | null,
+  runOrderedAt: Date | null,
+): AgentTurn | null => {
+  if (runId === null && attempt === null && runOrderedAt === null) {
+    return null;
+  }
+  if (runId === null || attempt === null || runOrderedAt === null) {
+    throw new InconsistentStateError(
+      'memory draft',
+      'names a run without the attempt and order time it drafts from',
+    );
+  }
+
+  return AgentTurn.of(RunId.of(runId), attempt, runOrderedAt);
+};
+
 const draftingOf = (row: DraftRow): MemoryDrafting | null => {
-  if (!row.draftingRunId) {
+  const turn = turnOf(
+    row.draftingRunId,
+    row.draftingAttempt,
+    row.draftingRunOrderedAt,
+  );
+
+  if (!turn) {
     return null;
   }
   if (!row.draftingRequestedAt) {
@@ -49,7 +74,7 @@ const draftingOf = (row: DraftRow): MemoryDrafting | null => {
   }
 
   return MemoryDrafting.rehydrate({
-    runId: RunId.of(row.draftingRunId),
+    turn,
     requestedAt: row.draftingRequestedAt,
     job: PendingJob.rehydrate({
       attempts: row.jobAttempts,
@@ -112,7 +137,11 @@ const toDraft = (
     taskId: TaskId.of(row.taskId),
     workspaceId: WorkspaceId.of(row.workspaceId),
     drafting: draftingOf(row),
-    draftedIn: row.draftedIn ? RunId.of(row.draftedIn) : null,
+    draftedIn: turnOf(
+      row.draftedIn,
+      row.draftedInAttempt,
+      row.draftedInRunOrderedAt,
+    ),
     notesRead: row.notesRead,
     proposals: [...proposals]
       .sort((a, b) => a.position - b.position)
@@ -123,10 +152,14 @@ const toDraft = (
 
 const columnsOf = (draft: MemoryDraft) => ({
   draftingRunId: draft.drafting?.runId.value ?? null,
+  draftingAttempt: draft.drafting?.turn.attempt ?? null,
+  draftingRunOrderedAt: draft.drafting?.turn.runOrderedAt ?? null,
   draftingRequestedAt: draft.drafting?.requestedAt ?? null,
   jobAttempts: draft.drafting?.job.attempts ?? 0,
   jobDueAt: draft.drafting?.job.nextAttemptAt ?? null,
-  draftedIn: draft.draftedIn?.value ?? null,
+  draftedIn: draft.draftedIn?.runId.value ?? null,
+  draftedInAttempt: draft.draftedIn?.attempt ?? null,
+  draftedInRunOrderedAt: draft.draftedIn?.runOrderedAt ?? null,
   notesRead: draft.notesRead,
   failure: draft.failure?.code ?? null,
   failedAt: draft.failure?.at ?? null,
@@ -235,6 +268,17 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
       .from(memoryDraft)
       .where(eq(memoryDraft.taskId, taskId.value))
       .limit(1);
+
+    return row ? this.withProposals(row) : null;
+  }
+
+  async forTaskLocked(taskId: TaskId): Promise<MemoryDraft | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(memoryDraft)
+      .where(eq(memoryDraft.taskId, taskId.value))
+      .limit(1)
+      .for('update');
 
     return row ? this.withProposals(row) : null;
   }

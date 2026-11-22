@@ -6,5 +6,7 @@ export type TaskAskedIntegrationEvent = {
   readonly workspaceId: string;
   readonly stationId: string;
   readonly at: string;
+  readonly runId: string | null;
   readonly driver: 'line' | 'person';
+  readonly runAsked: boolean;
 };

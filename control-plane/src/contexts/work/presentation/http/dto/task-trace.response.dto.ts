@@ -105,7 +105,7 @@ export class TraceNodeResponseDto {
     type: Number,
     example: 11,
     description:
-      'On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place',
+      'On a row of a journal step: the number of the step in the run’s journal, (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0. A citation of a step names this place',
   })
   readonly place: number | null;
 

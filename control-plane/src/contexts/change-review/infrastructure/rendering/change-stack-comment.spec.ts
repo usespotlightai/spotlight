@@ -6,6 +6,7 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
@@ -105,6 +106,7 @@ describe('ChangeStackComment', () => {
       trial: false,
       workspaceId: stack.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
+      stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
       entries: stack.entries(),
       now: NOW,
     })

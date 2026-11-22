@@ -44,6 +44,7 @@ const stepOf = (change: Partial<JournalStep>): JournalStep => ({
 const journal: RunJournal = {
   runId: 'run_1',
   attempt: 1,
+  firstStep: 0,
   steps: [
     stepOf({ kind: 'thought', text: 'Retry in the request.' }),
     stepOf({
@@ -187,7 +188,12 @@ const evidences = () =>
     {
       attemptsOfRun: async () => [
         { ...journal, steps: journal.steps.slice(0, 2) },
-        { ...journal, attempt: 2, steps: journal.steps.slice(2) },
+        {
+          ...journal,
+          attempt: 2,
+          firstStep: 1_000_000,
+          steps: journal.steps.slice(2),
+        },
       ],
     } as unknown as RunJournalReaderPort,
     {
@@ -197,12 +203,14 @@ const evidences = () =>
   );
 
 describe('RunEvidences', () => {
-  it('lays out the run’s steps by their place across its attempts, as the Run page shows them, clipping long outputs', async () => {
+  it('numbers the run’s steps by attempt, as the Run page and citations name them, clipping long outputs', async () => {
     const evidence = await evidences().of('run_1');
 
     expect(evidence?.title).toBe('Retry uploads');
     expect(evidence?.description).toBe('They fail on a flaky network.');
-    expect(evidence?.steps.map((each) => each.index)).toEqual([0, 1, 2]);
+    expect(evidence?.steps.map((each) => each.index)).toEqual([
+      0, 1, 1_000_000,
+    ]);
     expect(evidence?.steps[1]?.input?.length).toBeLessThan(2_100);
     expect(evidence?.steps[1]?.tool).toBe('edit');
   });

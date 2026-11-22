@@ -51,6 +51,10 @@ import {
   type ReviewCommentReceivedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
 import {
+  RUN_RESUMED,
+  type RunResumedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-resumed.integration-event';
+import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
@@ -58,6 +62,10 @@ import {
   TASK_RUN_ASSIGNED,
   type TaskRunAssignedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
+import {
+  TASK_TURN_AWAITED,
+  type TaskTurnAwaitedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
 import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
@@ -162,7 +170,13 @@ export const changeReviewSubscribers = (
   subscribing<TaskRunAssignedIntegrationEvent>(
     'change-review.signal-reviewing',
     [TASK_RUN_ASSIGNED],
-    (event) => signalling.began(TaskId.of(event.taskId), RunId.of(event.runId)),
+    (event) => signalling.signal(TaskId.of(event.taskId)),
+    { callsOut: true },
+  ),
+  subscribing<RunResumedIntegrationEvent>(
+    'change-review.signal-review-resumed',
+    [RUN_RESUMED],
+    (event) => signalling.signalRun(RunId.of(event.runId)),
     { callsOut: true },
   ),
   subscribing<DispatchEndedIntegrationEvent>(
@@ -170,9 +184,26 @@ export const changeReviewSubscribers = (
     [DISPATCH_ENDED],
     (event) =>
       event.taskId
-        ? signalling.ended(TaskId.of(event.taskId), RunId.of(event.runId))
+        ? signalling.signal(TaskId.of(event.taskId))
         : Promise.resolve(),
     { callsOut: true },
+  ),
+  subscribing<TaskTurnAwaitedIntegrationEvent>(
+    'change-review.signal-review-awaited',
+    [TASK_TURN_AWAITED],
+    (event) => signalling.signal(TaskId.of(event.taskId)),
+    { callsOut: true },
+  ),
+  subscribing<TaskTurnAwaitedIntegrationEvent>(
+    'change-review.request-decisions-of-awaited-turn',
+    [TASK_TURN_AWAITED],
+    (event) =>
+      deciding.turnAwaited(
+        TaskId.of(event.taskId),
+        RunId.of(event.runId),
+        event.attempt,
+        event.handsOver,
+      ),
   ),
   subscribing<DispatchEndedIntegrationEvent>(
     'change-review.request-decisions',
@@ -182,7 +213,7 @@ export const changeReviewSubscribers = (
         ? deciding.runEnded(
             TaskId.of(event.taskId),
             RunId.of(event.runId),
-            event.driver === 'person',
+            event.handsOver,
           )
         : Promise.resolve(),
   ),

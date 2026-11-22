@@ -2,6 +2,7 @@ import type {
   ChangeHunk,
   FileChange,
   JournalStep,
+  NumberedJournalStep,
   RunChanges,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
@@ -17,6 +18,7 @@ import {
 } from '@runs/application/read-models/file-changes';
 import { lastWordsIn } from '@runs/application/read-models/last-words';
 import { tracedRunsOf, traceOf } from '@runs/application/read-models/run-trace';
+import { stepsThrough } from '@runs/domain/services/journal-step-numbers';
 import { workingCopyPathsIn } from '@runs/domain/services/working-copy-path';
 
 export class RunJournalReadings implements RunJournalReadingsPort {
@@ -41,6 +43,13 @@ export class RunJournalReadings implements RunJournalReadingsPort {
 
   workingCopyPathsIn(changes: RunChanges): readonly string[] {
     return workingCopyPathsIn(changes);
+  }
+
+  stepsThrough(
+    attempts: readonly RunJournal[],
+    through: number | null,
+  ): readonly NumberedJournalStep[] | null {
+    return stepsThrough(attempts, through);
   }
 
   hunksIn(

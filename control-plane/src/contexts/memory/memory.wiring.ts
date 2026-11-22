@@ -230,13 +230,14 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: MemoryReactions,
-    inject: [REVIEWS, MEMORIES, TRANSACTION, CLOCK],
+    inject: [REVIEWS, MEMORY_DRAFTS, MEMORIES, TRANSACTION, CLOCK],
     useFactory: (
       reviews: ReviewsPort,
+      drafts: MemoryDraftRepository,
       memories: MemoryRepository,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new MemoryReactions(reviews, memories, transaction, clock),
+    ) => new MemoryReactions(reviews, drafts, memories, transaction, clock),
   },
   ...bindCommandHandler(ApproveMemoriesCommand, ApproveMemoriesHandler, [
     MemoryAccess,

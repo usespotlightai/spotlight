@@ -10,5 +10,7 @@ export interface MemoryDraftRepository {
 
   forTask(taskId: TaskId): Promise<MemoryDraft | null>;
 
+  forTaskLocked(taskId: TaskId): Promise<MemoryDraft | null>;
+
   nextDueJob(now: Date): Promise<MemoryDraft | null>;
 }

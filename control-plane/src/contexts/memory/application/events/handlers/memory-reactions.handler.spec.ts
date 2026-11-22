@@ -1,10 +1,13 @@
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { ReviewsPort } from '@memory/application/ports/reviews.port';
+import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
+import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -50,8 +53,15 @@ const approved = (supersedes: MemoryId | null = null) =>
     ADA,
   );
 
-const reacting = (stored: Memory[] = []) => {
-  const reviews = { create: vi.fn(), resolve: vi.fn() };
+const reacting = (stored: Memory[] = [], awaiting: readonly RunId[] = []) => {
+  const reviews = { reopen: vi.fn(), resolve: vi.fn() };
+  const drafts = {
+    forTaskLocked: async () =>
+      ({
+        awaitsReviewIn: (runId: RunId) =>
+          awaiting.some((each) => each.equals(runId)),
+      }) as unknown as MemoryDraft,
+  };
   let handles = 100;
   const memories = {
     nextHandle: async () => {
@@ -75,6 +85,7 @@ const reacting = (stored: Memory[] = []) => {
   return {
     reactions: new MemoryReactions(
       reviews as unknown as ReviewsPort,
+      drafts as unknown as MemoryDraftRepository,
       memories as unknown as MemoryRepository,
       { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
@@ -86,24 +97,36 @@ const reacting = (stored: Memory[] = []) => {
 };
 
 describe('reacting to memories being proposed and decided', () => {
-  it('creates a review on the task for a run that proposed memories', async () => {
+  it('opens the run’s review while a memory it proposed waits for a decision, whichever review event arrives', async () => {
+    const { reactions, reviews } = reacting([], [RUN]);
+
+    await reactions.onReviewRequested(
+      new MemoryReviewRequested(DRAFT, TASK, RUN),
+    );
+    await reactions.onReviewResolved(
+      new MemoryReviewResolved(DRAFT, TASK, RUN),
+    );
+    await reactions.onReviewReopened(
+      new MemoryReviewReopened(DRAFT, TASK, RUN),
+    );
+
+    expect(reviews.reopen).toHaveBeenCalledTimes(3);
+    expect(reviews.reopen).toHaveBeenCalledWith(TASK, RUN);
+    expect(reviews.resolve).not.toHaveBeenCalled();
+  });
+
+  it('resolves the run’s review once nothing it proposed is left to decide, even for a late request', async () => {
     const { reactions, reviews } = reacting();
 
     await reactions.onReviewRequested(
       new MemoryReviewRequested(DRAFT, TASK, RUN),
     );
-
-    expect(reviews.create).toHaveBeenCalledWith(TASK, RUN);
-  });
-
-  it('resolves a run’s review once nothing is left to decide', async () => {
-    const { reactions, reviews } = reacting();
-
     await reactions.onReviewResolved(
       new MemoryReviewResolved(DRAFT, TASK, RUN),
     );
 
-    expect(reviews.resolve).toHaveBeenCalledWith(TASK, RUN);
+    expect(reviews.resolve).toHaveBeenCalledTimes(2);
+    expect(reviews.reopen).not.toHaveBeenCalled();
   });
 
   it('creates an approved memory once, however often the event arrives', async () => {

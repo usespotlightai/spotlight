@@ -2,6 +2,7 @@ import type {
   ChangeHunk,
   FileChange,
   JournalStep,
+  NumberedJournalStep,
   RunChanges,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
@@ -28,6 +29,11 @@ export interface RunJournalReadingsPort {
   ): string | null;
 
   workingCopyPathsIn(changes: RunChanges): readonly string[];
+
+  stepsThrough(
+    attempts: readonly RunJournal[],
+    through: number | null,
+  ): readonly NumberedJournalStep[] | null;
 
   hunksIn(
     steps: readonly JournalStep[],

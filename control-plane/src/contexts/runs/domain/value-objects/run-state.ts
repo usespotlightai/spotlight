@@ -33,6 +33,12 @@ export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   stopRequested &&
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
 
+export const isActive = (state: RunState): boolean =>
+  state === 'queued' || isLeasedState(state);
+
+export const isWorking = (state: RunState, stopRequested: boolean): boolean =>
+  isActive(state) && !stopRequested;
+
 export const resumable = (
   state: RunState,
   stopRequested: boolean,

@@ -53,6 +53,7 @@ export const RunJournalMapper = {
     return {
       runId: journal.runId,
       attempt: journal.attempt,
+      firstStep: journal.firstStep,
       steps: journal.steps.map(stepToDto),
       spans: journal.spans.map(spanToDto),
       ms: journal.ms,

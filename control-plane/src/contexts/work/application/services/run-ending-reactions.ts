@@ -107,7 +107,6 @@ export const RunEndedFacts = {
       outcome: event.outcome,
       failure: RunsTranslation.failure(event.failure),
       stopped: event.stopped,
-      askedAPerson: event.askedAPerson,
     });
   },
 };

@@ -2,6 +2,7 @@ import { runOutcomeText } from '@runs/application/rendering/run-outcome.text';
 import type { RunCancelled } from '@runs/domain/events/run-cancelled.event';
 import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
+import type { RunResumed } from '@runs/domain/events/run-resumed.event';
 import type { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import type { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import {
@@ -10,6 +11,10 @@ import {
   type RunEndedIntegrationEvent,
   type RunOutcomePublished,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import {
+  RUN_RESUMED,
+  type RunResumedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-resumed.integration-event';
 import {
   RUN_SUSPENDED,
   type RunSuspendedIntegrationEvent,
@@ -130,6 +135,11 @@ export const RUNS_EVENT_MAPPERS = [
       at: event.at.toISOString(),
     }),
   ),
+  mapping<RunResumed>('run.resumed', (event): RunResumedIntegrationEvent => ({
+    kind: RUN_RESUMED,
+    runId: event.runId.value,
+    workspaceId: event.workspaceId.value,
+  })),
   mapping<RunUsageRecorded>(
     'run.usage-recorded',
     (event): RunUsageRecordedIntegrationEvent => ({

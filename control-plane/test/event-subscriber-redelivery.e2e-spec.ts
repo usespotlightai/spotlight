@@ -323,7 +323,6 @@ const dispatchState = async (runId: RunId): Promise<unknown> => {
       outcome: schema.dispatch.outcome,
       failure: schema.dispatch.failure,
       stopped: schema.dispatch.stopped,
-      askedAPerson: schema.dispatch.askedAPerson,
       superseded: schema.dispatch.superseded,
     })
     .from(schema.dispatch)

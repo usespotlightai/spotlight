@@ -2546,7 +2546,7 @@ export type TraceNodeResponseDto = {
   currency: string | null;
   step: JournalStepResponseDto | null;
   /**
-   * On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place
+   * On a row of a journal step: the number of the step in the run’s journal, (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0. A citation of a step names this place
    */
   place: number | null;
   span: RunSpanResponseDto | null;
@@ -3433,6 +3433,10 @@ export type BackgroundTaskResponseDto = {
 export type RunJournalResponseDto = {
   runId: string;
   attempt: number;
+  /**
+   * The number of the attempt’s first step, (attempt − 1) × 1,000,000. Each later step is numbered one more. A citation of a step names its number
+   */
+  firstStep: number;
   steps: Array<JournalStepResponseDto>;
   /**
    * Empty for a harness that reports nothing of itself
@@ -4829,7 +4833,7 @@ export type DecisionResponseDto = {
    */
   paths: Array<string>;
   /**
-   * Where the agent reasoned it, as steps of the run’s journal
+   * Where the agent reasoned it, as numbers of steps in the run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0
    */
   journalSteps: Array<number>;
   /**
@@ -5614,7 +5618,7 @@ export type MemoryDecisionResponseDto = {
 
 export type MemoryProvenanceStepResponseDto = {
   /**
-   * The position of the step in its run
+   * The number of the step in its run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0
    */
   index: number;
   /**
@@ -6536,7 +6540,7 @@ export type StationJudgeAgreementResponseDto = {
 
 export type CitedStepResponseDto = {
   /**
-   * Where the step sits in the run’s journal
+   * The number of the step in its run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0
    */
   index: number;
   kind: string | null;

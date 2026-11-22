@@ -59,19 +59,25 @@ export class RunEvidences implements RunEvidencePort {
   async of(runId: string): Promise<EvidencedRun | null> {
     const run = await this.found(RunId.of(runId));
     const task = run ? await this.taskOf(run) : null;
-    const attempts = run ? await this.journals.attemptsOfRun(run.runId) : [];
+    const numbered = run
+      ? this.readings.stepsThrough(
+          await this.journals.attemptsOfRun(run.runId),
+          null,
+        )
+      : null;
 
-    if (!run || !task || attempts.length === 0) {
+    if (!run || !task || !numbered) {
       return null;
     }
-
-    const steps = attempts.flatMap((each) => each.steps);
 
     return {
       runId: run.runId.value,
       ...task,
-      steps: steps.map(evidenced),
-      hunks: this.readings.hunksIn(steps, run.checkouts),
+      steps: numbered.map(({ step, index }) => evidenced(step, index)),
+      hunks: this.readings.hunksIn(
+        numbered.map((each) => each.step),
+        run.checkouts,
+      ),
     };
   }
 

@@ -417,7 +417,7 @@ describe('TraceView', () => {
       ).not.toBeInTheDocument();
       await pickRun();
 
-      await userEvent.click(screen.getByRole('button', { name: 'step 2' }));
+      await userEvent.click(screen.getByRole('button', { name: 'read step' }));
 
       expect(
         screen.getByRole('button', { name: 'Collapse Turn · claude-code' }),
@@ -445,7 +445,7 @@ describe('TraceView', () => {
       render(<TraceView trace={cited([])} teamId="team_1" />);
       await pickRun();
 
-      expect(screen.getByRole('button', { name: 'step 2' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'read step' })).toHaveAttribute(
         'aria-disabled',
         'true',
       );

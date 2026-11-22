@@ -77,6 +77,9 @@ const ranAndEnded = async (minutesAgo: number) => {
     spec: SPEC,
     createdAt: ago(minutesAgo + 5),
     startedAt: ago(minutesAgo + 4),
+    firstStartedAt: ago(minutesAgo + 4),
+    queuedMs: MINUTE,
+    runningMs: 4 * MINUTE,
     endedAt: ago(minutesAgo),
   });
   await db.insert(schema.dispatch).values(
@@ -112,10 +115,10 @@ const ranAndEnded = async (minutesAgo: number) => {
     taskId: team.list.id.value,
     stationId: watched,
     driver: 'line',
+    handsOver: true,
     outcome: 'completed',
     failure: null,
     stopped: false,
-    asked: false,
   };
 
   await app.get(EventOutbox).record([ended]);

@@ -1,5 +1,5 @@
 {
-  "id": "716ec76c-1ae8-49ff-a448-dba18a12e6dc",
+  "id": "7faebb01-8178-4a7b-b6ab-ca89c5169fcc",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -854,9 +854,33 @@
           "primaryKey": false,
           "notNull": false
         },
+        "source_attempt": {
+          "name": "source_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_run_ordered_at": {
+          "name": "source_run_ordered_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "generation_run_id": {
           "name": "generation_run_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "generation_attempt": {
+          "name": "generation_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "generation_run_ordered_at": {
+          "name": "generation_run_ordered_at",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -947,6 +971,14 @@
         "decision_set_job_attempts_not_negative": {
           "name": "decision_set_job_attempts_not_negative",
           "value": "\"decision_set\".\"job_attempts\" >= 0"
+        },
+        "decision_set_source_turn": {
+          "name": "decision_set_source_turn",
+          "value": "(\"decision_set\".\"source_run_id\" is null) = (\"decision_set\".\"source_attempt\" is null) and (\"decision_set\".\"source_run_id\" is null) = (\"decision_set\".\"source_run_ordered_at\" is null) and coalesce(\"decision_set\".\"source_attempt\", 1) >= 1"
+        },
+        "decision_set_generation_turn": {
+          "name": "decision_set_generation_turn",
+          "value": "(\"decision_set\".\"generation_run_id\" is null) = (\"decision_set\".\"generation_attempt\" is null) and (\"decision_set\".\"generation_run_id\" is null) = (\"decision_set\".\"generation_run_ordered_at\" is null) and coalesce(\"decision_set\".\"generation_attempt\", 1) >= 1"
         }
       },
       "isRLSEnabled": false
@@ -2229,6 +2261,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stack_started_at": {
+          "name": "stack_started_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
         },
         "status": {
           "name": "status",
@@ -6107,6 +6151,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "queued_ms": {
+          "name": "queued_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "running_ms": {
+          "name": "running_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "began_at": {
           "name": "began_at",
           "type": "timestamp (3) with time zone",
@@ -6656,6 +6712,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "queued_ms": {
+          "name": "queued_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "running_ms": {
+          "name": "running_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "ending": {
           "name": "ending",
           "type": "run_record_ending",
@@ -6688,18 +6756,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "checks": {
-          "name": "checks",
-          "type": "run_record_checks",
-          "typeSchema": "public",
+        "repository_checks": {
+          "name": "repository_checks",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
-        },
-        "checked_at": {
-          "name": "checked_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "deciding_action": {
           "name": "deciding_action",
@@ -7567,25 +7629,12 @@
           "primaryKey": false,
           "notNull": true
         },
-        "change_titles": {
-          "name": "change_titles",
-          "type": "text[]",
+        "shapes": {
+          "name": "shapes",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
-          "default": "'{}'"
-        },
-        "change_intents": {
-          "name": "change_intents",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "shaped_at": {
-          "name": "shaped_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true
+          "default": "'[]'::jsonb"
         },
         "version": {
           "name": "version",
@@ -10772,6 +10821,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "drafting_attempt": {
+          "name": "drafting_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "drafting_run_ordered_at": {
+          "name": "drafting_run_ordered_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "drafting_requested_at": {
           "name": "drafting_requested_at",
           "type": "timestamp (3) with time zone",
@@ -10794,6 +10855,18 @@
         "drafted_in": {
           "name": "drafted_in",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "drafted_in_attempt": {
+          "name": "drafted_in_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "drafted_in_run_ordered_at": {
+          "name": "drafted_in_run_ordered_at",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -10869,6 +10942,14 @@
         "memory_draft_notes_read_not_negative": {
           "name": "memory_draft_notes_read_not_negative",
           "value": "\"memory_draft\".\"notes_read\" >= 0"
+        },
+        "memory_draft_drafting_turn": {
+          "name": "memory_draft_drafting_turn",
+          "value": "(\"memory_draft\".\"drafting_run_id\" is null) = (\"memory_draft\".\"drafting_attempt\" is null) and (\"memory_draft\".\"drafting_run_id\" is null) = (\"memory_draft\".\"drafting_run_ordered_at\" is null) and coalesce(\"memory_draft\".\"drafting_attempt\", 1) >= 1"
+        },
+        "memory_draft_drafted_in_turn": {
+          "name": "memory_draft_drafted_in_turn",
+          "value": "(\"memory_draft\".\"drafted_in\" is null) = (\"memory_draft\".\"drafted_in_attempt\" is null) and (\"memory_draft\".\"drafted_in\" is null) = (\"memory_draft\".\"drafted_in_run_ordered_at\" is null) and coalesce(\"memory_draft\".\"drafted_in_attempt\", 1) >= 1"
         }
       },
       "isRLSEnabled": false
@@ -16455,6 +16536,26 @@
           "primaryKey": false,
           "notNull": false
         },
+        "first_started_at": {
+          "name": "first_started_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "queued_ms": {
+          "name": "queued_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "running_ms": {
+          "name": "running_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "ended_at": {
           "name": "ended_at",
           "type": "timestamp (3) with time zone",
@@ -18447,13 +18548,6 @@
         },
         "stopped": {
           "name": "stopped",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "asked_a_person": {
-          "name": "asked_a_person",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

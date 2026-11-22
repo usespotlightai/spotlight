@@ -99,12 +99,12 @@ export class WorkMemoryDrafts implements PendingJobsPort {
       return draft;
     }
 
-    const { runId } = draft.drafting;
+    const { turn, runId } = draft.drafting;
     const [runContext, task, steps, changed, notes] = await Promise.all([
       this.work.stationContextOf(runId),
       this.work.task(draft.taskId),
-      this.work.reasoning(runId),
-      this.work.changedBy(runId),
+      this.work.reasoningThrough(turn),
+      this.work.changedThrough(turn),
       this.work.notesOf(draft.taskId),
     ]);
 
@@ -123,7 +123,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
     ]);
     const evidence = DraftEvidence.of({
       taskId: draft.taskId,
-      runId,
+      turn,
       runContext,
       steps,
       notes: notes.filter((each) => draft.reads(each.position)),
@@ -160,7 +160,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
     }
 
     return draft.recordDraft({
-      runId,
+      turn,
       proposed,
       evidence,
       newId: () => this.ids.generate(),

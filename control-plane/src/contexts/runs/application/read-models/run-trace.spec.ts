@@ -44,6 +44,7 @@ const span = (
 const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
   runId: 'run_1',
   attempt: 1,
+  firstStep: 0,
   steps: [],
   spans: [],
   ms: 0,
@@ -70,7 +71,7 @@ const tracedRun = (part: Partial<TracedRun> = {}): TracedRun => ({
   attempt: 1,
   startedAt: at(0),
   endedAt: at(60_000),
-  journal: journal(),
+  journals: [journal()],
   connections: [],
   ...part,
 });
@@ -100,9 +101,9 @@ describe('traceOf', () => {
         id: RunId.of('run_2'),
         startedAt: at(70_000),
         endedAt: at(90_000),
-        journal: null,
+        journals: [],
       }),
-      tracedRun({ journal: null }),
+      tracedRun({ journals: [] }),
     ]);
 
     expect(trace.roots).toHaveLength(2);
@@ -122,16 +123,18 @@ describe('traceOf', () => {
   it('draws only the phases the journal can account for', () => {
     const trace = traceOf([
       tracedRun({
-        journal: journal({
-          marks: {
-            startedAt: at(0),
-            readyAt: null,
-            firstAgentUpdateAt: null,
-            lastAgentUpdateAt: null,
-            agentStoppedAt: null,
-            endedAt: at(6_000),
-          },
-        }),
+        journals: [
+          journal({
+            marks: {
+              startedAt: at(0),
+              readyAt: null,
+              firstAgentUpdateAt: null,
+              lastAgentUpdateAt: null,
+              agentStoppedAt: null,
+              endedAt: at(6_000),
+            },
+          }),
+        ],
       }),
     ]);
 
@@ -141,23 +144,25 @@ describe('traceOf', () => {
   it('puts each step into the phase that contains it', () => {
     const trace = traceOf([
       tracedRun({
-        journal: journal({
-          steps: [
-            step({
-              kind: 'hook',
-              text: 'prepare',
-              startedAt: at(1_000),
-              ms: 8_000,
-            }),
-            step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
-            step({
-              kind: 'hook',
-              text: 'publish',
-              startedAt: at(52_000),
-              ms: 2_000,
-            }),
-          ],
-        }),
+        journals: [
+          journal({
+            steps: [
+              step({
+                kind: 'hook',
+                text: 'prepare',
+                startedAt: at(1_000),
+                ms: 8_000,
+              }),
+              step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
+              step({
+                kind: 'hook',
+                text: 'publish',
+                startedAt: at(52_000),
+                ms: 2_000,
+              }),
+            ],
+          }),
+        ],
       }),
     ]);
 
@@ -170,16 +175,18 @@ describe('traceOf', () => {
   it('counts what went wrong, however deep it sits', () => {
     const trace = traceOf([
       tracedRun({
-        journal: journal({
-          steps: [
-            step({
-              text: 'npm test',
-              status: 'failed',
-              startedAt: at(20_000),
-              ms: 5_000,
-            }),
-          ],
-        }),
+        journals: [
+          journal({
+            steps: [
+              step({
+                text: 'npm test',
+                status: 'failed',
+                startedAt: at(20_000),
+                ms: 5_000,
+              }),
+            ],
+          }),
+        ],
       }),
     ]);
 
@@ -189,22 +196,24 @@ describe('traceOf', () => {
   it('tells the agent’s own work from the overhead around it', () => {
     const trace = traceOf([
       tracedRun({
-        journal: journal({
-          steps: [
-            step({
-              kind: 'message',
-              text: 'Done.',
-              startedAt: at(20_000),
-              ms: 100,
-            }),
-            step({
-              kind: 'planned',
-              text: 'Planned 2 steps',
-              startedAt: at(21_000),
-              ms: 0,
-            }),
-          ],
-        }),
+        journals: [
+          journal({
+            steps: [
+              step({
+                kind: 'message',
+                text: 'Done.',
+                startedAt: at(20_000),
+                ms: 100,
+              }),
+              step({
+                kind: 'planned',
+                text: 'Planned 2 steps',
+                startedAt: at(21_000),
+                ms: 0,
+              }),
+            ],
+          }),
+        ],
       }),
     ]);
 
@@ -216,18 +225,20 @@ describe('traceOf', () => {
   it('names a turn the agent started by itself', () => {
     const trace = traceOf([
       tracedRun({
-        journal: journal({
-          steps: [
-            step({
-              kind: 'turn',
-              text: '',
-              status: null,
-              tool: null,
-              startedAt: at(20_000),
-              ms: 0,
-            }),
-          ],
-        }),
+        journals: [
+          journal({
+            steps: [
+              step({
+                kind: 'turn',
+                text: '',
+                status: null,
+                tool: null,
+                startedAt: at(20_000),
+                ms: 0,
+              }),
+            ],
+          }),
+        ],
       }),
     ]);
 
@@ -239,19 +250,21 @@ describe('traceOf', () => {
   it('gives each row of a journal step the step’s place in the journal, whatever the order of the rows', () => {
     const trace = traceOf([
       tracedRun({
-        journal: journal({
-          steps: [
-            step({ text: 'npm test', startedAt: at(30_000), ms: 1_000 }),
-            step({
-              kind: 'message',
-              text: 'Reading the spec',
-              startedAt: at(20_000),
-              ms: 1_000,
-            }),
-            step({ text: 'npm run lint', startedAt: at(40_000), ms: 5_000 }),
-          ],
-          spans: [span({ id: 's1', startedAt: at(40_100), ms: 4_800 })],
-        }),
+        journals: [
+          journal({
+            steps: [
+              step({ text: 'npm test', startedAt: at(30_000), ms: 1_000 }),
+              step({
+                kind: 'message',
+                text: 'Reading the spec',
+                startedAt: at(20_000),
+                ms: 1_000,
+              }),
+              step({ text: 'npm run lint', startedAt: at(40_000), ms: 5_000 }),
+            ],
+            spans: [span({ id: 's1', startedAt: at(40_100), ms: 4_800 })],
+          }),
+        ],
       }),
     ]);
 
@@ -268,16 +281,74 @@ describe('traceOf', () => {
     expect(turn?.place).toBeNull();
   });
 
+  it('draws every attempt of a run that waited for a person, each step placed as citations number it', () => {
+    const later = (ms: number) => at(100_000 + ms);
+    const trace = traceOf([
+      tracedRun({
+        attempt: 2,
+        startedAt: later(0),
+        endedAt: later(60_000),
+        journals: [
+          journal({
+            steps: [
+              step({ text: 'npm test', startedAt: at(20_000), ms: 1_000 }),
+            ],
+            spent: { used: 0, size: 0, cost: { amount: 1, currency: 'USD' } },
+          }),
+          journal({
+            attempt: 2,
+            firstStep: 1_000_000,
+            marks: {
+              startedAt: later(0),
+              readyAt: later(10_000),
+              firstAgentUpdateAt: later(12_000),
+              lastAgentUpdateAt: later(50_000),
+              agentStoppedAt: null,
+              endedAt: later(60_000),
+            },
+            steps: [
+              step({
+                text: 'npm run lint',
+                startedAt: later(20_000),
+                ms: 1_000,
+              }),
+            ],
+            spent: { used: 0, size: 0, cost: { amount: 2, currency: 'USD' } },
+          }),
+        ],
+      }),
+    ]);
+
+    const run = trace.roots[0];
+    expect(run?.from).toEqual(at(0));
+    expect(run?.cost).toEqual({ amount: 2, currency: 'USD' });
+    expect(
+      run?.children.map((node) => [
+        node.name,
+        node.children.map((child) => child.place),
+      ]),
+    ).toEqual([
+      ['Prepare', []],
+      ['Turn · claude-code', [0]],
+      ['Publish', []],
+      ['Prepare · attempt 2', []],
+      ['Turn · claude-code · attempt 2', [1_000_000]],
+      ['Publish · attempt 2', []],
+    ]);
+  });
+
   describe('where the harness reports on itself', () => {
     it('draws one row where a span and a step are the same call', () => {
       const trace = traceOf([
         tracedRun({
-          journal: journal({
-            steps: [
-              step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
-            ],
-            spans: [span({ id: 's1', startedAt: at(20_100), ms: 4_800 })],
-          }),
+          journals: [
+            journal({
+              steps: [
+                step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
+              ],
+              spans: [span({ id: 's1', startedAt: at(20_100), ms: 4_800 })],
+            }),
+          ],
         }),
       ]);
 
@@ -291,15 +362,17 @@ describe('traceOf', () => {
     it('keeps a span that matches nothing, without inventing detail for it', () => {
       const trace = traceOf([
         tracedRun({
-          journal: journal({
-            spans: [
-              span({
-                id: 's1',
-                name: 'claude_code.llm_request',
-                startedAt: at(20_000),
-              }),
-            ],
-          }),
+          journals: [
+            journal({
+              spans: [
+                span({
+                  id: 's1',
+                  name: 'claude_code.llm_request',
+                  startedAt: at(20_000),
+                }),
+              ],
+            }),
+          ],
         }),
       ]);
 
@@ -311,18 +384,20 @@ describe('traceOf', () => {
     it('keeps a step the harness never mentioned', () => {
       const trace = traceOf([
         tracedRun({
-          journal: journal({
-            steps: [
-              step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
-            ],
-            spans: [
-              span({
-                id: 's1',
-                name: 'claude_code.llm_request',
-                startedAt: at(30_000),
-              }),
-            ],
-          }),
+          journals: [
+            journal({
+              steps: [
+                step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
+              ],
+              spans: [
+                span({
+                  id: 's1',
+                  name: 'claude_code.llm_request',
+                  startedAt: at(30_000),
+                }),
+              ],
+            }),
+          ],
         }),
       ]);
 
@@ -335,22 +410,24 @@ describe('traceOf', () => {
     it('hangs a span under the one that contains it', () => {
       const trace = traceOf([
         tracedRun({
-          journal: journal({
-            spans: [
-              span({
-                id: 'inner',
-                parentId: 'outer',
-                name: 'claude_code.llm_request',
-                startedAt: at(21_000),
-              }),
-              span({
-                id: 'outer',
-                name: 'claude_code.interaction',
-                startedAt: at(20_000),
-                ms: 10_000,
-              }),
-            ],
-          }),
+          journals: [
+            journal({
+              spans: [
+                span({
+                  id: 'inner',
+                  parentId: 'outer',
+                  name: 'claude_code.llm_request',
+                  startedAt: at(21_000),
+                }),
+                span({
+                  id: 'outer',
+                  name: 'claude_code.interaction',
+                  startedAt: at(20_000),
+                  ms: 10_000,
+                }),
+              ],
+            }),
+          ],
         }),
       ]);
 
@@ -362,15 +439,17 @@ describe('traceOf', () => {
     it('draws a span whose parent is nowhere to be found', () => {
       const trace = traceOf([
         tracedRun({
-          journal: journal({
-            spans: [
-              span({
-                id: 'inner',
-                parentId: 'gone',
-                startedAt: at(21_000),
-              }),
-            ],
-          }),
+          journals: [
+            journal({
+              spans: [
+                span({
+                  id: 'inner',
+                  parentId: 'gone',
+                  startedAt: at(21_000),
+                }),
+              ],
+            }),
+          ],
         }),
       ]);
 
@@ -380,9 +459,11 @@ describe('traceOf', () => {
     it('carries a failing span through as an error', () => {
       const trace = traceOf([
         tracedRun({
-          journal: journal({
-            spans: [span({ id: 's1', startedAt: at(20_000), failed: true })],
-          }),
+          journals: [
+            journal({
+              spans: [span({ id: 's1', startedAt: at(20_000), failed: true })],
+            }),
+          ],
         }),
       ]);
 
@@ -393,9 +474,13 @@ describe('traceOf', () => {
   it('reads a run whose harness reported nothing', () => {
     const trace = traceOf([
       tracedRun({
-        journal: journal({
-          steps: [step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 })],
-        }),
+        journals: [
+          journal({
+            steps: [
+              step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
+            ],
+          }),
+        ],
       }),
     ]);
 
@@ -412,7 +497,7 @@ describe('traceOf', () => {
     it('puts a connection with an error under the step that was open when it started', () => {
       const trace = traceOf([
         tracedRun({
-          journal: npmTest,
+          journals: [npmTest],
           connections: [connection({ at: at(21_000) })],
         }),
       ]);
@@ -435,7 +520,7 @@ describe('traceOf', () => {
     it('ends a connection row no later than the row that contains it', () => {
       const trace = traceOf([
         tracedRun({
-          journal: npmTest,
+          journals: [npmTest],
           connections: [connection({ at: at(24_000), ms: 9_000 })],
         }),
       ]);
@@ -448,7 +533,7 @@ describe('traceOf', () => {
     it('puts a connection that no step contains into the phase or the run', () => {
       const trace = traceOf([
         tracedRun({
-          journal: npmTest,
+          journals: [npmTest],
           connections: [
             connection({ at: at(30_000) }),
             connection({ at: at(90_000), host: 'late.example.net' }),
@@ -472,7 +557,7 @@ describe('traceOf', () => {
     it('draws the same failure in one place as one row, and counts it', () => {
       const trace = traceOf([
         tracedRun({
-          journal: npmTest,
+          journals: [npmTest],
           connections: [
             connection({ at: at(21_000) }),
             connection({ at: at(22_000) }),
@@ -495,7 +580,7 @@ describe('traceOf', () => {
     it('leaves out connections without an error', () => {
       const trace = traceOf([
         tracedRun({
-          journal: npmTest,
+          journals: [npmTest],
           connections: [
             connection({
               at: at(21_000),
@@ -532,7 +617,7 @@ describe('traceOf', () => {
     it('names the port when it is not 443', () => {
       const trace = traceOf([
         tracedRun({
-          journal: null,
+          journals: [],
           connections: [connection({ at: at(1_000), port: 5432 })],
         }),
       ]);
@@ -546,11 +631,13 @@ describe('traceOf', () => {
   it('tells on the run row whether egress was enforced', () => {
     expect(
       traceOf([
-        tracedRun({ journal: journal({ egressEnforcement: 'not-enforced' }) }),
+        tracedRun({
+          journals: [journal({ egressEnforcement: 'not-enforced' })],
+        }),
       ]).roots[0]?.egressEnforcement,
     ).toBe('not-enforced');
     expect(
-      traceOf([tracedRun({ journal: null })]).roots[0]?.egressEnforcement,
+      traceOf([tracedRun({ journals: [] })]).roots[0]?.egressEnforcement,
     ).toBeNull();
   });
 });

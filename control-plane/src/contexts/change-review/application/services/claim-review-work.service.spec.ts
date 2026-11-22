@@ -14,6 +14,7 @@ import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
 import { MAX_LEASE_MS } from '@change-review/domain/value-objects/runner-claim.vo';
 import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
@@ -108,6 +109,7 @@ const waitingCheck = (placement = RunnerPlacement.anywhere()) => {
     trial: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null, placement),
+    stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
     entries: stack.entries(),
     now: NOW,
   });
@@ -217,6 +219,7 @@ describe('ClaimReviewWork', () => {
       trial: false,
       workspaceId: first.workspaceId,
       request: first.request,
+      stack: first.stack,
       entries: first.entries,
       now: NOW,
     });
@@ -248,6 +251,7 @@ describe('ClaimReviewWork', () => {
       trial: false,
       workspaceId: first.workspaceId,
       request: first.request,
+      stack: first.stack,
       entries: first.entries,
       now: NOW,
     });

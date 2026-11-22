@@ -4,6 +4,7 @@ import type {
   RunReasoning,
   WorkPort,
 } from '@change-review/application/ports/work.port';
+import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -50,8 +51,9 @@ export class Work implements WorkPort {
               }
             : null,
         placement: run.placement,
-        ended: run.ended,
-        completed: run.completed,
+        working: run.working,
+        attempt: run.attempt,
+        orderedAt: run.orderedAt,
         decisions: run.decisions,
         trial: run.trial,
         isolated: run.isolated,
@@ -68,8 +70,8 @@ export class Work implements WorkPort {
     return (await this.work.contextOfRun(runId))?.repositories ?? [];
   }
 
-  async reasoning(runId: RunId): Promise<RunReasoning | null> {
-    const reasoning = await this.work.reasoning(runId);
+  async reasoningThrough(turn: AgentTurn): Promise<RunReasoning | null> {
+    const reasoning = await this.work.reasoning(turn.runId, turn.attempt);
 
     return (
       reasoning && {

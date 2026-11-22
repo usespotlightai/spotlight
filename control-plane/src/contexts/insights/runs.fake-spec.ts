@@ -30,9 +30,11 @@ import {
   startOf,
 } from '@insights/domain/services/run-order';
 import type { AlertId } from '@insights/domain/value-objects/alert-id.vo';
+import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import type { RepositoryCheck } from '@insights/domain/value-objects/run-checks.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
@@ -74,7 +76,8 @@ export const endOf = (
     ending?: RunEnding;
     failure?: string | null;
     runNumber?: number;
-    asked?: boolean;
+    queuedMs?: number;
+    runningMs?: number;
     harness?: string;
     model?: string | null;
     effort?: string | null;
@@ -82,8 +85,12 @@ export const endOf = (
     repositories?: readonly string[];
     skills?: readonly string[];
   } = {},
-): RunEnd =>
-  RunEnd.of({
+): RunEnd => {
+  const queuedAt = change.queuedAt === undefined ? null : change.queuedAt;
+  const startedAt = change.startedAt === undefined ? null : change.startedAt;
+  const endedAt = change.endedAt ?? new Date('2026-09-30T10:00:00.000Z');
+
+  return RunEnd.of({
     location: locationOf(change.taskId, change.stationId),
     fingerprint:
       change.fingerprint === undefined ? FIRST_CONFIG : change.fingerprint,
@@ -95,14 +102,31 @@ export const endOf = (
       repositories: change.repositories ?? ['acme/api'],
       skills: change.skills ?? [],
     }),
-    queuedAt: change.queuedAt === undefined ? null : change.queuedAt,
-    startedAt: change.startedAt === undefined ? null : change.startedAt,
-    endedAt: change.endedAt ?? new Date('2026-09-30T10:00:00.000Z'),
+    queuedAt,
+    startedAt,
+    endedAt,
+    queuedMs:
+      change.queuedMs ??
+      (queuedAt && startedAt ? startedAt.getTime() - queuedAt.getTime() : 0),
+    runningMs:
+      change.runningMs ??
+      (startedAt ? endedAt.getTime() - startedAt.getTime() : 0),
     ending: change.ending ?? 'completed',
     failure: change.failure ?? null,
     runNumber: change.runNumber ?? 1,
-    asked: change.asked ?? false,
   });
+};
+
+export const checkOf = (
+  verdict: CheckVerdict,
+  at: Date,
+  repository: string | null = 'api',
+): RepositoryCheck => ({
+  repository,
+  stackStartedAt: at,
+  verdict,
+  checkedAt: at,
+});
 
 export const usageOf = (
   change: {
@@ -547,6 +571,8 @@ export const SET_UP = {
   skills: [],
   queuedAt: new Date('2026-09-01T00:00:00.000Z'),
   startedAt: null,
+  queuedMs: 0,
+  runningMs: 0,
 };
 
 export const NOBODY_ELSE = {

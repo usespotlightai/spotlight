@@ -1,5 +1,6 @@
 import type { ReadyProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type {
   LeasedRunFacts,
@@ -218,6 +219,7 @@ export const leasedRun = (
   suspendedAt: null,
   progress: 'in-progress',
   resumable: false,
+  working: true,
   claimedBy: RunnerId.of('runner_1'),
   harness: HarnessId.of('dev'),
   requester: requestedBy.task(),
@@ -230,6 +232,7 @@ export const leasedRun = (
   queuedAt: LEASED_AT,
   startedAt: LEASED_AT,
   endedAt: null,
+  spent: { queuedMs: 0, runningMs: 0, firstStartedAt: LEASED_AT },
   started: true,
   askedAPerson: false,
   failed: false,
@@ -298,6 +301,8 @@ export const cannedJournalReadings = (
   lastWordsIn: () => null,
   workingCopyPathsIn: () => [],
   hunksIn: () => [],
+  stepsThrough: (attempts, through) =>
+    runJournalReadings().stepsThrough(attempts, through),
   ...canned,
 });
 

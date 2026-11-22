@@ -432,7 +432,6 @@ describe('useLiveStream', () => {
     expect(shown).toHaveBeenCalledWith('Which database?', {
       body: 'Postgres or SQLite for the cache?',
       tag: 'task_1:0',
-      icon: '/email-logo.png',
     });
   });
 

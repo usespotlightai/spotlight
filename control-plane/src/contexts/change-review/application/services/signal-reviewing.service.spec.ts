@@ -1,3 +1,4 @@
+import type { ReviewingLocksPort } from '@change-review/application/ports/reviewing-locks.port';
 import type {
   ReviewedTask,
   RunForReview,
@@ -17,22 +18,46 @@ import { describe, expect, it } from 'vitest';
 
 const TASK = TaskId.of('task_1');
 const RUN = RunId.of('run_1');
-const NEXT = RunId.of('run_2');
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+const EYES = `react eyes on ${PULL.value}`;
+const NO_EYES = `remove eyes on ${PULL.value}`;
+
+const runFor = (
+  id: RunId,
+  working: boolean,
+  taskId: TaskId | null,
+): RunForReview => ({
+  id,
+  workspaceId: WorkspaceId.of('ws_1'),
+  taskId,
+  checking: null,
+  working,
+  attempt: 1,
+  orderedAt: null,
+  decisions: false,
+  trial: false,
+  isolated: false,
+  checkouts: 1,
+  placement: RunnerPlacement.anywhere(),
+});
 
 const signalling = (
   over: {
     task?: Partial<ReviewedTask> | null;
-    ended?: readonly RunId[];
+    working?: () => boolean;
+    runTask?: TaskId | null;
     connected?: boolean;
+    reacting?: (reaction: string) => void;
   } = {},
 ) => {
   const reactions: string[] = [];
+  const locked: string[] = [];
   const recording =
     (what: string) => async (on: ReactedTo, reaction: string) => {
-      reactions.push(`${what} ${reaction} on ${on.pullRequest.value}`);
+      const done = `${what} ${reaction} on ${on.pullRequest.value}`;
+      reactions.push(done);
+      over.reacting?.(done);
     };
-  const ended = over.ended ?? [];
 
   const signal = new SignalReviewing(
     {
@@ -50,73 +75,116 @@ const signalling = (
               currentRunId: RUN,
               ...over.task,
             },
-      run: async (runId: RunId): Promise<RunForReview> => ({
-        id: runId,
-        workspaceId: WorkspaceId.of('ws_1'),
-        taskId: TASK,
-        checking: null,
-        ended: ended.some((each) => each.equals(runId)),
-        completed: false,
-        decisions: false,
-        trial: false,
-        isolated: false,
-        checkouts: 1,
-        placement: RunnerPlacement.anywhere(),
-      }),
+      run: async (runId: RunId) =>
+        runFor(
+          runId,
+          over.working?.() ?? true,
+          over.runTask === undefined ? TASK : over.runTask,
+        ),
     } as unknown as WorkPort,
     { isConnected: async () => over.connected ?? true },
     {
       react: recording('react'),
       remove: recording('remove'),
     } satisfies PullRequestReactionsPort,
+    {
+      signallingFor: async (taskId, work) => {
+        locked.push(taskId.value);
+        return work();
+      },
+    } satisfies ReviewingLocksPort,
   );
 
-  return { signal, reactions };
+  return { signal, reactions, locked };
 };
 
 describe('SignalReviewing', () => {
-  it('adds the reviewing reaction to the pull request while its review runs', async () => {
+  it('signals a task one delivery at a time', async () => {
+    const { signal, locked } = signalling();
+
+    await signal.signal(TASK);
+
+    expect(locked).toEqual([TASK.value]);
+  });
+
+  it('adds the reviewing reaction while the current run of the task works', async () => {
     const { signal, reactions } = signalling();
 
-    await signal.began(TASK, RUN);
+    await signal.signal(TASK);
 
-    expect(reactions).toEqual([`react eyes on ${PULL.value}`]);
+    expect(reactions).toEqual([EYES]);
   });
 
-  it('removes the reviewing reaction once the run that reviewed it ends', async () => {
+  it('removes the reviewing reaction while the current run waits on a person or has ended', async () => {
+    const { signal, reactions } = signalling({ working: () => false });
+
+    await signal.signal(TASK);
+
+    expect(reactions).toEqual([NO_EYES]);
+  });
+
+  it('removes the reviewing reaction once the task has no current run', async () => {
+    const { signal, reactions } = signalling({ task: { currentRunId: null } });
+
+    await signal.signal(TASK);
+
+    expect(reactions).toEqual([NO_EYES]);
+  });
+
+  it('puts the reaction back when the run resumes while it was being removed for the turn before', async () => {
+    let working = false;
     const { signal, reactions } = signalling({
-      task: { currentRunId: null },
-      ended: [RUN],
+      working: () => working,
+      reacting: () => {
+        working = true;
+      },
     });
 
-    await signal.ended(TASK, RUN);
+    await signal.signal(TASK);
 
-    expect(reactions).toEqual([`remove eyes on ${PULL.value}`]);
+    expect(reactions).toEqual([NO_EYES, EYES]);
   });
 
-  it('never adds the reviewing reaction for a run that has already ended, however late it learns it began', async () => {
-    const { signal, reactions } = signalling({ ended: [RUN] });
-
-    await signal.began(TASK, RUN);
-
-    expect(reactions).toEqual([]);
-  });
-
-  it('never adds the reviewing reaction for a run that is no longer the current run of the task', async () => {
-    const { signal, reactions } = signalling({ task: { currentRunId: NEXT } });
-
-    await signal.began(TASK, RUN);
-
-    expect(reactions).toEqual([]);
-  });
-
-  it('keeps the reviewing reaction where a later review of the same task is still running', async () => {
+  it('removes the reaction again when the run waits on a person while it was being added', async () => {
+    let working = true;
     const { signal, reactions } = signalling({
-      task: { currentRunId: NEXT },
-      ended: [RUN],
+      working: () => working,
+      reacting: () => {
+        working = false;
+      },
     });
 
-    await signal.ended(TASK, RUN);
+    await signal.signal(TASK);
+
+    expect(reactions).toEqual([EYES, NO_EYES]);
+  });
+
+  it('stops after a few rounds when the run keeps changing, and leaves the rest to the next signal', async () => {
+    let working = true;
+    const { signal, reactions } = signalling({
+      working: () => working,
+      reacting: () => {
+        working = !working;
+      },
+    });
+
+    await signal.signal(TASK);
+
+    expect(reactions).toEqual([EYES, NO_EYES, EYES]);
+  });
+
+  it('signals the task of a run that resumed', async () => {
+    const { signal, reactions } = signalling();
+
+    await signal.signalRun(RUN);
+
+    expect(reactions).toEqual([EYES]);
+  });
+
+  it('says nothing for a run that belongs to no task', async () => {
+    const { signal, reactions } = signalling({ runTask: null });
+
+    await signal.signalRun(RUN);
 
     expect(reactions).toEqual([]);
   });
@@ -126,8 +194,7 @@ describe('SignalReviewing', () => {
       task: { reviewing: false, reviewedPullRequest: null },
     });
 
-    await signal.began(TASK, RUN);
-    await signal.ended(TASK, RUN);
+    await signal.signal(TASK);
 
     expect(reactions).toEqual([]);
   });
@@ -136,8 +203,8 @@ describe('SignalReviewing', () => {
     const gone = signalling({ task: null });
     const disconnected = signalling({ connected: false });
 
-    await gone.signal.began(TASK, RUN);
-    await disconnected.signal.began(TASK, RUN);
+    await gone.signal.signal(TASK);
+    await disconnected.signal.signal(TASK);
 
     expect([...gone.reactions, ...disconnected.reactions]).toEqual([]);
   });

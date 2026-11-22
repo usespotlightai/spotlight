@@ -13,6 +13,7 @@ import type {
   ConnectionOfRun,
   RunConnectionContract,
 } from '@runs/application/ports/run-connections.port';
+import { stepNumber } from '@runs/domain/services/journal-step-numbers';
 import { faulted } from '@runs/domain/value-objects/step-status';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -26,7 +27,7 @@ export interface TracedRun {
   readonly attempt: number;
   readonly startedAt: Date;
   readonly endedAt: Date;
-  readonly journal: RunJournal | null;
+  readonly journals: readonly RunJournal[];
   readonly connections: readonly RunConnection[];
 }
 
@@ -35,8 +36,6 @@ export const tracedRunsOf = (
   journals: readonly RunJournal[],
   errors: readonly ConnectionOfRun[],
 ): TracedRun[] => {
-  const byRun = new Map(journals.map((journal) => [journal.runId, journal]));
-
   return runs.map((run) => ({
     id: RunId.of(run.id),
     label: run.label || null,
@@ -45,19 +44,14 @@ export const tracedRunsOf = (
     attempt: run.attempt,
     startedAt: run.startedAt,
     endedAt: run.endedAt ?? run.updatedAt,
-    journal: byRun.get(run.id) ?? null,
-    connections: connectionsOf(errors, run.id, run.attempt),
+    journals: journals
+      .filter((journal) => journal.runId === run.id)
+      .sort((one, other) => one.attempt - other.attempt),
+    connections: errors
+      .filter((each) => each.runId === run.id)
+      .map((each) => each.connection),
   }));
 };
-
-const connectionsOf = (
-  recorded: readonly ConnectionOfRun[],
-  runId: string,
-  attempt: number,
-): RunConnection[] =>
-  recorded
-    .filter((each) => each.runId === runId && each.attempt === attempt)
-    .map((each) => each.connection);
 
 const at = (when: Date): number => when.getTime();
 
@@ -223,15 +217,24 @@ interface Phase {
   readonly isAgent: boolean;
 }
 
+const attemptIdOf = (run: TracedRun, journal: RunJournal): string =>
+  journal.attempt > 1
+    ? `${run.id.value}:attempt-${journal.attempt}`
+    : run.id.value;
+
+const attemptNameOf = (name: string, journal: RunJournal): string =>
+  journal.attempt > 1 ? `${name} · attempt ${journal.attempt}` : name;
+
 const phasesOf = (run: TracedRun, journal: RunJournal): Phase[] => {
   const marks = journal.marks;
   const closed = marks.endedAt ?? run.endedAt;
+  const id = attemptIdOf(run, journal);
   const phases: Phase[] = [];
 
   if (marks.startedAt && marks.readyAt && marks.readyAt > marks.startedAt) {
     phases.push({
-      id: `${run.id.value}:prepare`,
-      name: 'Prepare',
+      id: `${id}:prepare`,
+      name: attemptNameOf('Prepare', journal),
       from: marks.startedAt,
       to: marks.readyAt,
       isAgent: false,
@@ -240,8 +243,8 @@ const phasesOf = (run: TracedRun, journal: RunJournal): Phase[] => {
 
   if (marks.firstAgentUpdateAt && marks.lastAgentUpdateAt) {
     phases.push({
-      id: `${run.id.value}:turn`,
-      name: `Turn · ${run.harness}`,
+      id: `${id}:turn`,
+      name: attemptNameOf(`Turn · ${run.harness}`, journal),
       from: marks.firstAgentUpdateAt,
       to: marks.lastAgentUpdateAt,
       isAgent: true,
@@ -250,8 +253,8 @@ const phasesOf = (run: TracedRun, journal: RunJournal): Phase[] => {
 
   if (marks.lastAgentUpdateAt && closed > marks.lastAgentUpdateAt) {
     phases.push({
-      id: `${run.id.value}:publish`,
-      name: 'Publish',
+      id: `${id}:publish`,
+      name: attemptNameOf('Publish', journal),
       from: marks.lastAgentUpdateAt,
       to: closed,
       isAgent: false,
@@ -369,28 +372,28 @@ const withConnections = (
 const runName = (run: TracedRun): string =>
   `${run.label ?? 'Run'}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`;
 
-const runNode = (run: TracedRun): TraceNode => {
-  const journal = run.journal;
-  const steps = journal?.steps ?? [];
-  const spans = journal?.spans ?? [];
-  const pairs = paired(spans, steps);
+const attemptNodesOf = (run: TracedRun, journal: RunJournal): TraceNode[] => {
+  const pairs = paired(journal.spans, journal.steps);
   const merged = new Set(pairs.values());
-  const places = new Map(steps.map((step, place) => [step, place] as const));
+  const numbered = journal.steps.map((step, position) => ({
+    step,
+    place: stepNumber(journal.attempt, position),
+  }));
+  const places = new Map(
+    numbered.map(({ step, place }) => [step, place] as const),
+  );
+  const id = attemptIdOf(run, journal);
 
   const nodes: TraceNode[] = [
-    ...steps
-      .filter((step) => !merged.has(step))
-      .map((step, index) =>
-        nodeOfStep(
-          step,
-          `${run.id.value}:step:${index}`,
-          places.get(step) ?? index,
-        ),
+    ...numbered
+      .filter(({ step }) => !merged.has(step))
+      .map(({ step, place }, index) =>
+        nodeOfStep(step, `${id}:step:${index}`, place),
       ),
-    ...nested(spans, pairs, places),
+    ...nested(journal.spans, pairs, places),
   ].sort((one, other) => at(one.from) - at(other.from));
 
-  const phases = journal ? phasesOf(run, journal) : [];
+  const phases = phasesOf(run, journal);
 
   const inside = (node: TraceNode): Phase | undefined =>
     phases.find((phase) => node.from >= phase.from && node.from <= phase.to);
@@ -411,7 +414,16 @@ const runNode = (run: TracedRun): TraceNode => {
     children: nodes.filter((node) => inside(node)?.id === phase.id),
   }));
 
-  const loose = nodes.filter((node) => !inside(node));
+  return [...phased, ...nodes.filter((node) => !inside(node))];
+};
+
+const runNode = (run: TracedRun): TraceNode => {
+  const children = run.journals
+    .flatMap((journal) => attemptNodesOf(run, journal))
+    .sort((one, other) => at(one.from) - at(other.from));
+  const from = new Date(
+    Math.min(at(run.startedAt), ...children.map((child) => at(child.from))),
+  );
 
   const arriving = run.connections
     .filter((each) => each.error !== null)
@@ -426,18 +438,17 @@ const runNode = (run: TracedRun): TraceNode => {
       id: `run:${run.id.value}`,
       kind: 'run',
       name: runName(run),
-      from: run.startedAt,
-      to: new Date(Math.max(run.endedAt.getTime(), run.startedAt.getTime())),
+      from,
+      to: new Date(Math.max(run.endedAt.getTime(), from.getTime())),
       category: run.failed ? 'failed' : 'agent',
       step: null,
       place: null,
       span: null,
-      cost: journal?.spent?.cost ?? null,
+      cost: run.journals[run.journals.length - 1]?.spent?.cost ?? null,
       connection: null,
-      egressEnforcement: journal?.egressEnforcement ?? null,
-      children: [...phased, ...loose].sort(
-        (one, other) => at(one.from) - at(other.from),
-      ),
+      egressEnforcement:
+        run.journals[run.journals.length - 1]?.egressEnforcement ?? null,
+      children,
     },
     arriving,
   );

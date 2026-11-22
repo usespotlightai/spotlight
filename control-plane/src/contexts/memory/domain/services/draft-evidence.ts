@@ -13,8 +13,8 @@ import { parseMemoryScopeLevel } from '@memory/domain/value-objects/memory-scope
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 import type { StationContext } from '@memory/domain/value-objects/run-context';
+import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const MAX_PROMPT_CHARS = 2_000;
@@ -87,7 +87,7 @@ const changeKey = (repository: string, path: MemoryPath): string =>
 export class DraftEvidence {
   private constructor(
     private readonly taskId: TaskId,
-    private readonly runId: RunId,
+    private readonly turn: AgentTurn,
     private readonly runContext: StationContext,
     readonly steps: readonly EvidenceStep[],
     readonly stepsLeftOut: number,
@@ -100,7 +100,7 @@ export class DraftEvidence {
 
   static of(input: {
     taskId: TaskId;
-    runId: RunId;
+    turn: AgentTurn;
     runContext: StationContext;
     steps: readonly EvidenceStep[];
     notes: readonly EvidenceNote[];
@@ -143,7 +143,7 @@ export class DraftEvidence {
 
     return new DraftEvidence(
       input.taskId,
-      input.runId,
+      input.turn,
       input.runContext,
       steps,
       input.steps.length - steps.length,
@@ -165,8 +165,8 @@ export class DraftEvidence {
       : null;
   }
 
-  isFor(taskId: TaskId, runId: RunId): boolean {
-    return this.taskId.equals(taskId) && this.runId.equals(runId);
+  isFor(taskId: TaskId, turn: AgentTurn): boolean {
+    return this.taskId.equals(taskId) && this.turn.equals(turn);
   }
 
   proposalOf(
@@ -176,7 +176,7 @@ export class DraftEvidence {
   ): MemoryProposal {
     const provenance = MemoryProvenance.of({
       taskId: this.taskId,
-      runId: this.runId,
+      runId: this.turn.runId,
       steps: proposed.steps,
       notes: proposed.notes,
     });

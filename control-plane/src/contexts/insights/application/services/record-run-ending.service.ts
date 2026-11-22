@@ -2,6 +2,7 @@ import type { EndedRun, WorkPort } from '@insights/application/ports/work.port';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
+import { isLineWork } from '@insights/domain/services/line-work';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
@@ -16,7 +17,6 @@ export interface RunEnded {
   readonly stationId: string | null;
   readonly ending: RunEnding | null;
   readonly failure: string | null;
-  readonly asked: boolean;
   readonly drivenByAPerson: boolean;
 }
 
@@ -24,7 +24,6 @@ const endOf = (
   run: EndedRun,
   ending: RunEnding,
   failure: string | null,
-  asked: boolean,
 ): RunEnd =>
   RunEnd.of({
     location: RunLocation.of({
@@ -45,10 +44,11 @@ const endOf = (
     queuedAt: run.queuedAt,
     startedAt: run.startedAt,
     endedAt: run.endedAt,
+    queuedMs: run.queuedMs,
+    runningMs: run.runningMs,
     ending,
     failure,
     runNumber: run.runNumber,
-    asked,
   });
 
 export class RecordRunEnding {
@@ -62,7 +62,7 @@ export class RecordRunEnding {
   async ended(event: RunEnded): Promise<void> {
     const { ending } = event;
 
-    if (!ending || !event.taskId || !event.stationId || event.drivenByAPerson) {
+    if (!ending || !event.taskId || !event.stationId || !isLineWork(event)) {
       return;
     }
 
@@ -72,7 +72,7 @@ export class RecordRunEnding {
       return;
     }
 
-    const end = endOf(run, ending, event.failure, event.asked);
+    const end = endOf(run, ending, event.failure);
     const { taskId, teamId } = end.location;
     const workspaceId = run.workspaceId;
 

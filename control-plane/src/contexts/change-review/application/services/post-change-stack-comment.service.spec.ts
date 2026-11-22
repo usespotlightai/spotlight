@@ -132,8 +132,9 @@ const posting = (
           workspaceId: WorkspaceId.of('workspace-1'),
           taskId: TaskId.of('task-1'),
           checking: null,
-          ended: false,
-          completed: false,
+          working: true,
+          attempt: 1,
+          orderedAt: null,
           decisions: false,
           trial: over.trial ?? false,
           isolated: over.trial ?? false,
@@ -143,7 +144,7 @@ const posting = (
       },
       teamOfRun: async () => null,
       repositoriesOfRun: async () => [],
-      reasoning: async () => null,
+      reasoningThrough: async () => null,
       task: async () => {
         if (over.failing === 'task') {
           return unreachable();

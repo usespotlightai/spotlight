@@ -1,4 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -14,6 +15,8 @@ export class TaskAsked implements DomainEvent {
     readonly stationId: StationId,
     readonly assignee: UserId | null,
     readonly at: Date,
+    readonly by: RunId | null,
     readonly driver: RunDriver,
+    readonly runAsked: boolean,
   ) {}
 }

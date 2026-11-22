@@ -1,4 +1,5 @@
 import type { CheckingPlan } from '@change-review/domain/value-objects/check-request.vo';
+import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -15,8 +16,9 @@ export interface RunForReview {
   readonly taskId: TaskId | null;
   readonly checking: CheckingPlan | null;
   readonly placement: RunnerPlacement;
-  readonly ended: boolean;
-  readonly completed: boolean;
+  readonly working: boolean;
+  readonly attempt: number;
+  readonly orderedAt: Date | null;
   readonly decisions: boolean;
   readonly trial: boolean;
   readonly isolated: boolean;
@@ -62,7 +64,7 @@ export interface WorkPort {
 
   repositoriesOfRun(runId: RunId): Promise<readonly Repository[]>;
 
-  reasoning(runId: RunId): Promise<RunReasoning | null>;
+  reasoningThrough(turn: AgentTurn): Promise<RunReasoning | null>;
 
   task(taskId: TaskId): Promise<ReviewedTask | null>;
 

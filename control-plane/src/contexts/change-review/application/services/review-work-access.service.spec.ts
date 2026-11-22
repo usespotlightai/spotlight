@@ -8,6 +8,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -34,6 +35,7 @@ const checking = () =>
     trial: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
     entries: [],
     now: NOW,
   }).claimedFor(RUNNER, RunnerOffer.none(), NOW);

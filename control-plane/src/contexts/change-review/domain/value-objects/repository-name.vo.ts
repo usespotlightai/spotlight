@@ -1,4 +1,5 @@
 import { InvalidRepositoryNameError } from '@change-review/domain/exceptions/invalid-repository-name.error';
+import { sameRepositoryName } from '@shared-kernel/domain/services/repository-names';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
@@ -44,7 +45,7 @@ export class RepositoryName {
   }
 
   names(repository: Repository): boolean {
-    return this.value.toLowerCase() === repository.name.toLowerCase();
+    return sameRepositoryName(this.value, repository.name);
   }
 
   isOf(pullRequest: PullRequestUrl): boolean {
@@ -61,6 +62,6 @@ export class RepositoryName {
   }
 
   equals(other: RepositoryName): boolean {
-    return this.value.toLowerCase() === other.value.toLowerCase();
+    return sameRepositoryName(this.value, other.value);
   }
 }

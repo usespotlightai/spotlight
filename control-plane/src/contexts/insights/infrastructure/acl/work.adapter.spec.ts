@@ -28,8 +28,10 @@ const endedRun = (fingerprint: string | null): EndedStationRun => ({
   repositories: [],
   skills: [],
   queuedAt: new Date('2026-09-30T09:00:00.000Z'),
-  startedAt: null,
+  startedAt: new Date('2026-09-30T09:10:00.000Z'),
   endedAt: new Date('2026-09-30T10:00:00.000Z'),
+  queuedMs: 600_000,
+  runningMs: 1_200_000,
 });
 
 const workOf = (fingerprint: string | null) => {
@@ -76,6 +78,15 @@ describe('reading an ended run from Work', () => {
           'Run ended with a malformed config fingerprint, recorded as no config',
       },
     ]);
+  });
+
+  it('reads the time the run spent queued and running', async () => {
+    const { work } = workOf(SHA_256);
+
+    const run = await work.endedRun(RunId.of('run_1'));
+
+    expect(run?.queuedMs).toBe(600_000);
+    expect(run?.runningMs).toBe(1_200_000);
   });
 
   it('warns of nothing when a run ended with no config', async () => {

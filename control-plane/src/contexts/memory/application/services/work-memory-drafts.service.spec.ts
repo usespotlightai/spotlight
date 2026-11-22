@@ -30,6 +30,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -41,7 +42,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const RUN = RunId.of('run_1');
+const TURN = AgentTurn.of(RUN, 1, RUN_ORDERED_AT);
 const TASK = TaskId.of('task_1');
 const API = Repository.of('acme/api');
 const TEAM = TeamId.of('team_1');
@@ -156,10 +160,14 @@ const working = (input: {
       id: MemoryDraftId.of('draft_1'),
       taskId: TASK,
       workspaceId: WorkspaceId.of('ws_1'),
-    }).requestDrafting(RUN, NOW);
+    }).requestDrafting(TURN, NOW);
   let ids = 0;
   const draft = vi.fn(input.answer ?? (async () => [REMEMBERED]));
   const since = vi.fn();
+  const reasoned = vi.fn(async (_turn: AgentTurn) =>
+    input.steps === undefined ? STEPS : input.steps,
+  );
+  const changedBy = vi.fn(async (_turn: AgentTurn) => CHANGED);
 
   const service = new WorkMemoryDrafts(
     {
@@ -183,8 +191,9 @@ const working = (input: {
         teamId: TeamId.of('team_1'),
         fromOutside: input.fromOutside ?? false,
       }),
-      reasoning: async () => (input.steps === undefined ? STEPS : input.steps),
-      changedBy: async () => CHANGED,
+      reasoning: async () => null,
+      reasoningThrough: reasoned,
+      changedThrough: changedBy,
       notesOf: async () => input.notes ?? NOTES,
       harnessOf: async () => null,
     } satisfies WorkPort,
@@ -220,10 +229,19 @@ const working = (input: {
     await service.idle();
   };
 
-  return { tick, draft, since, stored: () => stored };
+  return { tick, draft, since, reasoned, changedBy, stored: () => stored };
 };
 
 describe('drafting what a run should leave the team remembering', () => {
+  it('reads what the run reasoned and changed only up to the turn it drafts for', async () => {
+    const worked = working({});
+
+    await worked.tick();
+
+    expect(worked.reasoned).toHaveBeenCalledWith(TURN);
+    expect(worked.changedBy).toHaveBeenCalledWith(TURN);
+  });
+
   it('proposes what its evidence supports, from a person where it cites only notes by a person', async () => {
     const worked = working({});
 
@@ -281,7 +299,12 @@ describe('drafting what a run should leave the team remembering', () => {
     await first.tick();
 
     const later = working({
-      existing: first.stored().requestDrafting(RunId.of('run_2'), NOW),
+      existing: first
+        .stored()
+        .requestDrafting(
+          AgentTurn.of(RunId.of('run_2'), 1, RUN_ORDERED_AT),
+          NOW,
+        ),
       notes: [
         ...NOTES,
         { position: 2, by: 'person', author: null, text: 'Use gzip.' },
@@ -310,7 +333,7 @@ describe('drafting what a run should leave the team remembering', () => {
 
     expect(worked.draft).not.toHaveBeenCalled();
     expect(worked.stored().proposals).toEqual([]);
-    expect(worked.stored().draftedIn?.equals(RUN)).toBe(true);
+    expect(worked.stored().draftedIn?.equals(TURN)).toBe(true);
   });
 
   it('keeps nothing and says so when the run’s evidence is gone', async () => {

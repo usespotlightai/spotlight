@@ -38,6 +38,8 @@ export const stackCheck = pgTable(
       .$type<readonly (readonly string[])[]>()
       .notNull(),
     placementImage: text('placement_image'),
+    repository: text('repository'),
+    stackStartedAt: timestamptz('stack_started_at').notNull(),
     status: stackCheckStatus('status').notNull(),
     entries: jsonb('entries').$type<StoredCheckEntry[]>().notNull(),
     redraftCount: integer('redraft_count').notNull(),

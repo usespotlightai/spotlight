@@ -9,6 +9,7 @@ import { CheckRequest } from '@change-review/domain/value-objects/check-request.
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { DrizzleChangeStackReader } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.reader';
 import { DrizzlePushDiffRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/push-diff.repository';
@@ -181,6 +182,7 @@ const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
     attempts: 0,
     provisionAttempts: 0,
     waitingSince: NOW,
+    stackStartedAt: NOW,
     version: 0,
   });
 
@@ -457,6 +459,7 @@ describe('deleting the checks of a deleted task', () => {
       trial: false,
       workspaceId: WorkspaceId.of(randomUUID()),
       request: CheckRequest.of('npm test', null),
+      stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
       entries: [],
       now: NOW,
     });
@@ -519,6 +522,7 @@ describe('a runner reaching git for the work it leases', () => {
       trial: false,
       workspaceId: WorkspaceId.of(randomUUID()),
       request: CheckRequest.of('npm test', null),
+      stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
       entries: [],
       now: NOW,
     });

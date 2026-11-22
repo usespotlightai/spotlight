@@ -31,6 +31,7 @@ import { RunEndedFacts } from '@work/application/services/run-ending-reactions';
 import { RunRouting } from '@work/application/services/run-routing.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -325,6 +326,17 @@ describe('HandOver', () => {
     expect(saved?.notes[0]?.body.value).toContain(
       'A person stopped the run. The task is back with you.',
     );
+    expect(
+      saved?.pullEvents().find((each) => each instanceof TaskAsked),
+    ).toMatchObject({ runAsked: false });
+  });
+
+  it('says the run asked when it put the task to a person itself', async () => {
+    await handOver(run(false, { next: 'review', note: 'Which bucket?' }));
+
+    expect(
+      saved?.pullEvents().find((each) => each instanceof TaskAsked),
+    ).toMatchObject({ runAsked: true });
   });
 
   it('closes a task that the run handed over as done', async () => {

@@ -24,11 +24,15 @@ export function StepAnchorsProvider({
       new Map(
         journals
           .filter((each) => each.runId === runId)
-          .flatMap((each) => each.steps)
-          .map((step, index) => [step, index] as const),
+          .flatMap((journal) =>
+            journal.steps.map(
+              (step, position) => [step, journal.firstStep + position] as const,
+            ),
+          ),
       ),
     [journals, runId],
   );
+  const numbers = useMemo(() => new Set(places.values()), [places]);
 
   const value = useMemo(
     () => ({
@@ -37,7 +41,7 @@ export function StepAnchorsProvider({
         const index = places.get(step);
         return index === undefined ? null : stepAnchor(runId, index);
       },
-      has: (index: number) => index < places.size,
+      has: (index: number) => numbers.has(index),
       focus: (index: number) => {
         const anchor = stepAnchor(runId, index);
 
@@ -51,7 +55,7 @@ export function StepAnchorsProvider({
         );
       },
     }),
-    [focused, places, runId, later],
+    [focused, places, numbers, runId, later],
   );
 
   return <StepAnchorsContext value={value}>{children}</StepAnchorsContext>;

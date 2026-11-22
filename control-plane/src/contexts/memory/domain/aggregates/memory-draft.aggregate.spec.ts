@@ -20,6 +20,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -32,22 +33,26 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const LATER = new Date('2026-09-27T11:00:00.000Z');
 const TASK = TaskId.of('task_1');
 const FIRST = RunId.of('run_1');
 const SECOND = RunId.of('run_2');
+const FIRST_TURN = AgentTurn.of(FIRST, 1, RUN_ORDERED_AT);
+const SECOND_TURN = AgentTurn.of(SECOND, 1, RUN_ORDERED_AT);
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
 const evidence = (
-  runId: RunId,
+  turn: AgentTurn,
   notes: readonly { position: number; by: 'person' | 'world' }[] = [
     { position: 4, by: 'person' },
   ],
 ) =>
   DraftEvidence.of({
     taskId: TASK,
-    runId,
+    turn,
     runContext: {
       teamId: TEAM,
       lineId: LineId.of('line_1'),
@@ -93,14 +98,14 @@ const newId = () => {
 
 const drafting = (
   draft: MemoryDraft,
-  runId: RunId,
+  turn: AgentTurn,
   proposed: readonly ProposedMemory[],
   notes?: readonly { position: number; by: 'person' | 'world' }[],
 ) =>
   draft.recordDraft({
-    runId,
+    turn,
     proposed,
-    evidence: evidence(runId, notes),
+    evidence: evidence(turn, notes),
     newId,
     now: NOW,
   });
@@ -128,49 +133,105 @@ const rejected = (id: string) =>
 describe('MemoryDraft', () => {
   describe('a drafting request', () => {
     it('has a pending job to draft the run that ended', () => {
-      const requested = created().requestDrafting(FIRST, NOW);
+      const requested = created().requestDrafting(FIRST_TURN, NOW);
 
       expect(requested.hasPendingJob).toBe(true);
-      expect(requested.drafting?.isFor(FIRST)).toBe(true);
+      expect(requested.drafting?.isFor(FIRST_TURN)).toBe(true);
     });
 
     it('is requested once for a run, however often its ending arrives', () => {
-      const requested = created().requestDrafting(FIRST, NOW);
+      const requested = created().requestDrafting(FIRST_TURN, NOW);
       requested.pullEvents();
 
-      expect(requested.requestDrafting(FIRST, LATER)).toBe(requested);
+      expect(requested.requestDrafting(FIRST_TURN, LATER)).toBe(requested);
     });
 
     it('drafts the latest run when a later one ends before the earlier is drafted', () => {
       const requested = created()
-        .requestDrafting(FIRST, NOW)
-        .requestDrafting(SECOND, LATER);
+        .requestDrafting(FIRST_TURN, NOW)
+        .requestDrafting(SECOND_TURN, LATER);
 
-      expect(requested.drafting?.isFor(SECOND)).toBe(true);
+      expect(requested.drafting?.isFor(SECOND_TURN)).toBe(true);
     });
 
     it('is not requested again for a run it already drafted', () => {
       const drafted = drafting(
-        created().requestDrafting(FIRST, NOW),
-        FIRST,
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
         [],
       );
 
-      expect(drafted.requestDrafting(FIRST, LATER).hasPendingJob).toBe(false);
+      expect(drafted.requestDrafting(FIRST_TURN, LATER).hasPendingJob).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('a drafting request for a kept run', () => {
+    const resumed = AgentTurn.of(FIRST, 2, RUN_ORDERED_AT);
+
+    it('drafts again when the same run hands over a later turn', () => {
+      const drafted = drafting(
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
+        [],
+      );
+      const requested = drafted.requestDrafting(resumed, LATER);
+
+      expect(requested.hasPendingJob).toBe(true);
+      expect(requested.drafting?.isFor(resumed)).toBe(true);
+    });
+
+    it('moves a pending request on to the later turn', () => {
+      const requested = created()
+        .requestDrafting(FIRST_TURN, NOW)
+        .requestDrafting(resumed, LATER);
+
+      expect(requested.drafting?.isFor(resumed)).toBe(true);
+      expect(requested.drafting?.isFor(FIRST_TURN)).toBe(false);
+    });
+
+    it('ignores a turn it already drafted or an older one that arrives late', () => {
+      const drafted = drafting(
+        created().requestDrafting(resumed, NOW),
+        resumed,
+        [],
+      );
+
+      expect(drafted.requestDrafting(resumed, LATER)).toBe(drafted);
+      expect(drafted.requestDrafting(FIRST_TURN, LATER)).toBe(drafted);
+    });
+
+    it('ignores an older turn while a later one is pending', () => {
+      const requested = created().requestDrafting(resumed, NOW);
+
+      expect(requested.requestDrafting(FIRST_TURN, LATER)).toBe(requested);
+    });
+
+    it('records no draft of an earlier turn than the one pending', () => {
+      const requested = created()
+        .requestDrafting(FIRST_TURN, NOW)
+        .requestDrafting(resumed, LATER);
+
+      expect(drafting(requested, FIRST_TURN, [remembered()])).toBe(requested);
     });
   });
 
   describe('drafting', () => {
     it('proposes what the evidence supports and drops what it does not', () => {
-      const drafted = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
-        remembered(),
-        remembered({ steps: [9] }),
-        remembered({ paths: ['src/elsewhere.ts'] }),
-        remembered({ kind: 'gossip' }),
-      ]);
+      const drafted = drafting(
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
+        [
+          remembered(),
+          remembered({ steps: [9] }),
+          remembered({ paths: ['src/elsewhere.ts'] }),
+          remembered({ kind: 'gossip' }),
+        ],
+      );
 
       expect(drafted.hasPendingJob).toBe(false);
-      expect(drafted.draftedIn?.equals(FIRST)).toBe(true);
+      expect(drafted.draftedIn?.equals(FIRST_TURN)).toBe(true);
       expect(drafted.proposals).toHaveLength(1);
       expect(drafted.proposals[0]?.proposed).toBe(true);
       expect(drafted.pullEvents().slice(-1)[0]).toEqual(
@@ -179,25 +240,31 @@ describe('MemoryDraft', () => {
     });
 
     it('replaces the proposals an earlier run left and keeps the rejected ones', () => {
-      const first = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
-        remembered(),
-        remembered({ body: 'The staging bucket rejects uploads over 5 GB.' }),
-      ]);
+      const first = drafting(
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
+        [
+          remembered(),
+          remembered({ body: 'The staging bucket rejects uploads over 5 GB.' }),
+        ],
+      );
       const existing = MemoryDraft.rehydrate({
         id: first.id,
         taskId: TASK,
         workspaceId: first.workspaceId,
         drafting: null,
-        draftedIn: FIRST,
+        draftedIn: FIRST_TURN,
         notesRead: first.notesRead,
         proposals: [...first.proposals, rejected('memory_rejected')],
         failure: null,
         version: 1,
       });
 
-      const second = drafting(existing.requestDrafting(SECOND, LATER), SECOND, [
-        remembered({ kind: 'environment', body: 'CI has no network.' }),
-      ]);
+      const second = drafting(
+        existing.requestDrafting(SECOND_TURN, LATER),
+        SECOND_TURN,
+        [remembered({ kind: 'environment', body: 'CI has no network.' })],
+      );
 
       expect(second.proposals.map((each) => each.body.value)).toEqual([
         'Name branches after the ticket.',
@@ -209,16 +276,18 @@ describe('MemoryDraft', () => {
     });
 
     it('keeps the proposals still waiting for a person when a later run brought nothing to read', () => {
-      const first = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
-        remembered(),
-      ]);
+      const first = drafting(
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
+        [remembered()],
+      );
 
-      const quiet = first.requestDrafting(SECOND, LATER).recordDraft({
-        runId: SECOND,
+      const quiet = first.requestDrafting(SECOND_TURN, LATER).recordDraft({
+        turn: SECOND_TURN,
         proposed: [],
         evidence: DraftEvidence.of({
           taskId: TASK,
-          runId: SECOND,
+          turn: SECOND_TURN,
           runContext: {
             teamId: TEAM,
             lineId: LineId.of('line_1'),
@@ -237,20 +306,35 @@ describe('MemoryDraft', () => {
       });
 
       expect(quiet.proposals).toEqual(first.proposals);
-      expect(quiet.draftedIn?.equals(SECOND)).toBe(true);
+      expect(quiet.draftedIn?.equals(SECOND_TURN)).toBe(true);
       expect(quiet.pullEvents()).not.toContainEqual(
         new MemoryReviewRequested(quiet.id, TASK, SECOND),
       );
     });
 
     it('does not draft from the evidence of another task or run', () => {
-      const requested = created().requestDrafting(FIRST, NOW);
+      const requested = created().requestDrafting(FIRST_TURN, NOW);
 
       expect(() =>
         requested.recordDraft({
-          runId: FIRST,
+          turn: FIRST_TURN,
           proposed: [remembered()],
-          evidence: evidence(SECOND),
+          evidence: evidence(SECOND_TURN),
+          newId,
+          now: NOW,
+        }),
+      ).toThrow(InvalidMemoryError);
+    });
+
+    it('does not draft a kept turn from the evidence of another attempt of its run', () => {
+      const resumed = AgentTurn.of(FIRST, 2, RUN_ORDERED_AT);
+      const requested = created().requestDrafting(resumed, NOW);
+
+      expect(() =>
+        requested.recordDraft({
+          turn: resumed,
+          proposed: [remembered()],
+          evidence: evidence(FIRST_TURN),
           newId,
           now: NOW,
         }),
@@ -258,15 +342,15 @@ describe('MemoryDraft', () => {
     });
 
     it('ignores a draft of a run that it no longer waits for', () => {
-      const requested = created().requestDrafting(SECOND, NOW);
+      const requested = created().requestDrafting(SECOND_TURN, NOW);
 
-      expect(drafting(requested, FIRST, [remembered()])).toBe(requested);
+      expect(drafting(requested, FIRST_TURN, [remembered()])).toBe(requested);
     });
 
     it('reads a note once, unless a proposal still waiting for a person cites it', () => {
       const drafted = drafting(
-        created().requestDrafting(FIRST, NOW),
-        FIRST,
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
         [remembered({ steps: [], notes: [4] })],
         [
           { position: 3, by: 'person' },
@@ -282,8 +366,8 @@ describe('MemoryDraft', () => {
 
     it('keeps its place in the notes when a run brought none', () => {
       const drafted = drafting(
-        created().requestDrafting(FIRST, NOW),
-        FIRST,
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
         [],
         [],
       );
@@ -294,7 +378,7 @@ describe('MemoryDraft', () => {
 
   describe('failing', () => {
     it('is retried later where the failure allows another attempt', () => {
-      const leased = created().requestDrafting(FIRST, NOW).leaseJob(NOW);
+      const leased = created().requestDrafting(FIRST_TURN, NOW).leaseJob(NOW);
 
       const failed = leased.failed(
         MemoryDraftingFailure.of('request-failed', NOW),
@@ -307,7 +391,7 @@ describe('MemoryDraft', () => {
     });
 
     it('keeps nothing and says why when the failure allows no other attempt', () => {
-      const leased = created().requestDrafting(FIRST, NOW).leaseJob(NOW);
+      const leased = created().requestDrafting(FIRST_TURN, NOW).leaseJob(NOW);
       const failure = MemoryDraftingFailure.of('no-evidence', NOW);
 
       const failed = leased.failed(failure);
@@ -318,7 +402,7 @@ describe('MemoryDraft', () => {
     });
 
     it('ends with the failure once it has used every attempt the failure allows', () => {
-      let draft = created().requestDrafting(FIRST, NOW);
+      let draft = created().requestDrafting(FIRST_TURN, NOW);
       let at = NOW;
 
       for (let attempt = 1; attempt < 3; attempt += 1) {
@@ -337,7 +421,7 @@ describe('MemoryDraft', () => {
     });
 
     it('is dead-lettered as interrupted when its leases keep running out', () => {
-      let draft = created().requestDrafting(FIRST, NOW);
+      let draft = created().requestDrafting(FIRST_TURN, NOW);
       let at = NOW;
 
       for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
@@ -351,13 +435,13 @@ describe('MemoryDraft', () => {
 
     it('clears a failure once a later draft succeeds', () => {
       const failed = created()
-        .requestDrafting(FIRST, NOW)
+        .requestDrafting(FIRST_TURN, NOW)
         .leaseJob(NOW)
         .failed(MemoryDraftingFailure.of('no-evidence', NOW));
 
       const drafted = drafting(
-        failed.requestDrafting(SECOND, LATER),
-        SECOND,
+        failed.requestDrafting(SECOND_TURN, LATER),
+        SECOND_TURN,
         [],
       );
 
@@ -366,7 +450,7 @@ describe('MemoryDraft', () => {
 
     it('cannot be leased before it is due', () => {
       const waiting = created()
-        .requestDrafting(FIRST, NOW)
+        .requestDrafting(FIRST_TURN, NOW)
         .leaseJob(NOW)
         .failed(MemoryDraftingFailure.of('request-failed', NOW));
 
@@ -378,27 +462,31 @@ describe('MemoryDraft', () => {
     const ADA = MemoryDecision.of({ by: UserId.of('user_ada'), at: LATER });
 
     const three = () => {
-      const draft = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
-        remembered({ body: 'First.' }),
-        remembered({ body: 'Second.' }),
-        remembered({ body: 'Third.' }),
-      ]);
+      const draft = drafting(
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
+        [
+          remembered({ body: 'First.' }),
+          remembered({ body: 'Second.' }),
+          remembered({ body: 'Third.' }),
+        ],
+      );
       draft.pullEvents();
       return draft;
     };
 
     const outside = () => {
       const draft = created()
-        .requestDrafting(FIRST, NOW)
+        .requestDrafting(FIRST_TURN, NOW)
         .recordDraft({
-          runId: FIRST,
+          turn: FIRST_TURN,
           proposed: [
             remembered({ body: 'From outside.' }),
             remembered({ body: 'Also from outside.' }),
           ],
           evidence: DraftEvidence.of({
             taskId: TASK,
-            runId: FIRST,
+            turn: FIRST_TURN,
             runContext: {
               teamId: TEAM,
               lineId: LineId.of('line_1'),
@@ -601,6 +689,7 @@ describe('MemoryDraft', () => {
       expect(draft.pullEvents()).not.toContainEqual(
         expect.any(MemoryReviewResolved),
       );
+      expect(draft.awaitsReviewIn(FIRST)).toBe(true);
 
       draft = draft.reject({
         runId: FIRST,
@@ -610,14 +699,17 @@ describe('MemoryDraft', () => {
       expect(draft.pullEvents()).toEqual([
         new MemoryReviewResolved(draft.id, TASK, FIRST),
       ]);
+      expect(draft.awaitsReviewIn(FIRST)).toBe(false);
     });
 
     it('resolves an earlier run’s review when a later run replaces what it left undecided', () => {
       const draft = three();
 
-      const later = drafting(draft.requestDrafting(SECOND, LATER), SECOND, [
-        remembered({ body: 'Later.' }),
-      ]);
+      const later = drafting(
+        draft.requestDrafting(SECOND_TURN, LATER),
+        SECOND_TURN,
+        [remembered({ body: 'Later.' })],
+      );
 
       expect(later.pullEvents()).toEqual(
         expect.arrayContaining([
@@ -638,8 +730,8 @@ describe('MemoryDraft', () => {
         .reject({ runId: FIRST, id: idOf(draft, 1), decision: ADA });
 
       const later = drafting(
-        decided.requestDrafting(SECOND, LATER),
-        SECOND,
+        decided.requestDrafting(SECOND_TURN, LATER),
+        SECOND_TURN,
         [],
       );
 
@@ -707,9 +799,11 @@ describe('MemoryDraft', () => {
     });
 
     it('rejects a drafted proposal, or one of another task', () => {
-      const [drafted] = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
-        remembered(),
-      ]).proposals;
+      const [drafted] = drafting(
+        created().requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
+        [remembered()],
+      ).proposals;
       if (!drafted) {
         throw new Error('nothing was drafted');
       }
@@ -727,10 +821,10 @@ describe('MemoryDraft', () => {
     it('drafts nothing the run already proposed to remember in the same words', () => {
       const draft = created()
         .remember(proposedByRun(FIRST, remembered().body))
-        .requestDrafting(FIRST, NOW);
+        .requestDrafting(FIRST_TURN, NOW);
       draft.pullEvents();
 
-      const drafted = drafting(draft, FIRST, [
+      const drafted = drafting(draft, FIRST_TURN, [
         remembered({ kind: 'rationale' }),
       ]);
 
@@ -741,13 +835,15 @@ describe('MemoryDraft', () => {
 
     it('keeps what a run remembered when a later draft replaces the rest', () => {
       const draft = drafting(
-        created().remember(proposedByRun(FIRST)).requestDrafting(FIRST, NOW),
-        FIRST,
+        created()
+          .remember(proposedByRun(FIRST))
+          .requestDrafting(FIRST_TURN, NOW),
+        FIRST_TURN,
         [remembered()],
-      ).requestDrafting(SECOND, LATER);
+      ).requestDrafting(SECOND_TURN, LATER);
       draft.pullEvents();
 
-      const redrafted = drafting(draft, SECOND, [remembered()]);
+      const redrafted = drafting(draft, SECOND_TURN, [remembered()]);
 
       expect(
         redrafted.proposals
@@ -790,7 +886,7 @@ describe('MemoryDraft', () => {
           taskId: TASK,
           workspaceId: WorkspaceId.of('ws_1'),
           drafting: null,
-          draftedIn: FIRST,
+          draftedIn: FIRST_TURN,
           notesRead: 0,
           proposals: [other],
           failure: null,

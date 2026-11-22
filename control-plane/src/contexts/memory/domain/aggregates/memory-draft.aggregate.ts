@@ -17,6 +17,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
+import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,7 +40,7 @@ export class MemoryDraft
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
     readonly drafting: MemoryDrafting | null,
-    readonly draftedIn: RunId | null,
+    readonly draftedIn: AgentTurn | null,
     readonly notesRead: number,
     readonly proposals: readonly MemoryProposal[],
     readonly failure: MemoryDraftingFailure | null,
@@ -71,7 +72,7 @@ export class MemoryDraft
     taskId: TaskId;
     workspaceId: WorkspaceId;
     drafting: MemoryDrafting | null;
-    draftedIn: RunId | null;
+    draftedIn: AgentTurn | null;
     notesRead: number;
     proposals: readonly MemoryProposal[];
     failure: MemoryDraftingFailure | null;
@@ -133,12 +134,12 @@ export class MemoryDraft
     );
   }
 
-  requestDrafting(runId: RunId, now: Date): MemoryDraft {
-    if (this.drafting?.isFor(runId) || this.draftedIn?.equals(runId)) {
+  requestDrafting(turn: AgentTurn, now: Date): MemoryDraft {
+    if (this.drafting?.turn.covers(turn) || this.draftedIn?.covers(turn)) {
       return this;
     }
 
-    return this.with({ drafting: MemoryDrafting.requested(runId, now) });
+    return this.with({ drafting: MemoryDrafting.requested(turn, now) });
   }
 
   leaseJob(now: Date): MemoryDraft {
@@ -182,19 +183,19 @@ export class MemoryDraft
   }
 
   recordDraft(input: {
-    runId: RunId;
+    turn: AgentTurn;
     proposed: readonly ProposedMemory[];
     evidence: DraftEvidence;
     newId: () => string;
     now: Date;
   }): MemoryDraft {
-    if (!this.drafting?.isFor(input.runId)) {
+    if (!this.drafting?.isFor(input.turn)) {
       return this;
     }
 
-    if (!input.evidence.isFor(this.taskId, input.runId)) {
+    if (!input.evidence.isFor(this.taskId, input.turn)) {
       throw InvalidMemoryError.ofDraft(
-        'is drafted only from the evidence of its own task and run',
+        'is drafted only from the evidence of its own task and turn',
       );
     }
 
@@ -224,7 +225,7 @@ export class MemoryDraft
 
     const drafted = this.with({
       drafting: null,
-      draftedIn: input.runId,
+      draftedIn: input.turn,
       notesRead:
         through === null
           ? this.notesRead
@@ -236,13 +237,13 @@ export class MemoryDraft
       failure: null,
     });
     for (const runId of runsOf(replaced)) {
-      if (!drafted.proposals.some((each) => each.proposedIn(runId))) {
+      if (!drafted.awaitsReviewIn(runId)) {
         drafted.record(new MemoryReviewResolved(this.id, this.taskId, runId));
       }
     }
     if (remaining.length > 0) {
       drafted.record(
-        new MemoryReviewRequested(this.id, this.taskId, input.runId),
+        new MemoryReviewRequested(this.id, this.taskId, input.turn.runId),
       );
     }
     return drafted;
@@ -289,6 +290,10 @@ export class MemoryDraft
     return this.proposals.filter(
       (each) => each.proposed && each.proposedByAgent,
     );
+  }
+
+  awaitsReviewIn(runId: RunId): boolean {
+    return this.proposals.some((each) => each.proposedIn(runId));
   }
 
   stepsRemembered(runId: RunId): readonly number[] {
@@ -409,7 +414,7 @@ export class MemoryDraft
     decided: readonly MemoryProposal[],
   ): MemoryDraft {
     for (const runId of runsOf(decided)) {
-      if (!this.proposals.some((each) => each.proposedIn(runId))) {
+      if (!this.awaitsReviewIn(runId)) {
         this.record(new MemoryReviewResolved(this.id, this.taskId, runId));
       }
     }
@@ -427,7 +432,7 @@ export class MemoryDraft
 
   private with(change: {
     drafting?: MemoryDrafting | null;
-    draftedIn?: RunId;
+    draftedIn?: AgentTurn;
     notesRead?: number;
     proposals?: readonly MemoryProposal[];
     failure?: MemoryDraftingFailure | null;

@@ -20,10 +20,13 @@ export interface EndedStationRun {
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date;
+  readonly queuedMs: number;
+  readonly runningMs: number;
 }
 
 export interface StationTaskRun {
   readonly runId: string;
+  readonly workspaceId: string;
   readonly taskId: string;
   readonly teamId: string;
 }

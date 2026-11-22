@@ -18,8 +18,8 @@ import type { FilePath } from '@change-review/domain/value-objects/file-path.vo'
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
+import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -32,7 +32,7 @@ export class DecisionSet
     readonly id: DecisionSetId,
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
-    readonly sourceRunId: RunId | null,
+    readonly source: AgentTurn | null,
     readonly decisions: readonly Decision[],
     readonly generation: DecisionGeneration | null,
     readonly status: DecisionStatus,
@@ -62,13 +62,13 @@ export class DecisionSet
     id: DecisionSetId;
     taskId: TaskId;
     workspaceId: WorkspaceId;
-    sourceRunId: RunId | null;
+    source: AgentTurn | null;
     decisions: readonly Decision[];
     generation: DecisionGeneration | null;
     status: DecisionStatus;
     version: number;
   }): DecisionSet {
-    if (input.decisions.length > 0 && !input.sourceRunId) {
+    if (input.decisions.length > 0 && !input.source) {
       throw new InconsistentStateError(
         'decision set',
         'has decisions without the run they were made in',
@@ -89,7 +89,7 @@ export class DecisionSet
       input.id,
       input.taskId,
       input.workspaceId,
-      input.sourceRunId,
+      input.source,
       input.decisions,
       input.generation,
       input.status,
@@ -105,17 +105,17 @@ export class DecisionSet
     return this.generation?.job.exhausted ?? false;
   }
 
-  requestGeneration(runId: RunId, now: Date): DecisionSet {
+  requestGeneration(turn: AgentTurn, now: Date): DecisionSet {
     if (
       this.status.isMerged ||
-      this.generation?.isFor(runId) ||
-      this.sourceRunId?.equals(runId)
+      this.generation?.turn.covers(turn) ||
+      this.source?.covers(turn)
     ) {
       return this;
     }
 
     return this.with({
-      generation: DecisionGeneration.requested(runId, now),
+      generation: DecisionGeneration.requested(turn, now),
     });
   }
 
@@ -155,12 +155,12 @@ export class DecisionSet
   }
 
   recordGeneration(input: {
-    runId: RunId;
+    turn: AgentTurn;
     proposed: readonly ProposedDecision[];
     evidence: DecisionEvidence;
     newId: () => string;
   }): DecisionSet {
-    if (!this.generation?.isFor(input.runId)) {
+    if (!this.generation?.isFor(input.turn)) {
       return this;
     }
 
@@ -177,7 +177,7 @@ export class DecisionSet
     });
 
     const recorded = this.with({
-      sourceRunId: input.runId,
+      source: input.turn,
       decisions: valid,
       generation: null,
     });
@@ -185,7 +185,7 @@ export class DecisionSet
       new DecisionsRecorded(
         this.id,
         this.taskId,
-        input.runId,
+        input.turn.runId,
         valid.length,
         input.proposed.length - valid.length,
       ),
@@ -267,7 +267,7 @@ export class DecisionSet
   }
 
   private with(change: {
-    sourceRunId?: RunId;
+    source?: AgentTurn;
     decisions?: readonly Decision[];
     generation?: DecisionGeneration | null;
     status?: DecisionStatus;
@@ -276,7 +276,7 @@ export class DecisionSet
       this.id,
       this.taskId,
       this.workspaceId,
-      change.sourceRunId ?? this.sourceRunId,
+      change.source ?? this.source,
       change.decisions ?? this.decisions,
       change.generation !== undefined ? change.generation : this.generation,
       change.status ?? this.status,

@@ -31,4 +31,18 @@ describe('Handover', () => {
     expect(sent.requestsReview()).toBe(true);
     expect(sent.suggestsClosing()).toBe(false);
   });
+
+  it('asks a person itself only when the run requested one, even after a hook sends it to review', () => {
+    expect(Handover.of({ next: 'review' }).asksAPersonItself()).toBe(true);
+    expect(
+      Handover.of({ next: 'review' })
+        .sentToReview('Denied.')
+        .asksAPersonItself(),
+    ).toBe(true);
+    expect(
+      Handover.of({ next: 'deploy' })
+        .sentToReview('Denied.')
+        .asksAPersonItself(),
+    ).toBe(false);
+  });
 });
