@@ -411,7 +411,6 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       reviews: ReviewsPort,
       drafts: MemoryDraftRepository,
       memories: MemoryRepository,
-      drafts: MemoryDraftRepository,
       transaction: TransactionPort,
       clock: ClockPort,
     ) => new MemoryReactions(reviews, drafts, memories, transaction, clock),

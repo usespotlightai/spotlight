@@ -935,7 +935,7 @@ describe('approving a retirement', () => {
     taskId: TASK,
     workspaceId: WorkspaceId.of('ws_1'),
     drafting: null,
-    draftedIn: FIRST,
+    draftedIn: FIRST_TURN,
     notesRead: 0,
     proposals: [
       MemoryProposal.retiring({

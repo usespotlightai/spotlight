@@ -18,6 +18,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -334,7 +335,7 @@ describe('reacting to memories being proposed and decided', () => {
         taskId: TASK,
         workspaceId: WorkspaceId.of('ws_1'),
         drafting: null,
-        draftedIn: RUN,
+        draftedIn: AgentTurn.of(RUN, 1, NOW),
         notesRead: 0,
         proposals: [
           MemoryProposal.retiring({

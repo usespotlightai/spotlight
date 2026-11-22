@@ -42,11 +42,14 @@ CREATE TYPE "public"."hook_firing_state" AS ENUM('pending', 'working', 'done', '
 CREATE TYPE "public"."station_kind" AS ENUM('backlog', 'work', 'completed');--> statement-breakpoint
 CREATE TYPE "public"."memory_drafting_failure" AS ENUM('no-evidence', 'request-failed', 'unreadable', 'errored', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."memory_kind" AS ENUM('rationale', 'rejected-approach', 'failure', 'environment', 'preference', 'correction');--> statement-breakpoint
-CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 'rejected');--> statement-breakpoint
+CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 'rejected', 'lapsed');--> statement-breakpoint
 CREATE TYPE "public"."memory_proposer" AS ENUM('drafter', 'agent');--> statement-breakpoint
 CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> statement-breakpoint
 CREATE TYPE "public"."memory_status" AS ENUM('active', 'retired');--> statement-breakpoint
-CREATE TYPE "public"."memory_use_via" AS ENUM('briefed', 'recalled');--> statement-breakpoint
+CREATE TYPE "public"."memory_upkeep_change" AS ENUM('retire', 'merge');--> statement-breakpoint
+CREATE TYPE "public"."memory_upkeep_finding" AS ENUM('path-gone', 'repository-gone', 'unused', 'wrong', 'overlap');--> statement-breakpoint
+CREATE TYPE "public"."memory_upkeep_proposal_state" AS ENUM('pending', 'approved', 'rejected', 'lapsed');--> statement-breakpoint
+CREATE TYPE "public"."memory_use_via" AS ENUM('briefed', 'read', 'recalled', 'delivered');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_close_reason" AS ENUM('stale', 'by-person');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_error" AS ENUM('no-source', 'repository-unreachable', 'file-missing', 'file-unparsable', 'block-not-found', 'blocks-ambiguous', 'computed-attribute', 'base-changed', 'edit-failed', 'branch-taken', 'file-unwritable', 'github-error');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'closing', 'merged', 'closed', 'failed');--> statement-breakpoint
@@ -875,7 +878,7 @@ CREATE TABLE "run_record" (
 	"cache_write_tokens" bigint,
 	"tools" jsonb,
 	"dismissals" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"memories" jsonb DEFAULT '{"briefed":[],"recalled":[]}'::jsonb NOT NULL,
+	"memories" jsonb DEFAULT '{"briefed":[],"cut":[],"read":[],"recalled":[],"delivered":[],"cutThenRead":[],"used":false}'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "run_record_currency_code" CHECK ("run_record"."currency" ~ '^[A-Z]{3}$')
 );
@@ -1389,12 +1392,50 @@ CREATE TABLE "memory_proposal" (
 	"source" "memory_source" NOT NULL,
 	"proposed_by" "memory_proposer" NOT NULL,
 	"supersedes" text,
+	"retires" text,
+	"retire_reason" text,
 	"recorded_at" timestamp (3) with time zone NOT NULL,
 	"state" "memory_proposal_state" DEFAULT 'proposed' NOT NULL,
 	"decided_by_id" text,
 	"decided_at" timestamp (3) with time zone,
 	CONSTRAINT "memory_proposal_position_not_negative" CHECK ("memory_proposal"."position" >= 0),
+	CONSTRAINT "memory_proposal_lapses_only_a_retirement" CHECK ("memory_proposal"."state"::text <> 'lapsed' or "memory_proposal"."retires" is not null),
+	CONSTRAINT "memory_proposal_retires_with_reason" CHECK (("memory_proposal"."retires" is null) = ("memory_proposal"."retire_reason" is null) and ("memory_proposal"."retires" is null or "memory_proposal"."supersedes" is null)),
 	CONSTRAINT "memory_proposal_decided_matches_state" CHECK (("memory_proposal"."state" = 'proposed') = ("memory_proposal"."decided_at" is null) and ("memory_proposal"."decided_by_id" is null) = ("memory_proposal"."decided_at" is null))
+);
+--> statement-breakpoint
+CREATE TABLE "memory_upkeep" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"swept_at" timestamp (3) with time zone NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "memory_upkeep_proposal" (
+	"upkeep_id" text NOT NULL,
+	"id" text NOT NULL,
+	"position" integer NOT NULL,
+	"change" "memory_upkeep_change" NOT NULL,
+	"finding" "memory_upkeep_finding" NOT NULL,
+	"memory_ids" jsonb NOT NULL,
+	"body" text,
+	"reason" text NOT NULL,
+	"state" "memory_upkeep_proposal_state" NOT NULL,
+	"decided_by_id" text,
+	"decided_at" timestamp (3) with time zone,
+	CONSTRAINT "memory_upkeep_proposal_upkeep_id_id_pk" PRIMARY KEY("upkeep_id","id")
+);
+--> statement-breakpoint
+CREATE TABLE "memory_upkeep_schedule" (
+	"team_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"due_at" timestamp (3) with time zone NOT NULL,
+	"added_since" integer DEFAULT 0 NOT NULL,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "memory_upkeep_schedule_counts_not_negative" CHECK ("memory_upkeep_schedule"."added_since" >= 0 and "memory_upkeep_schedule"."job_attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "memory_use" (
@@ -2565,6 +2606,7 @@ ALTER TABLE "station_route" ADD CONSTRAINT "station_route_to_station_id_station_
 ALTER TABLE "station_skill" ADD CONSTRAINT "station_skill_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_tool" ADD CONSTRAINT "station_tool_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_draft_id_memory_draft_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."memory_draft"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "memory_upkeep_proposal" ADD CONSTRAINT "memory_upkeep_proposal_upkeep_id_memory_upkeep_id_fk" FOREIGN KEY ("upkeep_id") REFERENCES "public"."memory_upkeep"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_use" ADD CONSTRAINT "memory_use_memory_id_memory_id_fk" FOREIGN KEY ("memory_id") REFERENCES "public"."memory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_entry" ADD CONSTRAINT "replay_entry_replay_id_replay_id_fk" FOREIGN KEY ("replay_id") REFERENCES "public"."replay"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_outcome" ADD CONSTRAINT "replay_outcome_replay_id_replay_id_fk" FOREIGN KEY ("replay_id") REFERENCES "public"."replay"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -2721,6 +2763,8 @@ CREATE UNIQUE INDEX "memory_draft_task_idx" ON "memory_draft" USING btree ("task
 CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("drafting_requested_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint
 CREATE INDEX "memory_proposal_decided_idx" ON "memory_proposal" USING btree ("team_id","state","decided_at");--> statement-breakpoint
+CREATE INDEX "memory_upkeep_team_idx" ON "memory_upkeep" USING btree ("team_id","swept_at");--> statement-breakpoint
+CREATE INDEX "memory_upkeep_schedule_due_idx" ON "memory_upkeep_schedule" USING btree ("due_at");--> statement-breakpoint
 CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--> statement-breakpoint
 CREATE INDEX "arrival_ledger_recount_idx" ON "arrival_ledger" USING btree ("recount_requested_at");--> statement-breakpoint
 CREATE INDEX "push_subscription_person_idx" ON "push_subscription" USING btree ("person_id");--> statement-breakpoint

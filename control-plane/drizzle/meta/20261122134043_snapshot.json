@@ -1,5 +1,5 @@
 {
-  "id": "7faebb01-8178-4a7b-b6ab-ca89c5169fcc",
+  "id": "4f7d82d7-e29c-428e-83c8-aae6223caf05",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6909,7 +6909,7 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
-          "default": "'{\"briefed\":[],\"recalled\":[]}'::jsonb"
+          "default": "'{\"briefed\":[],\"cut\":[],\"read\":[],\"recalled\":[],\"delivered\":[],\"cutThenRead\":[],\"used\":false}'::jsonb"
         },
         "version": {
           "name": "version",
@@ -11063,6 +11063,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "retires": {
+          "name": "retires",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retire_reason": {
+          "name": "retire_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "recorded_at": {
           "name": "recorded_at",
           "type": "timestamp (3) with time zone",
@@ -11163,9 +11175,266 @@
           "name": "memory_proposal_position_not_negative",
           "value": "\"memory_proposal\".\"position\" >= 0"
         },
+        "memory_proposal_lapses_only_a_retirement": {
+          "name": "memory_proposal_lapses_only_a_retirement",
+          "value": "\"memory_proposal\".\"state\"::text <> 'lapsed' or \"memory_proposal\".\"retires\" is not null"
+        },
+        "memory_proposal_retires_with_reason": {
+          "name": "memory_proposal_retires_with_reason",
+          "value": "(\"memory_proposal\".\"retires\" is null) = (\"memory_proposal\".\"retire_reason\" is null) and (\"memory_proposal\".\"retires\" is null or \"memory_proposal\".\"supersedes\" is null)"
+        },
         "memory_proposal_decided_matches_state": {
           "name": "memory_proposal_decided_matches_state",
           "value": "(\"memory_proposal\".\"state\" = 'proposed') = (\"memory_proposal\".\"decided_at\" is null) and (\"memory_proposal\".\"decided_by_id\" is null) = (\"memory_proposal\".\"decided_at\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.memory_upkeep": {
+      "name": "memory_upkeep",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "swept_at": {
+          "name": "swept_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "memory_upkeep_team_idx": {
+          "name": "memory_upkeep_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "swept_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.memory_upkeep_proposal": {
+      "name": "memory_upkeep_proposal",
+      "schema": "",
+      "columns": {
+        "upkeep_id": {
+          "name": "upkeep_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "change": {
+          "name": "change",
+          "type": "memory_upkeep_change",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finding": {
+          "name": "finding",
+          "type": "memory_upkeep_finding",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "memory_ids": {
+          "name": "memory_ids",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "memory_upkeep_proposal_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decided_by_id": {
+          "name": "decided_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "memory_upkeep_proposal_upkeep_id_memory_upkeep_id_fk": {
+          "name": "memory_upkeep_proposal_upkeep_id_memory_upkeep_id_fk",
+          "tableFrom": "memory_upkeep_proposal",
+          "tableTo": "memory_upkeep",
+          "columnsFrom": [
+            "upkeep_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "memory_upkeep_proposal_upkeep_id_id_pk": {
+          "name": "memory_upkeep_proposal_upkeep_id_id_pk",
+          "columns": [
+            "upkeep_id",
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.memory_upkeep_schedule": {
+      "name": "memory_upkeep_schedule",
+      "schema": "",
+      "columns": {
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_at": {
+          "name": "due_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_since": {
+          "name": "added_since",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "job_attempts": {
+          "name": "job_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "job_due_at": {
+          "name": "job_due_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "memory_upkeep_schedule_due_idx": {
+          "name": "memory_upkeep_schedule_due_idx",
+          "columns": [
+            {
+              "expression": "due_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "memory_upkeep_schedule_counts_not_negative": {
+          "name": "memory_upkeep_schedule_counts_not_negative",
+          "value": "\"memory_upkeep_schedule\".\"added_since\" >= 0 and \"memory_upkeep_schedule\".\"job_attempts\" >= 0"
         }
       },
       "isRLSEnabled": false
@@ -21048,7 +21317,8 @@
       "values": [
         "proposed",
         "approved",
-        "rejected"
+        "rejected",
+        "lapsed"
       ]
     },
     "public.memory_proposer": {
@@ -21076,12 +21346,43 @@
         "retired"
       ]
     },
+    "public.memory_upkeep_change": {
+      "name": "memory_upkeep_change",
+      "schema": "public",
+      "values": [
+        "retire",
+        "merge"
+      ]
+    },
+    "public.memory_upkeep_finding": {
+      "name": "memory_upkeep_finding",
+      "schema": "public",
+      "values": [
+        "path-gone",
+        "repository-gone",
+        "unused",
+        "wrong",
+        "overlap"
+      ]
+    },
+    "public.memory_upkeep_proposal_state": {
+      "name": "memory_upkeep_proposal_state",
+      "schema": "public",
+      "values": [
+        "pending",
+        "approved",
+        "rejected",
+        "lapsed"
+      ]
+    },
     "public.memory_use_via": {
       "name": "memory_use_via",
       "schema": "public",
       "values": [
         "briefed",
-        "recalled"
+        "read",
+        "recalled",
+        "delivered"
       ]
     },
     "public.config_pull_request_close_reason": {

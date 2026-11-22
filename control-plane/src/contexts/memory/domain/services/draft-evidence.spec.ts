@@ -352,7 +352,7 @@ describe('DraftEvidence', () => {
       );
       const shown = DraftEvidence.of({
         taskId: TaskId.of('task_1'),
-        runId: RunId.of('run_1'),
+        turn: AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT),
         runContext: {
           teamId: TEAM,
           lineId: LineId.of('line_1'),
