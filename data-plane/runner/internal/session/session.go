@@ -339,6 +339,9 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 			}
 			return err
 		})
+		touches.dropped = func(handles []string) {
+			log.Warn("could not record the memories shown for paths the agent used, and too many wait, so these are not recorded", "handles", handles)
+		}
 		channel.Touches(touches.touched)
 	}
 

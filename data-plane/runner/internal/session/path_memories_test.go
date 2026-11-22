@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -178,5 +179,20 @@ func TestAToolPathNoMemoryIsAboutIsNotQueued(t *testing.T) {
 
 	if len(index.queued) != 0 {
 		t.Errorf("queued %v", index.queued)
+	}
+}
+
+func TestMemoriesPastTheWaitingLimitAreReportedAsDropped(t *testing.T) {
+	index, dir, _ := indexedFailing(t, 1, aboutUploads("M-18", false))
+	for i := range maxUnrecorded {
+		index.unrecorded = append(index.unrecorded, fmt.Sprintf("M-%d", 100+i))
+	}
+	var dropped []string
+	index.dropped = func(handles []string) { dropped = handles }
+
+	index.touched(context.Background(), []string{filepath.Join(dir, "api/src/uploads/retry.ts")})
+
+	if len(index.unrecorded) != maxUnrecorded || len(dropped) != 1 {
+		t.Errorf("kept %d, dropped %v", len(index.unrecorded), dropped)
 	}
 }

@@ -40,6 +40,7 @@ type pathMemories struct {
 	checkouts []protocol.Checkout
 	memories  []pathMemory
 	delivered func(ctx context.Context, handles, paths []string) error
+	dropped   func(handles []string)
 
 	mu         sync.Mutex
 	shown      map[string]bool
@@ -256,10 +257,15 @@ func (p *pathMemories) deliver(ctx context.Context, used []string) string {
 		if err != nil {
 			p.mu.Lock()
 			p.unrecorded = append(recording, p.unrecorded...)
+			var dropped []string
 			if len(p.unrecorded) > maxUnrecorded {
+				dropped = slices.Clone(p.unrecorded[:len(p.unrecorded)-maxUnrecorded])
 				p.unrecorded = p.unrecorded[len(p.unrecorded)-maxUnrecorded:]
 			}
 			p.mu.Unlock()
+			if len(dropped) > 0 && p.dropped != nil {
+				p.dropped(dropped)
+			}
 		}
 	}
 
