@@ -5,6 +5,6 @@ export type MemoriesUsedIntegrationEvent = {
   readonly runId: string;
   readonly workspaceId: string;
   readonly taskId: string | null;
-  readonly via: 'briefed' | 'recalled';
+  readonly via: 'briefed' | 'read' | 'recalled' | 'delivered';
   readonly memories: readonly string[];
 };

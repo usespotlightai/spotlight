@@ -12,13 +12,27 @@ export interface FlaggedMemoryDto {
   readonly at: string;
 }
 
+export interface CutMemoryDto {
+  readonly memoryId: string;
+  readonly handle: string;
+  readonly body: string;
+  readonly runs: number;
+}
+
 export interface InsightsMemoryDto {
   readonly period: PeriodDto;
   readonly activeCount: number;
   readonly memoriesBriefed: number;
+  readonly memoriesRead: number;
   readonly memoriesRecalled: number;
+  readonly memoriesDelivered: number;
+  readonly memoriesCutThenRead: number;
   readonly runsBriefed: number;
+  readonly runsRead: number;
   readonly runsRecalled: number;
+  readonly runsDelivered: number;
+  readonly runsCutThenRead: number;
+  readonly cutThenRead: readonly CutMemoryDto[];
   readonly flagged: readonly FlaggedMemoryDto[];
   readonly withMemories: RunTally;
   readonly withoutMemories: RunTally;

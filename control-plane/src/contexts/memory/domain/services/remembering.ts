@@ -1,3 +1,4 @@
+import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { NotAllowedAsOfPastTimeError } from '@memory/domain/exceptions/not-allowed-as-of-past-time.error';
@@ -22,7 +23,7 @@ const REMEMBERING_STEP = 'remember';
 
 const DEFAULT_SCOPE: MemoryScopeLevel = 'line';
 
-export interface RememberedStep {
+interface RememberedStep {
   readonly index: number;
   readonly kind: string;
 }
@@ -165,16 +166,46 @@ export class Remembering {
       kind: parseMemoryKind(remembered.kind),
       body: MemoryBody.of(remembered.body),
       scope: scopeOf(remembered, at.runContext),
-      provenance: MemoryProvenance.of({
-        taskId: this.taskId,
-        runId: this.runId,
-        steps: [citedStep(at)],
-        notes: [],
-      }),
+      provenance: this.provenanceOf(at),
       source: at.fromOutside ? 'outside' : 'run',
       proposedBy: 'agent',
       supersedes: supersedes?.id ?? null,
       recordedAt: now,
+    });
+  }
+
+  retiringOf(input: {
+    id: MemoryId;
+    memory: Memory;
+    because: string;
+    at: RememberedAt;
+    now: Date;
+  }): MemoryProposal {
+    const { id, memory, at, now } = input;
+
+    if (!memory.activeOn(at.runContext.teamId, null)) {
+      throw new InvalidMemoryError(
+        `retires only an active memory in the run's team, and ${memory.handle.value} is not one`,
+      );
+    }
+
+    return MemoryProposal.retiring({
+      id,
+      retired: memory,
+      reason: input.because,
+      provenance: this.provenanceOf(at),
+      source: at.fromOutside ? 'outside' : 'run',
+      proposedBy: 'agent',
+      recordedAt: now,
+    });
+  }
+
+  private provenanceOf(at: RememberedAt): MemoryProvenance {
+    return MemoryProvenance.of({
+      taskId: this.taskId,
+      runId: this.runId,
+      steps: [citedStep(at)],
+      notes: [],
     });
   }
 }

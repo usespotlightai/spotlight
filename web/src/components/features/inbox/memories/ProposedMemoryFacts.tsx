@@ -38,6 +38,20 @@ export function ProposedMemoryFacts({
 
   return (
     <dl>
+      {memory.retires && (
+        <FactRow>
+          <dt className={FACT_LABEL}>Retires</dt>
+          <dd className={FACT_VALUE}>{memory.retires.handle}</dd>
+        </FactRow>
+      )}
+
+      {memory.retires && (
+        <FactRow>
+          <dt className={FACT_LABEL}>Reason</dt>
+          <dd className={FACT_VALUE}>{memory.retires.reason}</dd>
+        </FactRow>
+      )}
+
       <FactRow>
         <dt className={FACT_LABEL}>Memory</dt>
         <dd>

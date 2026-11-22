@@ -12,6 +12,7 @@ import {
 import { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { LOOKED_UP } from '@memory/domain/value-objects/memory-use';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -47,11 +48,20 @@ const contextOf = (briefing: BriefedContext): RunContext => ({
   repositories: briefing.repositories,
 });
 
-const folderAt = (runContext: RunContext, laid: boolean): MemoryFolder | null =>
-  laid
+const folderAt = (
+  runContext: RunContext,
+  counted: {
+    readonly applying: number;
+    readonly briefed: number;
+    readonly elsewhere: number;
+  },
+): MemoryFolder | null =>
+  laysOutFolder(counted)
     ? {
         path: MEMORY_FOLDER,
-        guide: folderGuideAt(runContext),
+        guide: folderGuideAt(runContext, {
+          elsewhere: counted.elsewhere > 0,
+        }),
       }
     : null;
 
@@ -78,6 +88,7 @@ export class MemoriesForBriefing
       chosen.briefed.map((each) => MemoryId.of(each.id)),
     );
     const applying = await this.applicable.at(runContext, asOf);
+    const elsewhere = await this.applicable.elsewhere(runContext, asOf);
     const teamMemories = new Map(
       stored
         .filter((each) => each.isTeams(briefing.teamId))
@@ -103,19 +114,18 @@ export class MemoriesForBriefing
         id: each.id,
         handle: each.handle,
       })),
-      folder: folderAt(
-        runContext,
-        laysOutFolder({
-          applying: applying.length,
-          briefed: teamMemories.size,
-        }),
-      ),
+      folder: folderAt(runContext, {
+        applying: applying.length,
+        briefed: teamMemories.size,
+        elsewhere: elsewhere.length,
+      }),
     };
   }
 
   async forBriefing(briefing: BriefingContext): Promise<BriefingSelection> {
     const runContext = contextOf(briefing);
     const applying = await this.applicable.at(runContext);
+    const elsewhere = await this.applicable.elsewhere(runContext);
     const ids = applying.map((each) => each.id);
     const touched = applying.some((each) => each.scope.paths.length > 0)
       ? await briefing.touched()
@@ -124,7 +134,7 @@ export class MemoriesForBriefing
       ids,
       BriefingAbout.of(briefing.about),
     );
-    const recalled = await this.uses.runsUsing(ids, 'recalled');
+    const recalled = await this.uses.runsUsing(ids, LOOKED_UP);
 
     const chosen = selectForBriefing(
       applying.map((memory) => ({
@@ -152,13 +162,11 @@ export class MemoriesForBriefing
         id: each.id.value,
         handle: each.handle.value,
       })),
-      folder: folderAt(
-        runContext,
-        laysOutFolder({
-          applying: applying.length,
-          briefed: chosen.briefed.length,
-        }),
-      ),
+      folder: folderAt(runContext, {
+        applying: applying.length,
+        briefed: chosen.briefed.length,
+        elsewhere: elsewhere.length,
+      }),
     };
   }
 }

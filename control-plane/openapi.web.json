@@ -6157,6 +6157,163 @@
         ]
       }
     },
+    "/teams/{teamId}/memory-upkeep/{upkeepId}": {
+      "get": {
+        "operationId": "readMemoryUpkeep",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "upkeepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryUpkeepResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such upkeep for this caller"
+          }
+        },
+        "summary": "What a sweep of the team’s memory proposes to retire or merge, each with why",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
+    "/teams/{teamId}/memory-upkeep/{upkeepId}/proposals/{proposalId}/approve": {
+      "post": {
+        "operationId": "approveUpkeepProposal",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "upkeepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "proposalId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryUpkeepResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such upkeep for this caller"
+          },
+          "409": {
+            "description": "It was decided meanwhile"
+          }
+        },
+        "summary": "Make a proposed change to the team’s memory: retire or merge the memories it names",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
+    "/teams/{teamId}/memory-upkeep/{upkeepId}/proposals/{proposalId}/reject": {
+      "post": {
+        "operationId": "rejectUpkeepProposal",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "upkeepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "proposalId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryUpkeepResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such upkeep for this caller"
+          },
+          "409": {
+            "description": "It was decided meanwhile"
+          }
+        },
+        "summary": "Keep the memories a proposed change names as they are; later sweeps leave them be for 90 days",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
     "/teams/{teamId}/lines/{lineId}/stations/{stationId}/insights": {
       "get": {
         "operationId": "readStationInsights",
@@ -14868,6 +15025,29 @@
           "integrations"
         ]
       },
+      "RetiringResponseDto": {
+        "type": "object",
+        "properties": {
+          "memoryId": {
+            "type": "string",
+            "example": "memory_12"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-12"
+          },
+          "reason": {
+            "type": "string",
+            "example": "The uploads queue was removed in October.",
+            "description": "Why the memory is wrong"
+          }
+        },
+        "required": [
+          "memoryId",
+          "handle",
+          "reason"
+        ]
+      },
       "MemoryDecisionResponseDto": {
         "type": "object",
         "properties": {
@@ -15021,7 +15201,8 @@
             "enum": [
               "proposed",
               "approved",
-              "rejected"
+              "rejected",
+              "lapsed"
             ],
             "example": "proposed"
           },
@@ -15053,6 +15234,30 @@
             "type": "string",
             "nullable": true,
             "description": "The active memory it replaces after approval"
+          },
+          "retires": {
+            "nullable": true,
+            "description": "The active memory it retires after approval, and why; its kind, body and scope are that memory’s",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RetiringResponseDto"
+              }
+            ]
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "Whether a person may change its body before approving; false once decided and for a retirement"
+          },
+          "inactiveMemories": {
+            "example": [
+              "M-3"
+            ],
+            "description": "The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "decision": {
             "nullable": true,
@@ -15096,6 +15301,9 @@
           "repository",
           "paths",
           "supersedes",
+          "retires",
+          "editable",
+          "inactiveMemories",
           "decision",
           "harness",
           "steps",
@@ -15627,7 +15835,8 @@
             "enum": [
               "proposed",
               "approved",
-              "rejected"
+              "rejected",
+              "lapsed"
             ],
             "example": "proposed"
           },
@@ -15659,6 +15868,30 @@
             "type": "string",
             "nullable": true,
             "description": "The active memory it replaces after approval"
+          },
+          "retires": {
+            "nullable": true,
+            "description": "The active memory it retires after approval, and why; its kind, body and scope are that memory’s",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RetiringResponseDto"
+              }
+            ]
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "Whether a person may change its body before approving; false once decided and for a retirement"
+          },
+          "inactiveMemories": {
+            "example": [
+              "M-3"
+            ],
+            "description": "The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "decision": {
             "nullable": true,
@@ -15714,6 +15947,9 @@
           "repository",
           "paths",
           "supersedes",
+          "retires",
+          "editable",
+          "inactiveMemories",
           "decision",
           "harness",
           "steps",
@@ -15740,7 +15976,7 @@
             }
           },
           "recalled": {
-            "description": "What the run looked up with spotlight recall, or read from the memory folder in its working copy",
+            "description": "What the run looked up with spotlight recall, read from the memory folder in its working copy, or was given when it touched a path a memory is about",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TeamMemoryResponseDto"
@@ -15766,6 +16002,173 @@
           "recalled",
           "proposed",
           "reviewItemId"
+        ]
+      },
+      "UpkeepMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-12"
+          },
+          "kind": {
+            "type": "string",
+            "example": "rationale"
+          },
+          "body": {
+            "type": "string",
+            "example": "Uploads retry in the request, not from a queue."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "handle",
+          "kind",
+          "body",
+          "status"
+        ]
+      },
+      "UpkeepPersonResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "user_1"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ada"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "UpkeepProposalResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "proposal_1"
+          },
+          "change": {
+            "type": "string",
+            "enum": [
+              "retire",
+              "merge"
+            ],
+            "description": "retire ends the memory, merge replaces the memories with one new memory"
+          },
+          "finding": {
+            "type": "string",
+            "enum": [
+              "path-gone",
+              "repository-gone",
+              "unused",
+              "wrong",
+              "overlap"
+            ],
+            "description": "Which check found it"
+          },
+          "reason": {
+            "type": "string",
+            "example": "`src/uploads` no longer exists on the default branch of acme/api."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "lapsed"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "The body of the memory a merge writes"
+          },
+          "memories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpkeepMemoryResponseDto"
+            }
+          },
+          "decidedBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpkeepPersonResponseDto"
+              }
+            ]
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "inactiveMemories": {
+            "description": "The handles of the memories of an undecided change that are no longer active, so the change no longer applies",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "change",
+          "finding",
+          "reason",
+          "state",
+          "body",
+          "memories",
+          "decidedBy",
+          "decidedAt",
+          "inactiveMemories"
+        ]
+      },
+      "MemoryUpkeepResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "upkeep_1"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "team_1"
+          },
+          "sweptAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "proposals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpkeepProposalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "teamId",
+          "sweptAt",
+          "proposals"
         ]
       },
       "ConfigProfileResponseDto": {

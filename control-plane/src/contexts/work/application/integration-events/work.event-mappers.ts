@@ -137,6 +137,7 @@ export const WORK_EVENT_MAPPERS = [
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,
       memories: event.memories.briefed.map((each) => each.id),
+      omitted: event.memories.omitted.map((each) => each.id),
       driver: event.driver,
     }),
   ),

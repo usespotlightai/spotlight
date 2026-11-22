@@ -39,6 +39,10 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
+  DISPATCH_BRIEFED,
+  type DispatchBriefedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
+import {
   DISPATCH_ENDED,
   type DispatchEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
@@ -333,6 +337,11 @@ export const insightsSubscribers = (
     'insights.record-run-memories',
     [MEMORIES_USED],
     (event) => handlers.remembering.used(event),
+  ),
+  subscribing<DispatchBriefedIntegrationEvent>(
+    'insights.record-cut-memories',
+    [DISPATCH_BRIEFED],
+    (event) => handlers.remembering.briefed(event),
   ),
   subscribing<TaskPassedIntegrationEvent>(
     'insights.record-passed-run',

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
@@ -108,6 +109,8 @@ const used = (runId: string, via: MemoryUse, memory: string) =>
     [MemoryId.of(memory)],
   );
 
+let activeId: string;
+
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
@@ -118,6 +121,7 @@ beforeAll(async () => {
   );
 
   const active = await remembered({});
+  activeId = active;
   const wrong = await remembered({
     status: 'retired',
     retiredAt: ago(5),
@@ -141,6 +145,14 @@ beforeAll(async () => {
   await used(x, 'briefed', active);
   await used(x, 'recalled', active);
   await used(y, 'briefed', wrong);
+  await used(y, 'read', active);
+  await app.get(RecordRunMemories).used({
+    runId: y,
+    workspaceId: team.workspaceId.value,
+    taskId: team.list.id.value,
+    via: 'cut',
+    memories: [active],
+  });
   await app.get(RecordMemoryUses).recorded(
     {
       id: RunId.of(`${randomUUID()}-elsewhere`),
@@ -159,7 +171,8 @@ beforeAll(async () => {
 
     return (
       facts.filter((each) => each.memories.briefed.length > 0).length === 2 &&
-      facts.some((each) => each.memories.recalled.length > 0)
+      facts.some((each) => each.memories.recalled.length > 0) &&
+      facts.some((each) => (each.memories.read ?? []).length > 0)
     );
   });
 }, 60_000);
@@ -174,6 +187,7 @@ describe('the team’s memory on Insights (e2e)', () => {
       .get(`/api/teams/${team.teamId.value}/insights/memory?period=7d`)
       .set(TEST_USER_HEADER, team.owner.value)) as Answer<{
       readonly flagged: unknown;
+      readonly cutThenRead: unknown;
       readonly withMemories: unknown;
       readonly withoutMemories: unknown;
     }>;
@@ -182,10 +196,19 @@ describe('the team’s memory on Insights (e2e)', () => {
     expect(answer.body).toMatchObject({
       activeCount: 1,
       memoriesBriefed: 2,
+      memoriesRead: 1,
       memoriesRecalled: 1,
+      memoriesDelivered: 0,
+      memoriesCutThenRead: 1,
       runsBriefed: 2,
+      runsRead: 1,
       runsRecalled: 1,
+      runsDelivered: 0,
+      runsCutThenRead: 1,
     });
+    expect(answer.body.cutThenRead).toEqual([
+      expect.objectContaining({ memoryId: activeId, runs: 1 }),
+    ]);
     expect(answer.body.flagged).toEqual([
       expect.objectContaining({
         reason: 'We stopped doing this',

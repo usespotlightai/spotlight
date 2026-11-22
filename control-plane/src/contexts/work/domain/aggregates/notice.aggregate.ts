@@ -70,11 +70,14 @@ export class Notice extends EventRecorder {
     return created;
   }
 
-  static deliverable(
-    addressee: UserId | null,
-    addresseeSeesTeam: boolean,
-  ): boolean {
-    return addressee === null || addresseeSeesTeam;
+  static deliverable(input: {
+    teamExists: boolean;
+    addressee: UserId | null;
+    addresseeSeesTeam: boolean;
+  }): boolean {
+    return (
+      input.teamExists && (input.addressee === null || input.addresseeSeesTeam)
+    );
   }
 
   static reopenable(resolvedAt: Date | null): boolean {

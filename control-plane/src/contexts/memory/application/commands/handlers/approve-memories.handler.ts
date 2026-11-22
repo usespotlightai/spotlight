@@ -2,6 +2,7 @@ import type { ApproveMemoriesCommand } from '@memory/application/commands/approv
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -20,6 +21,7 @@ export class ApproveMemoriesHandler implements CommandHandlerPort<
   constructor(
     private readonly access: MemoryAccess,
     private readonly drafts: MemoryDraftRepository,
+    private readonly memories: MemoryRepository,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -43,12 +45,20 @@ export class ApproveMemoriesHandler implements CommandHandlerPort<
           throw new UnknownMemoryError(command.memories[0]?.id ?? '');
         }
 
+        const runId = RunId.of(command.runId);
+        const approving = command.memories.map((each) => ({
+          id: MemoryId.of(each.id),
+          body: each.body,
+        }));
         const decided = draft.approve({
-          runId: RunId.of(command.runId),
-          approving: command.memories.map((each) => ({
-            id: MemoryId.of(each.id),
-            body: each.body,
-          })),
+          runId,
+          approving,
+          current: await this.memories.findAll(
+            draft.retiredBy(
+              runId,
+              approving.map((each) => each.id),
+            ),
+          ),
           decision: MemoryDecision.of({
             by: reviewing.access.by,
             at: this.clock.now(),

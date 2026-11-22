@@ -2,11 +2,13 @@ import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryRetirementApproved } from '@memory/domain/events/memory-retirement-approved.event';
 import type { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { inactiveOf } from '@memory/domain/services/memory-lapse';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -70,10 +72,48 @@ export class MemoryReactions {
     });
   }
 
+  async onRetirementApproved(event: MemoryRetirementApproved): Promise<void> {
+    const retired = await this.transaction.inTransaction(async () => {
+      const found = await this.memories.find(event.memoryId);
+      const retiring = {
+        by: event.decision.by,
+        reason: event.reason,
+        at: event.decision.at,
+      };
+
+      if (found?.retiredAs(retiring)) {
+        return true;
+      }
+
+      if (
+        !found ||
+        inactiveOf([event.memoryId], [found], event.teamId).length > 0
+      ) {
+        return false;
+      }
+
+      await this.memories.save(found.retire(retiring));
+      return true;
+    });
+
+    if (!retired) {
+      await this.transaction.inTransaction(async () => {
+        const draft = await this.drafts.forTask(event.taskId);
+        const proposal = draft?.proposals.find((each) =>
+          each.id.equals(event.proposalId),
+        );
+
+        if (draft && proposal?.state === 'approved') {
+          await this.drafts.save(draft.lapse(event.proposalId));
+        }
+      });
+    }
+  }
+
   async onCreated(event: MemoryCreated): Promise<void> {
     const { supersedes } = event;
 
-    if (!supersedes) {
+    if (!supersedes || event.creation === 'merged') {
       return;
     }
 

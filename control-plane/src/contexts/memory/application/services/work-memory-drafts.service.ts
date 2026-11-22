@@ -3,10 +3,12 @@ import type {
   KnownMemory,
   MemoryDrafterPort,
 } from '@memory/application/ports/memory-drafter.port';
+import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { RejectedMemoriesPort } from '@memory/application/ports/rejected-memories.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
@@ -17,8 +19,8 @@ import {
 } from '@memory/domain/services/recent-rejections';
 import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
-import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
+import { MEMORY_USES } from '@memory/domain/value-objects/memory-use';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -32,13 +34,17 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 const MAX_DRAFTS_AT_ONCE = 4;
 
 const known = (each: {
-  readonly id: MemoryId;
   readonly kind: MemoryKind;
   readonly body: MemoryBody;
 }): KnownMemory => ({
-  id: each.id.value,
+  handle: null,
   kind: each.kind,
   body: each.body.value,
+});
+
+const approved = (each: Memory): KnownMemory => ({
+  ...known(each),
+  handle: each.handle.value,
 });
 
 export class WorkMemoryDrafts implements PendingJobsPort {
@@ -51,6 +57,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
     private readonly work: WorkPort,
     private readonly applicable: ApplicableMemories,
     private readonly rejections: RejectedMemoriesPort,
+    private readonly uses: MemoryUsesPort,
     private readonly drafter: MemoryDrafterPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -114,13 +121,13 @@ export class WorkMemoryDrafts implements PendingJobsPort {
       );
     }
 
-    const [candidates, rejected] = await Promise.all([
-      this.applicable.at(runContext),
-      this.rejections.rejectedOnTeam(
-        runContext.teamId,
-        recentRejectionsSince(this.clock.now()),
-      ),
-    ]);
+    const candidates = await this.applicable.at(runContext);
+    const elsewhere = await this.applicable.elsewhere(runContext);
+    const used = await this.uses.usedBy(runId, MEMORY_USES);
+    const rejected = await this.rejections.rejectedOnTeam(
+      runContext.teamId,
+      recentRejectionsSince(this.clock.now()),
+    );
     const evidence = DraftEvidence.of({
       taskId: draft.taskId,
       turn,
@@ -130,6 +137,8 @@ export class WorkMemoryDrafts implements PendingJobsPort {
       notesRead: draft.notesRead,
       changed,
       known: candidates,
+      used,
+      elsewhere,
       fromOutside: task.fromOutside,
     });
     let proposed: readonly ProposedMemory[] = [];
@@ -146,7 +155,8 @@ export class WorkMemoryDrafts implements PendingJobsPort {
             stepsLeftOut: evidence.stepsLeftOut,
             notes: evidence.notes,
             changed: evidence.changed,
-            active: evidence.active.map(known),
+            active: evidence.active.map(approved),
+            elsewhere: evidence.elsewhere.map(approved),
             proposed: draft.stillRemembered.map(known),
             rejected: recentRejectionsAt(rejected, runContext).map(known),
           });

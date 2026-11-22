@@ -313,6 +313,7 @@ describe('recalling what the team remembers from inside a run', () => {
               steps: [1],
               notes: [],
               supersedes: null,
+              retires: null,
             },
           ],
           evidence: DraftEvidence.of({
@@ -329,6 +330,8 @@ describe('recalling what the team remembers from inside a run', () => {
             notesRead: 0,
             changed: [],
             known: [],
+            used: [],
+            elsewhere: [],
             fromOutside: false,
           }),
           newId: () => randomUUID(),
@@ -599,6 +602,88 @@ describe('remembering from inside a run', () => {
     );
     expect(elsewhere.status).toBe(422);
     expect((elsewhere.body as { message: string }).message).toContain('(api)');
+  });
+});
+
+describe('forgetting from inside a run', () => {
+  const forget = (handle: string, because: unknown) =>
+    http()
+      .post(`/api/runs/${runId}/memories/${handle}/forget`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ because });
+
+  it('proposes to retire an active memory, and retires it once a person approves', async () => {
+    const memory = await writing(team.teamId.value, team.owner.value, {
+      body: 'Deploys need the worker restarted by hand.',
+    });
+    expect(
+      ((await recall('worker restarted')).body as Recalled[]).map(
+        (each) => each.id,
+      ),
+    ).toContain(memory.id);
+
+    const proposed = await forget(
+      memory.handle,
+      'The worker reloads its limits on deploy.',
+    ).expect(201);
+
+    expect(proposed.body).toMatchObject({
+      proposedBy: 'agent',
+      state: 'proposed',
+      editable: false,
+      inactiveMemories: [],
+      retires: {
+        memoryId: memory.id,
+        handle: memory.handle,
+        reason: 'The worker reloads its limits on deploy.',
+      },
+    });
+
+    await http()
+      .post(
+        `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/runs/${runId}/memories/approve`,
+      )
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ memories: [{ id: (proposed.body as Proposed).id }] })
+      .expect(200);
+
+    await eventually(
+      async () =>
+        ((await recall('worker restarted')).body as Recalled[]).length === 0,
+    );
+  });
+
+  it('refuses a memory that is no longer active, or no reason, and knows no other handle', async () => {
+    const memory = await writing(team.teamId.value, team.owner.value, {
+      body: 'Releases go out on Tuesdays.',
+    });
+    await forget(memory.handle, '').expect(422);
+    await http()
+      .post(`/api/teams/${team.teamId.value}/memories/${memory.id}/retire`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ reason: 'Releases go out every day now.' })
+      .expect(200);
+
+    await forget(memory.handle, 'Releases go out every day.').expect(422);
+    await forget('M-9999', 'Gone.').expect(404);
+    await forget('twelve', 'Gone.').expect(422);
+  });
+});
+
+describe('recording what the run showed its agent', () => {
+  const delivered = (handles: unknown) =>
+    http()
+      .post(`/api/runs/${runId}/memories/delivered`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ handles });
+
+  it('accepts the handles of the memories it showed, and rejects what is not a handle', async () => {
+    const memory = await writing(team.teamId.value, team.owner.value, {
+      body: 'Billing reads amounts in cents.',
+    });
+
+    await delivered([memory.handle]).expect(204);
+    await delivered(['twelve']).expect(422);
   });
 });
 

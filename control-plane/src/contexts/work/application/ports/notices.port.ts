@@ -27,5 +27,11 @@ export interface NoticeOf {
 export interface NoticesPort {
   create(notice: NoticeOf): Promise<void>;
 
+  resolve(notice: {
+    readonly teamId: TeamId;
+    readonly form: NoticeFormName;
+    readonly subject: string;
+  }): Promise<void>;
+
   allowsExternalLink(url: string): boolean;
 }

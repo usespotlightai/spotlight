@@ -14,6 +14,7 @@ const work = () => ({
   create: async (notice: NoticeOf) => {
     created.push(notice);
   },
+  resolve: async () => {},
   allowsExternalLink: (url: string) => url.startsWith('https://github.com/'),
 });
 

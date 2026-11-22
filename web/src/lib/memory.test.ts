@@ -31,6 +31,9 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   repository: null,
   paths: [],
   supersedes: null,
+  retires: null,
+  editable: true,
+  inactiveMemories: [],
   decision: null,
   harness: null,
   steps: [],
@@ -84,6 +87,14 @@ describe('proposalTitleOf', () => {
         }),
       ),
     ).toBe('Memory approved');
+    expect(
+      proposalTitleOf(
+        memory({
+          state: 'lapsed',
+          decision: { by: 'user_1', name: 'Maya Chen', at: '2026-09-27' },
+        }),
+      ),
+    ).toBe('No longer applies');
   });
 });
 
@@ -297,6 +308,9 @@ describe('the memories of a run', () => {
     expect(
       proposalStateOf(proposal({ state: 'approved', status: 'retired' })),
     ).toBe('Approved, now retired');
+    expect(proposalStateOf(proposal({ state: 'lapsed' }))).toBe(
+      'No longer applies',
+    );
   });
 
   it('links to one memory on the team’s memory page', () => {

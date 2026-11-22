@@ -1,5 +1,8 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
-import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
+import {
+  MemoryProposal,
+  type Retiring,
+} from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-draft-already-open.error';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
@@ -96,6 +99,19 @@ const failureOf = (row: DraftRow): MemoryDraftingFailure | null => {
     : null;
 };
 
+const retiringOf = (row: ProposalRow): Retiring | null => {
+  if ((row.retires === null) !== (row.retireReason === null)) {
+    throw new InconsistentStateError(
+      'memory proposal',
+      'retires a memory without saying why, or says why without naming it',
+    );
+  }
+
+  return row.retires && row.retireReason
+    ? { memory: MemoryId.of(row.retires), reason: row.retireReason }
+    : null;
+};
+
 const toProposal = (row: ProposalRow): MemoryProposal =>
   MemoryProposal.rehydrate({
     id: MemoryId.of(row.id),
@@ -117,6 +133,7 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
     source: row.source,
     proposedBy: row.proposedBy,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
+    retires: retiringOf(row),
     recordedAt: row.recordedAt,
     state: row.state,
     decision:
@@ -186,6 +203,8 @@ const proposalRows = (draft: MemoryDraft) =>
         source: each.source,
         proposedBy: each.proposedBy,
         supersedes: each.supersedes?.value ?? null,
+        retires: each.retires?.memory.value ?? null,
+        retireReason: each.retires?.reason ?? null,
         recordedAt: each.recordedAt,
         state: each.state,
         decidedById: each.decision?.by.value ?? null,

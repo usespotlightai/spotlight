@@ -36,6 +36,25 @@ export class RememberRequestDto {
   readonly supersedes?: string | null;
 }
 
+export class ForgetRequestDto {
+  @ApiProperty({
+    example: 'The uploads queue was removed in October.',
+    description: 'Why the memory is wrong, for the person who reviews it',
+  })
+  readonly because!: string;
+}
+
+export class DeliveredMemoriesRequestDto {
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['M-18'],
+    description:
+      'Memories the run showed its agent because the agent used a path they are about',
+  })
+  readonly handles!: readonly string[];
+}
+
 export class RecallMemoriesRequestDto {
   @ApiProperty({ example: 'upload retries', description: 'Words to look for' })
   readonly words!: string;

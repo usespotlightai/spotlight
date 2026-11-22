@@ -87,7 +87,13 @@ describe('EditMemoryHandler', () => {
     expect(memories.save).not.toHaveBeenCalled();
     expect(added).toHaveLength(1);
     expect(added[0]?.pullEvents()).toEqual([
-      new MemoryCreated(MemoryId.of('memory_new'), OLD.id),
+      new MemoryCreated(
+        MemoryId.of('memory_new'),
+        OLD.id,
+        TeamId.of('team_1'),
+        WORKSPACE,
+        'corrected',
+      ),
     ]);
   });
 

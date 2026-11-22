@@ -33,6 +33,10 @@ type Recaller func(ctx context.Context, request protocol.RecallRequest) (json.Ra
 
 type Rememberer func(ctx context.Context, remembered protocol.RememberRequest) (json.RawMessage, error)
 
+type Forgetter func(ctx context.Context, forgotten protocol.ForgetRequest) (json.RawMessage, error)
+
+type Toucher func(ctx context.Context, paths []string) string
+
 type Proposer func(ctx context.Context, proposal protocol.CandidateProposal) (json.RawMessage, error)
 
 type CauseRecorder func(ctx context.Context, record protocol.CauseRecord) (json.RawMessage, error)
@@ -69,6 +73,8 @@ type Server struct {
 	history   Historian
 	recall    Recaller
 	remember  Rememberer
+	forget    Forgetter
+	touched   Toucher
 	propose   Proposer
 	cause     CauseRecorder
 	attach    Attacher
@@ -138,6 +144,14 @@ func (s *Server) Histories(history Historian) {
 func (s *Server) Memories(recall Recaller, remember Rememberer) {
 	s.recall = recall
 	s.remember = remember
+}
+
+func (s *Server) Forgetting(forget Forgetter) {
+	s.forget = forget
+}
+
+func (s *Server) Touches(touched Toucher) {
+	s.touched = touched
 }
 
 func (s *Server) Candidates(propose Proposer) {
@@ -217,6 +231,16 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	if path.Clean(request.URL.Path) == protocol.AgentAPIRememberPath {
 		s.remembered(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.AgentAPIForgetPath {
+		s.forgotten(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.AgentAPITouchedPath {
+		s.touchedPaths(writer, request)
 		return
 	}
 
@@ -495,6 +519,41 @@ func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	s.answered(writer, func() (json.RawMessage, error) { return s.remember(request.Context(), remembered) })
+}
+
+func (s *Server) forgotten(writer http.ResponseWriter, request *http.Request) {
+	if s.forget == nil {
+		fail(writer, http.StatusNotImplemented, "this run cannot propose to retire a memory")
+		return
+	}
+
+	var forgotten protocol.ForgetRequest
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&forgotten); err != nil {
+		fail(writer, http.StatusBadRequest, "unreadable request to forget")
+		return
+	}
+
+	if strings.TrimSpace(forgotten.Handle) == "" || strings.TrimSpace(forgotten.Because) == "" {
+		fail(writer, http.StatusUnprocessableEntity, "say which memory, like M-12, and why it no longer applies")
+		return
+	}
+
+	s.answered(writer, func() (json.RawMessage, error) { return s.forget(request.Context(), forgotten) })
+}
+
+func (s *Server) touchedPaths(writer http.ResponseWriter, request *http.Request) {
+	var touched protocol.TouchedRequest
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&touched); err != nil {
+		fail(writer, http.StatusBadRequest, "unreadable paths")
+		return
+	}
+
+	answer := protocol.TouchedAnswer{}
+	if s.touched != nil {
+		answer.Context = s.touched(request.Context(), touched.Paths)
+	}
+
+	s.answered(writer, func() (json.RawMessage, error) { return json.Marshal(answer) })
 }
 
 func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {

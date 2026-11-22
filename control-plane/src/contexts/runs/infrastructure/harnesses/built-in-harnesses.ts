@@ -278,7 +278,15 @@ export class BuiltInHarnesses
     }
 
     if (!chosen.profile) {
-      return { command: commandOf(def, chosen, {}).started(), setup: null };
+      const files = def.profile.bare();
+
+      return {
+        command: commandOf(def, chosen, {}).started(),
+        setup:
+          files.length > 0
+            ? { files: [...files], mcpServers: [], askKinds: [] }
+            : null,
+      };
     }
 
     const profile: ReadyProfile = chosen.profile;

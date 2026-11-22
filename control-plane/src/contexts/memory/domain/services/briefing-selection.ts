@@ -11,9 +11,13 @@ const MAX_OMITTED = 20;
 
 const TASK_WEIGHT = 3;
 
+const COVERED_WEIGHT = 2;
+
 const WARNING_WEIGHT = 1;
 
 const RECALLED_WEIGHT = 0.5;
+
+const SPECIFICITY_WEIGHT = 0.25;
 
 const STRONG_RANK = 0.1;
 
@@ -50,14 +54,24 @@ const specificityAt = (memory: Memory, runContext: TouchedContext): number =>
     ? memory.scope.specificity
     : REPOSITORY_SPECIFICITY;
 
+const coversTouched = (memory: Memory, runContext: TouchedContext): boolean =>
+  memory.scope.paths.length > 0 && memory.scope.matches(runContext);
+
 const scoreOf = (
   candidate: BriefingCandidate,
   runContext: TouchedContext,
 ): number =>
-  specificityAt(candidate.memory, runContext) +
   TASK_WEIGHT * matchOf(candidate.rank) +
+  (coversTouched(candidate.memory, runContext) ? COVERED_WEIGHT : 0) +
   (isWarning(candidate.memory.kind) ? WARNING_WEIGHT : 0) +
-  (candidate.recalled > 0 ? RECALLED_WEIGHT : 0);
+  (candidate.recalled > 0 ? RECALLED_WEIGHT : 0) +
+  SPECIFICITY_WEIGHT * specificityAt(candidate.memory, runContext);
+
+const aboutTheTask = (
+  candidate: BriefingCandidate,
+  runContext: TouchedContext,
+): boolean =>
+  matchOf(candidate.rank) > 0 || coversTouched(candidate.memory, runContext);
 
 export const selectForBriefing = (
   candidates: readonly BriefingCandidate[],
@@ -68,9 +82,14 @@ export const selectForBriefing = (
   );
   const ranked = candidates
     .filter((each) => current.has(each.memory) && relevantAt(each, runContext))
-    .map((each) => ({ memory: each.memory, score: scoreOf(each, runContext) }))
+    .map((each) => ({
+      memory: each.memory,
+      about: aboutTheTask(each, runContext),
+      score: scoreOf(each, runContext),
+    }))
     .sort(
       (one, other) =>
+        Number(other.about) - Number(one.about) ||
         other.score - one.score ||
         other.memory.approval.at.getTime() - one.memory.approval.at.getTime(),
     )
@@ -79,11 +98,12 @@ export const selectForBriefing = (
   let length = 0;
 
   for (const memory of ranked) {
-    if (
-      chosen.length === MAX_BRIEFED ||
-      length + memory.body.length > MAX_BRIEFED_LENGTH
-    ) {
+    if (chosen.length === MAX_BRIEFED) {
       break;
+    }
+
+    if (length + memory.body.length > MAX_BRIEFED_LENGTH) {
+      continue;
     }
 
     chosen.push(memory);
@@ -92,6 +112,8 @@ export const selectForBriefing = (
 
   return {
     briefed: chosen,
-    omitted: ranked.slice(chosen.length, chosen.length + MAX_OMITTED),
+    omitted: ranked
+      .filter((memory) => !chosen.includes(memory))
+      .slice(0, MAX_OMITTED),
   };
 };

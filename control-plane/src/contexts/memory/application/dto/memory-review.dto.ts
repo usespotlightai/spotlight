@@ -35,6 +35,12 @@ export interface MemoryDecisionDto {
   readonly at: string;
 }
 
+export interface RetiringDto {
+  readonly memoryId: string;
+  readonly handle: string;
+  readonly reason: string;
+}
+
 export interface ProposedMemoryDto {
   readonly id: string;
   readonly kind: string;
@@ -46,6 +52,9 @@ export interface ProposedMemoryDto {
   readonly repository: string | null;
   readonly paths: readonly string[];
   readonly supersedes: string | null;
+  readonly retires: RetiringDto | null;
+  readonly editable: boolean;
+  readonly inactiveMemories: readonly string[];
   readonly decision: MemoryDecisionDto | null;
   readonly harness: string | null;
   readonly steps: readonly MemoryProvenanceStepDto[];

@@ -88,6 +88,21 @@ const CAREFUL = profile({
   ],
 });
 
+const CLAUDE_MEMORY_HOOK = {
+  PostToolUse: [
+    {
+      matcher: 'Read|Edit|MultiEdit|Write|NotebookEdit',
+      hooks: [
+        {
+          type: 'command',
+          command: 'spotlight hook post-tool-use',
+          timeout: 10,
+        },
+      ],
+    },
+  ],
+};
+
 describe('one harness profile, told to each harness in its own terms', () => {
   it('sets up Claude Code and Cursor alike from one profile, both asking through Spotlight', () => {
     const claude = prepared('claude-code', CAREFUL);
@@ -120,6 +135,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
           allow: ['Bash(npm test *)', 'mcp__linear'],
           defaultMode: 'acceptEdits',
         },
+        hooks: CLAUDE_MEMORY_HOOK,
       });
       expect(setup.session).toEqual({
         claudeCode: {
@@ -563,14 +579,27 @@ describe('reviewing a harness profile', () => {
     ]);
   });
 
-  it('sets nothing up for a station that names no profile', () => {
-    expect(
-      harnesses.preparedFor(HarnessId.of('claude-code'), {
+  it('sets up only the memory hook for a station that names no profile, and nothing where the harness has no hook', () => {
+    const bare = (harness: string) =>
+      harnesses.preparedFor(HarnessId.of(harness), {
         model: null,
         effort: null,
         profile: null,
-      })?.setup,
-    ).toBeNull();
+      })?.setup;
+
+    expect(bare('claude-code')).toEqual({
+      files: [
+        {
+          path: 'claude/settings.json',
+          text: `${JSON.stringify({ hooks: CLAUDE_MEMORY_HOOK }, null, 2)}\n`,
+        },
+      ],
+      mcpServers: [],
+      askKinds: [],
+    });
+    expect(bare('codex')).toBeNull();
+    expect(bare('opencode')).toBeNull();
+    expect(bare('cursor')).toBeNull();
   });
 
   it('names every setting file a harness may be laid, so a later run can clear it', () => {

@@ -2,6 +2,7 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { CutMemories } from '@/components/features/insights/memory/CutMemories';
 import { FlaggedMemories } from '@/components/features/insights/memory/FlaggedMemories';
 import { MemoryComparison } from '@/components/features/insights/memory/MemoryComparison';
 import { MemorySkeleton } from '@/components/features/insights/memory/MemorySkeleton';
@@ -67,6 +68,8 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
           verdicts={read.verdicts}
         />
       </InsightsCard>
+
+      <CutMemories slug={slug} teamId={teamId} memory={read} />
 
       <FlaggedMemories slug={slug} teamId={teamId} flagged={read.flagged} />
     </div>

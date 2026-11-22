@@ -71,6 +71,11 @@ const Memory = lazyPage(
   (module) => module.Memory,
 );
 
+const MemoryUpkeep = lazyPage(
+  () => import('./routes/MemoryUpkeep.tsx'),
+  (module) => module.MemoryUpkeep,
+);
+
 const Run = lazyPage(
   () => import('./routes/Run.tsx'),
   (module) => module.Run,
@@ -166,6 +171,7 @@ export const workspacePages = (
       <Route path={RUN_CHANGES_ROUTE} element={<RunChangeStack />} />
       <Route path="insights" element={<Insights />} />
       <Route path="memory" element={<Memory />} />
+      <Route path="memory/upkeep/:upkeepId" element={<MemoryUpkeep />} />
     </Route>
     <Route path="inbox" element={<Inbox />}>
       <Route index element={<InboxIndex />} />

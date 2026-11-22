@@ -303,6 +303,29 @@ func (c *Client) Remember(
 	return out, nil
 }
 
+func (c *Client) Forget(
+	ctx context.Context, runID string, forgotten protocol.ForgetRequest,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/memories/%s/forget", url.PathEscape(runID), url.PathEscape(forgotten.Handle))
+
+	if err := c.do(ctx, http.MethodPost, path, map[string]string{"because": forgotten.Because}, &out); err != nil {
+		return nil, fmt.Errorf("forget %s: %w", forgotten.Handle, err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) DeliveredMemories(ctx context.Context, runID string, handles []string) error {
+	path := fmt.Sprintf("/api/runs/%s/memories/delivered", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, protocol.DeliveredMemories{Handles: handles}, nil); err != nil {
+		return fmt.Errorf("record the memories shown for paths the agent used: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) ProposeCandidate(
 	ctx context.Context, runID string, proposal protocol.CandidateProposal,
 ) (json.RawMessage, error) {

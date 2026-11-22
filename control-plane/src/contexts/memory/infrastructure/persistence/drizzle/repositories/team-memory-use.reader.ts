@@ -1,4 +1,5 @@
 import type {
+  DescribedMemory,
   MemoryUseWindow,
   TeamMemoryUse,
   TeamMemoryUsePort,
@@ -10,11 +11,36 @@ import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memor
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { and, count, desc, eq, gte, lt } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lt } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
   constructor(private readonly context: DrizzleContext) {}
+
+  async described(
+    workspaceId: string,
+    memories: readonly string[],
+  ): Promise<readonly DescribedMemory[]> {
+    if (memories.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select({ memoryId: memory.id, handle: memory.handle, body: memory.body })
+      .from(memory)
+      .where(
+        and(
+          eq(memory.workspaceId, workspaceId),
+          inArray(memory.id, [...memories]),
+        ),
+      );
+
+    return rows.map((row) => ({
+      memoryId: row.memoryId,
+      handle: MemoryHandle.of(row.handle).value,
+      body: row.body,
+    }));
+  }
 
   async between(window: MemoryUseWindow): Promise<TeamMemoryUse> {
     const ofTeam = and(

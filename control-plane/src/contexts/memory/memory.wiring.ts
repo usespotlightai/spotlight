@@ -1,4 +1,8 @@
 import {
+  REPOSITORY_CONTENTS,
+  type RepositoryContentsPort,
+} from '@github/application/ports/repository-contents.port';
+import {
   PERSON_READER,
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
@@ -11,15 +15,21 @@ import {
   type LinesPort as LinesViewPort,
 } from '@lines/application/ports/lines.port';
 import { ApproveMemoriesCommand } from '@memory/application/commands/approve-memories.command';
+import { DecideUpkeepProposalCommand } from '@memory/application/commands/decide-upkeep-proposal.command';
 import { EditMemoryCommand } from '@memory/application/commands/edit-memory.command';
+import { ForgetCommand } from '@memory/application/commands/forget.command';
 import { ApproveMemoriesHandler } from '@memory/application/commands/handlers/approve-memories.handler';
+import { DecideUpkeepProposalHandler } from '@memory/application/commands/handlers/decide-upkeep-proposal.handler';
 import { EditMemoryHandler } from '@memory/application/commands/handlers/edit-memory.handler';
+import { ForgetHandler } from '@memory/application/commands/handlers/forget.handler';
+import { RecordDeliveryHandler } from '@memory/application/commands/handlers/record-delivery.handler';
 import { RecordRecallHandler } from '@memory/application/commands/handlers/record-recall.handler';
 import { RejectMemoryHandler } from '@memory/application/commands/handlers/reject-memory.handler';
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RestoreMemoryHandler } from '@memory/application/commands/handlers/restore-memory.handler';
 import { RetireMemoryHandler } from '@memory/application/commands/handlers/retire-memory.handler';
 import { WriteMemoryHandler } from '@memory/application/commands/handlers/write-memory.handler';
+import { RecordDeliveryCommand } from '@memory/application/commands/record-delivery.command';
 import { RecordRecallCommand } from '@memory/application/commands/record-recall.command';
 import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
 import { RememberCommand } from '@memory/application/commands/remember.command';
@@ -27,8 +37,13 @@ import { RestoreMemoryCommand } from '@memory/application/commands/restore-memor
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
+import { UpkeepReactions } from '@memory/application/events/handlers/upkeep-reactions.handler';
 import { MEMORY_EVENT_MAPPERS } from '@memory/application/integration-events/memory.event-mappers';
 import { LINES, type LinesPort } from '@memory/application/ports/lines.port';
+import {
+  MEMORY_CONSOLIDATOR,
+  type MemoryConsolidatorPort,
+} from '@memory/application/ports/memory-consolidator.port';
 import {
   MEMORY_DRAFTER,
   type MemoryDrafterPort,
@@ -48,14 +63,23 @@ import {
   type RejectedMemoriesPort,
 } from '@memory/application/ports/rejected-memories.port';
 import {
+  REPOSITORY_PATHS,
+  type RepositoryPathsPort,
+} from '@memory/application/ports/repository-paths.port';
+import {
   REVIEWS,
   type ReviewsPort,
 } from '@memory/application/ports/reviews.port';
 import { TEAM_MEMORY_USE } from '@memory/application/ports/team-memory-use.port';
+import {
+  UPKEEP_NOTICES,
+  type UpkeepNoticesPort,
+} from '@memory/application/ports/upkeep-notices.port';
 import { WORK, type WorkPort } from '@memory/application/ports/work.port';
 import { ListTeamMemoriesHandler } from '@memory/application/queries/handlers/list-team-memories.handler';
 import { ReadMemoryFilesHandler } from '@memory/application/queries/handlers/read-memory-files.handler';
 import { ReadMemoryReviewHandler } from '@memory/application/queries/handlers/read-memory-review.handler';
+import { ReadMemoryUpkeepHandler } from '@memory/application/queries/handlers/read-memory-upkeep.handler';
 import { ReadProposedMemoryHandler } from '@memory/application/queries/handlers/read-proposed-memory.handler';
 import { ReadRunMemoriesHandler } from '@memory/application/queries/handlers/read-run-memories.handler';
 import { ReadTeamMemoryHandler } from '@memory/application/queries/handlers/read-team-memory.handler';
@@ -64,6 +88,7 @@ import { RecallMemoryHandler } from '@memory/application/queries/handlers/recall
 import { ListTeamMemoriesQuery } from '@memory/application/queries/list-team-memories.query';
 import { ReadMemoryFilesQuery } from '@memory/application/queries/read-memory-files.query';
 import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
+import { ReadMemoryUpkeepQuery } from '@memory/application/queries/read-memory-upkeep.query';
 import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
 import { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memories.query';
 import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memory.query';
@@ -75,10 +100,12 @@ import { DeleteTeamMemories } from '@memory/application/services/delete-team-mem
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
+import { MemoryUpkeepSweeps } from '@memory/application/services/memory-upkeep-sweeps.service';
 import { RecalledMemoryViews } from '@memory/application/services/recalled-memory-views.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import { RequestMemories } from '@memory/application/services/request-memories.service';
+import { RunProposing } from '@memory/application/services/run-proposing.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
@@ -88,24 +115,38 @@ import {
   type MemoryDraftRepository,
 } from '@memory/domain/repositories/memory-draft.repository';
 import {
+  MEMORY_UPKEEP_SCHEDULES,
+  MEMORY_UPKEEPS,
+  type MemoryUpkeepRepository,
+  type MemoryUpkeepScheduleRepository,
+} from '@memory/domain/repositories/memory-upkeep.repository';
+import {
   MEMORIES,
   type MemoryRepository,
 } from '@memory/domain/repositories/memory.repository';
 import { Lines } from '@memory/infrastructure/acl/lines.adapter';
 import { People } from '@memory/infrastructure/acl/people.adapter';
+import { RepositoryPaths } from '@memory/infrastructure/acl/repository-paths.adapter';
 import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
+import { UpkeepNotices } from '@memory/infrastructure/acl/upkeep-notices.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
+import { ChatCompletionsMemoryConsolidator } from '@memory/infrastructure/drafting/chat-completions-memory-consolidator';
 import { ChatCompletionsMemoryDrafter } from '@memory/infrastructure/drafting/chat-completions-memory.drafter';
 import { MEMORY_PAYLOAD_TYPES } from '@memory/infrastructure/events/memory-payload-types';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { DrizzleMemoryListing } from '@memory/infrastructure/persistence/drizzle/repositories/memory-listing.reader';
 import { DrizzleMemoryRelevance } from '@memory/infrastructure/persistence/drizzle/repositories/memory-relevance.reader';
+import {
+  DrizzleMemoryUpkeepRepository,
+  DrizzleMemoryUpkeepScheduleRepository,
+} from '@memory/infrastructure/persistence/drizzle/repositories/memory-upkeep.repository';
 import { DrizzleMemoryUses } from '@memory/infrastructure/persistence/drizzle/repositories/memory-uses.ledger';
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleTeamMemoryUse } from '@memory/infrastructure/persistence/drizzle/repositories/team-memory-use.reader';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
+import { MemoryUpkeepController } from '@memory/presentation/http/controllers/memory-upkeep.controller';
 import { RunMemoriesController } from '@memory/presentation/http/controllers/run-memories.controller';
 import { RunnerMemoryFilesController } from '@memory/presentation/http/controllers/runner-memory-files.controller';
 import { RunnerMemoryController } from '@memory/presentation/http/controllers/runner-memory.controller';
@@ -150,6 +191,10 @@ import {
   type InboxRequestsPort,
 } from '@work/application/ports/inbox-requests.port';
 import { MEMORIES_BRIEFED_BEFORE } from '@work/application/ports/memories-briefed-before.port';
+import {
+  NOTICES,
+  type NoticesPort,
+} from '@work/application/ports/notices.port';
 import { TEAM_MEMORIES } from '@work/application/ports/team-memories.port';
 import {
   WORK_RUN_LOOKUP,
@@ -168,6 +213,7 @@ export const MEMORY_CONTROLLERS: readonly Type[] = [
   RunMemoriesController,
   RunnerMemoryController,
   RunnerMemoryFilesController,
+  MemoryUpkeepController,
 ];
 
 export const MEMORY_PROVIDERS: readonly Provider[] = [
@@ -196,6 +242,114 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   { provide: MEMORY_DRAFTS, useClass: DrizzleMemoryDraftRepository },
   { provide: MEMORIES, useClass: DrizzleMemoryRepository },
+  { provide: MEMORY_UPKEEPS, useClass: DrizzleMemoryUpkeepRepository },
+  {
+    provide: MEMORY_UPKEEP_SCHEDULES,
+    useClass: DrizzleMemoryUpkeepScheduleRepository,
+  },
+  {
+    provide: REPOSITORY_PATHS,
+    inject: [REPOSITORY_CONTENTS],
+    useFactory: (contents: RepositoryContentsPort) =>
+      new RepositoryPaths(contents),
+  },
+  {
+    provide: UPKEEP_NOTICES,
+    inject: [NOTICES],
+    useFactory: (notices: NoticesPort) => new UpkeepNotices(notices),
+  },
+  {
+    provide: MEMORY_CONSOLIDATOR,
+    inject: [INFERENCE_CALLS],
+    useFactory: (calls: InferenceCallsPort) =>
+      new ChatCompletionsMemoryConsolidator(calls),
+  },
+  {
+    provide: UpkeepReactions,
+    inject: [
+      UPKEEP_NOTICES,
+      MEMORIES,
+      MEMORY_UPKEEPS,
+      MEMORY_UPKEEP_SCHEDULES,
+      TRANSACTION,
+      CLOCK,
+    ],
+    useFactory: (
+      notices: UpkeepNoticesPort,
+      memories: MemoryRepository,
+      upkeeps: MemoryUpkeepRepository,
+      schedules: MemoryUpkeepScheduleRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) =>
+      new UpkeepReactions(
+        notices,
+        memories,
+        upkeeps,
+        schedules,
+        transaction,
+        clock,
+      ),
+  },
+  {
+    provide: MemoryUpkeepSweeps,
+    inject: [
+      MEMORY_UPKEEP_SCHEDULES,
+      MEMORY_UPKEEPS,
+      MEMORIES,
+      LINES,
+      MEMORY_USES,
+      REPOSITORY_PATHS,
+      MEMORY_CONSOLIDATOR,
+      ID_GENERATOR,
+      CLOCK,
+      LOGGER,
+      TRANSACTION,
+      ERROR_REPORTS,
+      TELEMETRY,
+    ],
+    useFactory: (
+      schedules: MemoryUpkeepScheduleRepository,
+      upkeeps: MemoryUpkeepRepository,
+      memories: MemoryRepository,
+      lines: LinesPort,
+      uses: MemoryUsesPort,
+      paths: RepositoryPathsPort,
+      consolidator: MemoryConsolidatorPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+      transaction: TransactionPort,
+      reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
+    ) =>
+      new MemoryUpkeepSweeps(
+        schedules,
+        upkeeps,
+        memories,
+        lines,
+        uses,
+        paths,
+        consolidator,
+        ids,
+        clock,
+        logger,
+        transaction,
+        reports,
+        telemetry,
+      ),
+  },
+  ...bindCommandHandler(
+    DecideUpkeepProposalCommand,
+    DecideUpkeepProposalHandler,
+    [MemoryAccess, MEMORY_UPKEEPS, MEMORIES, ID_GENERATOR, TRANSACTION, CLOCK],
+  ),
+  ...bindQueryHandler(ReadMemoryUpkeepQuery, ReadMemoryUpkeepHandler, [
+    MemoryAccess,
+    MEMORY_UPKEEPS,
+    MEMORIES,
+    PEOPLE,
+  ]),
   { provide: MEMORY_LISTING, useClass: DrizzleMemoryListing },
   { provide: MEMORY_RELEVANCE, useClass: DrizzleMemoryRelevance },
   {
@@ -223,10 +377,32 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       new MemoryAccess(people, work),
   },
   {
+    provide: RunProposing,
+    inject: [
+      RunnerMemoryLoader,
+      WORK,
+      MEMORY_DRAFTS,
+      TRANSACTION,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      loader: RunnerMemoryLoader,
+      work: WorkPort,
+      drafts: MemoryDraftRepository,
+      transaction: TransactionPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new RunProposing(loader, work, drafts, transaction, ids, clock),
+  },
+  {
     provide: MemoryReviews,
-    inject: [WORK, PEOPLE],
-    useFactory: (work: WorkPort, people: PeoplePort) =>
-      new MemoryReviews(work, people),
+    inject: [WORK, PEOPLE, MEMORIES],
+    useFactory: (
+      work: WorkPort,
+      people: PeoplePort,
+      memories: MemoryRepository,
+    ) => new MemoryReviews(work, people, memories),
   },
   {
     provide: MemoryReactions,
@@ -242,6 +418,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ApproveMemoriesCommand, ApproveMemoriesHandler, [
     MemoryAccess,
     MEMORY_DRAFTS,
+    MEMORIES,
     TRANSACTION,
     CLOCK,
   ]),
@@ -303,6 +480,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MEMORIES,
     LINES,
     PEOPLE,
+    WORK,
   ]),
   ...bindCommandHandler(WriteMemoryCommand, WriteMemoryHandler, [
     MemoryAccess,
@@ -371,15 +549,16 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MEMORIES,
     RecordMemoryUses,
   ]),
-  ...bindCommandHandler(RememberCommand, RememberHandler, [
+  ...bindCommandHandler(RecordDeliveryCommand, RecordDeliveryHandler, [
     RunnerMemoryLoader,
-    WORK,
-    MEMORY_DRAFTS,
     MEMORIES,
-    TRANSACTION,
-    ID_GENERATOR,
-    CLOCK,
+    RecordMemoryUses,
   ]),
+  ...bindCommandHandler(RememberCommand, RememberHandler, [
+    RunProposing,
+    MEMORIES,
+  ]),
+  ...bindCommandHandler(ForgetCommand, ForgetHandler, [RunProposing, MEMORIES]),
   ...bindQueryHandler(ReadProposedMemoryQuery, ReadProposedMemoryHandler, [
     RunnerMemoryLoader,
     MEMORY_DRAFTS,
@@ -419,9 +598,13 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: DeleteTeamMemories,
-    inject: [MEMORIES, TRANSACTION],
-    useFactory: (memories: MemoryRepository, transaction: TransactionPort) =>
-      new DeleteTeamMemories(memories, transaction),
+    inject: [MEMORIES, TRANSACTION, MEMORY_UPKEEPS, MEMORY_UPKEEP_SCHEDULES],
+    useFactory: (
+      memories: MemoryRepository,
+      transaction: TransactionPort,
+      upkeeps: MemoryUpkeepRepository,
+      schedules: MemoryUpkeepScheduleRepository,
+    ) => new DeleteTeamMemories(memories, transaction, upkeeps, schedules),
   },
   {
     provide: WorkMemoryDrafts,
@@ -430,6 +613,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       WORK,
       ApplicableMemories,
       REJECTED_MEMORIES,
+      MEMORY_USES,
       MEMORY_DRAFTER,
       ID_GENERATOR,
       CLOCK,
@@ -443,6 +627,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       work: WorkPort,
       applicable: ApplicableMemories,
       rejections: RejectedMemoriesPort,
+      uses: MemoryUsesPort,
       drafter: MemoryDrafterPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
@@ -456,6 +641,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
         work,
         applicable,
         rejections,
+        uses,
         drafter,
         ids,
         clock,
@@ -467,9 +653,12 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: PendingJobWorker,
-    inject: [WorkMemoryDrafts, LOGGER],
-    useFactory: (drafts: WorkMemoryDrafts, logger: LoggerPort) =>
-      new PendingJobWorker([drafts], logger),
+    inject: [WorkMemoryDrafts, MemoryUpkeepSweeps, LOGGER],
+    useFactory: (
+      drafts: WorkMemoryDrafts,
+      sweeps: MemoryUpkeepSweeps,
+      logger: LoggerPort,
+    ) => new PendingJobWorker([drafts, sweeps], logger),
   },
   {
     provide: MEMORY_EVENTS,
@@ -482,6 +671,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       DeleteTeamMemories,
       MemoryReactions,
       RecordRunMemoryUses,
+      UpkeepReactions,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -492,6 +682,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       deletingMemories: DeleteTeamMemories,
       reactions: MemoryReactions,
       recording: RecordRunMemoryUses,
+      upkeep: UpkeepReactions,
     ) => {
       types.register('memory', MEMORY_PAYLOAD_TYPES);
       mappers.register(MEMORY_EVENT_MAPPERS);
@@ -502,6 +693,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
           deletingMemories,
           reactions,
           recording,
+          upkeep,
         ),
       );
       return true;

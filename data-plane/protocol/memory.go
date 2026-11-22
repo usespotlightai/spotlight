@@ -75,7 +75,34 @@ type ProposedMemory struct {
 	Steps      []MemoryStep `json:"steps"`
 }
 
+type MemoryFileRepository struct {
+	Owner string `json:"owner"`
+	Name  string `json:"name"`
+}
+
 type MemoryFile struct {
-	Path string `json:"path"`
-	Body string `json:"body"`
+	Path       string                `json:"path"`
+	Body       string                `json:"body"`
+	Handle     string                `json:"handle,omitempty"`
+	Repository *MemoryFileRepository `json:"repository,omitempty"`
+	Paths      []string              `json:"paths,omitempty"`
+	Briefed    bool                  `json:"briefed,omitempty"`
+	Elsewhere  bool                  `json:"elsewhere,omitempty"`
+}
+
+type ForgetRequest struct {
+	Handle  string `json:"handle"`
+	Because string `json:"because"`
+}
+
+type TouchedRequest struct {
+	Paths []string `json:"paths"`
+}
+
+type TouchedAnswer struct {
+	Context string `json:"context"`
+}
+
+type DeliveredMemories struct {
+	Handles []string `json:"handles"`
 }

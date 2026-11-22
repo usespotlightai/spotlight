@@ -9,6 +9,7 @@ import type {
   PermissionKind,
   PermissionRuleParts,
 } from '@runs/domain/value-objects/ready-profile';
+import { withClaudeMemoryHook } from '@runs/infrastructure/harnesses/profiles/memory-hook';
 import {
   jsonFile,
   layered,
@@ -57,6 +58,8 @@ const byDefault = (
 export const claudeCodeProfile: ProfileTranslator = {
   native: 'json',
   lays: [CLAUDE_SETTINGS],
+
+  bare: () => [jsonFile(CLAUDE_SETTINGS, withClaudeMemoryHook({}))],
 
   translate(profile: HarnessSettings): TranslatedProfile {
     const lists: Lists = { allow: [], ask: [], deny: [] };
@@ -121,7 +124,7 @@ export const claudeCodeProfile: ProfileTranslator = {
     }
 
     return {
-      files: [jsonFile(CLAUDE_SETTINGS, settings.value)],
+      files: [jsonFile(CLAUDE_SETTINGS, withClaudeMemoryHook(settings.value))],
       env: {},
       config: {},
       session: {

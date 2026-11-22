@@ -4,6 +4,7 @@ import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { ReadProposedMemoryHandler } from '@memory/application/queries/handlers/read-proposed-memory.handler';
 import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
+import { RunProposing } from '@memory/application/services/run-proposing.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
@@ -64,23 +65,25 @@ const remembering = (run: LeasedRun | null = LEASED) => {
   } as unknown as WorkPort;
 
   const handler = new RememberHandler(
-    new RunnerMemoryLoader(work),
-    work,
-    {
-      forTask: async () => null,
-      add: async (draft: MemoryDraft) => {
-        added.push(draft);
+    new RunProposing(
+      new RunnerMemoryLoader(work),
+      work,
+      {
+        forTask: async () => null,
+        add: async (draft: MemoryDraft) => {
+          added.push(draft);
+        },
+      } as unknown as MemoryDraftRepository,
+      { inTransaction: <T>(each: () => Promise<T>) => each() },
+      {
+        generate: () => {
+          ids += 1;
+          return `id_${ids}`;
+        },
       },
-    } as unknown as MemoryDraftRepository,
+      { now: () => NOW, sleep: async () => undefined },
+    ),
     {} as MemoryRepository,
-    { inTransaction: <T>(each: () => Promise<T>) => each() },
-    {
-      generate: () => {
-        ids += 1;
-        return `id_${ids}`;
-      },
-    },
-    { now: () => NOW, sleep: async () => undefined },
   );
 
   const reading = new ReadProposedMemoryHandler(
@@ -88,7 +91,11 @@ const remembering = (run: LeasedRun | null = LEASED) => {
     {
       forTask: async () => added[added.length - 1] ?? null,
     } as unknown as MemoryDraftRepository,
-    new MemoryReviews(work, { find: async () => null } as never),
+    new MemoryReviews(
+      work,
+      { find: async () => null } as never,
+      { findAll: async () => [] } as unknown as MemoryRepository,
+    ),
   );
 
   return {

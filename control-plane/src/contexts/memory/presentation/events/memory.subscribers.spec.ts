@@ -1,4 +1,5 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
+import type { UpkeepReactions } from '@memory/application/events/handlers/upkeep-reactions.handler';
 import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
 import type { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
@@ -18,6 +19,7 @@ const subscribed = () => {
     {} as DeleteTeamMemories,
     {} as MemoryReactions,
     {} as RecordRunMemoryUses,
+    {} as UpkeepReactions,
   );
   const subscriber = subscribers.find(
     (each) => each.name === 'memory.request-memories-of-awaited-turn',

@@ -305,7 +305,7 @@ describe('selecting what to brief a run with', () => {
     expect(bodies(chosen.briefed)[0]).toBe('Recalled before.');
   });
 
-  it('never lets a weak match on a memory about untouched paths outrank a station’s warning', () => {
+  it('ranks a weak match on the task’s words above a station’s warning that does not match them, and briefs both', () => {
     const chosen = choosing(
       [
         approved(
@@ -324,8 +324,63 @@ describe('selecting what to brief a run with', () => {
     );
 
     expect(bodies(chosen.briefed)).toEqual([
-      'The build needs Redis.',
       'Fix retries by draining the queue.',
+      'The build needs Redis.',
     ]);
+  });
+
+  it('never lets ten station memories crowd out a team memory that matches the task’s words', () => {
+    const station = Array.from({ length: 10 }, (_, at) =>
+      approved(
+        { lineId: 'line_delivery', stationId: 'station_build' },
+        `Station memory ${at}.`,
+      ),
+    );
+    const matching = approved({}, 'Uploads retry in the request.', OLDER);
+
+    const chosen = choosing([...station, matching], TOUCHED_CONTEXT, {
+      'Uploads retry in the request.': 0.02,
+    });
+
+    expect(bodies(chosen.briefed)[0]).toBe('Uploads retry in the request.');
+    expect(chosen.briefed).toHaveLength(8);
+  });
+
+  it('skips a memory too long for what is left of the brief, and fills the space with shorter ones', () => {
+    const at = (day: number) => new Date(Date.UTC(2026, 8, day));
+    const chosen = choosing(
+      [
+        approved({}, 'a'.padEnd(1_000, '.'), at(25)),
+        approved({}, 'b'.padEnd(1_000, '.'), at(24)),
+        approved({}, 'c'.padEnd(900, '.'), at(23)),
+        approved({}, 'd'.padEnd(1_000, '.'), at(22)),
+        approved({}, 'Short.', at(21)),
+      ],
+      TOUCHED_CONTEXT,
+    );
+
+    expect(bodies(chosen.briefed).map((each) => each[0])).toEqual([
+      'a',
+      'b',
+      'c',
+      'S',
+    ]);
+    expect(bodies(chosen.omitted).map((each) => each[0])).toEqual(['d']);
+  });
+
+  it('ranks a memory about a path the task touched first, above a strong match on the task’s words', () => {
+    const chosen = choosing(
+      [
+        approved({}, 'Uploads retry in the request.'),
+        approved(
+          { repository: API, paths: ['src/uploads'] },
+          'Retry carefully.',
+        ),
+      ],
+      TOUCHED_CONTEXT,
+      { 'Uploads retry in the request.': 0.05 },
+    );
+
+    expect(bodies(chosen.briefed)[0]).toBe('Retry carefully.');
   });
 });

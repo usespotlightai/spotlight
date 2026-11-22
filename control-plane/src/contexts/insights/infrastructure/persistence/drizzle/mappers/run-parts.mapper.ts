@@ -259,7 +259,10 @@ export const checkedColumnOf = (record: {
 export const memoriesOf = (row: RunPartsRow): RunMemories =>
   RunMemories.of({
     briefed: row.memories.briefed,
+    cut: row.memories.cut,
+    read: row.memories.read,
     recalled: row.memories.recalled,
+    delivered: row.memories.delivered,
   });
 
 export const passOf = (
@@ -332,7 +335,12 @@ export const partColumnsOf = (record: RunParts): RunPartsRow => {
     })),
     memories: {
       briefed: [...record.memories.briefed],
+      cut: [...record.memories.cut],
+      read: [...record.memories.read],
       recalled: [...record.memories.recalled],
+      delivered: [...record.memories.delivered],
+      cutThenRead: [...record.memories.cutThenRead],
+      used: record.memories.used,
     },
   };
 };

@@ -53,7 +53,15 @@ const ranOnTheTeam = async (taskId: string): Promise<void> => {
     asked: false,
     usageRecorded: false,
     dismissals: [],
-    memories: { briefed: [], recalled: [] },
+    memories: {
+      briefed: [],
+      cut: [],
+      read: [],
+      recalled: [],
+      delivered: [],
+      cutThenRead: [],
+      used: false,
+    },
   });
 };
 

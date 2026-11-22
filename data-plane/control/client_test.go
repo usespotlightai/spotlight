@@ -876,6 +876,42 @@ func TestReadsTheMemoryFilesOfARun(t *testing.T) {
 	}
 }
 
+func TestForgetProposesToRetireAMemory(t *testing.T) {
+	var received, sent string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		received = r.Method + " " + r.URL.RequestURI()
+		read, _ := io.ReadAll(r.Body)
+		sent = string(read)
+		_, _ = w.Write([]byte(`{"kind":"rationale"}`))
+	})
+
+	if _, err := client.Forget(context.Background(), "run_1", protocol.ForgetRequest{Handle: "M-12", Because: "Gone."}); err != nil {
+		t.Fatal(err)
+	}
+
+	if received != "POST /api/runs/run_1/memories/M-12/forget" || strings.TrimSpace(sent) != `{"because":"Gone."}` {
+		t.Errorf("received %s with %s", received, sent)
+	}
+}
+
+func TestRecordsTheMemoriesShownForPathsTheAgentUsed(t *testing.T) {
+	var received, sent string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		received = r.Method + " " + r.URL.RequestURI()
+		read, _ := io.ReadAll(r.Body)
+		sent = string(read)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	if err := client.DeliveredMemories(context.Background(), "run_1", []string{"M-18"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if received != "POST /api/runs/run_1/memories/delivered" || strings.TrimSpace(sent) != `{"handles":["M-18"]}` {
+		t.Errorf("received %s with %s", received, sent)
+	}
+}
+
 func TestCompleteReportsTheTurn(t *testing.T) {
 	var received string
 	var sent protocol.Completion

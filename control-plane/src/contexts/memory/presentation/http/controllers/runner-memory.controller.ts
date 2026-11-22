@@ -1,3 +1,5 @@
+import { ForgetCommand } from '@memory/application/commands/forget.command';
+import { RecordDeliveryCommand } from '@memory/application/commands/record-delivery.command';
 import { RecordRecallCommand } from '@memory/application/commands/record-recall.command';
 import { RememberCommand } from '@memory/application/commands/remember.command';
 import type { ProposedMemoryDto } from '@memory/application/dto/memory-review.dto';
@@ -8,6 +10,8 @@ import { RecallMemoriesQuery } from '@memory/application/queries/recall-memories
 import { RecallMemoryQuery } from '@memory/application/queries/recall-memory.query';
 import { ProposedMemoryResponseDto } from '@memory/presentation/http/dto/memory-review.response.dto';
 import {
+  DeliveredMemoriesRequestDto,
+  ForgetRequestDto,
   RecallMemoriesRequestDto,
   RememberRequestDto,
 } from '@memory/presentation/http/dto/runner-memory.request.dto';
@@ -26,6 +30,7 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -89,6 +94,38 @@ export class RunnerMemoryController {
     );
 
     return recalled.map((each) => new TeamMemoryResponseDto(each));
+  }
+
+  @Post('delivered')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'recordDeliveredMemories',
+    summary:
+      'Record the memories the run showed its agent because the agent used a path they are about',
+  })
+  @ApiBody({ type: DeliveredMemoriesRequestDto })
+  @ApiNoContentResponse({ description: 'Recorded' })
+  @ApiUnprocessableEntityResponse({ description: 'Not a handle like M-12' })
+  @ApiConflictResponse({
+    description:
+      'The run is a search, which is shown nothing the team remembers',
+  })
+  async delivered(
+    @Param('runId') runId: string,
+    @Body() body: DeliveredMemoriesRequestDto | undefined,
+    @CurrentMachine() runnerId: string,
+  ): Promise<void> {
+    await this.commandBus.execute<RecordDeliveryCommand, void>(
+      new RecordDeliveryCommand(
+        runId,
+        runnerId,
+        Array.isArray(body?.handles)
+          ? body.handles.filter(
+              (each): each is string => typeof each === 'string',
+            )
+          : [],
+      ),
+    );
   }
 
   @Post(':handle/recall')
@@ -158,6 +195,46 @@ export class RunnerMemoryController {
       }),
     );
 
+    return this.proposed(runId, runnerId, memoryId);
+  }
+
+  @Post(':handle/forget')
+  @ApiOperation({
+    operationId: 'forget',
+    summary:
+      'Propose from inside the run that a memory is wrong and should be retired, citing the step that proposed it',
+    description:
+      'It waits in the inbox beside the task for a person to approve. On approval the memory is retired with the reason given.',
+  })
+  @ApiParam({ name: 'handle', type: String, example: 'M-12' })
+  @ApiBody({ type: ForgetRequestDto })
+  @ApiCreatedResponse({ type: ProposedMemoryResponseDto })
+  @ApiConflictResponse({
+    description:
+      'The run is isolated from the team or set at a past time, and changes nothing the team remembers',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'Not a handle like M-12, a memory that is not active in the run’s team, no reason, or a chat run',
+  })
+  async forget(
+    @Param('runId') runId: string,
+    @Param('handle') handle: string,
+    @Body() body: ForgetRequestDto | undefined,
+    @CurrentMachine() runnerId: string,
+  ): Promise<ProposedMemoryResponseDto> {
+    const memoryId = await this.commandBus.execute<ForgetCommand, string>(
+      new ForgetCommand(runId, runnerId, handle, text(body?.because)),
+    );
+
+    return this.proposed(runId, runnerId, memoryId);
+  }
+
+  private async proposed(
+    runId: string,
+    runnerId: string,
+    memoryId: string,
+  ): Promise<ProposedMemoryResponseDto> {
     return new ProposedMemoryResponseDto(
       await this.queryBus.execute<ReadProposedMemoryQuery, ProposedMemoryDto>(
         new ReadProposedMemoryQuery(runId, runnerId, memoryId),

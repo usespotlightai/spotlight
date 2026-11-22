@@ -15,6 +15,7 @@ import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-d
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { TeamAccess } from '@memory/domain/services/team-access';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { LOOKED_UP } from '@memory/domain/value-objects/memory-use';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -53,7 +54,7 @@ export class ReadRunMemoriesHandler implements QueryHandlerPort<
         throw new UnknownRunError(query.runId);
       }
 
-      const recalled = (await this.uses.usedBy(runId, 'recalled')).map(
+      const recalled = (await this.uses.usedBy(runId, LOOKED_UP)).map(
         (each) => each.value,
       );
       const [briefed, omitted, remembered, proposed] = await Promise.all([

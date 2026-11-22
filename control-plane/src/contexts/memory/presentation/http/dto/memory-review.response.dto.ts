@@ -10,6 +10,7 @@ import {
   type MemoryReviewDto,
   type PersonDto,
   type ProposedMemoryDto,
+  type RetiringDto,
 } from '@memory/application/dto/memory-review.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -108,6 +109,26 @@ export class MemoryDecisionResponseDto {
   }
 }
 
+export class RetiringResponseDto {
+  @ApiProperty({ example: 'memory_12' })
+  readonly memoryId: string;
+
+  @ApiProperty({ example: 'M-12' })
+  readonly handle: string;
+
+  @ApiProperty({
+    example: 'The uploads queue was removed in October.',
+    description: 'Why the memory is wrong',
+  })
+  readonly reason: string;
+
+  constructor(retiring: RetiringDto) {
+    this.memoryId = retiring.memoryId;
+    this.handle = retiring.handle;
+    this.reason = retiring.reason;
+  }
+}
+
 export class ProposedMemoryResponseDto {
   @ApiProperty({ example: 'memory_1' })
   readonly id: string;
@@ -160,6 +181,29 @@ export class ProposedMemoryResponseDto {
   readonly supersedes: string | null;
 
   @ApiProperty({
+    type: RetiringResponseDto,
+    nullable: true,
+    description:
+      'The active memory it retires after approval, and why; its kind, body and scope are that memory’s',
+  })
+  readonly retires: RetiringResponseDto | null;
+
+  @ApiProperty({
+    description:
+      'Whether a person may change its body before approving; false once decided and for a retirement',
+  })
+  readonly editable: boolean;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['M-3'],
+    description:
+      'The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided',
+  })
+  readonly inactiveMemories: readonly string[];
+
+  @ApiProperty({
     type: MemoryDecisionResponseDto,
     nullable: true,
     description: 'Who approved or rejected it, and when',
@@ -199,6 +243,9 @@ export class ProposedMemoryResponseDto {
     this.repository = memory.repository;
     this.paths = memory.paths;
     this.supersedes = memory.supersedes;
+    this.retires = memory.retires && new RetiringResponseDto(memory.retires);
+    this.editable = memory.editable;
+    this.inactiveMemories = memory.inactiveMemories;
     this.decision = memory.decision
       ? new MemoryDecisionResponseDto(memory.decision)
       : null;

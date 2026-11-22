@@ -1,9 +1,11 @@
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { ReviewsPort } from '@memory/application/ports/reviews.port';
-import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import { MemoryRetirementApproved } from '@memory/domain/events/memory-retirement-approved.event';
 import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
@@ -16,6 +18,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -53,15 +56,13 @@ const approved = (supersedes: MemoryId | null = null) =>
     ADA,
   );
 
-const reacting = (stored: Memory[] = [], awaiting: readonly RunId[] = []) => {
+const reacting = (
+  stored: Memory[] = [],
+  draft: MemoryDraft | null = null,
+  awaiting: readonly RunId[] = [],
+) => {
+  const drafts: MemoryDraft[] = draft ? [draft] : [];
   const reviews = { reopen: vi.fn(), resolve: vi.fn() };
-  const drafts = {
-    forTaskLocked: async () =>
-      ({
-        awaitsReviewIn: (runId: RunId) =>
-          awaiting.some((each) => each.equals(runId)),
-      }) as unknown as MemoryDraft,
-  };
   let handles = 100;
   const memories = {
     nextHandle: async () => {
@@ -85,7 +86,17 @@ const reacting = (stored: Memory[] = [], awaiting: readonly RunId[] = []) => {
   return {
     reactions: new MemoryReactions(
       reviews as unknown as ReviewsPort,
-      drafts as unknown as MemoryDraftRepository,
+      {
+        forTaskLocked: async () =>
+          ({
+            awaitsReviewIn: (runId: RunId) =>
+              awaiting.some((each) => each.equals(runId)),
+          }) as unknown as MemoryDraft,
+        forTask: async () => drafts[drafts.length - 1] ?? null,
+        save: async (saved: MemoryDraft) => {
+          drafts.push(saved);
+        },
+      } as unknown as MemoryDraftRepository,
       memories as unknown as MemoryRepository,
       { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
@@ -93,12 +104,13 @@ const reacting = (stored: Memory[] = [], awaiting: readonly RunId[] = []) => {
     reviews,
     memories,
     stored,
+    drafts,
   };
 };
 
 describe('reacting to memories being proposed and decided', () => {
   it('opens the run’s review while a memory it proposed waits for a decision, whichever review event arrives', async () => {
-    const { reactions, reviews } = reacting([], [RUN]);
+    const { reactions, reviews } = reacting([], null, [RUN]);
 
     await reactions.onReviewRequested(
       new MemoryReviewRequested(DRAFT, TASK, RUN),
@@ -175,10 +187,46 @@ describe('reacting to memories being proposed and decided', () => {
     });
     const { reactions, stored } = reacting([old]);
 
-    await reactions.onCreated(new MemoryCreated(NEW, OLD));
+    await reactions.onCreated(
+      new MemoryCreated(
+        NEW,
+        OLD,
+        TeamId.of('team_1'),
+        WorkspaceId.of('ws_1'),
+        'added',
+      ),
+    );
 
     expect(stored[0]?.status).toBe('retired');
     expect(stored[0]?.retirement?.supersededBy?.equals(NEW)).toBe(true);
+  });
+
+  it('leaves the superseding of a merge to the merge', async () => {
+    const old = Memory.create({
+      id: OLD,
+      handle: MemoryHandle.of(2),
+      workspaceId: WorkspaceId.of('ws_1'),
+      kind: 'preference',
+      body: MemoryBody.of('Name branches after the author.'),
+      scope: SCOPE,
+      provenance: PROVENANCE,
+      source: 'run',
+      supersedes: null,
+      approval: ADA,
+    });
+    const { reactions, stored } = reacting([old]);
+
+    await reactions.onCreated(
+      new MemoryCreated(
+        NEW,
+        OLD,
+        TeamId.of('team_1'),
+        WorkspaceId.of('ws_1'),
+        'merged',
+      ),
+    );
+
+    expect(stored[0]?.isActive).toBe(true);
   });
 
   it('leaves a memory already superseded by another active one as it was', async () => {
@@ -196,7 +244,15 @@ describe('reacting to memories being proposed and decided', () => {
     }).supersedeWith(MemoryId.of('memory_first'), NOW);
     const { reactions, memories, stored } = reacting([old]);
 
-    await reactions.onCreated(new MemoryCreated(NEW, OLD));
+    await reactions.onCreated(
+      new MemoryCreated(
+        NEW,
+        OLD,
+        TeamId.of('team_1'),
+        WorkspaceId.of('ws_1'),
+        'added',
+      ),
+    );
 
     expect(memories.save).not.toHaveBeenCalled();
     expect(
@@ -232,10 +288,104 @@ describe('reacting to memories being proposed and decided', () => {
     });
     const { reactions, stored } = reacting([retired, correction]);
 
-    await reactions.onCreated(new MemoryCreated(NEW, OLD));
+    await reactions.onCreated(
+      new MemoryCreated(
+        NEW,
+        OLD,
+        TeamId.of('team_1'),
+        WorkspaceId.of('ws_1'),
+        'added',
+      ),
+    );
 
     expect(stored[0]?.retirement?.supersededBy).toBeNull();
     expect(stored[1]?.supersedes).toBeNull();
     expect(stored[1]?.isActive).toBe(true);
+  });
+
+  describe('an approved retirement', () => {
+    it('keeps the proposal approved when its event arrives twice', async () => {
+      const { reactions, stored, drafts } = reacting(
+        [target()],
+        draftRetiring(),
+      );
+
+      await reactions.onRetirementApproved(retirement);
+      await reactions.onRetirementApproved(retirement);
+
+      expect(stored[0]?.status).toBe('retired');
+      expect(drafts[drafts.length - 1]?.proposals[0]?.state).toBe('approved');
+    });
+
+    const FORGET = MemoryId.of('memory_forget');
+    const target = () =>
+      Memory.write({
+        id: OLD,
+        handle: MemoryHandle.of(7),
+        workspaceId: WorkspaceId.of('ws_1'),
+        kind: 'preference',
+        body: MemoryBody.of('Name branches after the ticket.'),
+        scope: SCOPE,
+        provenance: null,
+        by: ADA,
+      });
+    const draftRetiring = () =>
+      MemoryDraft.rehydrate({
+        id: DRAFT,
+        taskId: TASK,
+        workspaceId: WorkspaceId.of('ws_1'),
+        drafting: null,
+        draftedIn: AgentTurn.of(RUN, 1, NOW),
+        notesRead: 0,
+        proposals: [
+          MemoryProposal.retiring({
+            id: FORGET,
+            retired: target(),
+            reason: 'The team numbers its branches.',
+            provenance: PROVENANCE,
+            source: 'run',
+            proposedBy: 'agent',
+            recordedAt: NOW,
+          }).approve(ADA),
+        ],
+        failure: null,
+        version: 1,
+      });
+    const retirement = new MemoryRetirementApproved(
+      DRAFT,
+      TASK,
+      TeamId.of('team_1'),
+      FORGET,
+      OLD,
+      'The team numbers its branches.',
+      ADA,
+    );
+
+    it('retires the memory with its reason', async () => {
+      const { reactions, stored } = reacting([target()], draftRetiring());
+
+      await reactions.onRetirementApproved(retirement);
+
+      expect(stored[0]?.retirement?.reason).toBe(
+        'The team numbers its branches.',
+      );
+    });
+
+    it('lapses the proposal when the memory was retired before it could be', async () => {
+      const { reactions, drafts } = reacting(
+        [
+          target().retire({
+            by: UserId.of('user_ada'),
+            reason: 'Gone.',
+            at: NOW,
+          }),
+        ],
+        draftRetiring(),
+      );
+
+      await reactions.onRetirementApproved(retirement);
+
+      expect(drafts[drafts.length - 1]?.proposals[0]?.state).toBe('lapsed');
+    });
   });
 });

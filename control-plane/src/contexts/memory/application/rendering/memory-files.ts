@@ -8,6 +8,7 @@ export interface MemoryFileContext {
   readonly lines: readonly TeamLine[];
   readonly replaced: ReadonlyMap<string, Memory>;
   readonly names: ReadonlyMap<string, string | null>;
+  readonly briefed: ReadonlySet<string>;
 }
 
 const SOURCED: Record<MemorySource, string> = {
@@ -74,11 +75,29 @@ const bodyOf = (memory: Memory, context: MemoryFileContext): string => {
   ].join('\n');
 };
 
+const ELSEWHERE_NOTE =
+  '- Learned at another line or station. Check it still fits this work before you follow it.';
+
 export const memoryFilesOf = (
   memories: readonly Memory[],
   context: MemoryFileContext,
+  elsewhere = false,
 ): MemoryFileDto[] =>
   memories.flatMap((memory) => {
-    const body = bodyOf(memory, context);
-    return filesOf(memory).map((path) => ({ path, body }));
+    const body = elsewhere
+      ? bodyOf(memory, context).replace(/\n$/, `${ELSEWHERE_NOTE}\n`)
+      : bodyOf(memory, context);
+    const { repository, paths } = memory.scope;
+
+    return filesOf(memory, elsewhere).map((path) => ({
+      path,
+      body,
+      handle: memory.handle.value,
+      repository: repository
+        ? { owner: repository.owner, name: repository.name }
+        : null,
+      paths: paths.map((each) => each.value),
+      briefed: !elsewhere && context.briefed.has(memory.id.value),
+      elsewhere,
+    }));
   });

@@ -1,7 +1,9 @@
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import { MemoryMerged } from '@memory/domain/events/memory-merged.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
+import type { MemoryCreation } from '@memory/domain/value-objects/memory-creation';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -68,12 +70,14 @@ export class Memory extends EventRecorder {
   }): Memory {
     const { supersedes } = input;
 
-    return Memory.make({
-      ...input,
-      supersedes: supersedes?.supersedableIn(input.scope.teamId)
-        ? supersedes.id
-        : null,
-    });
+    const replacing = supersedes?.supersedableIn(input.scope.teamId)
+      ? supersedes.id
+      : null;
+
+    return Memory.make(
+      { ...input, supersedes: replacing },
+      replacing ? 'corrected' : 'added',
+    );
   }
 
   static write(input: {
@@ -94,7 +98,67 @@ export class Memory extends EventRecorder {
     });
   }
 
-  private static make(input: NewMemory): Memory {
+  static merged(input: {
+    id: MemoryId;
+    handle: MemoryHandle;
+    body: MemoryBody;
+    replacing: readonly Memory[];
+    by: MemoryDecision;
+  }): Memory {
+    const [first, ...rest] = input.replacing;
+
+    if (!first || rest.length === 0) {
+      throw new InvalidMemoryError('merges at least two memories');
+    }
+    if (
+      input.replacing.some((each) => !each.activeOn(first.scope.teamId, null))
+    ) {
+      throw new InvalidMemoryError('merges only active memories');
+    }
+    if (
+      rest.some(
+        (each) =>
+          each.kind !== first.kind ||
+          !each.scope.equals(first.scope) ||
+          !each.workspaceId.equals(first.workspaceId),
+      )
+    ) {
+      throw new InvalidMemoryError(
+        'merges only memories of one kind that apply in the same place',
+      );
+    }
+
+    const { scope } = first;
+    const merged = Memory.make(
+      {
+        id: input.id,
+        handle: input.handle,
+        workspaceId: first.workspaceId,
+        kind: first.kind,
+        body: input.body,
+        scope,
+        provenance: null,
+        source: 'person',
+        supersedes: first.id,
+        approval: input.by,
+      },
+      'merged',
+    );
+    merged.record(
+      new MemoryMerged(
+        input.id,
+        input.handle,
+        input.replacing.map((each) => each.id),
+        input.by,
+      ),
+    );
+    return merged;
+  }
+
+  private static make(
+    input: NewMemory,
+    creation: MemoryCreation = 'added',
+  ): Memory {
     if (input.supersedes?.equals(input.id)) {
       throw new InvalidMemoryError('cannot supersede itself');
     }
@@ -113,7 +177,15 @@ export class Memory extends EventRecorder {
       retirement: null,
       version: 0,
     });
-    created.record(new MemoryCreated(input.id, input.supersedes));
+    created.record(
+      new MemoryCreated(
+        input.id,
+        input.supersedes,
+        input.scope.teamId,
+        input.workspaceId,
+        creation,
+      ),
+    );
     return created;
   }
 
@@ -238,14 +310,17 @@ export class Memory extends EventRecorder {
       throw new MemoryAlreadyRetiredError(this.state.id.value);
     }
 
-    return Memory.make({
-      ...input,
-      workspaceId: this.state.workspaceId,
-      provenance: this.state.provenance,
-      source: 'person',
-      supersedes: this.state.id,
-      approval: input.by,
-    });
+    return Memory.make(
+      {
+        ...input,
+        workspaceId: this.state.workspaceId,
+        provenance: this.state.provenance,
+        source: 'person',
+        supersedes: this.state.id,
+        approval: input.by,
+      },
+      'corrected',
+    );
   }
 
   afterPredecessor(predecessor: Memory | null): Memory {
@@ -268,6 +343,12 @@ export class Memory extends EventRecorder {
     }
 
     return this.retiring(MemoryRetirement.retired(input));
+  }
+
+  retiredAs(input: { by: UserId; reason: string; at: Date }): boolean {
+    return (
+      this.state.retirement?.equals(MemoryRetirement.retired(input)) ?? false
+    );
   }
 
   private retiring(retirement: MemoryRetirement): Memory {

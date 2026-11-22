@@ -66,6 +66,8 @@ export const cursorProfile: ProfileTranslator = {
   native: 'json',
   lays: [CURSOR_SETTINGS, CURSOR_MCP],
 
+  bare: () => [],
+
   translate(profile: HarnessSettings): TranslatedProfile {
     const allow: string[] = [];
     const deny: string[] = [];

@@ -103,7 +103,7 @@ var rememberHelp = help.Command{
 		{Name: "kind", Value: "<kind>", Usage: "One of rationale, rejected-approach, failure, environment, preference or correction. Required."},
 		{Name: "body", Value: "<text>", Usage: "What to remember. Use - to read standard input. Required."},
 		{Name: "path", Value: "<path>", Usage: "A file or folder the memory is about. Repeat for more than one."},
-		{Name: "scope", Value: "<scope>", Usage: "Where it applies: team, line or station."},
+		{Name: "scope", Value: "<scope>", Usage: "Where it applies: team, line or station. Choose the widest that is still true."},
 		{Name: "supersedes", Value: "<handle>", Usage: "The memory this one corrects, as M-12."},
 	},
 	Examples: []help.Example{
@@ -111,6 +111,31 @@ var rememberHelp = help.Command{
 		{Comment: "Correct an earlier memory", Command: `spotlight remember --kind correction --body "The retry limit is 5, not 3." --supersedes M-12`},
 	},
 	Docs: docs + "#spotlight-remember",
+}
+
+var forgetHelp = help.Command{
+	Path:    "forget",
+	Summary: "Propose to retire a memory that no longer applies. A person approves it first.",
+	Usage:   []string{`spotlight forget <handle> --because <text>`},
+	Flags: []help.Flag{
+		{Name: "because", Value: "<text>", Usage: "Why the memory no longer applies. Use - to read standard input. Required."},
+	},
+	Examples: []help.Example{
+		{Command: `spotlight forget M-12 --because "The uploads queue was removed in October."`},
+		{Comment: "If a new memory replaces it, use remember with --supersedes instead", Command: `spotlight remember --kind correction --body "Uploads retry in the request." --supersedes M-12`},
+	},
+	Docs: docs + "#spotlight-forget",
+}
+
+var hookHelp = help.Command{
+	Path:    "hook post-tool-use",
+	Summary: "Show the agent what the team remembers about a path a tool used. The harness runs it after each tool.",
+	Usage:   []string{"spotlight hook post-tool-use < hook.json"},
+	Notes: []string{
+		"It reads the hook input on standard input and writes the hook answer on standard output.",
+		"It shows each memory once in a run, and never one the briefing already lists.",
+	},
+	Docs: docs + "#spotlight-hook-post-tool-use",
 }
 
 var candidateHelp = help.Command{
@@ -194,6 +219,6 @@ var toolsCallHelp = help.Command{
 }
 
 var Commands = []help.Command{
-	handoverHelp, replyHelp, traceHelp, historyHelp, recallHelp, rememberHelp,
+	handoverHelp, replyHelp, traceHelp, historyHelp, recallHelp, rememberHelp, forgetHelp, hookHelp,
 	candidateHelp, causeHelp, toolsHelp, toolsSearchHelp, toolsDescribeHelp, toolsCallHelp,
 }

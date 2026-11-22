@@ -57,9 +57,23 @@ const MEMORY = {
   period: { name: '30d' },
   activeCount: 12,
   memoriesBriefed: 7,
-  memoriesRecalled: 2,
+  memoriesRead: 2,
+  memoriesRecalled: 1,
+  memoriesDelivered: 3,
+  memoriesCutThenRead: 1,
   runsBriefed: 30,
-  runsRecalled: 4,
+  runsRead: 4,
+  runsRecalled: 1,
+  runsDelivered: 3,
+  runsCutThenRead: 2,
+  cutThenRead: [
+    {
+      memoryId: 'memory_2',
+      handle: 'M-2',
+      body: 'Uploads go through the signed URL.',
+      runs: 2,
+    },
+  ],
   flagged: [
     {
       memoryId: 'memory_1',
@@ -130,7 +144,9 @@ describe('memory in Insights', () => {
       ...MEMORY,
       activeCount: 0,
       memoriesBriefed: 0,
+      memoriesRead: 0,
       memoriesRecalled: 0,
+      memoriesDelivered: 0,
       flagged: [],
     });
 
@@ -141,7 +157,7 @@ describe('memory in Insights', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/memory');
   });
 
-  it('shows how memories were used, flagged, and how runs with them went against runs without', () => {
+  it('shows how memories were used, cut then read, flagged, and how runs with them went against runs without', () => {
     showing();
 
     const tiles = screen.getByLabelText('Memory use');
@@ -168,6 +184,13 @@ describe('memory in Insights', () => {
       '/w/acme/team/team_1/memory?memory=memory_1',
     );
     expect(flagged).toHaveTextContent('Ada Lovelace');
+
+    const cut = screen.getByRole('list', { name: 'Memories cut, then read' });
+    expect(within(cut).getByRole('link', { name: 'M-2' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/memory?memory=memory_2',
+    );
+    expect(screen.getByText(/This happened in 2 runs/)).toBeInTheDocument();
     expect(screen.queryByText('No benchmark yet')).not.toBeInTheDocument();
   });
 });

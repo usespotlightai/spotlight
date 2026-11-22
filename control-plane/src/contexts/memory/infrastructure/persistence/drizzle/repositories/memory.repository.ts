@@ -211,6 +211,32 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     return MemoryHandle.of(Number(row.next));
   }
 
+  async ofRepositories(
+    teamId: TeamId,
+    repositories: readonly Repository[],
+    asOf: Date | null = null,
+  ): Promise<readonly Memory[]> {
+    if (repositories.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(memory)
+      .where(
+        and(
+          eq(memory.teamId, teamId.value),
+          activeAsOf(asOf),
+          inArray(
+            memory.repository,
+            repositories.map((each) => each.value),
+          ),
+        ),
+      );
+
+    return rows.map(toMemory);
+  }
+
   async mayApplyAt(
     runContext: RunContext,
     asOf: Date | null = null,
@@ -304,12 +330,23 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     return rows.map(toMemory);
   }
 
-  async findAll(ids: readonly MemoryId[]): Promise<readonly Memory[]> {
+  findAll(ids: readonly MemoryId[]): Promise<readonly Memory[]> {
+    return this.selected(ids, false);
+  }
+
+  findAllLocked(ids: readonly MemoryId[]): Promise<readonly Memory[]> {
+    return this.selected(ids, true);
+  }
+
+  private async selected(
+    ids: readonly MemoryId[],
+    locked: boolean,
+  ): Promise<readonly Memory[]> {
     if (ids.length === 0) {
       return [];
     }
 
-    const rows = await this.context.db
+    const query = this.context.db
       .select()
       .from(memory)
       .where(
@@ -317,7 +354,9 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           memory.id,
           ids.map((each) => each.value),
         ),
-      );
+      )
+      .orderBy(memory.id);
+    const rows = locked ? await query.for('share') : await query;
     const found = new Map(rows.map((row) => [row.id, toMemory(row)]));
 
     return ids.flatMap((each) => {

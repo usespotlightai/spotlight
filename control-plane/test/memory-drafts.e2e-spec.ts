@@ -53,6 +53,7 @@ const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   steps: [5],
   notes: [4],
   supersedes: null,
+  retires: null,
   ...change,
 });
 
@@ -89,6 +90,8 @@ const drafting = (
       notesRead: 0,
       changed: [{ repository: API, path: 'src/uploads.ts' }],
       known: [],
+      used: [],
+      elsewhere: [],
       fromOutside: false,
     }),
     newId: () => {

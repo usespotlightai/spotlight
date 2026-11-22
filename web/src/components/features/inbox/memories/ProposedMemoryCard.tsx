@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react';
 
 import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
 import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
+import { RetirementLapsedNote } from '@/components/features/inbox/memories/RetirementLapsedNote';
 import { Collapsible } from '@/components/shared/Collapsible';
 import { DecisionActions } from '@/components/shared/DecisionActions';
 import { DecisionCard } from '@/components/shared/DecisionCard';
@@ -10,6 +11,9 @@ import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import { FoldToggle } from '@/components/shared/FoldToggle';
 import { useFocusAfterDecision } from '@/hooks/useFocusAfterDecision';
 import {
+  approvable,
+  dimmed,
+  lapsedRetirementsOf,
   MAX_MEMORY_BODY,
   type ProposedMemory,
   proposalStatusOf,
@@ -55,7 +59,7 @@ export function ProposedMemoryCard({
       data-slot="proposed-memory"
       className={cn(
         'gap-0 transition-[opacity,padding] duration-200 ease-out-quad motion-reduce:transition-none',
-        rejected && 'opacity-70',
+        dimmed(memory) && 'opacity-70',
         folded && 'pb-2',
       )}
     >
@@ -78,7 +82,7 @@ export function ProposedMemoryCard({
                 copy={{ text: memory.body, label: `Copy memory ${position}` }}
                 editLabel={`Edit memory ${position}`}
                 pending={pending}
-                onEdit={open ? () => setEditing(true) : undefined}
+                onEdit={memory.editable ? () => setEditing(true) : undefined}
                 restoreLabel={`Restore memory ${position}`}
                 onRestore={
                   rejected
@@ -115,6 +119,8 @@ export function ProposedMemoryCard({
         </div>
       </Collapsible>
 
+      <RetirementLapsedNote inactive={lapsedRetirementsOf(memory)} />
+
       <Collapsible open={open} appear={false}>
         <div className="pt-3">
           <ProposedMemoryControls
@@ -124,7 +130,7 @@ export function ProposedMemoryCard({
             ready={ready}
             bodyId={bodyId}
             onApprove={
-              open
+              approvable(memory)
                 ? () => {
                     decided();
                     onApprove(

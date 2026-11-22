@@ -5,6 +5,11 @@ import { MEMORY_PROPOSERS } from '@memory/domain/value-objects/memory-proposer';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
 import { MEMORY_STATUSES } from '@memory/domain/value-objects/memory-status';
 import { MEMORY_USES } from '@memory/domain/value-objects/memory-use';
+import {
+  UPKEEP_CHANGES,
+  UPKEEP_FINDINGS,
+  UPKEEP_PROPOSAL_STATES,
+} from '@memory/domain/value-objects/upkeep-change';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
@@ -99,6 +104,8 @@ export const memoryProposal = pgTable(
     source: memorySource('source').notNull(),
     proposedBy: memoryProposer('proposed_by').notNull(),
     supersedes: text('supersedes'),
+    retires: text('retires'),
+    retireReason: text('retire_reason'),
     recordedAt: timestamptz('recorded_at').notNull(),
     state: memoryProposalState('state').notNull().default('proposed'),
     decidedById: text('decided_by_id'),
@@ -106,6 +113,14 @@ export const memoryProposal = pgTable(
   },
   (table) => [
     check('memory_proposal_position_not_negative', sql`${table.position} >= 0`),
+    check(
+      'memory_proposal_lapses_only_a_retirement',
+      sql`${table.state}::text <> 'lapsed' or ${table.retires} is not null`,
+    ),
+    check(
+      'memory_proposal_retires_with_reason',
+      sql`(${table.retires} is null) = (${table.retireReason} is null) and (${table.retires} is null or ${table.supersedes} is null)`,
+    ),
     uniqueIndex('memory_proposal_position_idx').on(
       table.draftId,
       table.position,
@@ -181,5 +196,67 @@ export const memoryUse = pgTable(
   (table) => [
     primaryKey({ columns: [table.memoryId, table.runId, table.via] }),
     index('memory_use_run_idx').on(table.runId, table.at),
+  ],
+);
+
+export const memoryUpkeepChange = pgEnum('memory_upkeep_change', UPKEEP_CHANGES);
+export const memoryUpkeepFinding = pgEnum(
+  'memory_upkeep_finding',
+  UPKEEP_FINDINGS,
+);
+export const memoryUpkeepProposalState = pgEnum(
+  'memory_upkeep_proposal_state',
+  UPKEEP_PROPOSAL_STATES,
+);
+
+export const memoryUpkeep = pgTable(
+  'memory_upkeep',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    sweptAt: timestamptz('swept_at').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [index('memory_upkeep_team_idx').on(table.teamId, table.sweptAt)],
+);
+
+export const memoryUpkeepProposal = pgTable(
+  'memory_upkeep_proposal',
+  {
+    upkeepId: text('upkeep_id')
+      .notNull()
+      .references(() => memoryUpkeep.id, { onDelete: 'cascade' }),
+    id: text('id').notNull(),
+    position: integer('position').notNull(),
+    change: memoryUpkeepChange('change').notNull(),
+    finding: memoryUpkeepFinding('finding').notNull(),
+    memoryIds: jsonb('memory_ids').$type<string[]>().notNull(),
+    body: text('body'),
+    reason: text('reason').notNull(),
+    state: memoryUpkeepProposalState('state').notNull(),
+    decidedById: text('decided_by_id'),
+    decidedAt: timestamptz('decided_at'),
+  },
+  (table) => [primaryKey({ columns: [table.upkeepId, table.id] })],
+);
+
+export const memoryUpkeepSchedule = pgTable(
+  'memory_upkeep_schedule',
+  {
+    teamId: text('team_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    dueAt: timestamptz('due_at').notNull(),
+    addedSince: integer('added_since').notNull().default(0),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamptz('job_due_at'),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    check(
+      'memory_upkeep_schedule_counts_not_negative',
+      sql`${table.addedSince} >= 0 and ${table.jobAttempts} >= 0`,
+    ),
+    index('memory_upkeep_schedule_due_idx').on(table.dueAt),
   ],
 );

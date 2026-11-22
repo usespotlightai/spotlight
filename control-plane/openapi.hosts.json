@@ -2258,6 +2258,52 @@
         ]
       }
     },
+    "/runs/{runId}/memories/delivered": {
+      "post": {
+        "operationId": "recordDeliveredMemories",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveredMemoriesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Recorded"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run leased by this runner"
+          },
+          "409": {
+            "description": "The run is a search, which is shown nothing the team remembers"
+          },
+          "422": {
+            "description": "Not a handle like M-12"
+          }
+        },
+        "summary": "Record the memories the run showed its agent because the agent used a path they are about",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/memories/{handle}/recall": {
       "post": {
         "operationId": "recallMemory",
@@ -2359,6 +2405,69 @@
           }
         },
         "summary": "Propose a memory from inside the run that cites the step that proposed it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/memories/{handle}/forget": {
+      "post": {
+        "description": "It waits in the inbox beside the task for a person to approve. On approval the memory is retired with the reason given.",
+        "operationId": "forget",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "handle",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "M-12",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgetRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedMemoryResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run leased by this runner"
+          },
+          "409": {
+            "description": "The run is isolated from the team or set at a past time, and changes nothing the team remembers"
+          },
+          "422": {
+            "description": "Not a handle like M-12, a memory that is not active in the run’s team, no reason, or a chat run"
+          }
+        },
+        "summary": "Propose from inside the run that a memory is wrong and should be retired, citing the step that proposed it",
         "tags": [
           "runners"
         ]
@@ -5465,6 +5574,29 @@
           "reason"
         ]
       },
+      "RetiringResponseDto": {
+        "type": "object",
+        "properties": {
+          "memoryId": {
+            "type": "string",
+            "example": "memory_12"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-12"
+          },
+          "reason": {
+            "type": "string",
+            "example": "The uploads queue was removed in October.",
+            "description": "Why the memory is wrong"
+          }
+        },
+        "required": [
+          "memoryId",
+          "handle",
+          "reason"
+        ]
+      },
       "MemoryDecisionResponseDto": {
         "type": "object",
         "properties": {
@@ -5618,7 +5750,8 @@
             "enum": [
               "proposed",
               "approved",
-              "rejected"
+              "rejected",
+              "lapsed"
             ],
             "example": "proposed"
           },
@@ -5650,6 +5783,30 @@
             "type": "string",
             "nullable": true,
             "description": "The active memory it replaces after approval"
+          },
+          "retires": {
+            "nullable": true,
+            "description": "The active memory it retires after approval, and why; its kind, body and scope are that memory’s",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RetiringResponseDto"
+              }
+            ]
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "Whether a person may change its body before approving; false once decided and for a retirement"
+          },
+          "inactiveMemories": {
+            "example": [
+              "M-3"
+            ],
+            "description": "The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "decision": {
             "nullable": true,
@@ -5693,6 +5850,9 @@
           "repository",
           "paths",
           "supersedes",
+          "retires",
+          "editable",
+          "inactiveMemories",
           "decision",
           "harness",
           "steps",
@@ -5920,6 +6080,24 @@
           "words"
         ]
       },
+      "DeliveredMemoriesRequestDto": {
+        "type": "object",
+        "properties": {
+          "handles": {
+            "example": [
+              "M-18"
+            ],
+            "description": "Memories the run showed its agent because the agent used a path they are about",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "handles"
+        ]
+      },
       "RecalledMemoryResponseDto": {
         "type": "object",
         "properties": {
@@ -6140,6 +6318,36 @@
           "body"
         ]
       },
+      "ForgetRequestDto": {
+        "type": "object",
+        "properties": {
+          "because": {
+            "type": "string",
+            "example": "The uploads queue was removed in October.",
+            "description": "Why the memory is wrong, for the person who reviews it"
+          }
+        },
+        "required": [
+          "because"
+        ]
+      },
+      "MemoryFileRepositoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "example": "acme"
+          },
+          "name": {
+            "type": "string",
+            "example": "api"
+          }
+        },
+        "required": [
+          "owner",
+          "name"
+        ]
+      },
       "MemoryFileResponseDto": {
         "type": "object",
         "properties": {
@@ -6151,11 +6359,48 @@
           "body": {
             "type": "string",
             "example": "# M-18 · rationale\n\nUploads retry in the request.\n"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-18"
+          },
+          "repository": {
+            "nullable": true,
+            "description": "The repository the memory is about, if it is about one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryFileRepositoryResponseDto"
+              }
+            ]
+          },
+          "paths": {
+            "example": [
+              "src/uploads"
+            ],
+            "description": "Paths in the repository the memory is about",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "briefed": {
+            "type": "boolean",
+            "description": "Whether the run’s briefing already lists the memory, so touching one of its paths need not show it again"
+          },
+          "elsewhere": {
+            "type": "boolean",
+            "description": "Whether it was learned at another line or station about one of the run’s repositories, so it is laid out for reference and never shown for a path the agent used"
           }
         },
         "required": [
           "path",
-          "body"
+          "body",
+          "handle",
+          "repository",
+          "paths",
+          "briefed",
+          "elsewhere"
         ]
       },
       "ProposeSearchCandidateRequestDto": {

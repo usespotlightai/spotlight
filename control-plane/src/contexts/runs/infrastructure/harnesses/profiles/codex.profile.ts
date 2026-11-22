@@ -66,6 +66,8 @@ export const codexProfile: ProfileTranslator = {
   native: 'toml',
   lays: [CODEX_CONFIG_FILE, CODEX_RULES_FILE],
 
+  bare: () => [],
+
   translate(profile: HarnessSettings): TranslatedProfile {
     const warnings: HarnessNote[] = [];
     const rules: string[] = [];

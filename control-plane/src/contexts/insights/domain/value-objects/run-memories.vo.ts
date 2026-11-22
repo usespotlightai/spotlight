@@ -1,8 +1,26 @@
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 
-const MEMORY_VIAS = ['briefed', 'recalled'] as const;
+const MEMORY_VIAS = [
+  'briefed',
+  'cut',
+  'read',
+  'recalled',
+  'delivered',
+] as const;
 
 export type MemoryVia = (typeof MEMORY_VIAS)[number];
+
+export type UsedVia = Exclude<MemoryVia, 'cut'>;
+
+export const USED: readonly UsedVia[] = MEMORY_VIAS.filter(
+  (via): via is UsedVia => via !== 'cut',
+);
+
+const LOOKED_UP: readonly MemoryVia[] = ['read', 'recalled', 'delivered'];
+
+export type RunDriver = 'line' | 'person';
+
+export const recordsCuts = (driver: RunDriver): boolean => driver === 'line';
 
 export const isMemoryVia = (via: string): via is MemoryVia =>
   (MEMORY_VIAS as readonly string[]).includes(via);
@@ -28,38 +46,68 @@ const inOrder = (
     one < other ? -1 : one > other ? 1 : 0,
   );
 
+type ByVia<T> = { readonly [via in MemoryVia]: T };
+
 export class RunMemories {
   private constructor(
-    readonly briefed: readonly MemoryReference[],
-    readonly recalled: readonly MemoryReference[],
+    private readonly byVia: ByVia<readonly MemoryReference[]>,
   ) {}
 
-  static readonly NONE = new RunMemories([], []);
+  static readonly NONE = new RunMemories({
+    briefed: [],
+    cut: [],
+    read: [],
+    recalled: [],
+    delivered: [],
+  });
 
-  static of(input: {
-    briefed: readonly string[];
-    recalled: readonly string[];
-  }): RunMemories {
-    return new RunMemories(
-      inOrder(input.briefed.map((raw) => MemoryReference.of(raw))),
-      inOrder(input.recalled.map((raw) => MemoryReference.of(raw))),
+  static of(input: ByVia<readonly string[]>): RunMemories {
+    return new RunMemories({
+      briefed: inOrder(input.briefed.map((raw) => MemoryReference.of(raw))),
+      cut: inOrder(input.cut.map((raw) => MemoryReference.of(raw))),
+      read: inOrder(input.read.map((raw) => MemoryReference.of(raw))),
+      recalled: inOrder(input.recalled.map((raw) => MemoryReference.of(raw))),
+      delivered: inOrder(input.delivered.map((raw) => MemoryReference.of(raw))),
+    });
+  }
+
+  get briefed(): readonly MemoryReference[] {
+    return this.byVia.briefed;
+  }
+
+  get cut(): readonly MemoryReference[] {
+    return this.byVia.cut;
+  }
+
+  get read(): readonly MemoryReference[] {
+    return this.byVia.read;
+  }
+
+  get recalled(): readonly MemoryReference[] {
+    return this.byVia.recalled;
+  }
+
+  get delivered(): readonly MemoryReference[] {
+    return this.byVia.delivered;
+  }
+
+  get cutThenRead(): readonly MemoryReference[] {
+    return this.byVia.cut.filter((memory) =>
+      LOOKED_UP.some((via) => this.byVia[via].includes(memory)),
     );
   }
 
   get used(): boolean {
-    return this.briefed.length + this.recalled.length > 0;
+    return USED.some((via) => this.byVia[via].length > 0);
   }
 
   with(via: MemoryVia, memories: readonly MemoryReference[]): RunMemories {
-    const known = via === 'briefed' ? this.briefed : this.recalled;
+    const known = this.byVia[via];
 
     if (memories.every((each) => known.includes(each))) {
       return this;
     }
 
-    return RunMemories.of({
-      briefed: via === 'briefed' ? [...known, ...memories] : this.briefed,
-      recalled: via === 'recalled' ? [...known, ...memories] : this.recalled,
-    });
+    return RunMemories.of({ ...this.byVia, [via]: [...known, ...memories] });
   }
 }

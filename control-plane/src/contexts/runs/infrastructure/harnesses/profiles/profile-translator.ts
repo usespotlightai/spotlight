@@ -23,6 +23,7 @@ export interface ProfileTranslator {
   readonly native: NativeFormat;
   readonly lays: readonly string[];
   translate(profile: HarnessSettings): TranslatedProfile;
+  bare(): readonly SetupFile[];
 }
 
 type Json = Record<string, unknown>;
