@@ -5,6 +5,7 @@ import type {
 } from '@memory/application/ports/memory-consolidator.port';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { RepositoryPathsPort } from '@memory/application/ports/repository-paths.port';
+import type { TeamHostRunsPort } from '@memory/application/ports/team-host-runs.port';
 import type { MemoryUpkeepSchedule } from '@memory/domain/aggregates/memory-upkeep-schedule.aggregate';
 import { MemoryUpkeep } from '@memory/domain/aggregates/memory-upkeep.aggregate';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
@@ -20,6 +21,7 @@ import { checkedForUpkeep } from '@memory/domain/services/upkeep-checks';
 import {
   consolidatedForUpkeep,
   consolidationGroupsOf,
+  type UpkeepSuggestion,
 } from '@memory/domain/services/upkeep-consolidation';
 import { MemoryUpkeepId } from '@memory/domain/value-objects/memory-upkeep-id.vo';
 import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
@@ -35,6 +37,8 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MAX_SWEEPS_AT_ONCE = 2;
+
+const WAITING = Symbol('waiting for the consolidation session');
 
 const distinctRepositories = (
   repositories: readonly Repository[],
@@ -71,6 +75,7 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
     private readonly uses: MemoryUsesPort,
     private readonly paths: RepositoryPathsPort,
     private readonly consolidator: MemoryConsolidatorPort,
+    private readonly hosts: TeamHostRunsPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
@@ -124,6 +129,13 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
     );
     const heldBack = HeldBack.from(history, now);
     const active = stored.filter((each) => each.isActive);
+    const grouped = consolidationGroupsOf(active, heldBack);
+    const suggested = await this.suggested(schedule, grouped, lines);
+
+    if (suggested === WAITING) {
+      return schedule.waitJob(now);
+    }
+
     const repositories = distinctRepositories(
       lines.flatMap((each) => each.repositories),
     );
@@ -143,7 +155,12 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
     const taken = heldBack.taking(checked.flatMap((each) => each.memories));
     const proposals: UpkeepProposal[] = [
       ...checked,
-      ...(await this.consolidated(schedule, active, lines, taken, newId)),
+      ...consolidatedForUpkeep({
+        suggestions: suggested,
+        memories: grouped.flat(),
+        heldBack: taken,
+        newId,
+      }),
     ];
 
     const upkeep = MemoryUpkeep.swept({
@@ -209,19 +226,20 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
     );
   }
 
-  private async consolidated(
+  /**
+   * What a session suggests for memories that overlap or contradict each other. The sweep orders it before its other
+   * checks and waits while the session works, so a waiting sweep reads only its memories, and one upkeep holds every
+   * change. When no run of the team can host a session, or the session fails, the sweep goes on with its checks.
+   */
+  private async suggested(
     schedule: MemoryUpkeepSchedule,
-    active: readonly Memory[],
+    grouped: readonly (readonly Memory[])[],
     lines: readonly TeamLine[],
-    taken: HeldBack,
-    newId: () => UpkeepProposalId,
-  ): Promise<UpkeepProposal[]> {
-    const grouped = consolidationGroupsOf(active, taken);
+  ): Promise<readonly UpkeepSuggestion[] | typeof WAITING> {
+    const host =
+      grouped.length > 0 ? await this.hosts.hostOf(schedule.teamId) : null;
 
-    if (
-      grouped.length === 0 ||
-      !(await this.consolidator.availableTo(schedule.workspaceId.value))
-    ) {
+    if (!host) {
       return [];
     }
 
@@ -233,23 +251,25 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
         body: each.body.value,
       })),
     }));
+    const answer = await this.consolidator.consolidate({
+      workspaceId: schedule.workspaceId.value,
+      round: schedule.consolidationRound(),
+      basedOnRun: host,
+      groups,
+    });
 
-    try {
-      return consolidatedForUpkeep({
-        suggestions: await this.consolidator.consolidate({
-          workspaceId: schedule.workspaceId.value,
-          groups,
-        }),
-        memories: grouped.flat(),
-        heldBack: taken,
-        newId,
-      });
-    } catch (error) {
+    if (answer.status === 'waiting') {
+      return WAITING;
+    }
+
+    if (answer.status === 'failed') {
       this.logger.warn(
-        { err: error, teamId: schedule.teamId.value },
+        { teamId: schedule.teamId.value, reason: answer.reason },
         'Memory upkeep: consolidation failed; the sweep keeps the other checks',
       );
       return [];
     }
+
+    return answer.suggestions;
   }
 }

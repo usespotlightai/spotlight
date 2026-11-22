@@ -7,7 +7,7 @@ it('injects another context port only when its binding comes from upstream', () 
   expect(described(portBindingViolations())).toEqual([]);
 }, 60_000);
 
-it('checks the assist sessions port that insights and change review inject', () => {
+it('checks the assist sessions port that insights, change review and memory inject', () => {
   const assist = portBindings().filter((each) =>
     each.token.endsWith('assist-sessions.port#ASSIST_SESSIONS'),
   );
@@ -16,5 +16,5 @@ it('checks the assist sessions port that insights and change review inject', () 
     [
       ...new Set(assist.map((each) => `${each.consumer} ← ${each.provider}`)),
     ].sort(),
-  ).toEqual(['change-review ← assist', 'insights ← assist']);
+  ).toEqual(['change-review ← assist', 'insights ← assist', 'memory ← assist']);
 }, 60_000);

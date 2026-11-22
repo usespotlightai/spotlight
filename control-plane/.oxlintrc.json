@@ -909,10 +909,9 @@
                   "@change-review/**",
                   "@insights/**",
                   "@replays/**",
-                  "@notifications/**",
-                  "@assist/**"
+                  "@notifications/**"
                 ],
-                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs, assist. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
               },
               {
                 "group": [
@@ -2969,10 +2968,9 @@
                   "@change-review/**",
                   "@insights/**",
                   "@replays/**",
-                  "@notifications/**",
-                  "@assist/**"
+                  "@notifications/**"
                 ],
-                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs, assist. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
               },
               {
                 "group": [
@@ -3039,10 +3037,9 @@
                   "@change-review/**",
                   "@insights/**",
                   "@replays/**",
-                  "@notifications/**",
-                  "@assist/**"
+                  "@notifications/**"
                 ],
-                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs, assist. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
               },
               {
                 "group": [
@@ -4341,10 +4338,9 @@
                   "@change-review/**",
                   "@insights/**",
                   "@replays/**",
-                  "@notifications/**",
-                  "@assist/**"
+                  "@notifications/**"
                 ],
-                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs, assist. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
               },
               {
                 "group": [

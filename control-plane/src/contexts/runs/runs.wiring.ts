@@ -188,6 +188,7 @@ import {
   type SandboxHostsPort,
 } from '@runs/application/ports/sandbox-hosts.port';
 import { STARTING_POINT_HOLDS } from '@runs/application/ports/starting-point-holds.port';
+import { TEAM_RUNS } from '@runs/application/ports/team-runs.port';
 import {
   WARM_LINES,
   type WarmLinesPort,
@@ -465,6 +466,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_FACTS_READER, useClass: DrizzleRunFactsReader },
 
   { provide: RUN_FACTS, useExisting: RunReadModel },
+  { provide: TEAM_RUNS, useExisting: RunReadModel },
 
   {
     provide: RunViewing,

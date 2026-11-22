@@ -1,4 +1,8 @@
 import {
+  ASSIST_SESSIONS,
+  type AssistSessionsPort,
+} from '@assist/application/ports/assist-sessions.port';
+import {
   REPOSITORY_CONTENTS,
   type RepositoryContentsPort,
 } from '@github/application/ports/repository-contents.port';
@@ -62,6 +66,10 @@ import {
   REVIEWS,
   type ReviewsPort,
 } from '@memory/application/ports/reviews.port';
+import {
+  TEAM_HOST_RUNS,
+  type TeamHostRunsPort,
+} from '@memory/application/ports/team-host-runs.port';
 import { TEAM_MEMORY_USE } from '@memory/application/ports/team-memory-use.port';
 import {
   UPKEEP_NOTICES,
@@ -100,6 +108,7 @@ import { RunProposing } from '@memory/application/services/run-proposing.service
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
+import { WakeUpkeepSweeps } from '@memory/application/services/wake-upkeep-sweeps.service';
 import {
   MEMORY_PROPOSAL_SETS,
   type MemoryProposalSetRepository,
@@ -118,9 +127,10 @@ import { Lines } from '@memory/infrastructure/acl/lines.adapter';
 import { People } from '@memory/infrastructure/acl/people.adapter';
 import { RepositoryPaths } from '@memory/infrastructure/acl/repository-paths.adapter';
 import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
+import { TeamHostRunsAdapter } from '@memory/infrastructure/acl/team-host-runs.adapter';
 import { UpkeepNotices } from '@memory/infrastructure/acl/upkeep-notices.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
-import { UnavailableMemoryConsolidator } from '@memory/infrastructure/consolidation/unavailable-memory-consolidator';
+import { AssistMemoryConsolidator } from '@memory/infrastructure/consolidation/assist-memory-consolidator';
 import { MEMORY_PAYLOAD_TYPES } from '@memory/infrastructure/events/memory-payload-types';
 import { DrizzleMemoryListing } from '@memory/infrastructure/persistence/drizzle/repositories/memory-listing.reader';
 import { DrizzleMemoryProposalSetRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-proposal-set.repository';
@@ -146,6 +156,10 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
+import {
+  TEAM_RUNS,
+  type TeamRunsPort,
+} from '@runs/application/ports/team-runs.port';
 import {
   CLOCK,
   type ClockPort,
@@ -247,7 +261,24 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: MEMORY_CONSOLIDATOR,
-    useClass: UnavailableMemoryConsolidator,
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) =>
+      new AssistMemoryConsolidator(sessions),
+  },
+  {
+    provide: TEAM_HOST_RUNS,
+    inject: [TEAM_RUNS],
+    useFactory: (runs: TeamRunsPort) => new TeamHostRunsAdapter(runs),
+  },
+  {
+    provide: WakeUpkeepSweeps,
+    inject: [MEMORY_CONSOLIDATOR, MEMORY_UPKEEP_SCHEDULES, TRANSACTION, CLOCK],
+    useFactory: (
+      consolidator: MemoryConsolidatorPort,
+      schedules: MemoryUpkeepScheduleRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new WakeUpkeepSweeps(consolidator, schedules, transaction, clock),
   },
   {
     provide: UpkeepReactions,
@@ -286,6 +317,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       MEMORY_USES,
       REPOSITORY_PATHS,
       MEMORY_CONSOLIDATOR,
+      TEAM_HOST_RUNS,
       ID_GENERATOR,
       CLOCK,
       LOGGER,
@@ -301,6 +333,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       uses: MemoryUsesPort,
       paths: RepositoryPathsPort,
       consolidator: MemoryConsolidatorPort,
+      hosts: TeamHostRunsPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
       logger: LoggerPort,
@@ -316,6 +349,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
         uses,
         paths,
         consolidator,
+        hosts,
         ids,
         clock,
         logger,
@@ -582,6 +616,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       MemoryReactions,
       RecordRunMemoryUses,
       UpkeepReactions,
+      WakeUpkeepSweeps,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -592,6 +627,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       reactions: MemoryReactions,
       recording: RecordRunMemoryUses,
       upkeep: UpkeepReactions,
+      waking: WakeUpkeepSweeps,
     ) => {
       types.register('memory', MEMORY_PAYLOAD_TYPES);
       mappers.register(MEMORY_EVENT_MAPPERS);
@@ -602,6 +638,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
           reactions,
           recording,
           upkeep,
+          waking,
         ),
       );
       return true;

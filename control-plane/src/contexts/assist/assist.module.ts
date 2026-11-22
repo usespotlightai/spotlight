@@ -15,7 +15,7 @@ const BINDINGS = contextBindings([ASSIST_SESSIONS]);
 })
 class AssistModule {}
 
-/** Lets insights and change review order assist sessions. */
+/** Lets insights, change review and memory order assist sessions. */
 @Module({
   imports: [AssistModule],
   providers: [...BINDINGS.bound],

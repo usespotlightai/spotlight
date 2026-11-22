@@ -3,6 +3,7 @@ import type { UpkeepReactions } from '@memory/application/events/handlers/upkeep
 import type { DeleteMemoryProposalSet } from '@memory/application/services/delete-memory-proposal-set.service';
 import type { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
+import type { WakeUpkeepSweeps } from '@memory/application/services/wake-upkeep-sweeps.service';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import type { MemoryMerged } from '@memory/domain/events/memory-merged.event';
@@ -13,6 +14,10 @@ import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-r
 import type { MemoryUpkeepSettled } from '@memory/domain/events/memory-upkeep-settled.event';
 import type { MemoryUpkeepSwept } from '@memory/domain/events/memory-upkeep-swept.event';
 import type { UpkeepProposalApproved } from '@memory/domain/events/upkeep-proposal-approved.event';
+import {
+  ASSIST_SESSION_SETTLED,
+  type AssistSessionSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/assist-session-settled.integration-event';
 import {
   DISPATCH_BRIEFED,
   type DispatchBriefedIntegrationEvent,
@@ -44,7 +49,13 @@ export const memorySubscribers = (
   reactions: MemoryReactions,
   recording: RecordRunMemoryUses,
   upkeep: UpkeepReactions,
+  waking: WakeUpkeepSweeps,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<AssistSessionSettledIntegrationEvent>(
+    'memory.wake-on-assist-session-settled',
+    [ASSIST_SESSION_SETTLED],
+    (event) => waking.settled({ purpose: event.purpose, key: event.key }),
+  ),
   subscribing<MemoryUpkeepSwept>(
     'memory.notify-upkeep',
     ['memory-upkeep.swept'],

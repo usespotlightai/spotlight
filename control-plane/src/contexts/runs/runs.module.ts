@@ -27,6 +27,7 @@ import { RUN_USAGES } from '@runs/application/ports/run-usage-reader.port';
 import { RUN_VIEWERS } from '@runs/application/ports/run-viewers.port';
 import { RUNS } from '@runs/application/ports/runs.port';
 import { STARTING_POINT_HOLDS } from '@runs/application/ports/starting-point-holds.port';
+import { TEAM_RUNS } from '@runs/application/ports/team-runs.port';
 import { RUNS_CONTROLLERS, RUNS_PROVIDERS } from '@runs/runs.wiring';
 import { SecretsModule } from '@secrets/secrets.module';
 
@@ -59,6 +60,7 @@ const BINDINGS = contextBindings([SEEDING_HARNESS, WORKING_COPY_IMAGES]);
     HOOK_TRACES,
     NETWORK_CALLS,
     STARTING_POINT_HOLDS,
+    TEAM_RUNS,
     ...BINDINGS.exposedTokens,
   ],
 })

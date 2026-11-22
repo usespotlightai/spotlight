@@ -10,6 +10,7 @@ import { MemoryUpkeepSettled } from '@memory/domain/events/memory-upkeep-settled
 import { MemoryUpkeepSwept } from '@memory/domain/events/memory-upkeep-swept.event';
 import { UpkeepProposalApproved } from '@memory/domain/events/upkeep-proposal-approved.event';
 import { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
+import { ConsolidationRound } from '@memory/domain/value-objects/consolidation-round.vo';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -25,6 +26,7 @@ import { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
 import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 
 export const MEMORY_PAYLOAD_TYPES = [
+  ConsolidationRound,
   MemoryProposalSetId,
   MemoryProvenance,
   MemoryId,
