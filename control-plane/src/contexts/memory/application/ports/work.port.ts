@@ -2,7 +2,6 @@ import type {
   RunContext,
   StationContext,
 } from '@memory/domain/value-objects/run-context';
-import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -21,8 +20,6 @@ export interface RememberedRun {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
-  readonly attempt: number;
-  readonly orderedAt: Date | null;
   readonly briefed: readonly string[];
   readonly omitted: readonly string[];
 }
@@ -70,8 +67,6 @@ export interface WorkPort {
   task(taskId: TaskId): Promise<RememberedTask | null>;
 
   reasoning(runId: RunId): Promise<readonly ReasonedStep[] | null>;
-
-  reasoningThrough(turn: AgentTurn): Promise<readonly ReasonedStep[] | null>;
 
   notesOf(taskId: TaskId): Promise<readonly TaskNote[] | null>;
 

@@ -9,7 +9,6 @@ import type {
 } from '@memory/application/ports/work.port';
 import { MEMORY_FOLDER } from '@memory/domain/services/memory-folder';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
-import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -35,8 +34,6 @@ export class Work implements WorkPort {
         id: run.id,
         workspaceId: run.workspaceId,
         taskId: run.taskId,
-        attempt: run.attempt,
-        orderedAt: run.orderedAt,
         briefed: run.briefedWith.briefed.map((each) => each.id),
         omitted: run.briefedWith.omitted.map((each) => each.id),
       }
@@ -112,12 +109,16 @@ export class Work implements WorkPort {
     );
   }
 
-  reasoning(runId: RunId): Promise<readonly ReasonedStep[] | null> {
-    return this.reasonedSteps(runId, null);
-  }
+  async reasoning(runId: RunId): Promise<readonly ReasonedStep[] | null> {
+    const reasoning = await this.work.reasoning(runId, null);
 
-  reasoningThrough(turn: AgentTurn): Promise<readonly ReasonedStep[] | null> {
-    return this.reasonedSteps(turn.runId, turn.attempt);
+    return (
+      reasoning?.steps.map((each) => ({
+        index: each.index,
+        kind: each.kind,
+        text: each.text,
+      })) ?? null
+    );
   }
 
   async notesOf(taskId: TaskId): Promise<readonly TaskNote[] | null> {
@@ -135,20 +136,5 @@ export class Work implements WorkPort {
 
   async harnessOf(runId: RunId): Promise<string | null> {
     return (await this.work.run(runId))?.harness ?? null;
-  }
-
-  private async reasonedSteps(
-    runId: RunId,
-    throughAttempt: number | null,
-  ): Promise<readonly ReasonedStep[] | null> {
-    const reasoning = await this.work.reasoning(runId, throughAttempt);
-
-    return (
-      reasoning?.steps.map((each) => ({
-        index: each.index,
-        kind: each.kind,
-        text: each.text,
-      })) ?? null
-    );
   }
 }

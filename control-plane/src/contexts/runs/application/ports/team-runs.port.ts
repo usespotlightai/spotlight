@@ -4,6 +4,9 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export const TEAM_RUNS = Symbol('TEAM_RUNS');
 
 export interface TeamRunsPort {
-  /** The run of the team that completed last, or null when none of its runs completed. */
-  newestCompletedOfTeam(team: TeamId): Promise<RunId | null>;
+  /**
+   * The newest run of the team that a requester owner, such as `work` for tasks and chats, ordered and that
+   * completed. Null when no such run completed.
+   */
+  newestCompletedOfTeam(team: TeamId, owner: string): Promise<RunId | null>;
 }

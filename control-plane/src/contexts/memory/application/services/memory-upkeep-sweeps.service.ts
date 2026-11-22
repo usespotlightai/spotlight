@@ -130,7 +130,7 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
     const heldBack = HeldBack.from(history, now);
     const active = stored.filter((each) => each.isActive);
     const grouped = consolidationGroupsOf(active, heldBack);
-    const suggested = await this.suggested(schedule, grouped, lines);
+    const suggested = await this.suggested(schedule, grouped, lines, now);
 
     if (suggested === WAITING) {
       return schedule.waitJob(now);
@@ -229,12 +229,14 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
   /**
    * What a session suggests for memories that overlap or contradict each other. The sweep orders it before its other
    * checks and waits while the session works, so a waiting sweep reads only its memories, and one upkeep holds every
-   * change. When no run of the team can host a session, or the session fails, the sweep goes on with its checks.
+   * change. When no run of the team can host a session, the session fails, or it is still working once the sweep may
+   * wait no longer, the sweep goes on with its checks.
    */
   private async suggested(
     schedule: MemoryUpkeepSchedule,
     grouped: readonly (readonly Memory[])[],
     lines: readonly TeamLine[],
+    now: Date,
   ): Promise<readonly UpkeepSuggestion[] | typeof WAITING> {
     const host =
       grouped.length > 0 ? await this.hosts.hostOf(schedule.teamId) : null;
@@ -259,7 +261,15 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
     });
 
     if (answer.status === 'waiting') {
-      return WAITING;
+      if (schedule.mayWaitAgain(now)) {
+        return WAITING;
+      }
+
+      this.logger.warn(
+        { teamId: schedule.teamId.value },
+        'Memory upkeep: the consolidation session never settled; the sweep keeps the other checks',
+      );
+      return [];
     }
 
     if (answer.status === 'failed') {

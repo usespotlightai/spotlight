@@ -24,6 +24,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { MAX_WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -209,6 +210,26 @@ describe('a memory upkeep sweep that consolidates in an assist session', () => {
     expect(swept.upkeeps).toEqual([]);
     expect(swept.schedule().dueAt.getTime()).toBe(
       DUE.getTime() + UPKEEP_EVERY_MS,
+    );
+  });
+});
+
+describe('a memory upkeep sweep whose session never settles', () => {
+  it('sweeps with its other checks once it may wait no longer, instead of being dead-lettered', async () => {
+    const swept = sweeping({ answers: [{ status: 'waiting' }] });
+    let at = DUE;
+
+    await swept.tick(at);
+    while (swept.schedule().dueAt.getTime() === DUE.getTime()) {
+      at = new Date(at.getTime() + MINUTE);
+      await swept.tick(at);
+    }
+
+    expect(at.getTime() - DUE.getTime()).toBeLessThanOrEqual(MAX_WAIT_MS);
+    expect(swept.checked()).toBe(1);
+    expect(swept.schedule().job.attempts).toBe(0);
+    expect(swept.schedule().dueAt.getTime()).toBe(
+      at.getTime() + UPKEEP_EVERY_MS,
     );
   });
 });

@@ -189,8 +189,8 @@ export class RunReadModel
     );
   }
 
-  newestCompletedOfTeam(team: TeamId): Promise<RunId | null> {
-    return this.reader.newestCompletedOfTeam(team);
+  newestCompletedOfTeam(team: TeamId, owner: string): Promise<RunId | null> {
+    return this.reader.newestCompletedOfTeam(team, owner);
   }
 
   async restorableFor(runId: RunId): Promise<string | null> {

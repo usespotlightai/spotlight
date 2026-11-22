@@ -57,12 +57,21 @@ export class DrizzleRunFactsReader implements RunFactsReaderPort {
     return rows.map(toArchive);
   }
 
-  async newestCompletedOfTeam(team: TeamId): Promise<RunId | null> {
+  async newestCompletedOfTeam(
+    team: TeamId,
+    owner: string,
+  ): Promise<RunId | null> {
     const [row] = await this.context.db
       .select({ id: run.id })
       .from(run)
-      .where(and(eq(run.teamId, team.value), eq(run.state, 'completed')))
-      .orderBy(desc(run.endedAt), desc(run.id))
+      .where(
+        and(
+          eq(run.teamId, team.value),
+          eq(run.requesterOwner, owner),
+          eq(run.state, 'completed'),
+        ),
+      )
+      .orderBy(desc(run.createdAt), desc(run.id))
       .limit(1);
 
     return row ? RunId.of(row.id) : null;

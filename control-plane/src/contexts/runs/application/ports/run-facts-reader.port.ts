@@ -15,8 +15,8 @@ export interface RunFactsReaderPort {
     ids: readonly WorkingCopyArchiveId[],
   ): Promise<readonly WorkingCopyArchive[]>;
 
-  /** The run of the team that completed last, or null when none of its runs completed. */
-  newestCompletedOfTeam(team: TeamId): Promise<RunId | null>;
+  /** The newest run of the team that the requester owner ordered and that completed, or null. */
+  newestCompletedOfTeam(team: TeamId, owner: string): Promise<RunId | null>;
 
   /** The newest completed archive granted to the run, or null when it completed none. */
   newestArchiveOf(run: RunId): Promise<WorkingCopyArchive | null>;
