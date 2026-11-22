@@ -34,7 +34,7 @@ func TestDetectSetupInstallsEachLockfileWithItsManager(t *testing.T) {
 		"npm-shrinkwrap.json": "npm ci",
 		"uv.lock":             "uv sync --frozen",
 		"poetry.lock":         "poetry install --no-root",
-		"requirements.txt":    "pip install -r requirements.txt",
+		"requirements.txt":    "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt",
 		"go.sum":              "go mod download",
 		"bun.lock":            "bun install --frozen-lockfile",
 		"bun.lockb":           "bun install --frozen-lockfile",
@@ -147,6 +147,28 @@ func TestDetectSetupSkipsIgnoredFilesExamplesAndFixtures(t *testing.T) {
 	}
 }
 
+func TestDetectSetupInstallsARequirementsFileOnlyWhereAPythonProjectIs(t *testing.T) {
+	steps := detected(t, map[string]string{
+		"requirements.txt":         "x",
+		"docs/requirements.txt":    "sphinx\n",
+		"scripts/requirements.txt": "x",
+		"api/requirements.txt":     "x",
+		"api/pyproject.toml":       "[project]\nname = \"api\"\n",
+		"worker/requirements.txt":  "x",
+		"worker/setup.py":          "x",
+		"legacy/requirements.txt":  "x",
+		"legacy/setup.cfg":         "x",
+	})
+
+	var dirs []string
+	for _, step := range steps {
+		dirs = append(dirs, step.Dir)
+	}
+	if !slices.Equal(dirs, []string{".", "api", "legacy", "worker"}) {
+		t.Errorf("installs in %v, want the root and the Python projects, never docs/ or scripts/", dirs)
+	}
+}
+
 func TestDetectSetupFindsNothingWithoutALockfile(t *testing.T) {
 	if steps := detected(t, map[string]string{"README.md": "hello"}); len(steps) != 0 {
 		t.Errorf("got %+v, want no steps", steps)
@@ -169,13 +191,16 @@ func TestSetupAllRunsEveryStepAndNamesTheOnesThatFailed(t *testing.T) {
 	write(t, filepath.Join(tree, "web", "package.json"), "{}")
 	write(t, filepath.Join(tree, "api", "uv.lock"), "")
 
-	output, err := prepare.SetupAll(context.Background(), tree, []prepare.SetupStep{
+	output, failures := prepare.SetupAll(context.Background(), tree, []prepare.SetupStep{
 		{Dir: "web", Command: "echo installed web"},
 		{Dir: "api", Command: "echo broken api; exit 3"},
 	}, nil, time.Minute, nil)
 
-	if err == nil || !strings.Contains(err.Error(), "setup failed in api/ (`echo broken api; exit 3`)") {
-		t.Fatalf("error %v, want the api step named", err)
+	if len(failures) != 2 || failures[0] != nil {
+		t.Fatalf("failures %v, want none for web", failures)
+	}
+	if failures[1] == nil || !strings.Contains(failures[1].Error(), "setup failed in api/ (`echo broken api; exit 3`)") {
+		t.Fatalf("failure %v, want the api step named", failures[1])
 	}
 	for _, part := range []string{
 		"== `echo installed web` in web/ · done in", "installed web",

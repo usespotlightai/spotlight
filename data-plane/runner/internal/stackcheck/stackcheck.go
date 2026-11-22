@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -268,10 +269,17 @@ func (o Options) step(
 	}
 
 	// Run setup after the patch, so the step installs what it requests.
+	warning := ""
 	if step.RunsSetup {
-		if output, err := o.setUp(ctx, tree, check, installed); err != nil {
+		output, warned, err := o.setUp(ctx, tree, check, installed)
+		if err != nil {
 			o.Log.Warn("could not make the checkout ready", "step", step.ID, "error", err)
 			return failed("The setup failed in this checkout.\n\n" + output), false
+		}
+		if warned != nil {
+			o.Log.Warn("ran the check without installs Spotlight found from lockfiles", "step", step.ID, "error", warned)
+			warning = "\n\nThe check ran without what these installs Spotlight found from the lockfiles would have installed:\n" +
+				warned.Error()
 		}
 	}
 
@@ -286,7 +294,7 @@ func (o Options) step(
 	return protocol.CheckStepResult{
 		Step:       step.ID,
 		Passed:     err == nil,
-		Output:     shell.Tail(output),
+		Output:     shell.Tail(output) + warning,
 		DurationMs: time.Since(started).Milliseconds(),
 	}, true
 }
@@ -315,26 +323,37 @@ func (o Options) own(path string) error {
 	return os.Lchown(path, int(o.RunAs.UID), int(o.RunAs.GID))
 }
 
+// installedKey tells apart two steps in one directory, such as npm and uv at the root.
+func installedKey(step prepare.SetupStep) string {
+	return step.Dir + "\x00" + step.From
+}
+
 // setUp installs what the checkout needs: the line's setup where it names one, else the steps Spotlight finds from
 // the lockfiles. Of the found steps, only those whose dependency files changed since they last installed in this
 // check run again, so a layer that changes one lockfile of a monorepo reinstalls only that project; when none
 // changed, as for a file the step does not track, every step runs.
-func (o Options) setUp(ctx context.Context, tree string, check protocol.StackCheck, installed map[string]string) (string, error) {
+//
+// A setup the line names that fails is an error, which skips the step. A found step that fails is only a warning:
+// the check runs without it, as the run itself did, and it was never the line's to repair.
+func (o Options) setUp(
+	ctx context.Context, tree string, check protocol.StackCheck, installed map[string]string,
+) (output string, warning, err error) {
 	if check.Setup != "" {
 		output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup, o.Env)
-		return output, err
+		return output, nil, err
 	}
 
 	steps, err := prepare.DetectSetup(ctx, tree)
 	if err != nil {
-		return "Spotlight couldn't look for a setup in this checkout.", err
+		o.Log.Warn("could not look for a setup in the checkout", "error", err)
+		return "", nil, nil
 	}
 
 	inputs := make([]string, len(steps))
 	var due []prepare.SetupStep
 	for i, step := range steps {
 		inputs[i], _ = prepare.SetupInputs(ctx, filepath.Join(tree, filepath.FromSlash(step.Dir)), step.Command)
-		if inputs[i] == "" || installed[step.Dir] != inputs[i] {
+		if inputs[i] == "" || installed[installedKey(step)] != inputs[i] {
 			due = append(due, step)
 		}
 	}
@@ -342,17 +361,15 @@ func (o Options) setUp(ctx context.Context, tree string, check protocol.StackChe
 		due = steps
 	}
 	if len(due) == 0 {
-		return "", nil
+		return "", nil, nil
 	}
 
-	output, err := prepare.SetupAll(ctx, tree, due, o.RunAs, o.Setup, o.Env)
-	if err != nil {
-		return output, err
-	}
-	for i, step := range steps {
-		if inputs[i] != "" {
-			installed[step.Dir] = inputs[i]
+	output, failures := prepare.SetupAll(ctx, tree, due, o.RunAs, o.Setup, o.Env)
+	for i, step := range due {
+		at := slices.IndexFunc(steps, func(each prepare.SetupStep) bool { return installedKey(each) == installedKey(step) })
+		if failures[i] == nil && inputs[at] != "" {
+			installed[installedKey(step)] = inputs[at]
 		}
 	}
-	return output, nil
+	return output, errors.Join(failures...), nil
 }

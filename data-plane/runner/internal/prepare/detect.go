@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -74,7 +73,7 @@ func DetectSetup(ctx context.Context, tree string) ([]SetupStep, error) {
 		}
 		for kind, names := range lockfiles {
 			at := slices.Index(names, base)
-			if at < 0 {
+			if at < 0 || (base == "requirements.txt" && !pythonProjectAt(tree, dir)) {
 				continue
 			}
 			if found[dir] == nil {
@@ -144,6 +143,20 @@ func coveredByWorkspace(tree, dir string, kind ecosystem, found map[string]map[e
 	return false
 }
 
+// pythonProjectAt says whether a requirements.txt in dir belongs to a Python project, and so is worth installing:
+// one at the repository's root, or beside a pyproject.toml, setup.py or setup.cfg. One in docs/ or scripts/ is not.
+func pythonProjectAt(tree, dir string) bool {
+	if dir == "." {
+		return true
+	}
+	for _, marker := range []string{"pyproject.toml", "setup.py", "setup.cfg"} {
+		if exists(filepath.Join(tree, filepath.FromSlash(dir), marker)) {
+			return true
+		}
+	}
+	return false
+}
+
 func parent(dir string) string {
 	if dir == "." {
 		return ""
@@ -193,7 +206,9 @@ func commandFor(tree, dir, lockfile string) string {
 	case "poetry.lock":
 		return "poetry install --no-root"
 	case "requirements.txt":
-		return "pip install -r requirements.txt"
+		// Into a virtual environment of the project's own, as uv and Poetry install: a distribution's Python refuses
+		// packages installed over its own (PEP 668), and setup does not run as root.
+		return "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
 	case "Cargo.lock":
 		return "cargo fetch --locked"
 	case "Gemfile.lock":
@@ -235,12 +250,13 @@ func readJSON(name string, into any) bool {
 const parallelSteps = 4
 
 // SetupAll runs each step in its own directory under tree, at most parallelSteps at once. The output keeps each
-// step's in a section of its own, and the error names every step that failed; the others still finish.
+// step's in a section of its own. Failures has one entry per step, nil where it installed, naming the step where
+// it failed; the others still finish.
 func SetupAll(
 	ctx context.Context, tree string, steps []SetupStep, as *account.User, timeout time.Duration, env map[string]string,
-) (string, error) {
+) (output string, failures []error) {
 	outputs := make([]string, len(steps))
-	failures := make([]error, len(steps))
+	failures = make([]error, len(steps))
 	slots := make(chan struct{}, parallelSteps)
 	var installing sync.WaitGroup
 	for i, step := range steps {
@@ -261,7 +277,7 @@ func SetupAll(
 	}
 	installing.Wait()
 
-	return strings.Join(outputs, "\n\n"), errors.Join(failures...)
+	return strings.Join(outputs, "\n\n"), failures
 }
 
 func where(dir string) string {
