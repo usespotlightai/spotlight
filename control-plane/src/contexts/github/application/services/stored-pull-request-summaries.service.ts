@@ -43,9 +43,10 @@ export class StoredPullRequestSummaries implements PullRequestSummariesPort {
         ? [
             {
               url: url.value,
-              state: summary.status,
+              state: summary.state,
               title: summary.title,
               author: summary.author,
+              authorIsBot: summary.authorIsBot,
               additions: summary.additions,
               deletions: summary.deletions,
               changedFiles: summary.changedFiles,

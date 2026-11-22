@@ -17,9 +17,6 @@ const BADGES: Record<PullRequestState, string> = {
   closed: 'bg-pull-request-closed/15 text-pull-request-closed',
 };
 
-const pictureOf = (login: string): string =>
-  `https://github.com/${encodeURIComponent(login)}.png?size=64`;
-
 export function TaskPullRequestCard({
   pullRequest,
 }: {
@@ -30,6 +27,7 @@ export function TaskPullRequestCard({
     state,
     title,
     author,
+    authorImage,
     additions,
     deletions,
     changedFiles,
@@ -54,9 +52,7 @@ export function TaskPullRequestCard({
         <div className="flex items-center gap-3 whitespace-nowrap text-muted-foreground text-sm">
           {author && (
             <span className="flex min-w-0 items-center gap-1.5">
-              <PersonAvatar
-                person={{ name: author, image: pictureOf(author) }}
-              />
+              <PersonAvatar person={{ name: author, image: authorImage }} />
               <span className="truncate">{author}</span>
             </span>
           )}

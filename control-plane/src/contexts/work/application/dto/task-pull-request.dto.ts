@@ -12,6 +12,7 @@ export interface TaskPullRequestSummary {
   readonly state: TaskPullRequestState;
   readonly title: string;
   readonly author: string | null;
+  readonly authorImage: string | null;
   readonly additions: number | null;
   readonly deletions: number | null;
   readonly changedFiles: number | null;

@@ -12130,6 +12130,12 @@
             "example": "octocat",
             "description": "GitHub login of the author; null when not known"
           },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://github.com/octocat.png?size=64",
+            "description": "Picture of the author; null for bots and unknown authors"
+          },
           "additions": {
             "type": "number",
             "nullable": true,
@@ -12157,6 +12163,7 @@
           "state",
           "title",
           "author",
+          "authorImage",
           "additions",
           "deletions",
           "changedFiles",

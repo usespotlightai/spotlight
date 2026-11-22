@@ -18,14 +18,15 @@ const urlOf = (number: number, repository = 'acme/api') =>
 
 const stored = (
   number: number,
-  status: PullRequestStatus,
+  state: PullRequestStatus,
   repository = 'acme/api',
 ): StoredPullRequestSummary => ({
   repository: Repository.of(repository),
   number,
-  status,
+  state,
   title: `Change ${number}`,
   author: 'octocat',
+  authorIsBot: false,
   additions: 12,
   deletions: 3,
   changedFiles: 2,
@@ -37,6 +38,7 @@ const summaryOf = (number: number, state: PullRequestStatus) => ({
   state,
   title: `Change ${number}`,
   author: 'octocat',
+  authorIsBot: false,
   additions: 12,
   deletions: 3,
   changedFiles: 2,

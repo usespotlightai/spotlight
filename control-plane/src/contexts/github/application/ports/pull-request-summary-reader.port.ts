@@ -8,9 +8,10 @@ export interface NumberedPullRequest {
 }
 
 export interface StoredPullRequestSummary extends NumberedPullRequest {
-  readonly status: PullRequestStatus;
+  readonly state: PullRequestStatus;
   readonly title: string;
   readonly author: string | null;
+  readonly authorIsBot: boolean;
   readonly additions: number | null;
   readonly deletions: number | null;
   readonly changedFiles: number | null;

@@ -34,6 +34,14 @@ export class TaskPullRequestResponseDto {
   })
   readonly author: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'https://github.com/octocat.png?size=64',
+    description: 'Picture of the author; null for bots and unknown authors',
+  })
+  readonly authorImage: string | null;
+
   @ApiProperty({ type: Number, nullable: true, example: 120 })
   readonly additions: number | null;
 
@@ -56,6 +64,7 @@ export class TaskPullRequestResponseDto {
     this.state = summary?.state ?? null;
     this.title = summary?.title ?? null;
     this.author = summary?.author ?? null;
+    this.authorImage = summary?.authorImage ?? null;
     this.additions = summary?.additions ?? null;
     this.deletions = summary?.deletions ?? null;
     this.changedFiles = summary?.changedFiles ?? null;

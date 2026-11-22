@@ -4,6 +4,13 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { TaskPullRequestSummary } from '@work/application/dto/task-pull-request.dto';
 import type { TaskPullRequestSummariesPort } from '@work/application/ports/task-pull-request-summaries.port';
 
+const PICTURE_SIZE = 64;
+
+const pictureOf = (author: string | null, bot: boolean): string | null =>
+  author && !bot
+    ? `https://github.com/${encodeURIComponent(author)}.png?size=${PICTURE_SIZE}`
+    : null;
+
 export class GitHubTaskPullRequestSummaries implements TaskPullRequestSummariesPort {
   constructor(private readonly summaries: PullRequestSummariesPort) {}
 
@@ -13,6 +20,20 @@ export class GitHubTaskPullRequestSummaries implements TaskPullRequestSummariesP
   ): Promise<ReadonlyMap<string, TaskPullRequestSummary>> {
     const found = await this.summaries.of(workspaceId, urls);
 
-    return new Map(found.map(({ url, ...summary }) => [url, summary]));
+    return new Map(
+      found.map((each) => [
+        each.url,
+        {
+          state: each.state,
+          title: each.title,
+          author: each.author,
+          authorImage: pictureOf(each.author, each.authorIsBot),
+          additions: each.additions,
+          deletions: each.deletions,
+          changedFiles: each.changedFiles,
+          updatedAt: each.updatedAt,
+        },
+      ]),
+    );
   }
 }

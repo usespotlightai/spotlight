@@ -26,6 +26,7 @@ export const pullRequestSummaryOf = (
     state: STATES[url] ?? (task.finished ? 'merged' : 'open'),
     title: task.title,
     author: 'spotlight-agent[bot]',
+    authorImage: null,
     additions: 40 + (size % 400),
     deletions: 5 + (size % 90),
     changedFiles: 2 + (size % 14),

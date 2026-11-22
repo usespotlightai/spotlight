@@ -8,6 +8,7 @@ export interface PullRequestSummaryDto {
   readonly state: StoredPullRequestState;
   readonly title: string;
   readonly author: string | null;
+  readonly authorIsBot: boolean;
   readonly additions: number | null;
   readonly deletions: number | null;
   readonly changedFiles: number | null;

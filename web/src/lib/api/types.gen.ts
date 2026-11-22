@@ -3805,6 +3805,10 @@ export type TaskPullRequestResponseDto = {
    * GitHub login of the author; null when not known
    */
   author: string | null;
+  /**
+   * Picture of the author; null for bots and unknown authors
+   */
+  authorImage: string | null;
   additions: number | null;
   deletions: number | null;
   changedFiles: number | null;

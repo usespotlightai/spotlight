@@ -48,6 +48,7 @@ const MERGED_SUMMARY = {
   state: 'merged' as const,
   title: 'Fix the queue',
   author: 'octocat',
+  authorImage: 'https://github.com/octocat.png?size=64',
   additions: 12,
   deletions: 3,
   changedFiles: 2,
