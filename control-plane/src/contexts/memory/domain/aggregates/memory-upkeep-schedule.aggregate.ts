@@ -116,6 +116,10 @@ export class MemoryUpkeepSchedule implements HasPendingJob<MemoryUpkeepSchedule>
     return this.with({ job: this.s.job.scheduleRetry(now) });
   }
 
+  waitJob(now: Date): MemoryUpkeepSchedule {
+    return this.hasPendingJob ? this.with({ job: this.s.job.wait(now) }) : this;
+  }
+
   deadLetter(now: Date): MemoryUpkeepSchedule {
     return this.swept(now);
   }

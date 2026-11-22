@@ -1,6 +1,5 @@
 import {
   MEMORY_KIND_NAMES,
-  MEMORY_PROPOSER_NAMES,
   MEMORY_SCOPE_NAMES,
   MEMORY_SOURCE_NAMES,
   MEMORY_STATE_NAMES,
@@ -149,14 +148,6 @@ export class ProposedMemoryResponseDto {
   })
   readonly source: string;
 
-  @ApiProperty({
-    enum: MEMORY_PROPOSER_NAMES,
-    example: 'agent',
-    description:
-      'drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember',
-  })
-  readonly proposedBy: string;
-
   @ApiProperty({ enum: MEMORY_STATE_NAMES, example: 'proposed' })
   readonly state: string;
 
@@ -237,7 +228,6 @@ export class ProposedMemoryResponseDto {
     this.kind = memory.kind;
     this.body = memory.body;
     this.source = memory.source;
-    this.proposedBy = memory.proposedBy;
     this.state = memory.state;
     this.scope = memory.scope;
     this.repository = memory.repository;

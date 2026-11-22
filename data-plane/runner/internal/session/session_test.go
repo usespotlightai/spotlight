@@ -61,6 +61,8 @@ type journal struct {
 	sandboxEnvAsked        []int
 	forgotten              []protocol.ForgetRequest
 	delivered              [][]string
+	submitted              []json.RawMessage
+	decided                []protocol.ProposedDecision
 }
 
 type remembered struct {
@@ -191,6 +193,24 @@ func (j *journal) RecordCause(
 	defer j.mu.Unlock()
 	j.caused = append(j.caused, record)
 	return json.Marshal(protocol.RecordCauseResponse{TaskID: record.TaskID, Cause: record.Cause, ReplayRunID: "replayed_1"})
+}
+
+func (j *journal) SubmitAssistResult(
+	_ context.Context, _ string, result json.RawMessage,
+) (json.RawMessage, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.submitted = append(j.submitted, result)
+	return json.Marshal(protocol.AssistAnswer{Accepted: true})
+}
+
+func (j *journal) ProposeDecisions(
+	_ context.Context, _ string, decisions []protocol.ProposedDecision,
+) (json.RawMessage, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.decided = append(j.decided, decisions...)
+	return json.RawMessage(`{"recorded":1}`), nil
 }
 
 func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, error) {
@@ -442,6 +462,7 @@ type runOptions struct {
 	startErr      error
 	replay        *protocol.Replay
 	search        *protocol.SearchSpec
+	assist        *protocol.AssistSpec
 	checkouts     []protocol.Checkout
 	proxyEnv      map[string]string
 	enforced      func(context.Context) bool
@@ -516,6 +537,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			StartingPoint: settings.starting,
 			Replay:        settings.replay,
 			Search:        settings.search,
+			Assist:        settings.assist,
 			Checkouts:     settings.checkouts,
 			SandboxEnv:    settings.sandboxEnv,
 		},

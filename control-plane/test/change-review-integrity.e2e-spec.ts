@@ -248,7 +248,6 @@ describe('deleting the change review of a task', () => {
         question: stack.question(QuestionId.of('c1.l1.q1')),
         personId: ADA,
         reply: null,
-        graded: null,
         now: NOW,
       }),
     );
@@ -404,7 +403,6 @@ describe('deleting the team that owned a trial’s change', () => {
         question: stack.question(QuestionId.of('c1.l1.q1')),
         personId: ADA,
         reply: null,
-        graded: null,
         now: NOW,
       }),
     );

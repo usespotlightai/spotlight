@@ -372,6 +372,47 @@ func (c *Client) RecordCause(
 	return out, nil
 }
 
+func (c *Client) SubmitAssistResult(
+	ctx context.Context, runID string, result json.RawMessage,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/assist-result", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, protocol.AssistSubmission{Result: result}, &out); err != nil {
+		var rejection *ResponseError
+		if errors.As(err, &rejection) && rejection.Message == "" && rejection.Status == http.StatusConflict {
+			rejection.Message = "this run is no assist session, or Spotlight accepted its result already"
+		}
+		return nil, fmt.Errorf("submit the result: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) ProposeDecisions(
+	ctx context.Context, runID string, decisions []protocol.ProposedDecision,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/decisions", url.PathEscape(runID))
+
+	sent := make([]protocol.ProposedDecision, 0, len(decisions))
+	for _, each := range decisions {
+		if each.Alternatives == nil {
+			each.Alternatives = []string{}
+		}
+		if each.Paths == nil {
+			each.Paths = []string{}
+		}
+		sent = append(sent, each)
+	}
+
+	if err := c.do(ctx, http.MethodPost, path, protocol.DecisionProposals{Decisions: sent}, &out); err != nil {
+		return nil, fmt.Errorf("propose decisions: %w", err)
+	}
+
+	return out, nil
+}
+
 func (c *Client) Claim(ctx context.Context) (*protocol.ClaimResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
 	defer cancel()

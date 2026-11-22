@@ -1,12 +1,26 @@
+import type {
+  SessionWaiting,
+  SettledSession,
+} from '@insights/application/ports/session-outcomes';
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const CHANGE_JUDGMENTS = Symbol('CHANGE_JUDGMENTS');
 
+/**
+ * Which judgment of a run's change this is, as the asker counts it: which judging of the run, and which try of that
+ * judging. A new round orders a new judging session; the same round reads its session back.
+ */
+export interface ChangeJudgmentRound {
+  readonly runId: RunId;
+  readonly judging: number;
+  readonly attempt: number;
+}
+
 export interface ChangeJudgmentOrder {
   readonly workspaceId: string;
-  readonly runId: RunId;
+  readonly round: ChangeJudgmentRound;
   readonly criteria: JudgeCriteria;
   readonly reference: RunId | null;
   readonly guidanceRequested: boolean;
@@ -37,7 +51,9 @@ export type ChangeJudgment =
   | UnjudgedJudgment;
 
 export interface ChangeJudgmentsPort {
-  availableTo(workspaceId: string): Promise<boolean>;
+  /** Answers waiting while the judging session has not submitted its verdict. */
+  judge(order: ChangeJudgmentOrder): Promise<ChangeJudgment | SessionWaiting>;
 
-  judge(order: ChangeJudgmentOrder): Promise<ChangeJudgment>;
+  /** The round a settled session judged, or null when it judged no change for an asker. */
+  roundOf(session: SettledSession): ChangeJudgmentRound | null;
 }

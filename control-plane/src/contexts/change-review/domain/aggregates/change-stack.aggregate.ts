@@ -26,8 +26,11 @@ import type { ChangeStackId } from '@change-review/domain/value-objects/change-s
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { DraftingRound } from '@change-review/domain/value-objects/drafting-round.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
+import type { SessionFailure } from '@change-review/domain/value-objects/session-failure.vo';
+import type { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
   CheckEntry,
   CheckStep,
@@ -45,8 +48,10 @@ import type {
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
+import type { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 import {
   type ChangeStackState,
+  type ProducedStackFailure,
   type StackFailure,
   StackProgress,
 } from '@change-review/domain/value-objects/stack-progress.vo';
@@ -163,7 +168,6 @@ const assertComplete = (
 };
 
 interface Drafting {
-  readonly modelProposal?: readonly DraftedCohort[];
   readonly previous?: ChangeStack | null;
 }
 
@@ -191,6 +195,7 @@ export class ChangeStack
     readonly usage: ModelUsage,
     readonly previous: ChangeStackId | null,
     readonly removed: readonly RemovedLayer[],
+    readonly problems: readonly StackProblem[],
     readonly version: number,
   ) {
     super();
@@ -259,6 +264,7 @@ export class ChangeStack
       ModelUsage.none(),
       previous?.id ?? null,
       [],
+      [],
       0,
     );
   }
@@ -283,6 +289,7 @@ export class ChangeStack
     usage: ModelUsage;
     previous: ChangeStackId | null;
     removed: readonly RemovedLayer[];
+    problems: readonly StackProblem[];
     version: number;
   }): ChangeStack {
     assertComplete(input.progress, input.diff, input.cohorts);
@@ -312,6 +319,7 @@ export class ChangeStack
       input.usage,
       input.previous,
       input.removed,
+      input.problems,
       input.version,
     );
   }
@@ -446,20 +454,71 @@ export class ChangeStack
     return this.with({ job: this.job.renewLease(now) });
   }
 
-  settleFailedCall(
-    failure: {
-      readonly truncated: boolean;
-      readonly insufficientCredits: boolean;
-    },
-    now: Date,
-  ): ChangeStack {
-    if (failure.insufficientCredits) {
-      return this.stopWith('insufficient-credits', now);
+  waitJob(now: Date): ChangeStack {
+    return this.hasPendingJob ? this.with({ job: this.job.wait(now) }) : this;
+  }
+
+  /** The session that drafts it now: a retried job drafts in a new round, a job that waits keeps its round. */
+  draftingRound(): DraftingRound {
+    if (this.state !== 'generating') {
+      throw InvalidChangeStackError.because(`is already ${this.state}`);
     }
 
-    return failure.truncated
-      ? this.stopWith('too-large', now)
-      : this.scheduleRetry(now);
+    return DraftingRound.draft(this.id, this.job.attempts);
+  }
+
+  /** The session that redrafts it now, to fix the layers `check` found failing. */
+  redraftingRound(check: StackCheckId): DraftingRound {
+    if (!this.redrafting || !check.stackId.equals(this.id)) {
+      throw InvalidChangeStackError.because('is not being redrafted');
+    }
+
+    return DraftingRound.redraft(check, this.job.attempts);
+  }
+
+  /**
+   * Looks again now at the session it waits for, because that session settled. A round of another stack, or one that
+   * drafts what it no longer drafts, wakes nothing; a job that does not wait stays as it is.
+   */
+  wake(round: DraftingRound, now: Date): ChangeStack {
+    const drafting = round.redrafting
+      ? this.redrafting
+      : this.state === 'generating';
+
+    if (!round.stackId.equals(this.id) || !drafting) {
+      return this;
+    }
+
+    const job = this.job.wake(now);
+
+    return job === this.job ? this : this.with({ job });
+  }
+
+  /**
+   * Settles a draft that its session failed to give. A failure the same session would meet again stops the stack
+   * without a draft; any other failure drafts it again later, until the attempts run out.
+   */
+  settleUndrafted(failure: SessionFailure, now: Date): ChangeStack {
+    return failure.lasting ? this.stopUndrafted(now) : this.scheduleRetry(now);
+  }
+
+  /** Drafts it again later, telling the next draft what the last one broke; stops once the attempts run out. */
+  retryForBrokenRules(
+    problems: readonly StackProblem[],
+    now: Date,
+  ): ChangeStack {
+    if (!this.hasPendingJob) {
+      return this;
+    }
+
+    return this.job.exhausted
+      ? this.stopForBrokenRules(now)
+      : this.with({ problems, job: this.job.scheduleRetry(now) });
+  }
+
+  /** Stops without a draft, as when no run can host the session drafting it. */
+  stopUndrafted(now: Date): ChangeStack {
+    return this.stopWith('not-generated', now);
   }
 
   stopForBrokenRules(now: Date): ChangeStack {
@@ -470,7 +529,7 @@ export class ChangeStack
     return this.redrafting && check ? redraftRequestOf(this, check) : null;
   }
 
-  private stopWith(failure: StackFailure, now: Date): ChangeStack {
+  private stopWith(failure: ProducedStackFailure, now: Date): ChangeStack {
     return this.state === 'generating'
       ? this.fail(failure, now)
       : this.stopRedrafting();
@@ -490,8 +549,6 @@ export class ChangeStack
       diff: this.diff,
       facts: this.facts,
       cohorts: this.arranged(cohorts),
-      modelProposal:
-        options.modelProposal && this.arranged(options.modelProposal),
       changeLayersAtLeast: changeLayerCount(this.cohorts),
       previous,
     });
@@ -502,6 +559,7 @@ export class ChangeStack
       progress: this.progress.complete('ready', now),
       job: PendingJob.fresh(),
       redrafting: false,
+      problems: [],
     });
 
     redrafted.record(new ChangeStackRedrafted(this.id, this.runId));
@@ -514,7 +572,11 @@ export class ChangeStack
       return this;
     }
 
-    const ended = this.with({ redrafting: false, job: PendingJob.fresh() });
+    const ended = this.with({
+      redrafting: false,
+      job: PendingJob.fresh(),
+      problems: [],
+    });
     ended.record(new ChangeStackRedraftingEnded(this.id, this.runId));
     return ended;
   }
@@ -531,8 +593,6 @@ export class ChangeStack
       diff: this.diff,
       facts: this.facts,
       cohorts: this.arranged(cohorts),
-      modelProposal:
-        options.modelProposal && this.arranged(options.modelProposal),
       previous,
     });
 
@@ -541,6 +601,7 @@ export class ChangeStack
       removed: previous ? PreviousStack.removedFrom(previous, ready) : [],
       progress: this.progress.complete('ready', now),
       job: PendingJob.fresh(),
+      problems: [],
     });
 
     completed.record(
@@ -626,12 +687,13 @@ export class ChangeStack
     );
   }
 
-  private fail(failure: StackFailure, now: Date): ChangeStack {
+  private fail(failure: ProducedStackFailure, now: Date): ChangeStack {
     this.assertGenerating();
 
     const failed = this.with({
       progress: this.progress.complete('failed', now, { failure }),
       job: PendingJob.fresh(),
+      problems: [],
     });
 
     failed.recordTrialSettled();
@@ -652,6 +714,7 @@ export class ChangeStack
     redrafting?: boolean;
     usage?: ModelUsage;
     removed?: readonly RemovedLayer[];
+    problems?: readonly StackProblem[];
   }): ChangeStack {
     const next = new ChangeStack(
       this.id,
@@ -673,6 +736,7 @@ export class ChangeStack
       change.usage ?? this.usage,
       this.previous,
       change.removed ?? this.removed,
+      change.problems ?? this.problems,
       this.version,
     );
 

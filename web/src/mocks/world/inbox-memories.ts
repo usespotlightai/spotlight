@@ -25,7 +25,6 @@ const proposed = (
   over: Partial<ProposedMemoryResponseDto> &
     Pick<ProposedMemoryResponseDto, 'id' | 'kind' | 'body' | 'source'>,
 ): ProposedMemoryResponseDto => ({
-  proposedBy: 'drafter',
   state: 'proposed',
   scope: 'team',
   repository: null,
@@ -73,7 +72,6 @@ export const seedMemoryReviews = (): Record<
         id: 'memory_gone',
         kind: 'rationale',
         source: 'run',
-        proposedBy: 'agent',
         state: 'approved',
         decision: {
           by: MAYA.id,
@@ -115,7 +113,6 @@ export const seedMemoryReviews = (): Record<
         id: 'memory_crash_dumps',
         kind: 'environment',
         source: 'run',
-        proposedBy: 'agent',
         state: 'approved',
         scope: 'station',
         repository: 'acme/infra',

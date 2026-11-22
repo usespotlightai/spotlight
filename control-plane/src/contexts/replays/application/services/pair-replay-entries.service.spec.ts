@@ -1,5 +1,4 @@
 import {
-  FakePairJudge,
   InMemorySideBySideJudgings,
   sideBySideJudgingRequestsFor,
 } from '@replays/application/services/judgings.fake-spec';
@@ -160,14 +159,11 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     ) as ReplaySideBySideJudgingRequested;
   };
 
-  const requesting = (
-    judge: FakePairJudge,
-    judgings = new InMemorySideBySideJudgings(),
-  ) =>
+  const requesting = (judgings = new InMemorySideBySideJudgings()) =>
     new RequestReplaySideBySideJudging(
       memory.replayRepository,
       memory.candidateRepository,
-      sideBySideJudgingRequestsFor(judgings, judge),
+      sideBySideJudgingRequestsFor(judgings),
       new RecordReplayPairVerdict(memory.replayRepository, TRANSACTION, CLOCK),
     );
 
@@ -175,7 +171,7 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     const event = await wanted();
     const judgings = new InMemorySideBySideJudgings();
 
-    await requesting(new FakePairJudge(), judgings).requested(event);
+    await requesting(judgings).requested(event);
 
     const [judging] = [...judgings.stored.values()];
     expect(judging?.runId).toEqual(RunId.of('replay_1_run_0'));
@@ -184,19 +180,6 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     expect(proposed.judge && judging?.criteria.equals(proposed.judge)).toBe(
       true,
     );
-  });
-
-  it('says why it could not request judging, and the replay records that as the entry’s answer', async () => {
-    const event = await wanted();
-    const judge = new FakePairJudge();
-    judge.available = false;
-
-    await requesting(judge).requested(event);
-
-    expect(
-      (await memory.replayRepository.find(event.replayId))?.entries[0]?.pairing
-        ?.unpaired,
-    ).toBe('unavailable');
   });
 
   it('records the verdict it received', async () => {

@@ -51,9 +51,6 @@ import { LiveNoticeRetentionWorker } from '@platform/live/live-notice-retention.
 import { LiveNotices } from '@platform/live/live-notices';
 import { LIVE_RANDOM, LiveStreams } from '@platform/live/live-streams';
 import { RedisLiveFeed } from '@platform/live/redis-live-feed';
-import { ModelPriceRefresh } from '@platform/llm/model-price-refresh';
-import { MODEL_PRICES, NO_PRICES } from '@platform/llm/model-prices';
-import { ModelsDevPrices } from '@platform/llm/models-dev.prices';
 import { LoggingModule } from '@platform/logging/logging.module';
 import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
@@ -158,15 +155,6 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
       useFactory: (hosts: HostAllowList, env: Env) =>
         new OutboundGuard(hosts, env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK),
     },
-    {
-      provide: MODEL_PRICES,
-      inject: [ENV],
-      useFactory: (env: Env) =>
-        env.LLM_PRICES === 'models.dev'
-          ? new ModelsDevPrices(env.LLM_PRICES_URL)
-          : NO_PRICES,
-    },
-    ModelPriceRefresh,
     ExpressionFailures,
     OutboxGauges,
     ReadinessGauges,
@@ -276,7 +264,6 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
     },
   ],
   exports: [
-    MODEL_PRICES,
     DEPLOYMENT_HOSTS,
     OutboundGuard,
     RedisConnection,

@@ -101,20 +101,8 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const generator: ChangeStackGeneratorPort = {
-  availableTo: async () => true,
-  outline: async () => {
-    throw new Error('A diff this small is not split');
-  },
-  layers: async () => {
-    throw new Error('A diff this small is not split');
-  },
-  layerPlan: async () => {
-    throw new Error('A diff this small is not split');
-  },
-  layerDetails: async () => {
-    throw new Error('A diff this small is not split');
-  },
   generate: async ({ diff }) => ({
+    status: 'drafted' as const,
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -149,13 +137,14 @@ const SCORED = /score\((\d)\)/;
 const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
-  availableTo: async () => true,
+  roundOf: () => null,
   judge: async (request) => {
     requests.push(request);
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
+      status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
       verdict: {

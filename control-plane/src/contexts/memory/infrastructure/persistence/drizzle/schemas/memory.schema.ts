@@ -1,7 +1,5 @@
 import { MEMORY_PROPOSAL_STATES } from '@memory/domain/entities/memory-proposal.entity';
-import { MEMORY_DRAFTING_FAILURES } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
-import { MEMORY_PROPOSERS } from '@memory/domain/value-objects/memory-proposer';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
 import { MEMORY_STATUSES } from '@memory/domain/value-objects/memory-status';
 import { MEMORY_USES } from '@memory/domain/value-objects/memory-use';
@@ -24,71 +22,33 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-const FAILURE_CODES = Object.keys(MEMORY_DRAFTING_FAILURES) as [
-  keyof typeof MEMORY_DRAFTING_FAILURES,
-  ...(keyof typeof MEMORY_DRAFTING_FAILURES)[],
-];
-
 export const memoryKind = pgEnum('memory_kind', MEMORY_KINDS);
 export const memorySource = pgEnum('memory_source', MEMORY_SOURCES);
 export const memoryStatus = pgEnum('memory_status', MEMORY_STATUSES);
-export const memoryProposer = pgEnum('memory_proposer', MEMORY_PROPOSERS);
 export const memoryUseVia = pgEnum('memory_use_via', MEMORY_USES);
 export const memoryProposalState = pgEnum(
   'memory_proposal_state',
   MEMORY_PROPOSAL_STATES,
 );
-export const memoryDraftingFailure = pgEnum(
-  'memory_drafting_failure',
-  FAILURE_CODES,
-);
 
-export const memoryDraft = pgTable(
-  'memory_draft',
+export const memoryProposalSet = pgTable(
+  'memory_proposal_set',
   {
     id: text('id').primaryKey(),
     taskId: text('task_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
-    draftingRunId: text('drafting_run_id'),
-    draftingAttempt: integer('drafting_attempt'),
-    draftingRunOrderedAt: timestamptz('drafting_run_ordered_at'),
-    draftingRequestedAt: timestamptz('drafting_requested_at'),
-    jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamptz('job_due_at'),
-    draftedIn: text('drafted_in'),
-    draftedInAttempt: integer('drafted_in_attempt'),
-    draftedInRunOrderedAt: timestamptz('drafted_in_run_ordered_at'),
-    notesRead: integer('notes_read').notNull().default(0),
-    failure: memoryDraftingFailure('failure'),
-    failedAt: timestamptz('failed_at'),
     version: integer('version').notNull().default(0),
   },
-  (table) => [
-    check(
-      'memory_draft_job_attempts_not_negative',
-      sql`${table.jobAttempts} >= 0`,
-    ),
-    check('memory_draft_notes_read_not_negative', sql`${table.notesRead} >= 0`),
-    check(
-      'memory_draft_drafting_turn',
-      sql`(${table.draftingRunId} is null) = (${table.draftingAttempt} is null) and (${table.draftingRunId} is null) = (${table.draftingRunOrderedAt} is null) and coalesce(${table.draftingAttempt}, 1) >= 1`,
-    ),
-    check(
-      'memory_draft_drafted_in_turn',
-      sql`(${table.draftedIn} is null) = (${table.draftedInAttempt} is null) and (${table.draftedIn} is null) = (${table.draftedInRunOrderedAt} is null) and coalesce(${table.draftedInAttempt}, 1) >= 1`,
-    ),
-    uniqueIndex('memory_draft_task_idx').on(table.taskId),
-    index('memory_draft_drafting_idx').on(table.draftingRequestedAt),
-  ],
+  (table) => [uniqueIndex('memory_proposal_set_task_idx').on(table.taskId)],
 );
 
 export const memoryProposal = pgTable(
   'memory_proposal',
   {
     id: text('id').primaryKey(),
-    draftId: text('draft_id')
+    setId: text('set_id')
       .notNull()
-      .references(() => memoryDraft.id, { onDelete: 'cascade' }),
+      .references(() => memoryProposalSet.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     kind: memoryKind('kind').notNull(),
     body: text('body').notNull(),
@@ -102,7 +62,6 @@ export const memoryProposal = pgTable(
     steps: jsonb('steps').$type<number[]>().notNull(),
     notes: jsonb('notes').$type<number[]>().notNull(),
     source: memorySource('source').notNull(),
-    proposedBy: memoryProposer('proposed_by').notNull(),
     supersedes: text('supersedes'),
     retires: text('retires'),
     retireReason: text('retire_reason'),
@@ -122,7 +81,7 @@ export const memoryProposal = pgTable(
       sql`(${table.retires} is null) = (${table.retireReason} is null) and (${table.retires} is null or ${table.supersedes} is null)`,
     ),
     uniqueIndex('memory_proposal_position_idx').on(
-      table.draftId,
+      table.setId,
       table.position,
     ),
     check(
@@ -250,6 +209,7 @@ export const memoryUpkeepSchedule = pgTable(
     addedSince: integer('added_since').notNull().default(0),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamptz('job_due_at'),
+    waitingSince: timestamptz('waiting_since'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

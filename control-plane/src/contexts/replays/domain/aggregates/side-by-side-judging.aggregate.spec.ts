@@ -6,6 +6,7 @@ import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo
 import type { JudgedPair } from '@replays/domain/value-objects/pair-judgment';
 import type { PairOrder } from '@replays/domain/value-objects/pair-order';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -87,6 +88,18 @@ describe('SideBySideJudging', () => {
     ]);
   });
 
+  it('waits for its assist sessions without spending the attempt it leased', () => {
+    const at = new Date(NOW.getTime() + 15_000);
+    const waiting = queued().leaseJob(NOW).waitJob(at);
+
+    expect(waiting.hasPendingJob).toBe(true);
+    expect(waiting.job?.attempts).toBe(0);
+    expect(waiting.job?.nextAttemptAt).toEqual(
+      new Date(at.getTime() + WAIT_MS),
+    );
+    expect(waiting.job?.waitingSince).toEqual(at);
+  });
+
   it('calls the pair a tie where the two passes disagree', () => {
     const judging = queued().leaseJob(NOW);
     const [event] = judging
@@ -139,5 +152,30 @@ describe('SideBySideJudging', () => {
     expect(judging.isDeleted).toBe(false);
     expect(deleted.isDeleted).toBe(true);
     expect(deleted.version).toBe(judging.version);
+  });
+
+  it('judges in rounds: a retried try is a new round, a wait is not', () => {
+    const leased = queued().leaseJob(NOW);
+    const resumed = leased
+      .waitJob(NOW)
+      .leaseJob(new Date(NOW.getTime() + WAIT_MS));
+
+    expect(leased.round).toMatchObject({
+      runId: RUN,
+      otherRunId: AGAINST,
+      attempt: 1,
+    });
+    expect(resumed.round.equals(leased.round)).toBe(true);
+  });
+
+  it('wakes when a session of the round it waits on settles, and only then', () => {
+    const leased = queued().leaseJob(NOW);
+    const waiting = leased.waitJob(NOW);
+    const at = new Date(NOW.getTime() + 1_000);
+    const woken = waiting.wake(leased.round, at);
+
+    expect(woken.job?.nextAttemptAt).toEqual(at);
+    expect(woken.wake(leased.round, at)).toBe(woken);
+    expect(leased.wake(leased.round, at)).toBe(leased);
   });
 });

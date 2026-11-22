@@ -110,7 +110,8 @@ export class InsightsStationConfigResponseDto {
   readonly decisions: boolean;
 
   @ApiProperty({
-    description: 'Whether Spotlight drafts memories after its runs',
+    description:
+      'Whether its runs may propose memories with spotlight remember',
   })
   readonly memories: boolean;
 

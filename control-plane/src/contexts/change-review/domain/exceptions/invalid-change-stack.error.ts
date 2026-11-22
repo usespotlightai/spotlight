@@ -1,27 +1,5 @@
+import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
-
-const STACK_PROBLEM_CODES = [
-  'shape',
-  'uses',
-  'removes',
-  'tests',
-  'moves',
-  'migration',
-  'unconnected',
-  'joined-layers',
-] as const;
-
-export type StackProblemCode = (typeof STACK_PROBLEM_CODES)[number];
-
-export interface StackProblem {
-  readonly code: StackProblemCode;
-  readonly message: string;
-}
-
-export const shapeProblem = (message: string): StackProblem => ({
-  code: 'shape',
-  message,
-});
 
 export class InvalidChangeStackError extends DomainError {
   readonly kind = 'invalid' as const;
@@ -32,6 +10,6 @@ export class InvalidChangeStackError extends DomainError {
   }
 
   static because(...messages: string[]): InvalidChangeStackError {
-    return new InvalidChangeStackError(messages.map(shapeProblem));
+    return new InvalidChangeStackError(messages.map(StackProblem.shape));
   }
 }

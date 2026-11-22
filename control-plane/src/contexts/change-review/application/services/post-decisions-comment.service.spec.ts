@@ -29,13 +29,12 @@ const LIMITED: DecisionDto = {
   why: 'Backoff is not in the client yet.',
   alternatives: [],
   paths: ['api/src/uploads.ts'],
+  runId: 'run_1',
   journalSteps: [7],
   disputes: [],
 };
 
 const generated = (decisions: readonly DecisionDto[]): TaskDecisionsDto => ({
-  runId: 'run_1',
-  generating: false,
   status: 'proposed',
   merges: [],
   decisions,

@@ -267,7 +267,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('tells a station that records decisions to say them as it works', () => {
+  it('tells a station that records decisions to record each with spotlight decide', () => {
     const deciding = stationOf({
       id: StationId.of('station_1'),
       key: StationKey.of('implementation'),
@@ -284,12 +284,45 @@ describe('TaskBriefing', () => {
 
     const briefing = brief(deciding);
 
-    expect(briefing).toContain('## Say what you decide');
-    expect(briefing).toContain('- a limitation or gap you leave in place;');
+    expect(briefing).toContain('## Record what you decide');
+    expect(briefing).toContain(
+      'Before you hand over, record each decision that shaped the change with `spotlight decide`, one decision each time:',
+    );
+    expect(briefing).toContain(
+      '- `limitation`: a limitation or gap you leave in place;',
+    );
+    expect(briefing).toContain(
+      'Run `spotlight decide --kind <kind> --title "…" --why "…" --path <path>`',
+    );
   });
 
   it('requests nothing of the kind where the station records no decisions', () => {
-    expect(brief(triage())).not.toContain('Say what you decide');
+    expect(brief(triage())).not.toContain('Record what you decide');
+    expect(brief(triage())).not.toContain('spotlight decide');
+  });
+
+  it('asks a station that keeps memories to propose what later runs should know', () => {
+    const remembering = stationOf({
+      id: StationId.of('station_1'),
+      key: StationKey.of('implementation'),
+      name: StationName.of('Implementation'),
+      position: 0,
+      color: '#93a1b5',
+      harness: HarnessId.of('dev'),
+      memories: true,
+      routes: routesOf({
+        stations: [StationId.of('station_2')],
+        ends: false,
+      }),
+    });
+
+    expect(brief(remembering)).toContain(
+      'Before you hand over, propose what later runs should know with `spotlight remember`, one memory each time.',
+    );
+    expect(brief(triage())).not.toContain(
+      'propose what later runs should know',
+    );
+    expect(brief(triage())).toContain('## Remembering');
   });
 
   it('says nothing of decisions where none are on record', () => {

@@ -6,11 +6,13 @@ import { contextBindings } from '@platform/bindings/context-bindings';
 import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
 import { RunnersModule } from '@runners/runners.module';
 import { ARCHIVE_HOLDERS } from '@runs/application/ports/archive-holders.port';
+import { HARNESS_COMMANDS } from '@runs/application/ports/harness-commands.port';
 import { HARNESS_LAUNCH } from '@runs/application/ports/harness-launch.port';
 import { HARNESS_PROFILE_REVIEW } from '@runs/application/ports/harness-profile-review.port';
 import { HARNESS_TOOL_NAMES } from '@runs/application/ports/harness-tool-names.port';
 import { HOOK_TRACES } from '@runs/application/ports/hook-traces.port';
 import { NETWORK_CALLS } from '@runs/application/ports/network-calls.port';
+import { RUN_ARCHIVES } from '@runs/application/ports/run-archives.port';
 import { RUN_CONNECTIONS } from '@runs/application/ports/run-connections.port';
 import { RUN_FACTS } from '@runs/application/ports/run-facts.port';
 import { RUN_FILES } from '@runs/application/ports/run-files.port';
@@ -37,6 +39,7 @@ const BINDINGS = contextBindings([SEEDING_HARNESS, WORKING_COPY_IMAGES]);
   exports: [
     RUNS,
     RUN_FACTS,
+    RUN_ARCHIVES,
     RUN_LEASES,
     RUN_PROGRESS,
     RUN_TURNS,
@@ -50,6 +53,7 @@ const BINDINGS = contextBindings([SEEDING_HARNESS, WORKING_COPY_IMAGES]);
     ARCHIVE_HOLDERS,
     RUN_REQUESTER_LABELS,
     HARNESS_LAUNCH,
+    HARNESS_COMMANDS,
     HARNESS_TOOL_NAMES,
     HARNESS_PROFILE_REVIEW,
     HOOK_TRACES,

@@ -1,5 +1,4 @@
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
-import type { JudgePort } from '@insights/application/ports/judge.port';
 import type { EndedRun } from '@insights/application/ports/work.port';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
@@ -33,20 +32,11 @@ const requesting = (
     sample?: number;
     claims?: readonly string[];
     judged?: boolean;
-    available?: boolean;
     hasEvidence?: boolean;
   } = {},
 ) => {
   const judgings = new JudgingsInMemory();
   const deletions = deletionsInMemory();
-  const judge: JudgePort = {
-    availableTo: async () => change.available ?? true,
-    judge: async () => ({
-      model: 'some/model',
-      verdict: { claims: [] },
-      guidance: null,
-    }),
-  };
   const service = new RequestJudging(
     {
       unfinishedRuns: async () => [],
@@ -74,7 +64,6 @@ const requesting = (
               minAgreement: 0.6,
             },
     },
-    judge,
     judgings,
     new FactRecorder(deletions),
     inTransaction,
@@ -147,7 +136,6 @@ describe('RequestJudging', () => {
   });
 
   it.each([
-    ['no model to judge with', { available: false }],
     ['a station without a judge', { judged: false }],
     ['a judge with no claims', { claims: [] }],
     ['a run left out of the sample', { sample: 0 }],

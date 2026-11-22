@@ -1,6 +1,6 @@
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { ReviewsPort } from '@memory/application/ports/reviews.port';
-import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
@@ -9,16 +9,15 @@ import { MemoryRetirementApproved } from '@memory/domain/events/memory-retiremen
 import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
-import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -27,7 +26,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
-const DRAFT = MemoryDraftId.of('draft_1');
+const DRAFT = MemoryProposalSetId.of('draft_1');
 const TASK = TaskId.of('task_1');
 const RUN = RunId.of('run_1');
 const OLD = MemoryId.of('memory_old');
@@ -58,10 +57,10 @@ const approved = (supersedes: MemoryId | null = null) =>
 
 const reacting = (
   stored: Memory[] = [],
-  draft: MemoryDraft | null = null,
+  set: MemoryProposalSet | null = null,
   awaiting: readonly RunId[] = [],
 ) => {
-  const drafts: MemoryDraft[] = draft ? [draft] : [];
+  const sets: MemoryProposalSet[] = set ? [set] : [];
   const reviews = { reopen: vi.fn(), resolve: vi.fn() };
   let handles = 100;
   const memories = {
@@ -91,12 +90,12 @@ const reacting = (
           ({
             awaitsReviewIn: (runId: RunId) =>
               awaiting.some((each) => each.equals(runId)),
-          }) as unknown as MemoryDraft,
-        forTask: async () => drafts[drafts.length - 1] ?? null,
-        save: async (saved: MemoryDraft) => {
-          drafts.push(saved);
+          }) as unknown as MemoryProposalSet,
+        forTask: async () => sets[sets.length - 1] ?? null,
+        save: async (saved: MemoryProposalSet) => {
+          sets.push(saved);
         },
-      } as unknown as MemoryDraftRepository,
+      } as unknown as MemoryProposalSetRepository,
       memories as unknown as MemoryRepository,
       { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
@@ -104,7 +103,7 @@ const reacting = (
     reviews,
     memories,
     stored,
-    drafts,
+    sets,
   };
 };
 
@@ -305,16 +304,13 @@ describe('reacting to memories being proposed and decided', () => {
 
   describe('an approved retirement', () => {
     it('keeps the proposal approved when its event arrives twice', async () => {
-      const { reactions, stored, drafts } = reacting(
-        [target()],
-        draftRetiring(),
-      );
+      const { reactions, stored, sets } = reacting([target()], draftRetiring());
 
       await reactions.onRetirementApproved(retirement);
       await reactions.onRetirementApproved(retirement);
 
       expect(stored[0]?.status).toBe('retired');
-      expect(drafts[drafts.length - 1]?.proposals[0]?.state).toBe('approved');
+      expect(sets[sets.length - 1]?.proposals[0]?.state).toBe('approved');
     });
 
     const FORGET = MemoryId.of('memory_forget');
@@ -330,13 +326,10 @@ describe('reacting to memories being proposed and decided', () => {
         by: ADA,
       });
     const draftRetiring = () =>
-      MemoryDraft.rehydrate({
+      MemoryProposalSet.rehydrate({
         id: DRAFT,
         taskId: TASK,
         workspaceId: WorkspaceId.of('ws_1'),
-        drafting: null,
-        draftedIn: AgentTurn.of(RUN, 1, NOW),
-        notesRead: 0,
         proposals: [
           MemoryProposal.retiring({
             id: FORGET,
@@ -344,11 +337,9 @@ describe('reacting to memories being proposed and decided', () => {
             reason: 'The team numbers its branches.',
             provenance: PROVENANCE,
             source: 'run',
-            proposedBy: 'agent',
             recordedAt: NOW,
           }).approve(ADA),
         ],
-        failure: null,
         version: 1,
       });
     const retirement = new MemoryRetirementApproved(
@@ -372,7 +363,7 @@ describe('reacting to memories being proposed and decided', () => {
     });
 
     it('lapses the proposal when the memory was retired before it could be', async () => {
-      const { reactions, drafts } = reacting(
+      const { reactions, sets } = reacting(
         [
           target().retire({
             by: UserId.of('user_ada'),
@@ -385,7 +376,7 @@ describe('reacting to memories being proposed and decided', () => {
 
       await reactions.onRetirementApproved(retirement);
 
-      expect(drafts[drafts.length - 1]?.proposals[0]?.state).toBe('lapsed');
+      expect(sets[sets.length - 1]?.proposals[0]?.state).toBe('lapsed');
     });
   });
 });

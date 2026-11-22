@@ -24,6 +24,9 @@ export interface DecisionDto {
   readonly why: string;
   readonly alternatives: readonly string[];
   readonly paths: readonly string[];
+  /** The run whose agent recorded it. */
+  readonly runId: string;
+  /** Steps of that run's journal; only decisions drafted before agents recorded their own cite any. */
   readonly journalSteps: readonly number[];
   readonly disputes: readonly DisputeDto[];
 }
@@ -35,8 +38,6 @@ export interface DecisionMergeDto {
 }
 
 export interface TaskDecisionsDto {
-  readonly runId: string | null;
-  readonly generating: boolean;
   readonly status: (typeof DECISION_STATUS_NAMES)[number];
   readonly merges: readonly DecisionMergeDto[];
   readonly decisions: readonly DecisionDto[];
@@ -44,7 +45,6 @@ export interface TaskDecisionsDto {
 
 export interface MergedDecisionsDto {
   readonly taskId: string;
-  readonly runId: string | null;
   readonly repository: string;
   readonly commit: string;
   readonly mergedAt: Date;
@@ -52,8 +52,6 @@ export interface MergedDecisionsDto {
 }
 
 export const NO_DECISIONS: TaskDecisionsDto = {
-  runId: null,
-  generating: false,
   status: 'proposed',
   merges: [],
   decisions: [],

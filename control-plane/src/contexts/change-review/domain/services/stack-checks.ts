@@ -1,7 +1,3 @@
-import {
-  type StackProblem,
-  shapeProblem,
-} from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
 import { factProblems } from '@change-review/domain/services/fact-rules';
 import { placementsOf } from '@change-review/domain/services/hunk-placements';
@@ -13,10 +9,11 @@ import {
   type ProposedCohort,
   type ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 
 const MAX_TITLE = 120;
 
-export const cohortHeaderProblems = (
+const cohortHeaderProblems = (
   cohort: { readonly title: string; readonly intent: string },
   where: string,
 ): string[] => [
@@ -66,12 +63,6 @@ const noteProblems = (
 
   return problems;
 };
-
-export const layerNoteProblems = (
-  diff: Diff,
-  layer: ProposedLayer,
-  at: string,
-): string[] => noteProblems(diff, layer, at, true);
 
 const layerProblems = (
   diff: Diff,
@@ -148,7 +139,7 @@ const cohortShapeProblems = (
     ...[...timesAssigned([cohort])].flatMap(([hunk, times]) =>
       times > 1 ? [`assigns ${hunk} ${times} times`] : [],
     ),
-  ].map(shapeProblem);
+  ].map(StackProblem.shape);
 
 export const cohortProblems = (
   diff: Diff,
@@ -180,7 +171,7 @@ export const shapeProblems = (
     }
   }
 
-  return problems.map(shapeProblem);
+  return problems.map(StackProblem.shape);
 };
 
 export const changeLayerCount = (
@@ -201,10 +192,10 @@ export const layerCountProblems = (
 
   return atLeast !== undefined && count < atLeast
     ? [
-        {
-          code: 'joined-layers',
-          message: `joins layers, leaving ${count} where there were ${atLeast}`,
-        },
+        StackProblem.of(
+          'joined-layers',
+          `joins layers, leaving ${count} where there were ${atLeast}`,
+        ),
       ]
     : [];
 };

@@ -3,19 +3,19 @@ import type {
   WorkPort,
 } from '@memory/application/ports/work.port';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import type { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
-import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-draft-already-open.error';
-import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
+import { MemoryProposalSetAlreadyOpenError } from '@memory/domain/exceptions/memory-proposal-set-already-open.error';
+import { MemoryProposalSetVersionConflictError } from '@memory/domain/exceptions/memory-proposal-set-version-conflict.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import {
   type RememberedAt,
   Remembering,
 } from '@memory/domain/services/remembering';
-import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -44,7 +44,7 @@ export class RunProposing {
   constructor(
     private readonly loader: RunnerMemoryLoader,
     private readonly work: WorkPort,
-    private readonly drafts: MemoryDraftRepository,
+    private readonly sets: MemoryProposalSetRepository,
     private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -88,8 +88,8 @@ export class RunProposing {
     const proposed = await this.proposedOnce(proposing, build).catch(
       (error: unknown) => {
         if (
-          error instanceof MemoryDraftVersionConflictError ||
-          error instanceof MemoryDraftAlreadyOpenError
+          error instanceof MemoryProposalSetVersionConflictError ||
+          error instanceof MemoryProposalSetAlreadyOpenError
         ) {
           return this.proposedOnce(proposing, build);
         }
@@ -107,11 +107,11 @@ export class RunProposing {
     const { remembering, runId, task } = proposing;
 
     return this.transaction.inTransaction(async () => {
-      const found = await this.drafts.forTask(remembering.taskId);
-      const draft =
+      const found = await this.sets.forTask(remembering.taskId);
+      const set =
         found ??
-        MemoryDraft.create({
-          id: MemoryDraftId.of(this.ids.generate()),
+        MemoryProposalSet.create({
+          id: MemoryProposalSetId.of(this.ids.generate()),
           taskId: remembering.taskId,
           workspaceId: task.workspaceId,
         });
@@ -119,13 +119,13 @@ export class RunProposing {
         remembering,
         teamId: proposing.teamId,
         id: proposing.id,
-        at: { ...proposing.at, cited: draft.stepsRemembered(runId) },
+        at: { ...proposing.at, cited: set.stepsRemembered(runId) },
         now: this.clock.now(),
       });
-      const next = draft.remember(proposal);
+      const next = set.remember(proposal);
 
-      if (next !== draft) {
-        await (found ? this.drafts.save(next) : this.drafts.add(next));
+      if (next !== set) {
+        await (found ? this.sets.save(next) : this.sets.add(next));
       }
 
       const stored = next.findProposal(proposal);

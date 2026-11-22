@@ -1,4 +1,3 @@
-import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import {
   connectedGroups,
   type DiffFacts,
@@ -8,6 +7,7 @@ import {
 import { groupedBy } from '@change-review/domain/services/grouped-by';
 import { placementsOf } from '@change-review/domain/services/hunk-placements';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 
 interface Assignment {
   readonly cohort: number;
@@ -41,14 +41,16 @@ const orderProblems = (
       return [];
     }
     if (later.cohort !== earlier.cohort) {
-      return [{ code, message: `${fact}, so they belong in the same cohort` }];
+      return [
+        StackProblem.of(code, `${fact}, so they belong in the same cohort`),
+      ];
     }
     if (later.layer < earlier.layer) {
       return [
-        {
+        StackProblem.of(
           code,
-          message: `${fact}, so it cannot come in an earlier layer than ${link.to}`,
-        },
+          `${fact}, so it cannot come in an earlier layer than ${link.to}`,
+        ),
       ];
     }
 
@@ -77,20 +79,22 @@ const testsProblems = (
     );
 
     if (apart.length > 0) {
-      return apart.map(({ link }) => ({
-        code: 'tests',
-        message: `${test} tests ${link.because.join(', ')} in ${link.to}, so they belong in the same cohort`,
-      }));
+      return apart.map(({ link }) =>
+        StackProblem.of(
+          'tests',
+          `${test} tests ${link.because.join(', ')} in ${link.to}, so they belong in the same cohort`,
+        ),
+      );
     }
 
     const latest = Math.max(...sources.map(({ source }) => source.layer));
 
     return sources.length > 0 && assigned.layer !== latest
       ? [
-          {
-            code: 'tests',
-            message: `${test} tests ${[...new Set(sources.flatMap(({ link }) => link.because))].join(', ')}, so it belongs in layer ${latest + 1} with the code it covers`,
-          },
+          StackProblem.of(
+            'tests',
+            `${test} tests ${[...new Set(sources.flatMap(({ link }) => link.because))].join(', ')}, so it belongs in layer ${latest + 1} with the code it covers`,
+          ),
         ]
       : [];
   });
@@ -108,10 +112,10 @@ const movesProblems = (
       removed &&
       (added.cohort !== removed.cohort || added.layer !== removed.layer)
       ? [
-          {
-            code: 'moves',
-            message: `${from} is code moved from ${to}, so they belong in the same layer`,
-          },
+          StackProblem.of(
+            'moves',
+            `${from} is code moved from ${to}, so they belong in the same layer`,
+          ),
         ]
       : [];
   });
@@ -130,10 +134,10 @@ const migrationProblems = (
         cohorts[assigned.cohort]?.kind === 'change' &&
         assigned.layer > 0
         ? [
-            {
-              code: 'migration',
-              message: `${each.hunk} is a migration, so it belongs in layer 1 of its cohort, not ${layerName(assigned)}`,
-            },
+            StackProblem.of(
+              'migration',
+              `${each.hunk} is a migration, so it belongs in layer 1 of its cohort, not ${layerName(assigned)}`,
+            ),
           ]
         : [];
     });
@@ -163,10 +167,10 @@ const unconnectedProblems = (
 
     return groups.length > 1
       ? [
-          {
-            code: 'unconnected',
-            message: `cohort ${c + 1} joins hunks the code does not connect (${groups.map((each) => each.join(', ')).join(' | ')}) without saying why`,
-          },
+          StackProblem.of(
+            'unconnected',
+            `cohort ${c + 1} joins hunks the code does not connect (${groups.map((each) => each.join(', ')).join(' | ')}) without saying why`,
+          ),
         ]
       : [];
   });

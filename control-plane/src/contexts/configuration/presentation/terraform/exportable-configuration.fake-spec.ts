@@ -366,16 +366,6 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       pools: ['burst', 'k8s-jobs', 'deleted'],
     },
     {
-      kind: 'inference-endpoint',
-      ownedBy: 'workspace',
-      id: 'inference_acme',
-      address: 'acme',
-      baseUrl: 'http://127.0.0.1:4000/v1',
-      model: 'openai/gpt-5-mini',
-      apiKeySet: true,
-      apiKeyVersion: 2,
-    },
-    {
       kind: 'team',
       ownedBy: 'workspace',
       id: 'team_core',

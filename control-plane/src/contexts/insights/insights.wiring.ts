@@ -1,4 +1,8 @@
 import {
+  ASSIST_SESSIONS,
+  type AssistSessionsPort,
+} from '@assist/application/ports/assist-sessions.port';
+import {
   TEAM_SKILL_KEYS,
   type TeamSkillKeysPort,
 } from '@configuration/application/ports/team-skill-keys.port';
@@ -136,8 +140,8 @@ import { StationJudges } from '@insights/infrastructure/acl/station-judges.adapt
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { Work } from '@insights/infrastructure/acl/work.adapter';
 import { INSIGHTS_PAYLOAD_TYPES } from '@insights/infrastructure/events/insights-payload-types';
-import { ChatCompletionsJudge } from '@insights/infrastructure/judging/chat-completions-judge';
-import { ChatCompletionsSideBySideJudge } from '@insights/infrastructure/judging/chat-completions-side-by-side-judge';
+import { AssistJudge } from '@insights/infrastructure/judging/assist-judge';
+import { AssistSideBySideJudge } from '@insights/infrastructure/judging/assist-side-by-side-judge';
 import { DrizzleChats } from '@insights/infrastructure/persistence/drizzle/ledgers/chats.ledger';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzlePullRequestFacts } from '@insights/infrastructure/persistence/drizzle/projections/pull-request-facts.projection';
@@ -187,10 +191,6 @@ import {
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
 import {
-  INFERENCE_CALLS,
-  type InferenceCallsPort,
-} from '@shared-kernel/application/ports/inference-calls.port';
-import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
@@ -217,6 +217,8 @@ import {
 } from '@work/application/ports/station-runs.port';
 
 const INSIGHTS_EVENTS = Symbol('INSIGHTS_EVENTS');
+
+/** Registers the result schemas of the judge, pair-judge and claims assist sessions. */
 
 export const INSIGHTS_CONTROLLERS: readonly Type[] = [
   StationInsightsController,
@@ -272,14 +274,14 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: JUDGE,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) => new ChatCompletionsJudge(calls),
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) => new AssistJudge(sessions),
   },
   {
     provide: SIDE_BY_SIDE_JUDGE,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) =>
-      new ChatCompletionsSideBySideJudge(calls),
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) =>
+      new AssistSideBySideJudge(sessions),
   },
   DrizzleRunFacts,
   DrizzlePullRequestFacts,
@@ -475,7 +477,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       WORK,
       EVIDENCE,
       STATION_JUDGES,
-      JUDGE,
       DrizzleJudgingRepository,
       FactRecorder,
       TRANSACTION,
@@ -485,7 +486,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       work: WorkPort,
       evidence: EvidencePort,
       judges: StationJudgesPort,
-      judge: JudgePort,
       judgings: DrizzleJudgingRepository,
       recorder: FactRecorder,
       transaction: TransactionPort,
@@ -495,7 +495,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
         work,
         evidence,
         judges,
-        judge,
         judgings,
         recorder,
         transaction,
@@ -862,6 +861,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       RecordChangeShape,
       WatchStations,
       AlertInbox,
+      WorkJudgings,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -888,6 +888,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       shaping: RecordChangeShape,
       watching: WatchStations,
       alerting: AlertInbox,
+      waking: WorkJudgings,
     ) => {
       types.register('insights', INSIGHTS_PAYLOAD_TYPES);
       mappers.register(INSIGHTS_EVENT_MAPPERS);
@@ -912,6 +913,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           shaping,
           watching,
           alerting,
+          waking,
         }),
       );
       return true;

@@ -11,8 +11,6 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-21T10:00:00Z');
 
 const STORED: TaskDecisionsDto = {
-  runId: 'run_1',
-  generating: false,
   status: 'proposed',
   merges: [],
   decisions: [
@@ -23,6 +21,7 @@ const STORED: TaskDecisionsDto = {
       why: 'Because.',
       alternatives: [],
       paths: ['api/src/uploads.ts'],
+      runId: 'run_1',
       journalSteps: [3],
       disputes: [
         {
@@ -69,16 +68,16 @@ const reading = (
   ).execute(new ReadTaskDecisionsQuery('team_1', 'task_1', 'user_1'));
 
 describe('reading a task’s decisions', () => {
-  it('reads them with the run they came from', async () => {
+  it('reads each with the run that recorded it', async () => {
     const found = await reading();
 
-    expect(found?.runId).toBe('run_1');
-    expect(found?.decisions.map((each) => each.id)).toEqual(['decision_1']);
+    expect(
+      found?.decisions.map((each) => [each.id, each.runId, each.journalSteps]),
+    ).toEqual([['decision_1', 'run_1', [3]]]);
   });
 
-  it('reads none where no decisions were generated for a run', async () => {
+  it('reads none where no run recorded decisions', async () => {
     expect(await reading({ stored: null })).toMatchObject({
-      runId: null,
       decisions: [],
     });
   });

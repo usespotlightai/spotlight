@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import {
-  MEMORY_DRAFTS,
-  type MemoryDraftRepository,
-} from '@memory/domain/repositories/memory-draft.repository';
-import { DraftEvidence } from '@memory/domain/services/draft-evidence';
-import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
+  MEMORY_PROPOSAL_SETS,
+  type MemoryProposalSetRepository,
+} from '@memory/domain/repositories/memory-proposal-set.repository';
+import { Remembering } from '@memory/domain/services/remembering';
+import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -14,7 +15,6 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
-import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -41,8 +41,6 @@ import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
-
-const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 
 interface Written {
   readonly id: string;
@@ -294,49 +292,41 @@ describe('briefing runs with what the team remembers', () => {
 
   it('never briefs a memory still waiting on a person', async () => {
     const runId = RunId.of(randomUUID());
-    await app.get<MemoryDraftRepository>(MEMORY_DRAFTS).add(
-      MemoryDraft.create({
-        id: MemoryDraftId.of(randomUUID()),
+    await app.get<MemoryProposalSetRepository>(MEMORY_PROPOSAL_SETS).add(
+      MemoryProposalSet.create({
+        id: MemoryProposalSetId.of(randomUUID()),
         taskId: team.list.id,
         workspaceId: team.workspaceId,
-      })
-        .requestDrafting(AgentTurn.of(runId, 1, RUN_ORDERED_AT), new Date())
-        .recordDraft({
-          turn: AgentTurn.of(runId, 1, RUN_ORDERED_AT),
-          proposed: [
-            {
-              kind: 'preference',
-              body: 'Still waiting on a person.',
-              scope: 'team',
-              repository: null,
-              paths: [],
-              steps: [1],
-              notes: [],
-              supersedes: null,
-              retires: null,
-            },
-          ],
-          evidence: DraftEvidence.of({
-            taskId: team.list.id,
-            turn: AgentTurn.of(runId, 1, RUN_ORDERED_AT),
+      }).remember(
+        Remembering.of({
+          taskId: team.list.id,
+          runId,
+          asOf: null,
+          isolated: false,
+          trial: false,
+        }).proposalOf({
+          id: MemoryId.of(randomUUID()),
+          remembered: {
+            kind: 'preference',
+            body: 'Still waiting on a person.',
+            scope: 'team',
+            paths: [],
+            supersedes: null,
+          },
+          at: {
             runContext: {
               teamId: TeamId.of(team.teamId.value),
               lineId: LineId.of(DELIVERY),
               stationId: StationId.of(BUILD),
               repositories: [API],
             },
-            steps: [{ index: 1, kind: 'message', text: 'Sent it.' }],
-            notes: [],
-            notesRead: 0,
-            changed: [],
-            known: [],
-            used: [],
-            elsewhere: [],
+            steps: [{ index: 1, kind: 'remember' }],
+            cited: [],
             fromOutside: false,
-          }),
-          newId: () => randomUUID(),
+          },
           now: new Date(),
         }),
+      ),
     );
 
     const { briefed: memories } =

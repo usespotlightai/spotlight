@@ -1,4 +1,3 @@
-import type { PairJudgePort } from '@replays/application/ports/pair-judge.port';
 import { SideBySideJudging } from '@replays/domain/aggregates/side-by-side-judging.aggregate';
 import { SideBySideJudgingVersionConflictError } from '@replays/domain/exceptions/side-by-side-judging-version-conflict.error';
 import type { SideBySideJudgingRepository } from '@replays/domain/repositories/side-by-side-judging.repository';
@@ -18,12 +17,11 @@ export interface SideBySideJudgingRequest {
   readonly reference: RunId;
 }
 
-export type SideBySideJudgingAnswer = 'requested' | 'unavailable';
+export type SideBySideJudgingAnswer = 'requested';
 
 export class RequestSideBySideJudging {
   constructor(
     private readonly judgings: SideBySideJudgingRepository,
-    private readonly judge: PairJudgePort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -31,10 +29,6 @@ export class RequestSideBySideJudging {
   async request(
     request: SideBySideJudgingRequest,
   ): Promise<SideBySideJudgingAnswer> {
-    if (!(await this.judge.availableTo(request.workspaceId.value))) {
-      return 'unavailable';
-    }
-
     const judging = SideBySideJudging.requested({
       runId: request.run,
       otherRunId: request.other,

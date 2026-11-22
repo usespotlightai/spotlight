@@ -6,9 +6,9 @@ import { ReadProposedMemoryQuery } from '@memory/application/queries/read-propos
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { RunProposing } from '@memory/application/services/run-proposing.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -60,7 +60,7 @@ const forgetting = (
   run: LeasedRun | null = LEASED,
   known: Memory | null = M12,
 ) => {
-  const added: MemoryDraft[] = [];
+  const added: MemoryProposalSet[] = [];
   let ids = 0;
   const work = {
     leasedBy: async () => run,
@@ -91,10 +91,10 @@ const forgetting = (
       work,
       {
         forTask: async () => null,
-        add: async (draft: MemoryDraft) => {
-          added.push(draft);
+        add: async (set: MemoryProposalSet) => {
+          added.push(set);
         },
-      } as unknown as MemoryDraftRepository,
+      } as unknown as MemoryProposalSetRepository,
       { inTransaction: <T>(each: () => Promise<T>) => each() },
       {
         generate: () => {
@@ -114,7 +114,7 @@ const forgetting = (
     new RunnerMemoryLoader(work),
     {
       forTask: async () => added[added.length - 1] ?? null,
-    } as unknown as MemoryDraftRepository,
+    } as unknown as MemoryProposalSetRepository,
     new MemoryReviews(
       work,
       { find: async () => null } as never,
@@ -149,7 +149,6 @@ describe('ForgetHandler', () => {
     const proposed = await proposedAs(await forget());
 
     expect(proposed).toMatchObject({
-      proposedBy: 'agent',
       state: 'proposed',
       editable: false,
       inactiveMemories: [],

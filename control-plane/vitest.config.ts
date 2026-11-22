@@ -25,7 +25,6 @@ const E2E_ENV = {
   SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: '127.0.0.1',
   SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: 'true',
   S3_BUCKET: 'files',
-  LLM_PRICES: 'none',
   SPOTLIGHT_LONG_POLL_MS: String(E2E_LONG_POLL_MS),
 };
 
@@ -48,9 +47,9 @@ const shared = {
       '@configuration': resolve(__dirname, 'src/contexts/configuration'),
       '@identity': resolve(__dirname, 'src/contexts/identity'),
       '@secrets': resolve(__dirname, 'src/contexts/secrets'),
-      '@inference': resolve(__dirname, 'src/contexts/inference'),
       '@catalog': resolve(__dirname, 'src/contexts/catalog'),
       '@notifications': resolve(__dirname, 'src/contexts/notifications'),
+      '@assist': resolve(__dirname, 'src/contexts/assist'),
       '@': resolve(__dirname, 'src'),
     },
   },

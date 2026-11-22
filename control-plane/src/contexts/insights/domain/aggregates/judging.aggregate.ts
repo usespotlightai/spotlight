@@ -6,6 +6,7 @@ import {
 } from '@insights/domain/services/grounded-verdict';
 import type { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
+import { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import {
@@ -149,6 +150,39 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     return this.failed(JudgingFailure.of('errored', now));
   }
 
+  waitJob(now: Date): Judging {
+    return this.job ? this.with({ job: this.job.wait(now) }) : this;
+  }
+
+  /** The round the leased job runs: its rubric and its try. */
+  get round(): JudgingRound {
+    if (!this.job) {
+      throw new InvalidJudgingError('has no round once it is done');
+    }
+
+    return this.roundOf(this.job.attempts);
+  }
+
+  /**
+   * Makes the job due now when the session it waits on has settled. A waiting job handed its try back, so it waits
+   * on the round of its next try; a job already due, or a session of any other round, is left as it is.
+   */
+  wake(round: JudgingRound, now: Date): Judging {
+    const { job } = this;
+
+    if (
+      !job ||
+      job.isDue(now) ||
+      !round.equals(this.roundOf(job.attempts + 1))
+    ) {
+      return this;
+    }
+
+    const woken = job.wake(now);
+
+    return woken === job ? this : this.with({ job: woken });
+  }
+
   deadLetter(now: Date): Judging {
     return this.ended(JudgingFailure.of('interrupted', now));
   }
@@ -211,6 +245,14 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       ),
     );
     return judged;
+  }
+
+  private roundOf(attempt: number): JudgingRound {
+    return JudgingRound.of({
+      runId: this.runId,
+      rubricVersion: this.rubric.version,
+      attempt,
+    });
   }
 
   private ended(failure: JudgingFailure): Judging {

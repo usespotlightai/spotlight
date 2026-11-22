@@ -1,5 +1,4 @@
 import type {
-  ChangedFile,
   LeasedRun,
   NamedStationContext,
   ReasonedStep,
@@ -38,7 +37,6 @@ export class Work implements WorkPort {
         taskId: run.taskId,
         attempt: run.attempt,
         orderedAt: run.orderedAt,
-        memories: run.memories,
         briefed: run.briefedWith.briefed.map((each) => each.id),
         omitted: run.briefedWith.omitted.map((each) => each.id),
       }
@@ -120,19 +118,6 @@ export class Work implements WorkPort {
 
   reasoningThrough(turn: AgentTurn): Promise<readonly ReasonedStep[] | null> {
     return this.reasonedSteps(turn.runId, turn.attempt);
-  }
-
-  async changedThrough(
-    turn: AgentTurn,
-  ): Promise<readonly ChangedFile[] | null> {
-    const changed = await this.work.changedBy(turn.runId, turn.attempt);
-
-    return (
-      changed?.map((each) => ({
-        repository: each.repository,
-        path: each.path,
-      })) ?? null
-    );
   }
 
   async notesOf(taskId: TaskId): Promise<readonly TaskNote[] | null> {

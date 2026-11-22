@@ -122,6 +122,13 @@ func stationBlock(path string, in io.Reader) (json.RawMessage, error) {
 }
 
 func proposeTo(url, token string, body []byte) ([]byte, error) {
+	return checkedBy(url, token, body, func(found []protocol.FieldError) string {
+		return problemsOf("Spotlight rejected the candidate:", found, "Fix the station block and propose it again.")
+	})
+}
+
+// checkedBy posts to the run's agent API and, when Spotlight finds problems with fields, says them as rejected does.
+func checkedBy(url, token string, body []byte, rejected func([]protocol.FieldError) string) ([]byte, error) {
 	request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -144,16 +151,16 @@ func proposeTo(url, token string, body []byte) ([]byte, error) {
 	var invalid protocol.FieldErrors
 	if response.StatusCode == http.StatusUnprocessableEntity &&
 		json.Unmarshal(read, &invalid) == nil && protocol.HasErrors(invalid.Errors) {
-		return nil, errors.New(problemsOf(invalid.Errors))
+		return nil, errors.New(rejected(invalid.Errors))
 	}
 
 	return nil, fmt.Errorf("%s", strings.TrimSpace(string(read)))
 }
 
-func problemsOf(found []protocol.FieldError) string {
+func problemsOf(heading string, found []protocol.FieldError, fix string) string {
 	var shown strings.Builder
 
-	shown.WriteString("Spotlight rejected the candidate:\n")
+	shown.WriteString(heading + "\n")
 	for _, each := range found {
 		fmt.Fprintf(&shown, "%s: %s", each.Path, flat(each.Message))
 		if each.Severity != protocol.SeverityError {
@@ -161,7 +168,7 @@ func problemsOf(found []protocol.FieldError) string {
 		}
 		shown.WriteString("\n")
 	}
-	shown.WriteString("Fix the station block and propose it again.")
+	shown.WriteString(fix)
 
 	return shown.String()
 }

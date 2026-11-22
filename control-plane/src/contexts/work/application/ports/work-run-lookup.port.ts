@@ -68,12 +68,6 @@ export interface ReasonedStep {
 
 export interface RunReasoning {
   readonly steps: readonly ReasonedStep[];
-  readonly changed: readonly string[];
-}
-
-export interface ChangedFile {
-  readonly repository: Repository;
-  readonly path: string;
 }
 
 export interface FilesUnder {
@@ -99,9 +93,4 @@ export interface WorkRunLookupPort {
     runId: RunId,
     throughAttempt: number | null,
   ): Promise<RunReasoning | null>;
-
-  changedBy(
-    runId: RunId,
-    throughAttempt: number | null,
-  ): Promise<readonly ChangedFile[] | null>;
 }

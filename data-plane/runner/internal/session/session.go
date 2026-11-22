@@ -48,6 +48,8 @@ type Journal interface {
 	DeliveredMemories(ctx context.Context, runID string, handles []string) error
 	ProposeCandidate(ctx context.Context, runID string, proposal protocol.CandidateProposal) (json.RawMessage, error)
 	RecordCause(ctx context.Context, runID string, record protocol.CauseRecord) (json.RawMessage, error)
+	SubmitAssistResult(ctx context.Context, runID string, result json.RawMessage) (json.RawMessage, error)
+	ProposeDecisions(ctx context.Context, runID string, decisions []protocol.ProposedDecision) (json.RawMessage, error)
 	MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error)
 	Messages(ctx context.Context, runID string) ([]protocol.Message, error)
 	AckMessages(ctx context.Context, runID string, upTo int) error
@@ -109,6 +111,12 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 
 	if searches(run) {
 		run.Spec.Checkouts = nil
+		run.Spec.Skills = nil
+		run.Spec.SettingFiles = nil
+		run.Spec.HarnessSetup.Files = nil
+	}
+
+	if assists(run) {
 		run.Spec.Skills = nil
 		run.Spec.SettingFiles = nil
 		run.Spec.HarnessSetup.Files = nil
@@ -209,12 +217,18 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 	}
 
 	var memoryFiles []protocol.MemoryFile
-	if searches(run) {
+	if searches(run) || assists(run) {
 		if err := space.Remove(memoryFolder); err != nil {
 			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear the team's memory: %w", err))
 		}
 	} else {
 		memoryFiles = writeMemoryFiles(ctx, opts.Journal, run.ID, space, log)
+	}
+
+	if assists(run) {
+		if err := writeAssistFiles(space, run.Spec.Assist.Files); err != nil {
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		}
 	}
 
 	state, err := space.State()
@@ -261,6 +275,9 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 			if searches(run) {
 				return notAllowedInSearch("reply to a review comment")
 			}
+			if assists(run) {
+				return notAllowedInAssist("reply to a review comment")
+			}
 			return opts.Journal.ReplyToReviewComment(ctx, run.ID, reply)
 		},
 	)
@@ -274,7 +291,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 	})
 	channel.Manifest(run.Spec.Manifest)
 
-	if !replays(run) && !searches(run) {
+	if !replays(run) && !searches(run) && !assists(run) {
 		channel.Attachments(attaching(opts.Journal, opts.Transport, run.ID))
 	}
 
@@ -291,6 +308,9 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 			if searches(run) {
 				return nil, notAllowedInSearch("recall what the team remembers")
 			}
+			if assists(run) {
+				return nil, notAllowedInAssist("recall what the team remembers")
+			}
 
 			from := time.Now()
 			answer, err := recall(ctx, opts.Journal, run.ID, request)
@@ -303,6 +323,9 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 			}
 			if searches(run) {
 				return nil, notAllowedInSearch("propose a memory")
+			}
+			if assists(run) {
+				return nil, notAllowedInAssist("propose a memory")
 			}
 
 			within, err := checkedOutPaths(space.Dir, run.Spec.Checkouts, remembered.Paths)
@@ -358,6 +381,40 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 			return opts.Journal.RecordCause(ctx, run.ID, record)
 		})
 	}
+
+	if assists(run) {
+		channel.RefuseHandover(notAllowedInAssist("hand over"))
+		channel.Candidates(func(context.Context, protocol.CandidateProposal) (json.RawMessage, error) {
+			return nil, notAllowedInAssist("propose a candidate")
+		})
+		channel.Causes(func(context.Context, protocol.CauseRecord) (json.RawMessage, error) {
+			return nil, notAllowedInAssist("record a cause")
+		})
+		channel.Submits(func(ctx context.Context, result json.RawMessage) (json.RawMessage, error) {
+			journal.flush(ctx)
+			return opts.Journal.SubmitAssistResult(ctx, run.ID, result)
+		})
+	}
+
+	channel.Decisions(func(ctx context.Context, decision protocol.ProposedDecision) (json.RawMessage, error) {
+		switch {
+		case replays(run):
+			return nil, notAllowedInReplay("record a decision")
+		case searches(run):
+			return nil, notAllowedInSearch("record a decision")
+		case assists(run):
+			return nil, notAllowedInAssist("record a decision")
+		}
+
+		within, err := checkedOutPaths(space.Dir, run.Spec.Checkouts, decision.Paths)
+		if err != nil {
+			return nil, err
+		}
+		decision.Paths = within
+
+		journal.flush(ctx)
+		return opts.Journal.ProposeDecisions(ctx, run.ID, []protocol.ProposedDecision{decision})
+	})
 
 	telemetry, err := otel.Serve(func(span json.RawMessage) {
 		journal.append(protocol.Event{Type: protocol.EventSpan, Data: span})
@@ -485,6 +542,41 @@ func searches(run protocol.Run) bool {
 
 func notAllowedInSearch(what string) error {
 	return &agentapi.Error{Because: "a search may not " + what + ": it studies the station's history and proposes station configs, nothing more"}
+}
+
+func assists(run protocol.Run) bool {
+	return run.Spec.Assist != nil
+}
+
+func notAllowedInAssist(what string) error {
+	return &agentapi.Error{Because: "an assist session may not " + what + ": it reads the files in " + protocol.AssistFolder + " and submits one result with spotlight submit, nothing more"}
+}
+
+func writeAssistFiles(space *workspace.Workspace, files map[string]string) error {
+	if err := space.Remove(protocol.AssistFolder); err != nil {
+		return fmt.Errorf("clear the assist folder: %w", err)
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(files)) {
+		within, err := assistPath(name)
+		if err != nil {
+			return err
+		}
+		if err := space.Replace(within, nil, writing(files[name])); err != nil {
+			return fmt.Errorf("write assist file %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+func assistPath(name string) (string, error) {
+	cleaned := filepath.Clean(filepath.FromSlash(name))
+	if !filepath.IsLocal(cleaned) || cleaned == "." {
+		return "", fmt.Errorf("assist file %q escapes %s", name, protocol.AssistFolder)
+	}
+
+	return filepath.Join(filepath.FromSlash(protocol.AssistFolder), cleaned), nil
 }
 
 func (o Options) heartbeat() time.Duration {

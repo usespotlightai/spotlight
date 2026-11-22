@@ -1,7 +1,7 @@
 import type { ApproveMemoriesCommand } from '@memory/application/commands/approve-memories.command';
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -20,7 +20,7 @@ export class ApproveMemoriesHandler implements CommandHandlerPort<
 > {
   constructor(
     private readonly access: MemoryAccess,
-    private readonly drafts: MemoryDraftRepository,
+    private readonly sets: MemoryProposalSetRepository,
     private readonly memories: MemoryRepository,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
@@ -39,9 +39,9 @@ export class ApproveMemoriesHandler implements CommandHandlerPort<
       }
 
       await this.transaction.inTransaction(async () => {
-        const draft = await this.drafts.forTask(reviewing.task.id);
+        const set = await this.sets.forTask(reviewing.task.id);
 
-        if (!draft) {
+        if (!set) {
           throw new UnknownMemoryError(command.memories[0]?.id ?? '');
         }
 
@@ -50,11 +50,11 @@ export class ApproveMemoriesHandler implements CommandHandlerPort<
           id: MemoryId.of(each.id),
           body: each.body,
         }));
-        const decided = draft.approve({
+        const decided = set.approve({
           runId,
           approving,
           current: await this.memories.findAll(
-            draft.retiredBy(
+            set.retiredBy(
               runId,
               approving.map((each) => each.id),
             ),
@@ -64,7 +64,7 @@ export class ApproveMemoriesHandler implements CommandHandlerPort<
             at: this.clock.now(),
           }),
         });
-        await this.drafts.save(decided);
+        await this.sets.save(decided);
       });
     } catch (error) {
       rethrowAsApplicationError(error);

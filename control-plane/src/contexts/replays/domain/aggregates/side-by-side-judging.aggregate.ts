@@ -8,6 +8,7 @@ import {
   type PairOrder,
   pairOrderOf,
 } from '@replays/domain/value-objects/pair-order';
+import { SideBySideJudgingRound } from '@replays/domain/value-objects/side-by-side-judging-round.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
@@ -179,6 +180,39 @@ export class SideBySideJudging
     return this.failed(JudgingFailure.of('errored', now));
   }
 
+  waitJob(now: Date): SideBySideJudging {
+    return this.job ? this.with({ job: this.job.wait(now) }) : this;
+  }
+
+  /** The round the leased job runs. */
+  get round(): SideBySideJudgingRound {
+    if (!this.state.job) {
+      throw new InvalidJudgingError('has no round once it is done');
+    }
+
+    return this.roundOf(this.state.job.attempts);
+  }
+
+  /**
+   * Makes the job due now when a session it waits on has settled. A waiting job handed its try back, so it waits
+   * on the round of its next try; a job already due, or a session of any other round, is left as it is.
+   */
+  wake(round: SideBySideJudgingRound, now: Date): SideBySideJudging {
+    const { job } = this.state;
+
+    if (
+      !job ||
+      job.isDue(now) ||
+      !round.equals(this.roundOf(job.attempts + 1))
+    ) {
+      return this;
+    }
+
+    const woken = job.wake(now);
+
+    return woken === job ? this : this.with({ job: woken });
+  }
+
   deadLetter(now: Date): SideBySideJudging {
     return this.ended(JudgingFailure.of('interrupted', now));
   }
@@ -244,6 +278,14 @@ export class SideBySideJudging
       ),
     );
     return judged;
+  }
+
+  private roundOf(attempt: number): SideBySideJudgingRound {
+    return SideBySideJudgingRound.of({
+      runId: this.state.runId,
+      otherRunId: this.state.otherRunId,
+      attempt,
+    });
   }
 
   private ended(failure: JudgingFailure): SideBySideJudging {

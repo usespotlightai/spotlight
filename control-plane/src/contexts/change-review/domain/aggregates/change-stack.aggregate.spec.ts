@@ -10,8 +10,11 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { DraftingRound } from '@change-review/domain/value-objects/drafting-round.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { SessionFailure } from '@change-review/domain/value-objects/session-failure.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
   DraftedCohort,
   ProposedCohort,
@@ -24,6 +27,7 @@ import {
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
+import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
@@ -31,6 +35,7 @@ import {
   JOB_BACKOFF_MS,
   JOB_LEASE_MS,
   MAX_JOB_ATTEMPTS,
+  WAIT_MS,
 } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -479,30 +484,132 @@ describe('ChangeStack', () => {
     ).toBe(true);
   });
 
-  it('fails a stack whose answer was cut off, and retries one whose call failed', () => {
-    const leased = generating().leaseJob(NOW);
+  it('waits for its drafting session without spending an attempt', () => {
+    const at = new Date(LATER.getTime() + 15_000);
+    const waiting = generating().leaseJob(NOW).waitJob(at);
 
-    expect(
-      leased.settleFailedCall(
-        { truncated: true, insufficientCredits: false },
-        LATER,
-      ).failure,
-    ).toBe('too-large');
-    expect(
-      leased.settleFailedCall(
-        { truncated: false, insufficientCredits: false },
-        LATER,
-      ).state,
-    ).toBe('generating');
+    expect(waiting.state).toBe('generating');
+    expect(waiting.job.attempts).toBe(0);
+    expect(waiting.job.isDue(LATER)).toBe(false);
+    expect(waiting.job.isDue(new Date(at.getTime() + WAIT_MS))).toBe(true);
+    expect(waiting.job.waitingSince).toEqual(at);
   });
 
-  it('fails a stack at once when the endpoint has no credits', () => {
-    const failed = generating()
-      .leaseJob(NOW)
-      .settleFailedCall({ truncated: false, insufficientCredits: true }, LATER);
+  it('drafts in the round of its job: a wait keeps the round, a retry starts a new one', () => {
+    const leased = generating().leaseJob(NOW);
+    const waited = leased
+      .waitJob(LATER)
+      .leaseJob(new Date(LATER.getTime() + WAIT_MS));
+    const retried = leased
+      .scheduleRetry(LATER)
+      .leaseJob(new Date(LATER.getTime() + 3_600_000));
 
-    expect(failed.state).toBe('failed');
-    expect(failed.failure).toBe('insufficient-credits');
+    expect(
+      leased
+        .draftingRound()
+        .equals(DraftingRound.draft(ChangeStackId.of('stack-1'), 1)),
+    ).toBe(true);
+    expect(waited.draftingRound().equals(leased.draftingRound())).toBe(true);
+    expect(retried.draftingRound().equals(leased.draftingRound())).toBe(false);
+  });
+
+  it('wakes the job that waits for the session of its round, and nothing else', () => {
+    const waiting = generating().leaseJob(NOW).waitJob(NOW);
+    const round = DraftingRound.draft(ChangeStackId.of('stack-1'), 1);
+
+    expect(waiting.wake(round, LATER).job.isDue(LATER)).toBe(true);
+    expect(
+      waiting.wake(DraftingRound.draft(ChangeStackId.of('stack-2'), 1), LATER),
+    ).toBe(waiting);
+    expect(
+      waiting.wake(
+        DraftingRound.redraft(
+          StackCheckId.first(ChangeStackId.of('stack-1')),
+          1,
+        ),
+        LATER,
+      ),
+    ).toBe(waiting);
+
+    const leased = generating().leaseJob(NOW);
+    expect(leased.wake(round, LATER)).toBe(leased);
+  });
+
+  it('stops undrafted where its session cannot run, and drafts again after any other failure', () => {
+    for (const reason of ['no-harness', 'base-run-elsewhere'] as const) {
+      const stopped = generating()
+        .leaseJob(NOW)
+        .settleUndrafted(SessionFailure.of(reason), LATER);
+
+      expect(stopped.state).toBe('failed');
+      expect(stopped.failure).toBe('not-generated');
+    }
+
+    for (const reason of ['run-failed', 'no-result'] as const) {
+      const retried = generating()
+        .leaseJob(NOW)
+        .settleUndrafted(SessionFailure.of(reason), LATER);
+
+      expect(retried.state).toBe('generating');
+      expect(retried.job.isDue(LATER)).toBe(false);
+    }
+  });
+
+  it('is redrafted only in a round of its own check', () => {
+    const ready = generating().propose(
+      [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+      LATER,
+    );
+    const check = StackCheckId.first(ready.id);
+
+    expect(() => ready.redraftingRound(check)).toThrow(InvalidChangeStackError);
+    expect(() => ready.draftingRound()).toThrow(InvalidChangeStackError);
+
+    const round = ready.requestRedraft().leaseJob(LATER).redraftingRound(check);
+
+    expect(round.equals(DraftingRound.redraft(check, 1))).toBe(true);
+    expect(() =>
+      ready
+        .requestRedraft()
+        .redraftingRound(StackCheckId.first(ChangeStackId.of('stack-2'))),
+    ).toThrow(InvalidChangeStackError);
+  });
+
+  it('drafts again with the problems of a draft that broke its rules, and stops once its attempts run out', () => {
+    const problems = [StackProblem.shape('leaves h2 out')];
+    const retried = generating()
+      .leaseJob(NOW)
+      .retryForBrokenRules(problems, LATER);
+
+    expect(retried.state).toBe('generating');
+    expect(retried.problems).toEqual(problems);
+    expect(retried.job.isDue(LATER)).toBe(false);
+
+    let exhausted = generating();
+    for (let at = 0; at < MAX_JOB_ATTEMPTS; at += 1) {
+      exhausted = exhausted.leaseJob(new Date(NOW.getTime() + at * 3_600_000));
+    }
+    const stopped = exhausted.retryForBrokenRules(problems, LATER);
+
+    expect(stopped.state).toBe('failed');
+    expect(stopped.failure).toBe('broke-rules');
+    expect(stopped.problems).toEqual([]);
+  });
+
+  it('forgets the problems of earlier drafts once a draft is accepted', () => {
+    const ready = generating()
+      .leaseJob(NOW)
+      .retryForBrokenRules([StackProblem.shape('leaves h2 out')], LATER)
+      .propose([invitations([layer('Everything', ['h1', 'h2', 'h3'])])], LATER);
+
+    expect(ready.problems).toEqual([]);
+  });
+
+  it('is not generated when no session can draft it', () => {
+    const stopped = generating().leaseJob(NOW).stopUndrafted(LATER);
+
+    expect(stopped.state).toBe('failed');
+    expect(stopped.failure).toBe('not-generated');
   });
 
   it('is leased to one worker at a time while it is generated', () => {
@@ -799,6 +906,7 @@ describe('ChangeStack read back from what was stored', () => {
       redrafting: false,
       previous: null,
       removed: [],
+      problems: [],
       version: 1,
       ...over,
     });

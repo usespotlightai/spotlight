@@ -87,6 +87,7 @@ const scheduleOf = (row: ScheduleRow): MemoryUpkeepSchedule =>
     job: PendingJob.rehydrate({
       attempts: row.jobAttempts,
       nextAttemptAt: row.jobDueAt,
+      waitingSince: row.waitingSince,
     }),
     version: row.version,
   });
@@ -97,6 +98,7 @@ const scheduleColumns = (schedule: MemoryUpkeepSchedule) => ({
   addedSince: schedule.addedSince,
   jobAttempts: schedule.job.attempts,
   jobDueAt: schedule.job.nextAttemptAt,
+  waitingSince: schedule.job.waitingSince,
 });
 
 @Injectable()

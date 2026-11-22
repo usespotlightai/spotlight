@@ -1,6 +1,7 @@
 import { StationAlertStatesInMemory } from '@insights/alerts.fake-spec';
 import { chatsInMemory } from '@insights/application/ports/chats.fake-spec';
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
+import type { SettledSession } from '@insights/application/ports/session-outcomes';
 import type { EndedRun } from '@insights/application/ports/work.port';
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
@@ -21,6 +22,7 @@ import { RecordTaskAction } from '@insights/application/services/record-task-act
 import { RecordTaskFailure } from '@insights/application/services/record-task-failure.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
+import type { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { RunJudged } from '@insights/domain/events/run-judged.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
@@ -144,7 +146,13 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const shapes = new TaskChangeShapesInMemory();
   const deletions = deletionsInMemory();
   let next = 0;
+  const settled: SettledSession[] = [];
   const subscribers = insightsSubscribers({
+    waking: {
+      sessionSettled: async (session: SettledSession) => {
+        settled.push(session);
+      },
+    } as unknown as WorkJudgings,
     ending: new RecordRunEnding(
       WORK,
       records,
@@ -206,15 +214,6 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
           passThreshold: 1,
           sample: 1,
           minAgreement: 0.6,
-        }),
-      },
-      {
-        availableTo: async () => true,
-        judge: async () => ({
-          model: 'some/model',
-          verdict: { claims: [] },
-          guidance: null,
-          usage: null,
         }),
       },
       judgings,
@@ -333,6 +332,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       alertsNow = next;
     },
     subscribers,
+    settled,
     deliver,
     record: () => records.of(RunId.of('run_1')),
   };
@@ -391,6 +391,29 @@ describe('insightsSubscribers', () => {
     expect(new Set(subscribers.map((each) => each.name)).size).toBe(
       subscribers.length,
     );
+  });
+
+  it('wakes the judging that waits on an assist session once the session settles', async () => {
+    const subscriber = subscribed();
+
+    await subscriber.deliver(
+      'insights.wake-judging-after-assist-session-settled',
+      {
+        kind: 'assist.session-settled.v1',
+        workspaceId: 'ws_1',
+        purpose: 'insights.judge',
+        key: 'judging:run_1:x:1',
+        outcome: 'submitted',
+      },
+    );
+
+    expect(subscriber.settled).toEqual([
+      {
+        workspaceId: 'ws_1',
+        purpose: 'insights.judge',
+        key: 'judging:run_1:x:1',
+      },
+    ]);
   });
 
   it('records a run that ended at a station', async () => {

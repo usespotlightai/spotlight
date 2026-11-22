@@ -1,7 +1,6 @@
 import { CatalogModule } from '@catalog/catalog.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
-import { InferenceModule } from '@inference/inference.module';
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -24,7 +23,6 @@ import { ContextBindingsModule } from './context-bindings.module';
     RunnersModule,
     IdentityModule,
     SecretsModule,
-    InferenceModule,
     CatalogModule,
     GitHubModule,
     NotificationsModule,

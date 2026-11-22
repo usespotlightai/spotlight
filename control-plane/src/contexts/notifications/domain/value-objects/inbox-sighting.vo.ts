@@ -24,6 +24,7 @@ export interface InboxRecount {
   readonly requestedAt: Date;
   readonly attempts: number;
   readonly dueAt: Date | null;
+  readonly waitingSince: Date | null;
 }
 
 export interface ArrivalLedgerer {

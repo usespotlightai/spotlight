@@ -47,6 +47,7 @@ const toSource = (row: ClaimsSourceRow): ClaimsSource =>
       ? PendingJob.rehydrate({
           attempts: row.jobAttempts,
           nextAttemptAt: row.jobDueAt,
+          waitingSince: row.waitingSince,
         })
       : null,
     lookups: row.lookups,
@@ -61,6 +62,7 @@ const columnsOf = (stored: ClaimsSource) => ({
   pending: stored.job !== null,
   jobAttempts: stored.job?.attempts ?? 0,
   jobDueAt: stored.job?.nextAttemptAt ?? null,
+  waitingSince: stored.job?.waitingSince ?? null,
   lookups: stored.lookups,
 });
 

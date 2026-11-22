@@ -27,10 +27,6 @@ import type {
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type {
-  InferenceEndpointConfigurationPort,
-  InferenceEndpointView,
-} from '@inference/application/ports/inference-endpoint-configuration.port';
-import type {
   LineRecord,
   LineResourcesPort,
 } from '@lines/application/ports/line-resources.port';
@@ -61,15 +57,6 @@ const teamOf = (id: string, key: string): TeamProfile => ({
 });
 
 const CORE = teamOf('team_core', 'core');
-
-const INFERENCE_ENDPOINT: InferenceEndpointView = {
-  id: 'inference_1',
-  workspaceId: WORKSPACE,
-  baseUrl: 'https://openrouter.ai/api/v1',
-  model: 'openai/gpt-5-mini',
-  apiKeySet: true,
-  apiKeyVersion: 2,
-};
 
 const OPS = teamOf('team_ops', 'ops');
 
@@ -330,12 +317,6 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       id === OIDC_TRUST.id ? OIDC_TRUST : null,
     ),
   } satisfies OidcTrustConfigurationPort;
-  const inferenceEndpoints = {
-    in: vi.fn(async () => INFERENCE_ENDPOINT),
-    withId: vi.fn(async (id: string) =>
-      id === INFERENCE_ENDPOINT.id ? INFERENCE_ENDPOINT : null,
-    ),
-  } satisfies InferenceEndpointConfigurationPort;
   const configurations = new ExportableConfigurations(
     teams,
     lines,
@@ -347,7 +328,6 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     secrets,
     runners,
     oidcTrusts,
-    inferenceEndpoints,
   );
 
   return {
@@ -369,7 +349,6 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       secrets,
       runners,
       oidcTrusts,
-      inferenceEndpoints,
       configurations,
     ),
   };
@@ -399,7 +378,6 @@ describe('WorkspaceConfigurationHandler', () => {
         'runner-trust cluster',
         'runner-pool burst',
         'workspace-runners acme',
-        'inference-endpoint acme',
         'team core',
         'line core/delivery',
         'line core/triage',
@@ -453,7 +431,6 @@ describe('ResourceConfigurationHandler', () => {
     ['runner-trust', 'trust_1', 'cluster'],
     ['runner-pool', 'pool_1', 'burst'],
     ['workspace-runners', 'declared_1', 'acme'],
-    ['inference-endpoint', 'inference_1', 'acme'],
   ] as const)(
     'contains the %s with its whole workspace around it',
     async (kind, id, address) => {
@@ -476,19 +453,6 @@ describe('ResourceConfigurationHandler', () => {
       maxRuns: 4,
       tokenVersion: 1,
       provision: null,
-    });
-  });
-
-  it('contains the inference endpoint without its key, addressed by the workspace slug', async () => {
-    expect((await one('inference-endpoint', 'inference_1'))?.resource).toEqual({
-      kind: 'inference-endpoint',
-      ownedBy: 'workspace',
-      id: 'inference_1',
-      address: 'acme',
-      baseUrl: 'https://openrouter.ai/api/v1',
-      model: 'openai/gpt-5-mini',
-      apiKeySet: true,
-      apiKeyVersion: 2,
     });
   });
 

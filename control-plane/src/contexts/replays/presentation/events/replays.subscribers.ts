@@ -37,6 +37,8 @@ import type { StartWantedBaseline } from '@replays/application/services/start-wa
 import type { StopFailedChecks } from '@replays/application/services/stop-failed-checks.service';
 import type { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import type { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
+import type { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
+import type { WorkSideBySideJudgings } from '@replays/application/services/work-side-by-side-judgings.service';
 import type { ChangeJudged } from '@replays/domain/events/change-judged.event';
 import type { ChangeJudgingFailed } from '@replays/domain/events/change-judging-failed.event';
 import type { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
@@ -78,6 +80,11 @@ import {
   ReplaysRequester,
 } from '@replays/domain/value-objects/replays-requester.vo';
 import { runResultOf } from '@replays/presentation/events/run-result.translation';
+import { settledSessionOf } from '@replays/presentation/events/session-settled.translation';
+import {
+  ASSIST_SESSION_SETTLED,
+  type AssistSessionSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/assist-session-settled.integration-event';
 import {
   DISPATCH_ENDED,
   type DispatchEndedIntegrationEvent,
@@ -173,6 +180,8 @@ export interface ReplaysReactions {
   readonly schedules: SearchSchedules;
   readonly turningOff: TurnOffSearches;
   readonly following: FollowConfigPullRequests;
+  readonly wakingChangeJudgings: WorkChangeJudgings;
+  readonly wakingSideBySideJudgings: WorkSideBySideJudgings;
 }
 
 const requestedAReplay = (event: {
@@ -279,6 +288,20 @@ export const replaysSubscribers = (
     ['replay.entry-concluded'],
     (event) => reactions.pairing.concluded(event),
     { callsOut: true },
+  ),
+  subscribing<AssistSessionSettledIntegrationEvent>(
+    'replays.wake-change-judging-after-assist-session-settled',
+    [ASSIST_SESSION_SETTLED],
+    (event) =>
+      reactions.wakingChangeJudgings.sessionSettled(settledSessionOf(event)),
+  ),
+  subscribing<AssistSessionSettledIntegrationEvent>(
+    'replays.wake-side-by-side-judging-after-assist-session-settled',
+    [ASSIST_SESSION_SETTLED],
+    (event) =>
+      reactions.wakingSideBySideJudgings.sessionSettled(
+        settledSessionOf(event),
+      ),
   ),
   subscribing<ReplaySideBySideJudgingRequested>(
     'replays.request-side-by-side-judging',

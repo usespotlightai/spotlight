@@ -16,6 +16,7 @@ import type { RecordTaskAction } from '@insights/application/services/record-tas
 import type { RecordTaskFailure } from '@insights/application/services/record-task-failure.service';
 import type { RequestJudging } from '@insights/application/services/request-judging.service';
 import type { WatchStations } from '@insights/application/services/watch-stations.service';
+import type { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import type { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
 import type { RunJudged } from '@insights/domain/events/run-judged.event';
 import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
@@ -26,6 +27,11 @@ import type { StationAlertResolved } from '@insights/domain/events/station-alert
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { observedPullRequestOf } from '@insights/presentation/events/github-pull-request.translation';
 import { runEndedOf } from '@insights/presentation/events/run-ended.translation';
+import { settledSessionOf } from '@insights/presentation/events/session-settled.translation';
+import {
+  ASSIST_SESSION_SETTLED,
+  type AssistSessionSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/assist-session-settled.integration-event';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -139,6 +145,7 @@ export interface InsightsHandlers {
   readonly shaping: RecordChangeShape;
   readonly watching: WatchStations;
   readonly alerting: AlertInbox;
+  readonly waking: WorkJudgings;
 }
 
 type DeletedEvent =
@@ -254,6 +261,11 @@ const deletionSubscriber = (
 export const insightsSubscribers = (
   handlers: InsightsHandlers,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<AssistSessionSettledIntegrationEvent>(
+    'insights.wake-judging-after-assist-session-settled',
+    [ASSIST_SESSION_SETTLED],
+    (event) => handlers.waking.sessionSettled(settledSessionOf(event)),
+  ),
   subscribing<DispatchEndedIntegrationEvent>(
     'insights.record-ended-run',
     [DISPATCH_ENDED],

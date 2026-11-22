@@ -12,6 +12,7 @@ class Item implements HasPendingJob<Item> {
     readonly state: 'pending' | 'leased' | 'done' | 'dead-lettered',
     readonly lastTry: boolean,
     readonly spent = 0,
+    readonly waitingSince: Date | null = null,
   ) {}
 
   get hasPendingJob(): boolean {
@@ -23,24 +24,33 @@ class Item implements HasPendingJob<Item> {
   }
 
   leaseJob(): Item {
-    return new Item(this.attempts + 1, 'leased', this.lastTry, this.spent);
+    return this.with(this.attempts + 1, 'leased');
   }
 
   scheduleRetry(): Item {
+    return this.with(this.attempts, this.lastTry ? 'dead-lettered' : 'pending');
+  }
+
+  waitJob(now: Date): Item {
     return new Item(
-      this.attempts,
-      this.lastTry ? 'dead-lettered' : 'pending',
+      this.attempts - 1,
+      'pending',
       this.lastTry,
       this.spent,
+      now,
     );
   }
 
   deadLetter(): Item {
-    return new Item(this.attempts, 'dead-lettered', this.lastTry, this.spent);
+    return this.with(this.attempts, 'dead-lettered');
   }
 
   spending(more: number): Item {
     return new Item(this.attempts, this.state, this.lastTry, this.spent + more);
+  }
+
+  private with(attempts: number, state: Item['state']): Item {
+    return new Item(attempts, state, this.lastTry, this.spent);
   }
 }
 
@@ -196,5 +206,43 @@ describe('JobLoop', () => {
       failure,
       expect.objectContaining({ source: 'Judging runs', runId: 'run-1' }),
     );
+  });
+
+  describe('while the job waits', () => {
+    const waiting = async (item: Item): Promise<Item> =>
+      item.waitJob(new Date(0));
+
+    it('saves the job its process put back to wait, without counting the attempt or an error', async () => {
+      const loop = looping(new Item(1, 'pending', false), waiting);
+
+      await loop.processOnce();
+
+      expect(loop.stored()).toMatchObject({
+        state: 'pending',
+        attempts: 1,
+        waitingSince: new Date(0),
+      });
+      expect(loop.error).not.toHaveBeenCalled();
+      expect(loop.report).not.toHaveBeenCalled();
+      expect(loop.telemetry.counted).toEqual([
+        {
+          metric: 'spotlight.jobs',
+          attributes: {
+            'spotlight.job.source': 'Judging runs',
+            'spotlight.job.outcome': 'processed',
+          },
+        },
+      ]);
+    });
+
+    it('never runs out of attempts however often it waits', async () => {
+      const loop = looping(new Item(0, 'pending', true), waiting);
+
+      for (let round = 0; round <= MAX_TRIES; round += 1) {
+        await loop.processOnce();
+      }
+
+      expect(loop.stored()).toMatchObject({ state: 'pending', attempts: 0 });
+    });
   });
 });

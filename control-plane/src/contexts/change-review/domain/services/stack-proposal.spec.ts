@@ -109,33 +109,6 @@ describe('StackProposal', () => {
     ]);
   });
 
-  it('reports the problems of what the model proposed, unless the model’s own proposal would pass', () => {
-    const problemsWith = (modelProposal: ProposedCohort[]) => {
-      try {
-        StackProposal.accepted({
-          diff: DIFF,
-          facts: NO_FACTS,
-          cohorts: proposal(NOTED.slice(0, 1)),
-          modelProposal,
-        });
-      } catch (error) {
-        if (error instanceof InvalidChangeStackError) {
-          return error.problems.map((each) => each.message);
-        }
-        throw error;
-      }
-      return [];
-    };
-
-    expect(problemsWith(proposal([]))).toEqual([
-      'cohort 1, layer 1 has no note on src/invite.ts',
-      'cohort 1, layer 1 has no note on src/routes.ts',
-    ]);
-    expect(problemsWith(proposal(NOTED))).toEqual([
-      'cohort 1, layer 1 has no note on src/routes.ts',
-    ]);
-  });
-
   it('rejects a change layer that leaves a file it touches without a note', () => {
     expect(problemsOf(proposal(NOTED.slice(0, 1)))).toEqual([
       {
@@ -263,12 +236,12 @@ describe('StackProposal', () => {
 
     for (const changeLayersAtLeast of [undefined, 0]) {
       expect(
-        StackProposal.checkedCohort({
+        StackProposal.accepted({
           diff: DIFF,
           facts,
-          cohort: incidental,
+          cohorts: [incidental],
           changeLayersAtLeast,
-        }).layers.map((each) => each.hunks.map((entry) => entry.hunk)),
+        })[0]?.layers.map((each) => each.hunks.map((entry) => entry.hunk)),
       ).toEqual([['h2', 'h1'], ['h3']]);
     }
   });

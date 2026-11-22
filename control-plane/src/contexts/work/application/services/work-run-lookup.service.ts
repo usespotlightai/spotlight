@@ -1,7 +1,6 @@
 import type {
   JournalStep,
   NumberedJournalStep,
-  RunChanges,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
@@ -21,7 +20,6 @@ import type {
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
-  ChangedFile,
   FilesUnder,
   LeasedRunLookup,
   ReasonedStep,
@@ -32,10 +30,8 @@ import type {
   WorkRunLookupPort,
 } from '@work/application/ports/work-run-lookup.port';
 import { referencesUnder } from '@work/application/services/journal-references';
-import { distinctFiles } from '@work/application/services/touched-files';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { filesChangedIn } from '@work/domain/services/files-changed-in';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -45,16 +41,6 @@ interface RunTeam {
   readonly runId: RunId;
   readonly team: TeamId | null;
 }
-
-const changesIn = (
-  runId: RunId,
-  steps: readonly JournalStep[],
-  checkouts: readonly string[],
-): RunChanges => ({
-  runId: runId.value,
-  checkouts,
-  paths: steps.flatMap((step) => (step.change?.path ? [step.change.path] : [])),
-});
 
 const stepsOf = (numbered: readonly NumberedJournalStep[]): JournalStep[] =>
   numbered.map((each) => each.step);
@@ -165,61 +151,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
         )
       : null;
 
-    if (!run || !steps) {
-      return null;
-    }
-
-    const taskId = taskOf(await this.dispatches.of(runId));
-    const own = changesIn(runId, stepsOf(steps), run.checkouts);
-    const changes = taskId
-      ? [
-          ...(await this.journals.changesOfTask(taskId)).filter(
-            (each) => each.runId !== runId.value,
-          ),
-          own,
-        ]
-      : [own];
-
-    return {
-      steps: steps.flatMap(reasoned),
-      changed: [
-        ...new Set(
-          changes.flatMap((each) => this.readings.workingCopyPathsIn(each)),
-        ),
-      ],
-    };
-  }
-
-  async changedBy(
-    runId: RunId,
-    throughAttempt: number | null,
-  ): Promise<readonly ChangedFile[] | null> {
-    const [run] = await this.facts.of([runId]);
-    const steps = run
-      ? this.readings.stepsThrough(
-          await this.journals.attemptsOfRun(runId),
-          throughAttempt,
-        )
-      : null;
-
-    if (!run || !steps) {
-      return null;
-    }
-
-    const dispatched = await this.dispatches.of(runId);
-    const stationId = stationOf(dispatched);
-    const line = stationId ? await this.lines.findByStation(stationId) : null;
-    const repositories =
-      dispatched && line ? await this.repositoriesOn(dispatched.for, line) : [];
-
-    return distinctFiles(
-      filesChangedIn(
-        this.readings.workingCopyPathsIn(
-          changesIn(runId, stepsOf(steps), run.checkouts),
-        ),
-        repositories,
-      ),
-    );
+    return steps && { steps: steps.flatMap(reasoned) };
   }
 
   async leasedBy(

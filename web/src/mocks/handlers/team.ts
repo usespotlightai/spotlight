@@ -321,7 +321,6 @@ const memoryHandlers = [
       kind: input.kind,
       body: input.body.trim(),
       source: 'run',
-      proposedBy: 'agent',
       state: 'proposed',
       scope: input.scope ?? 'line',
       repository: null,

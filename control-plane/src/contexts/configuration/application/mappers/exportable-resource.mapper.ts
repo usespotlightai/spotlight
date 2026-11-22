@@ -6,7 +6,6 @@ import type { SkillRecord } from '@configuration/application/ports/skill-resourc
 import type { OidcTrustView } from '@identity/application/ports/oidc-trust-configuration.port';
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
-import type { InferenceEndpointView } from '@inference/application/ports/inference-endpoint-configuration.port';
 import type { LineRecord } from '@lines/application/ports/line-resources.port';
 import type {
   EgressView,
@@ -118,22 +117,6 @@ export const ExportableResourceMapper = {
       address: declared.address,
       trusts: [...declared.trusts],
       pools: [...declared.pools],
-    };
-  },
-
-  inferenceEndpoint(
-    endpoint: InferenceEndpointView,
-    workspaceSlug: string,
-  ): ExportableResourceDto {
-    return {
-      kind: 'inference-endpoint',
-      ownedBy: 'workspace',
-      id: endpoint.id,
-      address: workspaceSlug,
-      baseUrl: endpoint.baseUrl,
-      model: endpoint.model,
-      apiKeySet: endpoint.apiKeySet,
-      apiKeyVersion: endpoint.apiKeyVersion,
     };
   },
 

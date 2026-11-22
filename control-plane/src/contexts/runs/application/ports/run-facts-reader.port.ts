@@ -14,6 +14,9 @@ export interface RunFactsReaderPort {
     ids: readonly WorkingCopyArchiveId[],
   ): Promise<readonly WorkingCopyArchive[]>;
 
+  /** The newest completed archive granted to the run, or null when it completed none. */
+  newestArchiveOf(run: RunId): Promise<WorkingCopyArchive | null>;
+
   turnsSuspendedBefore(
     owner: RequesterOwner,
     turn: RunTurnState,

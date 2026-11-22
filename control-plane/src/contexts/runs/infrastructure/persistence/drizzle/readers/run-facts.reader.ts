@@ -11,7 +11,17 @@ import { toArchive } from '@runs/infrastructure/persistence/drizzle/repositories
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { and, asc, eq, gt, inArray, lt, or } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  lt,
+  or,
+} from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunFactsReader implements RunFactsReaderPort {
@@ -44,6 +54,22 @@ export class DrizzleRunFactsReader implements RunFactsReaderPort {
       .where(inArray(workingCopyArchive.id, wanted));
 
     return rows.map(toArchive);
+  }
+
+  async newestArchiveOf(runId: RunId): Promise<WorkingCopyArchive | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(workingCopyArchive)
+      .where(
+        and(
+          eq(workingCopyArchive.grantedToRunId, runId.value),
+          isNotNull(workingCopyArchive.completedAt),
+        ),
+      )
+      .orderBy(desc(workingCopyArchive.completedAt))
+      .limit(1);
+
+    return row ? toArchive(row) : null;
   }
 
   async turnsSuspendedBefore(

@@ -100,14 +100,6 @@ export interface ProposedCohort {
   readonly layers: readonly ProposedLayer[];
 }
 
-export interface OutlinedCohort {
-  readonly kind: CohortKind;
-  readonly title: string;
-  readonly intent: string;
-  readonly joinedBecause: string | null;
-  readonly hunks: readonly HunkId[];
-}
-
 export interface DraftedLayer extends Omit<
   ProposedLayer,
   'hunks' | 'questions'
@@ -120,14 +112,6 @@ export interface DraftedLayer extends Omit<
   }[];
 }
 
-export type DraftedLayerPlan = Omit<DraftedLayer, 'notes' | 'questions'>;
-
-export type DraftedLayerDetails = Pick<DraftedLayer, 'notes' | 'questions'>;
-
 export interface DraftedCohort extends Omit<ProposedCohort, 'layers'> {
   readonly layers: readonly DraftedLayer[];
-}
-
-export interface DraftedOutline extends Omit<OutlinedCohort, 'hunks'> {
-  readonly hunks: readonly string[];
 }

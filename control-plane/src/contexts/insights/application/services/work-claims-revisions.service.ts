@@ -1,10 +1,18 @@
-import { JudgingError } from '@insights/application/errors/judging.error';
 import type {
   ClaimsDrafterPort,
   DisagreementCase,
 } from '@insights/application/ports/claims-drafter.port';
 import type { EvidencePort } from '@insights/application/ports/evidence.port';
-import type { JudgePort } from '@insights/application/ports/judge.port';
+import type {
+  JudgeAnswer,
+  JudgePort,
+} from '@insights/application/ports/judge.port';
+import {
+  allSettled,
+  type SessionFailed,
+  type SessionWaiting,
+  type SettledSession,
+} from '@insights/application/ports/session-outcomes';
 import type { StationJudgesPort } from '@insights/application/ports/station-judges.port';
 import type { LabelledRuns } from '@insights/application/services/labelled-runs.service';
 import type { ClaimsRevision } from '@insights/domain/aggregates/claims-revision.aggregate';
@@ -27,6 +35,7 @@ import {
   revisionSplitOf,
 } from '@insights/domain/services/revision-split';
 import type { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
+import type { ClaimsRevisionRound } from '@insights/domain/value-objects/claims-revision-round.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -35,6 +44,7 @@ import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.p
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const MAX_REVISED_AT_ONCE = 1;
 
@@ -86,15 +96,43 @@ const candidatesOf = (
     })
     .filter((each, at, all) => all.findIndex((one) => one.equals(each)) === at);
 
-const inBatches = async <T>(
+/** The run the drafting session starts from: the one of the newest answered disagreement, or else a labelled run. */
+const draftedFrom = (
+  disagreements: readonly JudgeDisagreement[],
+  runs: readonly LabelledRun[],
+): RunId | null => {
+  const newest = disagreements.reduce<JudgeDisagreement | null>(
+    (latest, each) =>
+      !latest ||
+      (each.answeredAt?.getTime() ?? 0) > (latest.answeredAt?.getTime() ?? 0)
+        ? each
+        : latest,
+    null,
+  );
+
+  return newest?.runId ?? runs[0]?.runId ?? null;
+};
+
+const inBatches = async <T, R>(
   items: readonly T[],
   size: number,
-  work: (item: T) => Promise<void>,
-): Promise<void> => {
+  work: (item: T) => Promise<R>,
+): Promise<readonly R[]> => {
+  const done: R[] = [];
+
   for (let at = 0; at < items.length; at += size) {
-    await Promise.all(items.slice(at, at + size).map(work));
+    done.push(...(await Promise.all(items.slice(at, at + size).map(work))));
   }
+
+  return done;
 };
+
+interface CandidateCall {
+  readonly criteria: JudgeCriteria;
+  readonly at: number;
+  readonly run: LabelledRun;
+  readonly evidence: JudgeEvidence;
+}
 
 export class WorkClaimsRevisions implements PendingJobsPort {
   readonly name = 'Revising judge claims';
@@ -104,7 +142,7 @@ export class WorkClaimsRevisions implements PendingJobsPort {
   constructor(
     private readonly sources: ClaimsRevisionSources,
     private readonly clock: ClockPort,
-    transaction: TransactionPort,
+    private readonly transaction: TransactionPort,
     logger: LoggerPort,
     reports: ErrorReportsPort,
     telemetry: TelemetryPort,
@@ -144,6 +182,43 @@ export class WorkClaimsRevisions implements PendingJobsPort {
     return this.#loop.idle();
   }
 
+  /** Makes the revision that waits on a settled session due now; a revision that moved on meanwhile is left alone. */
+  async sessionSettled(session: SettledSession): Promise<void> {
+    const judged = this.sources.judge.roundOf(session);
+    const round =
+      this.sources.drafter.roundOf(session) ??
+      (judged?.of === 'candidate' ? judged.round : null);
+
+    if (!round) {
+      return;
+    }
+
+    await this.transaction.inTransaction(async () => {
+      const revision = await this.sources.revisions.find(round.revisionId);
+
+      if (
+        !revision ||
+        revision.station.workspaceId.value !== session.workspaceId
+      ) {
+        return;
+      }
+
+      const woken = revision.wake(round, this.clock.now());
+
+      if (woken === revision) {
+        return;
+      }
+
+      try {
+        await this.sources.revisions.save(woken);
+      } catch (error) {
+        if (!(error instanceof ClaimsRevisionVersionConflictError)) {
+          throw error;
+        }
+      }
+    });
+  }
+
   private async revised(revision: ClaimsRevision): Promise<ClaimsRevision> {
     const { station, rubric } = revision;
     const ended = (
@@ -180,23 +255,44 @@ export class WorkClaimsRevisions implements PendingJobsPort {
       since: null,
     });
     const runs = [...split.searched, ...split.heldOut];
-    const drafted = (await this.sources.drafter.availableTo(
-      station.workspaceId.value,
-    ))
-      ? await this.sources.drafter.drafted({
-          workspaceId: station.workspaceId.value,
-          claims: rubric.claims,
-          passThreshold: rubric.passThreshold,
-          cases: disagreements.flatMap(caseOf),
-          maxCandidates: MAX_CANDIDATES,
-        })
-      : [];
+    const from = draftedFrom(disagreements, runs);
+
+    if (!from) {
+      return ended('too-few-labelled-runs');
+    }
+
+    const { round } = revision;
+    const drafted = await this.sources.drafter.drafted({
+      workspaceId: station.workspaceId.value,
+      round,
+      draftedFrom: from,
+      claims: rubric.claims,
+      passThreshold: rubric.passThreshold,
+      cases: disagreements.flatMap(caseOf),
+      maxCandidates: MAX_CANDIDATES,
+    });
+
+    switch (drafted.status) {
+      case 'waiting':
+        return revision.waitJob(this.clock.now());
+      case 'unavailable':
+        return revision.unavailable(this.clock.now());
+      case 'failed':
+        return revision.draftingFailed(this.clock.now());
+      case 'drafted':
+        break;
+    }
+
     const evidence = await this.evidenceOf(runs);
     const judged = runs.filter((each) => evidence.has(each.runId.value));
-    const all = candidatesOf(drafted, rubric.criteria);
+    const all = candidatesOf(drafted.candidates, rubric.criteria);
     const candidates = all.slice(
       0,
-      candidateCountWithin(judged.length, all.length, revision.judgeCallsLeft),
+      candidateCountWithin(
+        judged.length,
+        all.length,
+        revision.judgeCallsLeftIn(round),
+      ),
     );
 
     if (all.length === 0) {
@@ -206,51 +302,76 @@ export class WorkClaimsRevisions implements PendingJobsPort {
       return ended('judge-call-ceiling');
     }
 
-    const spending = await this.spent(
-      revision,
-      candidates.length * judged.length,
+    const calls: CandidateCall[] = candidates.flatMap((criteria, at) =>
+      judged.flatMap((run) => {
+        const found = evidence.get(run.runId.value);
+
+        return found ? [{ criteria, at, run, evidence: found }] : [];
+      }),
     );
-    const verdicts: CandidateVerdicts[] = [];
+    const reserved = await this.reserved(revision, round, calls.length);
+    const answers = allSettled(
+      await inBatches(calls, JUDGED_AT_ONCE, (call) =>
+        this.judgedOn(station.workspaceId.value, round, call),
+      ),
+    );
 
-    for (const criteria of candidates) {
-      const passes = new Map<string, boolean>();
-
-      await inBatches(judged, JUDGED_AT_ONCE, async (run) => {
-        const verdict = await this.passesOf(
-          station.workspaceId.value,
-          criteria,
-          evidence.get(run.runId.value) as JudgeEvidence,
-        );
-
-        if (verdict !== null) {
-          passes.set(run.runId.value, verdict);
-        }
-      });
-      verdicts.push({ claims: criteria.claims, passes });
+    if ('status' in answers) {
+      return reserved.waitJob(this.clock.now());
+    }
+    if (
+      answers.some(
+        (each) => each.status === 'failed' && each.failure === 'unavailable',
+      )
+    ) {
+      return reserved.unavailable(this.clock.now());
     }
 
+    const passes = candidates.map(() => new Map<string, boolean>());
+
+    answers.forEach((answer, at) => {
+      const call = calls[at];
+      const passed =
+        call && answer.status === 'judged' ? this.passes(call, answer) : null;
+
+      if (call && passed !== null) {
+        passes[call.at]?.set(call.run.runId.value, passed);
+      }
+    });
+
+    const verdicts: CandidateVerdicts[] = candidates.map((criteria, at) => ({
+      claims: criteria.claims,
+      passes: passes[at] ?? new Map<string, boolean>(),
+    }));
     const best = bestCandidateOf(split, verdicts);
 
     if (!best || !beatsLiveJudge(best.agreement)) {
       return ended(
         'no-gain',
         best ? { agreement: best.agreement } : {},
-        spending,
+        reserved,
       );
     }
 
-    return spending.picked({ pick: best, now: this.clock.now() });
+    return reserved.picked({ pick: best, now: this.clock.now() });
   }
 
-  private spent(
+  /**
+   * Reserves the round's judge calls and saves them before any judging session is ordered, so a retry knows what
+   * this round spent. A round asked again after a wait has reserved them already and saves nothing.
+   */
+  private async reserved(
     revision: ClaimsRevision,
+    round: ClaimsRevisionRound,
     judgeCalls: number,
   ): Promise<ClaimsRevision> {
-    return this.saved(revision.spending(judgeCalls));
-  }
+    const reserved = revision.reserveJudgeCalls(round, judgeCalls);
 
-  private async saved(revision: ClaimsRevision): Promise<ClaimsRevision> {
-    await this.sources.revisions.save(revision);
+    if (reserved === revision) {
+      return revision;
+    }
+
+    await this.sources.revisions.save(reserved);
 
     const found = await this.sources.revisions.find(revision.id);
 
@@ -286,34 +407,35 @@ export class WorkClaimsRevisions implements PendingJobsPort {
     return found;
   }
 
-  private async passesOf(
+  private judgedOn(
     workspaceId: string,
-    criteria: JudgeCriteria,
-    evidence: JudgeEvidence,
-  ): Promise<boolean | null> {
-    try {
-      const { verdict } = await this.sources.judge.judge({
-        workspaceId,
-        claims: criteria.claims,
-        title: evidence.title,
-        description: evidence.description,
-        steps: evidence.steps,
-        stepsLeftOut: evidence.stepsLeftOut,
-        hunks: evidence.hunks,
-        hunksLeftOut: evidence.hunksLeftOut,
-        reference: null,
-        guidanceRequested: false,
-        effectsBlocked: false,
-      });
-      const grounded = groundedVerdict(criteria, verdict, evidence);
+    round: ClaimsRevisionRound,
+    { criteria, at, run, evidence }: CandidateCall,
+  ): Promise<JudgeAnswer | SessionFailed | SessionWaiting> {
+    return this.sources.judge.judge({
+      workspaceId,
+      round: { of: 'candidate', round, candidate: at, runId: run.runId },
+      claims: criteria.claims,
+      title: evidence.title,
+      description: evidence.description,
+      steps: evidence.steps,
+      stepsLeftOut: evidence.stepsLeftOut,
+      hunks: evidence.hunks,
+      hunksLeftOut: evidence.hunksLeftOut,
+      reference: null,
+      guidanceRequested: false,
+      effectsBlocked: false,
+    });
+  }
 
-      return grounded.grounded ? criteria.passes(grounded.claimResults) : null;
-    } catch (error) {
-      if (error instanceof JudgingError) {
-        return null;
-      }
-      throw error;
-    }
+  /** Whether the run passes the candidate, or null when the verdict does not rest on the evidence. */
+  private passes(
+    { criteria, evidence }: CandidateCall,
+    answer: JudgeAnswer,
+  ): boolean | null {
+    const grounded = groundedVerdict(criteria, answer.verdict, evidence);
+
+    return grounded.grounded ? criteria.passes(grounded.claimResults) : null;
   }
 }
 

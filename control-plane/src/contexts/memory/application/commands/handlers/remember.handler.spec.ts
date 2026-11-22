@@ -6,8 +6,8 @@ import { ReadProposedMemoryQuery } from '@memory/application/queries/read-propos
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { RunProposing } from '@memory/application/services/run-proposing.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -39,7 +39,7 @@ const LEASED: LeasedRun = {
 };
 
 const remembering = (run: LeasedRun | null = LEASED) => {
-  const added: MemoryDraft[] = [];
+  const added: MemoryProposalSet[] = [];
   let ids = 0;
   const work = {
     leasedBy: async () => run,
@@ -70,10 +70,10 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       work,
       {
         forTask: async () => null,
-        add: async (draft: MemoryDraft) => {
-          added.push(draft);
+        add: async (set: MemoryProposalSet) => {
+          added.push(set);
         },
-      } as unknown as MemoryDraftRepository,
+      } as unknown as MemoryProposalSetRepository,
       { inTransaction: <T>(each: () => Promise<T>) => each() },
       {
         generate: () => {
@@ -90,7 +90,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
     new RunnerMemoryLoader(work),
     {
       forTask: async () => added[added.length - 1] ?? null,
-    } as unknown as MemoryDraftRepository,
+    } as unknown as MemoryProposalSetRepository,
     new MemoryReviews(
       work,
       { find: async () => null } as never,
@@ -118,13 +118,12 @@ const remembering = (run: LeasedRun | null = LEASED) => {
 };
 
 describe('RememberHandler', () => {
-  it('opens the task’s draft with what the run proposed to remember, which cites its step', async () => {
+  it('opens the task’s set with what the run proposed to remember, which cites its step', async () => {
     const { added, remember, proposedAs } = remembering();
 
     const proposed = await proposedAs(await remember());
 
     expect(proposed).toMatchObject({
-      proposedBy: 'agent',
       state: 'proposed',
       steps: [{ index: 4, kind: 'remember' }],
     });

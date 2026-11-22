@@ -16,6 +16,8 @@ const (
 	AgentAPIHistoryPath            = "/history"
 	AgentAPICandidatePath          = "/candidates"
 	AgentAPICausePath              = "/causes"
+	AgentAPISubmitPath             = "/submit"
+	AgentAPIDecisionPath           = "/decisions"
 )
 
 const (

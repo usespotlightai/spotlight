@@ -78,6 +78,7 @@ type Spec struct {
 	Replay        *Replay           `json:"replay,omitempty"`
 	Search        *SearchSpec       `json:"search,omitempty"`
 	SandboxEnv    []SandboxVariable `json:"sandboxEnv,omitempty"`
+	Assist        *AssistSpec       `json:"assist,omitempty"`
 }
 
 type SandboxVariable struct {

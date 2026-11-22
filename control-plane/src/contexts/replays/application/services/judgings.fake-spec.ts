@@ -6,6 +6,10 @@ import type {
   PairJudgeOrder,
   PairJudgePort,
 } from '@replays/application/ports/pair-judge.port';
+import {
+  SESSION_WAITING,
+  type SessionWaiting,
+} from '@replays/application/ports/session-outcomes';
 import { RequestChangeJudging } from '@replays/application/services/request-change-judging.service';
 import { RequestSideBySideJudging } from '@replays/application/services/request-side-by-side-judging.service';
 import { ChangeJudging } from '@replays/domain/aggregates/change-judging.aggregate';
@@ -15,9 +19,11 @@ import { SideBySideJudgingVersionConflictError } from '@replays/domain/exception
 import { NOW } from '@replays/domain/replays.fake-spec';
 import type { ChangeJudgingRepository } from '@replays/domain/repositories/change-judging.repository';
 import type { SideBySideJudgingRepository } from '@replays/domain/repositories/side-by-side-judging.repository';
+import type { ChangeJudgingRound } from '@replays/domain/value-objects/change-judging-round.vo';
 import type { ChangeJudgment } from '@replays/domain/value-objects/change-judgment';
 import type { JudgingAttempt } from '@replays/domain/value-objects/judging-attempt';
 import type { PairJudgment } from '@replays/domain/value-objects/pair-judgment';
+import type { SideBySideJudgingRound } from '@replays/domain/value-objects/side-by-side-judging-round.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
@@ -32,38 +38,46 @@ const TRANSACTION = {
 };
 
 export class FakeChangeJudge implements ChangeJudgePort {
-  available = true;
+  awaiting = false;
   readonly orders: ChangeJudgeOrder[] = [];
   answer: ChangeJudgment = {
     judged: false,
     failure: 'unavailable',
   };
 
-  async availableTo(): Promise<boolean> {
-    return this.available;
+  async judge(
+    order: ChangeJudgeOrder,
+  ): Promise<ChangeJudgment | SessionWaiting> {
+    this.orders.push(order);
+    return this.awaiting ? SESSION_WAITING : this.answer;
   }
 
-  async judge(order: ChangeJudgeOrder): Promise<ChangeJudgment> {
-    this.orders.push(order);
-    return this.answer;
+  /** The round every settled session reads back as. */
+  settledRound: ChangeJudgingRound | null = null;
+
+  roundOf(): ChangeJudgingRound | null {
+    return this.settledRound;
   }
 }
 
 export class FakePairJudge implements PairJudgePort {
-  available = true;
+  awaiting = false;
   readonly orders: PairJudgeOrder[] = [];
   answer: PairJudgment = {
     judged: false,
     failure: 'unavailable',
   };
 
-  async availableTo(): Promise<boolean> {
-    return this.available;
+  async judge(order: PairJudgeOrder): Promise<PairJudgment | SessionWaiting> {
+    this.orders.push(order);
+    return this.awaiting ? SESSION_WAITING : this.answer;
   }
 
-  async judge(order: PairJudgeOrder): Promise<PairJudgment> {
-    this.orders.push(order);
-    return this.answer;
+  /** The round every settled session reads back as. */
+  settledRound: SideBySideJudgingRound | null = null;
+
+  roundOf(): SideBySideJudgingRound | null {
+    return this.settledRound;
   }
 }
 
@@ -211,15 +225,12 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
   }
 }
 
-export const changeJudgingRequestsFor = (
-  judgings: ChangeJudgingRepository,
-  judge: ChangeJudgePort,
-) => new RequestChangeJudging(judgings, judge, TRANSACTION, CLOCK);
+export const changeJudgingRequestsFor = (judgings: ChangeJudgingRepository) =>
+  new RequestChangeJudging(judgings, TRANSACTION, CLOCK);
 
 export const sideBySideJudgingRequestsFor = (
   judgings: SideBySideJudgingRepository,
-  judge: PairJudgePort,
-) => new RequestSideBySideJudging(judgings, judge, TRANSACTION, CLOCK);
+) => new RequestSideBySideJudging(judgings, TRANSACTION, CLOCK);
 
 export const judgedOnce = async (
   judgings: ChangeJudgingRepository,

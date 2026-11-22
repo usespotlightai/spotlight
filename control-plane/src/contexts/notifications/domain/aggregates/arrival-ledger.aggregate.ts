@@ -86,6 +86,7 @@ export class ArrivalLedger
             job: PendingJob.rehydrate({
               attempts: snapshot.recount.attempts,
               nextAttemptAt: snapshot.recount.dueAt,
+              waitingSince: snapshot.recount.waitingSince,
             }),
           }
         : null,
@@ -120,6 +121,7 @@ export class ArrivalLedger
           requestedAt: recount.requestedAt,
           attempts: recount.job.attempts,
           dueAt: recount.job.nextAttemptAt,
+          waitingSince: recount.job.waitingSince,
         }
       : null;
   }
@@ -164,6 +166,14 @@ export class ArrivalLedger
       ? this.with({
           recount: { ...recount, job: recount.job.scheduleRetry(now) },
         })
+      : this;
+  }
+
+  waitJob(now: Date): ArrivalLedger {
+    const recount = this.state.recount;
+
+    return recount
+      ? this.with({ recount: { ...recount, job: recount.job.wait(now) } })
       : this;
   }
 

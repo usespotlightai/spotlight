@@ -57,7 +57,6 @@ const proposal = (over: Partial<RunProposal>): RunProposal => ({
   kind: 'failure',
   body: 'The worker test hangs without Redis.',
   source: 'run',
-  proposedBy: 'agent',
   state: 'proposed',
   scope: 'line',
   repository: null,

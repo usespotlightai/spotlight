@@ -1,6 +1,5 @@
 import type {
   JournalStep,
-  RunChanges,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunFacts } from '@runs/application/ports/run-facts.port';
@@ -100,12 +99,10 @@ interface Seen {
   readonly for?: DispatchedFor | null;
   readonly lineGone?: boolean;
   readonly attempts?: readonly RunJournal[];
-  readonly changesOfTask?: readonly RunChanges[];
 }
 
 const ORDERED_AT = new Date('2026-09-30T09:00:00.000Z');
 
-const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 
 const WORKING_COPIES: Readonly<Record<string, string>> = {
@@ -150,7 +147,6 @@ const lookingUp = (seen: Seen) => {
     } as unknown as LineMapsPort,
     {
       attemptsOfRun: async () => [...(seen.attempts ?? [])],
-      changesOfTask: async () => seen.changesOfTask ?? [],
     } as unknown as RunJournalReaderPort,
     readings,
   );
@@ -307,7 +303,7 @@ describe('WorkRunLookup, finding the run a runner leases', () => {
   });
 });
 
-describe('WorkRunLookup, reading how a run reasoned and what it changed', () => {
+describe('WorkRunLookup, reading how a run reasoned', () => {
   const step = (over: Partial<JournalStep>): JournalStep => ({
     kind: 'tool',
     text: '',
@@ -322,9 +318,6 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
     change: null,
     ...over,
   });
-
-  const edited = (path: string) =>
-    step({ change: { path, before: 'a', after: 'b' } });
 
   const journalOf = (steps: readonly JournalStep[], attempt = 1) =>
     ({ runId: 'run_1', attempt, steps }) as unknown as RunJournal;
@@ -384,111 +377,5 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
 
   it('knows no reasoning for a run with no journal yet', async () => {
     expect(await lookingUp({ attempts: [] }).reasoning(RUN, 1)).toBeNull();
-  });
-
-  it('names the files earlier runs of the task changed too', async () => {
-    const reasoned = await lookingUp({
-      attempts: [journalOf([edited('/runs/run_2/api/src/uploads.ts')])],
-      changesOfTask: [
-        {
-          runId: 'run_0',
-          checkouts: ['docs'],
-          paths: ['/runs/run_0/docs/a.md'],
-        },
-        {
-          runId: 'run_1',
-          checkouts: ['api'],
-          paths: ['/runs/run_1/api/src/uploads.ts'],
-        },
-      ],
-    }).reasoning(RUN, 1);
-
-    expect(reasoned?.changed).toEqual(['docs/a.md', 'api/src/uploads.ts']);
-  });
-
-  it('names only the files the run changed up to the turn asked about, beside the other runs of the task', async () => {
-    const reasonedThrough = async (attempt: number | null) =>
-      (
-        await lookingUp({
-          attempts: [
-            journalOf([edited('/runs/run_1/api/src/uploads.ts')], 1),
-            journalOf([edited('/runs/run_1/api/src/queue.ts')], 2),
-          ],
-          changesOfTask: [
-            {
-              runId: 'run_0',
-              checkouts: ['docs'],
-              paths: ['/runs/run_0/docs/a.md'],
-            },
-            {
-              runId: 'run_1',
-              checkouts: ['api'],
-              paths: [
-                '/runs/run_1/api/src/uploads.ts',
-                '/runs/run_1/api/src/queue.ts',
-              ],
-            },
-          ],
-        }).reasoning(RUN, attempt)
-      )?.changed;
-
-    expect(await reasonedThrough(1)).toEqual([
-      'docs/a.md',
-      'api/src/uploads.ts',
-    ]);
-    expect(await reasonedThrough(null)).toEqual([
-      'docs/a.md',
-      'api/src/uploads.ts',
-      'api/src/queue.ts',
-    ]);
-  });
-
-  it('names each file the run changed once, in the repository it lies in', async () => {
-    const lookup = new WorkRunLookup(
-      { of: async () => [factsOf()] },
-      {} as RunLeasesPort,
-      {
-        of: async () => ({
-          runId: RUN,
-          for: taskAt('implementation'),
-          briefedMemories: { briefed: [], omitted: [] },
-          orderedAt: ORDERED_AT,
-        }),
-      },
-      { find: async () => null } as unknown as TaskRepository,
-      {} as ChatRepository,
-      {
-        findByStation: async () => ({
-          repositories: { all: [API, WEB] },
-        }),
-      } as unknown as LineMapsPort,
-      {
-        attemptsOfRun: async () => [
-          journalOf([
-            edited('/runs/run_1/api/src/uploads.ts'),
-            edited('/runs/run_1/api/src/uploads.ts'),
-            edited('/runs/run_1/web/src/Upload.tsx'),
-            edited('/tmp/scratch.ts'),
-          ]),
-          journalOf([edited('/runs/run_1/api/src/queue.ts')], 2),
-        ],
-      } as unknown as RunJournalReaderPort,
-      readings,
-    );
-    const changedThrough = async (attempt: number | null) =>
-      (await lookup.changedBy(RUN, attempt))?.map((each) => [
-        each.repository.value,
-        each.path,
-      ]);
-
-    expect(await changedThrough(1)).toEqual([
-      ['acme/api', 'src/uploads.ts'],
-      ['acme/web', 'src/Upload.tsx'],
-    ]);
-    expect(await changedThrough(null)).toEqual([
-      ['acme/api', 'src/uploads.ts'],
-      ['acme/web', 'src/Upload.tsx'],
-      ['acme/api', 'src/queue.ts'],
-    ]);
   });
 });

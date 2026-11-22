@@ -9,7 +9,6 @@ const RETIRING: ProposedMemory = {
   kind: 'environment',
   body: 'The staging queue worker must be restarted after every deploy, or it keeps the old retry limits.',
   source: 'run',
-  proposedBy: 'agent',
   state: 'proposed',
   scope: 'line',
   repository: 'acme/worker',

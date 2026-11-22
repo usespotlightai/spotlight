@@ -13,7 +13,7 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const MAX_WAIT_MS = 5_000;
 
-export const distinctFiles = (files: readonly TouchedFile[]): TouchedFile[] => [
+const distinctFiles = (files: readonly TouchedFile[]): TouchedFile[] => [
   ...new Map(
     files.map((each) => [`${each.repository.value}:${each.path}`, each]),
   ).values(),

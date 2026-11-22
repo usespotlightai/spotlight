@@ -14,7 +14,6 @@ import type { OidcTrustConfigurationPort } from '@identity/application/ports/oid
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import type { InferenceEndpointConfigurationPort } from '@inference/application/ports/inference-endpoint-configuration.port';
 import type { LineResourcesPort } from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
@@ -48,7 +47,6 @@ export class ResourceConfigurationHandler implements QueryHandlerPort<
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
     private readonly oidcTrusts: OidcTrustConfigurationPort,
-    private readonly inferenceEndpoints: InferenceEndpointConfigurationPort,
     private readonly configurations: ExportableConfigurations,
   ) {}
 
@@ -114,8 +112,6 @@ export class ResourceConfigurationHandler implements QueryHandlerPort<
         return workspaceIdOf(await this.runners.egressWithId(id));
       case 'workspace-runners':
         return workspaceIdOf(await this.runners.workspaceRunnersWithId(id));
-      case 'inference-endpoint':
-        return workspaceIdOf(await this.inferenceEndpoints.withId(id));
     }
   }
 

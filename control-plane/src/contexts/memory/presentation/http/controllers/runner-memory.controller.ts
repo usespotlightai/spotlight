@@ -164,7 +164,7 @@ export class RunnerMemoryController {
     summary:
       'Propose a memory from inside the run that cites the step that proposed it',
     description:
-      'It waits in the inbox beside the task for a person to approve, like a drafted memory.',
+      'It waits in the inbox beside the task for a person to approve.',
   })
   @ApiBody({ type: RememberRequestDto })
   @ApiCreatedResponse({ type: ProposedMemoryResponseDto })

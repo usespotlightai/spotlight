@@ -13,7 +13,6 @@ import { SECRET_INJECTION } from '@secrets/application/ports/secret-injection.po
 import { SECRET_READINESS } from '@secrets/application/ports/secret-readiness.port';
 import { SECRET_USE_LOCKS } from '@secrets/application/ports/secret-use-locks.port';
 import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
-import { WORKSPACE_SECRETS } from '@secrets/application/ports/workspace-secrets.port';
 import {
   SECRETS_CONTROLLERS,
   SECRETS_PROVIDERS,
@@ -37,7 +36,6 @@ import {
     BOUND_SECRETS,
     SECRET_USES,
     SECRET_USE_LOCKS,
-    WORKSPACE_SECRETS,
   ],
 })
 export class SecretsModule {}

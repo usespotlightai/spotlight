@@ -190,8 +190,6 @@ export const envSchema = databaseSchema
     SENTRY_DSN: z.string().optional(),
     SENTRY_WEB_DSN: z.string().optional(),
     SENTRY_ENVIRONMENT: z.string().optional(),
-    LLM_PRICES: z.enum(['models.dev', 'none']).default('models.dev'),
-    LLM_PRICES_URL: z.url().default('https://models.dev/api.json'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .refine(

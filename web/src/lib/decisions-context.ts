@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { TaskDecisions } from '@/lib/decision';
+import type { Decision, TaskDecisions } from '@/lib/decision';
 
 export type Disputing = {
   pending: boolean;
@@ -13,7 +13,8 @@ export type Disputing = {
 
 export interface Deciding {
   readonly found: TaskDecisions;
-  readonly reasoningAt: string | null;
+  /** Where the run that recorded the decision shows its reasoning. */
+  readonly reasoningAt: (decision: Decision) => string;
   readonly disputing: Disputing;
 }
 

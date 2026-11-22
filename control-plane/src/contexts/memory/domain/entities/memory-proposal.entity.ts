@@ -6,7 +6,6 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
-import type { MemoryProposer } from '@memory/domain/value-objects/memory-proposer';
 import type { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
@@ -21,18 +20,6 @@ export const MEMORY_PROPOSAL_STATES = [
 ] as const;
 
 export type MemoryProposalState = (typeof MEMORY_PROPOSAL_STATES)[number];
-
-export interface ProposedMemory {
-  readonly kind: string;
-  readonly body: string;
-  readonly scope: string;
-  readonly repository: string | null;
-  readonly paths: readonly string[];
-  readonly steps: readonly number[];
-  readonly notes: readonly number[];
-  readonly supersedes: string | null;
-  readonly retires: string | null;
-}
 
 const MAX_REASON = 500;
 
@@ -61,7 +48,6 @@ export class MemoryProposal {
     readonly scope: MemoryScope,
     readonly provenance: MemoryProvenance,
     readonly source: MemorySource,
-    readonly proposedBy: MemoryProposer,
     readonly supersedes: MemoryId | null,
     readonly retires: Retiring | null,
     readonly recordedAt: Date,
@@ -76,7 +62,6 @@ export class MemoryProposal {
     scope: MemoryScope;
     provenance: MemoryProvenance;
     source: MemorySource;
-    proposedBy: MemoryProposer;
     supersedes: MemoryId | null;
     recordedAt: Date;
   }): MemoryProposal {
@@ -91,7 +76,6 @@ export class MemoryProposal {
       input.scope,
       input.provenance,
       input.source,
-      input.proposedBy,
       input.supersedes,
       null,
       input.recordedAt,
@@ -111,7 +95,6 @@ export class MemoryProposal {
     reason: string;
     provenance: MemoryProvenance;
     source: MemorySource;
-    proposedBy: MemoryProposer;
     recordedAt: Date;
   }): MemoryProposal {
     if (input.retired.id.equals(input.id)) {
@@ -125,7 +108,6 @@ export class MemoryProposal {
       input.retired.scope,
       input.provenance,
       input.source,
-      input.proposedBy,
       null,
       { memory: input.retired.id, reason: reasonOf(input.reason) },
       input.recordedAt,
@@ -141,7 +123,6 @@ export class MemoryProposal {
     scope: MemoryScope;
     provenance: MemoryProvenance;
     source: MemorySource;
-    proposedBy: MemoryProposer;
     supersedes: MemoryId | null;
     retires: Retiring | null;
     recordedAt: Date;
@@ -176,7 +157,6 @@ export class MemoryProposal {
       input.scope,
       input.provenance,
       input.source,
-      input.proposedBy,
       input.supersedes,
       input.retires,
       input.recordedAt,
@@ -203,16 +183,8 @@ export class MemoryProposal {
     return this.source === 'outside';
   }
 
-  get proposedByAgent(): boolean {
-    return this.proposedBy === 'agent';
-  }
-
   proposedIn(runId: RunId): boolean {
     return this.proposed && this.provenance.runId.equals(runId);
-  }
-
-  citesNote(position: number): boolean {
-    return this.provenance.notes.includes(position);
   }
 
   matches(other: MemoryProposal): boolean {
@@ -260,7 +232,6 @@ export class MemoryProposal {
       this.scope,
       this.provenance,
       this.source,
-      this.proposedBy,
       this.supersedes,
       this.retires,
       this.recordedAt,
@@ -281,7 +252,6 @@ export class MemoryProposal {
       this.scope,
       this.provenance,
       this.source,
-      this.proposedBy,
       this.supersedes,
       this.retires,
       this.recordedAt,
@@ -306,7 +276,6 @@ export class MemoryProposal {
       this.scope,
       this.provenance,
       this.source,
-      this.proposedBy,
       this.supersedes,
       this.retires,
       this.recordedAt,

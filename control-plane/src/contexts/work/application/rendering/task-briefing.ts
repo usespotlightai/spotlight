@@ -16,7 +16,10 @@ import { ConfiguringSpotlight } from '@work/application/rendering/configuring-sp
 import { Learned } from '@work/application/rendering/learned';
 import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
-import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
+import {
+  DECIDE_COMMAND,
+  HANDOVER_COMMAND,
+} from '@work/domain/services/run-reasoning';
 import { skillFolderOf } from '@work/domain/services/skill-folder';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
@@ -180,17 +183,17 @@ const onRecord = (decisions: readonly DecisionOnRecord[]): string | null =>
       ].join('\n\n')
     : null;
 
-const SAYING_DECISIONS = [
-  '## Say what you decide',
-  'Reviewers of this work are shown the decisions you made, taken only from what you say while you work. When you make one, say it in a sentence as you go:',
+const RECORDING_DECISIONS = [
+  '## Record what you decide',
+  `Reviewers of this work are shown the decisions you record. Before you hand over, record each decision that shaped the change with \`${DECIDE_COMMAND}\`, one decision each time:`,
   [
-    '- a trade-off you accept, and what it costs;',
-    '- an assumption you rely on but have not checked;',
-    '- a limitation or gap you leave in place;',
-    '- an approach you weighed and set aside, and why;',
-    '- anywhere you depart from what the task, the spec or an earlier note requested.',
+    '- `trade-off`: a trade-off you accept, and what it costs;',
+    '- `assumption`: an assumption you rely on but have not checked;',
+    '- `limitation`: a limitation or gap you leave in place;',
+    '- `rejected-approach`: an approach you weighed and set aside, and why;',
+    '- `deviation`: anywhere you depart from what the task, the spec or an earlier note requested.',
   ].join('\n'),
-  'Routine choices anyone would make need no mention. Name them again in your handover note.',
+  `Run \`${DECIDE_COMMAND} --kind <kind> --title "…" --why "…" --path <path>\`, with \`--path\` for each changed file the decision bears on and \`--alternative "…"\` for each other way you weighed. Routine choices anyone would make need no record.`,
 ].join('\n\n');
 
 const PERSISTENT_WORKING_COPY =
@@ -263,8 +266,10 @@ export const TaskBriefing = {
         folder: input.memoryFolder,
         briefed: input.memories.length > 0,
       }),
-      Learned.remembering(),
-      station?.decisions ? SAYING_DECISIONS : null,
+      station?.memories
+        ? Learned.rememberingBeforeHandover()
+        : Learned.remembering(),
+      station?.decisions ? RECORDING_DECISIONS : null,
       workingCopyOf(input.task, input.line),
       SpotlightCli.section,
       ConfiguringSpotlight.section,

@@ -24,8 +24,6 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
-import { DecisionGeneration } from '@change-review/domain/value-objects/decision-generation.vo';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
@@ -33,7 +31,9 @@ import { DecisionStatus } from '@change-review/domain/value-objects/decision-sta
 import { DeliveryAttempts } from '@change-review/domain/value-objects/delivery-attempts.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { DraftingRound } from '@change-review/domain/value-objects/drafting-round.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { GradingRound } from '@change-review/domain/value-objects/grading-round.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
@@ -46,8 +46,10 @@ import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-del
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { RunnerAssignment } from '@change-review/domain/value-objects/runner-assignment.vo';
 import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
+import { SessionFailure } from '@change-review/domain/value-objects/session-failure.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
+import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { TeamStanding } from '@change-review/domain/value-objects/team-standing.vo';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
@@ -91,8 +93,6 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   ReviewPosted,
   ReviewSubmitted,
   DecisionId,
-  DecisionGeneration,
-  DecisionEvidence,
   DecisionMerge,
   CommitSha,
   Pusher,
@@ -106,4 +106,8 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   DecisionDisputeId,
   DecisionDisputed,
   TeamStanding,
+  StackProblem,
+  SessionFailure,
+  DraftingRound,
+  GradingRound,
 ] as const;

@@ -245,6 +245,7 @@ const revisionWithVersion = (revision: ClaimsRevision, version: number) =>
     startedAt: revision.startedAt,
     job: revision.job,
     judgeCalls: revision.judgeCalls,
+    reservation: revision.reservation,
     pick: revision.pick,
     pickedAt: revision.pickedAt,
     outcome: revision.outcome,

@@ -266,6 +266,9 @@ beforeAll(async () => {
   deletions = new DrizzleDeletions(context);
   recorder = new FactRecorder(deletions);
   subscribers = insightsSubscribers({
+    waking: { sessionSettled: async () => undefined } as unknown as Parameters<
+      typeof insightsSubscribers
+    >[0]['waking'],
     ending: new RecordRunEnding(work, records, recorder, context),
     superseding: new RecordSupersededRun(records, recorder, context),
     checking: new RecordChangeChecks(records, recorder, context),
@@ -298,14 +301,6 @@ beforeAll(async () => {
       {
         judgesOnTeam: async () => new Map(),
         judgeAt: async () => null,
-      },
-      {
-        availableTo: async () => false,
-        judge: async () => ({
-          model: 'some/model',
-          verdict: { claims: [] },
-          guidance: null,
-        }),
       },
       judgings,
       recorder,

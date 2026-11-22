@@ -59,7 +59,6 @@ const receiving = (stored: ReviewComment[] = []) => {
       run: async () => null,
       teamOfRun: async () => null,
       repositoriesOfRun: async () => [],
-      reasoningThrough: async () => null,
       task: async () => null,
       taskWithPullRequest: async (workspaceId, pullRequest) => ({
         id: TASK,

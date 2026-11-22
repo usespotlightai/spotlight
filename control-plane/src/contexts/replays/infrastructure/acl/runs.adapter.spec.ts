@@ -1,7 +1,6 @@
 import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import type { HarnessCommands } from '@replays/infrastructure/acl/harness-commands';
 import { Runs } from '@replays/infrastructure/acl/runs.adapter';
 import { WorkTrialRun } from '@replays/infrastructure/acl/work-trial-run';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
@@ -30,7 +29,7 @@ const runsWith = (enqueued: RunOrderContract[], command = true) =>
       problemOf: () => null,
       commandFor: () =>
         command ? { executable: 'claude', args: ['-p'] } : null,
-    } as unknown as HarnessCommands,
+    },
   );
 
 const TRIAL = new WorkTrialRun(
