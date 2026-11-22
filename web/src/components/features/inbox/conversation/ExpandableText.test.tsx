@@ -1,27 +1,11 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
-
-const sized = (element: HTMLElement, sizes: Record<string, number>) => {
-  for (const [name, value] of Object.entries(sizes)) {
-    Object.defineProperty(element, name, { configurable: true, value });
-  }
-};
+import { scrollViewport, watchResizes } from '@/test/resize';
 
 const renderMeasured = () => {
-  const notices: (() => void)[] = [];
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      constructor(callback: () => void) {
-        notices.push(callback);
-      }
-      observe() {}
-      disconnect() {}
-    },
-  );
-
+  const measured = watchResizes();
   const { container } = render(
     <ExpandableText what="message">
       <p>
@@ -29,23 +13,11 @@ const renderMeasured = () => {
       </p>
     </ExpandableText>,
   );
-  const viewport = container.querySelector<HTMLElement>(
-    '[data-slot="scroll-area-viewport"]',
-  );
-  if (!viewport) {
-    throw new Error('no viewport');
-  }
+  const viewport = scrollViewport(container);
 
-  const measure = (sizes: Record<string, number>) => {
-    sized(viewport, sizes);
-    act(() => {
-      for (const notice of notices) {
-        notice();
-      }
-    });
+  return {
+    measure: (sizes: Record<string, number>) => measured(viewport, sizes),
   };
-
-  return { measure };
 };
 
 afterEach(() => {
