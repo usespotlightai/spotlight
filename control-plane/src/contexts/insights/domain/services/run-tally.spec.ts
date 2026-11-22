@@ -9,7 +9,7 @@ import {
 } from '@insights/domain/services/run-tally';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
-import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -22,7 +22,7 @@ const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 const AT = new Date('2026-09-30T12:00:00.000Z');
 
 const merged = (taskId: string) =>
-  taskPullRequestOf(taskId, { openedAt: AT, closedAt: AT, merged: true });
+  ownedRecordOf(taskId, { openedAt: AT, closedAt: AT, merged: true });
 
 const tallyWith = (
   records: readonly RunRecord[],
@@ -163,7 +163,7 @@ describe('runTally', () => {
     });
   });
 
-  it('counts each task whose pull request merged once, however many runs it needed', () => {
+  it('counts each task whose pull requests all merged once, however many runs it needed', () => {
     const tally = tallyWith(
       [
         endedRecord('run_1', { taskId: 'task_1' }),

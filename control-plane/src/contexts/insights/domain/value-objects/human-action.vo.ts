@@ -11,7 +11,7 @@ export const TASK_ACTIONS = [
   'accepted',
   'answered',
   'sent-back',
-  'held',
+  'held-as-wrong',
 ] as const;
 
 const APPROVAL_ANSWERS = ['approved', 'dismissed'] as const;
@@ -23,7 +23,7 @@ export type HumanActionKind = (typeof HUMAN_ACTION_KINDS)[number];
 export type TaskAction = (typeof TASK_ACTIONS)[number];
 
 const FIRST_AT_THE_SAME_MOMENT: readonly HumanActionKind[] = [
-  'held',
+  'held-as-wrong',
   'sent-back',
   'accepted',
   'answered',
@@ -37,7 +37,7 @@ const LABEL_OF: Record<HumanActionKind, LabelSource | null> = {
   accepted: 'accepted',
   answered: null,
   'sent-back': 'sent-back',
-  held: 'held',
+  'held-as-wrong': 'held-as-wrong',
   approved: null,
   dismissed: null,
 };

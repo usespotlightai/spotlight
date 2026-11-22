@@ -1,10 +1,10 @@
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
-import type { TaskPullRequestFact } from '@insights/domain/value-objects/run-fact.vo';
+import type {
+  OwnedPullRequest,
+  RunPullRequest,
+} from '@insights/domain/value-objects/run-fact.vo';
 
-const newestFirst = (
-  one: TaskPullRequestFact,
-  other: TaskPullRequestFact,
-): number =>
+const newestFirst = (one: OwnedPullRequest, other: OwnedPullRequest): number =>
   other.openedAt.getTime() - one.openedAt.getTime() ||
   other.pullRequest.value.localeCompare(one.pullRequest.value);
 
@@ -25,7 +25,7 @@ const latestOf = (dates: readonly (Date | null)[]): Date | null =>
   );
 
 const combinedStateOf = (
-  owned: readonly TaskPullRequestFact[],
+  owned: readonly OwnedPullRequest[],
 ): PullRequestState => {
   if (owned.some((each) => each.state === 'open')) {
     return 'open';
@@ -34,9 +34,9 @@ const combinedStateOf = (
   return owned.every((each) => each.state === 'merged') ? 'merged' : 'closed';
 };
 
-export const taskPullRequestOf = (
-  owned: readonly TaskPullRequestFact[],
-): TaskPullRequestFact | null => {
+export const taskPullRequestsOf = (
+  owned: readonly OwnedPullRequest[],
+): RunPullRequest | null => {
   const all = [...owned].sort(newestFirst);
   const [newest] = all;
 
@@ -51,13 +51,9 @@ export const taskPullRequestOf = (
       : newest;
 
   return {
-    workspaceId: shown.workspaceId,
-    taskId: shown.taskId,
-    teamId: shown.teamId,
     pullRequest: shown.pullRequest,
     state,
     openedAt: earliestOf(all.map((each) => each.openedAt)) ?? newest.openedAt,
-    firstReviewAt: earliestOf(all.map((each) => each.firstReviewAt)),
     closedAt:
       state === 'open' ? null : latestOf(all.map((each) => each.closedAt)),
   };

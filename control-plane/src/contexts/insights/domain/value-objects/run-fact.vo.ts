@@ -33,7 +33,11 @@ export interface RunPullRequest {
   readonly closedAt: Date | null;
 }
 
-export interface TaskPullRequestFact extends RunPullRequest {
+export interface OwnedPullRequest {
+  readonly pullRequest: PullRequestUrl;
+  readonly state: PullRequestState;
+  readonly openedAt: Date;
+  readonly closedAt: Date | null;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId;
   readonly teamId: TeamId;
@@ -163,12 +167,12 @@ export class RunFact implements RunFactParts {
       firstHumanAction: this.firstHumanAction,
       approvalAnsweredAt: this.approvalAnsweredAt,
       passed: this.passed !== null,
-      merged: this.merged,
+      taskMerged: this.taskMerged,
       followed: this.followedAt !== null,
     };
   }
 
-  get merged(): boolean {
+  get taskMerged(): boolean {
     return this.pullRequest?.state === 'merged';
   }
 
@@ -176,7 +180,7 @@ export class RunFact implements RunFactParts {
     return HumanLabel.of(this);
   }
 
-  get pullRequestFinished(): boolean {
+  get taskPullRequestsFinished(): boolean {
     return this.pullRequest !== null && this.pullRequest.state !== 'open';
   }
 

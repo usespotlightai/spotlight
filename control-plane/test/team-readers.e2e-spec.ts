@@ -143,7 +143,7 @@ beforeAll(async () => {
     skills: [],
     endedAt: new Date(),
     ending: 'completed',
-    visit: 1,
+    runNumber: 1,
   });
   // The test writes the run record directly, so no event projects its facts. The check of run facts can run before this insert, and then it does not run again for six hours. Thus, project the facts here.
   await app.get(ProjectRunFacts).ofRuns([RunId.of(RUN)]);

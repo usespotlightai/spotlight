@@ -81,7 +81,7 @@ export class HeadlineResponseDto {
   @ApiProperty({
     example: 40,
     description:
-      'What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back',
+      'What people did with the tasks worked in the period: every move, acceptance, answer, approval, dismissal, send-back and hold as wrong',
   })
   readonly humanActions: number;
 
@@ -102,7 +102,7 @@ export class HeadlineResponseDto {
   @ApiProperty({
     type: String,
     isArray: true,
-    description: 'The tasks whose pull requests merged',
+    description: 'The tasks with a pull request merged in the period',
   })
   readonly mergedTaskIds: readonly string[];
 
@@ -266,7 +266,11 @@ export class DayOutputResponseDto {
   @ApiProperty({ example: 2, description: 'Pull requests merged that day' })
   readonly merged: number;
 
-  @ApiProperty({ type: String, isArray: true })
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The tasks with a pull request merged that day',
+  })
   readonly mergedTaskIds: readonly string[];
 
   @ApiProperty({

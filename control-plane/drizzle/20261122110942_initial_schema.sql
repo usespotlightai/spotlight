@@ -21,7 +21,7 @@ CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> st
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
 CREATE TYPE "public"."alert_condition" AS ENUM('risesBy', 'fallsBy', 'above', 'below');--> statement-breakpoint
 CREATE TYPE "public"."alert_measure" AS ENUM('sent_back_rate', 'accepted_rate', 'checks_failed_rate', 'failed_rate', 'merged_rate', 'cost_per_run');--> statement-breakpoint
-CREATE TYPE "public"."human_action" AS ENUM('started', 'parked', 'accepted', 'answered', 'sent-back', 'held');--> statement-breakpoint
+CREATE TYPE "public"."human_action" AS ENUM('started', 'parked', 'accepted', 'answered', 'sent-back', 'held-as-wrong');--> statement-breakpoint
 CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'request-failed', 'insufficient-credits', 'unreadable', 'ungrounded', 'errored', 'interrupted', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_author" AS ENUM('spotlight', 'reviewed', 'people', 'bots');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
@@ -36,7 +36,7 @@ CREATE TYPE "public"."claims_revision_end_reason" AS ENUM('too-few-labelled-runs
 CREATE TYPE "public"."claims_revision_outcome" AS ENUM('proposed', 'ended');--> statement-breakpoint
 CREATE TYPE "public"."claims_revision_trigger" AS ENUM('claim-wrong', 'calibration-failed', 'claim-missing');--> statement-breakpoint
 CREATE TYPE "public"."judge_disagreement_withdrawal_reason" AS ENUM('verdicts-agree', 'claims-changed', 'label-gone');--> statement-breakpoint
-CREATE TYPE "public"."judge_label_source" AS ENUM('accepted', 'sent-back', 'merged', 'held');--> statement-breakpoint
+CREATE TYPE "public"."judge_label_source" AS ENUM('accepted', 'sent-back', 'merged', 'held-as-wrong');--> statement-breakpoint
 CREATE TYPE "public"."delivery_state" AS ENUM('pending', 'working', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."hook_firing_state" AS ENUM('pending', 'working', 'done', 'failed', 'superseded', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."station_kind" AS ENUM('backlog', 'work', 'completed');--> statement-breakpoint
@@ -778,7 +778,7 @@ CREATE TABLE "run_fact" (
 	"ran_a_config" boolean NOT NULL,
 	"size" "run_size",
 	"failure" text,
-	"visit" integer NOT NULL,
+	"run_number" integer NOT NULL,
 	"asked" boolean NOT NULL,
 	"superseded_at" timestamp (3) with time zone,
 	"followed_at" timestamp (3) with time zone,
@@ -834,7 +834,7 @@ CREATE TABLE "run_record" (
 	"ended_at" timestamp (3) with time zone,
 	"ending" "run_record_ending",
 	"failure" text,
-	"visit" integer,
+	"run_number" integer,
 	"asked" boolean DEFAULT false NOT NULL,
 	"superseded_at" timestamp (3) with time zone,
 	"checks" "run_record_checks",
@@ -944,17 +944,6 @@ CREATE TABLE "task_human_action" (
 	"actions" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"last_action_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "task_pull_request_fact" (
-	"task_id" text PRIMARY KEY NOT NULL,
-	"workspace_id" text NOT NULL,
-	"team_id" text NOT NULL,
-	"pull_request" text NOT NULL,
-	"state" "pull_request_state" NOT NULL,
-	"opened_at" timestamp (3) with time zone NOT NULL,
-	"first_review_at" timestamp (3) with time zone,
-	"closed_at" timestamp (3) with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "claims_revision" (
@@ -2677,7 +2666,6 @@ CREATE INDEX "task_failures_last_idx" ON "task_failures" USING btree ("workspace
 CREATE INDEX "task_failures_team_idx" ON "task_failures" USING btree ("team_id","last_at");--> statement-breakpoint
 CREATE INDEX "task_human_action_team_idx" ON "task_human_action" USING btree ("team_id","last_action_at");--> statement-breakpoint
 CREATE INDEX "task_human_action_workspace_idx" ON "task_human_action" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "task_pull_request_fact_team_idx" ON "task_pull_request_fact" USING btree ("workspace_id","team_id","opened_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "claims_revision_open_idx" ON "claims_revision" USING btree ("station_id") WHERE "claims_revision"."ended_at" is null;--> statement-breakpoint
 CREATE INDEX "claims_revision_pending_idx" ON "claims_revision" USING btree ("started_at") WHERE "claims_revision"."pending";--> statement-breakpoint
 CREATE INDEX "claims_revision_station_idx" ON "claims_revision" USING btree ("station_id","started_at");--> statement-breakpoint

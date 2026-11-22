@@ -70,7 +70,7 @@ export class Work implements WorkPort {
       stationId: StationId.of(run.stationId),
       taskId: TaskId.of(run.taskId),
       fingerprint: this.fingerprintOf(run),
-      visit: run.visit,
+      runNumber: run.runNumber,
       harness: run.harness,
       model: run.model,
       effort: run.effort,

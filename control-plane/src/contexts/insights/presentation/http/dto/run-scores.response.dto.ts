@@ -182,7 +182,7 @@ export class RunScoresResponseDto {
     enum: [...LABEL_SOURCES, null],
     nullable: true,
     description:
-      'What gave people’s verdict on the run: the first action of a person on it, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task. Null where people said nothing yet',
+      'What gave people’s verdict on the run: the first action of a person on it, or the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where people said nothing yet',
   })
   readonly labelFrom: string | null;
 

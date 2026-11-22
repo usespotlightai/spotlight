@@ -227,7 +227,7 @@ describe('ReadInboxItemHandler', () => {
           endedAt: new Date('2026-09-26T09:20:00.000Z'),
           closing: null,
           answers: [note(null)],
-          sentBack: false,
+          passedBack: false,
         },
       ],
     });

@@ -20,7 +20,7 @@ import {
   type InsightsPeople,
   type InsightsPeriod,
   shownDeltaOf,
-  tasksFilter,
+  tasksDrill,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import type { TooltipNote } from '@/lib/tooltip-note';
@@ -57,7 +57,6 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
   }
 
   const { load, loadChanges, adoption } = people.data;
-  const dismissed = tasksFilter(load.dismissedTaskIds);
 
   if (load.tasks === 0 && adoption.activeCount === 0) {
     return (
@@ -97,14 +96,14 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
             value={formatShare(load.sentBackRate)}
             detail={`${formatCount(load.sentBack)} runs`}
             delta={shownDeltaOf(loadChanges.sentBackRate)}
-            drill={{ tab: 'traces', filter: { humanAction: 'sent-back' } }}
+            drill={{ tab: 'traces', filter: { resolution: 'sent-back' } }}
           />
           <InsightsTile
             label="Dismissed"
             value={formatCount(load.dismissed)}
             tooltip="Tool approvals and permissions that people dismissed"
             delta={shownDeltaOf(loadChanges.dismissed)}
-            drill={dismissed ? { tab: 'traces', filter: dismissed } : undefined}
+            drill={tasksDrill(load.dismissedTaskIds)}
           />
         </InsightsTiles>
       </InsightsSection>

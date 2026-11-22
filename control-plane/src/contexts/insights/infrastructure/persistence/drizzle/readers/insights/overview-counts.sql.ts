@@ -3,20 +3,15 @@ import type {
   ConfigMarker,
   DaySpending,
 } from '@insights/domain/services/daily-output';
-import type {
-  HeadlineCounts,
-  ResolvedDelivery,
-} from '@insights/domain/services/headline';
+import type { HeadlineCounts } from '@insights/domain/services/headline';
 import type { OverviewCounts } from '@insights/domain/services/overview-counts';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
 import { configMarkers } from '@insights/infrastructure/persistence/drizzle/readers/insights/config-markers.sql';
 import {
   asUtc,
   atWithin,
-  dateOf,
   factsInPeriod,
   isCurrent,
-  iso,
   msOf,
   ran,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
@@ -24,14 +19,11 @@ import {
   failingIn,
   stationCountsIn,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
-import {
-  ofTeamTaskPullRequests,
-  teamActivity,
-} from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
+import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
+import { teamActivity } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   runFact,
   taskHumanAction,
-  taskPullRequestFact,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { sql } from 'drizzle-orm';
@@ -49,13 +41,6 @@ interface HumanActionsRow extends Record<string, unknown> {
 interface PersonRow extends Record<string, unknown> {
   readonly person: string;
   readonly is_current: boolean;
-}
-
-interface ResolvedRow extends Record<string, unknown> {
-  readonly task_id: string;
-  readonly merged: boolean;
-  readonly closed_ms: number;
-  readonly task_opened_ms: number | null;
 }
 
 interface MarkerRow extends Record<string, unknown> {
@@ -123,34 +108,6 @@ const peopleIn = async (
   return result.rows;
 };
 
-const resolvedIn = async (
-  db: DrizzleDatabase,
-  team: TeamInPeriod,
-): Promise<readonly ResolvedDelivery[]> => {
-  const { current, previous } = team.period;
-  const result = await db.execute<ResolvedRow>(sql`
-    select
-      ${taskPullRequestFact.taskId} as task_id,
-      ${taskPullRequestFact.state} = 'merged' as merged,
-      ${msOf(sql`${taskPullRequestFact.closedAt}`)} as closed_ms,
-      ${msOf(sql`${taskHumanAction.openedAt}`)} as task_opened_ms
-    from ${taskPullRequestFact}
-    left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskPullRequestFact.taskId}
-    where ${ofTeamTaskPullRequests(team)}
-      and ${taskPullRequestFact.state} <> 'open'
-      and ${taskPullRequestFact.closedAt} >= ${iso(previous.from)}::timestamptz
-      and ${taskPullRequestFact.closedAt} < ${iso(current.to)}::timestamptz
-    order by ${taskPullRequestFact.openedAt} desc, ${taskPullRequestFact.taskId} desc
-  `);
-
-  return result.rows.map((row) => ({
-    taskId: row.task_id,
-    merged: row.merged,
-    closedAt: new Date(row.closed_ms),
-    taskOpenedAt: dateOf(row.task_opened_ms),
-  }));
-};
-
 const markersIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
@@ -200,7 +157,7 @@ export const overviewCountsIn = async (
   const tasks = await tasksIn(db, team);
   const humanActions = await humanActionsIn(db, team);
   const people = await peopleIn(db, team);
-  const resolved = await resolvedIn(db, team);
+  const deliveries = await pullRequestDeliveriesIn(db, team);
   const markers = await markersIn(db, team);
   const failingBefore = await failingIn(db, team, team.period.previous);
   const headlineOf = (current: boolean, tally: TallyCounts) =>
@@ -216,7 +173,7 @@ export const overviewCountsIn = async (
   return {
     current: headlineOf(true, stations.team.current),
     previous: headlineOf(false, stations.team.previous),
-    resolved,
+    deliveries,
     spending: new Map(
       [...stations.team.byDay].flatMap(
         ([day, tally]): [string, DaySpending][] =>

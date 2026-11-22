@@ -28,7 +28,7 @@ import type { BotActivity } from '@insights/domain/value-objects/seen-pull-reque
 import {
   openedFor,
   ranOfOpened,
-  stationVisitsOfOpened,
+  stationTimeOfOpened,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/pipeline.sql';
 import {
   mergedIn,
@@ -346,18 +346,18 @@ const stagesIn = async (
   const none = sql.raw('null::float8');
   const result = await db.execute<StageRow>(sql`
     with ${shippedOf(team, repositories)},
-    station_visits as materialized (${stationVisitsOfOpened(team)}),
+    station_time as materialized (${stationTimeOfOpened(team)}),
     stages as (
       select 'coding' as kind, null::text as station_id, type,
         ${lasted('task_opened_at', sql.raw('opened_at'))} as total,
         ${none} as queued, ${none} as running, ${none} as inbox
       from made
       union all
-      select 'station', station_visits.station_id, made.type,
-        station_visits.queued + station_visits.running + station_visits.inbox,
-        station_visits.queued, station_visits.running, station_visits.inbox
+      select 'station', station_time.station_id, made.type,
+        station_time.queued + station_time.running + station_time.inbox,
+        station_time.queued, station_time.running, station_time.inbox
       from made
-      join station_visits on station_visits.task_id = made.owner_task_id
+      join station_time on station_time.task_id = made.owner_task_id
       union all
       select 'awaitingReview', null, type, ${toFirstReviewMs}, ${none}, ${none}, ${none}
       from made

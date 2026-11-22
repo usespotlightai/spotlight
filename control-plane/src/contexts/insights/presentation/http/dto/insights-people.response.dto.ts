@@ -119,7 +119,8 @@ export class PersonUseResponseDto {
 
   @ApiProperty({
     example: 12,
-    description: 'Moves, answers, approvals, dismissals and sends-back',
+    description:
+      'Moves, acceptances, answers, approvals, dismissals, send-backs and holds as wrong',
   })
   readonly actions: number;
 

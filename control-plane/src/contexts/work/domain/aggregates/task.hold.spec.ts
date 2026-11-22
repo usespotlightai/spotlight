@@ -576,7 +576,7 @@ describe('a task whose line resumes', () => {
         }));
 
     expect(acted(resumption(turnDone(), 'continue'))).toEqual([
-      { action: 'held', after: 'run_line', at: NOW },
+      { action: 'held-as-wrong', after: 'run_line', at: NOW },
     ]);
     expect(
       acted(

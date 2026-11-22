@@ -14,7 +14,7 @@ export interface RunResultShape {
   readonly endedAt: string;
   readonly ending: RunEndingShape;
   readonly failure: string | null;
-  readonly visit: number;
+  readonly runNumber: number;
   readonly checks: 'passed' | 'failed' | 'skipped' | null;
   readonly firstHumanAction: {
     readonly kind: string;

@@ -152,6 +152,15 @@ describe('reading a run filter', () => {
     });
   });
 
+  it('rejects held as a human action, and takes held-as-wrong', () => {
+    expect(() => filterOf({ humanAction: 'held' })).toThrow(
+      'Run filter human action must be one of started, parked, accepted, answered, sent-back, held-as-wrong, not held.',
+    );
+    expect(filterOf({ humanAction: 'held-as-wrong' })).toMatchObject({
+      humanAction: 'held-as-wrong',
+    });
+  });
+
   it('narrows to a day of the period, and rejects a day it cannot read or that falls outside the period', () => {
     expect(filterOf({ day: '2026-09-28' }).day).toEqual({
       from: new Date('2026-09-28T00:00:00.000Z'),

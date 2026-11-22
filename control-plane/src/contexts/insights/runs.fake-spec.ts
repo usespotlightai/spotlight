@@ -73,7 +73,7 @@ export const endOf = (
     startedAt?: Date | null;
     ending?: RunEnding;
     failure?: string | null;
-    visit?: number;
+    runNumber?: number;
     asked?: boolean;
     harness?: string;
     model?: string | null;
@@ -100,7 +100,7 @@ export const endOf = (
     endedAt: change.endedAt ?? new Date('2026-09-30T10:00:00.000Z'),
     ending: change.ending ?? 'completed',
     failure: change.failure ?? null,
-    visit: change.visit ?? 1,
+    runNumber: change.runNumber ?? 1,
     asked: change.asked ?? false,
   });
 
@@ -158,7 +158,7 @@ export const factsWith = (
   records.flatMap((record) => {
     const fact = record.factWith(
       null,
-      PullRequestRecord.taskFactOf(
+      PullRequestRecord.taskPullRequestsOf(
         pullRequests.filter(
           (each) =>
             record.taskId !== null && each.owner?.taskId.equals(record.taskId),
@@ -376,7 +376,7 @@ export class StationFactsInMemory implements StationFactsPort {
       )?.opening;
       const fact = record.factWith(
         opening ? { by: opening.by, at: opening.at } : null,
-        PullRequestRecord.taskFactOf(
+        PullRequestRecord.taskPullRequestsOf(
           owned.filter(
             (each) => taskId !== null && each.owner?.taskId.equals(taskId),
           ),

@@ -17,7 +17,7 @@ export class RunEnd {
     readonly endedAt: Date,
     readonly ending: RunEnding,
     readonly failure: string | null,
-    readonly visit: number,
+    readonly runNumber: number,
     readonly asked: boolean,
   ) {}
 
@@ -30,11 +30,11 @@ export class RunEnd {
     endedAt: Date;
     ending: RunEnding;
     failure: string | null;
-    visit: number;
+    runNumber: number;
     asked: boolean;
   }): RunEnd {
-    if (!Number.isInteger(input.visit) || input.visit < 1) {
-      throw new InvalidOutcomeError('visit must be 1 or later');
+    if (!Number.isInteger(input.runNumber) || input.runNumber < 1) {
+      throw new InvalidOutcomeError('run number must be 1 or later');
     }
     if (
       !before(input.queuedAt, input.startedAt) ||
@@ -54,7 +54,7 @@ export class RunEnd {
       input.endedAt,
       input.ending,
       input.failure,
-      input.visit,
+      input.runNumber,
       input.asked,
     );
   }

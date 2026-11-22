@@ -28,7 +28,6 @@ import {
   runRecord,
   taskChangeShape,
   taskHumanAction,
-  taskPullRequestFact,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { seenOf } from '@insights/pull-requests.fake-spec';
 import type { Env } from '@platform/config/env.schema';
@@ -95,7 +94,7 @@ const ended = (
       endedAt: at(options.endedHoursAgo ?? 1),
       ending: 'completed',
       failure: null,
-      visit: 1,
+      runNumber: 1,
       asked: false,
     }),
   );
@@ -248,7 +247,6 @@ beforeEach(async () => {
   await database.db.delete(pullRequestRecord);
   await database.db.delete(taskChangeShape);
   await database.db.delete(runFact);
-  await database.db.delete(taskPullRequestFact);
   await database.db.delete(pullRequestFact);
 });
 
@@ -554,7 +552,7 @@ describe('run facts', () => {
         skills: [],
         endedAt: at(1),
         ending: 'completed' as const,
-        visit: 1,
+        runNumber: 1,
       })),
     );
     await records.add(ended('run_gone', 'task_gone'));
@@ -646,36 +644,6 @@ describe('run facts', () => {
       passedTo: 'station_2',
       dismissals: [{ tool: 'merge', server: null, at: at(0.3).toISOString() }],
     });
-  });
-
-  it('keeps the task’s pull request apart, open until GitHub merges it, with GitHub’s first review', async () => {
-    await pullRequests.add(opened('task_1', TEAM));
-
-    const [open] = await database.db.select().from(taskPullRequestFact);
-    expect(open).toMatchObject({
-      taskId: 'task_1',
-      teamId: TEAM.value,
-      state: 'open',
-      openedAt: at(2),
-      firstReviewAt: null,
-      closedAt: null,
-    });
-
-    await pullRequests.save(mergedOnGitHub(await pullRequestOf()));
-
-    const [closed] = await database.db.select().from(taskPullRequestFact);
-    expect(closed).toMatchObject({
-      state: 'merged',
-      firstReviewAt: at(1),
-      closedAt: at(0.1),
-    });
-
-    await released(
-      pullRequests,
-      DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1')),
-    );
-
-    expect(await database.db.select().from(taskPullRequestFact)).toEqual([]);
   });
 
   it('takes the latest pull request a task opened as the task’s own', async () => {

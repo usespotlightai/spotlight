@@ -75,7 +75,7 @@ export const foldedAround = (
           endedAt: end.at,
           closing,
           answers: notes.filter((note) => note.kind === 'answered'),
-          sentBack: Boolean(
+          passedBack: Boolean(
             closing && next && next.stationPosition < closing.stationPosition,
           ),
         },

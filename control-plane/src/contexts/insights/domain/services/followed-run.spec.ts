@@ -16,8 +16,8 @@ describe('followedAtOf', () => {
     expect(
       followedAtOf(first, [
         first,
-        endedRecord('run_3', { endedAt: THIRD, visit: 3 }),
-        endedRecord('run_2', { endedAt: SECOND, visit: 2 }),
+        endedRecord('run_3', { endedAt: THIRD, runNumber: 3 }),
+        endedRecord('run_2', { endedAt: SECOND, runNumber: 2 }),
       ]),
     ).toEqual(SECOND);
   });

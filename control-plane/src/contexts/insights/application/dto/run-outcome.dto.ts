@@ -21,7 +21,7 @@ export interface RunOutcomeDto {
   readonly ending: RunEnding;
   readonly resolution: RunResolution;
   readonly failure: string | null;
-  readonly visit: number;
+  readonly runNumber: number;
   readonly usage: RunUsageDto | null;
   readonly checks: CheckVerdict | null;
   readonly firstHumanAction: {
@@ -44,7 +44,7 @@ export const runOutcomeOf = (record: RunFact): RunOutcomeDto => {
     ending: record.ending,
     resolution: record.resolution,
     failure: end.failure,
-    visit: end.visit,
+    runNumber: end.runNumber,
     usage: usage
       ? {
           ms: usage.ms,

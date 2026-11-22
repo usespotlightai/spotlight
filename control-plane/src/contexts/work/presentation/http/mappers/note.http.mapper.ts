@@ -51,6 +51,6 @@ export const NoteHttpMapper = {
       visit.endedAt,
       visit.closing && NoteHttpMapper.toResponse(visit.closing),
       visit.answers.map(NoteHttpMapper.toResponse),
-      visit.sentBack,
+      visit.passedBack,
     ),
 };

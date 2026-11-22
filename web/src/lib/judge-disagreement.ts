@@ -93,8 +93,8 @@ const factOf = (disagreement: JudgeDisagreement): string => {
       return 'You accepted this run. The judge failed it.';
     case 'sent-back':
       return 'You sent this run back. The judge passed it.';
-    case 'held':
-      return 'You put this run on hold. The judge passed it.';
+    case 'held-as-wrong':
+      return 'You held this run as wrong. The judge passed it.';
     case 'merged':
       return 'The pull request was merged. The judge failed the run.';
   }

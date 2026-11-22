@@ -10508,10 +10508,10 @@
               "$ref": "#/components/schemas/NoteResponseDto"
             }
           },
-          "sentBack": {
+          "passedBack": {
             "type": "boolean",
             "example": false,
-            "description": "Whether this visit sent the task back to an earlier station"
+            "description": "Whether the station passed the task back to an earlier station at the end of this visit"
           }
         },
         "required": [
@@ -10520,7 +10520,7 @@
           "endedAt",
           "closing",
           "answers",
-          "sentBack"
+          "passedBack"
         ]
       },
       "InboxItemViewResponseDto": {
@@ -11377,7 +11377,8 @@
           },
           "attempt": {
             "type": "number",
-            "example": 1
+            "example": 1,
+            "description": "The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it."
           },
           "exitCode": {
             "type": "number",
@@ -11891,7 +11892,8 @@
           },
           "attempt": {
             "type": "number",
-            "example": 1
+            "example": 1,
+            "description": "The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it."
           },
           "exitCode": {
             "type": "number",
@@ -15912,7 +15914,7 @@
               "accepted",
               "answered",
               "sent-back",
-              "held"
+              "held-as-wrong"
             ]
           },
           "at": {
@@ -15978,7 +15980,7 @@
               "failed",
               "other"
             ],
-            "description": "What came of the run: failed, sent back, accepted, moved on to another station, or other"
+            "description": "What came of the run: failed, sent back, accepted, moved on to another station, or other. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold with the verdict that the line got it wrong."
           },
           "failure": {
             "type": "string",
@@ -15986,10 +15988,10 @@
             "example": "exited",
             "description": "Why it failed, where it did"
           },
-          "visit": {
+          "runNumber": {
             "type": "number",
             "example": 2,
-            "description": "How many runs this station has taken on the task, this one included"
+            "description": "The number of this run at its station on the task: 1 plus the earlier runs there that completed or failed. Every stay at the station counts."
           },
           "usage": {
             "nullable": true,
@@ -16040,7 +16042,7 @@
               null
             ],
             "nullable": true,
-            "description": "The status of the task’s pull request, if it opened one"
+            "description": "The combined status of the task’s pull requests, if it opened any: open while one is open, merged when all merged, else closed"
           }
         },
         "required": [
@@ -16050,7 +16052,7 @@
           "ending",
           "resolution",
           "failure",
-          "visit",
+          "runNumber",
           "usage",
           "checks",
           "firstHumanAction",
@@ -16215,7 +16217,7 @@
           "merged": {
             "type": "number",
             "example": 4,
-            "description": "Tasks among these runs whose pull request merged"
+            "description": "Tasks among these runs whose pull requests all merged"
           },
           "cost": {
             "nullable": true,
@@ -17262,11 +17264,11 @@
               "accepted",
               "sent-back",
               "merged",
-              "held",
+              "held-as-wrong",
               null
             ],
             "nullable": true,
-            "description": "What gave people’s verdict on the run: the first action of a person on it, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task. Null where people said nothing yet"
+            "description": "What gave people’s verdict on the run: the first action of a person on it, or the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where people said nothing yet"
           },
           "agrees": {
             "type": "boolean",
@@ -17473,7 +17475,7 @@
               "accepted",
               "sent-back",
               "merged",
-              "held"
+              "held-as-wrong"
             ],
             "description": "What gave people’s verdict on the run when the disagreement opened, which disagrees with the judge’s"
           },

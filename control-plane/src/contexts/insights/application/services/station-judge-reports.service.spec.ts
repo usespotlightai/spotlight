@@ -10,7 +10,7 @@ import {
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
-import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { ownedRecordOf } from '@insights/insights.fake-spec';
 import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
@@ -100,7 +100,7 @@ const STATIONS = [
 const judgedAcross = async () => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
-  const taskPullRequests = new PullRequestRecordsInMemory();
+  const pullRequestRecords = new PullRequestRecordsInMemory();
   const requested: string[] = [];
   const judges: StationJudgesPort = {
     judgeAt: async (stationId) => JUDGES.get(stationId.value) ?? null,
@@ -138,8 +138,12 @@ const judgedAcross = async () => {
       }),
     );
     if (at % 2 === 1) {
-      await taskPullRequests.add(
-        taskPullRequestOf(taskId, { openedAt: AT, closedAt: AT, merged: true }),
+      await pullRequestRecords.add(
+        ownedRecordOf(taskId, {
+          openedAt: AT,
+          closedAt: AT,
+          merged: true,
+        }),
       );
     }
   }
@@ -159,7 +163,7 @@ const judgedAcross = async () => {
     );
   }
 
-  return { judges, requested, scores, records, taskPullRequests };
+  return { judges, requested, scores, records, pullRequestRecords };
 };
 
 const oneByOne = async (
@@ -182,7 +186,7 @@ const oneByOne = async (
     });
   const facts = new StationFactsInMemory(fixture.records, {
     scores: fixture.scores,
-    pullRequests: fixture.taskPullRequests,
+    pullRequests: fixture.pullRequestRecords,
   });
   const judged =
     judge && rubric
@@ -222,7 +226,7 @@ describe('StationJudgeReports', () => {
       fixture.judges,
       new StationFactsInMemory(fixture.records, {
         scores: fixture.scores,
-        pullRequests: fixture.taskPullRequests,
+        pullRequests: fixture.pullRequestRecords,
       }),
     );
 

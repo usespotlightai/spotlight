@@ -2022,7 +2022,7 @@ export class Task extends EventRecorder {
           this.id,
           this.workspaceId,
           this.stationId,
-          'held',
+          'held-as-wrong',
           ended.by,
           ended.from,
           ended.startedAt,

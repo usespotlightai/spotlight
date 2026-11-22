@@ -7,7 +7,7 @@ import {
 } from '@insights/application/services/recheck-judge-disagreements.service';
 import type { Score } from '@insights/domain/aggregates/score.aggregate';
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
-import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
+import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import {
   judgesWith,
   NOW,
@@ -36,7 +36,7 @@ const setUp = async () => {
   const scores = new ScoresInMemory();
   const pullRequests = new PullRequestRecordsInMemory();
   await pullRequests.add(
-    taskPullRequestOf('task_1', {
+    ownedRecordOf('task_1', {
       openedAt: day('2026-09-30', 9),
       closedAt: day('2026-09-30', 13),
     }),
@@ -65,7 +65,7 @@ const setUp = async () => {
     clock,
     logger,
   );
-  const visit = (runId: string, hour: number) =>
+  const endedRun = (runId: string, hour: number) =>
     records.add(
       endedRecord(runId, {
         taskId: 'task_1',
@@ -102,7 +102,7 @@ const setUp = async () => {
         await recheck.processDue();
       }
     },
-    visit,
+    endedRun,
     judged,
     recorded,
     stored,
@@ -114,14 +114,14 @@ const setUp = async () => {
 
 describe('RecheckJudgeDisagreements', () => {
   it('withdraws a standing disagreement whose label is gone though no event said so', async () => {
-    const { swept, visit, judged, recorded, stored } = await setUp();
-    await visit('run_1', 10);
+    const { swept, endedRun, judged, recorded, stored } = await setUp();
+    await endedRun('run_1', 10);
     await recorded(
       await judged('run_1', new Date(NOW.getTime() - 31 * 24 * HOUR_MS)),
     );
     expect(stored()[0]?.labelFrom).toBe('merged');
 
-    await visit('run_2', 12);
+    await endedRun('run_2', 12);
     await swept();
 
     expect(stored()[0]?.state).toBe('withdrawn');
@@ -129,8 +129,8 @@ describe('RecheckJudgeDisagreements', () => {
   });
 
   it('opens a disagreement that no event opened', async () => {
-    const { swept, visit, judged, stored } = await setUp();
-    await visit('run_1', 10);
+    const { swept, endedRun, judged, stored } = await setUp();
+    await endedRun('run_1', 10);
     await judged('run_1');
 
     await swept();
@@ -141,8 +141,8 @@ describe('RecheckJudgeDisagreements', () => {
   });
 
   it('leaves a run alone when its judge verdict is older than 30 days', async () => {
-    const { swept, visit, judged, stored } = await setUp();
-    await visit('run_1', 10);
+    const { swept, endedRun, judged, stored } = await setUp();
+    await endedRun('run_1', 10);
     await judged('run_1', new Date(NOW.getTime() - 31 * 24 * HOUR_MS));
 
     await swept();
@@ -182,8 +182,8 @@ describe('RecheckJudgeDisagreements', () => {
   });
 
   it('reads the same page again on the next tick when the read fails', async () => {
-    const { facts, swept, visit, judged, stored } = await setUp();
-    await visit('run_1', 10);
+    const { facts, swept, endedRun, judged, stored } = await setUp();
+    await endedRun('run_1', 10);
     await judged('run_1');
     const liveJudgedSince = facts.liveJudgedSince.bind(facts);
     let failures = 1;
@@ -202,9 +202,9 @@ describe('RecheckJudgeDisagreements', () => {
   });
 
   it('checks the other runs when one fails, and names the one that failed', async () => {
-    const { facts, logger, swept, visit, judged, stored } = await setUp();
-    await visit('run_1', 10);
-    await visit('run_2', 8);
+    const { facts, logger, swept, endedRun, judged, stored } = await setUp();
+    await endedRun('run_1', 10);
+    await endedRun('run_2', 8);
     await judged('run_1');
     await judged('run_2');
     const scoresOfRuns = facts.scoresOfRuns.bind(facts);

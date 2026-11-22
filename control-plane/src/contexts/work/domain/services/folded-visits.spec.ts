@@ -77,7 +77,7 @@ describe('foldedVisits', () => {
     expect(review?.answers.map((note) => note.position)).toEqual([1, 2]);
   });
 
-  it('marks a visit that sent the task back to an earlier station', () => {
+  it('marks a visit whose station passed the task back to an earlier station', () => {
     const reworked = trailOf(
       ['implementation', 'passed'],
       ['review', 'asked'],
@@ -87,11 +87,11 @@ describe('foldedVisits', () => {
     );
 
     expect(
-      foldedVisits(reworked, new Set([4])).map((each) => each.sentBack),
+      foldedVisits(reworked, new Set([4])).map((each) => each.passedBack),
     ).toEqual([false, true]);
   });
 
-  it('does not mark a send-back when a station position is unknown', () => {
+  it('does not mark a pass back when a station position is unknown', () => {
     const removed = trailOf(
       ['review', 'passed'],
       ['implementation', 'message'],
@@ -100,7 +100,7 @@ describe('foldedVisits', () => {
     );
 
     expect(
-      foldedVisits(removed, new Set([1])).map((each) => each.sentBack),
+      foldedVisits(removed, new Set([1])).map((each) => each.passedBack),
     ).toEqual([false]);
   });
 
@@ -128,6 +128,6 @@ describe('foldedVisits', () => {
     );
 
     expect(review?.closing).toBeNull();
-    expect(review?.sentBack).toBe(false);
+    expect(review?.passedBack).toBe(false);
   });
 });

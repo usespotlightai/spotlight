@@ -3,10 +3,7 @@ import type {
   RunFactOwner,
   RunFactsPort,
 } from '@insights/application/ports/run-facts.port';
-import type {
-  RunFact,
-  TaskPullRequestFact,
-} from '@insights/domain/value-objects/run-fact.vo';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import {
   type RunFactRow,
   rowOfFact,
@@ -14,7 +11,6 @@ import {
 import {
   runFact,
   runRecord,
-  taskPullRequestFact,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -83,43 +79,6 @@ export class DrizzleRunFacts implements RunFactsPort {
       inList(
         runFact.runId,
         runIds.map((each) => each.value),
-      ),
-    );
-  }
-
-  async putTaskPullRequests(
-    pullRequests: readonly TaskPullRequestFact[],
-  ): Promise<void> {
-    for (const each of pullRequests) {
-      const columns = {
-        workspaceId: each.workspaceId.value,
-        teamId: each.teamId.value,
-        pullRequest: each.pullRequest.value,
-        state: each.state,
-        openedAt: each.openedAt,
-        firstReviewAt: each.firstReviewAt,
-        closedAt: each.closedAt,
-      };
-
-      await this.context.db
-        .insert(taskPullRequestFact)
-        .values({ taskId: each.taskId.value, ...columns })
-        .onConflictDoUpdate({
-          target: taskPullRequestFact.taskId,
-          set: columns,
-        });
-    }
-  }
-
-  async dropTaskPullRequests(taskIds: readonly TaskId[]): Promise<void> {
-    if (taskIds.length === 0) {
-      return;
-    }
-
-    await this.context.db.delete(taskPullRequestFact).where(
-      inList(
-        taskPullRequestFact.taskId,
-        taskIds.map((each) => each.value),
       ),
     );
   }

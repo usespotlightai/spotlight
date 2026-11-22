@@ -6,6 +6,6 @@ describe('passesOn', () => {
     expect(passesOn('accepted')).toBe(true);
     expect(passesOn('merged')).toBe(true);
     expect(passesOn('sent-back')).toBe(false);
-    expect(passesOn('held')).toBe(false);
+    expect(passesOn('held-as-wrong')).toBe(false);
   });
 });

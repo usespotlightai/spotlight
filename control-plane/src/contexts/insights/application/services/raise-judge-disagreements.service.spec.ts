@@ -9,7 +9,7 @@ import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
+import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import {
   type Acted,
   ACTOR,
@@ -302,12 +302,12 @@ describe('RaiseJudgeDisagreements', () => {
   });
 
   describe('on a task whose pull request merged', () => {
-    const visits = async () => {
+    const onTheTask = async () => {
       const records = new RunRecordsInMemory();
       const scores = new ScoresInMemory();
       const pullRequests = new PullRequestRecordsInMemory();
       await pullRequests.add(
-        taskPullRequestOf('task_1', {
+        ownedRecordOf('task_1', {
           openedAt: day('2026-09-30', 9),
           closedAt: day('2026-09-30', 13),
         }),
@@ -327,7 +327,7 @@ describe('RaiseJudgeDisagreements', () => {
         taskId: 'task_1',
       });
       await scores.add(score);
-      const visit = (runId: string, hour: number, stationId?: string) =>
+      const endedRun = (runId: string, hour: number, stationId?: string) =>
         endedRecord(runId, {
           taskId: 'task_1',
           stationId,
@@ -345,15 +345,15 @@ describe('RaiseJudgeDisagreements', () => {
         disagreements,
         raising,
         score,
-        visit,
+        endedRun,
         added,
       };
     };
 
     it('withdraws the disagreement a merge opened once a person sends the run back, since people now agree with the judge', async () => {
-      const { records, disagreements, raising, score, visit, added } =
-        await visits();
-      const run = visit('run_1', 10);
+      const { records, disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      const run = endedRun('run_1', 10);
       await added(run);
       await raising.scoreRecorded(recordedOf(score));
 
@@ -374,9 +374,9 @@ describe('RaiseJudgeDisagreements', () => {
     });
 
     it('keeps the disagreement a merge opened, still asked of the team, once a person accepts the run', async () => {
-      const { records, disagreements, raising, score, visit, added } =
-        await visits();
-      const run = visit('run_1', 10);
+      const { records, disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      const run = endedRun('run_1', 10);
       await added(run);
       await raising.scoreRecorded(recordedOf(score));
 
@@ -396,13 +396,14 @@ describe('RaiseJudgeDisagreements', () => {
       expect(stored[0]?.askedOf).toBeNull();
     });
 
-    it('withdraws the first visit’s disagreement once a later visit of the station completes and takes the merge', async () => {
-      const { disagreements, raising, score, visit, added } = await visits();
-      await added(visit('run_1', 10));
+    it('withdraws the first run’s disagreement once a later run of the station completes and takes the merge', async () => {
+      const { disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      await added(endedRun('run_1', 10));
       await raising.scoreRecorded(recordedOf(score));
       expect([...disagreements.stored.values()][0]?.labelFrom).toBe('merged');
 
-      const [ended] = await added(visit('run_2', 12));
+      const [ended] = await added(endedRun('run_2', 12));
       await raising.runEnded(ended as RunRecordEnded);
 
       const [disagreement] = [...disagreements.stored.values()];
@@ -410,12 +411,13 @@ describe('RaiseJudgeDisagreements', () => {
       expect(disagreement?.withdrawnBecause).toBe('label-gone');
     });
 
-    it('withdraws a disagreement it opened while a later visit took the merge', async () => {
-      const { disagreements, raising, score, visit, added } = await visits();
-      await added(visit('run_1', 10));
+    it('withdraws a disagreement it opened while a later run took the merge', async () => {
+      const { disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      await added(endedRun('run_1', 10));
       const opened = disagreements.add.bind(disagreements);
       disagreements.add = async (disagreement) => {
-        await added(visit('run_2', 12));
+        await added(endedRun('run_2', 12));
         await opened(disagreement);
       };
 
@@ -427,10 +429,11 @@ describe('RaiseJudgeDisagreements', () => {
     });
 
     it('withdraws again when another writer changed the disagreement meanwhile, and leaves a second conflict to the event retry', async () => {
-      const { disagreements, raising, score, visit, added } = await visits();
-      await added(visit('run_1', 10));
+      const { disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      await added(endedRun('run_1', 10));
       await raising.scoreRecorded(recordedOf(score));
-      const [ended] = await added(visit('run_2', 12));
+      const [ended] = await added(endedRun('run_2', 12));
       const saved = disagreements.save.bind(disagreements);
       let conflicts = 0;
       disagreements.save = async (disagreement) => {
@@ -449,10 +452,11 @@ describe('RaiseJudgeDisagreements', () => {
     });
 
     it('leaves the merge with a station’s run when a run at another station of the task ends', async () => {
-      const { disagreements, raising, score, visit, added } = await visits();
-      await added(visit('run_1', 10));
+      const { disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      await added(endedRun('run_1', 10));
       await raising.scoreRecorded(recordedOf(score));
-      const [ended] = await added(visit('run_2', 12, 'station_2'));
+      const [ended] = await added(endedRun('run_2', 12, 'station_2'));
 
       await raising.runEnded(ended as RunRecordEnded);
 
@@ -462,10 +466,11 @@ describe('RaiseJudgeDisagreements', () => {
     });
 
     it('ends quietly when another subscriber withdrew the disagreement first', async () => {
-      const { disagreements, raising, score, visit, added } = await visits();
-      await added(visit('run_1', 10));
+      const { disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      await added(endedRun('run_1', 10));
       await raising.scoreRecorded(recordedOf(score));
-      const [ended] = await added(visit('run_2', 12));
+      const [ended] = await added(endedRun('run_2', 12));
       const saved = disagreements.save.bind(disagreements);
       disagreements.save = async (disagreement) => {
         disagreements.save = saved;
@@ -479,12 +484,12 @@ describe('RaiseJudgeDisagreements', () => {
       expect([...disagreements.stored.values()][0]?.state).toBe('withdrawn');
     });
 
-    it('withdraws the first visit’s disagreement when the pull request closes after a later visit completed', async () => {
-      const { pullRequests, disagreements, raising, score, visit, added } =
-        await visits();
-      await added(visit('run_1', 10));
+    it('withdraws the first run’s disagreement when the pull request closes after a later run completed', async () => {
+      const { pullRequests, disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      await added(endedRun('run_1', 10));
       await raising.scoreRecorded(recordedOf(score));
-      await added(visit('run_2', 12));
+      await added(endedRun('run_2', 12));
       const [merged] = [...pullRequests.stored.values()];
 
       await raising.pullRequestClosed(
@@ -503,8 +508,8 @@ describe('RaiseJudgeDisagreements', () => {
     });
 
     it('considers only the runs of the event’s workspace', async () => {
-      const { disagreements, raising, visit, added } = await visits();
-      const [ended] = await added(visit('run_1', 10));
+      const { disagreements, raising, endedRun, added } = await onTheTask();
+      const [ended] = await added(endedRun('run_1', 10));
       const event = ended as RunRecordEnded;
 
       await raising.runEnded(

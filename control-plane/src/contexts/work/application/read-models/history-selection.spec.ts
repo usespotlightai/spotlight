@@ -11,7 +11,7 @@ const outcome: RunResultShape = {
   endedAt: '2026-09-30T10:00:00.000Z',
   ending: 'failed',
   failure: 'exited',
-  visit: 2,
+  runNumber: 2,
   checks: 'failed',
   firstHumanAction: { kind: 'sent-back', at: '2026-09-30T11:00:00.000Z' },
   pullRequestState: 'merged',

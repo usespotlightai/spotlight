@@ -15,7 +15,7 @@ export interface FoldedVisit<T extends VisitedNote> {
   readonly notes: readonly T[];
   readonly closing: T | null;
   readonly answers: readonly T[];
-  readonly sentBack: boolean;
+  readonly passedBack: boolean;
 }
 
 const lastOf = <T>(list: readonly T[]): T | undefined => list[list.length - 1];
@@ -56,7 +56,7 @@ const stretchesOf = <T extends VisitedNote>(
 const answersIn = <T extends VisitedNote>(notes: readonly T[]): T[] =>
   notes.filter((note) => note.kind === ANSWERS_A_QUESTION);
 
-const wentBack = (
+const passesBack = (
   closing: VisitedNote | null,
   next: VisitedNote | undefined,
 ): boolean => {
@@ -85,7 +85,7 @@ export const foldedVisits = <T extends VisitedNote>(
         notes,
         closing,
         answers: answersIn(notes),
-        sentBack: wentBack(closing, next),
+        passedBack: passesBack(closing, next),
       };
     });
   });

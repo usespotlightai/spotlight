@@ -13,7 +13,7 @@ import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
+import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
   endedRecord,
@@ -37,7 +37,7 @@ const SENT_BACK_RISES = AlertRule.of({
 const watching = (initially: readonly AlertRule[] | null) => {
   let alerts = initially;
   const records = new RunRecordsInMemory();
-  const taskPullRequests = new PullRequestRecordsInMemory();
+  const pullRequestRecords = new PullRequestRecordsInMemory();
   const alertStates = new StationAlertStatesInMemory();
   const deletions = deletionsInMemory();
   let next = 0;
@@ -49,7 +49,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
     lines,
     {
       facts: new StationFactsInMemory(records, {
-        pullRequests: taskPullRequests,
+        pullRequests: pullRequestRecords,
       }),
       alertStates,
     },
@@ -98,7 +98,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
   };
 
   const closedPullRequest = async (hour: number, merged: boolean) => {
-    const closed = taskPullRequestOf(`task_${hour}`, {
+    const closed = ownedRecordOf(`task_${hour}`, {
       openedAt: day('2026-09-30', hour),
       closedAt: day('2026-09-30', hour + 1),
       merged,
@@ -107,7 +107,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
       .pullEvents()
       .find((each) => each instanceof PullRequestRecordClosed);
     expect(event).toBeInstanceOf(PullRequestRecordClosed);
-    await taskPullRequests.add(closed);
+    await pullRequestRecords.add(closed);
     await service.pullRequestClosed(event as PullRequestRecordClosed);
   };
 

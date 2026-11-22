@@ -103,7 +103,7 @@ const outcomeOf = (
   endedAt: '2026-09-30T10:05:00.000Z',
   ending,
   failure: null,
-  visit: 1,
+  runNumber: 1,
   checks: null,
   firstHumanAction: null,
   pullRequestState: null,

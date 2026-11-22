@@ -52,7 +52,7 @@ export const rowOfFact = (fact: RunFact): RunFactRow => {
     ran: fact.ran,
     ranAConfig: fact.end.ranAConfig,
     size: fact.size,
-    visit: fact.end.visit,
+    runNumber: fact.end.runNumber,
     openedById: fact.opening?.by?.value ?? null,
     taskOpenedAt: fact.opening?.at ?? null,
     pullRequest: fact.pullRequest?.pullRequest.value ?? null,

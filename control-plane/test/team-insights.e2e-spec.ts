@@ -196,12 +196,12 @@ beforeAll(async () => {
   };
 
   const record = () => app.get(DrizzleRunRecordRepository).of(RUN);
-  const taskPullRequest = async () =>
+  const ownedPullRequest = async () =>
     (
       await app
         .get(DrizzlePullRequestRecordRepository)
         .at(workspaceId, PullRequestUrl.of(PULL))
-    )?.forTask ?? null;
+    )?.ownedPullRequest ?? null;
   const updated = (version: number, merged: boolean) =>
     new PullRequestUpdated(workspaceId, {
       pullRequest: PullRequestUrl.of(PULL),
@@ -389,15 +389,15 @@ beforeAll(async () => {
         ago(180),
       ),
     ],
-    taskPullRequest,
+    ownedPullRequest,
   );
   await delivered(
     [updated(1, false)],
-    async () => (await taskPullRequest())?.firstReviewAt,
+    async () => (await ownedPullRequest())?.firstReviewAt,
   );
   await delivered(
     [updated(2, true)],
-    async () => (await taskPullRequest())?.state === 'merged',
+    async () => (await ownedPullRequest())?.state === 'merged',
   );
   await delivered(
     [
@@ -463,16 +463,16 @@ describe('what the insights context receives for a team (e2e)', () => {
   });
 
   it('dates the task’s pull request from opening to first review to merge', async () => {
-    const taskPullRequest = (
+    const ownedPullRequest = (
       await app
         .get(DrizzlePullRequestRecordRepository)
         .at(team.workspaceId, PullRequestUrl.of(PULL))
-    )?.forTask;
+    )?.ownedPullRequest;
 
-    expect(taskPullRequest?.state).toBe('merged');
-    expect(taskPullRequest?.firstReviewAt).not.toBeNull();
-    expect(taskPullRequest?.openedAt.getTime()).toBeLessThan(
-      taskPullRequest?.firstReviewAt?.getTime() ?? 0,
+    expect(ownedPullRequest?.state).toBe('merged');
+    expect(ownedPullRequest?.firstReviewAt).not.toBeNull();
+    expect(ownedPullRequest?.openedAt.getTime()).toBeLessThan(
+      ownedPullRequest?.firstReviewAt?.getTime() ?? 0,
     );
   });
 

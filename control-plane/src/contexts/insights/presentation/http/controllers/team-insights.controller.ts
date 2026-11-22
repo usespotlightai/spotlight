@@ -586,7 +586,8 @@ export class TeamInsightsController {
     name: 'pullRequestState',
     required: false,
     enum: PULL_REQUEST_STATES,
-    description: 'Only runs of tasks whose pull request has this status',
+    description:
+      'Only runs of tasks whose pull requests have this combined status: open while one is open, merged when all merged, else closed',
   })
   @ApiQuery({
     name: 'humanAction',

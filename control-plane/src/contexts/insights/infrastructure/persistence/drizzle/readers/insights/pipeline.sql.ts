@@ -27,7 +27,7 @@ export const ranOfOpened = (team: TeamInPeriod): SQL => sql`
     and ${endedIn(team.period.lookback.from, team.period.lookback.to)}
     and ${runFact.taskId} in (select opened.task_id from opened)`;
 
-export const stationVisitsOfOpened = (team: TeamInPeriod): SQL => {
+export const stationTimeOfOpened = (team: TeamInPeriod): SQL => {
   const { lookback } = team.period;
   const queuedMs = msOf(sql`facts.started_at - facts.queued_at`);
   const runningMs = msOf(sql`facts.ended_at - facts.started_at`);

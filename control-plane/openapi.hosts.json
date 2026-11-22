@@ -4976,8 +4976,10 @@
               "answered",
               "approved",
               "dismissed",
-              "sent-back"
-            ]
+              "sent-back",
+              "held-as-wrong"
+            ],
+            "description": "What the person did with the task"
           },
           "at": {
             "type": "string"
@@ -5007,9 +5009,9 @@
             "nullable": true,
             "example": "exited"
           },
-          "visit": {
+          "runNumber": {
             "type": "number",
-            "description": "How many runs this station has taken on the task, this one included"
+            "description": "The number of this run at its station on the task: 1 plus the earlier runs there that completed or failed. Every stay at the station counts."
           },
           "usage": {
             "nullable": true,
@@ -5047,13 +5049,14 @@
               "merged",
               "closed",
               null
-            ]
+            ],
+            "description": "The combined state of the task’s pull requests: open while one is open, merged when all merged, else closed"
           }
         },
         "required": [
           "ending",
           "failure",
-          "visit",
+          "runNumber",
           "usage",
           "checks",
           "firstHumanAction",
@@ -5106,7 +5109,8 @@
             "example": "completed"
           },
           "attempt": {
-            "type": "number"
+            "type": "number",
+            "description": "The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it."
           },
           "harness": {
             "type": "string",

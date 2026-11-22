@@ -179,12 +179,6 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/work/infrastructure/collab/drizzle-task-draft-states.ts',
     ],
   },
-  task_pull_request_fact: {
-    why: 'Insights projection that links tasks to pull requests',
-    writers: [
-      'contexts/insights/infrastructure/persistence/drizzle/projections/run-facts.projection.ts',
-    ],
-  },
   team_welcome: {
     why: 'Work ledger that sends the team welcome once',
     writers: [

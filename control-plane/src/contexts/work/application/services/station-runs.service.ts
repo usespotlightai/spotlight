@@ -11,7 +11,7 @@ import type {
   UnfinishedStationRun,
 } from '@work/application/ports/station-runs.port';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import { visitAfter } from '@work/domain/services/station-visit';
+import { runNumberAfter } from '@work/domain/services/station-run-number';
 import { reviewedOrAll } from '@work/domain/services/task-checkouts';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
@@ -52,7 +52,7 @@ export class StationRuns implements StationRunsPort {
 
     return {
       ...run,
-      visit: visitAfter(earlier),
+      runNumber: runNumberAfter(earlier),
       harness: config?.harness ?? run.harness,
       model: config?.model ?? null,
       effort: config?.effort ?? null,

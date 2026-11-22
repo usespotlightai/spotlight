@@ -133,27 +133,44 @@ export class DeliveryFlowResponseDto {
   })
   readonly toMerge: SpreadResponseDto;
 
-  @ApiProperty({ example: 14 })
+  @ApiProperty({
+    example: 14,
+    description: 'Pull requests opened in the period',
+  })
   readonly opened: number;
 
-  @ApiProperty({ example: 12 })
+  @ApiProperty({
+    example: 12,
+    description: 'Pull requests a person first reviewed in the period',
+  })
   readonly reviewed: number;
 
-  @ApiProperty({ example: 11 })
+  @ApiProperty({
+    example: 11,
+    description: 'Pull requests merged in the period',
+  })
   readonly merged: number;
 
-  @ApiProperty({ type: String, isArray: true })
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The tasks with a pull request opened in the period',
+  })
   readonly openedTaskIds: readonly string[];
 
   @ApiProperty({
     type: String,
     isArray: true,
     description:
-      'The tasks whose pull requests a person first reviewed in the period',
+      'The tasks with a pull request a person first reviewed in the period',
   })
   readonly reviewedTaskIds: readonly string[];
 
-  @ApiProperty({ type: String, isArray: true })
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The tasks with a pull request merged in the period',
+  })
   readonly mergedTaskIds: readonly string[];
 
   @ApiProperty({

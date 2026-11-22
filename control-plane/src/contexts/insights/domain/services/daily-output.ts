@@ -1,8 +1,11 @@
-import type { ResolvedDelivery } from '@insights/domain/services/headline';
+import {
+  mergedWithin,
+  type PullRequestDelivery,
+  tasksOf,
+} from '@insights/domain/services/pull-request-delivery';
 import {
   dayOf,
   type InsightsPeriod,
-  within,
 } from '@insights/domain/value-objects/insights-period.vo';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 
@@ -47,12 +50,12 @@ const NO_SPENDING: DaySpending = {
 
 export const dailyOutputFrom = (
   spending: ReadonlyMap<string, DaySpending>,
-  resolved: readonly ResolvedDelivery[],
+  deliveries: readonly PullRequestDelivery[],
   period: InsightsPeriod,
   markers: readonly ConfigMarker[],
 ): readonly DayOutput[] => {
-  const merged = resolved.filter(
-    (each) => each.merged && within(period.current, each.closedAt),
+  const merged = deliveries.filter((each) =>
+    mergedWithin(period.current, each),
   );
 
   return period.days.map((day) => {
@@ -62,7 +65,7 @@ export const dailyOutputFrom = (
       day,
       ...(spending.get(day) ?? NO_SPENDING),
       merged: mergedThatDay.length,
-      mergedTaskIds: mergedThatDay.map((each) => each.taskId),
+      mergedTaskIds: tasksOf(mergedThatDay),
       changes: markers.filter((each) => dayOf(each.firstRunAt) === day),
     };
   });

@@ -4,6 +4,11 @@ import {
   type Spread,
   spreadOf,
 } from '@insights/domain/services/measures';
+import {
+  mergedWithin,
+  type PullRequestDelivery,
+  tasksOf,
+} from '@insights/domain/services/pull-request-delivery';
 import type { StationLocation } from '@insights/domain/services/station-ranking';
 import { type Delta, deltaOf } from '@insights/domain/value-objects/delta.vo';
 import {
@@ -79,24 +84,15 @@ export interface FlowWindowCounts {
   readonly inbox: readonly StationInboxCounts[];
 }
 
-export interface DeliveryMoments {
-  readonly taskId: string;
-  readonly openedAt: Date;
-  readonly firstReviewAt: Date | null;
-  readonly closedAt: Date | null;
-  readonly merged: boolean;
-  readonly taskOpenedAt: Date | null;
-}
-
 export interface FlowCounts {
   readonly current: FlowWindowCounts;
   readonly previous: FlowWindowCounts;
-  readonly deliveries: readonly DeliveryMoments[];
+  readonly deliveries: readonly PullRequestDelivery[];
 }
 
 const flowWithin = (
   counts: FlowWindowCounts,
-  deliveries: readonly DeliveryMoments[],
+  deliveries: readonly PullRequestDelivery[],
   window: Window,
 ): FlowWithin => {
   const inbox = new Map(counts.inbox.map((each) => [each.stationId, each]));
@@ -104,9 +100,7 @@ const flowWithin = (
   const reviewed = deliveries.filter((each) =>
     within(window, each.firstReviewAt),
   );
-  const merged = deliveries.filter(
-    (each) => each.merged && within(window, each.closedAt),
-  );
+  const merged = deliveries.filter((each) => mergedWithin(window, each));
 
   return {
     stations: counts.stations.map((station) => {
@@ -139,17 +133,16 @@ const flowWithin = (
         ),
       ),
       toMerge: spreadOf(
-        merged.flatMap((each) => {
-          const from = each.firstReviewAt ?? each.openedAt;
-          return each.closedAt ? [between(from, each.closedAt)] : [];
-        }),
+        merged.map((each) =>
+          between(each.firstReviewAt ?? each.openedAt, each.closedAt),
+        ),
       ),
       opened: opened.length,
       reviewed: reviewed.length,
       merged: merged.length,
-      openedTaskIds: opened.map((each) => each.taskId),
-      reviewedTaskIds: reviewed.map((each) => each.taskId),
-      mergedTaskIds: merged.map((each) => each.taskId),
+      openedTaskIds: tasksOf(opened),
+      reviewedTaskIds: tasksOf(reviewed),
+      mergedTaskIds: tasksOf(merged),
     },
   };
 };

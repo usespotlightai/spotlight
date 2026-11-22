@@ -244,7 +244,11 @@ export class TaskRunResponseDto {
   @ApiProperty({ example: 'completed', enum: RUN_STATE_NAMES })
   readonly state: string;
 
-  @ApiProperty({ example: 1 })
+  @ApiProperty({
+    example: 1,
+    description:
+      'The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it.',
+  })
   readonly attempt: number;
 
   @ApiProperty({ example: 0, nullable: true, type: Number })

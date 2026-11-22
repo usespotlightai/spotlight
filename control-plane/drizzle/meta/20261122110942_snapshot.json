@@ -1,5 +1,5 @@
 {
-  "id": "86bccdb3-1e6d-4d17-ad2a-495c8619ac55",
+  "id": "055ffe8d-ca34-4d97-8fbb-75560601d07a",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6159,8 +6159,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "visit": {
-          "name": "visit",
+        "run_number": {
+          "name": "run_number",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -6657,8 +6657,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "visit": {
-          "name": "visit",
+        "run_number": {
+          "name": "run_number",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -7677,96 +7677,6 @@
           "columns": [
             {
               "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.task_pull_request_fact": {
-      "name": "task_pull_request_fact",
-      "schema": "",
-      "columns": {
-        "task_id": {
-          "name": "task_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pull_request": {
-          "name": "pull_request",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "state": {
-          "name": "state",
-          "type": "pull_request_state",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "opened_at": {
-          "name": "opened_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "first_review_at": {
-          "name": "first_review_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "closed_at": {
-          "name": "closed_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "task_pull_request_fact_team_idx": {
-          "name": "task_pull_request_fact_team_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "opened_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -20805,7 +20715,7 @@
         "accepted",
         "answered",
         "sent-back",
-        "held"
+        "held-as-wrong"
       ]
     },
     "public.judging_failure": {
@@ -20958,7 +20868,7 @@
         "accepted",
         "sent-back",
         "merged",
-        "held"
+        "held-as-wrong"
       ]
     },
     "public.delivery_state": {

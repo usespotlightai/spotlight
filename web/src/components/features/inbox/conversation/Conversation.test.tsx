@@ -485,7 +485,7 @@ describe('Conversation', () => {
         endedAt: LATER,
         closing: null,
         answers: [],
-        sentBack: false,
+        passedBack: false,
       },
     ]);
 

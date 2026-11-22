@@ -5,10 +5,13 @@ import { PullRequestReleased } from '@insights/domain/events/pull-request-releas
 import { PullRequestReviewTaskAdded } from '@insights/domain/events/pull-request-review-task-added.event';
 import { PullRequestSeen } from '@insights/domain/events/pull-request-seen.event';
 import { InvalidPullRequestRecordError } from '@insights/domain/exceptions/invalid-pull-request-record.error';
-import { taskPullRequestOf } from '@insights/domain/services/task-pull-request';
+import { taskPullRequestsOf } from '@insights/domain/services/task-pull-requests';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
-import type { TaskPullRequestFact } from '@insights/domain/value-objects/run-fact.vo';
+import type {
+  OwnedPullRequest,
+  RunPullRequest,
+} from '@insights/domain/value-objects/run-fact.vo';
 import {
   SeenPullRequest,
   type SeenPullRequestFields,
@@ -77,12 +80,12 @@ export class PullRequestRecord extends EventRecorder {
     );
   }
 
-  static taskFactOf(
+  static taskPullRequestsOf(
     records: readonly PullRequestRecord[],
-  ): TaskPullRequestFact | null {
-    return taskPullRequestOf(
+  ): RunPullRequest | null {
+    return taskPullRequestsOf(
       records.flatMap((each) => {
-        const owned = each.forTask;
+        const owned = each.ownedPullRequest;
         return owned ? [owned] : [];
       }),
     );
@@ -128,7 +131,7 @@ export class PullRequestRecord extends EventRecorder {
     return this.seen?.state ?? 'open';
   }
 
-  get forTask(): TaskPullRequestFact | null {
+  get ownedPullRequest(): OwnedPullRequest | null {
     return this.owner
       ? {
           workspaceId: this.workspaceId,

@@ -7,7 +7,7 @@ import {
 } from '@insights/domain/services/change-verdict';
 import type { AlertMeasure } from '@insights/domain/value-objects/alert-rule.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -125,19 +125,19 @@ describe('verdictsFrom', () => {
     );
   });
 
-  it('reads merging as a rate of tasks whose pull request closed', () => {
+  it('reads merging as a rate of tasks whose pull requests are no longer open', () => {
     const before = runs('b', FIVE_CLOSED);
     const after = runs('a', FIVE_CLOSED);
-    const taskPullRequests = [
+    const pullRequestRecords = [
       ...before.map((each, index) =>
-        taskPullRequestOf(each.taskId?.value ?? '', {
+        ownedRecordOf(each.taskId?.value ?? '', {
           openedAt: at(1),
           closedAt: at(2),
           merged: index < 4,
         }),
       ),
       ...after.map((each, index) =>
-        taskPullRequestOf(each.taskId?.value ?? '', {
+        ownedRecordOf(each.taskId?.value ?? '', {
           openedAt: at(1),
           closedAt: index < 4 ? at(2) : undefined,
           merged: index < 2,
@@ -146,7 +146,7 @@ describe('verdictsFrom', () => {
     ];
 
     const merged = of(
-      changeVerdictOf(before, after, taskPullRequests),
+      changeVerdictOf(before, after, pullRequestRecords),
       'merged_rate',
     );
 
@@ -206,7 +206,7 @@ describe('verdictsFrom', () => {
       runs('b', FIVE_CLOSED),
       [...runs('a', FIVE_CLOSED), cancelled],
       [
-        taskPullRequestOf('task_cancelled', {
+        ownedRecordOf('task_cancelled', {
           openedAt: at(9),
           closedAt: at(11),
           merged: true,
