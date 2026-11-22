@@ -131,11 +131,10 @@ export const memoryCountsIn = async (
   team: TeamInPeriod,
 ): Promise<MemoryCounts> => {
   const groups = await groupsIn(db, team);
-  const uses = new Map<UsedVia, UseCount>(
-    await Promise.all(
-      USED.map(async (via) => [via, await useOf(db, team, via)] as const),
-    ),
-  );
+  const uses = new Map<UsedVia, UseCount>();
+  for (const via of USED) {
+    uses.set(via, await useOf(db, team, via));
+  }
   const useBy = (via: UsedVia): UseCount =>
     uses.get(via) ?? { runs: 0, memories: 0 };
 

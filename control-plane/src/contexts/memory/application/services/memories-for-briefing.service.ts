@@ -87,10 +87,8 @@ export class MemoriesForBriefing
     const stored = await this.memories.findAll(
       chosen.briefed.map((each) => MemoryId.of(each.id)),
     );
-    const [applying, elsewhere] = await Promise.all([
-      this.applicable.at(runContext, asOf),
-      this.applicable.elsewhere(runContext, asOf),
-    ]);
+    const applying = await this.applicable.at(runContext, asOf);
+    const elsewhere = await this.applicable.elsewhere(runContext, asOf);
     const teamMemories = new Map(
       stored
         .filter((each) => each.isTeams(briefing.teamId))
@@ -126,10 +124,8 @@ export class MemoriesForBriefing
 
   async forBriefing(briefing: BriefingContext): Promise<BriefingSelection> {
     const runContext = contextOf(briefing);
-    const [applying, elsewhere] = await Promise.all([
-      this.applicable.at(runContext),
-      this.applicable.elsewhere(runContext),
-    ]);
+    const applying = await this.applicable.at(runContext);
+    const elsewhere = await this.applicable.elsewhere(runContext);
     const ids = applying.map((each) => each.id);
     const touched = applying.some((each) => each.scope.paths.length > 0)
       ? await briefing.touched()

@@ -121,15 +121,13 @@ export class WorkMemoryDrafts implements PendingJobsPort {
       );
     }
 
-    const [candidates, elsewhere, used, rejected] = await Promise.all([
-      this.applicable.at(runContext),
-      this.applicable.elsewhere(runContext),
-      this.uses.usedBy(runId, MEMORY_USES),
-      this.rejections.rejectedOnTeam(
-        runContext.teamId,
-        recentRejectionsSince(this.clock.now()),
-      ),
-    ]);
+    const candidates = await this.applicable.at(runContext);
+    const elsewhere = await this.applicable.elsewhere(runContext);
+    const used = await this.uses.usedBy(runId, MEMORY_USES);
+    const rejected = await this.rejections.rejectedOnTeam(
+      runContext.teamId,
+      recentRejectionsSince(this.clock.now()),
+    );
     const evidence = DraftEvidence.of({
       taskId: draft.taskId,
       turn,

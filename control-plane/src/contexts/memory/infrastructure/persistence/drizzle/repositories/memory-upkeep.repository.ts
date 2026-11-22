@@ -158,7 +158,11 @@ export class DrizzleMemoryUpkeepRepository implements MemoryUpkeepRepository {
       .from(memoryUpkeep)
       .where(eq(memoryUpkeep.teamId, teamId.value));
 
-    return Promise.all(rows.map((row) => this.withProposals(row)));
+    const upkeeps: MemoryUpkeep[] = [];
+    for (const row of rows) {
+      upkeeps.push(await this.withProposals(row));
+    }
+    return upkeeps;
   }
 
   async remove(removed: MemoryUpkeep): Promise<void> {

@@ -301,8 +301,6 @@ func forget(args []string, in io.Reader, out io.Writer) error {
 	return nil
 }
 
-var patchedFile = regexp.MustCompile(`(?m)^\*\*\* (?:Update|Add|Delete) File: (.+)$`)
-
 type toolHook struct {
 	Cwd       string          `json:"cwd"`
 	ToolInput json.RawMessage `json:"tool_input"`
@@ -358,12 +356,6 @@ func usedPaths(raw []byte) []string {
 		}
 	}
 
-	for _, text := range stringsIn(called.ToolInput) {
-		for _, match := range patchedFile.FindAllStringSubmatch(text, -1) {
-			found = append(found, strings.TrimSpace(match[1]))
-		}
-	}
-
 	used := make([]string, 0, len(found))
 	for _, each := range found {
 		if !filepath.IsAbs(each) && called.Cwd != "" {
@@ -373,31 +365,4 @@ func usedPaths(raw []byte) []string {
 	}
 
 	return used
-}
-
-func stringsIn(raw json.RawMessage) []string {
-	var value any
-	if json.Unmarshal(raw, &value) != nil {
-		return nil
-	}
-
-	found := []string{}
-	var walk func(any)
-	walk = func(each any) {
-		switch typed := each.(type) {
-		case string:
-			found = append(found, typed)
-		case []any:
-			for _, item := range typed {
-				walk(item)
-			}
-		case map[string]any:
-			for _, item := range typed {
-				walk(item)
-			}
-		}
-	}
-	walk(value)
-
-	return found
 }

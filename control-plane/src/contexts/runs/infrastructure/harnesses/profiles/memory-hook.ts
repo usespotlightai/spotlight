@@ -1,6 +1,6 @@
 import { isObject } from '@runs/infrastructure/harnesses/profiles/profile-translator';
 
-export const POST_TOOL_USE_COMMAND = 'spotlight hook post-tool-use';
+const POST_TOOL_USE_COMMAND = 'spotlight hook post-tool-use';
 
 const HOOK_TIMEOUT_SECONDS = 10;
 

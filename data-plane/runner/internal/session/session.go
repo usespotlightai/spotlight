@@ -330,13 +330,14 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 
 	var touches *pathMemories
 	if !replays(run) && !searches(run) {
-		touches = newPathMemories(space.Dir, run.Spec.Checkouts, memoryFiles, func(ctx context.Context, handles, paths []string) {
+		touches = newPathMemories(space.Dir, run.Spec.Checkouts, memoryFiles, func(ctx context.Context, handles, paths []string) error {
 			from := time.Now()
 			err := opts.Journal.DeliveredMemories(ctx, run.ID, handles)
 			journal.append(protocol.Event{Type: protocol.EventSpan, Data: deliveredSpan(handles, paths, from, time.Now(), err)})
 			if err != nil {
-				log.Warn("could not record the memories shown for paths the agent used", "error", err)
+				log.Warn("could not record the memories shown for paths the agent used; they are sent again with the next delivery", "error", err)
 			}
+			return err
 		})
 		channel.Touches(touches.touched)
 	}

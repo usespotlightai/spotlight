@@ -9,7 +9,7 @@ import {
 } from '@/lib/api';
 import type { MemoryUpkeep, UpkeepDecision } from '@/lib/memory-upkeep';
 
-export const memoryUpkeepKeys = {
+const memoryUpkeepKeys = {
   one: (upkeepId?: string) => ['memory-upkeep', upkeepId ?? null] as const,
 };
 

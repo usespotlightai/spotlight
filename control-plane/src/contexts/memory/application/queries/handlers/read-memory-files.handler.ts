@@ -37,10 +37,8 @@ export class ReadMemoryFilesHandler implements QueryHandlerPort<
         return [];
       }
 
-      const [applying, elsewhere] = await Promise.all([
-        this.applicable.at(run, run.asOf),
-        this.applicable.elsewhere(run, run.asOf),
-      ]);
+      const applying = await this.applicable.at(run, run.asOf);
+      const elsewhere = await this.applicable.elsewhere(run, run.asOf);
       const laid = [...applying, ...elsewhere];
       const [lines, replaced, remembered] = await Promise.all([
         this.lines.ofTeam(run.teamId),

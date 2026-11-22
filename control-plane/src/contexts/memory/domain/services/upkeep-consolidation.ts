@@ -119,7 +119,7 @@ export const consolidatedForUpkeep = (input: {
   return proposals;
 };
 
-export const MAX_CONSOLIDATED = 200;
+const MAX_CONSOLIDATED = 200;
 
 const mergeableWith = (memory: Memory): string => {
   const { lineId, stationId, repository, paths } = memory.scope;

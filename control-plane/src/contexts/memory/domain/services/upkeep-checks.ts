@@ -5,7 +5,7 @@ import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
-export const UNUSED_FOR_MS = 90 * 24 * 60 * 60 * 1000;
+const UNUSED_FOR_MS = 90 * 24 * 60 * 60 * 1000;
 
 export interface UpkeepEvidence {
   readonly now: Date;
@@ -42,6 +42,7 @@ const findingOf = (
 
   if (
     repository &&
+    evidence.repositories.length > 0 &&
     !evidence.repositories.some((each) => each.equals(repository))
   ) {
     return {

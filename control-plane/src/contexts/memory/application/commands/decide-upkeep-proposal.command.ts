@@ -1,4 +1,4 @@
-export const UPKEEP_DECISIONS = ['approve', 'reject'] as const;
+const UPKEEP_DECISIONS = ['approve', 'reject'] as const;
 
 export type UpkeepDecision = (typeof UPKEEP_DECISIONS)[number];
 

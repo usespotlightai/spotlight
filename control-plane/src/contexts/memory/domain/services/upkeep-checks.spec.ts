@@ -132,6 +132,17 @@ describe('upkeep checks', () => {
     );
   });
 
+  it('proposes no repository as gone while the team works in no repository at all', () => {
+    expect(
+      checkedForUpkeep(
+        evidence([memory(1, { repository: Repository.of('acme/old') })], {
+          repositories: [],
+        }),
+        newId,
+      ).map((each) => each.finding),
+    ).not.toContain('repository-gone');
+  });
+
   it('proposes to retire a memory no run used in 90 days, but not a newer one or one used lately', () => {
     const old = memory(1, { approvedDaysAgo: 120 });
     const used = memory(2, { approvedDaysAgo: 120 });

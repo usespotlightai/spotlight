@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,14 +19,25 @@ type deliveredCall struct {
 
 func indexed(t *testing.T, files ...protocol.MemoryFile) (*pathMemories, string, *[]deliveredCall) {
 	t.Helper()
+	return indexedFailing(t, 0, files...)
+}
+
+func indexedFailing(t *testing.T, failures int, files ...protocol.MemoryFile) (*pathMemories, string, *[]deliveredCall) {
+	t.Helper()
 	dir := t.TempDir()
 	calls := []deliveredCall{}
+	failing := failures
 	index := newPathMemories(
 		dir,
 		[]protocol.Checkout{{Remote: "https://github.com/acme/api.git", Path: "api"}},
 		files,
-		func(_ context.Context, handles, paths []string) {
+		func(_ context.Context, handles, paths []string) error {
 			calls = append(calls, deliveredCall{handles: handles, paths: paths})
+			if failing > 0 {
+				failing--
+				return errors.New("the control plane is down")
+			}
+			return nil
 		},
 	)
 
@@ -140,6 +152,19 @@ func TestMemoriesPastTheLimitAreShownAtTheNextPrompt(t *testing.T) {
 		t.Errorf("the next note said %q", later)
 	}
 	if len(*calls) != 2 {
+		t.Errorf("recorded %v", *calls)
+	}
+}
+
+func TestAMemoryWhoseRecordFailedIsRecordedWithTheNextDelivery(t *testing.T) {
+	second := aboutUploads("M-19", false)
+	second.Paths = []string{"src/billing"}
+	index, dir, calls := indexedFailing(t, 1, aboutUploads("M-18", false), second)
+
+	index.touched(context.Background(), []string{filepath.Join(dir, "api/src/uploads/retry.ts")})
+	index.touched(context.Background(), []string{filepath.Join(dir, "api/src/billing/charge.ts")})
+
+	if len(*calls) != 2 || !slices.Equal((*calls)[1].handles, []string{"M-18", "M-19"}) {
 		t.Errorf("recorded %v", *calls)
 	}
 }

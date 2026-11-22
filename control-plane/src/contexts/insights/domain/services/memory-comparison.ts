@@ -10,7 +10,7 @@ export interface UseCount {
   readonly memories: number;
 }
 
-export interface CutReadCount {
+interface CutReadCount {
   readonly memoryId: string;
   readonly runs: number;
 }

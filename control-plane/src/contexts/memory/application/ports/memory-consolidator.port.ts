@@ -2,7 +2,7 @@ import type { UpkeepSuggestion } from '@memory/domain/services/upkeep-consolidat
 
 export const MEMORY_CONSOLIDATOR = Symbol('MEMORY_CONSOLIDATOR');
 
-export interface ConsolidatedMemory {
+interface ConsolidatedMemory {
   readonly handle: string;
   readonly kind: string;
   readonly body: string;

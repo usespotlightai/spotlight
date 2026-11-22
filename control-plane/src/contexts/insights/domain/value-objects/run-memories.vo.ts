@@ -1,6 +1,6 @@
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 
-export const MEMORY_VIAS = [
+const MEMORY_VIAS = [
   'briefed',
   'cut',
   'read',
@@ -16,7 +16,7 @@ export const USED: readonly UsedVia[] = MEMORY_VIAS.filter(
   (via): via is UsedVia => via !== 'cut',
 );
 
-export const LOOKED_UP: readonly MemoryVia[] = [
+const LOOKED_UP: readonly MemoryVia[] = [
   'read',
   'recalled',
   'delivered',

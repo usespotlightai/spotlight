@@ -283,21 +283,6 @@ func TestTheHookShowsTheAgentWhatTheTeamRemembersAboutAPathItUsed(t *testing.T) 
 	}
 }
 
-func TestTheHookReadsThePathsAPatchChanges(t *testing.T) {
-	seen := hooked(t, "")
-
-	err := run([]string{"hook", "post-tool-use"}, strings.NewReader(
-		`{"cwd":"/work","tool_name":"apply_patch","tool_input":{"command":["apply_patch","*** Begin Patch\n*** Update File: api/src/uploads.ts\n@@\n*** Add File: web/new.ts\n*** End Patch"]}}`,
-	), new(bytes.Buffer))
-	if err != nil {
-		t.Fatalf("run: %v", err)
-	}
-
-	if len(*seen) != 1 || !slices.Equal((*seen)[0].Paths, []string{"/work/api/src/uploads.ts", "/work/web/new.ts"}) {
-		t.Errorf("touched %+v", *seen)
-	}
-}
-
 func TestTheHookSaysNothingWhereThereIsNothingToShow(t *testing.T) {
 	hooked(t, "")
 	out := new(bytes.Buffer)

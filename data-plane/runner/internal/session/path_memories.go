@@ -37,18 +37,19 @@ type pathMemories struct {
 	dir       string
 	checkouts []protocol.Checkout
 	memories  []pathMemory
-	delivered func(ctx context.Context, handles, paths []string)
+	delivered func(ctx context.Context, handles, paths []string) error
 
-	mu     sync.Mutex
-	shown  map[string]bool
-	queued []string
+	mu         sync.Mutex
+	shown      map[string]bool
+	queued     []string
+	unrecorded []string
 }
 
 func newPathMemories(
 	dir string,
 	checkouts []protocol.Checkout,
 	files []protocol.MemoryFile,
-	delivered func(ctx context.Context, handles, paths []string),
+	delivered func(ctx context.Context, handles, paths []string) error,
 ) *pathMemories {
 	roots := []string{filepath.Clean(dir)}
 	if resolved, err := filepath.EvalSymlinks(dir); err == nil && resolved != roots[0] {
@@ -222,16 +223,23 @@ func (p *pathMemories) deliver(ctx context.Context, used []string) string {
 			p.queued = append(p.queued, each)
 		}
 	}
+	recording := append(p.unrecorded, handles...)
+	p.unrecorded = nil
 	p.mu.Unlock()
+
+	if len(recording) > 0 && p.delivered != nil {
+		recordingCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), deliveryRecordTimeout)
+		err := p.delivered(recordingCtx, recording, paths)
+		cancel()
+		if err != nil {
+			p.mu.Lock()
+			p.unrecorded = append(recording, p.unrecorded...)
+			p.mu.Unlock()
+		}
+	}
 
 	if len(handles) == 0 {
 		return ""
-	}
-
-	if p.delivered != nil {
-		recording, cancel := context.WithTimeout(context.WithoutCancel(ctx), deliveryRecordTimeout)
-		p.delivered(recording, handles, paths)
-		cancel()
 	}
 
 	return deliveredNote(deliveries)

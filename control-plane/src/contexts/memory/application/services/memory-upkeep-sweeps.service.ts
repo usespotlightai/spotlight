@@ -116,20 +116,19 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
   ): Promise<MemoryUpkeepSchedule> {
     const now = this.clock.now();
     const newId = () => UpkeepProposalId.of(this.ids.generate());
-    const [stored, lines, history] = await Promise.all([
-      this.memories.ofTeam(schedule.teamId),
-      this.lines.ofTeam(schedule.teamId),
-      this.upkeeps.historySince(schedule.teamId, HeldBack.lookbackFrom(now)),
-    ]);
+    const stored = await this.memories.ofTeam(schedule.teamId);
+    const lines = await this.lines.ofTeam(schedule.teamId);
+    const history = await this.upkeeps.historySince(
+      schedule.teamId,
+      HeldBack.lookbackFrom(now),
+    );
     const heldBack = HeldBack.from(history, now);
     const active = stored.filter((each) => each.isActive);
     const repositories = distinctRepositories(
       lines.flatMap((each) => each.repositories),
     );
-    const [paths, lastUsed] = await Promise.all([
-      this.treesOf(schedule, active, repositories),
-      this.uses.lastUsed(active.map((each) => each.id)),
-    ]);
+    const paths = await this.treesOf(schedule, active, repositories);
+    const lastUsed = await this.uses.lastUsed(active.map((each) => each.id));
     const checked = checkedForUpkeep(
       {
         now,

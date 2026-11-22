@@ -23,7 +23,7 @@ const REMEMBERING_STEP = 'remember';
 
 const DEFAULT_SCOPE: MemoryScopeLevel = 'line';
 
-export interface RememberedStep {
+interface RememberedStep {
   readonly index: number;
   readonly kind: string;
 }

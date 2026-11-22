@@ -35,13 +35,14 @@ export class RecordDeliveryHandler implements CommandHandlerPort<
         return;
       }
 
-      const delivered = (
-        await Promise.all(
-          handles.map((each) => this.memories.withHandle(run.teamId, each)),
-        )
-      ).filter(
-        (each): each is Memory => each !== null && recallableBy(each, run),
-      );
+      const delivered: Memory[] = [];
+      for (const handle of handles) {
+        const memory = await this.memories.withHandle(run.teamId, handle);
+
+        if (memory && recallableBy(memory, run)) {
+          delivered.push(memory);
+        }
+      }
 
       await this.recording.recorded(
         run,

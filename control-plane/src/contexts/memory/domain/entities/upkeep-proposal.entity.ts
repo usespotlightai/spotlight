@@ -11,7 +11,7 @@ import type {
 import type { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
-export const MAX_UPKEEP_REASON = 500;
+const MAX_UPKEEP_REASON = 500;
 
 const FINDINGS_OF: Record<UpkeepChange, readonly UpkeepFinding[]> = {
   retire: ['path-gone', 'repository-gone', 'unused', 'wrong'],
