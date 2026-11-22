@@ -36,23 +36,26 @@ export function TaskPullRequestCard({
   const named = pullRequestStateName(state);
 
   return (
-    <div data-slot="pull-request-card" className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
+    <div data-slot="pull-request-card" className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-0.5">
         {title && (
-          <p className="font-medium text-base text-foreground leading-snug">
+          <p className="font-medium text-foreground text-sm leading-snug">
             {title}
           </p>
         )}
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-xs">
           {repository} #{number}
         </p>
       </div>
 
       {(author || updatedAt || changedFiles !== null) && (
-        <div className="flex items-center gap-3 whitespace-nowrap text-muted-foreground text-sm">
+        <div className="flex items-center gap-2.5 whitespace-nowrap text-muted-foreground text-xs">
           {author && (
-            <span className="flex min-w-0 items-center gap-1.5">
-              <PersonAvatar person={{ name: author, image: authorImage }} />
+            <span className="flex min-w-0 items-center gap-1">
+              <PersonAvatar
+                person={{ name: author, image: authorImage }}
+                className="data-[size=sm]:size-4"
+              />
               <span className="truncate">{author}</span>
             </span>
           )}
@@ -71,11 +74,14 @@ export function TaskPullRequestCard({
       {state && named && (
         <span
           className={cn(
-            'flex h-7 w-fit items-center gap-1.5 rounded-full px-3 text-sm',
+            'flex h-5 w-fit items-center gap-1 rounded-full px-2 text-xs',
             BADGES[state],
           )}
         >
-          <TaskPullRequestStateIcon state={state} className="text-current" />
+          <TaskPullRequestStateIcon
+            state={state}
+            className="size-3 text-current"
+          />
           {named}
         </span>
       )}

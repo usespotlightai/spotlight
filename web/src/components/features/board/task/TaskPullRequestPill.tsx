@@ -24,6 +24,7 @@ export function TaskPullRequestPill({
   return (
     <HoverCard>
       <HoverCardTrigger
+        delay={100}
         href={pullRequest.url}
         target="_blank"
         rel="noreferrer"
@@ -39,7 +40,7 @@ export function TaskPullRequestPill({
         <TaskPullRequestStateIcon state={state} />
         <span className="truncate">#{number}</span>
       </HoverCardTrigger>
-      <HoverCardContent>
+      <HoverCardContent className="w-72 p-3">
         <TaskPullRequestCard pullRequest={pullRequest} />
       </HoverCardContent>
     </HoverCard>
