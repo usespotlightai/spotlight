@@ -273,7 +273,7 @@ const run = (runId: string, ending: string) => ({
   runNumber: 1,
   usage: null,
   checks: 'passed',
-  firstHumanAction: null,
+  humanAction: null,
   passed: null,
   pullRequestState: null,
 });
@@ -599,9 +599,7 @@ describe('Station', () => {
 
       expect(tiles).toHaveLength(4);
       expect(tiles[0]).toBe('Runs42');
-      expect(tiles[1]).toMatch(
-        /^Outcomes67% accepted7% ?sent back2% ?failed, no answer$/,
-      );
+      expect(tiles[1]).toMatch(/^Outcomes67% accepted7% ?sent back2% ?failed$/);
       expect(tiles[2]).toMatch(/^Cost/);
       expect(tiles[3]).toMatch(/^Median run/);
       expect(

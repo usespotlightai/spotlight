@@ -20,7 +20,7 @@ const COUNTS: HeadlineCounts = {
   spend: null,
   unpriced: 0,
   mixedCurrencies: false,
-  humanActions: 0,
+  actions: 0,
   people: [],
 };
 

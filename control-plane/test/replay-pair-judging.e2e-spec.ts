@@ -16,7 +16,7 @@ import {
   type SideBySideJudgeRequest,
 } from '@insights/application/ports/side-by-side-judge.port';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -351,7 +351,7 @@ const anOriginal = async (title: string): Promise<Original> => {
           asked: false,
         }),
       )
-      .recordAction(HumanAction.of('accepted', at, UserId.of('user_actor'))),
+      .recordAction(PersonAction.of('accepted', at, UserId.of('user_actor'))),
   );
 
   return { taskId, runId };

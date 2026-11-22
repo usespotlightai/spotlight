@@ -27,7 +27,7 @@ import {
   runFact,
   type StoredOccurrence,
   taskFailures,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -153,12 +153,12 @@ export const failingIn = async (
   const result = await db.execute<FailingRow>(sql`
       select
         ${taskFailures.taskId} as task_id,
-        ${taskHumanAction.lineId} as line_id,
+        ${taskAction.lineId} as line_id,
         occurrence.value as occurrence
       from ${taskFailures}
       cross join lateral jsonb_array_elements(${taskFailures.occurrences})
         with ordinality as occurrence(value, position)
-      left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskFailures.taskId}
+      left join ${taskAction} on ${taskAction.taskId} = ${taskFailures.taskId}
       where ${taskFailures.workspaceId} = ${team.workspaceId.value}
         and ${taskFailures.teamId} = ${team.teamId.value}
         and ${taskFailures.lastAt} >= ${iso(window.from)}::timestamptz

@@ -8,7 +8,7 @@ import {
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
 import { PLATFORM_ID } from '@/mocks/world/platform';
-import { firstActLabelOf, labelOf } from '@/mocks/world/run-labels';
+import { actionLabelOf, labelOf } from '@/mocks/world/run-labels';
 import {
   claimsChangedAt,
   EARLIER_RUBRIC,
@@ -51,7 +51,7 @@ const actorOf = (run: HistoryRun): string | null =>
   historyTaskOf(run.taskId)?.openedBy ?? null;
 
 const actedAtOf = (run: HistoryRun): number | null =>
-  run.firstHumanAction ? Date.parse(run.firstHumanAction.at) : null;
+  run.humanAction ? Date.parse(run.humanAction.at) : null;
 
 const mergedAtOf = (run: HistoryRun): number | null => {
   const pullRequest = historyTaskOf(run.taskId)?.pullRequest;
@@ -67,8 +67,8 @@ const laterCompletedVisitOf = (run: HistoryRun): HistoryRun | null =>
       other.at > run.at,
   ) ?? null;
 
-const firstActOpening = (run: HistoryRun): Opening | null => {
-  const labelFrom = firstActLabelOf(run);
+const actionOpening = (run: HistoryRun): Opening | null => {
+  const labelFrom = actionLabelOf(run);
   const actedAt = actedAtOf(run);
   const actor = actorOf(run);
 
@@ -96,7 +96,7 @@ const mergeOpening = (run: HistoryRun): Opening | null => {
 };
 
 const openingOf = (run: HistoryRun): Opening | null =>
-  labelOf(run) === 'merged' ? mergeOpening(run) : firstActOpening(run);
+  labelOf(run) === 'merged' ? mergeOpening(run) : actionOpening(run);
 
 export const openingOfRun = (runId: string): Opening | null => {
   const run = historyRunOf(runId);
@@ -120,10 +120,10 @@ export const sentBackRun = (): Opening | null =>
         (run) =>
           onCurrentClaims(run) &&
           judgePasses(run) &&
-          firstActLabelOf(run) === 'sent-back' &&
+          actionLabelOf(run) === 'sent-back' &&
           actorOf(run) === SAM.id,
       )
-      .map(firstActOpening),
+      .map(actionOpening),
   );
 
 export const acceptedRun = (): Opening | null =>
@@ -133,10 +133,10 @@ export const acceptedRun = (): Opening | null =>
         (run) =>
           onCurrentClaims(run) &&
           !judgePasses(run) &&
-          firstActLabelOf(run) === 'accepted' &&
+          actionLabelOf(run) === 'accepted' &&
           actorOf(run) === SAM.id,
       )
-      .map(firstActOpening),
+      .map(actionOpening),
   );
 
 const mergedThenFailedRuns = (): HistoryRun[] =>
@@ -158,7 +158,7 @@ const labelGoneOf = (run: HistoryRun): Withdrawal | null => {
 
   return opening &&
     later?.endedAt &&
-    firstActLabelOf(run) === null &&
+    actionLabelOf(run) === null &&
     run.ending === 'completed' &&
     later.endedAt > opening.openedAt
     ? { ...opening, withdrawnAt: later.endedAt }
@@ -173,12 +173,12 @@ const verdictsAgreeOf = (run: HistoryRun): Withdrawal | null => {
   const later = laterCompletedVisitOf(run);
 
   return opening &&
-    run.firstHumanAction &&
-    firstActLabelOf(run) === 'sent-back' &&
+    run.humanAction &&
+    actionLabelOf(run) === 'sent-back' &&
     run.ending === 'completed' &&
-    run.firstHumanAction.at > opening.openedAt &&
-    (!later?.endedAt || later.endedAt > run.firstHumanAction.at)
-    ? { ...opening, withdrawnAt: run.firstHumanAction.at }
+    run.humanAction.at > opening.openedAt &&
+    (!later?.endedAt || later.endedAt > run.humanAction.at)
+    ? { ...opening, withdrawnAt: run.humanAction.at }
     : null;
 };
 
@@ -186,7 +186,7 @@ export const verdictsAgreeRun = (): Withdrawal | null =>
   newest(mergedThenFailedRuns().map(verdictsAgreeOf));
 
 const claimsChangedOf = (run: HistoryRun): Withdrawal | null => {
-  const opening = firstActOpening(run);
+  const opening = actionOpening(run);
   const changedAt = claimsChangedAt();
 
   return opening && opening.openedAt < changedAt
@@ -201,7 +201,7 @@ export const claimsChangedRun = (): Withdrawal | null =>
         (run) =>
           judgedUnder(EARLIER_RUBRIC)(run) &&
           !judgePasses(run) &&
-          firstActLabelOf(run) === 'accepted' &&
+          actionLabelOf(run) === 'accepted' &&
           actorOf(run) === SAM.id,
       )
       .map(claimsChangedOf),

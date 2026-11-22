@@ -1,16 +1,19 @@
-import type { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import {
   type LabelSource,
   passesOn,
 } from '@insights/domain/value-objects/label-source';
-import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import type { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import {
+  leftWork,
+  type RunEnding,
+} from '@insights/domain/value-objects/run-ending';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-interface LabelEvidence {
-  readonly firstHumanAction: HumanAction | null;
-  readonly taskMerged: boolean;
+export interface LabelEvidence {
   readonly ending: RunEnding;
-  readonly followedAt: Date | null;
+  readonly decidingAction: PersonAction | null;
+  readonly taskMerged: boolean;
+  readonly followed: boolean;
 }
 
 export class HumanLabel {
@@ -20,21 +23,26 @@ export class HumanLabel {
   ) {}
 
   static of(run: LabelEvidence): HumanLabel | null {
-    const action = run.firstHumanAction;
+    const action = run.decidingAction;
+    const from = action?.labelFrom;
 
-    if (action?.labelFrom) {
-      return new HumanLabel(action.labelFrom, action.by);
+    if (action && from) {
+      return passesOn(from) && !leftWork(run.ending)
+        ? null
+        : new HumanLabel(from, action.by);
     }
 
-    return run.taskMerged &&
-      run.ending === 'completed' &&
-      run.followedAt === null
+    return run.taskMerged && run.ending === 'completed' && !run.followed
       ? new HumanLabel('merged', null)
       : null;
   }
 
   get passes(): boolean {
     return passesOn(this.from);
+  }
+
+  get mergedOnly(): boolean {
+    return this.from === 'merged';
   }
 
   agreesWith(judge: { readonly passes: boolean }): boolean {

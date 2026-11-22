@@ -1,4 +1,7 @@
-import type { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import {
+  HumanLabel,
+  type LabelEvidence,
+} from '@insights/domain/value-objects/human-label.vo';
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
@@ -12,21 +15,23 @@ export const effectiveEndingOf = (
     ? 'superseded'
     : end.ending;
 
-export interface ClassifiedRun {
-  readonly ending: RunEnding;
+export interface ClassifiedRun extends LabelEvidence {
   readonly asked: boolean;
-  readonly firstHumanAction: HumanAction | null;
-  readonly approvalAnsweredAt: Date | null;
+  readonly answered: boolean;
+  readonly approvalAnswered: boolean;
   readonly passed: boolean;
-  readonly taskMerged: boolean;
-  readonly followed: boolean;
 }
 
+const movesOn = (run: ClassifiedRun): boolean =>
+  run.passed || run.decidingAction?.kind === 'started';
+
 export const resolutionOf = (run: ClassifiedRun): RunResolution => {
-  if (run.firstHumanAction?.rejectsRun) {
+  const label = HumanLabel.of(run);
+
+  if (label && !label.passes) {
     return 'sent-back';
   }
-  if (run.firstHumanAction?.accepts) {
+  if (label && !(label.mergedOnly && movesOn(run))) {
     return 'accepted';
   }
   if (run.ending === 'failed') {
@@ -35,35 +40,19 @@ export const resolutionOf = (run: ClassifiedRun): RunResolution => {
   if (run.ending !== 'completed') {
     return 'other';
   }
-  if (run.passed || run.firstHumanAction?.kind === 'started') {
-    return 'moved-on';
-  }
 
-  return run.taskMerged && !run.followed ? 'accepted' : 'other';
+  return movesOn(run) ? 'moved-on' : 'other';
 };
 
-export type AnsweredRun = Omit<
-  ClassifiedRun,
-  'passed' | 'taskMerged' | 'followed'
->;
+export const dispositionOf = (run: ClassifiedRun): RunDisposition => {
+  const label = HumanLabel.of(run);
 
-export const dispositionOf = (run: AnsweredRun): RunDisposition => {
-  if (run.firstHumanAction?.accepts) {
-    return 'accepted';
-  }
-  if (run.firstHumanAction?.rejectsRun) {
-    return 'sent-back';
+  if (label) {
+    return label.passes ? 'accepted' : 'sent-back';
   }
   if (run.ending === 'failed') {
     return 'failed';
   }
-  if (
-    run.firstHumanAction?.kind === 'answered' ||
-    run.asked ||
-    run.approvalAnsweredAt !== null
-  ) {
-    return 'asked';
-  }
 
-  return 'other';
+  return run.answered || run.asked || run.approvalAnswered ? 'asked' : 'other';
 };

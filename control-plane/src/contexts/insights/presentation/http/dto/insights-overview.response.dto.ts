@@ -81,17 +81,18 @@ export class HeadlineResponseDto {
   @ApiProperty({
     example: 40,
     description:
-      'What people did with the tasks worked in the period: every move, acceptance, answer, approval, dismissal, send-back and hold as wrong',
+      'What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back, and holds that end with the reason The line got it wrong',
   })
-  readonly humanActions: number;
+  readonly actions: number;
 
   @ApiProperty({
     nullable: true,
     type: Number,
     example: 1.9,
-    description: 'Human actions per task worked',
+    description:
+      'Actions per task worked: what people did with the tasks, approvals included',
   })
-  readonly humanActionsPerTask: number | null;
+  readonly actionsPerTask: number | null;
 
   @ApiProperty({
     example: 5,
@@ -126,8 +127,8 @@ export class HeadlineResponseDto {
       ? new MoneyResponseDto(headline.costPerMerge)
       : null;
     this.taskToMerge = new SpreadResponseDto(headline.taskToMerge);
-    this.humanActions = headline.humanActions;
-    this.humanActionsPerTask = headline.humanActionsPerTask;
+    this.actions = headline.actions;
+    this.actionsPerTask = headline.actionsPerTask;
     this.activePeople = headline.activePeople;
     this.mergedTaskIds = headline.mergedTaskIds;
     this.peopleIds = headline.peopleIds;
@@ -175,9 +176,9 @@ export class HeadlineDeltasResponseDto {
   @ApiProperty({
     type: DeltaResponseDto,
     nullable: true,
-    description: 'Human actions per task against the period before',
+    description: 'Actions per task against the period before',
   })
-  readonly humanActionsPerTask: DeltaResponseDto | null;
+  readonly actionsPerTask: DeltaResponseDto | null;
 
   @ApiProperty({
     type: DeltaResponseDto,
@@ -192,7 +193,7 @@ export class HeadlineDeltasResponseDto {
     this.mergeRate = deltaResponseOf(changes.mergeRate);
     this.costPerMerge = deltaResponseOf(changes.costPerMerge);
     this.taskToMerge = deltaResponseOf(changes.taskToMerge);
-    this.humanActionsPerTask = deltaResponseOf(changes.humanActionsPerTask);
+    this.actionsPerTask = deltaResponseOf(changes.actionsPerTask);
     this.activePeople = deltaResponseOf(changes.activePeople);
   }
 }

@@ -33,7 +33,7 @@ interface AgentConfigRow extends GroupColumns, Record<string, unknown> {
   readonly model: string | null;
   readonly effort: string | null;
   readonly profile_key: string | null;
-  readonly answered: number;
+  readonly with_human_action_or_pass: number;
 }
 
 interface RubricRow extends Record<string, unknown> {
@@ -90,7 +90,7 @@ const agentConfigsIn = async (
       ${runFact.profileKey} as profile_key,
       ${tallyColumns},
       ${measuredColumns},
-      ${counted(sql`${ran} and (${runFact.firstHumanAction} is not null or ${runFact.passedTo} is not null)`)} as answered
+      ${counted(sql`${ran} and (${runFact.decidingAction} is not null or ${runFact.answeredAt} is not null or ${runFact.passedTo} is not null)`)} as with_human_action_or_pass
     from (${endedFor(team, filter)}) as ${runFact}
     where ${ran}
     group by ${agentConfigColumns}
@@ -160,7 +160,7 @@ export const agentConfigCountsIn = async (
         effort: row.effort,
         profileKey: row.profile_key,
         counts: groupCountsOfRow(row),
-        answered: row.answered,
+        withHumanActionOrPass: row.with_human_action_or_pass,
         rubrics: rubrics
           .filter((each) => sameAgentConfig(each, row))
           .map(

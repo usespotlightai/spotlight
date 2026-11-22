@@ -14,7 +14,6 @@ import type { TeamCounts } from '@insights/domain/services/station-reports';
 import type { TeamPullRequest } from '@insights/domain/services/team-pull-requests';
 import type { ToolCounts } from '@insights/domain/services/tool-insights';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
-import type { HumanActionKind } from '@insights/domain/value-objects/human-action.vo';
 import type { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
@@ -91,10 +90,6 @@ export interface ListedRun {
   readonly ending: RunEnding;
   readonly failure: string | null;
   readonly checks: CheckVerdict | null;
-  readonly firstHumanAction: {
-    readonly kind: HumanActionKind;
-    readonly at: Date;
-  } | null;
   readonly passed: { readonly to: string; readonly at: Date } | null;
   readonly pullRequestState: PullRequestState | null;
 }

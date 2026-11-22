@@ -4964,7 +4964,7 @@
           "currency"
         ]
       },
-      "TaskHumanActionResponseDto": {
+      "HistoryHumanActionResponseDto": {
         "type": "object",
         "properties": {
           "kind": {
@@ -4973,16 +4973,14 @@
               "started",
               "parked",
               "accepted",
-              "answered",
-              "approved",
-              "dismissed",
               "sent-back",
-              "held-as-wrong"
-            ],
-            "description": "What the person did with the task"
+              "held-as-wrong",
+              "answered"
+            ]
           },
           "at": {
-            "type": "string"
+            "type": "string",
+            "example": "2026-09-30T10:05:00.000Z"
           }
         },
         "required": [
@@ -5032,12 +5030,12 @@
               null
             ]
           },
-          "firstHumanAction": {
+          "humanAction": {
             "nullable": true,
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/TaskHumanActionResponseDto"
+                "$ref": "#/components/schemas/HistoryHumanActionResponseDto"
               }
             ]
           },
@@ -5059,7 +5057,7 @@
           "runNumber",
           "usage",
           "checks",
-          "firstHumanAction",
+          "humanAction",
           "pullRequestState"
         ]
       },

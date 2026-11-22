@@ -16,7 +16,7 @@ const AGGREGATE_TABLES: Readonly<Record<string, string>> = {
   'replays/search': 'replay_search',
   'integrations/hook-callback-token': 'hook_callback',
   'github/pull-request': 'github_pull_request',
-  'insights/task-human-actions': 'task_human_action',
+  'insights/task-actions': 'task_action',
 };
 
 const hasVersionMember = (declaration: ts.ClassDeclaration): boolean =>

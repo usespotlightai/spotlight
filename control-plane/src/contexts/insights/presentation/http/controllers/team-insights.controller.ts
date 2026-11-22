@@ -44,8 +44,8 @@ import {
   PULL_REQUEST_AUTHORS,
   ROUND_BUCKETS,
 } from '@insights/domain/services/team-pull-requests';
-import { TASK_ACTIONS } from '@insights/domain/value-objects/human-action.vo';
 import { INSIGHTS_PERIODS } from '@insights/domain/value-objects/insights-period.vo';
+import { RUN_HUMAN_ACTIONS } from '@insights/domain/value-objects/person-action.vo';
 import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
@@ -592,8 +592,9 @@ export class TeamInsightsController {
   @ApiQuery({
     name: 'humanAction',
     required: false,
-    enum: TASK_ACTIONS,
-    description: 'Only runs that a person acted on first in this way',
+    enum: RUN_HUMAN_ACTIONS,
+    description:
+      'Only runs a person decided this way. Answered: only runs a person answered and did not decide',
   })
   @ApiQuery({
     name: 'resolution',

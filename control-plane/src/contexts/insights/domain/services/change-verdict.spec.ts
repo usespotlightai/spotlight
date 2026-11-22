@@ -6,7 +6,7 @@ import {
   verdictsFrom,
 } from '@insights/domain/services/change-verdict';
 import type { AlertMeasure } from '@insights/domain/value-objects/alert-rule.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -15,14 +15,20 @@ import { describe, expect, it } from 'vitest';
 const at = (hour: number) =>
   new Date(`2026-09-30T${String(hour).padStart(2, '0')}:00:00.000Z`);
 
-const actedOn = (runId: string, hour: number, act: 'accepted' | 'sent-back') =>
+const actedOn = (
+  runId: string,
+  hour: number,
+  action: 'accepted' | 'sent-back',
+) =>
   endedRecord(runId, {
     taskId: `task_${runId}`,
     endedAt: at(hour),
-  }).recordAction(HumanAction.of(act, at(hour), UserId.of('user_actor')));
+  }).recordAction(PersonAction.of(action, at(hour), UserId.of('user_actor')));
 
-const runs = (prefix: string, acts: readonly ('accepted' | 'sent-back')[]) =>
-  acts.map((act, index) => actedOn(`${prefix}${index}`, index + 1, act));
+const runs = (prefix: string, actions: readonly ('accepted' | 'sent-back')[]) =>
+  actions.map((action, index) =>
+    actedOn(`${prefix}${index}`, index + 1, action),
+  );
 
 const of = (
   verdicts: readonly MeasureVerdict[],
@@ -79,7 +85,7 @@ describe('verdictsFrom', () => {
     expect(of(verdicts, 'failed_rate')?.change?.direction).toBe('same');
   });
 
-  it('says too few runs are measured rather than guess, leaving out runs nobody answered yet', () => {
+  it('says too few runs are measured rather than guess, leaving out runs whose resolution is still Other', () => {
     const before = runs('b', FIVE_CLOSED);
     const after = [
       ...runs('a', ['sent-back', 'sent-back', 'sent-back', 'sent-back']),
@@ -200,7 +206,7 @@ describe('verdictsFrom', () => {
       ending: 'cancelled',
       endedAt: at(10),
     }).recordAction(
-      HumanAction.of('accepted', at(10), UserId.of('user_actor')),
+      PersonAction.of('accepted', at(10), UserId.of('user_actor')),
     );
     const verdicts = changeVerdictOf(
       runs('b', FIVE_CLOSED),

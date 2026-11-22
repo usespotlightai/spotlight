@@ -6,11 +6,11 @@ import { RunScoresViews } from '@insights/application/services/run-scores-views.
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
-import {
-  HumanAction,
-  type HumanActionKind,
-} from '@insights/domain/value-objects/human-action.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import {
+  PersonAction,
+  type ActionKind,
+} from '@insights/domain/value-objects/person-action.vo';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
@@ -49,14 +49,14 @@ const AT = new Date('2026-09-30T11:00:00.000Z');
 const reading = async (
   agreeing: boolean,
   judgedBy: RubricVersion = RUBRIC_VERSION,
-  action: HumanActionKind | null = null,
+  action: ActionKind | null = null,
 ) => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
   await records.add(
     action
       ? endedRecord('run_1').recordAction(
-          HumanAction.of(action, AT, UserId.of('user_actor')),
+          PersonAction.of(action, AT, UserId.of('user_actor')),
         )
       : endedRecord('run_1'),
   );
@@ -103,7 +103,7 @@ const reading = async (
     const yes = at % 2 === 0;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(
+        PersonAction.of(
           yes === agreeing ? 'accepted' : 'sent-back',
           AT,
           UserId.of('user_actor'),
@@ -144,7 +144,7 @@ const scoresOf = async (
   agreeing: boolean,
   team = 'team_1',
   judgedBy = RUBRIC_VERSION,
-  action: HumanActionKind | null = null,
+  action: ActionKind | null = null,
 ) =>
   (await reading(agreeing, judgedBy, action)).execute(
     new ReadRunScoresQuery(team, 'run_1', 'user_ada'),

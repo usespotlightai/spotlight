@@ -1,9 +1,6 @@
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
-import {
-  HumanAction,
-  TASK_ACTIONS,
-  type TaskAction,
-} from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -34,7 +31,7 @@ export interface RunParts {
   readonly supersededAt: Date | null;
   readonly checks: RunPartsRow['checks'];
   readonly checkedAt: Date | null;
-  readonly firstHumanAction: HumanAction | null;
+  readonly actions: RunActions;
   readonly approvalAnsweredAt: Date | null;
   readonly usage: RunUsage | null;
   readonly passed: StationPass | null;
@@ -95,61 +92,57 @@ export const endOf = (
   });
 };
 
-export const firstHumanActionOf = (
+export const decidingActionOf = (
   {
-    firstHumanAction,
-    firstHumanActionAt,
-    firstHumanActionBy,
+    decidingAction,
+    decidingActionAt,
+    decidingActionBy,
   }: Pick<
     RunPartsRow,
-    'firstHumanAction' | 'firstHumanActionAt' | 'firstHumanActionBy'
+    'decidingAction' | 'decidingActionAt' | 'decidingActionBy'
   >,
   stored: StoredRunParts,
-): HumanAction | null => {
+): PersonAction | null => {
   if (
-    firstHumanAction === null &&
-    firstHumanActionAt === null &&
-    firstHumanActionBy === null
+    decidingAction === null &&
+    decidingActionAt === null &&
+    decidingActionBy === null
   ) {
     return null;
   }
 
   if (
-    firstHumanAction === null ||
-    firstHumanActionAt === null ||
-    firstHumanActionBy === null
+    decidingAction === null ||
+    decidingActionAt === null ||
+    decidingActionBy === null
   ) {
     throw new InconsistentStateError(
       stored,
-      'has only part of its first human action: the action, its time and who acted go together',
+      'has only part of its deciding action: the action, its time and who acted go together',
     );
   }
 
-  return HumanAction.of(
-    firstHumanAction,
-    firstHumanActionAt,
-    UserId.of(firstHumanActionBy),
+  return PersonAction.of(
+    decidingAction,
+    decidingActionAt,
+    UserId.of(decidingActionBy),
   );
 };
 
-const firstHumanActionColumnOf = (
-  action: HumanAction | null,
+export const answerOf = (
+  { answeredAt, answeredBy }: Pick<RunPartsRow, 'answeredAt' | 'answeredBy'>,
   stored: StoredRunParts,
-): TaskAction | null => {
-  if (!action) {
-    return null;
-  }
-
-  const kind = TASK_ACTIONS.find((each) => each === action.kind);
-
-  if (!kind) {
+): PersonAction | null => {
+  if ((answeredAt === null) !== (answeredBy === null)) {
     throw new InconsistentStateError(
       stored,
-      'was decided by answering an approval',
+      'has only part of its answer: when it was answered and who answered go together',
     );
   }
 
-  return kind;
+  return answeredAt && answeredBy
+    ? PersonAction.of('answered', answeredAt, UserId.of(answeredBy))
+    : null;
 };
 
 export const usageOf = (
@@ -242,10 +235,7 @@ export const passOf = (
     : null;
 };
 
-export const partColumnsOf = (
-  record: RunParts,
-  stored: StoredRunParts,
-): RunPartsRow => {
+export const partColumnsOf = (record: RunParts): RunPartsRow => {
   const end = record.end;
 
   return {
@@ -270,9 +260,11 @@ export const partColumnsOf = (
     supersededAt: record.supersededAt,
     checks: record.checks,
     checkedAt: record.checkedAt,
-    firstHumanAction: firstHumanActionColumnOf(record.firstHumanAction, stored),
-    firstHumanActionAt: record.firstHumanAction?.at ?? null,
-    firstHumanActionBy: record.firstHumanAction?.by.value ?? null,
+    decidingAction: record.actions.decidingAction?.decidingKind ?? null,
+    decidingActionAt: record.actions.decidingAction?.at ?? null,
+    decidingActionBy: record.actions.decidingAction?.by.value ?? null,
+    answeredAt: record.actions.answer?.at ?? null,
+    answeredBy: record.actions.answer?.by.value ?? null,
     approvalAnsweredAt: record.approvalAnsweredAt,
     passedTo: record.passed?.to.value ?? null,
     passedAt: record.passed?.at ?? null,
@@ -301,3 +293,19 @@ export const partColumnsOf = (
     },
   };
 };
+
+export const actionsOf = (
+  row: Pick<
+    RunPartsRow,
+    | 'decidingAction'
+    | 'decidingActionAt'
+    | 'decidingActionBy'
+    | 'answeredAt'
+    | 'answeredBy'
+  >,
+  stored: StoredRunParts,
+): RunActions =>
+  RunActions.of({
+    decidingAction: decidingActionOf(row, stored),
+    answer: answerOf(row, stored),
+  });

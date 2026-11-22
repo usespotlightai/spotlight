@@ -13,16 +13,16 @@ import { InsightsAccess } from '@insights/application/services/insights-access.s
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
-import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
+import { RecordRunAction } from '@insights/application/services/record-run-action.service';
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
 import { RecordRunUsageSummary } from '@insights/application/services/record-run-usage-summary.service';
 import { RecordStationPass } from '@insights/application/services/record-station-pass.service';
 import { RecordSupersededRun } from '@insights/application/services/record-superseded-run.service';
+import { RecordTaskAction } from '@insights/application/services/record-task-action.service';
 import { RecordTaskFailure } from '@insights/application/services/record-task-failure.service';
-import { RecordTaskHumanAction } from '@insights/application/services/record-task-human-action.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
@@ -246,7 +246,7 @@ beforeAll(async () => {
   stationFacts = new DrizzleStationFacts(context);
   const judgings = new DrizzleJudgingRepository(context, quiet);
   const scores = new DrizzleScoreRepository(context, quiet);
-  const humanActions = projected.humanActions;
+  const taskActions = projected.taskActions;
   failures = new DrizzleTaskFailuresRepository(context);
   chats = new DrizzleChats(context);
   const shapes = projected.shapes;
@@ -258,13 +258,13 @@ beforeAll(async () => {
     ending: new RecordRunEnding(work, records, recorder, context),
     superseding: new RecordSupersededRun(records, recorder, context),
     checking: new RecordChangeChecks(records, recorder, context),
-    acting: new RecordHumanAction(work, records, recorder, context),
+    acting: new RecordRunAction(work, records, recorder, context),
     deleting: new DeleteInsights(
       {
         records,
         judgings,
         scores,
-        humanActions,
+        taskActions,
         failures,
         shapes,
         pullRequests,
@@ -307,11 +307,7 @@ beforeAll(async () => {
     remembering: new RecordRunMemories(work, records, recorder, context),
     passing: new RecordStationPass(records, recorder, context),
     failing: new RecordTaskFailure(failures, recorder, context),
-    recordingHumanActions: new RecordTaskHumanAction(
-      humanActions,
-      recorder,
-      context,
-    ),
+    recordingTaskActions: new RecordTaskAction(taskActions, recorder, context),
     chatting: new RecordChat(chats, deletions, context),
     recording: new RecordPullRequests(pullRequests, recorder, context),
     shaping: new RecordChangeShape(work, shapes, recorder, context),
@@ -367,8 +363,8 @@ describe('how a station’s runs turned out', () => {
     expect(record?.end?.endedAt).toEqual(at(9));
   });
 
-  it('attaches the first thing a person did after the run', async () => {
-    await deliver('insights.record-first-human-action', {
+  it('attaches the first deciding action a person took after the run', async () => {
+    await deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -378,7 +374,7 @@ describe('how a station’s runs turned out', () => {
       afterRunId: null,
       at: at(10).toISOString(),
     });
-    await deliver('insights.record-first-human-action', {
+    await deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -390,8 +386,8 @@ describe('how a station’s runs turned out', () => {
     });
 
     const record = await records.of(RunId.of('run_1'));
-    expect(record?.firstHumanAction?.kind).toBe('sent-back');
-    expect(record?.firstHumanAction?.at).toEqual(at(10));
+    expect(record?.actions.decidingAction?.kind).toBe('sent-back');
+    expect(record?.actions.decidingAction?.at).toEqual(at(10));
   });
 
   it('attaches checks received before and after the run ended', async () => {
@@ -703,7 +699,7 @@ describe('how a station’s runs turned out', () => {
       workspaceId: WORKSPACE,
     };
 
-    await deliver('insights.record-first-human-action', {
+    await deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -725,7 +721,7 @@ describe('how a station’s runs turned out', () => {
   });
 
   it('records nothing more of a deleted task, however late its events arrive', async () => {
-    await deliver('insights.record-first-human-action', {
+    await deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -766,7 +762,7 @@ describe('how a station’s runs turned out', () => {
     });
     await deletionLocked;
 
-    const noting = deliver('insights.record-first-human-action', {
+    const noting = deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_9',
       workspaceId: WORKSPACE,

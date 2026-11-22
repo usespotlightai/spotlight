@@ -2,7 +2,7 @@ import { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import {
   dismissalsOf,
   endOf,
-  firstHumanActionOf,
+  actionsOf,
   memoriesOf,
   partColumnsOf,
   passOf,
@@ -30,7 +30,7 @@ const required = <T>(value: T | null): T => {
 };
 
 export const rowOfFact = (fact: RunFact): RunFactRow => {
-  const parts = partColumnsOf(fact, 'run fact');
+  const parts = partColumnsOf(fact);
 
   return {
     ...parts,
@@ -73,7 +73,7 @@ export const factOfRow = (row: RunFactRow): RunFact => {
     followedAt: row.followedAt,
     checks: row.checks,
     checkedAt: row.checkedAt,
-    firstHumanAction: firstHumanActionOf(parts, 'run fact'),
+    actions: actionsOf(parts, 'run fact'),
     approvalAnsweredAt: row.approvalAnsweredAt,
     usage: usageOf(parts, 'run fact'),
     passed: passOf(parts, 'run fact'),

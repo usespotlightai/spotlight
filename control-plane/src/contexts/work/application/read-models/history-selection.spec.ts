@@ -13,7 +13,7 @@ const outcome: RunResultShape = {
   failure: 'exited',
   runNumber: 2,
   checks: 'failed',
-  firstHumanAction: { kind: 'sent-back', at: '2026-09-30T11:00:00.000Z' },
+  humanAction: { kind: 'sent-back', at: '2026-09-30T11:00:00.000Z' },
   pullRequestState: 'merged',
 };
 
@@ -25,7 +25,7 @@ describe('history selection', () => {
     expect(historyLength(1000)).toBe(50);
   });
 
-  it('matches a run by how it ended, its failure, the next act, its delivery or its checks', () => {
+  it('matches a run by how it ended, its failure, its human action, its delivery or its checks', () => {
     for (const wanted of [
       'failed',
       'exited',

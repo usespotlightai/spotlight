@@ -7,7 +7,7 @@ import {
   calibrationIn,
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
@@ -59,14 +59,14 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
     const runId = `run_${at}`;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT, ACTOR),
+        PersonAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT, ACTOR),
       ),
     );
     await scores.add(judgeScore(runId, [at % 2 === 0]));
   }
   await records.add(
     endedRecord('run_unjudged', { taskId: 'task_unjudged' }).recordAction(
-      HumanAction.of('accepted', AT, ACTOR),
+      PersonAction.of('accepted', AT, ACTOR),
     ),
   );
 
@@ -117,7 +117,7 @@ const judgedAcross = async () => {
     const runId = `run_${at}`;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT, ACTOR),
+        PersonAction.of(at % 2 === 0 ? 'accepted' : 'sent-back', AT, ACTOR),
       ),
     );
     await scores.add(judgeScore(runId, [at % 2 === 0]));
@@ -128,7 +128,7 @@ const judgedAcross = async () => {
     const record = endedRecord(runId, { taskId, stationId: 'station_2' });
     await records.add(
       at % 2 === 0
-        ? record.recordAction(HumanAction.of('sent-back', AT, ACTOR))
+        ? record.recordAction(PersonAction.of('sent-back', AT, ACTOR))
         : record,
     );
     await scores.add(

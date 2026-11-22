@@ -6,7 +6,10 @@ import type {
   HistoryUsage,
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
-import { HUMAN_ACTION_KINDS } from '@work/domain/value-objects/human-action-kind';
+import {
+  RUN_HUMAN_ACTION_KINDS,
+  type RunHumanActionKind,
+} from '@work/application/ports/run-results.port';
 import { RunStationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 
@@ -65,17 +68,14 @@ export class HistoryRunUsageResponseDto {
   }
 }
 
-export class TaskHumanActionResponseDto {
-  @ApiProperty({
-    enum: HUMAN_ACTION_KINDS,
-    description: 'What the person did with the task',
-  })
-  readonly kind: string;
+export class HistoryHumanActionResponseDto {
+  @ApiProperty({ enum: RUN_HUMAN_ACTION_KINDS })
+  readonly kind: RunHumanActionKind;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-09-30T10:05:00.000Z' })
   readonly at: string;
 
-  constructor(from: { kind: string; at: string }) {
+  constructor(from: { kind: RunHumanActionKind; at: string }) {
     this.kind = from.kind;
     this.at = from.at;
   }
@@ -112,8 +112,8 @@ export class RunOutcomeResponseDto {
   })
   readonly checks: string | null;
 
-  @ApiProperty({ nullable: true, type: () => TaskHumanActionResponseDto })
-  readonly firstHumanAction: TaskHumanActionResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => HistoryHumanActionResponseDto })
+  readonly humanAction: HistoryHumanActionResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -129,8 +129,8 @@ export class RunOutcomeResponseDto {
     this.runNumber = from.runNumber;
     this.usage = from.usage ? new HistoryRunUsageResponseDto(from.usage) : null;
     this.checks = from.checks;
-    this.firstHumanAction = from.firstHumanAction
-      ? new TaskHumanActionResponseDto(from.firstHumanAction)
+    this.humanAction = from.humanAction
+      ? new HistoryHumanActionResponseDto(from.humanAction)
       : null;
     this.pullRequestState = from.pullRequestState;
   }

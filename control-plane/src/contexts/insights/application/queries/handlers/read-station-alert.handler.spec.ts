@@ -6,7 +6,7 @@ import { InsightsAccess } from '@insights/application/services/insights-access.s
 import { StationAlertState } from '@insights/domain/aggregates/station-alert-state.aggregate';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { day } from '@insights/insights.fake-spec';
 import {
   costedRecord,
@@ -52,7 +52,7 @@ const seeded = async (
 ) => {
   const records = new RunRecordsInMemory();
 
-  for (const [runId, hour, fingerprint, model, act] of [
+  for (const [runId, hour, fingerprint, model, action] of [
     ['run_1', 9, FIRST_CONFIG, 'sonnet', 'sent-back'],
     ['run_2', 10, FIRST_CONFIG, 'sonnet', 'accepted'],
     ['run_3', 11, SECOND_CONFIG, 'opus', 'accepted'],
@@ -69,7 +69,11 @@ const seeded = async (
         endedAt: day('2026-09-29', hour),
         changedLines: model === 'opus' ? 500 : 10,
       }).recordAction(
-        HumanAction.of(act, day('2026-09-29', hour), UserId.of('user_actor')),
+        PersonAction.of(
+          action,
+          day('2026-09-29', hour),
+          UserId.of('user_actor'),
+        ),
       ),
     );
   }

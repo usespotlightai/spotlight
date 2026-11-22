@@ -103,16 +103,16 @@ import { RecheckJudgeDisagreements } from '@insights/application/services/rechec
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
-import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
+import { RecordRunAction } from '@insights/application/services/record-run-action.service';
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
 import { RecordRunUsageSummary } from '@insights/application/services/record-run-usage-summary.service';
 import { RecordStationPass } from '@insights/application/services/record-station-pass.service';
 import { RecordSupersededRun } from '@insights/application/services/record-superseded-run.service';
+import { RecordTaskAction } from '@insights/application/services/record-task-action.service';
 import { RecordTaskFailure } from '@insights/application/services/record-task-failure.service';
-import { RecordTaskHumanAction } from '@insights/application/services/record-task-human-action.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
 import { RunAcceptance } from '@insights/application/services/run-acceptance.service';
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
@@ -152,9 +152,9 @@ import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/per
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
 import { DrizzleStationAlertStateRepository } from '@insights/infrastructure/persistence/drizzle/repositories/station-alert-state.repository';
+import { DrizzleTaskActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-actions.repository';
 import { DrizzleTaskChangeShapeRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
-import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
 import { insightsProjections } from '@insights/presentation/events/insights.projections';
 import { insightsSubscribers } from '@insights/presentation/events/insights.subscribers';
 import { RunScoresController } from '@insights/presentation/http/controllers/run-scores.controller';
@@ -287,7 +287,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   DrizzleRunRecordRepository,
   DrizzleJudgingRepository,
   DrizzleScoreRepository,
-  DrizzleTaskHumanActionsRepository,
+  DrizzleTaskActionsRepository,
   DrizzleTaskFailuresRepository,
   DrizzleChats,
   DrizzlePullRequestRecordRepository,
@@ -570,21 +570,21 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     provide: ProjectRunFacts,
     inject: [
       DrizzleRunRecordRepository,
-      DrizzleTaskHumanActionsRepository,
+      DrizzleTaskActionsRepository,
       DrizzlePullRequestRecordRepository,
       DrizzleRunFacts,
       TRANSACTION,
     ],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      humanActions: DrizzleTaskHumanActionsRepository,
+      taskActions: DrizzleTaskActionsRepository,
       pullRequests: DrizzlePullRequestRecordRepository,
       facts: DrizzleRunFacts,
       transaction: TransactionPort,
     ) =>
       new ProjectRunFacts(
         records,
-        humanActions,
+        taskActions,
         pullRequests,
         facts,
         transaction,
@@ -688,14 +688,14 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ) => new RecordChangeChecks(records, recorder, transaction),
   },
   {
-    provide: RecordHumanAction,
+    provide: RecordRunAction,
     inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
       recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordHumanAction(work, records, recorder, transaction),
+    ) => new RecordRunAction(work, records, recorder, transaction),
   },
   {
     provide: RecordRunUsageSummary,
@@ -736,13 +736,13 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ) => new RecordTaskFailure(failures, recorder, transaction),
   },
   {
-    provide: RecordTaskHumanAction,
-    inject: [DrizzleTaskHumanActionsRepository, FactRecorder, TRANSACTION],
+    provide: RecordTaskAction,
+    inject: [DrizzleTaskActionsRepository, FactRecorder, TRANSACTION],
     useFactory: (
-      humanActions: DrizzleTaskHumanActionsRepository,
+      taskActions: DrizzleTaskActionsRepository,
       recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordTaskHumanAction(humanActions, recorder, transaction),
+    ) => new RecordTaskAction(taskActions, recorder, transaction),
   },
   {
     provide: RecordChat,
@@ -778,7 +778,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       DrizzleRunRecordRepository,
       DrizzleJudgingRepository,
       DrizzleScoreRepository,
-      DrizzleTaskHumanActionsRepository,
+      DrizzleTaskActionsRepository,
       DrizzleTaskFailuresRepository,
       DrizzleTaskChangeShapeRepository,
       DrizzlePullRequestRecordRepository,
@@ -794,7 +794,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       records: DrizzleRunRecordRepository,
       judgings: DrizzleJudgingRepository,
       scores: DrizzleScoreRepository,
-      humanActions: DrizzleTaskHumanActionsRepository,
+      taskActions: DrizzleTaskActionsRepository,
       failures: DrizzleTaskFailuresRepository,
       shapes: DrizzleTaskChangeShapeRepository,
       pullRequests: DrizzlePullRequestRecordRepository,
@@ -811,7 +811,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           records,
           judgings,
           scores,
-          humanActions,
+          taskActions,
           failures,
           shapes,
           pullRequests,
@@ -837,7 +837,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       RecordRunEnding,
       RecordSupersededRun,
       RecordChangeChecks,
-      RecordHumanAction,
+      RecordRunAction,
       DeleteInsights,
       RequestJudging,
       RecordJudgeScore,
@@ -845,7 +845,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       RecordRunMemories,
       RecordStationPass,
       RecordTaskFailure,
-      RecordTaskHumanAction,
+      RecordTaskAction,
       RecordChat,
       RecordPullRequests,
       RecordChangeShape,
@@ -862,7 +862,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       ending: RecordRunEnding,
       superseding: RecordSupersededRun,
       checking: RecordChangeChecks,
-      acting: RecordHumanAction,
+      acting: RecordRunAction,
       deleting: DeleteInsights,
       judging: RequestJudging,
       scoring: RecordJudgeScore,
@@ -870,7 +870,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       remembering: RecordRunMemories,
       passing: RecordStationPass,
       failing: RecordTaskFailure,
-      recordingHumanActions: RecordTaskHumanAction,
+      recordingTaskActions: RecordTaskAction,
       chatting: RecordChat,
       recording: RecordPullRequests,
       shaping: RecordChangeShape,
@@ -893,7 +893,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           remembering,
           passing,
           failing,
-          recordingHumanActions,
+          recordingTaskActions,
           chatting,
           recording,
           shaping,

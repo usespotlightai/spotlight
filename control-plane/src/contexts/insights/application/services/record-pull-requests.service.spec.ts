@@ -11,7 +11,7 @@ import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-reco
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import {
   TaskFailuresInMemory,
-  TaskHumanActionsInMemory,
+  TaskActionsInMemory,
 } from '@insights/insights.fake-spec';
 import {
   ClaimsRevisionsInMemory,
@@ -45,7 +45,7 @@ const repositoriesInMemory = () => ({
   records: new RunRecordsInMemory(),
   judgings: new JudgingsInMemory(),
   scores: new ScoresInMemory(),
-  humanActions: new TaskHumanActionsInMemory(),
+  taskActions: new TaskActionsInMemory(),
   failures: new TaskFailuresInMemory(),
   shapes: new TaskChangeShapesInMemory(),
   pullRequests: new PullRequestRecordsInMemory(),

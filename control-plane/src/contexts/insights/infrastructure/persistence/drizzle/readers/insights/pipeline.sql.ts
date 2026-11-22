@@ -6,19 +6,19 @@ import {
   msOf,
   onTeam,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
-import { ofTeamHumanActions } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
+import { ofTeamTaskActions } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   runFact,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { type SQL, sql } from 'drizzle-orm';
 
 export const openedFor = (team: TeamInPeriod, taskIds: SQL): SQL => sql`
-  select ${taskHumanAction.taskId} as task_id, ${taskHumanAction.openedAt} as opened_at
-  from ${taskHumanAction}
-  where ${ofTeamHumanActions(team)}
-    and ${taskHumanAction.taskId} in (${taskIds})
-    and ${taskHumanAction.openedAt} >= ${iso(team.period.lookback.from)}::timestamptz`;
+  select ${taskAction.taskId} as task_id, ${taskAction.openedAt} as opened_at
+  from ${taskAction}
+  where ${ofTeamTaskActions(team)}
+    and ${taskAction.taskId} in (${taskIds})
+    and ${taskAction.openedAt} >= ${iso(team.period.lookback.from)}::timestamptz`;
 
 export const ranOfOpened = (team: TeamInPeriod): SQL => sql`
   select ${runFact}.*
@@ -31,7 +31,7 @@ export const stationTimeOfOpened = (team: TeamInPeriod): SQL => {
   const { lookback } = team.period;
   const queuedMs = msOf(sql`facts.started_at - facts.queued_at`);
   const runningMs = msOf(sql`facts.ended_at - facts.started_at`);
-  const answerMs = msOf(sql`waits.answered_at - waits.asked_at`);
+  const answerMs = msOf(sql`waits.acted_at - waits.asked_at`);
 
   return sql`
     with ran as (

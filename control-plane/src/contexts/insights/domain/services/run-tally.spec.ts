@@ -7,7 +7,7 @@ import {
   tallyRatesOf,
   tallySeenOf,
 } from '@insights/domain/services/run-tally';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
@@ -35,16 +35,16 @@ describe('runTally', () => {
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
           .recordCheck('failed', RECEIVED_AT)
-          .recordAction(HumanAction.of('sent-back', AT, ACTOR)),
+          .recordAction(PersonAction.of('sent-back', AT, ACTOR)),
         endedRecord('run_2', { ending: 'stopped' }),
         endedRecord('run_3')
           .recordCheck('passed', RECEIVED_AT)
-          .recordAction(HumanAction.of('approved', AT, ACTOR)),
+          .recordAction(PersonAction.of('approved', AT, ACTOR)),
         endedRecord('run_4')
           .recordCheck('skipped', RECEIVED_AT)
-          .recordAction(HumanAction.of('accepted', AT, ACTOR)),
+          .recordAction(PersonAction.of('accepted', AT, ACTOR)),
         endedRecord('run_5').recordAction(
-          HumanAction.of('dismissed', AT, ACTOR),
+          PersonAction.of('dismissed', AT, ACTOR),
         ),
       ],
       [],
@@ -70,7 +70,7 @@ describe('runTally', () => {
     });
   });
 
-  it('gives each run one resolution, what a person did first, a merge accepting only a completed run that stayed at its station', () => {
+  it('gives each run one resolution, from people’s verdict first, a merge accepting only a completed run that stayed at its station, and an accept passing no failed run', () => {
     const tally = tallyWith(
       [
         endedRecord('run_1', { taskId: 'task_1' }),
@@ -78,18 +78,18 @@ describe('runTally', () => {
           StationPass.of(StationId.of('station_2'), AT),
         ),
         endedRecord('run_3', { taskId: 'task_3' }).recordAction(
-          HumanAction.of('started', AT, ACTOR),
+          PersonAction.of('started', AT, ACTOR),
         ),
         endedRecord('run_4', { taskId: 'task_4', ending: 'stopped' }),
         endedRecord('run_5', { taskId: 'task_5' }).recordAction(
-          HumanAction.of('sent-back', AT, ACTOR),
+          PersonAction.of('sent-back', AT, ACTOR),
         ),
         endedRecord('run_6', { taskId: 'task_6', ending: 'failed' }),
         endedRecord('run_7', { taskId: 'task_7' }),
         endedRecord('run_8', {
           taskId: 'task_8',
           ending: 'failed',
-        }).recordAction(HumanAction.of('accepted', AT, ACTOR)),
+        }).recordAction(PersonAction.of('accepted', AT, ACTOR)),
       ],
       [merged('task_1'), merged('task_2'), merged('task_4'), merged('task_5')],
     );
@@ -98,17 +98,17 @@ describe('runTally', () => {
       runs: 8,
       failed: 2,
       resolutions: {
-        accepted: 2,
+        accepted: 1,
         sentBack: 1,
         movedOn: 2,
-        failed: 1,
+        failed: 2,
         other: 2,
       },
       resolutionShares: {
-        accepted: 0.25,
+        accepted: 0.125,
         sentBack: 0.125,
         movedOn: 0.25,
-        failed: 0.125,
+        failed: 0.25,
         other: 0.25,
       },
       merged: 4,
@@ -140,7 +140,7 @@ describe('runTally', () => {
       [
         costedRecord('run_1', { ending: 'cancelled', ms: 1, amount: 9 })
           .supersededByItsTask(RECEIVED_AT)
-          .recordAction(HumanAction.of('accepted', AT, ACTOR)),
+          .recordAction(PersonAction.of('accepted', AT, ACTOR)),
         costedRecord('run_2', { ending: 'failed', ms: 40_000, amount: 0.5 }),
       ],
       [],
@@ -304,7 +304,7 @@ describe('tallySeenOf', () => {
     const now = tallyWith(
       [
         endedRecord('run_1').recordAction(
-          HumanAction.of('accepted', AT, ACTOR),
+          PersonAction.of('accepted', AT, ACTOR),
         ),
       ],
       [],
@@ -312,7 +312,7 @@ describe('tallySeenOf', () => {
     const before = tallyWith(
       [
         endedRecord('run_2').recordAction(
-          HumanAction.of('sent-back', AT, ACTOR),
+          PersonAction.of('sent-back', AT, ACTOR),
         ),
       ],
       [],
@@ -332,7 +332,7 @@ describe('tallyRatesOf', () => {
       [
         endedRecord('run_1', { taskId: 'task_1' })
           .recordCheck('passed', AT)
-          .recordAction(HumanAction.of('accepted', AT, ACTOR)),
+          .recordAction(PersonAction.of('accepted', AT, ACTOR)),
         endedRecord('run_2', { taskId: 'task_2' }).recordCheck('failed', AT),
         endedRecord('run_3', { taskId: 'task_3' }),
         endedRecord('run_4', { taskId: 'task_4' }),
@@ -362,7 +362,7 @@ describe('tallyCountedOf', () => {
           [
             endedRecord('run_1', { ending: 'failed' }),
             endedRecord('run_2').recordAction(
-              HumanAction.of('sent-back', AT, ACTOR),
+              PersonAction.of('sent-back', AT, ACTOR),
             ),
           ],
           [],

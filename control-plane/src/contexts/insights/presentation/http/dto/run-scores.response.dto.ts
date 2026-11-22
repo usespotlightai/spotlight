@@ -182,7 +182,7 @@ export class RunScoresResponseDto {
     enum: [...LABEL_SOURCES, null],
     nullable: true,
     description:
-      'What gave people’s verdict on the run: the first action of a person on it, or the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where people said nothing yet',
+      'What gave people’s verdict on the run: its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where neither gives a verdict',
   })
   readonly labelFrom: string | null;
 
@@ -190,7 +190,7 @@ export class RunScoresResponseDto {
     type: Boolean,
     nullable: true,
     description:
-      'Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet',
+      'Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or the run has no people’s verdict',
   })
   readonly agrees: boolean | null;
 

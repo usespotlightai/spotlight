@@ -4,8 +4,8 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { ActionKind } from '@work/domain/value-objects/action-kind';
 import type { CalledTool } from '@work/domain/value-objects/called-tool.vo';
-import type { HumanActionKind } from '@work/domain/value-objects/human-action-kind';
 
 export class TaskActedOn implements DomainEvent {
   readonly kind = 'task.acted-on';
@@ -14,7 +14,7 @@ export class TaskActedOn implements DomainEvent {
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
     readonly stationId: StationId,
-    readonly action: HumanActionKind,
+    readonly action: ActionKind,
     readonly by: UserId,
     readonly after: RunId | null,
     readonly at: Date,

@@ -15,8 +15,8 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
   mergeRate: 0.8,
   costPerMerge: { amount: 2.5, currency: 'USD' },
   taskToMerge: { p50: 3_600_000, p90: 7_200_000, count: 4 },
-  humanActions: 10,
-  humanActionsPerTask: 2,
+  actions: 10,
+  actionsPerTask: 2,
   activePeople: 3,
   mergedTaskIds: [],
   peopleIds: [],
@@ -32,7 +32,7 @@ describe('headlineDeltasOf', () => {
         mergeRate: 0.6,
         costPerMerge: { amount: 2, currency: 'USD' },
         taskToMerge: { p50: 7_200_000, p90: null, count: 6 },
-        humanActionsPerTask: 1,
+        actionsPerTask: 1,
       }),
       headline(),
     );
@@ -47,7 +47,7 @@ describe('headlineDeltasOf', () => {
     expect(changes.mergeRate?.by).toBeCloseTo(-0.2);
     expect(changes.costPerMerge).toMatchObject({ by: -0.2, tone: 'good' });
     expect(changes.taskToMerge).toMatchObject({ by: 1, tone: 'bad' });
-    expect(changes.humanActionsPerTask).toMatchObject({
+    expect(changes.actionsPerTask).toMatchObject({
       by: -0.5,
       tone: 'good',
     });

@@ -40,8 +40,8 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
   mergeRate: 0.8,
   costPerMerge: { amount: 15, currency: 'USD' },
   taskToMerge: { p50Ms: 26 * HOUR, p90Ms: 72 * HOUR, count: 8 },
-  humanActions: 30,
-  humanActionsPerTask: 3,
+  actions: 30,
+  actionsPerTask: 3,
   activePeople: 4,
   mergedTaskIds: [],
   peopleIds: [],
@@ -66,7 +66,7 @@ const UNCHANGED: HeadlineChanges = {
   mergeRate: change(0, 'flat', 'points'),
   costPerMerge: change(0),
   taskToMerge: change(0),
-  humanActionsPerTask: change(0),
+  actionsPerTask: change(0),
   activePeople: change(0),
 };
 
@@ -122,6 +122,10 @@ describe('the insights view in the address', () => {
   });
 
   it('reads the drill-down filters the runs endpoint takes, and drops bad ones', () => {
+    expect(
+      viewOf(new URLSearchParams('tab=traces&humanAction=held-as-wrong'))
+        .filter,
+    ).toEqual({ humanAction: 'held-as-wrong' });
     expect(
       viewOf(
         new URLSearchParams(
@@ -468,7 +472,7 @@ describe('cost', () => {
     expect(formatFilterValue('dismissedServer', 'linear')).toBe('linear');
     expect(formatFilterValue('taskIds', 'task_1,task_2')).toBe('2 tasks');
     expect(formatFilterValue('humanAction', 'sent-back')).toBe('Sent back');
-    expect(formatFilterValue('resolution', 'failed')).toBe('Failed, no answer');
+    expect(formatFilterValue('resolution', 'failed')).toBe('Failed');
     expect(formatFilterValue('pullRequestState', 'merged')).toBe('All merged');
     expect(formatFilterValue('pullRequestState', 'closed')).toBe(
       'Not all merged',

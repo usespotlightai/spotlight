@@ -3,16 +3,16 @@ import type { DeleteInsights } from '@insights/application/services/delete-insig
 import type { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import type { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import type { RecordChat } from '@insights/application/services/record-chat.service';
-import type { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import type { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import type { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
+import type { RecordRunAction } from '@insights/application/services/record-run-action.service';
 import type { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import type { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
 import type { RecordRunUsageSummary } from '@insights/application/services/record-run-usage-summary.service';
 import type { RecordStationPass } from '@insights/application/services/record-station-pass.service';
 import type { RecordSupersededRun } from '@insights/application/services/record-superseded-run.service';
+import type { RecordTaskAction } from '@insights/application/services/record-task-action.service';
 import type { RecordTaskFailure } from '@insights/application/services/record-task-failure.service';
-import type { RecordTaskHumanAction } from '@insights/application/services/record-task-human-action.service';
 import type { RequestJudging } from '@insights/application/services/request-judging.service';
 import type { WatchStations } from '@insights/application/services/watch-stations.service';
 import type { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
@@ -119,7 +119,7 @@ export interface InsightsHandlers {
   readonly ending: RecordRunEnding;
   readonly superseding: RecordSupersededRun;
   readonly checking: RecordChangeChecks;
-  readonly acting: RecordHumanAction;
+  readonly acting: RecordRunAction;
   readonly deleting: DeleteInsights;
   readonly judging: RequestJudging;
   readonly scoring: RecordJudgeScore;
@@ -127,7 +127,7 @@ export interface InsightsHandlers {
   readonly remembering: RecordRunMemories;
   readonly passing: RecordStationPass;
   readonly failing: RecordTaskFailure;
-  readonly recordingHumanActions: RecordTaskHumanAction;
+  readonly recordingTaskActions: RecordTaskAction;
   readonly chatting: RecordChat;
   readonly recording: RecordPullRequests;
   readonly shaping: RecordChangeShape;
@@ -187,9 +187,9 @@ const ERASED: readonly {
     erase: (deleting, scope) => deleting.scores(scope),
   },
   {
-    name: 'human-actions',
+    name: 'task-actions',
     scopes: EVERY_SCOPE,
-    erase: (deleting, scope) => deleting.humanActions(scope),
+    erase: (deleting, scope) => deleting.taskActions(scope),
   },
   {
     name: 'failures',
@@ -314,7 +314,7 @@ export const insightsSubscribers = (
       ),
   ),
   subscribing<TaskActedOnIntegrationEvent>(
-    'insights.record-first-human-action',
+    'insights.record-run-action',
     [TASK_ACTED_ON],
     (event) => handlers.acting.acted(event),
   ),
@@ -344,7 +344,7 @@ export const insightsSubscribers = (
   subscribing<TaskOpenedIntegrationEvent>(
     'insights.record-task-opening',
     [TASK_OPENED],
-    (event) => handlers.recordingHumanActions.opened(event),
+    (event) => handlers.recordingTaskActions.opened(event),
   ),
   subscribing<TaskAskedIntegrationEvent>(
     'insights.record-inbox-ask',
@@ -352,12 +352,12 @@ export const insightsSubscribers = (
     (event) =>
       event.driver === 'person'
         ? Promise.resolve()
-        : handlers.recordingHumanActions.asked(event),
+        : handlers.recordingTaskActions.asked(event),
   ),
   subscribing<TaskActedOnIntegrationEvent>(
-    'insights.record-task-human-action',
+    'insights.record-task-action',
     [TASK_ACTED_ON],
-    (event) => handlers.recordingHumanActions.acted(event),
+    (event) => handlers.recordingTaskActions.acted(event),
   ),
   subscribing<ChatStartedIntegrationEvent>(
     'insights.record-started-chat',

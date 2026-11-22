@@ -16034,9 +16034,9 @@
               "started",
               "parked",
               "accepted",
-              "answered",
               "sent-back",
-              "held-as-wrong"
+              "held-as-wrong",
+              "answered"
             ]
           },
           "at": {
@@ -16102,7 +16102,7 @@
               "failed",
               "other"
             ],
-            "description": "What came of the run: failed, sent back, accepted, moved on to another station, or other. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold with the verdict that the line got it wrong."
+            "description": "What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. Sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong"
           },
           "failure": {
             "type": "string",
@@ -16135,9 +16135,9 @@
             "nullable": true,
             "description": "How its change fared when checked, if it was"
           },
-          "firstHumanAction": {
+          "humanAction": {
             "nullable": true,
-            "description": "The first thing a person did with the task after the run",
+            "description": "The run’s deciding action: the first start, park, accept, send back, or hold that ended with the reason The line got it wrong, credited to the run; or else the first answer to it",
             "type": "object",
             "allOf": [
               {
@@ -16177,7 +16177,7 @@
           "runNumber",
           "usage",
           "checks",
-          "firstHumanAction",
+          "humanAction",
           "passed",
           "pullRequestState"
         ]
@@ -16203,7 +16203,7 @@
           "failed": {
             "type": "number",
             "example": 1,
-            "description": "Runs that ended Failed and no person accepted or sent back"
+            "description": "Runs that ended Failed and that people’s verdict did not fail"
           },
           "other": {
             "type": "number",
@@ -16244,7 +16244,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.5,
-            "description": "Runs that ended Failed and no person accepted or sent back, of the runs; none where none ran"
+            "description": "Runs that ended Failed and that people’s verdict did not fail, of the runs; none where none ran"
           },
           "other": {
             "type": "number",
@@ -17390,12 +17390,12 @@
               null
             ],
             "nullable": true,
-            "description": "What gave people’s verdict on the run: the first action of a person on it, or the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where people said nothing yet"
+            "description": "What gave people’s verdict on the run: its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where neither gives a verdict"
           },
           "agrees": {
             "type": "boolean",
             "nullable": true,
-            "description": "Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet"
+            "description": "Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or the run has no people’s verdict"
           }
         },
         "required": [

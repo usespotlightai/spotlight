@@ -3,7 +3,7 @@ import { RebuildRunFacts } from '@insights/application/services/rebuild-run-fact
 import { DrizzleRunFacts } from '@insights/infrastructure/persistence/drizzle/projections/run-facts.projection';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
-import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
+import { DrizzleTaskActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-actions.repository';
 import { parseDatabaseEnv } from '@platform/config/env';
 import {
   createDatabase,
@@ -33,7 +33,7 @@ export const openRunFactsRebuild = (): RunFactsRebuild => {
     facts: new RebuildRunFacts(
       new ProjectRunFacts(
         new DrizzleRunRecordRepository(context, READ_ONLY),
-        new DrizzleTaskHumanActionsRepository(context, READ_ONLY),
+        new DrizzleTaskActionsRepository(context, READ_ONLY),
         new DrizzlePullRequestRecordRepository(context, READ_ONLY),
         new DrizzleRunFacts(context),
         context,

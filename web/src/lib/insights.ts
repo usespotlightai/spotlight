@@ -443,11 +443,11 @@ export const headlineTiles = (
     drill: tasksDrill(now.mergedTaskIds),
   },
   {
-    id: 'human-actions',
+    id: 'actions-per-task',
     label: 'Actions per task',
-    value: formatPer(now.humanActionsPerTask),
+    value: formatPer(now.actionsPerTask),
     detail: `Over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
-    delta: shownDeltaOf(changes.humanActionsPerTask),
+    delta: shownDeltaOf(changes.actionsPerTask),
     drill: { tab: 'people' },
   },
   {
@@ -948,13 +948,19 @@ const HUMAN_ACTIONS: Record<RunHumanAction, string> = {
   'held-as-wrong': 'Held as wrong',
 };
 
+export const humanActionLabelOf = (action: RunHumanAction): string =>
+  HUMAN_ACTIONS[action];
+
 const RESOLUTIONS: Record<RunResolution, string> = {
   accepted: 'Accepted',
   'sent-back': 'Sent back',
   'moved-on': 'Moved on',
-  failed: 'Failed, no answer',
+  failed: 'Failed',
   other: 'Other',
 };
+
+export const resolutionLabelOf = (resolution: RunResolution): string =>
+  RESOLUTIONS[resolution];
 
 export const formatFilterValue = (key: RunFilterKey, value: string): string => {
   // oxlint-disable-next-line typescript/switch-exhaustiveness-check -- every other key shows its value as it is
@@ -1144,7 +1150,7 @@ export const PEOPLE_HEADINGS: readonly NestedHeading[] = [
     numeric: true,
     size: SPREAD,
     tooltip:
-      'Moves, acceptances, answers, approvals, dismissals, send-backs and holds as wrong',
+      'Moves, answers, approvals, dismissals, sends-back, and holds that end with the reason The line got it wrong',
   },
   { label: 'Tasks opened', numeric: true, size: SPREAD },
   { label: 'Chats', numeric: true, size: SPREAD },

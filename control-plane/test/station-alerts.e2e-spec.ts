@@ -198,7 +198,7 @@ afterAll(async () => {
 });
 
 describe('a station alert (e2e)', () => {
-  it('creates an inbox request on the task whose run crossed the station’s threshold once a person answered it, and shows it', async () => {
+  it('creates an inbox request on the task whose run crossed the station’s threshold once a person sent it back, and shows it', async () => {
     const runId = await ranAndEnded(10);
     await eventuallyFound(async () => {
       const [record] = await db
@@ -253,7 +253,7 @@ describe('a station alert (e2e)', () => {
     ).toBe(true);
   });
 
-  it('creates no second inbox request while the station stays past the threshold, nor on a run nobody answered yet', async () => {
+  it('creates no second inbox request while the station stays past the threshold, nor on a run whose resolution is still Other', async () => {
     const runId = await ranAndEnded(5);
     await eventuallyFound(async () => {
       const [record] = await db
@@ -278,18 +278,18 @@ describe('a station alert (e2e)', () => {
     expect(alerts[0]?.resolvedAt).toBeNull();
   });
 
-  it('resolves once a person accepts the run that ended unanswered', async () => {
-    const [unanswered] = await db
+  it('resolves once a person accepts the run with no deciding action', async () => {
+    const [undecided] = await db
       .select()
       .from(schema.runRecord)
       .where(
         and(
           eq(schema.runRecord.stationId, watched),
-          isNull(schema.runRecord.firstHumanAction),
+          isNull(schema.runRecord.decidingAction),
         ),
       );
 
-    await actedOn(unanswered?.runId, 'accepted', 4);
+    await actedOn(undecided?.runId, 'accepted', 4);
 
     const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();

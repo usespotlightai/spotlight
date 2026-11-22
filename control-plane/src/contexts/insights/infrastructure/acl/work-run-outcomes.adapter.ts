@@ -1,10 +1,21 @@
 import type { RunOutcomeDto } from '@insights/application/dto/run-outcome.dto';
 import type { RunOutcomes } from '@insights/application/services/run-outcomes.service';
+import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
+  RunHumanActionKind,
   RunResultShape,
   RunResultsPort,
 } from '@work/application/ports/run-results.port';
+
+const HUMAN_ACTION_KINDS: Record<RunHumanAction, RunHumanActionKind> = {
+  started: 'started',
+  parked: 'parked',
+  accepted: 'accepted',
+  'sent-back': 'sent-back',
+  'held-as-wrong': 'held-as-wrong',
+  answered: 'answered',
+};
 
 const shapeOf = (outcome: RunOutcomeDto): RunResultShape => ({
   runId: outcome.runId,
@@ -14,7 +25,12 @@ const shapeOf = (outcome: RunOutcomeDto): RunResultShape => ({
   failure: outcome.failure,
   runNumber: outcome.runNumber,
   checks: outcome.checks,
-  firstHumanAction: outcome.firstHumanAction,
+  humanAction: outcome.humanAction
+    ? {
+        kind: HUMAN_ACTION_KINDS[outcome.humanAction.kind],
+        at: outcome.humanAction.at,
+      }
+    : null,
   pullRequestState: outcome.pullRequestState,
 });
 

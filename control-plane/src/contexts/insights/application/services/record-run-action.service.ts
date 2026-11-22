@@ -4,9 +4,9 @@ import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import {
-  HumanAction,
-  humanActionKindOf,
-} from '@insights/domain/value-objects/human-action.vo';
+  PersonAction,
+  actionKindOf,
+} from '@insights/domain/value-objects/person-action.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -14,7 +14,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface HumanActionReceived {
+export interface ActionReceived {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly stationId: string;
@@ -26,7 +26,7 @@ export interface HumanActionReceived {
   readonly server: string | null;
 }
 
-export class RecordHumanAction {
+export class RecordRunAction {
   constructor(
     private readonly work: WorkPort,
     private readonly records: RunRecordRepository,
@@ -34,14 +34,14 @@ export class RecordHumanAction {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async acted(event: HumanActionReceived): Promise<void> {
-    const kind = humanActionKindOf(event.action);
+  async acted(event: ActionReceived): Promise<void> {
+    const kind = actionKindOf(event.action);
 
     if (!kind) {
       return;
     }
 
-    const action = HumanAction.of(
+    const action = PersonAction.of(
       kind,
       new Date(event.at),
       UserId.of(event.by),

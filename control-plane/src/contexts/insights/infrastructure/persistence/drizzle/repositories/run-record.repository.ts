@@ -9,7 +9,7 @@ import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-s
 import {
   dismissalsOf,
   endOf,
-  firstHumanActionOf,
+  actionsOf,
   memoriesOf,
   partColumnsOf,
   passOf,
@@ -41,7 +41,7 @@ const toRecord = (row: RecordRow): RunRecord =>
     supersededAt: row.supersededAt,
     checks: row.checks,
     checkedAt: row.checkedAt,
-    firstHumanAction: firstHumanActionOf(row, 'run record'),
+    actions: actionsOf(row, 'run record'),
     approvalAnsweredAt: row.approvalAnsweredAt,
     usage: usageOf(row, 'run record'),
     passed: passOf(row, 'run record'),
@@ -67,7 +67,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
           runId: added.runId.value,
           workspaceId: added.workspaceId.value,
           version: added.version,
-          ...partColumnsOf(added, 'run record'),
+          ...partColumnsOf(added),
         })
         .onConflictDoNothing({ target: runRecord.runId })
         .returning({ runId: runRecord.runId });
@@ -90,7 +90,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
         .update(runRecord)
         .set({
           version: saved.version + 1,
-          ...partColumnsOf(saved, 'run record'),
+          ...partColumnsOf(saved),
         })
         .where(
           and(

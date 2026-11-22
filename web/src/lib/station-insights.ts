@@ -7,6 +7,7 @@ import type {
   TallyCountedResponseDto,
 } from '@/lib/api';
 import { formatShortDuration, spentIn } from '@/lib/inbox';
+import { humanActionLabelOf, resolutionLabelOf } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { rangeOf } from '@/lib/range';
 import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
@@ -45,18 +46,10 @@ const RESOLUTION_TONES: Record<StationRunOutcome['resolution'], OutcomeTone> = {
 export const outcomeTone = (run: StationRunOutcome): OutcomeTone =>
   RESOLUTION_TONES[run.resolution];
 
-const RESOLUTION_LABELS: Record<StationRunOutcome['resolution'], string> = {
-  accepted: 'Accepted',
-  'moved-on': 'Moved on',
-  'sent-back': 'Sent back',
-  failed: 'Failed',
-  other: 'Other',
-};
-
 export const resolutionLabel = (run: StationRunOutcome): string =>
   run.resolution === 'other'
     ? formatEnding(run.ending)
-    : RESOLUTION_LABELS[run.resolution];
+    : resolutionLabelOf(run.resolution);
 
 const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
   passed: 'Checks passed',
@@ -67,22 +60,9 @@ const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
 export const formatChecks = (checks: StationRunOutcome['checks']): string =>
   checks ? CHECKS[checks] : '–';
 
-type HumanActionKind = NonNullable<
-  StationRunOutcome['firstHumanAction']
->['kind'];
-
-const HUMAN_ACTIONS: Record<HumanActionKind, string> = {
-  started: 'Started',
-  parked: 'Parked',
-  accepted: 'Accepted',
-  answered: 'Answered',
-  'sent-back': 'Sent back',
-  'held-as-wrong': 'Held as wrong',
-};
-
 export const formatHumanAction = (
-  action: StationRunOutcome['firstHumanAction'],
-): string => (action ? HUMAN_ACTIONS[action.kind] : '–');
+  action: StationRunOutcome['humanAction'],
+): string => (action ? humanActionLabelOf(action.kind) : '–');
 
 const PULL_REQUEST_STATES: Record<
   NonNullable<StationRunOutcome['pullRequestState']>,
@@ -202,14 +182,14 @@ export type OutcomePart = {
 type OutcomeTally = Pick<StationTally, 'resolutions' | 'resolutionShares'>;
 
 export const OUTCOME_NOTE =
-  'Accepted: a person accepted the run, or its task’s pull requests all merged while the task stayed at the station. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold and said the line got it wrong. Moved on: the task went to another station, or a person started it. Failed, no answer: the run failed and no person accepted it or sent it back. Other: stopped, ran out, replaced by a later run, or no answer yet.';
+  'The deciding action is the first start, park, accept, send back, or hold that ended with the reason The line got it wrong, credited to the run. Accepted: the deciding action is an accept and the run completed or stopped, or the deciding action is none of accept, send back and a hold that ended with the reason The line got it wrong, the task was neither passed to another station nor started, and its pull request merged after the run, the station’s last completed run on the task. Moved on: the run completed, then the task went to another station or a person started it. Sent back: the deciding action is a send back, or a hold that ended with the reason The line got it wrong. Failed: the run failed and its deciding action is not a send back or such a hold. Other: anything else, for example a run that stopped, ran out, was replaced by a later run, was parked and had no merge, or that nobody has acted on yet.';
 
 const OUTCOME_PARTS: readonly Omit<OutcomePart, 'count' | 'share'>[] = [
-  { key: 'accepted', label: RESOLUTION_LABELS.accepted, tone: 'done' },
-  { key: 'movedOn', label: RESOLUTION_LABELS['moved-on'], tone: 'movedOn' },
-  { key: 'sentBack', label: RESOLUTION_LABELS['sent-back'], tone: 'sentBack' },
-  { key: 'failed', label: 'Failed, no answer', tone: 'failed' },
-  { key: 'other', label: RESOLUTION_LABELS.other, tone: 'quiet' },
+  { key: 'accepted', label: resolutionLabelOf('accepted'), tone: 'done' },
+  { key: 'movedOn', label: resolutionLabelOf('moved-on'), tone: 'movedOn' },
+  { key: 'sentBack', label: resolutionLabelOf('sent-back'), tone: 'sentBack' },
+  { key: 'failed', label: resolutionLabelOf('failed'), tone: 'failed' },
+  { key: 'other', label: resolutionLabelOf('other'), tone: 'quiet' },
 ];
 
 export const outcomePartsOf = ({

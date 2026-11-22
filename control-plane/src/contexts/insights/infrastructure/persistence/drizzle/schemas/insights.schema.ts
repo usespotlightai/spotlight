@@ -9,9 +9,9 @@ import {
 } from '@insights/domain/value-objects/alert-rule.vo';
 import { CHECK_VERDICTS } from '@insights/domain/value-objects/check-verdict';
 import {
-  type HumanActionKind,
-  TASK_ACTIONS,
-} from '@insights/domain/value-objects/human-action.vo';
+  type ActionKind,
+  DECIDING_ACTIONS,
+} from '@insights/domain/value-objects/person-action.vo';
 import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
@@ -83,8 +83,8 @@ export interface StoredAsk {
   readonly at: string;
 }
 
-export interface StoredHumanAction {
-  readonly kind: HumanActionKind;
+export interface StoredTaskAction {
+  readonly kind: ActionKind;
   readonly by: string;
   readonly stationId: string;
   readonly at: string;
@@ -108,7 +108,7 @@ export interface StoredReason {
 export const runRecordEnding = pgEnum('run_record_ending', RUN_ENDINGS);
 export const runRecordChecks = pgEnum('run_record_checks', CHECK_VERDICTS);
 export const runResolution = pgEnum('run_resolution', RUN_RESOLUTIONS);
-export const humanAction = pgEnum('human_action', TASK_ACTIONS);
+export const decidingActionKind = pgEnum('deciding_action', DECIDING_ACTIONS);
 export const pullRequestState = pgEnum(
   'pull_request_state',
   PULL_REQUEST_STATES,
@@ -151,9 +151,11 @@ export const runRecord = pgTable(
     supersededAt: timestamptz('superseded_at'),
     checks: runRecordChecks('checks'),
     checkedAt: timestamptz('checked_at'),
-    firstHumanAction: humanAction('first_human_action'),
-    firstHumanActionAt: timestamptz('first_human_action_at'),
-    firstHumanActionBy: text('first_human_action_by'),
+    decidingAction: decidingActionKind('deciding_action'),
+    decidingActionAt: timestamptz('deciding_action_at'),
+    decidingActionBy: text('deciding_action_by'),
+    answeredAt: timestamptz('answered_at'),
+    answeredBy: text('answered_by'),
     approvalAnsweredAt: timestamptz('approval_answered_at'),
     passedTo: text('passed_to'),
     passedAt: timestamptz('passed_at'),
@@ -223,9 +225,11 @@ export const runFact = pgTable(
     followedAt: timestamptz('followed_at'),
     checks: runRecordChecks('checks'),
     checkedAt: timestamptz('checked_at'),
-    firstHumanAction: humanAction('first_human_action'),
-    firstHumanActionAt: timestamptz('first_human_action_at'),
-    firstHumanActionBy: text('first_human_action_by'),
+    decidingAction: decidingActionKind('deciding_action'),
+    decidingActionAt: timestamptz('deciding_action_at'),
+    decidingActionBy: text('deciding_action_by'),
+    answeredAt: timestamptz('answered_at'),
+    answeredBy: text('answered_by'),
     approvalAnsweredAt: timestamptz('approval_answered_at'),
     passedTo: text('passed_to'),
     passedAt: timestamptz('passed_at'),
@@ -285,8 +289,8 @@ export const runFact = pgTable(
   ],
 );
 
-export const taskHumanAction = pgTable(
-  'task_human_action',
+export const taskAction = pgTable(
+  'task_action',
   {
     taskId: text('task_id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
@@ -297,15 +301,15 @@ export const taskHumanAction = pgTable(
     openedAt: timestamptz('opened_at'),
     asks: jsonb('asks').$type<StoredAsk[]>().notNull().default([]),
     actions: jsonb('actions')
-      .$type<StoredHumanAction[]>()
+      .$type<StoredTaskAction[]>()
       .notNull()
       .default([]),
     lastActionAt: timestamptz('last_action_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    index('task_human_action_team_idx').on(table.teamId, table.lastActionAt),
-    index('task_human_action_workspace_idx').on(table.workspaceId),
+    index('task_action_team_idx').on(table.teamId, table.lastActionAt),
+    index('task_action_workspace_idx').on(table.workspaceId),
   ],
 );
 

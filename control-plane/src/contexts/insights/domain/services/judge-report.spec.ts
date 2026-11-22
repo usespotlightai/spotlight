@@ -3,7 +3,7 @@ import {
   calibrationIn,
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
@@ -25,7 +25,7 @@ const runs = (count: number, agreeing: number) =>
     return {
       score: judgeScore(runId, [passes]),
       record: endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
-        HumanAction.of(
+        PersonAction.of(
           passes === agrees ? 'accepted' : 'sent-back',
           AT,
           UserId.of('user_actor'),

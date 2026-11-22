@@ -19,6 +19,7 @@ import {
   stationOfId,
 } from '@/mocks/world/past-work';
 import { PEOPLE, SAM } from '@/mocks/world/people';
+import { actionLabelOf, labelPasses } from '@/mocks/world/run-labels';
 import { knownTaskNote } from '@/mocks/world/station-tasks';
 import {
   file,
@@ -188,12 +189,18 @@ const opened = (context: Context): string =>
     ? `[${pullLabel(context.pullRequest)}](${context.pullRequest})`
     : 'the pull request';
 
+const failsRun = (run: HistoryRun): boolean => {
+  const label = actionLabelOf(run);
+
+  return label !== null && !labelPasses(label);
+};
+
 const answerOf = (context: Context, yes: string, no: string): NoteScript[] =>
-  context.run.firstHumanAction
+  context.run.humanAction
     ? [
         answered(
           context.person,
-          context.run.firstHumanAction.kind === 'sent-back' ? no : yes,
+          failsRun(context.run) ? no : yes,
           context.answerAfter,
         ),
       ]
@@ -201,8 +208,8 @@ const answerOf = (context: Context, yes: string, no: string): NoteScript[] =>
 
 const actedAfterPassing = (run: HistoryRun): boolean =>
   run.passed !== null &&
-  run.firstHumanAction !== null &&
-  Date.parse(run.firstHumanAction.at) > Date.parse(run.passed.at);
+  run.humanAction !== null &&
+  Date.parse(run.humanAction.at) > Date.parse(run.passed.at);
 
 const closingNotes = (
   context: Context,
@@ -222,7 +229,7 @@ const closingNotes = (
   if (run.ending === 'stopped') {
     return [];
   }
-  if (run.firstHumanAction && !actedAfterPassing(run)) {
+  if (run.humanAction && !actedAfterPassing(run)) {
     return [asked(ask), ...answerOf(context, yes, no)];
   }
   return [passed(pass), ...answerOf(context, yes, no)];
@@ -569,10 +576,9 @@ const pastStoryOf = (run: HistoryRun): RunStory => {
     pullRequest: task?.pullRequest
       ? pullRequestUrlOf(task.teamId, task.id)
       : null,
-    answerAfter: run.firstHumanAction
+    answerAfter: run.humanAction
       ? Math.round(
-          (Date.parse(run.firstHumanAction.at) -
-            Date.parse(run.endedAt ?? '')) /
+          (Date.parse(run.humanAction.at) - Date.parse(run.endedAt ?? '')) /
             MINUTE_MS,
         )
       : 0,

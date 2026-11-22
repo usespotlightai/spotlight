@@ -1,13 +1,12 @@
 import type { JudgePort } from '@insights/application/ports/judge.port';
 import { BackfillJudgings } from '@insights/application/services/backfill-judgings.service';
-import type { Score } from '@insights/domain/aggregates/score.aggregate';
 import { MAX_LABELLED_RUNS } from '@insights/domain/services/revision-split';
 import {
-  type Acted,
   clockAt,
   judgesWith,
   NEXT_JUDGE,
   NOW,
+  type StationRun,
   stationWith,
 } from '@insights/judge-repair-setup.fake-spec';
 import {
@@ -36,7 +35,7 @@ const available: JudgePort = {
 };
 
 const setUp = async (
-  runs: readonly { runId: string; acted: Acted; scores?: readonly Score[] }[],
+  runs: readonly StationRun[],
   judge: JudgePort = available,
 ) => {
   const station = await stationWith(runs);
@@ -55,7 +54,7 @@ const setUp = async (
 };
 
 describe('BackfillJudgings', () => {
-  it('re-judges the runs people acted on with the new claims, as backfill', async () => {
+  it('re-judges the runs that completed or stopped and have people’s verdict, with the new claims, as backfill', async () => {
     const { judgings, backfilling } = await setUp([
       { runId: 'run_1', acted: 'accepted' },
       { runId: 'run_2', acted: null },
@@ -71,6 +70,18 @@ describe('BackfillJudgings', () => {
     expect(run1?.rubric.version).toBe(NEXT_RUBRIC_VERSION);
     expect(run1?.hasPendingJob).toBe(true);
     expect(judgings.stored.get('run_3')?.origin).toBe('backfill');
+  });
+
+  it('re-judges no run that failed or was superseded, though people sent it back, and re-judges a stopped run a person accepted', async () => {
+    const { judgings, backfilling } = await setUp([
+      { runId: 'run_1', acted: 'sent-back', ending: 'failed' },
+      { runId: 'run_2', acted: 'sent-back', ending: 'superseded' },
+      { runId: 'run_3', acted: 'accepted', ending: 'stopped' },
+    ]);
+
+    await backfilling.lineChanged(LINE_CHANGED);
+
+    expect([...judgings.stored.keys()]).toEqual(['run_3']);
   });
 
   it(`re-judges at most the ${MAX_LABELLED_RUNS} newest labelled runs`, async () => {

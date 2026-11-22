@@ -9,7 +9,7 @@ import {
   type AlertMeasure,
   AlertRule,
 } from '@insights/domain/value-objects/alert-rule.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
@@ -61,7 +61,7 @@ const sentBack = (runId: string, hour: number) =>
     taskId: `task_${runId}`,
     endedAt: at(hour),
   }).recordAction(
-    HumanAction.of('sent-back', at(hour), UserId.of('user_actor')),
+    PersonAction.of('sent-back', at(hour), UserId.of('user_actor')),
   );
 
 const accepted = (runId: string, hour: number) =>
@@ -69,7 +69,7 @@ const accepted = (runId: string, hour: number) =>
     taskId: `task_${runId}`,
     endedAt: at(hour),
   }).recordAction(
-    HumanAction.of('accepted', at(hour), UserId.of('user_actor')),
+    PersonAction.of('accepted', at(hour), UserId.of('user_actor')),
   );
 
 describe('measureOf', () => {

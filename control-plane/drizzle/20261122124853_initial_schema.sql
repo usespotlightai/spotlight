@@ -21,7 +21,7 @@ CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> st
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
 CREATE TYPE "public"."alert_condition" AS ENUM('risesBy', 'fallsBy', 'above', 'below');--> statement-breakpoint
 CREATE TYPE "public"."alert_measure" AS ENUM('sent_back_rate', 'accepted_rate', 'checks_failed_rate', 'failed_rate', 'merged_rate', 'cost_per_run');--> statement-breakpoint
-CREATE TYPE "public"."human_action" AS ENUM('started', 'parked', 'accepted', 'answered', 'sent-back', 'held-as-wrong');--> statement-breakpoint
+CREATE TYPE "public"."deciding_action" AS ENUM('started', 'parked', 'accepted', 'sent-back', 'held-as-wrong');--> statement-breakpoint
 CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'request-failed', 'insufficient-credits', 'unreadable', 'ungrounded', 'errored', 'interrupted', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_author" AS ENUM('spotlight', 'reviewed', 'people', 'bots');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
@@ -784,9 +784,11 @@ CREATE TABLE "run_fact" (
 	"followed_at" timestamp (3) with time zone,
 	"checks" "run_record_checks",
 	"checked_at" timestamp (3) with time zone,
-	"first_human_action" "human_action",
-	"first_human_action_at" timestamp (3) with time zone,
-	"first_human_action_by" text,
+	"deciding_action" "deciding_action",
+	"deciding_action_at" timestamp (3) with time zone,
+	"deciding_action_by" text,
+	"answered_at" timestamp (3) with time zone,
+	"answered_by" text,
 	"approval_answered_at" timestamp (3) with time zone,
 	"passed_to" text,
 	"passed_at" timestamp (3) with time zone,
@@ -839,9 +841,11 @@ CREATE TABLE "run_record" (
 	"superseded_at" timestamp (3) with time zone,
 	"checks" "run_record_checks",
 	"checked_at" timestamp (3) with time zone,
-	"first_human_action" "human_action",
-	"first_human_action_at" timestamp (3) with time zone,
-	"first_human_action_by" text,
+	"deciding_action" "deciding_action",
+	"deciding_action_at" timestamp (3) with time zone,
+	"deciding_action_by" text,
+	"answered_at" timestamp (3) with time zone,
+	"answered_by" text,
 	"approval_answered_at" timestamp (3) with time zone,
 	"passed_to" text,
 	"passed_at" timestamp (3) with time zone,
@@ -913,6 +917,20 @@ CREATE TABLE "station_alert_state" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "task_action" (
+	"task_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text,
+	"line_id" text,
+	"station_id" text,
+	"opened_by_id" text,
+	"opened_at" timestamp (3) with time zone,
+	"asks" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"actions" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"last_action_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "task_change_shape" (
 	"task_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -929,20 +947,6 @@ CREATE TABLE "task_failures" (
 	"team_id" text NOT NULL,
 	"occurrences" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"last_at" timestamp (3) with time zone,
-	"version" integer DEFAULT 0 NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "task_human_action" (
-	"task_id" text PRIMARY KEY NOT NULL,
-	"workspace_id" text NOT NULL,
-	"team_id" text,
-	"line_id" text,
-	"station_id" text,
-	"opened_by_id" text,
-	"opened_at" timestamp (3) with time zone,
-	"asks" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"actions" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"last_action_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -2661,11 +2665,11 @@ CREATE INDEX "station_alert_station_idx" ON "station_alert" USING btree ("statio
 CREATE INDEX "station_alert_task_idx" ON "station_alert" USING btree ("task_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "station_alert_open_rule_idx" ON "station_alert" USING btree ("station_id","measure","condition") WHERE "station_alert"."resolved_at" is null;--> statement-breakpoint
 CREATE INDEX "station_alert_state_team_idx" ON "station_alert_state" USING btree ("workspace_id","team_id");--> statement-breakpoint
+CREATE INDEX "task_action_team_idx" ON "task_action" USING btree ("team_id","last_action_at");--> statement-breakpoint
+CREATE INDEX "task_action_workspace_idx" ON "task_action" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "task_change_shape_team_idx" ON "task_change_shape" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_failures_last_idx" ON "task_failures" USING btree ("workspace_id","last_at");--> statement-breakpoint
 CREATE INDEX "task_failures_team_idx" ON "task_failures" USING btree ("team_id","last_at");--> statement-breakpoint
-CREATE INDEX "task_human_action_team_idx" ON "task_human_action" USING btree ("team_id","last_action_at");--> statement-breakpoint
-CREATE INDEX "task_human_action_workspace_idx" ON "task_human_action" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "claims_revision_open_idx" ON "claims_revision" USING btree ("station_id") WHERE "claims_revision"."ended_at" is null;--> statement-breakpoint
 CREATE INDEX "claims_revision_pending_idx" ON "claims_revision" USING btree ("started_at") WHERE "claims_revision"."pending";--> statement-breakpoint
 CREATE INDEX "claims_revision_station_idx" ON "claims_revision" USING btree ("station_id","started_at");--> statement-breakpoint

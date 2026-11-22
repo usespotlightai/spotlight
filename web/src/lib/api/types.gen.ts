@@ -2650,11 +2650,8 @@ export type HistoryRunUsageResponseDto = {
   currency: string | null;
 };
 
-export type TaskHumanActionResponseDto = {
-  /**
-   * What the person did with the task
-   */
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'dismissed' | 'sent-back' | 'held-as-wrong';
+export type HistoryHumanActionResponseDto = {
+  kind: 'started' | 'parked' | 'accepted' | 'sent-back' | 'held-as-wrong' | 'answered';
   at: string;
 };
 
@@ -2667,7 +2664,7 @@ export type RunOutcomeResponseDto = {
   runNumber: number;
   usage: HistoryRunUsageResponseDto | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
-  firstHumanAction: TaskHumanActionResponseDto | null;
+  humanAction: HistoryHumanActionResponseDto | null;
   /**
    * The combined state of the task’s pull requests: open while one is open, merged when all merged, else closed
    */
@@ -6062,7 +6059,7 @@ export type StationRunUsageResponseDto = {
 };
 
 export type HumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held-as-wrong';
+  kind: 'started' | 'parked' | 'accepted' | 'sent-back' | 'held-as-wrong' | 'answered';
   at: string;
 };
 
@@ -6080,7 +6077,7 @@ export type StationRunOutcomeResponseDto = {
   endedAt: string;
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   /**
-   * What came of the run: failed, sent back, accepted, moved on to another station, or other. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold with the verdict that the line got it wrong.
+   * What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. Sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong
    */
   resolution: 'accepted' | 'sent-back' | 'moved-on' | 'failed' | 'other';
   /**
@@ -6097,9 +6094,9 @@ export type StationRunOutcomeResponseDto = {
    */
   checks: 'passed' | 'failed' | 'skipped' | null;
   /**
-   * The first thing a person did with the task after the run
+   * The run’s deciding action: the first start, park, accept, send back, or hold that ended with the reason The line got it wrong, credited to the run; or else the first answer to it
    */
-  firstHumanAction: HumanActionResponseDto | null;
+  humanAction: HumanActionResponseDto | null;
   /**
    * The station the run passed its task to, if it did
    */
@@ -6124,7 +6121,7 @@ export type ResolutionCountsResponseDto = {
    */
   movedOn: number;
   /**
-   * Runs that ended Failed and no person accepted or sent back
+   * Runs that ended Failed and that people’s verdict did not fail
    */
   failed: number;
   /**
@@ -6147,7 +6144,7 @@ export type ResolutionSharesResponseDto = {
    */
   movedOn: number | null;
   /**
-   * Runs that ended Failed and no person accepted or sent back, of the runs; none where none ran
+   * Runs that ended Failed and that people’s verdict did not fail, of the runs; none where none ran
    */
   failed: number | null;
   /**
@@ -6609,11 +6606,11 @@ export type RunScoresResponseDto = {
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * What gave people’s verdict on the run: the first action of a person on it, or the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where people said nothing yet
+   * What gave people’s verdict on the run: its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where neither gives a verdict
    */
   labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | null;
   /**
-   * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet
+   * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or the run has no people’s verdict
    */
   agrees: boolean | null;
 };
@@ -6699,13 +6696,13 @@ export type HeadlineResponseDto = {
    */
   taskToMerge: SpreadResponseDto;
   /**
-   * What people did with the tasks worked in the period: every move, acceptance, answer, approval, dismissal, send-back and hold as wrong
+   * What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back, and holds that end with the reason The line got it wrong
    */
-  humanActions: number;
+  actions: number;
   /**
-   * Human actions per task worked
+   * Actions per task worked: what people did with the tasks, approvals included
    */
-  humanActionsPerTask: number | null;
+  actionsPerTask: number | null;
   /**
    * People who opened a task, acted on one or started a chat
    */
@@ -6762,9 +6759,9 @@ export type HeadlineDeltasResponseDto = {
    */
   taskToMerge: DeltaResponseDto | null;
   /**
-   * Human actions per task against the period before
+   * Actions per task against the period before
    */
-  humanActionsPerTask: DeltaResponseDto | null;
+  actionsPerTask: DeltaResponseDto | null;
   /**
    * Active people against the period before
    */
@@ -7047,7 +7044,7 @@ export type ResolutionDeltasResponseDto = {
    */
   movedOn: DeltaResponseDto | null;
   /**
-   * Runs that ended Failed and no person accepted or sent back, against the period before
+   * Runs that ended Failed and that people’s verdict did not fail, against the period before
    */
   failed: DeltaResponseDto | null;
   /**
@@ -7224,7 +7221,7 @@ export type PersonUseResponseDto = {
   name: string | null;
   tasksOpened: number;
   /**
-   * Moves, acceptances, answers, approvals, dismissals, send-backs and holds as wrong
+   * Moves, answers, approvals, dismissals, sends-back, and holds that end with the reason The line got it wrong
    */
   actions: number;
   /**
@@ -7745,7 +7742,7 @@ export type AgentConfigOutcomesResponseDto = {
    */
   sent_back: number | null;
   /**
-   * Share of runs that passed their task to another station
+   * Runs that passed their task to another station, of the runs with a human action or that passed their task
    */
   passed: number | null;
   /**
@@ -21760,9 +21757,9 @@ export type ListInsightsTracesData = {
      */
     resolution?: 'accepted' | 'sent-back' | 'moved-on' | 'failed' | 'other';
     /**
-     * Only runs that a person acted on first in this way
+     * Only runs a person decided this way. Answered: only runs a person answered and did not decide
      */
-    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held-as-wrong';
+    humanAction?: 'started' | 'parked' | 'accepted' | 'sent-back' | 'held-as-wrong' | 'answered';
     /**
      * Only runs of tasks whose pull requests have this combined status: open while one is open, merged when all merged, else closed
      */

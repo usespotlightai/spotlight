@@ -8,7 +8,7 @@ import {
 import { ofTeamTaskPullRequests } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   pullRequestRecord,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { type SQL, sql } from 'drizzle-orm';
@@ -38,9 +38,9 @@ export const pullRequestDeliveriesIn = async (
       ${msOf(sql`${pullRequestRecord.firstReviewAt}`)} as first_review_ms,
       ${msOf(sql`${pullRequestRecord.closedAt}`)} as closed_ms,
       coalesce(${pullRequestRecord.state} = 'merged', false) as merged,
-      ${msOf(sql`${taskHumanAction.openedAt}`)} as task_opened_ms
+      ${msOf(sql`${taskAction.openedAt}`)} as task_opened_ms
     from ${pullRequestRecord}
-    left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${pullRequestRecord.ownerTaskId}
+    left join ${taskAction} on ${taskAction.taskId} = ${pullRequestRecord.ownerTaskId}
     where ${pullRequestRecord.workspaceId} = ${team.workspaceId.value}
       and ${pullRequestRecord.ownerTaskId} is not null
       and ${pullRequestRecord.ownerOpenedAt} is not null

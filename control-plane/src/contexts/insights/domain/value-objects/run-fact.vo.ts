@@ -8,12 +8,15 @@ import {
 import { type RunSize, sizeOf } from '@insights/domain/services/run-size';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
-import type { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
+import type { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
-import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import {
+  leftWork,
+  type RunEnding,
+} from '@insights/domain/value-objects/run-ending';
 import type { RunMemories } from '@insights/domain/value-objects/run-memories.vo';
 import type { RunResolution } from '@insights/domain/value-objects/run-resolution';
 import type { RunTools } from '@insights/domain/value-objects/run-tools.vo';
@@ -57,7 +60,7 @@ export interface RunFactParts {
   readonly followedAt: Date | null;
   readonly checks: CheckVerdict | null;
   readonly checkedAt: Date | null;
-  readonly firstHumanAction: HumanAction | null;
+  readonly actions: RunActions;
   readonly approvalAnsweredAt: Date | null;
   readonly usage: RunUsage | null;
   readonly passed: StationPass | null;
@@ -101,7 +104,7 @@ export class RunFact implements RunFactParts {
   readonly followedAt!: Date | null;
   readonly checks!: CheckVerdict | null;
   readonly checkedAt!: Date | null;
-  readonly firstHumanAction!: HumanAction | null;
+  readonly actions!: RunActions;
   readonly approvalAnsweredAt!: Date | null;
   readonly usage!: RunUsage | null;
   readonly passed!: StationPass | null;
@@ -125,11 +128,6 @@ export class RunFact implements RunFactParts {
     ) {
       throw new InvalidOutcomeError(
         'can be followed only by a run that ended after it',
-      );
-    }
-    if (parts.firstHumanAction?.answersApproval) {
-      throw new InvalidOutcomeError(
-        'cannot be decided by answering an approval',
       );
     }
 
@@ -163,12 +161,13 @@ export class RunFact implements RunFactParts {
   private get classified(): ClassifiedRun {
     return {
       ending: this.ending,
-      asked: this.end.asked,
-      firstHumanAction: this.firstHumanAction,
-      approvalAnsweredAt: this.approvalAnsweredAt,
-      passed: this.passed !== null,
+      decidingAction: this.actions.decidingAction,
       taskMerged: this.taskMerged,
       followed: this.followedAt !== null,
+      asked: this.end.asked,
+      answered: this.actions.answer !== null,
+      approvalAnswered: this.approvalAnsweredAt !== null,
+      passed: this.passed !== null,
     };
   }
 
@@ -177,7 +176,11 @@ export class RunFact implements RunFactParts {
   }
 
   get humanLabel(): HumanLabel | null {
-    return HumanLabel.of(this);
+    return HumanLabel.of(this.classified);
+  }
+
+  get leftWork(): boolean {
+    return leftWork(this.ending);
   }
 
   get taskPullRequestsFinished(): boolean {
@@ -200,9 +203,7 @@ export class RunFact implements RunFactParts {
       followedAt: known(this.followedAt) ? this.followedAt : null,
       checks: checked ? this.checks : null,
       checkedAt: checked ? this.checkedAt : null,
-      firstHumanAction: known(this.firstHumanAction?.at)
-        ? this.firstHumanAction
-        : null,
+      actions: this.actions.knownBy(known),
       approvalAnsweredAt: known(this.approvalAnsweredAt)
         ? this.approvalAnsweredAt
         : null,

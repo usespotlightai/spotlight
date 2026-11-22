@@ -5,11 +5,12 @@ import type {
 } from '@insights/application/ports/station-judges.port';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import type { Score } from '@insights/domain/aggregates/score.aggregate';
-import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { TaskActions } from '@insights/domain/aggregates/task-actions.aggregate';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
-import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
-import { TaskHumanActionsInMemory } from '@insights/insights.fake-spec';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import { TaskAction } from '@insights/domain/value-objects/task-action.vo';
+import { TaskActionsInMemory } from '@insights/insights.fake-spec';
 import {
   CLAIMS,
   NEXT_RUBRIC_VERSION,
@@ -76,22 +77,30 @@ export const sequence = (prefix: string) => {
 
 export type Acted = 'accepted' | 'sent-back' | null;
 
-export const stationWith = async (
-  runs: readonly { runId: string; acted: Acted; scores?: readonly Score[] }[],
-) => {
+export type StationRun = {
+  readonly runId: string;
+  readonly acted: Acted;
+  readonly ending?: RunEnding;
+  readonly scores?: readonly Score[];
+};
+
+export const stationWith = async (runs: readonly StationRun[]) => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
-  const humanActions = new TaskHumanActionsInMemory();
+  const taskActions = new TaskActionsInMemory();
 
   for (const run of runs) {
-    const ended = endedRecord(run.runId, { taskId: `task_${run.runId}` });
+    const ended = endedRecord(run.runId, {
+      taskId: `task_${run.runId}`,
+      ending: run.ending,
+    });
 
     if (run.acted) {
       const { location } = factOf(ended).end;
 
-      await humanActions.add(
-        TaskHumanActions.empty(location.taskId, WORKSPACE).recordAction(
-          TaskHumanAction.of({
+      await taskActions.add(
+        TaskActions.empty(location.taskId, WORKSPACE).recordAction(
+          TaskAction.of({
             kind: run.acted,
             by: ACTOR,
             stationId: location.stationId,
@@ -103,7 +112,7 @@ export const stationWith = async (
 
     await records.add(
       run.acted
-        ? ended.recordAction(HumanAction.of(run.acted, ACTED_AT, ACTOR))
+        ? ended.recordAction(PersonAction.of(run.acted, ACTED_AT, ACTOR))
         : ended,
     );
 
@@ -118,7 +127,7 @@ export const stationWith = async (
   return {
     records,
     scores,
-    humanActions,
+    taskActions,
     deletions,
     recorder: new FactRecorder(deletions),
     facts: new StationFactsInMemory(records, { scores }),

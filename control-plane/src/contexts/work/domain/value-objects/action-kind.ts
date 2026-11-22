@@ -1,4 +1,4 @@
-export const HUMAN_ACTION_KINDS = [
+const ACTION_KINDS = [
   'started',
   'parked',
   'accepted',
@@ -9,4 +9,4 @@ export const HUMAN_ACTION_KINDS = [
   'held-as-wrong',
 ] as const;
 
-export type HumanActionKind = (typeof HUMAN_ACTION_KINDS)[number];
+export type ActionKind = (typeof ACTION_KINDS)[number];

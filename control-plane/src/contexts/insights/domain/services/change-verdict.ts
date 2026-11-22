@@ -36,7 +36,7 @@ export interface MeasureVerdict {
 }
 
 interface MeasuredCounts {
-  readonly decided: number;
+  readonly notOther: number;
   readonly finished: number;
   readonly finishedTasks: number;
   readonly usageRecorded: number;
@@ -49,7 +49,7 @@ export interface GroupCounts {
 
 export const NO_GROUP: GroupCounts = {
   tally: NO_RUNS,
-  measured: { decided: 0, finished: 0, finishedTasks: 0, usageRecorded: 0 },
+  measured: { notOther: 0, finished: 0, finishedTasks: 0, usageRecorded: 0 },
 };
 
 export interface MeasureReading {
@@ -113,14 +113,14 @@ const readingOfCounts = (
   switch (measure) {
     case 'sent_back_rate':
       return {
-        value: rateOf(tally.resolutions.sentBack, measured.decided),
-        measured: measured.decided,
+        value: rateOf(tally.resolutions.sentBack, measured.notOther),
+        measured: measured.notOther,
         currency,
       };
     case 'accepted_rate':
       return {
-        value: rateOf(tally.resolutions.accepted, measured.decided),
-        measured: measured.decided,
+        value: rateOf(tally.resolutions.accepted, measured.notOther),
+        measured: measured.notOther,
         currency,
       };
     case 'failed_rate':

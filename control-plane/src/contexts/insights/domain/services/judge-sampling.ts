@@ -1,4 +1,3 @@
-import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const OFFSET = 0x811c9dc5;
@@ -30,11 +29,6 @@ export const samplePointOf = (seed: string, runId: RunId): number => {
 
 const within = (rate: number, point: number): boolean =>
   rate >= 1 || (rate > 0 && point < rate);
-
-const JUDGED_ENDINGS: readonly RunEnding[] = ['completed', 'stopped'];
-
-export const judgesRunThatEnded = (ending: RunEnding): boolean =>
-  JUDGED_ENDINGS.includes(ending);
 
 export const sampledForJudging = (runId: RunId, sample: number): boolean =>
   within(sample, samplePointOf('judge', runId));

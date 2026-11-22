@@ -18,8 +18,8 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import type { ActionKind } from '@work/domain/value-objects/action-kind';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
-import type { HumanActionKind } from '@work/domain/value-objects/human-action-kind';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -35,7 +35,7 @@ const ago = (minutes: number) => new Date(NOW - minutes * MINUTE);
 
 const TOOL = CalledTool.of({ server: 'linear', tool: 'create_issue' });
 
-type Acted = readonly [HumanActionKind, number];
+type Acted = readonly [ActionKind, number];
 
 const RUNS = {
   approvedThenClosed: [
@@ -186,7 +186,7 @@ afterAll(async () => {
   await app?.close();
 });
 
-describe('a run a person decided a tool approval for (e2e)', () => {
+describe('a run a person answered a tool approval for (e2e)', () => {
   it('is accepted or sent back by what the person did next, never by the approval', async () => {
     const acceptance = app.get<RunAcceptancePort>(RUN_ACCEPTANCE);
     const accepted = async (name: RunName) =>
@@ -201,7 +201,7 @@ describe('a run a person decided a tool approval for (e2e)', () => {
     expect(await accepted('sentBackReceivedAfterTheCloseAfterIt')).toBe(false);
   });
 
-  it('gives each run its disposition when the person only decided the approval', async () => {
+  it('gives each run its disposition when the person only answered the approval', async () => {
     const dispositions = await app
       .get<RunAcceptancePort>(RUN_ACCEPTANCE)
       .dispositions([...runIds.values()].map((each) => each.value));

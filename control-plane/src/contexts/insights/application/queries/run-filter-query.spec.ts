@@ -154,7 +154,7 @@ describe('reading a run filter', () => {
 
   it('rejects held as a human action, and takes held-as-wrong', () => {
     expect(() => filterOf({ humanAction: 'held' })).toThrow(
-      'Run filter human action must be one of started, parked, accepted, answered, sent-back, held-as-wrong, not held.',
+      'Run filter human action must be one of started, parked, accepted, sent-back, held-as-wrong, answered, not held.',
     );
     expect(filterOf({ humanAction: 'held-as-wrong' })).toMatchObject({
       humanAction: 'held-as-wrong',

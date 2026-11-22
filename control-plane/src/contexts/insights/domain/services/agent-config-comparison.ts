@@ -64,7 +64,7 @@ const keyOf = (agentConfig: AgentConfig): string =>
 
 export interface AgentConfigCounts extends AgentConfig {
   readonly counts: GroupCounts;
-  readonly answered: number;
+  readonly withHumanActionOrPass: number;
   readonly rubrics: readonly RubricRates[];
 }
 
@@ -75,12 +75,12 @@ export interface AgentConfigComparisonCounts {
 
 const outcomesOf = (
   tally: RunTally,
-  { counts, answered }: AgentConfigCounts,
+  { counts, withHumanActionOrPass }: AgentConfigCounts,
   judge: JudgeRate | null,
 ): Record<OutcomeMeasure, number | null> => ({
-  accepted: rateOf(tally.resolutions.accepted, counts.measured.decided),
-  sent_back: rateOf(tally.resolutions.sentBack, counts.measured.decided),
-  passed: rateOf(tally.passed, answered),
+  accepted: rateOf(tally.resolutions.accepted, counts.measured.notOther),
+  sent_back: rateOf(tally.resolutions.sentBack, counts.measured.notOther),
+  passed: rateOf(tally.passed, withHumanActionOrPass),
   checks_passed: rateOf(
     tally.checksPassed,
     tally.checksPassed + tally.checksFailed,

@@ -14,9 +14,9 @@ import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { StationAlertFired } from '@insights/domain/events/station-alert-fired.event';
 import { StationAlertReopened } from '@insights/domain/events/station-alert-reopened.event';
 import { StationAlertResolved } from '@insights/domain/events/station-alert-resolved.event';
+import { TaskActionsErased } from '@insights/domain/events/task-actions-erased.event';
 import { TaskChangeShapeErased } from '@insights/domain/events/task-change-shape-erased.event';
 import { TaskChangeShaped } from '@insights/domain/events/task-change-shaped.event';
-import { TaskHumanActionsErased } from '@insights/domain/events/task-human-actions-erased.event';
 import { TaskOpeningRecorded } from '@insights/domain/events/task-opening-recorded.event';
 import { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
@@ -25,13 +25,14 @@ import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { PairReason } from '@insights/domain/value-objects/pair-reason.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
+import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunFact } from '@insights/domain/value-objects/run-fact.vo';
@@ -44,7 +45,7 @@ import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { SeenPullRequest } from '@insights/domain/value-objects/seen-pull-request.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
-import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
+import { TaskAction } from '@insights/domain/value-objects/task-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
 import { Tombstones } from '@insights/domain/value-objects/tombstones.vo';
 import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
@@ -57,11 +58,12 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   StationPass,
   InboxAsk,
   InsightsPeriod,
-  TaskHumanAction,
+  TaskAction,
+  RunActions,
   RunAgentConfig,
   TaskOpening,
   ViewedTeam,
-  HumanAction,
+  PersonAction,
   HumanLabel,
   RunUsage,
   RunEnd,
@@ -86,7 +88,7 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   RunDismissalRecorded,
   RunRecordErased,
   TaskOpeningRecorded,
-  TaskHumanActionsErased,
+  TaskActionsErased,
   TaskChangeShaped,
   TaskChangeShapeErased,
   PullRequestSeen,
