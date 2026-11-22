@@ -31,6 +31,7 @@ type egressSidecar struct {
 	container    string
 	credential   string
 	authority    []byte
+	services     services
 }
 
 func (h *Host) egress(
@@ -283,6 +284,9 @@ func (s *egressSidecar) authorityFile() sandbox.File {
 func (s *egressSidecar) close() {
 	if s.networkName != "" {
 		defer s.host.releaseNetwork(s.networkName)
+	}
+	if s.host != nil {
+		s.stopServices()
 	}
 
 	if s.container != "" {

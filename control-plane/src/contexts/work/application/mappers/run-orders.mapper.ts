@@ -16,6 +16,7 @@ import {
   type RunCommandShape,
   type RunResumeShape,
   type RunSandboxVariableShape,
+  type RunServiceShape,
   type RunSpecShape,
   type SkillFileShape,
   type ToolManifestShape,
@@ -249,6 +250,51 @@ const sandboxVariableOf = (value: JsonValue): RunSandboxVariableShape => {
   };
 };
 
+const serviceOf = (value: JsonValue): RunServiceShape => {
+  const service = objectAt(value, 'spec service');
+  const health = present('health', service.health, (each) =>
+    objectAt(each, 'spec service health'),
+  ).health;
+  const timed = (
+    key: 'intervalMs' | 'timeoutMs' | 'startPeriodMs' | 'retries',
+  ) =>
+    present(key, health?.[key], (each) =>
+      numberAt(each, 'spec service health timing'),
+    );
+
+  return {
+    name: textAt(service.name, 'spec service name'),
+    image: textAt(service.image, 'spec service image'),
+    ...present('command', service.command, (each) =>
+      textsAt(each, 'spec service command'),
+    ),
+    ...present('env', service.env, (each) =>
+      listAt(each, 'spec service env', (entry) => {
+        const variable = objectAt(entry, 'spec service variable');
+        return {
+          name: textAt(variable.name, 'spec service variable name'),
+          value: textAt(variable.value, 'spec service variable value'),
+        };
+      }),
+    ),
+    ...(health
+      ? {
+          health: {
+            test: textsAt(health.test, 'spec service health test'),
+            ...timed('intervalMs'),
+            ...timed('timeoutMs'),
+            ...timed('startPeriodMs'),
+            ...timed('retries'),
+          },
+        }
+      : {}),
+    ...present('dependsOn', service.dependsOn, (each) =>
+      textsAt(each, 'spec service depends on'),
+    ),
+    from: textAt(service.from, 'spec service from'),
+  };
+};
+
 const attachmentOf = (value: JsonValue): AttachmentShape => {
   const attachment = objectAt(value, 'spec attachment');
 
@@ -329,6 +375,9 @@ const specOf = (value: JsonValue | undefined): RunSpecShape => {
       listAt(each, 'spec sandbox env', sandboxVariableOf),
     ),
     ...present('spotlightApi', spec.spotlightApi, flag('spec spotlight api')),
+    ...present('services', spec.services, (each) =>
+      listAt(each, 'spec services', serviceOf),
+    ),
   };
 };
 

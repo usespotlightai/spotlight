@@ -74,15 +74,20 @@ const (
 )
 
 type Options struct {
-	Workspace      string
-	Journal        Journal
-	Log            *slog.Logger
-	AgentUser      *account.User
-	Author         prepare.Author
-	Mirrors        string
-	ControlPlane   string
-	Token          string
-	SetupTimeout   time.Duration
+	Workspace    string
+	Journal      Journal
+	Log          *slog.Logger
+	AgentUser    *account.User
+	Author       prepare.Author
+	Mirrors      string
+	ControlPlane string
+	Token        string
+	SetupTimeout time.Duration
+	// HostServices says the host starts the services a run names. Without it, the runner waits for none.
+	HostServices bool
+	// ServicesFile is where the host leaves how the run's services started: protocol.ServicesPath if empty.
+	ServicesFile   string
+	ServicesWait   time.Duration
 	Heartbeat      time.Duration
 	Transport      http.RoundTripper
 	ProxyEnv       map[string]string
@@ -257,6 +262,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 	if s.setUp == nil {
 		s.setUp = setUps{}
 	}
+	down := opts.awaitServices(ctx, run, journal, log)
 	unready := opts.setUp(ctx, space.Dir, run.Spec.Checkouts, secrets, s.setUp, journal, log)
 
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
@@ -479,6 +485,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 		sessionID: sessionID,
 		joined:    joined,
 		unready:   unready,
+		down:      down,
 		touches:   touches,
 		journal:   journal,
 		control:   opts.Journal,

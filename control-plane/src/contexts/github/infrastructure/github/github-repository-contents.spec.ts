@@ -120,6 +120,22 @@ const github = (
         ],
       });
     }
+    if (url.endsWith('/git/trees/task%2Fnew')) {
+      return answering(404, { message: 'Not Found' });
+    }
+    if (
+      url.endsWith('/git/trees/trunk') ||
+      url.endsWith('/git/trees/task%2Fpushed')
+    ) {
+      return answering(200, {
+        tree: [
+          { path: 'compose.yml', type: 'blob', mode: '100644', sha: 'blob_1' },
+          { path: '.env', type: 'blob', mode: '120000', sha: 'b3' },
+          { path: 'README.md', type: 'blob', mode: '100644', sha: 'b4' },
+          { path: 'api', type: 'tree', mode: '040000', sha: 'tree_api' },
+        ],
+      });
+    }
     if (url.endsWith('/git/trees')) {
       return answering(201, { sha: 'tree_2' });
     }
@@ -161,6 +177,33 @@ describe('GitHubRepositoryContents', () => {
       commit: 'commit_1',
       defaultBranch: 'trunk',
     });
+  });
+
+  it('reads the named files at the top of a branch, or of the default branch where the branch is not there yet', async () => {
+    github();
+    const names = ['compose.yml', '.env', 'api'];
+
+    const pushed = await contents().topFiles(
+      WORKSPACE,
+      PLATFORM,
+      names,
+      'task/pushed',
+    );
+    const unpushed = await contents().topFiles(
+      WORKSPACE,
+      PLATFORM,
+      names,
+      'task/new',
+    );
+    const unnamed = await contents().topFiles(WORKSPACE, PLATFORM, names, null);
+
+    expect(pushed).toEqual({
+      ref: 'task/pushed',
+      files: [{ path: 'compose.yml', content: 'big = true\n' }],
+    });
+    expect(unpushed.ref).toBe('trunk');
+    expect(unnamed).toEqual({ ...pushed, ref: 'trunk' });
+    expect(sent.some((each) => each.url.includes('recursive'))).toBe(false);
   });
 
   it('reads a file too large to inline through its blob', async () => {

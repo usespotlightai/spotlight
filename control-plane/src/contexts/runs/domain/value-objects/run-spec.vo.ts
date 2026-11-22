@@ -108,6 +108,31 @@ export interface RunSandboxVariable {
   readonly secret: string;
 }
 
+interface RunServiceHealth {
+  readonly test: readonly string[];
+  readonly intervalMs?: number;
+  readonly timeoutMs?: number;
+  readonly startPeriodMs?: number;
+  readonly retries?: number;
+}
+
+/** A container the run needs beside its sandbox, such as a database, read from a Compose file of a checkout. */
+export interface RunService {
+  readonly name: string;
+  readonly image: string;
+  readonly command?: readonly string[];
+  readonly env?: readonly { readonly name: string; readonly value: string }[];
+  readonly health?: RunServiceHealth;
+  /** Services listed before this one that must be ready before it starts. */
+  readonly dependsOn?: readonly string[];
+  /** The Compose file it was read from, relative to the working copy. */
+  readonly from: string;
+}
+
+export const MAX_RUN_SERVICES = 16;
+
+const SERVICE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
+
 export interface RunAttachment {
   readonly id: string;
   readonly path: string;
@@ -134,6 +159,7 @@ export interface RunSpecParts {
   readonly sandboxEnv?: readonly RunSandboxVariable[];
   readonly harnessKeys?: readonly string[];
   readonly spotlightApi?: boolean;
+  readonly services?: readonly RunService[];
 }
 
 export const RUN_SPEC_FIELDS = [
@@ -157,6 +183,7 @@ export const RUN_SPEC_FIELDS = [
   'sandboxEnv',
   'harnessKeys',
   'spotlightApi',
+  'services',
 ] as const satisfies readonly (keyof RunSpecParts)[];
 
 const outside = (path: string): boolean =>
@@ -195,6 +222,20 @@ const setupCopied = (setup: RunHarnessSetup): RunHarnessSetup => ({
     env: server.env.map(({ name, value }) => ({ name, value })),
   })),
   askKinds: [...setup.askKinds],
+});
+
+const serviceCopied = (service: RunService): RunService => ({
+  name: service.name,
+  image: service.image,
+  ...(service.command ? { command: [...service.command] } : {}),
+  ...(service.env
+    ? { env: service.env.map(({ name, value }) => ({ name, value })) }
+    : {}),
+  ...(service.health
+    ? { health: { ...service.health, test: [...service.health.test] } }
+    : {}),
+  ...(service.dependsOn ? { dependsOn: [...service.dependsOn] } : {}),
+  from: service.from,
 });
 
 const copied = (parts: RunSpecParts): RunSpecParts => ({
@@ -303,6 +344,9 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     : {}),
   ...(parts.harnessKeys?.length ? { harnessKeys: [...parts.harnessKeys] } : {}),
   ...(parts.spotlightApi ? { spotlightApi: true } : {}),
+  ...(parts.services?.length
+    ? { services: parts.services.map(serviceCopied) }
+    : {}),
 });
 
 export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
@@ -374,8 +418,69 @@ const samePart = (a: unknown, b: unknown): boolean => {
   );
 };
 
+const wholeMs = (value: number | undefined): boolean =>
+  value === undefined || (Number.isInteger(value) && value >= 0);
+
 export class RunSpec {
   private constructor(private readonly parts: RunSpecParts) {}
+
+  private static checkServices(services: readonly RunService[]): void {
+    if (services.length > MAX_RUN_SERVICES) {
+      throw new InvalidRunSpecError(
+        `must start at most ${MAX_RUN_SERVICES} services`,
+      );
+    }
+
+    const named = new Set<string>();
+    for (const service of services) {
+      if (!SERVICE_NAME.test(service.name)) {
+        throw new InvalidRunSpecError(
+          'must name each service with letters, numbers, dots, dashes and underscores',
+        );
+      }
+      if (named.has(service.name)) {
+        throw new InvalidRunSpecError(
+          `must start service ${service.name} once`,
+        );
+      }
+      if (blank(service.image) || /\s/.test(service.image)) {
+        throw new InvalidRunSpecError(
+          `must name the image of service ${service.name}`,
+        );
+      }
+      if (blank(service.from) || outside(service.from)) {
+        throw new InvalidRunSpecError(
+          `must read service ${service.name} from a file in the working copy`,
+        );
+      }
+      if (service.dependsOn?.some((each) => !named.has(each))) {
+        throw new InvalidRunSpecError(
+          `must list the services ${service.name} depends on before it`,
+        );
+      }
+      if (service.env?.some(({ name }) => !isEnvironmentVariableName(name))) {
+        throw new InvalidRunSpecError(
+          `must name each environment variable of service ${service.name}`,
+        );
+      }
+      const health = service.health;
+      if (
+        health &&
+        (health.test.length === 0 ||
+          ![
+            health.intervalMs,
+            health.timeoutMs,
+            health.startPeriodMs,
+            health.retries,
+          ].every(wholeMs))
+      ) {
+        throw new InvalidRunSpecError(
+          `must say how to check that service ${service.name} is ready`,
+        );
+      }
+      named.add(service.name);
+    }
+  }
 
   static of(parts: RunSpecParts): RunSpec {
     if (blank(parts.briefing)) {
@@ -410,6 +515,8 @@ export class RunSpec {
         );
       }
     }
+
+    RunSpec.checkServices(parts.services ?? []);
 
     for (const skill of parts.skills ?? []) {
       if (!skill.path || outside(skill.path)) {

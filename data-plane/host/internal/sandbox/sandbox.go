@@ -36,9 +36,35 @@ type Spec struct {
 	Mounts     []Mount
 	Files      []File
 	Network    string
+	// Aliases are the names the container answers to on Network.
+	Aliases    []string
 	Joins      []Join
 	ExtraHosts []string
 	Limits     Limits
+	// Health replaces the image's own health check when set.
+	Health *Health
+}
+
+type Health struct {
+	Test        []string
+	Interval    time.Duration
+	Timeout     time.Duration
+	StartPeriod time.Duration
+	Retries     int
+}
+
+// Health statuses a container reports. A container with no health check reports none.
+const (
+	HealthNone      = ""
+	HealthStarting  = "starting"
+	HealthHealthy   = "healthy"
+	HealthUnhealthy = "unhealthy"
+)
+
+type State struct {
+	Running  bool
+	ExitCode int
+	Health   string
 }
 
 type Limits struct {
@@ -98,4 +124,5 @@ type Engine interface {
 	Unnetwork(ctx context.Context, id string) error
 	Networks(ctx context.Context, key, value string) ([]Network, error)
 	Attached(ctx context.Context, network string) ([]string, error)
+	State(ctx context.Context, id string) (State, error)
 }

@@ -1,6 +1,7 @@
 import {
   HARNESS_PROTOCOLS as PROTOCOLS,
   type HarnessProtocol,
+  MAX_RUN_SERVICES as MAX_SERVICES,
 } from '@runs/domain/value-objects/run-spec.vo';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
 
@@ -105,6 +106,24 @@ export interface RunSandboxVariableShape {
   readonly secret: string;
 }
 
+export const MAX_RUN_SERVICES = MAX_SERVICES;
+
+export interface RunServiceShape {
+  readonly name: string;
+  readonly image: string;
+  readonly command?: readonly string[];
+  readonly env?: readonly { readonly name: string; readonly value: string }[];
+  readonly health?: {
+    readonly test: readonly string[];
+    readonly intervalMs?: number;
+    readonly timeoutMs?: number;
+    readonly startPeriodMs?: number;
+    readonly retries?: number;
+  };
+  readonly dependsOn?: readonly string[];
+  readonly from: string;
+}
+
 export interface RunSpecShape {
   readonly checkouts?: readonly RunCheckoutShape[];
   readonly command: RunCommandShape;
@@ -125,4 +144,5 @@ export interface RunSpecShape {
   readonly sandboxEnv?: readonly RunSandboxVariableShape[];
   readonly harnessKeys?: readonly string[];
   readonly spotlightApi?: boolean;
+  readonly services?: readonly RunServiceShape[];
 }

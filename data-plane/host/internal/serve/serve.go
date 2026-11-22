@@ -34,6 +34,11 @@ const (
 	LabelImage   = "ai.usespotlight.image"
 	LabelDigest  = "ai.usespotlight.digest"
 	LabelEgress  = "ai.usespotlight.egress"
+	// LabelService marks a container a run needs beside its sandbox. Its value names the sandbox's egress, as its
+	// network does.
+	LabelService = "ai.usespotlight.service"
+	// LabelServiceRun names the run a service was started for.
+	LabelServiceRun = "ai.usespotlight.service-run"
 
 	AssignmentPath = "/run/spotlight/assignment.json"
 	MirrorRoot     = "/spotlight/mirrors"
@@ -746,6 +751,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		"SPOTLIGHT_URL="+h.now().SandboxURL,
 		"SPOTLIGHT_ASSIGNMENT_FILE="+AssignmentPath,
 		protocol.RunTimeoutVar+"="+h.now().RunTimeout.String(),
+		protocol.ServicesVar+"=1",
 	)
 	if len(mounts) > 0 {
 		env = append(env, "SPOTLIGHT_MIRRORS="+MirrorRoot)
@@ -781,6 +787,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	stopRenewing()
+	sidecar.startServices(ctx, id, assignment.Work.Run, log)
 	if assignment.StartsSandboxOnly() {
 		log.Info("started a sandbox with no run; it restores its workspace and waits for runs", "sandbox", id)
 	} else {
@@ -995,6 +1002,7 @@ func (h *Host) deliver(
 	if err := h.engine.Put(ctx, live.id, live.sidecar.authorityFile()); err != nil {
 		return failed(fmt.Errorf("hand the sandbox its egress authority: %w", err))
 	}
+	live.sidecar.startServices(ctx, live.id, assignment.Work.Run, log)
 
 	inSandbox := assignment
 	inSandbox.EgressToken = ""

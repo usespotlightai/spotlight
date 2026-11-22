@@ -8,6 +8,7 @@ import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunSpecPartsMapper } from '@work/application/mappers/run-spec-parts.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
+import type { CheckoutServicesPort } from '@work/application/ports/checkout-services.port';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { SavepointPort } from '@work/application/ports/savepoint.port';
@@ -58,6 +59,7 @@ export class DispatchChat implements ChatDispatching {
     private readonly spotlightUrl: string,
     private readonly controlPlane: ControlPlaneReleasePort,
     private readonly extensions: ChatToolExtensions,
+    private readonly services: CheckoutServicesPort,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -126,6 +128,10 @@ export class DispatchChat implements ChatDispatching {
       ? ChatBriefing.followUp(chat, handed)
       : null;
 
+    const services = await this.services.of(
+      chat.workspaceId,
+      chat.repositories.map((repository) => ({ repository, ref: null })),
+    );
     const order = runOrderOf({
       id,
       workspaceId: chat.workspaceId,
@@ -172,6 +178,7 @@ export class DispatchChat implements ChatDispatching {
         ].map(toolManifestOf),
         attachments: Attached.shapes(chat.sharedAttachments),
         ...(chat.setup ? { spotlightApi: true } : {}),
+        ...(services.length > 0 ? { services } : {}),
       },
     });
 

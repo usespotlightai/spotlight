@@ -352,6 +352,7 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 		BackgroundWait: r.cfg.BackgroundWait,
 		Sandbox:        sandbox,
 		HarnessFrames:  r.cfg.HarnessFrames,
+		HostServices:   os.Getenv(protocol.ServicesVar) != "",
 	})
 	if err == nil {
 		return

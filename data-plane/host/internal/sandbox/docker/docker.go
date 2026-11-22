@@ -301,12 +301,30 @@ type hostConfig struct {
 }
 
 type created struct {
-	Image      string
-	Entrypoint []string `json:",omitempty"`
-	Cmd        []string `json:",omitempty"`
-	Env        []string
-	Labels     map[string]string
-	HostConfig hostConfig
+	Image            string
+	Entrypoint       []string `json:",omitempty"`
+	Cmd              []string `json:",omitempty"`
+	Env              []string
+	Labels           map[string]string
+	Healthcheck      *healthcheck `json:",omitempty"`
+	HostConfig       hostConfig
+	NetworkingConfig *networking `json:",omitempty"`
+}
+
+type healthcheck struct {
+	Test        []string
+	Interval    int64 `json:",omitempty"`
+	Timeout     int64 `json:",omitempty"`
+	StartPeriod int64 `json:",omitempty"`
+	Retries     int   `json:",omitempty"`
+}
+
+type networking struct {
+	EndpointsConfig map[string]endpoint
+}
+
+type endpoint struct {
+	Aliases []string
 }
 
 func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
@@ -324,6 +342,15 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 			MemorySwap:  spec.Limits.Memory,
 			OomScoreAdj: spec.Limits.OOMScoreAdj,
 		},
+	}
+	if len(spec.Aliases) > 0 && spec.Network != "" {
+		config.NetworkingConfig = &networking{EndpointsConfig: map[string]endpoint{spec.Network: {Aliases: spec.Aliases}}}
+	}
+	if health := spec.Health; health != nil {
+		config.Healthcheck = &healthcheck{
+			Test: health.Test, Interval: int64(health.Interval), Timeout: int64(health.Timeout),
+			StartPeriod: int64(health.StartPeriod), Retries: health.Retries,
+		}
 	}
 	for _, each := range spec.Mounts {
 		kind := "bind"
@@ -707,6 +734,29 @@ func (e *Engine) Networks(ctx context.Context, key, value string) ([]sandbox.Net
 	}
 
 	return networks, nil
+}
+
+func (e *Engine) State(ctx context.Context, id string) (sandbox.State, error) {
+	var inspected struct {
+		State struct {
+			Running  bool
+			ExitCode int
+			Health   *struct{ Status string }
+		}
+	}
+	status, err := e.call(ctx, http.MethodGet, "/containers/"+url.PathEscape(id)+"/json", nil, &inspected)
+	if status == http.StatusNotFound {
+		return sandbox.State{}, sandbox.ErrGone
+	}
+	if err != nil {
+		return sandbox.State{}, fmt.Errorf("inspect a container: %w", err)
+	}
+
+	state := sandbox.State{Running: inspected.State.Running, ExitCode: inspected.State.ExitCode}
+	if inspected.State.Health != nil {
+		state.Health = inspected.State.Health.Status
+	}
+	return state, nil
 }
 
 func (e *Engine) Attached(ctx context.Context, network string) ([]string, error) {

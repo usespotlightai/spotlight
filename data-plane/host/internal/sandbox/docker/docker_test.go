@@ -128,6 +128,72 @@ func TestASandboxWithLimitsHasNoSwapAboveItsMemoryAndItsOOMScore(t *testing.T) {
 	}
 }
 
+func TestAServiceAnswersToItsAliasOnItsNetworkAndRunsItsHealthCheck(t *testing.T) {
+	engine, bodies := recording(t)
+
+	health := &sandbox.Health{
+		Test: []string{"CMD-SHELL", "pg_isready"}, Interval: 2 * time.Second, Timeout: time.Second, Retries: 5,
+	}
+	if _, err := engine.Start(context.Background(), sandbox.Spec{
+		Image: "postgres:17", Network: "net1", Aliases: []string{"db"}, Health: health,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var service created
+	if err := json.Unmarshal(<-bodies, &service); err != nil {
+		t.Fatal(err)
+	}
+	if got := service.NetworkingConfig; got == nil || !slices.Equal(got.EndpointsConfig["net1"].Aliases, []string{"db"}) {
+		t.Errorf("networking %+v, want the alias db on net1", got)
+	}
+	if got := service.Healthcheck; got == nil || got.Interval != int64(2*time.Second) || got.Retries != 5 ||
+		!slices.Equal(got.Test, []string{"CMD-SHELL", "pg_isready"}) {
+		t.Errorf("health check %+v", got)
+	}
+
+	if _, err := engine.Start(context.Background(), sandbox.Spec{Image: "runner", Network: "net1"}); err != nil {
+		t.Fatal(err)
+	}
+	var plain map[string]json.RawMessage
+	if err := json.Unmarshal(<-bodies, &plain); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"NetworkingConfig", "Healthcheck"} {
+		if value, set := plain[key]; set {
+			t.Errorf("a sandbox without aliases or a health check sets %s to %s", key, value)
+		}
+	}
+}
+
+func TestStateReadsWhetherAContainerRunsAndHowHealthyItIs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/containers/checked/json":
+			w.Write([]byte(`{"State":{"Running":true,"ExitCode":0,"Health":{"Status":"healthy"}}}`))
+		case "/containers/exited/json":
+			w.Write([]byte(`{"State":{"Running":false,"ExitCode":3}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message":"No such container"}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+	engine, err := Connect("tcp://" + strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, err := engine.State(context.Background(), "checked"); err != nil || !got.Running || got.Health != sandbox.HealthHealthy {
+		t.Errorf("checked: %+v, %v", got, err)
+	}
+	if got, err := engine.State(context.Background(), "exited"); err != nil || got.Running || got.ExitCode != 3 || got.Health != sandbox.HealthNone {
+		t.Errorf("exited: %+v, %v", got, err)
+	}
+	if _, err := engine.State(context.Background(), "gone"); !errors.Is(err, sandbox.ErrGone) {
+		t.Errorf("gone: %v, want ErrGone", err)
+	}
+}
+
 func TestReadsTheMemoryOfTheRuntime(t *testing.T) {
 	engine, _ := recording(t)
 

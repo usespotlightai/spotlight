@@ -252,6 +252,7 @@ const DECLARED: readonly ToolDeclaration[] = [
   declaration('sentry.get-issue', true, { because: 'It reads private data.' }),
 ];
 let trials: Dispatch[] = [];
+let servicesAskedAt: (readonly [string, string | null])[] = [];
 let awaitingAsked: string[] = [];
 let requestedAgain: {
   place: BriefedContext;
@@ -374,6 +375,14 @@ const trialsOf = () =>
       }),
     } as unknown as RunEvidencePort,
     { now: () => NOW, sleep: async () => {} },
+    {
+      of: async (_workspace, at) => {
+        servicesAskedAt.push(
+          ...at.map(({ repository, ref }) => [repository.value, ref] as const),
+        );
+        return [{ name: 'db', image: 'postgres:17', from: 'api/compose.yml' }];
+      },
+    },
   );
 
 const request = (
@@ -411,6 +420,7 @@ describe('StationTrials', () => {
     taskGone = false;
     taskNotes = [];
     toolsOnMarks = [];
+    servicesAskedAt = [];
   });
 
   it('orders a trial of the run under the candidate, starting where the run started', async () => {
@@ -450,6 +460,10 @@ describe('StationTrials', () => {
       { id: SCREENSHOT.id.value, path: expect.any(String) as unknown },
     ]);
     expect(spec.briefing).toContain('## Drain the queue');
+    expect(servicesAskedAt).toEqual([['acme/api', API]]);
+    expect(spec.services).toEqual([
+      { name: 'db', image: 'postgres:17', from: 'api/compose.yml' },
+    ]);
     expect(trials[0]?.subject).toMatchObject({
       kind: 'trial',
       basedOn: ORIGINAL,

@@ -72,6 +72,11 @@ type fakeEngine struct {
 	egressFails    bool
 	callMute       bool
 
+	services      map[string]sandbox.Spec
+	serviceStates map[string]sandbox.State
+	serviceStarts []string
+	serviceFails  map[string]bool
+
 	put       map[string]map[string]sandbox.File
 	signals   map[string][]string
 	keepsFile bool
@@ -90,6 +95,11 @@ func newEngine() *fakeEngine {
 
 		egresses: map[string]sandbox.Spec{},
 		networks: map[string]map[string]string{},
+
+		services:      map[string]sandbox.Spec{},
+		serviceStates: map[string]sandbox.State{},
+		serviceFails:  map[string]bool{},
+
 		put:      map[string]map[string]sandbox.File{},
 		signals:  map[string][]string{},
 		execs:    map[string][][]string{},
@@ -306,6 +316,19 @@ func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if spec.Labels[serve.LabelService] != "" {
+		alias := spec.Aliases[0]
+		e.serviceStarts = append(e.serviceStarts, alias)
+		if e.serviceFails[alias] {
+			return "", errors.New("the service will not run")
+		}
+		e.next++
+		id := fmt.Sprintf("service_%d", e.next)
+		e.services[id] = spec
+		e.created[id] = time.Now()
+		return id, nil
+	}
+
 	if isEgress(spec) {
 		if e.egressFails {
 			return "", errors.New("the egress image will not run")
@@ -420,7 +443,60 @@ func (e *fakeEngine) Labelled(_ context.Context, key, value string) ([]sandbox.C
 			found = append(found, sandbox.Container{ID: id, Labels: spec.Labels, Running: true, Created: e.created[id]})
 		}
 	}
+	for _, id := range slices.Sorted(maps.Keys(e.services)) {
+		if spec := e.services[id]; spec.Labels[key] == value && !slices.Contains(e.destroyed, id) {
+			found = append(found, sandbox.Container{ID: id, Labels: spec.Labels, Running: true, Created: e.created[id]})
+		}
+	}
 	return found, nil
+}
+
+// State answers for a service by its alias: it is healthy unless serviceStates says otherwise.
+func (e *fakeEngine) State(_ context.Context, id string) (sandbox.State, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	spec, ok := e.services[id]
+	if !ok || slices.Contains(e.destroyed, id) {
+		return sandbox.State{}, sandbox.ErrGone
+	}
+	if state, ok := e.serviceStates[spec.Aliases[0]]; ok {
+		return state, nil
+	}
+	return sandbox.State{Running: true, Health: sandbox.HealthHealthy}, nil
+}
+
+func (e *fakeEngine) serviceStartOrder() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.serviceStarts)
+}
+
+func (e *fakeEngine) serviceIDs() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	var ids []string
+	for _, id := range slices.Sorted(maps.Keys(e.services)) {
+		if !slices.Contains(e.destroyed, id) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// liveServices gives the specs of the services that run, by alias.
+func (e *fakeEngine) liveServices() map[string]sandbox.Spec {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	live := map[string]sandbox.Spec{}
+	for id, spec := range e.services {
+		if !slices.Contains(e.destroyed, id) {
+			live[spec.Aliases[0]] = spec
+		}
+	}
+	return live
 }
 
 func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {

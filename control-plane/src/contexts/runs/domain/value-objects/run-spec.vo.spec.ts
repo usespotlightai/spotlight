@@ -21,6 +21,30 @@ describe('RunSpec', () => {
     expect(RunSpec.of(parts()).value).toEqual(parts());
   });
 
+  it('starts each service once, from an image, after the ones it depends on', () => {
+    const db = { name: 'db', image: 'postgres:17', from: 'api/compose.yml' };
+    const worker = { ...db, name: 'worker', dependsOn: ['db'] };
+
+    expect(
+      RunSpec.of(parts({ services: [db, worker] })).value.services,
+    ).toEqual([db, worker]);
+    for (const services of [
+      [db, db],
+      [worker, db],
+      [{ ...db, name: 'no spaces' }],
+      [{ ...db, image: ' ' }],
+      [{ ...db, from: '../compose.yml' }],
+      [{ ...db, env: [{ name: 'not a name', value: 'x' }] }],
+      [{ ...db, health: { test: [] } }],
+      [{ ...db, health: { test: ['NONE'], intervalMs: -1 } }],
+      Array.from({ length: 17 }, (_, at) => ({ ...db, name: `db${at}` })),
+    ]) {
+      expect(() => RunSpec.of(parts({ services }))).toThrow(
+        InvalidRunSpecError,
+      );
+    }
+  });
+
   it('injects secrets only by their names', () => {
     expect(
       RunSpec.of(

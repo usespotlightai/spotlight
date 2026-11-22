@@ -19,6 +19,10 @@ import {
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
 import {
+  REPOSITORY_CONTENTS,
+  type RepositoryContentsPort,
+} from '@github/application/ports/repository-contents.port';
+import {
   REPOSITORY_GIT,
   type RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
@@ -284,6 +288,10 @@ import {
   type ChatReaderPort,
 } from '@work/application/ports/chat-reader.port';
 import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensions.port';
+import {
+  CHECKOUT_SERVICES,
+  type CheckoutServicesPort,
+} from '@work/application/ports/checkout-services.port';
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import {
   CONTENT_HASH,
@@ -630,6 +638,7 @@ import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus
 import { WORK_PAYLOAD_TYPES } from '@work/infrastructure/events/work-payload-types';
 import { GitReceivePack } from '@work/infrastructure/git/receive-pack';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
+import { GitHubCheckoutServices } from '@work/infrastructure/github/github-checkout-services';
 import { GitHubTaskPullRequestSummaries } from '@work/infrastructure/github/github-task-pull-request-summaries';
 import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
@@ -1532,6 +1541,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ENV,
       CONTROL_PLANE_RELEASE,
       ChatToolExtensions,
+      CHECKOUT_SERVICES,
     ],
     useFactory: (
       ids: IdGeneratorPort,
@@ -1546,6 +1556,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       env: Env,
       controlPlane: ControlPlaneReleasePort,
       extensions: ChatToolExtensions,
+      services: CheckoutServicesPort,
     ) =>
       new DispatchChat(
         ids,
@@ -1560,6 +1571,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         publicUrlOf(env),
         controlPlane,
         extensions,
+        services,
       ),
   },
 
@@ -1643,6 +1655,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       SAVEPOINT,
       CONTENT_HASH,
       BOUND_SECRETS,
+      CHECKOUT_SERVICES,
     ],
     useFactory: (
       ids: IdGeneratorPort,
@@ -1661,6 +1674,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       savepoint: SavepointPort,
       hash: ContentHashPort,
       bound: BoundSecretsPort,
+      services: CheckoutServicesPort,
     ) =>
       new DispatchTask(
         ids,
@@ -1679,7 +1693,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         savepoint,
         hash,
         bound,
+        services,
       ),
+  },
+
+  {
+    provide: CHECKOUT_SERVICES,
+    inject: [REPOSITORY_CONTENTS, LOGGER],
+    useFactory: (contents: RepositoryContentsPort, logger: LoggerPort) =>
+      new GitHubCheckoutServices(contents, logger),
   },
 
   {
@@ -1703,6 +1725,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TRACE_PARENT,
       RUN_EVIDENCE,
       CLOCK,
+      CHECKOUT_SERVICES,
     ],
     useFactory: (
       facts: RunFactsPort,
@@ -1723,6 +1746,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tracing: TraceParentPort,
       evidence: RunEvidencePort,
       clock: ClockPort,
+      services: CheckoutServicesPort,
     ) =>
       new StationTrials(
         facts,
@@ -1745,6 +1769,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         tracing,
         evidence,
         clock,
+        services,
       ),
   },
 

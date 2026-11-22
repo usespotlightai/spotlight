@@ -79,6 +79,47 @@ type Spec struct {
 	Search        *SearchSpec       `json:"search,omitempty"`
 	SandboxEnv    []SandboxVariable `json:"sandboxEnv,omitempty"`
 	Assist        *AssistSpec       `json:"assist,omitempty"`
+	Services      []Service         `json:"services,omitempty"`
+}
+
+// Service is a container a run needs beside its sandbox, such as a database, read from a Compose file of a
+// checkout. The host starts it on the sandbox's network, where the run reaches it by its name.
+type Service struct {
+	Name      string         `json:"name"`
+	Image     string         `json:"image"`
+	Command   []string       `json:"command,omitempty"`
+	Env       []EnvVariable  `json:"env,omitempty"`
+	Health    *ServiceHealth `json:"health,omitempty"`
+	DependsOn []string       `json:"dependsOn,omitempty"`
+	// From is the Compose file the service was read from, relative to the working copy.
+	From string `json:"from"`
+}
+
+// ServiceHealth is how the host tells a service is ready. Without one, the image's own health check counts, and
+// a service with neither is ready once it runs.
+type ServiceHealth struct {
+	Test          []string `json:"test"`
+	IntervalMs    int64    `json:"intervalMs,omitempty"`
+	TimeoutMs     int64    `json:"timeoutMs,omitempty"`
+	StartPeriodMs int64    `json:"startPeriodMs,omitempty"`
+	Retries       int      `json:"retries,omitempty"`
+}
+
+// ServicesPath is where the host leaves the outcome of starting a run's services, once each is ready or failed.
+const ServicesPath = "/run/spotlight/services.json"
+
+// ServicesStarted is the file at ServicesPath. Run names the run it is for: a sandbox that carries on to another
+// run still holds the last run's file until the host replaces it.
+type ServicesStarted struct {
+	Run      string           `json:"run"`
+	Services []ServiceOutcome `json:"services"`
+}
+
+type ServiceOutcome struct {
+	Name    string `json:"name"`
+	From    string `json:"from"`
+	Ready   bool   `json:"ready"`
+	Problem string `json:"problem,omitempty"`
 }
 
 type SandboxVariable struct {

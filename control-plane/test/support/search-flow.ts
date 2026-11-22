@@ -181,6 +181,12 @@ const repositoryContents: RepositoryContentsPort = {
           defaultBranch: 'main',
         };
   },
+  topFiles: async (_workspace, _repository, names, ref) => ({
+    ref: ref ?? 'main',
+    files: [...github.files.entries()]
+      .filter(([path]) => names.includes(path))
+      .map(([path, content]) => ({ path, content })),
+  }),
   pathsAt: async () => [...github.files.keys()],
   filesUnder: async (_workspace, _repository, directory) =>
     [...github.files.entries()]

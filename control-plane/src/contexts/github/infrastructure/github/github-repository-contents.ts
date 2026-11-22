@@ -7,6 +7,7 @@ import type {
   RepositoryContentsPort,
   RepositoryFileContent,
   RepositoryFileDto,
+  TopFiles,
 } from '@github/application/ports/repository-contents.port';
 import {
   answered,
@@ -164,6 +165,50 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
           : [],
       ),
     );
+  }
+
+  async topFiles(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    names: readonly string[],
+    ref: string | null,
+  ): Promise<TopFiles> {
+    const token = await this.tokenFor(workspaceId);
+    const treeAt = async (at: string) =>
+      call(`${this.at(repository)}/git/trees/${encodeURIComponent(at)}`, token);
+
+    let read = ref ?? (await this.defaultBranch(repository, token));
+    let response = await treeAt(read);
+    if (response.status === NOT_FOUND && ref !== null) {
+      read = await this.defaultBranch(repository, token);
+      response = await treeAt(read);
+    }
+    if (response.status === NOT_FOUND) {
+      return { ref: read, files: [] };
+    }
+
+    const found = await answered<Tree>(
+      response,
+      `GitHub would not list the top of ${repository.value} at ${read}`,
+    );
+    const files = await Promise.all(
+      (found.tree ?? []).flatMap((each) =>
+        each.type === 'blob' &&
+        each.mode === FILE_MODE &&
+        each.path !== undefined &&
+        names.includes(each.path) &&
+        each.sha
+          ? [
+              (async () => ({
+                path: each.path as string,
+                content: await this.blob(repository, each.sha as string, token),
+              }))(),
+            ]
+          : [],
+      ),
+    );
+
+    return { ref: read, files };
   }
 
   async pathsAt(

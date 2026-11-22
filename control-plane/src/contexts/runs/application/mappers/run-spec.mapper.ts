@@ -11,6 +11,7 @@ import {
   type RunMcpServer,
   type RunResume,
   type RunSandboxVariable,
+  type RunService,
   type RunToolChange,
   RunSpec,
   type RunToolApproval,
@@ -30,6 +31,7 @@ const UNORDERABLE = [
   'injectedSecrets',
   'sandboxEnv',
   'harnessKeys',
+  'services',
 ] as const;
 
 export interface OrderedSpec {
@@ -225,6 +227,56 @@ const sandboxVariableOf = (raw: unknown): RunSandboxVariable => {
   };
 };
 
+const optionalNumberAt = (raw: unknown, what: string): number | undefined =>
+  raw === undefined ? undefined : numberAt(raw, what);
+
+const serviceOf = (raw: unknown): RunService => {
+  const what = 'the services it needs';
+  const input = objectAt(raw, what);
+  const texts = (value: unknown) =>
+    listAt(value, what, (each) => stringAt(each, what));
+  const health =
+    input.health === undefined ? undefined : objectAt(input.health, what);
+  const timed = (
+    key: 'intervalMs' | 'timeoutMs' | 'startPeriodMs' | 'retries',
+  ) => {
+    const value = optionalNumberAt(health?.[key], what);
+    return value === undefined ? {} : { [key]: value };
+  };
+
+  return {
+    name: stringAt(input.name, what),
+    image: stringAt(input.image, what),
+    ...(input.command === undefined ? {} : { command: texts(input.command) }),
+    ...(input.env === undefined
+      ? {}
+      : {
+          env: listAt(input.env, what, (each) => {
+            const variable = objectAt(each, what);
+            return {
+              name: stringAt(variable.name, what),
+              value: stringAt(variable.value, what),
+            };
+          }),
+        }),
+    ...(health
+      ? {
+          health: {
+            test: texts(health.test),
+            ...timed('intervalMs'),
+            ...timed('timeoutMs'),
+            ...timed('startPeriodMs'),
+            ...timed('retries'),
+          },
+        }
+      : {}),
+    ...(input.dependsOn === undefined
+      ? {}
+      : { dependsOn: texts(input.dependsOn) }),
+    from: stringAt(input.from, what),
+  };
+};
+
 const mcpServerOf = (raw: unknown): RunMcpServer => {
   const input = objectAt(raw, 'its MCP servers');
 
@@ -371,6 +423,12 @@ const read = (raw: unknown): RunSpec => {
     (each) => stringAt(each, 'where its harness stores settings'),
   );
 
+  const services = optionalListAt(
+    input.services,
+    'the services it needs',
+    serviceOf,
+  );
+
   const spotlightApi =
     input.spotlightApi === undefined
       ? undefined
@@ -415,6 +473,7 @@ const read = (raw: unknown): RunSpec => {
     ...(sandboxEnv ? { sandboxEnv } : {}),
     ...(harnessKeys ? { harnessKeys } : {}),
     ...(spotlightApi ? { spotlightApi } : {}),
+    ...(services ? { services } : {}),
   });
 };
 

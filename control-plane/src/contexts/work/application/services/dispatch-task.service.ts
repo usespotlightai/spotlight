@@ -7,6 +7,7 @@ import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo'
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
+import type { CheckoutServicesPort } from '@work/application/ports/checkout-services.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import type { SavepointPort } from '@work/application/ports/savepoint.port';
@@ -60,6 +61,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly savepoint: SavepointPort,
     hash: ContentHashPort,
     bound: BoundSecretsPort,
+    private readonly services: CheckoutServicesPort,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -177,6 +179,13 @@ export class DispatchTask implements TaskDispatching {
       ({ variable, secret }) => ({ variable, secret: secret.value }),
     );
     const catalog = order.enabled.pinned.map((each) => each.value);
+    const services = await this.services.of(
+      task.workspaceId,
+      order.checkouts.map((each) => ({
+        repository: each.repository,
+        ref: each.ref ?? each.branch?.value ?? null,
+      })),
+    );
 
     return {
       order: runOrderOf({
@@ -203,6 +212,7 @@ export class DispatchTask implements TaskDispatching {
           startingPoint: true,
           ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
           ...(sandboxEnv.length > 0 ? { sandboxEnv } : {}),
+          ...(services.length > 0 ? { services } : {}),
         },
         refusals: order.refusals,
       }),

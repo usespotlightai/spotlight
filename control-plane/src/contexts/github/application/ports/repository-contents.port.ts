@@ -21,6 +21,11 @@ export interface RepositoryCommit {
   readonly files: readonly RepositoryFileContent[];
 }
 
+export interface TopFiles {
+  readonly ref: string;
+  readonly files: readonly RepositoryFileContent[];
+}
+
 export const REPOSITORY_CONTENTS = Symbol('REPOSITORY_CONTENTS');
 
 export interface RepositoryContentsPort {
@@ -37,6 +42,17 @@ export interface RepositoryContentsPort {
     directory: string,
     ref: string,
   ): Promise<readonly RepositoryFileContent[]>;
+
+  /**
+   * Reads the files of these names at the top of the repository, at ref or, where ref is null or not there yet,
+   * at the default branch. It names the ref it read.
+   */
+  topFiles(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    names: readonly string[],
+    ref: string | null,
+  ): Promise<TopFiles>;
 
   pathsAt(
     workspaceId: WorkspaceId,

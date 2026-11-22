@@ -241,6 +241,12 @@ describe('RunSpecMapper.ordered', () => {
           ],
         },
       ],
+      [
+        'services',
+        {
+          services: [{ name: 'db', image: 'postgres:17', from: 'compose.yml' }],
+        },
+      ],
     ] as const) {
       expect(() =>
         RunSpecMapper.ordered({ briefing: 'do it', ...field }, command),
@@ -250,6 +256,38 @@ describe('RunSpecMapper.ordered', () => {
         ),
       );
     }
+  });
+
+  it('reads back the services a run starts beside its sandbox', () => {
+    const services = [
+      {
+        name: 'db',
+        image: 'postgres:17',
+        env: [{ name: 'POSTGRES_PASSWORD', value: 'local' }],
+        health: {
+          test: ['CMD-SHELL', 'pg_isready'],
+          intervalMs: 2000,
+          retries: 5,
+        },
+        from: 'api/compose.yml',
+      },
+      {
+        name: 'worker',
+        image: 'acme/worker:1',
+        command: ['node', 'worker.js'],
+        dependsOn: ['db'],
+        from: 'api/compose.yml',
+      },
+    ];
+    const received = RunSpecMapper.received({
+      command,
+      briefing: 'do it',
+      handover: { options: [], noteLimit: 0 },
+      resume: {},
+      services,
+    });
+
+    expect(received.value.services).toEqual(services);
   });
 
   it('rejects what is not a spec at all', () => {

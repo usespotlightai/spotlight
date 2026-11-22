@@ -84,6 +84,16 @@ func (h *Host) takeOver(ctx context.Context) leftBehind {
 		h.log.Info("took over a running sandbox", "sandbox", live.id, "sandboxId", live.sandboxID, "runner", live.runnerID)
 	}
 
+	adoptedEgress := map[string]bool{}
+	for _, each := range left.taken {
+		adoptedEgress[each.live.sidecar.name] = true
+	}
+	for _, each := range containers {
+		if name := each.Labels[LabelService]; name != "" && adoptedEgress[name] && each.Running {
+			kept[each.ID] = true
+		}
+	}
+
 	for _, each := range containers {
 		if !kept[each.ID] {
 			left.other = append(left.other, each.ID)

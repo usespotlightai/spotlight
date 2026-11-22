@@ -5,7 +5,10 @@ import type {
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
-import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
+import type {
+  RunServiceShape,
+  RunSpecShape,
+} from '@runs/application/contracts/run-spec.contract';
 import type {
   HarnessLaunchPort,
   SkillsHome,
@@ -39,6 +42,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
+import type { ServicesAt } from '@work/application/ports/checkout-services.port';
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import {
   cannedReadyProfiles,
@@ -349,6 +353,8 @@ let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 let awaitingValue: readonly string[] = [];
 let sandboxNotAllowed: readonly string[] = [];
+let servicesAsked: (readonly ServicesAt[])[] = [];
+let composeServices: readonly RunServiceShape[] = [];
 
 const dispatch = async (
   station: Station,
@@ -393,6 +399,12 @@ const dispatch = async (
           allowsSandbox: !sandboxNotAllowed.includes(name),
         })),
     },
+    {
+      of: async (_workspace, checkouts) => {
+        servicesAsked.push(checkouts);
+        return composeServices;
+      },
+    },
   );
   const working = existing ?? task(station.id.value);
   const line = lineWith(station, repositories);
@@ -418,6 +430,8 @@ describe('DispatchTask', () => {
   beforeEach(() => {
     awaitingValue = [];
     sandboxNotAllowed = [];
+    servicesAsked = [];
+    composeServices = [];
     readyAs = {};
     briefedAt = [];
     remembered = { briefed: [], omitted: [], folder: null };
@@ -973,6 +987,23 @@ describe('DispatchTask', () => {
     ).toBe(true);
     expect(ordered[0]?.briefedTask?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
+  });
+
+  it('starts the services the Compose files of its checkouts name, and none where they name none', async () => {
+    composeServices = [
+      { name: 'db', image: 'postgres:17', from: 'api/compose.yml' },
+    ];
+    await dispatch(stations[1], undefined, ['acme/api']);
+    composeServices = [];
+    await dispatch(stations[1], undefined, ['acme/api']);
+
+    expect(
+      servicesAsked[0]?.map(({ repository, ref }) => [repository.value, ref]),
+    ).toEqual([['acme/api', 'fix/fix-the-queue-task_1']]);
+    expect(written(queued[0]).services).toEqual([
+      { name: 'db', image: 'postgres:17', from: 'api/compose.yml' },
+    ]);
+    expect(written(queued[1])).not.toHaveProperty('services');
   });
 
   it('requests the runner to say where the run started', async () => {

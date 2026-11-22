@@ -11,6 +11,7 @@ import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import { TrialabilityMapper } from '@work/application/mappers/trialability.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { CheckoutServicesPort } from '@work/application/ports/checkout-services.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
 import type {
@@ -104,6 +105,7 @@ export class StationTrials implements StationTrialsPort {
     private readonly tracing: TraceParentPort,
     private readonly evidence: RunEvidencePort,
     private readonly clock: ClockPort,
+    private readonly services: CheckoutServicesPort,
   ) {}
 
   async followUpsOf(basedOn: string): Promise<TrialFollowUps | null> {
@@ -290,6 +292,13 @@ export class StationTrials implements StationTrialsPort {
     });
     const briefing = followedUp ? `${briefed}\n\n${followedUp}` : briefed;
     const configuredAs = this.ordering.configuredAs(laidOut, candidate);
+    const services = await this.services.of(
+      original.facts.workspaceId,
+      plan.checkouts.map((each) => ({
+        repository: each.repository,
+        ref: each.commit || null,
+      })),
+    );
     const ordering = {
       outcome: 'ordered' as const,
       order: {
@@ -312,6 +321,7 @@ export class StationTrials implements StationTrialsPort {
           ...(described.length > 0
             ? { manifest: described.map(toolManifestOf) }
             : {}),
+          ...(services.length > 0 ? { services } : {}),
         },
         restore: original.trial.archive
           ? { archive: original.trial.archive }

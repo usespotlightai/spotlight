@@ -20,6 +20,7 @@ type conversation struct {
 	sessionID    string
 	joined       []string
 	unready      []setupFailure
+	down         []protocol.ServiceOutcome
 	touches      *pathMemories
 	journal      *journalWriter
 	control      Journal
@@ -69,7 +70,7 @@ type lostRun interface {
 }
 
 func (c *conversation) opening(ctx context.Context) string {
-	return unreadyNote(c.unready) + lostNote(c.lost) + c.request(ctx)
+	return unreadyNote(c.unready) + downNote(c.down) + lostNote(c.lost) + c.request(ctx)
 }
 
 func lostNote(tasks []workspace.LostTask) string {

@@ -151,6 +151,14 @@ const dispatching = (
     new ChatToolExtensions({
       find: async () => null,
     } as unknown as ChatRepository),
+    {
+      of: async (_workspace, at) =>
+        at.flatMap(({ repository, ref }) =>
+          repository.value === 'acme/api' && ref === null
+            ? [{ name: 'db', image: 'postgres:17', from: 'api/compose.yml' }]
+            : [],
+        ),
+    },
   );
 
   return {
@@ -228,6 +236,13 @@ describe('DispatchChat', () => {
       true,
     );
     expect(placementOf(run).matches(RunnerOffer.of(['gpu']))).toBe(false);
+  });
+
+  it('starts the services of its repositories’ Compose files, at their default branches', async () => {
+    expect((await enqueued(chatIn([API]))).spec.services).toEqual([
+      { name: 'db', image: 'postgres:17', from: 'api/compose.yml' },
+    ]);
+    expect(await enqueued(chatIn([]))).not.toHaveProperty('spec.services');
   });
 
   it('places a chat run working in no repository anywhere', async () => {

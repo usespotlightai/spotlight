@@ -4,6 +4,10 @@ const TrustHeader = "Spotlight-Trust"
 
 const RunTimeoutVar = "SPOTLIGHT_RUN_TIMEOUT"
 
+// ServicesVar is set in a sandbox whose host starts the services of its runs. A runner waits for them only there:
+// an older host never leaves their outcome.
+const ServicesVar = "SPOTLIGHT_SERVICES"
+
 // EditorSessionVar marks the processes of a person's editor in a sandbox.
 const EditorSessionVar = "SPOTLIGHT_EDITOR_SESSION"
 
