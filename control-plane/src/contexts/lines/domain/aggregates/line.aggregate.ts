@@ -14,7 +14,6 @@ import {
   searchProblem,
   stationsProblem,
 } from '@lines/domain/services/line-layout';
-import { agentFeaturesByDefault } from '@lines/domain/services/station-features';
 import type { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
 import type { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import { LineRepositories } from '@lines/domain/value-objects/line-repositories.vo';
@@ -144,9 +143,9 @@ export class Line extends EventRecorder {
           }),
           tools: each.tools,
           skills: each.skills,
-          diffs: each.diffs ?? agentFeaturesByDefault(each.kind),
-          decisions: each.decisions ?? agentFeaturesByDefault(each.kind),
-          memories: each.memories ?? agentFeaturesByDefault(each.kind),
+          diffs: each.diffs,
+          decisions: each.decisions,
+          memories: each.memories,
           judge: each.judge ?? null,
         }),
       ),

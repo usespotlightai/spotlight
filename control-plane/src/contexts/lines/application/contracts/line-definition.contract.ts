@@ -1,4 +1,4 @@
-import { agentFeaturesByDefault } from '@lines/domain/services/station-features';
+import { agentFeaturesOf } from '@lines/domain/services/station-features';
 import { ALL_CLAIMS } from '@lines/domain/value-objects/station-judge.vo';
 
 type LineDefinitionStationKind = 'backlog' | 'work' | 'completed';
@@ -48,11 +48,7 @@ export const stationSwitchDefaultsOf = (
   readonly diffs: boolean;
   readonly decisions: boolean;
   readonly memories: boolean;
-} => {
-  const on = agentFeaturesByDefault(kind);
-
-  return { diffs: on, decisions: on, memories: on };
-};
+} => agentFeaturesOf(kind);
 
 export type LineDefinitionStation = {
   readonly key: string;

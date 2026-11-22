@@ -1,5 +1,5 @@
 import type { StationKind } from '@lines/domain/entities/station.entity';
-import { agentFeaturesByDefault } from '@lines/domain/services/station-features';
+import { agentFeaturesOf } from '@lines/domain/services/station-features';
 import { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import type { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { ReviewPolicy } from '@lines/domain/value-objects/review-policy.vo';
@@ -88,9 +88,7 @@ const opening = (input: {
     agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
     passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
     tools: input.tools ?? [],
-    diffs: input.diffs ?? agentFeaturesByDefault(kind),
-    decisions: input.decisions ?? agentFeaturesByDefault(kind),
-    memories: input.memories ?? agentFeaturesByDefault(kind),
+    ...agentFeaturesOf(kind, input),
     judge: input.claims ? judgeOf(input.claims) : null,
     ends: input.ends ?? false,
   };

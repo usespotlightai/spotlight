@@ -12,7 +12,7 @@ import { InvalidReplayCheckPolicyError } from '@lines/domain/exceptions/invalid-
 import { InvalidSearchPolicyError } from '@lines/domain/exceptions/invalid-search-policy.error';
 import { InvalidStationAlertError } from '@lines/domain/exceptions/invalid-station-alert.error';
 import { InvalidStationJudgeError } from '@lines/domain/exceptions/invalid-station-judge.error';
-import { agentFeaturesByDefault } from '@lines/domain/services/station-features';
+import { agentFeaturesOf } from '@lines/domain/services/station-features';
 import { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
 import { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
@@ -277,9 +277,7 @@ const compileStation = (
       agentPrompt,
       check,
       placement,
-      diffs: station.diffs ?? agentFeaturesByDefault(station.kind),
-      decisions: station.decisions ?? agentFeaturesByDefault(station.kind),
-      memories: station.memories ?? agentFeaturesByDefault(station.kind),
+      ...agentFeaturesOf(station.kind, station),
       judge,
       alerts,
       search,
