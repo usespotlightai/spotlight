@@ -18,6 +18,8 @@ const memorySpanName = "spotlight.memory"
 
 const maxDeliveredAtOnce = 5
 
+const maxUnrecorded = 45
+
 const deliveryRecordTimeout = 3 * time.Second
 
 type pathMemory struct {
@@ -42,6 +44,7 @@ type pathMemories struct {
 	mu         sync.Mutex
 	shown      map[string]bool
 	queued     []string
+	isQueued   map[string]bool
 	unrecorded []string
 }
 
@@ -62,6 +65,7 @@ func newPathMemories(
 		checkouts: checkouts,
 		delivered: delivered,
 		shown:     map[string]bool{},
+		isQueued:  map[string]bool{},
 	}
 
 	for _, file := range files {
@@ -143,10 +147,29 @@ func (p *pathMemories) saw(event protocol.Event) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, each := range used {
-		if each != "" && !slices.Contains(p.queued, each) {
-			p.queued = append(p.queued, each)
+		if each != "" && p.awaitsShowing(each) {
+			p.enqueue(each)
 		}
 	}
+}
+
+func (p *pathMemories) awaitsShowing(raw string) bool {
+	relative, found := p.relative(raw)
+	if !found {
+		return false
+	}
+
+	return slices.ContainsFunc(p.memories, func(memory pathMemory) bool {
+		return !p.shown[memory.handle] && memory.about(relative)
+	})
+}
+
+func (p *pathMemories) enqueue(raw string) {
+	if p.isQueued[raw] {
+		return
+	}
+	p.isQueued[raw] = true
+	p.queued = append(p.queued, raw)
 }
 
 func inputPaths(input json.RawMessage) []string {
@@ -182,6 +205,7 @@ func (p *pathMemories) pending(ctx context.Context) string {
 	p.mu.Lock()
 	queued := p.queued
 	p.queued = nil
+	p.isQueued = map[string]bool{}
 	p.mu.Unlock()
 
 	return p.deliver(ctx, queued)
@@ -219,9 +243,7 @@ func (p *pathMemories) deliver(ctx context.Context, used []string) string {
 		}
 	}
 	for _, each := range left {
-		if !slices.Contains(p.queued, each) {
-			p.queued = append(p.queued, each)
-		}
+		p.enqueue(each)
 	}
 	recording := append(p.unrecorded, handles...)
 	p.unrecorded = nil
@@ -234,6 +256,9 @@ func (p *pathMemories) deliver(ctx context.Context, used []string) string {
 		if err != nil {
 			p.mu.Lock()
 			p.unrecorded = append(recording, p.unrecorded...)
+			if len(p.unrecorded) > maxUnrecorded {
+				p.unrecorded = p.unrecorded[len(p.unrecorded)-maxUnrecorded:]
+			}
 			p.mu.Unlock()
 		}
 	}

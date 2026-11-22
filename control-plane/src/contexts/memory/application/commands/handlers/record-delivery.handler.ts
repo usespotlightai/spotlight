@@ -1,7 +1,7 @@
 import type { RecordDeliveryCommand } from '@memory/application/commands/record-delivery.command';
 import type { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import {
   recallableBy,
@@ -12,6 +12,8 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+
+const MAX_RECORDED_AT_ONCE = 50;
 
 export class RecordDeliveryHandler implements CommandHandlerPort<
   RecordDeliveryCommand,
@@ -25,6 +27,12 @@ export class RecordDeliveryHandler implements CommandHandlerPort<
 
   async execute(command: RecordDeliveryCommand): Promise<void> {
     try {
+      if (command.handles.length > MAX_RECORDED_AT_ONCE) {
+        throw new InvalidMemoryError(
+          `records at most ${MAX_RECORDED_AT_ONCE} shown memories at a time`,
+        );
+      }
+
       const handles = command.handles.map((each) => MemoryHandle.parse(each));
       const run = await this.loader.recalling(
         RunId.of(command.runId),
@@ -35,14 +43,9 @@ export class RecordDeliveryHandler implements CommandHandlerPort<
         return;
       }
 
-      const delivered: Memory[] = [];
-      for (const handle of handles) {
-        const memory = await this.memories.withHandle(run.teamId, handle);
-
-        if (memory && recallableBy(memory, run)) {
-          delivered.push(memory);
-        }
-      }
+      const delivered = (
+        await this.memories.withHandles(run.teamId, handles)
+      ).filter((each) => recallableBy(each, run));
 
       await this.recording.recorded(
         run,

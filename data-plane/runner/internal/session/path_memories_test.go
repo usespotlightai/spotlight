@@ -168,3 +168,15 @@ func TestAMemoryWhoseRecordFailedIsRecordedWithTheNextDelivery(t *testing.T) {
 		t.Errorf("recorded %v", *calls)
 	}
 }
+
+func TestAToolPathNoMemoryIsAboutIsNotQueued(t *testing.T) {
+	index, dir, _ := indexed(t, aboutUploads("M-18", false))
+	input, _ := json.Marshal(map[string]string{"path": filepath.Join(dir, "api/src/billing.ts")})
+	data, _ := json.Marshal(protocol.ToolChanged{ID: "tool_1", Title: "Grep", Input: input})
+
+	index.saw(protocol.Event{Type: protocol.EventToolChanged, Data: data})
+
+	if len(index.queued) != 0 {
+		t.Errorf("queued %v", index.queued)
+	}
+}

@@ -62,10 +62,12 @@ const handler = (run: LeasedRun) => {
       leasedBy: async () => run,
     } as unknown as WorkPort),
     {
-      withHandle: async (teamId: TeamId, handle: MemoryHandle) =>
-        memories.find(
-          (each) => each.handle.value === handle.value && each.isTeams(teamId),
-        ) ?? null,
+      withHandles: async (teamId: TeamId, handles: readonly MemoryHandle[]) =>
+        memories.filter(
+          (each) =>
+            each.isTeams(teamId) &&
+            handles.some((handle) => handle.equals(each.handle)),
+        ),
     } as unknown as MemoryRepository,
     new RecordMemoryUses(
       {
@@ -103,6 +105,20 @@ describe('recording what a run showed its agent for a path it used', () => {
     );
 
     expect(recorded).toEqual([]);
+  });
+
+  it('turns down more than 50 at a time', async () => {
+    const { recording } = handler(leasedRun(false));
+
+    await expect(
+      recording.execute(
+        new RecordDeliveryCommand(
+          'run_1',
+          'runner_1',
+          Array.from({ length: 51 }, (_, at) => `M-${at + 1}`),
+        ),
+      ),
+    ).rejects.toThrow('records at most 50 shown memories at a time');
   });
 
   it('turns down what is not a handle', async () => {
