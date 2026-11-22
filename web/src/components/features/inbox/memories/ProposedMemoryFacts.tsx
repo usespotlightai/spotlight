@@ -1,6 +1,6 @@
 import { use } from 'react';
 
-import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
+import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MemoryProvenanceList } from '@/components/features/memory/MemoryProvenanceList';
 import { MemoryScopeRows } from '@/components/features/memory/MemoryScopeRows';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -68,7 +68,7 @@ export function ProposedMemoryFacts({
           ) : docked ? (
             text
           ) : (
-            <PinnedText>{text}</PinnedText>
+            <ExpandableText what="memory">{text}</ExpandableText>
           )}
         </dd>
       </FactRow>
