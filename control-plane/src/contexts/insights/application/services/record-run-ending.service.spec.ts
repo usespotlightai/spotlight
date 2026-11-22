@@ -35,7 +35,7 @@ const endedRun = (runId: string, change: Partial<EndedRun> = {}): EndedRun => ({
   stationId: StationId.of('station_1'),
   taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
-  visit: 1,
+  runNumber: 1,
   ...SET_UP,
   endedAt: at(10),
   ...change,
@@ -91,7 +91,7 @@ const recording = (runs: readonly EndedRun[]) => {
 };
 
 describe('recording that a run ended', () => {
-  it('records where it ran, with which config, in which visit and how it ended', async () => {
+  it('records where it ran, with which config, with which run number and how it ended', async () => {
     const recorder = recording([endedRun('run_1')]);
 
     await recorder.ended('run_1', 'failed');
@@ -103,7 +103,7 @@ describe('recording that a run ended', () => {
     expect(record?.end?.location.stationId.value).toBe('station_1');
     expect(record?.end?.location.taskId.value).toBe('task_1');
     expect(record?.end?.endedAt).toEqual(at(10));
-    expect(record?.end?.visit).toBe(1);
+    expect(record?.end?.runNumber).toBe(1);
   });
 
   it('records that it ended waiting on a person', async () => {
@@ -129,12 +129,12 @@ describe('recording that a run ended', () => {
     ).toBe('stopped');
   });
 
-  it('takes the visit Work counted for the run', async () => {
-    const recorder = recording([endedRun('run_1', { visit: 3 })]);
+  it('takes the run number Work counted for the run', async () => {
+    const recorder = recording([endedRun('run_1', { runNumber: 3 })]);
 
     await recorder.ended('run_1');
 
-    expect((await recorder.stored('run_1'))?.end?.visit).toBe(3);
+    expect((await recorder.stored('run_1'))?.end?.runNumber).toBe(3);
   });
 
   it('records nothing for a run Work does not know ended at a station', async () => {

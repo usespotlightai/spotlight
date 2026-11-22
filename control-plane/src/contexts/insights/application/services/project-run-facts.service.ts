@@ -112,7 +112,6 @@ export class ProjectRunFacts implements RunFactsMaintenance {
           (each) => !kept.has(each.value),
         ),
       );
-      await this.projectTaskPullRequests(taskIds);
     });
   }
 
@@ -196,30 +195,6 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     return (await this.facts.workspaces()).map((each) => each.value);
   }
 
-  private async projectTaskPullRequests(
-    taskIds: readonly TaskId[],
-  ): Promise<void> {
-    const owned = await this.pullRequests.ownedBy(taskIds);
-    const projected = new Set<string>();
-
-    const combined = taskIds.flatMap((taskId) => {
-      const current = PullRequestRecord.taskFactOf(
-        owned.filter((each) => each.owner?.taskId.equals(taskId)),
-      );
-      return current ? [current] : [];
-    });
-
-    await this.facts.putTaskPullRequests(combined);
-
-    for (const each of combined) {
-      projected.add(each.taskId.value);
-    }
-
-    await this.facts.dropTaskPullRequests(
-      taskIds.filter((each) => !projected.has(each.value)),
-    );
-  }
-
   private async dropOrphans(runIds: readonly RunId[]): Promise<void> {
     const orphans = await this.orphansOf(runIds);
 
@@ -291,7 +266,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
       );
       const fact = record.factWith(
         openings.get(key) ?? null,
-        PullRequestRecord.taskFactOf(owned.get(key) ?? []),
+        PullRequestRecord.taskPullRequestsOf(owned.get(key) ?? []),
         followedAtOf(record, taskRecords.get(key) ?? []),
       );
 

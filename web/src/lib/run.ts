@@ -36,8 +36,8 @@ export const shownProgress = (
     ? 'finishing'
     : progress;
 
-export const underway = (run: Pick<Run, 'state'>): boolean =>
-  run.state === 'queued' || run.state === 'claimed';
+export const underway = (run: Pick<Run, 'progress'>): boolean =>
+  run.progress !== null;
 
 export const newestRunAt = (
   runs: readonly Run[],

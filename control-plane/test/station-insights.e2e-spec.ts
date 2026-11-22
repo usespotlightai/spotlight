@@ -115,7 +115,7 @@ const endedRun = (
     stationId: StationId.of('station_1'),
     taskId: TaskId.of('task_1'),
     fingerprint: SONNET,
-    visit: 1,
+    runNumber: 1,
     harness: 'claude-code',
     model: 'sonnet',
     effort: null,
@@ -350,7 +350,7 @@ afterAll(async () => {
 });
 
 describe('how a station’s runs turned out', () => {
-  it('records an ended run with its config and visit', async () => {
+  it('records an ended run with its config and run number', async () => {
     endedRun('run_1', {
       startedAt: at(8),
       endedAt: at(9),
@@ -363,7 +363,7 @@ describe('how a station’s runs turned out', () => {
     expect(record?.end?.ending).toBe('failed');
     expect(record?.end?.failure).toBe('exited');
     expect(record?.end?.fingerprint).toBe(SONNET);
-    expect(record?.end?.visit).toBe(1);
+    expect(record?.end?.runNumber).toBe(1);
     expect(record?.end?.endedAt).toEqual(at(9));
   });
 
@@ -407,7 +407,7 @@ describe('how a station’s runs turned out', () => {
       startedAt: at(10),
       endedAt: at(11),
       fingerprint: OPUS,
-      visit: 2,
+      runNumber: 2,
     });
     await runEnded('run_2');
     await deliver('insights.record-checked-change', {
@@ -420,7 +420,7 @@ describe('how a station’s runs turned out', () => {
     });
 
     expect((await records.of(RunId.of('run_2')))?.checks).toBe('passed');
-    expect((await records.of(RunId.of('run_2')))?.end?.visit).toBe(2);
+    expect((await records.of(RunId.of('run_2')))?.end?.runNumber).toBe(2);
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
   });
 
@@ -469,7 +469,7 @@ describe('how a station’s runs turned out', () => {
     expect(outcomes.get('run_2')).toMatchObject({
       fingerprint: OPUS,
       ending: 'completed',
-      visit: 2,
+      runNumber: 2,
       checks: 'passed',
       pullRequestState: 'merged',
     });

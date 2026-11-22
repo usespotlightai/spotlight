@@ -96,7 +96,7 @@ const ENDED: EndedRun = {
   stationId: StationId.of('station_1'),
   taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
-  visit: 1,
+  runNumber: 1,
   ...SET_UP,
   endedAt: new Date('2026-09-30T10:00:00.000Z'),
 };
@@ -299,10 +299,13 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
 
   return {
     records,
-    taskPullRequest: async (taskId: string) =>
-      PullRequestRecord.taskFactOf(
+    runPullRequest: async (taskId: string) =>
+      PullRequestRecord.taskPullRequestsOf(
         await pullRequests.ownedBy([TaskId.of(taskId)]),
       ),
+    ownedPullRequest: async (taskId: string) =>
+      (await pullRequests.ownedBy([TaskId.of(taskId)]))[0]?.ownedPullRequest ??
+      null,
     judgings,
     scores,
     humanActions,
@@ -491,7 +494,7 @@ describe('insightsSubscribers', () => {
       }),
     );
 
-    expect((await subscriber.taskPullRequest('task_1'))?.state).toBe('merged');
+    expect((await subscriber.runPullRequest('task_1'))?.state).toBe('merged');
   });
 
   it('keeps what a run cost and where it passed its task, received before or after it ended', async () => {
@@ -668,9 +671,9 @@ describe('insightsSubscribers', () => {
       }),
     );
 
-    expect((await subscriber.taskPullRequest('task_1'))?.firstReviewAt).toEqual(
-      new Date('2026-09-30T11:00:00.000Z'),
-    );
+    expect(
+      (await subscriber.ownedPullRequest('task_1'))?.firstReviewAt,
+    ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
   });
 
   it('keeps every task failure received, once each', async () => {
@@ -878,7 +881,7 @@ describe('insightsSubscribers', () => {
     );
 
     expect(await subscriber.record()).toBeNull();
-    expect(await subscriber.taskPullRequest('task_1')).toBeNull();
+    expect(await subscriber.runPullRequest('task_1')).toBeNull();
   });
 
   it('deletes the runs of a deleted team', async () => {
@@ -922,9 +925,9 @@ describe('insightsSubscribers', () => {
       at: '2026-09-30T10:30:00.000Z',
     });
 
-    expect((await subscriber.taskPullRequest('task_1'))?.firstReviewAt).toEqual(
-      new Date('2026-09-30T11:00:00.000Z'),
-    );
+    expect(
+      (await subscriber.ownedPullRequest('task_1'))?.firstReviewAt,
+    ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
   });
 
   it('deletes the failures and pull requests of a deleted team', async () => {
@@ -966,7 +969,7 @@ describe('insightsSubscribers', () => {
     );
 
     expect(subscriber.failures.stored.size).toBe(0);
-    expect(await subscriber.taskPullRequest('task_1')).toBeNull();
+    expect(await subscriber.runPullRequest('task_1')).toBeNull();
   });
 
   it('records nothing more of a task received after it was deleted, whichever deletion came first', async () => {

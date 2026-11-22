@@ -42,7 +42,7 @@ export const measuredFor = (
     case 'checks_failed_rate':
       return (fact) => fact.checks === 'passed' || fact.checks === 'failed';
     case 'merged_rate':
-      return (fact) => fact.pullRequestFinished;
+      return (fact) => fact.taskPullRequestsFinished;
     case 'failed_rate':
       return () => true;
     case 'cost_per_run':

@@ -18,7 +18,7 @@ export interface ClassifiedRun {
   readonly firstHumanAction: HumanAction | null;
   readonly approvalAnsweredAt: Date | null;
   readonly passed: boolean;
-  readonly merged: boolean;
+  readonly taskMerged: boolean;
   readonly followed: boolean;
 }
 
@@ -39,10 +39,13 @@ export const resolutionOf = (run: ClassifiedRun): RunResolution => {
     return 'moved-on';
   }
 
-  return run.merged && !run.followed ? 'accepted' : 'other';
+  return run.taskMerged && !run.followed ? 'accepted' : 'other';
 };
 
-export type AnsweredRun = Omit<ClassifiedRun, 'passed' | 'merged' | 'followed'>;
+export type AnsweredRun = Omit<
+  ClassifiedRun,
+  'passed' | 'taskMerged' | 'followed'
+>;
 
 export const dispositionOf = (run: AnsweredRun): RunDisposition => {
   if (run.firstHumanAction?.accepts) {

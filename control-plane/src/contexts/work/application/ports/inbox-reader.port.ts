@@ -143,7 +143,7 @@ export interface InboxFoldedVisit {
   readonly endedAt: Date;
   readonly closing: InboxNote | null;
   readonly answers: readonly InboxNote[];
-  readonly sentBack: boolean;
+  readonly passedBack: boolean;
 }
 
 export interface InboxItemView extends InboxItemSummary {

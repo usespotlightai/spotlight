@@ -2,7 +2,7 @@ import { RunOutcomes } from '@insights/application/services/run-outcomes.service
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
-import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
   endedRecord,
@@ -20,20 +20,20 @@ const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
 describe('WorkRunOutcomes', () => {
-  it('tells Work how each ended run turned out, with the state of its task’s pull request', async () => {
+  it('tells Work how each ended run turned out, with the combined state of its task’s pull requests', async () => {
     const records = new RunRecordsInMemory();
-    const taskPullRequests = new PullRequestRecordsInMemory();
+    const pullRequestRecords = new PullRequestRecordsInMemory();
     await records.add(
-      endedRecord('run_1', { visit: 2 })
+      endedRecord('run_1', { runNumber: 2 })
         .recordCheck('passed', RECEIVED_AT)
         .recordAction(HumanAction.of('accepted', AT, UserId.of('user_actor'))),
     );
     await records.add(RunRecord.empty(RunId.of('run_2'), WORKSPACE));
-    await taskPullRequests.add(taskPullRequestOf('task_1', { openedAt: AT }));
+    await pullRequestRecords.add(ownedRecordOf('task_1', { openedAt: AT }));
 
     const outcomes = await new WorkRunOutcomes(
       new RunOutcomes(
-        new StationFactsInMemory(records, { pullRequests: taskPullRequests }),
+        new StationFactsInMemory(records, { pullRequests: pullRequestRecords }),
       ),
     ).of(['run_1', 'run_2', 'run_3'], null);
 
@@ -44,7 +44,7 @@ describe('WorkRunOutcomes', () => {
       endedAt: '2026-09-30T10:00:00.000Z',
       ending: 'completed',
       failure: null,
-      visit: 2,
+      runNumber: 2,
       checks: 'passed',
       firstHumanAction: { kind: 'accepted', at: AT.toISOString() },
       pullRequestState: 'open',
@@ -61,19 +61,19 @@ describe('WorkRunOutcomes', () => {
 
   it('tells a replay only what was known when the run it replays started', async () => {
     const records = new RunRecordsInMemory();
-    const taskPullRequests = new PullRequestRecordsInMemory();
+    const pullRequestRecords = new PullRequestRecordsInMemory();
     const later = (hours: number) =>
       new Date(AT.getTime() + hours * 60 * 60_000);
     await records.add(
-      endedRecord('run_1', { visit: 2 })
+      endedRecord('run_1', { runNumber: 2 })
         .recordCheck('passed', later(2))
         .recordAction(
           HumanAction.of('accepted', later(3), UserId.of('user_actor')),
         )
         .supersededByItsTask(later(4)),
     );
-    await taskPullRequests.add(
-      taskPullRequestOf('task_1', {
+    await pullRequestRecords.add(
+      ownedRecordOf('task_1', {
         openedAt: later(1),
         closedAt: later(5),
         merged: true,
@@ -82,7 +82,9 @@ describe('WorkRunOutcomes', () => {
     const of = (asOf: Date) =>
       new WorkRunOutcomes(
         new RunOutcomes(
-          new StationFactsInMemory(records, { pullRequests: taskPullRequests }),
+          new StationFactsInMemory(records, {
+            pullRequests: pullRequestRecords,
+          }),
         ),
       )
         .of(['run_1'], asOf)

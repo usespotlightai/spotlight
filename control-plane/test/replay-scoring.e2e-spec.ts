@@ -314,7 +314,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
             endedAt: at,
             ending: 'completed',
             failure: null,
-            visit: 1,
+            runNumber: 1,
             asked: false,
           }),
         )

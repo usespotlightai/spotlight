@@ -2,7 +2,7 @@ export const LABEL_SOURCES = [
   'accepted',
   'sent-back',
   'merged',
-  'held',
+  'held-as-wrong',
 ] as const;
 
 export type LabelSource = (typeof LABEL_SOURCES)[number];

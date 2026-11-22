@@ -494,7 +494,7 @@ describe('InboxItem', () => {
       endedAt: '2026-08-29T12:00:00.000Z',
       closing: visitNotes[2],
       answers: [visitNotes[1]],
-      sentBack: false,
+      passedBack: false,
     };
     const asked = note({
       position: 3,
@@ -567,17 +567,17 @@ describe('InboxItem', () => {
       expect(screen.getByLabelText('Sam wrote this')).toBeInTheDocument();
     });
 
-    it('says when a visit sent the task back', () => {
+    it('says when a visit passed the task back', () => {
       waiting.mockReturnValue(
-        item([asked], null, [{ ...handedOver, sentBack: true }]),
+        item([asked], null, [{ ...handedOver, passedBack: true }]),
       );
 
       renderItem();
 
-      const sentBack = within(
+      const passedBack = within(
         screen.getByRole('button', { name: /Triage/ }),
-      ).getByText('Sent it back.');
-      expect(sentBack.closest('.hidden')).toBeNull();
+      ).getByText('Passed it back.');
+      expect(passedBack.closest('.hidden')).toBeNull();
     });
 
     it('puts the earlier visits before the conversation', () => {

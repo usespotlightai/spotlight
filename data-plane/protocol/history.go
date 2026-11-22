@@ -122,7 +122,7 @@ type HistoryRun struct {
 type RunOutcome struct {
 	Ending           string       `json:"ending"`
 	Failure          *string      `json:"failure"`
-	Visit            int          `json:"visit"`
+	RunNumber        int          `json:"runNumber"`
 	Usage            *RunUsage    `json:"usage"`
 	Checks           *string      `json:"checks"`
 	FirstHumanAction *HumanAction `json:"firstHumanAction"`

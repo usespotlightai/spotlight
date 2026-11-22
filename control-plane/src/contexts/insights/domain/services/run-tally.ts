@@ -80,7 +80,7 @@ export const runTally = (facts: readonly RunFact[]): RunTally => {
     },
     passed: count(ran, (each) => each.passed !== null),
     merged: new Set(
-      ran.filter((each) => each.merged).map((each) => each.taskId.value),
+      ran.filter((each) => each.taskMerged).map((each) => each.taskId.value),
     ).size,
     cost: spending.spend,
     unpriced: spending.unpriced,

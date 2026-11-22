@@ -225,7 +225,7 @@ describe('the station config a run ran with', () => {
     });
   });
 
-  it('tells the states of the task’s earlier runs at the station, to count its visits by', async () => {
+  it('tells the states of the task’s earlier runs at the station, to number its run by', async () => {
     const { stationId } = await lineOf('team_9');
     const first = await ran(stationId, {
       at: new Date('2026-09-01T00:00:00Z'),

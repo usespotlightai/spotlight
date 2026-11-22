@@ -212,7 +212,7 @@ describe('PullRequestRecord', () => {
   it('is the pull request of the task that owns it, open until GitHub says otherwise, with GitHub’s close and first review', () => {
     const owned = noted().assignOwner(OWNER);
 
-    expect(owned.forTask).toMatchObject({
+    expect(owned.ownedPullRequest).toMatchObject({
       taskId: OWNER.taskId,
       teamId: OWNER.teamId,
       state: 'open',
@@ -227,13 +227,13 @@ describe('PullRequestRecord', () => {
           closedAt: LATER,
           firstReviewAt: SEEN_AT,
         }),
-      ).forTask,
+      ).ownedPullRequest,
     ).toMatchObject({
       state: 'merged',
       closedAt: LATER,
       firstReviewAt: SEEN_AT,
     });
-    expect(noted().seenAs(seenOf()).forTask).toBeNull();
+    expect(noted().seenAs(seenOf()).ownedPullRequest).toBeNull();
   });
 
   describe('for a task with pull requests in several repositories', () => {
@@ -259,8 +259,13 @@ describe('PullRequestRecord', () => {
         firstReviewAt: SEEN_AT,
       });
 
-      expect(PullRequestRecord.taskFactOf([only])).toEqual(only.forTask);
-      expect(PullRequestRecord.taskFactOf([])).toBeNull();
+      expect(PullRequestRecord.taskPullRequestsOf([only])).toEqual({
+        pullRequest: only.pullRequest,
+        state: 'merged',
+        openedAt: OPENED_AT,
+        closedAt: LATER,
+      });
+      expect(PullRequestRecord.taskPullRequestsOf([])).toBeNull();
     });
 
     it('is open while any of them is open, shown by the newest open one', () => {
@@ -273,11 +278,12 @@ describe('PullRequestRecord', () => {
         firstReviewAt: SEEN_AT,
       });
 
-      expect(PullRequestRecord.taskFactOf([merged, open])).toMatchObject({
+      expect(
+        PullRequestRecord.taskPullRequestsOf([merged, open]),
+      ).toMatchObject({
         pullRequest: open.pullRequest,
         state: 'open',
         openedAt: OPENED_AT,
-        firstReviewAt: SEEN_AT,
         closedAt: null,
       });
     });
@@ -292,7 +298,9 @@ describe('PullRequestRecord', () => {
         closedAt: EARLIER_MERGE,
       });
 
-      expect(PullRequestRecord.taskFactOf([first, second])).toMatchObject({
+      expect(
+        PullRequestRecord.taskPullRequestsOf([first, second]),
+      ).toMatchObject({
         pullRequest: second.pullRequest,
         state: 'merged',
         openedAt: OPENED_AT,
@@ -310,7 +318,9 @@ describe('PullRequestRecord', () => {
         closedAt: EARLIER_MERGE,
       });
 
-      expect(PullRequestRecord.taskFactOf([merged, closed])).toMatchObject({
+      expect(
+        PullRequestRecord.taskPullRequestsOf([merged, closed]),
+      ).toMatchObject({
         state: 'closed',
         openedAt: OPENED_AT,
         closedAt: LATEST_MERGE,

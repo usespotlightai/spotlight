@@ -6,9 +6,8 @@ import {
   formatCount,
   formatMedian,
   formatSlowest,
-  mergedFilter,
   shownDeltaOf,
-  tasksFilter,
+  tasksDrill,
 } from '@/lib/insights';
 
 type DeliveryStagesProps = {
@@ -16,9 +15,6 @@ type DeliveryStagesProps = {
 };
 
 export function DeliveryStages({ delivery }: DeliveryStagesProps) {
-  const opened = tasksFilter(delivery.openedTaskIds);
-  const reviewed = tasksFilter(delivery.reviewedTaskIds);
-
   return (
     <TileGroup title="Past the last station" tooltip={DELIVERY_NOTE}>
       <InsightsTile
@@ -27,7 +23,7 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
         detail={`Task to PR ${formatMedian(delivery.toPullRequest)}`}
         tooltip={formatSlowest(delivery.toPullRequest)}
         delta={shownDeltaOf(delivery.changes.opened)}
-        drill={opened ? { tab: 'traces', filter: opened } : undefined}
+        drill={tasksDrill(delivery.openedTaskIds)}
       />
       <InsightsTile
         label="First reviews"
@@ -35,7 +31,7 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
         detail={`PR to review ${formatMedian(delivery.toFirstReview)}`}
         tooltip={formatSlowest(delivery.toFirstReview)}
         delta={shownDeltaOf(delivery.changes.reviewed)}
-        drill={reviewed ? { tab: 'traces', filter: reviewed } : undefined}
+        drill={tasksDrill(delivery.reviewedTaskIds)}
       />
       <InsightsTile
         label="PRs merged"
@@ -43,7 +39,7 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
         detail={`Review to merge ${formatMedian(delivery.toMerge)}`}
         tooltip={formatSlowest(delivery.toMerge)}
         delta={shownDeltaOf(delivery.changes.merged)}
-        drill={{ tab: 'traces', filter: mergedFilter(delivery.mergedTaskIds) }}
+        drill={tasksDrill(delivery.mergedTaskIds)}
       />
     </TileGroup>
   );

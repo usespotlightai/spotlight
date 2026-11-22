@@ -11,7 +11,7 @@ import { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregat
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import {
   TaskFailuresInMemory,
-  taskPullRequestOf,
+  ownedRecordOf,
 } from '@insights/insights.fake-spec';
 import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
@@ -61,7 +61,7 @@ const CONFIGS: Record<string, StationConfigView> = {
 
 const reading = async (member = true) => {
   const records = new RunRecordsInMemory();
-  const taskPullRequests = new PullRequestRecordsInMemory();
+  const pullRequestRecords = new PullRequestRecordsInMemory();
   const pullRequests = stationConfigPullRequestsInMemory();
   const failures = new TaskFailuresInMemory();
   const requested: string[][] = [];
@@ -100,7 +100,7 @@ const reading = async (member = true) => {
 
   return {
     records,
-    taskPullRequests,
+    pullRequestRecords,
     pullRequests,
     failures,
     requested,
@@ -108,7 +108,7 @@ const reading = async (member = true) => {
       new ReadStationInsightsHandler(
         access,
         new StationFactsInMemory(records, {
-          pullRequests: taskPullRequests,
+          pullRequests: pullRequestRecords,
           failures,
         }),
         pullRequests,
@@ -204,8 +204,8 @@ describe('reading how a station’s runs turned out', () => {
   it('shows each run with the state of its task’s pull request', async () => {
     const reader = await reading();
     await reader.records.add(endedRecord('run_1'));
-    await reader.taskPullRequests.add(
-      taskPullRequestOf('task_1', {
+    await reader.pullRequestRecords.add(
+      ownedRecordOf('task_1', {
         openedAt: at(4),
         closedAt: at(5),
         merged: true,
@@ -383,8 +383,8 @@ describe('reading how a station’s runs turned out', () => {
       }),
     );
     for (const taskId of ['task_a1', 'task_b']) {
-      await reader.taskPullRequests.add(
-        taskPullRequestOf(taskId, {
+      await reader.pullRequestRecords.add(
+        ownedRecordOf(taskId, {
           openedAt: at(5),
           closedAt: at(6),
           merged: true,

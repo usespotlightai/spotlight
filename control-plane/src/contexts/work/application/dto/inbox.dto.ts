@@ -157,7 +157,7 @@ export interface FoldedVisitDto {
   readonly endedAt: string;
   readonly closing: NoteDto | null;
   readonly answers: readonly NoteDto[];
-  readonly sentBack: boolean;
+  readonly passedBack: boolean;
 }
 
 export interface InboxItemViewDto extends InboxItemDto {

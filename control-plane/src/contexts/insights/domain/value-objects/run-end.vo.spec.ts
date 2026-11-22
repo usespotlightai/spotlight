@@ -11,9 +11,9 @@ describe('RunEnd', () => {
     );
   });
 
-  it('is its station’s first visit or a later one', () => {
-    expect(() => endOf({ visit: 0 })).toThrow(InvalidOutcomeError);
-    expect(endOf({ visit: 3 }).visit).toBe(3);
+  it('is its station’s first run or a later one', () => {
+    expect(() => endOf({ runNumber: 0 })).toThrow(InvalidOutcomeError);
+    expect(endOf({ runNumber: 3 }).runNumber).toBe(3);
   });
 
   it('is queued, started and ended in that order', () => {

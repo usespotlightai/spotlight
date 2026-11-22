@@ -75,8 +75,8 @@ export function FoldedVisitRow({ visit, item, worked }: FoldedVisitRowProps) {
         <span className="shrink-0 font-medium text-foreground">
           {first.station}
         </span>
-        {visit.sentBack && (
-          <span className="shrink-0 text-foreground">Sent it back.</span>
+        {visit.passedBack && (
+          <span className="shrink-0 text-foreground">Passed it back.</span>
         )}
         <span className="hidden min-w-0 flex-1 truncate text-muted-foreground @md/pane:block">
           {previewOf(visit)}

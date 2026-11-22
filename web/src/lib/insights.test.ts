@@ -144,6 +144,16 @@ describe('the insights view in the address', () => {
         ),
       ).filter,
     ).toEqual({});
+    expect(
+      viewOf(new URLSearchParams('tab=traces&humanAction=held-as-wrong'))
+        .filter,
+    ).toEqual({ humanAction: 'held-as-wrong' });
+    expect(
+      viewOf(new URLSearchParams('tab=traces&humanAction=held')).filter,
+    ).toEqual({});
+    expect(
+      viewOf(new URLSearchParams('tab=traces&humanAction=toString')).filter,
+    ).toEqual({});
   });
 
   it('keeps run filters to the runs tab', () => {
@@ -348,30 +358,25 @@ describe('headlineTiles', () => {
     expect(spend?.detail).toBe('Prices in more than one currency');
   });
 
-  it('drills from merged pull requests into the runs of the tasks that merged', () => {
+  it('drills from merged pull requests into the runs of the tasks with a pull request merged in the period, and not from the merge rate', () => {
     const tiles = headlineTiles(
       headline({ mergedTaskIds: ['task_1', 'task_2'] }),
       UNCHANGED,
     );
+    const drillOf = (id: string) => tiles.find((each) => each.id === id)?.drill;
 
-    expect(tiles[1]?.drill).toEqual({
+    expect(drillOf('merged')).toEqual({
       tab: 'traces',
       filter: { taskIds: 'task_1,task_2' },
     });
-    expect(tiles[2]?.drill).toEqual({
-      tab: 'traces',
-      filter: { pullRequestState: 'merged' },
-    });
+    expect(drillOf('merge-rate')).toBeUndefined();
   });
 
-  it('drills by pull request state where there are too many merged tasks to name', () => {
+  it('offers no drill where there are too many merged tasks to name', () => {
     const many = Array.from({ length: 201 }, (_, at) => `task_${at}`);
     const tiles = headlineTiles(headline({ mergedTaskIds: many }), UNCHANGED);
 
-    expect(tiles[1]?.drill).toEqual({
-      tab: 'traces',
-      filter: { pullRequestState: 'merged' },
-    });
+    expect(tiles.find((each) => each.id === 'merged')?.drill).toBeUndefined();
   });
 });
 
@@ -464,7 +469,10 @@ describe('cost', () => {
     expect(formatFilterValue('taskIds', 'task_1,task_2')).toBe('2 tasks');
     expect(formatFilterValue('humanAction', 'sent-back')).toBe('Sent back');
     expect(formatFilterValue('resolution', 'failed')).toBe('Failed, no answer');
-    expect(formatFilterValue('pullRequestState', 'merged')).toBe('Merged');
+    expect(formatFilterValue('pullRequestState', 'merged')).toBe('All merged');
+    expect(formatFilterValue('pullRequestState', 'closed')).toBe(
+      'Not all merged',
+    );
   });
 
   it('lays the flow out by index for a Sankey, dropping what does not connect', () => {

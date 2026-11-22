@@ -270,7 +270,7 @@ const run = (runId: string, ending: string) => ({
   ending,
   resolution: ending === 'failed' ? 'failed' : 'other',
   failure: null,
-  visit: 1,
+  runNumber: 1,
   usage: null,
   checks: 'passed',
   firstHumanAction: null,

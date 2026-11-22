@@ -127,7 +127,7 @@ describe('RunJudgeScore', () => {
     ['accepted', 'Accepted'],
     ['sent-back', 'Sent back'],
     ['merged', 'Pull request merged'],
-    ['held', 'Put on hold'],
+    ['held-as-wrong', 'Held as wrong'],
   ] as const)(
     'shows people’s verdict on the run before the judge’s verdict: %s',
     (labelFrom, shown) => {

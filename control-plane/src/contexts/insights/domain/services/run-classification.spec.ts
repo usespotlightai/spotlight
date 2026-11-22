@@ -22,7 +22,7 @@ const run = (
     : null,
   approvalAnsweredAt: change.approvalAnsweredAt ?? null,
   passed: change.passed ?? false,
-  merged: change.merged ?? false,
+  taskMerged: change.taskMerged ?? false,
   followed: change.followed ?? false,
 });
 
@@ -38,19 +38,19 @@ describe('resolutionOf', () => {
       run({ ending: 'failed', action: 'accepted' }),
       'accepted',
     ],
-    ['failed', run({ ending: 'failed', merged: true }), 'failed'],
-    ['stopped', run({ ending: 'stopped', merged: true }), 'other'],
+    ['failed', run({ ending: 'failed', taskMerged: true }), 'failed'],
+    ['stopped', run({ ending: 'stopped', taskMerged: true }), 'other'],
     ['superseded', run({ ending: 'superseded', passed: true }), 'other'],
-    ['handed on', run({ passed: true, merged: true }), 'moved-on'],
+    ['handed on', run({ passed: true, taskMerged: true }), 'moved-on'],
     [
       'moved on by a person',
-      run({ action: 'started', merged: true }),
+      run({ action: 'started', taskMerged: true }),
       'moved-on',
     ],
-    ['merged', run({ merged: true }), 'accepted'],
+    ['merged', run({ taskMerged: true }), 'accepted'],
     [
-      'merged after a later visit of its station',
-      run({ merged: true, followed: true }),
+      'merged after a later run of its station',
+      run({ taskMerged: true, followed: true }),
       'other',
     ],
     ['parked', run({ action: 'parked' }), 'other'],
@@ -63,8 +63,12 @@ describe('resolutionOf', () => {
 
 describe('dispositionOf', () => {
   it.each([
-    ['merged without a person', run({ merged: true }), 'other'],
-    ['merged after a question', run({ merged: true, asked: true }), 'asked'],
+    ['merged without a person', run({ taskMerged: true }), 'other'],
+    [
+      'merged after a question',
+      run({ taskMerged: true, asked: true }),
+      'asked',
+    ],
     ['accepted by a person', run({ action: 'accepted' }), 'accepted'],
     [
       'failed after a question',

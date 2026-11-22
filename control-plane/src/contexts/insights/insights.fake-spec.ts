@@ -231,7 +231,7 @@ export const failuresOf = (
     TaskFailures.empty(TaskId.of(taskId), WORKSPACE, TEAM),
   );
 
-export const taskPullRequestOf = (
+export const ownedRecordOf = (
   taskId: string,
   moments: {
     openedAt: Date;

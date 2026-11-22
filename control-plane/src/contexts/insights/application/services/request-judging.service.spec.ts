@@ -23,7 +23,7 @@ const ENDED: EndedRun = {
   stationId: StationId.of('station_1'),
   taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
-  visit: 1,
+  runNumber: 1,
   ...SET_UP,
   endedAt: new Date('2026-09-30T10:00:00.000Z'),
 };

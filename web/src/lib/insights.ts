@@ -119,31 +119,9 @@ export const RUN_ENDINGS: readonly RunEnding[] = [
 
 export type RunPullRequestState = NonNullable<TraceQuery['pullRequestState']>;
 
-const RUN_PULL_REQUEST_STATES: readonly RunPullRequestState[] = [
-  'merged',
-  'closed',
-  'open',
-];
-
 export type RunHumanAction = NonNullable<TraceQuery['humanAction']>;
 
-const RUN_HUMAN_ACTIONS: readonly RunHumanAction[] = [
-  'started',
-  'parked',
-  'accepted',
-  'answered',
-  'sent-back',
-];
-
 export type RunResolution = NonNullable<TraceQuery['resolution']>;
-
-const RUN_RESOLUTIONS: readonly RunResolution[] = [
-  'accepted',
-  'sent-back',
-  'moved-on',
-  'failed',
-  'other',
-];
 
 const MAX_TASK_IDS = 200;
 
@@ -224,20 +202,14 @@ const runFilterOf = (params: URLSearchParams): RunFilter =>
       }
       if (
         key === 'pullRequestState' &&
-        !RUN_PULL_REQUEST_STATES.includes(value as RunPullRequestState)
+        !Object.hasOwn(PULL_REQUEST_STATES, value)
       ) {
         return [];
       }
-      if (
-        key === 'humanAction' &&
-        !RUN_HUMAN_ACTIONS.includes(value as RunHumanAction)
-      ) {
+      if (key === 'humanAction' && !Object.hasOwn(HUMAN_ACTIONS, value)) {
         return [];
       }
-      if (
-        key === 'resolution' &&
-        !RUN_RESOLUTIONS.includes(value as RunResolution)
-      ) {
+      if (key === 'resolution' && !Object.hasOwn(RESOLUTIONS, value)) {
         return [];
       }
       if (key === 'asked' && value !== 'true') {
@@ -314,15 +286,10 @@ const MIXED_CURRENCIES = 'Prices in more than one currency';
 export const whyNoSpend = (mixedCurrencies: boolean): string =>
   mixedCurrencies ? MIXED_CURRENCIES : NOTHING_PRICED;
 
-export const mergedFilter = (taskIds: readonly string[]): RunFilter =>
+export const tasksDrill = (taskIds: readonly string[]): TileDrill =>
   taskIds.length > 0 && taskIds.length <= MAX_TASK_IDS
-    ? { taskIds: taskIds.join(',') }
-    : { pullRequestState: 'merged' };
-
-export const tasksFilter = (taskIds: readonly string[]): RunFilter | null =>
-  taskIds.length > 0 && taskIds.length <= MAX_TASK_IDS
-    ? { taskIds: taskIds.join(',') }
-    : null;
+    ? { tab: 'traces', filter: { taskIds: taskIds.join(',') } }
+    : undefined;
 
 export const formatSpend = (spend: Money | null): string =>
   spend ? spentIn(spend.amount, spend.currency) : '–';
@@ -448,14 +415,14 @@ export const headlineTiles = (
     value: formatCount(now.mergedPullRequests),
     detail: `${formatCount(now.closedPullRequests)} closed unmerged`,
     delta: shownDeltaOf(changes.mergedPullRequests),
-    drill: { tab: 'traces', filter: mergedFilter(now.mergedTaskIds) },
+    drill: tasksDrill(now.mergedTaskIds),
   },
   {
     id: 'merge-rate',
     label: 'Merge rate',
     value: formatShare(now.mergeRate),
     delta: shownDeltaOf(changes.mergeRate),
-    drill: { tab: 'traces', filter: { pullRequestState: 'merged' } },
+    drill: undefined,
   },
   {
     id: 'cost-per-merge',
@@ -473,7 +440,7 @@ export const headlineTiles = (
         ? undefined
         : `Slowest 10%: ${formatDuration(now.taskToMerge.p90Ms)}`,
     delta: shownDeltaOf(changes.taskToMerge),
-    drill: { tab: 'traces', filter: mergedFilter(now.mergedTaskIds) },
+    drill: tasksDrill(now.mergedTaskIds),
   },
   {
     id: 'human-actions',
@@ -967,8 +934,8 @@ const FILTER_LABELS: Record<RunFilterKey, string> = {
 export const filterLabel = (key: RunFilterKey): string => FILTER_LABELS[key];
 
 const PULL_REQUEST_STATES: Record<RunPullRequestState, string> = {
-  merged: 'Merged',
-  closed: 'Closed unmerged',
+  merged: 'All merged',
+  closed: 'Not all merged',
   open: 'Open',
 };
 
@@ -978,7 +945,7 @@ const HUMAN_ACTIONS: Record<RunHumanAction, string> = {
   accepted: 'Accepted',
   answered: 'Answered',
   'sent-back': 'Sent back',
-  held: 'Put on hold',
+  'held-as-wrong': 'Held as wrong',
 };
 
 const RESOLUTIONS: Record<RunResolution, string> = {
@@ -1176,7 +1143,8 @@ export const PEOPLE_HEADINGS: readonly NestedHeading[] = [
     label: 'Actions',
     numeric: true,
     size: SPREAD,
-    tooltip: 'Moves, answers, approvals, dismissals and sends-back',
+    tooltip:
+      'Moves, acceptances, answers, approvals, dismissals, send-backs and holds as wrong',
   },
   { label: 'Tasks opened', numeric: true, size: SPREAD },
   { label: 'Chats', numeric: true, size: SPREAD },
@@ -1193,7 +1161,7 @@ export const WAITS_NOTE =
   'Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran.';
 
 export const DELIVERY_NOTE =
-  'Time from when a task opens to its pull request, first human review and merge. Times are medians; the slowest 10% shows on hover.';
+  'Time from when a task opens to its pull request, first human review and merge. Each pull request of a task counts on its own. Times are medians; the slowest 10% shows on hover.';
 
 const SOME_STATIONS = 4;
 

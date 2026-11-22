@@ -7,7 +7,7 @@ import {
 const FIRST_ACT_LABELS: readonly LabelSource[] = [
   'accepted',
   'sent-back',
-  'held',
+  'held-as-wrong',
 ];
 
 const PASSING_LABELS: readonly LabelSource[] = ['accepted', 'merged'];

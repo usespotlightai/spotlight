@@ -101,16 +101,16 @@ describe('byAge', () => {
 });
 
 describe('underway', () => {
-  const run = (state: Run['state']) => ({ state }) as Run;
+  const run = (progress: Run['progress']) => ({ progress }) as Run;
 
-  it('is under way while it waits for a runner or a runner has it', () => {
+  it('is under way while the server reports progress', () => {
     expect(underway(run('queued'))).toBe(true);
-    expect(underway(run('claimed'))).toBe(true);
+    expect(underway(run('in-progress'))).toBe(true);
+    expect(underway(run('stopping'))).toBe(true);
   });
 
   it('is not under way while it waits on a person, or once it is over', () => {
-    expect(underway(run('suspended'))).toBe(false);
-    expect(underway(run('completed'))).toBe(false);
+    expect(underway(run(null))).toBe(false);
   });
 });
 

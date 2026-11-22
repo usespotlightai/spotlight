@@ -80,7 +80,7 @@ const ran = async (runId: string) => {
       endedAt: ago(2),
       ending: 'completed',
       failure: null,
-      visit: 1,
+      runNumber: 1,
       asked: false,
     }),
   );

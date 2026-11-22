@@ -6,6 +6,7 @@ import type {
   HistoryUsage,
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
+import { HUMAN_ACTION_KINDS } from '@work/domain/value-objects/human-action-kind';
 import { RunStationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 
@@ -66,15 +67,8 @@ export class HistoryRunUsageResponseDto {
 
 export class TaskHumanActionResponseDto {
   @ApiProperty({
-    enum: [
-      'started',
-      'parked',
-      'accepted',
-      'answered',
-      'approved',
-      'dismissed',
-      'sent-back',
-    ],
+    enum: HUMAN_ACTION_KINDS,
+    description: 'What the person did with the task',
   })
   readonly kind: string;
 
@@ -105,9 +99,9 @@ export class RunOutcomeResponseDto {
 
   @ApiProperty({
     description:
-      'How many runs this station has taken on the task, this one included',
+      'The number of this run at its station on the task: 1 plus the earlier runs there that completed or failed. Every stay at the station counts.',
   })
-  readonly visit: number;
+  readonly runNumber: number;
 
   @ApiProperty({ nullable: true, type: () => HistoryRunUsageResponseDto })
   readonly usage: HistoryRunUsageResponseDto | null;
@@ -124,13 +118,15 @@ export class RunOutcomeResponseDto {
   @ApiProperty({
     nullable: true,
     enum: ['open', 'merged', 'closed', null],
+    description:
+      'The combined state of the task’s pull requests: open while one is open, merged when all merged, else closed',
   })
   readonly pullRequestState: string | null;
 
   constructor(from: HistoryOutcome) {
     this.ending = from.ending;
     this.failure = from.failure;
-    this.visit = from.visit;
+    this.runNumber = from.runNumber;
     this.usage = from.usage ? new HistoryRunUsageResponseDto(from.usage) : null;
     this.checks = from.checks;
     this.firstHumanAction = from.firstHumanAction
@@ -180,7 +176,10 @@ export class HistoryRunResponseDto {
   @ApiProperty({ example: 'completed' })
   readonly state: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it.',
+  })
   readonly attempt: number;
 
   @ApiProperty({ example: 'claude-code' })

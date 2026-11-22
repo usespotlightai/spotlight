@@ -61,11 +61,11 @@ export const endOf = (
     !row.harness ||
     !row.repositories ||
     !row.skills ||
-    row.visit === null
+    row.runNumber === null
   ) {
     throw new InconsistentStateError(
       stored,
-      'ended without saying where, how, or in which visit',
+      'ended without saying where, how, or with which run number',
     );
   }
 
@@ -90,7 +90,7 @@ export const endOf = (
     endedAt: row.endedAt,
     ending: row.ending,
     failure: row.failure,
-    visit: row.visit,
+    runNumber: row.runNumber,
     asked: row.asked,
   });
 };
@@ -265,7 +265,7 @@ export const partColumnsOf = (
     endedAt: end?.endedAt ?? null,
     ending: end?.ending ?? null,
     failure: end?.failure ?? null,
-    visit: end?.visit ?? null,
+    runNumber: end?.runNumber ?? null,
     asked: end?.asked ?? false,
     supersededAt: record.supersededAt,
     checks: record.checks,

@@ -12,7 +12,7 @@ const shapeOf = (outcome: RunOutcomeDto): RunResultShape => ({
   endedAt: outcome.endedAt,
   ending: outcome.ending,
   failure: outcome.failure,
-  visit: outcome.visit,
+  runNumber: outcome.runNumber,
   checks: outcome.checks,
   firstHumanAction: outcome.firstHumanAction,
   pullRequestState: outcome.pullRequestState,

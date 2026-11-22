@@ -51,8 +51,8 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
         </p>
       )}
 
-      <NestedCell heading="Visit" numeric={false}>
-        {run.visit}
+      <NestedCell heading="Run number" numeric={false}>
+        {run.runNumber}
       </NestedCell>
       <NestedCell heading="Checks" numeric={false}>
         {formatChecks(run.checks)}

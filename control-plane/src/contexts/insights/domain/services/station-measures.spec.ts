@@ -11,7 +11,7 @@ import {
 } from '@insights/domain/value-objects/alert-rule.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
-import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
+import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -98,18 +98,18 @@ describe('measureOf', () => {
       ),
       endedRecord('run_3', { taskId: 'task_2', endedAt: at(3) }),
     ];
-    const taskPullRequests = [
-      taskPullRequestOf('task_1', {
+    const pullRequestRecords = [
+      ownedRecordOf('task_1', {
         openedAt: at(2),
         closedAt: at(5),
         merged: true,
       }),
     ];
 
-    expect(measureOf('checks_failed_rate', records, taskPullRequests)).toBe(
+    expect(measureOf('checks_failed_rate', records, pullRequestRecords)).toBe(
       0.5,
     );
-    expect(measureOf('merged_rate', records, taskPullRequests)).toBe(0.5);
+    expect(measureOf('merged_rate', records, pullRequestRecords)).toBe(0.5);
   });
 
   it('measures the cost of a priced run, and nothing where none was priced', () => {
@@ -208,13 +208,13 @@ describe('readingOf, among measured runs', () => {
         ),
         endedRecord('run_1', { taskId: 'task_1', endedAt: at(1) }),
       ],
-      [taskPullRequestOf('task_1', { openedAt: at(1), closedAt: at(1) })],
+      [ownedRecordOf('task_1', { openedAt: at(1), closedAt: at(1) })],
     );
 
     expect(reading).toEqual(through('run_2', 0.5));
   });
 
-  it('reads the merged rate only from runs whose pull request merged or closed', () => {
+  it('reads the merged rate only from runs whose task’s pull requests are no longer open', () => {
     const rule = AlertRule.of({ measure: 'merged_rate', below: 0.5, over: 1 });
     const records = [
       endedRecord('run_2', { taskId: 'task_2', endedAt: at(2) }),
@@ -223,8 +223,8 @@ describe('readingOf, among measured runs', () => {
 
     expect(
       readingOf(rule, records, [
-        taskPullRequestOf('task_2', { openedAt: at(2) }),
-        taskPullRequestOf('task_1', {
+        ownedRecordOf('task_2', { openedAt: at(2) }),
+        ownedRecordOf('task_1', {
           openedAt: at(1),
           closedAt: at(3),
           merged: false,
@@ -232,9 +232,7 @@ describe('readingOf, among measured runs', () => {
       ]),
     ).toEqual(through('run_1', 0));
     expect(
-      readingOf(rule, records, [
-        taskPullRequestOf('task_2', { openedAt: at(2) }),
-      ]),
+      readingOf(rule, records, [ownedRecordOf('task_2', { openedAt: at(2) })]),
     ).toBeNull();
   });
 

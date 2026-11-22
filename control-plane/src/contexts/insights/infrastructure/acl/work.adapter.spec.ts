@@ -20,7 +20,7 @@ const endedRun = (fingerprint: string | null): EndedStationRun => ({
   stationId: 'station_1',
   taskId: 'task_1',
   fingerprint,
-  visit: 1,
+  runNumber: 1,
   harness: 'claude-code',
   model: null,
   effort: null,

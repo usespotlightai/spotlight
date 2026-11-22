@@ -47,7 +47,7 @@ const endOf = (
     endedAt: run.endedAt,
     ending,
     failure,
-    visit: run.visit,
+    runNumber: run.runNumber,
     asked,
   });
 

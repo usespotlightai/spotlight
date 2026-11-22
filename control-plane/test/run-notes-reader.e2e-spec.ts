@@ -233,7 +233,7 @@ describe('the notes of a run', () => {
       'The billing queue.',
       'Only the EU part.',
     ]);
-    expect(visit?.sentBack).toBe(false);
+    expect(visit?.passedBack).toBe(false);
     expect(
       (await reader.taskNotesBetween(TaskId.of(taskId), 0, 3))?.found.map(
         (each) => each.body,

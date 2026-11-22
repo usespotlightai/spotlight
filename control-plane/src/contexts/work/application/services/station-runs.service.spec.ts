@@ -84,7 +84,7 @@ describe('StationRuns.ended', () => {
       stationId: 'station_1',
       taskId: 'task_1',
       fingerprint: null,
-      visit: 2,
+      runNumber: 2,
       harness: 'codex',
       model: 'gpt-5',
       effort: 'high',

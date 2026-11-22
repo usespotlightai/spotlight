@@ -2651,7 +2651,10 @@ export type HistoryRunUsageResponseDto = {
 };
 
 export type TaskHumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'dismissed' | 'sent-back';
+  /**
+   * What the person did with the task
+   */
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'dismissed' | 'sent-back' | 'held-as-wrong';
   at: string;
 };
 
@@ -2659,12 +2662,15 @@ export type RunOutcomeResponseDto = {
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
   /**
-   * How many runs this station has taken on the task, this one included
+   * The number of this run at its station on the task: 1 plus the earlier runs there that completed or failed. Every stay at the station counts.
    */
-  visit: number;
+  runNumber: number;
   usage: HistoryRunUsageResponseDto | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
   firstHumanAction: TaskHumanActionResponseDto | null;
+  /**
+   * The combined state of the task’s pull requests: open while one is open, merged when all merged, else closed
+   */
   pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
@@ -2684,6 +2690,9 @@ export type HistoryRunResponseDto = {
   title: string;
   fingerprint: string | null;
   state: string;
+  /**
+   * The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it.
+   */
   attempt: number;
   harness: string;
   startedAt: string;
@@ -3231,9 +3240,9 @@ export type FoldedVisitResponseDto = {
    */
   answers: Array<NoteResponseDto>;
   /**
-   * Whether this visit sent the task back to an earlier station
+   * Whether the station passed the task back to an earlier station at the end of this visit
    */
-  sentBack: boolean;
+  passedBack: boolean;
 };
 
 export type InboxItemViewResponseDto = {
@@ -3576,6 +3585,9 @@ export type RunReviewResponseDto = {
 export type TeamRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  /**
+   * The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it.
+   */
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -3745,6 +3757,9 @@ export type TaskPullRequestResponseDto = {
 export type TaskRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  /**
+   * The run’s attempt: 1 when it first went on the queue, and 1 more each time it went back on the queue, after its runner lost it or timed out, or when it resumed after a person answered or wrote to it.
+   */
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -5991,7 +6006,7 @@ export type StationRunUsageResponseDto = {
 };
 
 export type HumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held';
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held-as-wrong';
   at: string;
 };
 
@@ -6009,7 +6024,7 @@ export type StationRunOutcomeResponseDto = {
   endedAt: string;
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   /**
-   * What came of the run: failed, sent back, accepted, moved on to another station, or other
+   * What came of the run: failed, sent back, accepted, moved on to another station, or other. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold with the verdict that the line got it wrong.
    */
   resolution: 'accepted' | 'sent-back' | 'moved-on' | 'failed' | 'other';
   /**
@@ -6017,9 +6032,9 @@ export type StationRunOutcomeResponseDto = {
    */
   failure: string | null;
   /**
-   * How many runs this station has taken on the task, this one included
+   * The number of this run at its station on the task: 1 plus the earlier runs there that completed or failed. Every stay at the station counts.
    */
-  visit: number;
+  runNumber: number;
   usage: StationRunUsageResponseDto | null;
   /**
    * How its change fared when checked, if it was
@@ -6034,7 +6049,7 @@ export type StationRunOutcomeResponseDto = {
    */
   passed: StationPassResponseDto | null;
   /**
-   * The status of the task’s pull request, if it opened one
+   * The combined status of the task’s pull requests, if it opened any: open while one is open, merged when all merged, else closed
    */
   pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
@@ -6126,7 +6141,7 @@ export type RunTallyResponseDto = {
    */
   passed: number;
   /**
-   * Tasks among these runs whose pull request merged
+   * Tasks among these runs whose pull requests all merged
    */
   merged: number;
   /**
@@ -6538,9 +6553,9 @@ export type RunScoresResponseDto = {
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * What gave people’s verdict on the run: the first action of a person on it, or the merge of the task’s pull request, which counts only for the station’s last completed run on the task. Null where people said nothing yet
+   * What gave people’s verdict on the run: the first action of a person on it, or the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where people said nothing yet
    */
-  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held' | null;
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | null;
   /**
    * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or people said nothing yet
    */
@@ -6628,7 +6643,7 @@ export type HeadlineResponseDto = {
    */
   taskToMerge: SpreadResponseDto;
   /**
-   * What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back
+   * What people did with the tasks worked in the period: every move, acceptance, answer, approval, dismissal, send-back and hold as wrong
    */
   humanActions: number;
   /**
@@ -6640,7 +6655,7 @@ export type HeadlineResponseDto = {
    */
   activePeople: number;
   /**
-   * The tasks whose pull requests merged
+   * The tasks with a pull request merged in the period
    */
   mergedTaskIds: Array<string>;
   /**
@@ -6740,6 +6755,9 @@ export type DayOutputResponseDto = {
    * Pull requests merged that day
    */
   merged: number;
+  /**
+   * The tasks with a pull request merged that day
+   */
   mergedTaskIds: Array<string>;
   /**
    * Each time a station ran with a new config whose first run started that UTC day
@@ -6910,14 +6928,29 @@ export type DeliveryFlowResponseDto = {
    * From a pull request’s first review, or its opening where nobody reviewed it, to its merge
    */
   toMerge: SpreadResponseDto;
+  /**
+   * Pull requests opened in the period
+   */
   opened: number;
+  /**
+   * Pull requests a person first reviewed in the period
+   */
   reviewed: number;
+  /**
+   * Pull requests merged in the period
+   */
   merged: number;
+  /**
+   * The tasks with a pull request opened in the period
+   */
   openedTaskIds: Array<string>;
   /**
-   * The tasks whose pull requests a person first reviewed in the period
+   * The tasks with a pull request a person first reviewed in the period
    */
   reviewedTaskIds: Array<string>;
+  /**
+   * The tasks with a pull request merged in the period
+   */
   mergedTaskIds: Array<string>;
   /**
    * How each count moved against the period before, as long
@@ -7135,7 +7168,7 @@ export type PersonUseResponseDto = {
   name: string | null;
   tasksOpened: number;
   /**
-   * Moves, answers, approvals, dismissals and sends-back
+   * Moves, acceptances, answers, approvals, dismissals, send-backs and holds as wrong
    */
   actions: number;
   /**
@@ -7664,7 +7697,7 @@ export type AgentConfigOutcomesResponseDto = {
    */
   checks_passed: number | null;
   /**
-   * Share of the runs’ tasks whose pull request merged
+   * Of the runs’ tasks whose pull requests are no longer open, the share whose pull requests all merged
    */
   merged: number | null;
   /**
@@ -8610,7 +8643,7 @@ export type JudgeDisagreementResponseDto = {
   /**
    * What gave people’s verdict on the run when the disagreement opened, which disagrees with the judge’s
    */
-  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held';
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong';
   openedAt: string;
   claims: Array<DisagreementClaimResponseDto>;
   /**
@@ -21673,9 +21706,9 @@ export type ListInsightsTracesData = {
     /**
      * Only runs that a person acted on first in this way
      */
-    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held';
+    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back' | 'held-as-wrong';
     /**
-     * Only runs of tasks whose pull request has this status
+     * Only runs of tasks whose pull requests have this combined status: open while one is open, merged when all merged, else closed
      */
     pullRequestState?: 'open' | 'merged' | 'closed';
     /**

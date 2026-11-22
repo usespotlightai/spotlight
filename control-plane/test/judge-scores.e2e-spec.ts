@@ -118,7 +118,7 @@ const endedRecord = (runId: string) =>
       endedAt: NOW,
       ending: 'completed',
       failure: null,
-      visit: 1,
+      runNumber: 1,
       asked: false,
     }),
   );

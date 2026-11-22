@@ -42,7 +42,7 @@ const LABELS: Record<LabelSource, string> = {
   accepted: 'Accepted',
   'sent-back': 'Sent back',
   merged: 'Pull request merged',
-  held: 'Put on hold',
+  'held-as-wrong': 'Held as wrong',
 };
 
 export const formatLabel = (from: LabelSource): string => LABELS[from];

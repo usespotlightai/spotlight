@@ -5,14 +5,14 @@ import {
   type HumanActionKind,
 } from '@insights/domain/value-objects/human-action.vo';
 import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
-import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
-const NEXT_VISIT_ENDED = new Date('2026-09-30T10:30:00.000Z');
+const NEXT_RUN_ENDED = new Date('2026-09-30T10:30:00.000Z');
 
 const ACTOR = UserId.of('user_lin');
 
@@ -20,11 +20,11 @@ const actedOn = (act: HumanActionKind) =>
   endedRecord('run_1').recordAction(HumanAction.of(act, AT, ACTOR));
 
 const pullRequestOf = (merged: boolean) =>
-  taskPullRequestOf('task_1', { openedAt: AT, closedAt: AT, merged });
+  ownedRecordOf('task_1', { openedAt: AT, closedAt: AT, merged });
 
-const MERGED_LAST_VISIT = {
+const MERGED_LAST_RUN = {
   firstHumanAction: null,
-  merged: true,
+  taskMerged: true,
   ending: 'completed',
   followedAt: null,
 } as const;
@@ -47,7 +47,7 @@ describe('HumanLabel.of', () => {
   it.each([
     ['accepted', 'accepted'],
     ['sent-back', 'sent-back'],
-    ['held', 'held'],
+    ['held-as-wrong', 'held-as-wrong'],
     ['started', 'merged'],
     ['parked', 'merged'],
     ['answered', 'merged'],
@@ -56,30 +56,28 @@ describe('HumanLabel.of', () => {
     (act, from) => {
       expect(
         HumanLabel.of({
-          ...MERGED_LAST_VISIT,
+          ...MERGED_LAST_RUN,
           firstHumanAction: HumanAction.of(act, AT, ACTOR),
         })?.from,
       ).toBe(from);
     },
   );
 
-  it('labels a merge only on a completed run no later visit followed', () => {
-    expect(HumanLabel.of(MERGED_LAST_VISIT)).toEqual({
+  it('labels a merge only on a completed run no later run followed', () => {
+    expect(HumanLabel.of(MERGED_LAST_RUN)).toEqual({
       from: 'merged',
       by: null,
     });
+    expect(HumanLabel.of({ ...MERGED_LAST_RUN, ending: 'stopped' })).toBeNull();
     expect(
-      HumanLabel.of({ ...MERGED_LAST_VISIT, ending: 'stopped' }),
+      HumanLabel.of({ ...MERGED_LAST_RUN, followedAt: NEXT_RUN_ENDED }),
     ).toBeNull();
-    expect(
-      HumanLabel.of({ ...MERGED_LAST_VISIT, followedAt: NEXT_VISIT_ENDED }),
-    ).toBeNull();
-    expect(HumanLabel.of({ ...MERGED_LAST_VISIT, merged: false })).toBeNull();
+    expect(HumanLabel.of({ ...MERGED_LAST_RUN, taskMerged: false })).toBeNull();
   });
 });
 
 describe('a run fact’s human label', () => {
-  it.each(['accepted', 'sent-back', 'held'] as const)(
+  it.each(['accepted', 'sent-back', 'held-as-wrong'] as const)(
     'labels a run people %s by that act, and by the person who did it',
     (act) => {
       expect(labelled({ record: actedOn(act) })).toEqual({
@@ -129,7 +127,10 @@ describe('a run fact’s human label', () => {
   });
 
   it('gives the merge to the station’s last completed run on the task, not to the runs before it', () => {
-    const later = endedRecord('run_2', { endedAt: NEXT_VISIT_ENDED, visit: 2 });
+    const later = endedRecord('run_2', {
+      endedAt: NEXT_RUN_ENDED,
+      runNumber: 2,
+    });
 
     expect(
       labelled({ laterRuns: [later], taskPullRequest: pullRequestOf(true) }),
@@ -141,17 +142,17 @@ describe('a run fact’s human label', () => {
     ).toMatchObject({ from: 'merged' });
   });
 
-  it('keeps the merge on a run whose later visit did not complete, or that a run at another station followed', () => {
+  it('keeps the merge on a run whose later run did not complete, or that a run at another station followed', () => {
     expect(
       labelled({
         laterRuns: [
           endedRecord('run_2', {
-            endedAt: NEXT_VISIT_ENDED,
-            visit: 2,
+            endedAt: NEXT_RUN_ENDED,
+            runNumber: 2,
             ending: 'failed',
           }),
           endedRecord('run_3', {
-            endedAt: NEXT_VISIT_ENDED,
+            endedAt: NEXT_RUN_ENDED,
             stationId: 'station_2',
           }),
         ],
@@ -160,12 +161,12 @@ describe('a run fact’s human label', () => {
     ).toMatchObject({ from: 'merged' });
   });
 
-  it('lets what a person did on a run still count after a later visit', () => {
+  it('lets what a person did on a run still count after a later run', () => {
     expect(
       labelled({
         record: actedOn('sent-back'),
         laterRuns: [
-          endedRecord('run_2', { endedAt: NEXT_VISIT_ENDED, visit: 2 }),
+          endedRecord('run_2', { endedAt: NEXT_RUN_ENDED, runNumber: 2 }),
         ],
         taskPullRequest: pullRequestOf(true),
       }),
@@ -184,8 +185,8 @@ describe('HumanLabel.agreesWith', () => {
 
     expect(accepted?.agreesWith({ passes: true })).toBe(true);
     expect(sentBack?.agreesWith({ passes: true })).toBe(false);
-    expect(
-      HumanLabel.of(MERGED_LAST_VISIT)?.agreesWith({ passes: false }),
-    ).toBe(false);
+    expect(HumanLabel.of(MERGED_LAST_RUN)?.agreesWith({ passes: false })).toBe(
+      false,
+    );
   });
 });

@@ -663,7 +663,7 @@ describe('Run', () => {
     });
 
     it('keeps a claimed run that is stopping under way, neither ended nor empty', () => {
-      runs.mockReturnValue([run({ state: 'claimed', progress: null })]);
+      runs.mockReturnValue([run({ state: 'claimed', progress: 'stopping' })]);
       conversation.mockReturnValue(
         conversationOf({
           notes: [],
@@ -681,6 +681,27 @@ describe('Run', () => {
       expect(
         screen.queryByText(/ended before the agent started/),
       ).not.toBeInTheDocument();
+      expect(screen.queryByRole('toolbar', { name: 'Run actions' })).toBeNull();
+    });
+
+    it('shows no closing actions while a suspended run’s handed-over turn is still in progress', () => {
+      runs.mockReturnValue([
+        run({ state: 'suspended', progress: 'in-progress' }),
+      ]);
+      conversation.mockReturnValue(
+        conversationOf({
+          notes: [],
+          progress: 'in-progress',
+          latestRun: {
+            id: 'run_1',
+            state: 'suspended',
+            progress: 'in-progress',
+          },
+        }),
+      );
+
+      renderRun();
+
       expect(screen.queryByRole('toolbar', { name: 'Run actions' })).toBeNull();
     });
 

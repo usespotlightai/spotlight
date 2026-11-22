@@ -16,7 +16,7 @@ import {
   resolutionTallyOf,
 } from '@/mocks/world/insights-measures';
 import { profileOf } from '@/mocks/world/insights-profiles';
-import { historyTaskOf, visitOf } from '@/mocks/world/past-work';
+import { historyTaskOf, runNumberOf } from '@/mocks/world/past-work';
 import { storyOf } from '@/mocks/world/run-stories';
 import { IMPLEMENTATION_VERSIONS } from '@/mocks/world/station-history';
 import {
@@ -76,7 +76,7 @@ const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   ending: run.ending,
   resolution: runResolutionOf(run),
   failure: run.failure,
-  visit: visitOf(run.runId),
+  runNumber: runNumberOf(run.runId),
   usage: usageOf(run),
   checks: run.checks,
   firstHumanAction: run.firstHumanAction,

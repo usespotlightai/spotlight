@@ -137,11 +137,11 @@ describe('JudgeDisagreementItem', () => {
     }
   });
 
-  it('says you put the run on hold that the judge passed', () => {
-    showing(passedDisagreementOf({ labelFrom: 'held' }));
+  it('says you held the run as wrong that the judge passed', () => {
+    showing(passedDisagreementOf({ labelFrom: 'held-as-wrong' }));
 
     expect(fact()).toHaveTextContent(
-      'You put this run on hold. The judge passed it.',
+      'You held this run as wrong. The judge passed it.',
     );
   });
 

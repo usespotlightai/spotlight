@@ -146,7 +146,7 @@ export const runRecord = pgTable(
     endedAt: timestamptz('ended_at'),
     ending: runRecordEnding('ending'),
     failure: text('failure'),
-    visit: integer('visit'),
+    runNumber: integer('run_number'),
     asked: boolean('asked').notNull().default(false),
     supersededAt: timestamptz('superseded_at'),
     checks: runRecordChecks('checks'),
@@ -217,7 +217,7 @@ export const runFact = pgTable(
     ranAConfig: boolean('ran_a_config').notNull(),
     size: runSize('size'),
     failure: text('failure'),
-    visit: integer('visit').notNull(),
+    runNumber: integer('run_number').notNull(),
     asked: boolean('asked').notNull(),
     supersededAt: timestamptz('superseded_at'),
     followedAt: timestamptz('followed_at'),
@@ -282,27 +282,6 @@ export const runFact = pgTable(
       )
       .where(sql`${table.ranAConfig}`),
     index('run_fact_task_idx').on(table.taskId),
-  ],
-);
-
-export const taskPullRequestFact = pgTable(
-  'task_pull_request_fact',
-  {
-    taskId: text('task_id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
-    teamId: text('team_id').notNull(),
-    pullRequest: text('pull_request').notNull(),
-    state: pullRequestState('state').notNull(),
-    openedAt: timestamptz('opened_at').notNull(),
-    firstReviewAt: timestamptz('first_review_at'),
-    closedAt: timestamptz('closed_at'),
-  },
-  (table) => [
-    index('task_pull_request_fact_team_idx').on(
-      table.workspaceId,
-      table.teamId,
-      table.openedAt,
-    ),
   ],
 );
 

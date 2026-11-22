@@ -5,14 +5,16 @@ import {
   spreadOf,
 } from '@insights/domain/services/measures';
 import {
+  finishedWithin,
+  type PullRequestDelivery,
+  tasksOf,
+} from '@insights/domain/services/pull-request-delivery';
+import {
   type Delta,
   deltaOf,
   spendDeltaOf,
 } from '@insights/domain/value-objects/delta.vo';
-import {
-  type Window,
-  within,
-} from '@insights/domain/value-objects/insights-period.vo';
+import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 
 export interface Headline {
@@ -43,20 +45,13 @@ export interface HeadlineCounts {
   readonly people: readonly string[];
 }
 
-export interface ResolvedDelivery {
-  readonly taskId: string;
-  readonly merged: boolean;
-  readonly closedAt: Date;
-  readonly taskOpenedAt: Date | null;
-}
-
 export const headlineFrom = (
   counts: HeadlineCounts,
-  resolved: readonly ResolvedDelivery[],
+  deliveries: readonly PullRequestDelivery[],
   window: Window,
 ): Headline => {
-  const closed = resolved.filter((each) => within(window, each.closedAt));
-  const merged = closed.filter((each) => each.merged);
+  const finished = deliveries.filter((each) => finishedWithin(window, each));
+  const merged = finished.filter((each) => each.merged);
   const { spend } = counts;
 
   return {
@@ -66,8 +61,8 @@ export const headlineFrom = (
     runs: counts.runs,
     tasks: counts.tasks,
     mergedPullRequests: merged.length,
-    closedPullRequests: closed.length - merged.length,
-    mergeRate: rateOf(merged.length, closed.length),
+    closedPullRequests: finished.length - merged.length,
+    mergeRate: rateOf(merged.length, finished.length),
     costPerMerge:
       spend && merged.length > 0
         ? { amount: spend.amount / merged.length, currency: spend.currency }
@@ -80,7 +75,7 @@ export const headlineFrom = (
     humanActions: counts.humanActions,
     humanActionsPerTask: rateOf(counts.humanActions, counts.tasks),
     activePeople: counts.people.length,
-    mergedTaskIds: merged.map((each) => each.taskId),
+    mergedTaskIds: tasksOf(merged),
     peopleIds: counts.people,
   };
 };

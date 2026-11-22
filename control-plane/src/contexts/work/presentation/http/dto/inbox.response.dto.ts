@@ -464,9 +464,10 @@ export class FoldedVisitResponseDto {
 
   @ApiProperty({
     example: false,
-    description: 'Whether this visit sent the task back to an earlier station',
+    description:
+      'Whether the station passed the task back to an earlier station at the end of this visit',
   })
-  readonly sentBack: boolean;
+  readonly passedBack: boolean;
 
   constructor(
     first: NoteResponseDto,
@@ -474,14 +475,14 @@ export class FoldedVisitResponseDto {
     endedAt: string,
     closing: NoteResponseDto | null,
     answers: NoteResponseDto[],
-    sentBack: boolean,
+    passedBack: boolean,
   ) {
     this.first = first;
     this.to = to;
     this.endedAt = endedAt;
     this.closing = closing;
     this.answers = answers;
-    this.sentBack = sentBack;
+    this.passedBack = passedBack;
   }
 }
 

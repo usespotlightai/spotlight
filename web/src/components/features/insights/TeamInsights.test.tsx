@@ -677,7 +677,7 @@ describe('TeamInsights', () => {
     );
     expect(screen.getByRole('link', { name: '50%' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=traces&humanAction=sent-back',
+      '/w/acme/team/team_1/insights?tab=traces&resolution=sent-back',
     );
     expect(screen.getByRole('link', { name: '1' })).toHaveAttribute(
       'href',

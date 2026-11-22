@@ -77,7 +77,7 @@ const HUMAN_ACTIONS: Record<HumanActionKind, string> = {
   accepted: 'Accepted',
   answered: 'Answered',
   'sent-back': 'Sent back',
-  held: 'Put on hold',
+  'held-as-wrong': 'Held as wrong',
 };
 
 export const formatHumanAction = (
@@ -88,9 +88,9 @@ const PULL_REQUEST_STATES: Record<
   NonNullable<StationRunOutcome['pullRequestState']>,
   string
 > = {
-  open: 'PR open',
-  merged: 'Merged',
-  closed: 'PR closed',
+  open: 'Open',
+  merged: 'All merged',
+  closed: 'Not all merged',
 };
 
 export const formatPullRequestState = (
@@ -202,7 +202,7 @@ export type OutcomePart = {
 type OutcomeTally = Pick<StationTally, 'resolutions' | 'resolutionShares'>;
 
 export const OUTCOME_NOTE =
-  'Accepted: a person accepted the run, or its pull request merged while the task stayed at the station. Moved on: the task went to another station, or a person started it. Failed, no answer: the run failed and no person accepted it or sent it back. Other: stopped, ran out, replaced by a later run, or no answer yet.';
+  'Accepted: a person accepted the run, or its task’s pull requests all merged while the task stayed at the station. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold and said the line got it wrong. Moved on: the task went to another station, or a person started it. Failed, no answer: the run failed and no person accepted it or sent it back. Other: stopped, ran out, replaced by a later run, or no answer yet.';
 
 const OUTCOME_PARTS: readonly Omit<OutcomePart, 'count' | 'share'>[] = [
   { key: 'accepted', label: RESOLUTION_LABELS.accepted, tone: 'done' },
@@ -241,7 +241,7 @@ export const hasRuns = (groups: readonly FingerprintGroup[]): boolean =>
 
 const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Run', indent: 'outer', size: 'minmax(12rem,3fr)' },
-  { label: 'Visit', size: SPREAD },
+  { label: 'Run number', size: SPREAD },
   { label: 'Checks', size: SPREAD },
   { label: 'Human action', size: SPREAD },
   { label: 'Pull request', size: SPREAD },

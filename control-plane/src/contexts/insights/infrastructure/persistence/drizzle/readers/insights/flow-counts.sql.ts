@@ -1,6 +1,5 @@
 import type { TeamInPeriod } from '@insights/application/ports/insights-reader.port';
 import type {
-  DeliveryMoments,
   FlowCounts,
   FlowWindowCounts,
   StationInboxCounts,
@@ -10,11 +9,9 @@ import { NO_SPREAD, type Spread } from '@insights/domain/services/measures';
 import { inboxWaits } from '@insights/infrastructure/persistence/drizzle/readers/insights/inbox.sql';
 import {
   asUtc,
-  dateOf,
   factsInPeriod,
   inEndOrder,
   isCurrent,
-  iso,
   msOf,
   periodFacts,
   ran,
@@ -22,14 +19,12 @@ import {
   spreadOver,
   stationsInEndOrder,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
-import { ofTeamTaskPullRequests } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
+import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
 import {
   runFact,
-  taskHumanAction,
-  taskPullRequestFact,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { type SQL, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 interface RunsRow extends Record<string, unknown> {
   readonly is_current: boolean;
@@ -46,15 +41,6 @@ interface InboxRow extends Record<string, unknown> {
   readonly asks: number;
   readonly unanswered: number;
   readonly inbox: Spread;
-}
-
-interface DeliveryRow extends Record<string, unknown> {
-  readonly task_id: string;
-  readonly opened_ms: number;
-  readonly first_review_ms: number | null;
-  readonly closed_ms: number | null;
-  readonly merged: boolean;
-  readonly task_opened_ms: number | null;
 }
 
 const stationsIn = async (
@@ -128,42 +114,6 @@ const inboxIn = async (
   return result.rows;
 };
 
-const deliveriesIn = async (
-  db: DrizzleDatabase,
-  team: TeamInPeriod,
-): Promise<readonly DeliveryMoments[]> => {
-  const { current, previous } = team.period;
-  const between = (column: SQL): SQL =>
-    sql`${column} >= ${iso(previous.from)}::timestamptz and ${column} < ${iso(current.to)}::timestamptz`;
-  const result = await db.execute<DeliveryRow>(sql`
-    select
-      ${taskPullRequestFact.taskId} as task_id,
-      ${msOf(sql`${taskPullRequestFact.openedAt}`)} as opened_ms,
-      ${msOf(sql`${taskPullRequestFact.firstReviewAt}`)} as first_review_ms,
-      ${msOf(sql`${taskPullRequestFact.closedAt}`)} as closed_ms,
-      ${taskPullRequestFact.state} = 'merged' as merged,
-      ${msOf(sql`${taskHumanAction.openedAt}`)} as task_opened_ms
-    from ${taskPullRequestFact}
-    left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskPullRequestFact.taskId}
-    where ${ofTeamTaskPullRequests(team)}
-      and (
-        ${between(sql`${taskPullRequestFact.openedAt}`)}
-        or ${between(sql`${taskPullRequestFact.firstReviewAt}`)}
-        or (${taskPullRequestFact.state} = 'merged' and ${between(sql`${taskPullRequestFact.closedAt}`)})
-      )
-    order by ${taskPullRequestFact.openedAt} desc, ${taskPullRequestFact.taskId} desc
-  `);
-
-  return result.rows.map((row) => ({
-    taskId: row.task_id,
-    openedAt: new Date(row.opened_ms),
-    firstReviewAt: dateOf(row.first_review_ms),
-    closedAt: dateOf(row.closed_ms),
-    merged: row.merged,
-    taskOpenedAt: dateOf(row.task_opened_ms),
-  }));
-};
-
 const windowOf = (
   current: boolean,
   stations: readonly StationRow[],
@@ -206,7 +156,7 @@ export const flowCountsIn = async (
   const stations = await stationsIn(db, team);
   const runs = await runsIn(db, team);
   const inbox = await inboxIn(db, team);
-  const deliveries = await deliveriesIn(db, team);
+  const deliveries = await pullRequestDeliveriesIn(db, team);
 
   return {
     current: windowOf(true, stations, runs, inbox),

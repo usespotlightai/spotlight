@@ -8,7 +8,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 interface LabelEvidence {
   readonly firstHumanAction: HumanAction | null;
-  readonly merged: boolean;
+  readonly taskMerged: boolean;
   readonly ending: RunEnding;
   readonly followedAt: Date | null;
 }
@@ -26,7 +26,9 @@ export class HumanLabel {
       return new HumanLabel(action.labelFrom, action.by);
     }
 
-    return run.merged && run.ending === 'completed' && run.followedAt === null
+    return run.taskMerged &&
+      run.ending === 'completed' &&
+      run.followedAt === null
       ? new HumanLabel('merged', null)
       : null;
   }

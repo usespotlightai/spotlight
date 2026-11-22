@@ -230,7 +230,7 @@ func historyIndex(history protocol.History) string {
 	if len(history.Runs) == 0 {
 		out.WriteString("No runs match.\n")
 	} else {
-		out.WriteString("| Run | Task | Config | Ending | Checks | Human action | Pull request | Visit | Cost | Steps | Duration | Started |\n")
+		out.WriteString("| Run | Task | Config | Ending | Checks | Human action | Pull request | Run number | Cost | Steps | Duration | Started |\n")
 		out.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
 		for _, run := range history.Runs {
 			out.WriteString("| " + strings.Join(runRow(run), " | ") + " |\n")
@@ -318,7 +318,7 @@ func runRow(run protocol.HistoryRun) []string {
 		shown(outcome.Checks),
 		cell(humanAction),
 		shown(outcome.PullRequestState),
-		strconv.Itoa(outcome.Visit),
+		strconv.Itoa(outcome.RunNumber),
 		cost, steps, took,
 		shown(run.StartedAt),
 	)

@@ -51,7 +51,7 @@ describe('the refresh of a live run', () => {
           runId: 'run_1',
           taskId: 'task_1',
           state: 'completed',
-          following: { id: 'run_2', state: 'claimed', progress: null },
+          following: { id: 'run_2', state: 'claimed', progress: 'in-progress' },
         }),
       { wrapper },
     );

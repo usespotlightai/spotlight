@@ -1059,7 +1059,7 @@
                 "accepted",
                 "answered",
                 "sent-back",
-                "held"
+                "held-as-wrong"
               ],
               "type": "string"
             }
@@ -1068,7 +1068,7 @@
             "name": "pullRequestState",
             "required": false,
             "in": "query",
-            "description": "Only runs of tasks whose pull request has this status",
+            "description": "Only runs of tasks whose pull requests have this combined status: open while one is open, merged when all merged, else closed",
             "schema": {
               "enum": [
                 "open",
@@ -2068,7 +2068,7 @@
           "merged": {
             "type": "number",
             "example": 4,
-            "description": "Tasks among these runs whose pull request merged"
+            "description": "Tasks among these runs whose pull requests all merged"
           },
           "cost": {
             "nullable": true,
@@ -2336,7 +2336,7 @@
           "humanActions": {
             "type": "number",
             "example": 40,
-            "description": "What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back"
+            "description": "What people did with the tasks worked in the period: every move, acceptance, answer, approval, dismissal, send-back and hold as wrong"
           },
           "humanActionsPerTask": {
             "type": "number",
@@ -2350,7 +2350,7 @@
             "description": "People who opened a task, acted on one or started a chat"
           },
           "mergedTaskIds": {
-            "description": "The tasks whose pull requests merged",
+            "description": "The tasks with a pull request merged in the period",
             "type": "array",
             "items": {
               "type": "string"
@@ -2595,6 +2595,7 @@
             "description": "Pull requests merged that day"
           },
           "mergedTaskIds": {
+            "description": "The tasks with a pull request merged that day",
             "type": "array",
             "items": {
               "type": "string"
@@ -2969,30 +2970,35 @@
           },
           "opened": {
             "type": "number",
-            "example": 14
+            "example": 14,
+            "description": "Pull requests opened in the period"
           },
           "reviewed": {
             "type": "number",
-            "example": 12
+            "example": 12,
+            "description": "Pull requests a person first reviewed in the period"
           },
           "merged": {
             "type": "number",
-            "example": 11
+            "example": 11,
+            "description": "Pull requests merged in the period"
           },
           "openedTaskIds": {
+            "description": "The tasks with a pull request opened in the period",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "reviewedTaskIds": {
-            "description": "The tasks whose pull requests a person first reviewed in the period",
+            "description": "The tasks with a pull request a person first reviewed in the period",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "mergedTaskIds": {
+            "description": "The tasks with a pull request merged in the period",
             "type": "array",
             "items": {
               "type": "string"
@@ -3562,7 +3568,7 @@
           "actions": {
             "type": "number",
             "example": 12,
-            "description": "Moves, answers, approvals, dismissals and sends-back"
+            "description": "Moves, acceptances, answers, approvals, dismissals, send-backs and holds as wrong"
           },
           "chats": {
             "type": "number",
@@ -4695,7 +4701,7 @@
             "type": "number",
             "nullable": true,
             "example": 0.5,
-            "description": "Share of the runs’ tasks whose pull request merged"
+            "description": "Of the runs’ tasks whose pull requests are no longer open, the share whose pull requests all merged"
           },
           "judge": {
             "type": "number",

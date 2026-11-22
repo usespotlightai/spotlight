@@ -47,13 +47,13 @@ export class ReadInsightsOverviewHandler implements QueryHandlerPort<
       });
       const headline = headlineFrom(
         counts.current,
-        counts.resolved,
+        counts.deliveries,
         period.current,
       );
       const ids = headline.peopleIds;
       const output = dailyOutputFrom(
         counts.spending,
-        counts.resolved,
+        counts.deliveries,
         period,
         counts.markers,
       );
@@ -64,7 +64,7 @@ export class ReadInsightsOverviewHandler implements QueryHandlerPort<
         headline: headlineDtoOf(headline),
         changes: headlineDeltasOf(
           headline,
-          headlineFrom(counts.previous, counts.resolved, period.previous),
+          headlineFrom(counts.previous, counts.deliveries, period.previous),
         ),
         output: output.map(dayOutputDtoOf),
         outputCurrency: currency.currency,

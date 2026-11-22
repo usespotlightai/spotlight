@@ -79,7 +79,7 @@ func sampleHistory() protocol.History {
 				State: "completed", Attempt: 1, Harness: "claude-code",
 				StartedAt: text("2026-09-29T10:00:00Z"), EndedAt: text("2026-09-29T10:01:30Z"),
 				Outcome: &protocol.RunOutcome{
-					Ending: "failed", Failure: &failure, Visit: 2,
+					Ending: "failed", Failure: &failure, RunNumber: 2,
 					Usage:  &protocol.RunUsage{Ms: &ms, Steps: 14, Errors: 1, Cost: &cost, Currency: &currency},
 					Checks: &checks, FirstHumanAction: &protocol.HumanAction{Kind: "accepted", At: "2026-09-29T10:01:31Z"}, PullRequestState: &pullRequestState,
 				},
@@ -121,7 +121,7 @@ func sampleHistory() protocol.History {
 			{
 				RunID: "run_1", TaskID: "task_1", Title: "First go", Fingerprint: text(olderFingerprint),
 				State: "completed", Attempt: 1, Harness: "claude-code",
-				Outcome: &protocol.RunOutcome{Ending: "completed", Visit: 1},
+				Outcome: &protocol.RunOutcome{Ending: "completed", RunNumber: 1},
 				Trace:   protocol.Trace{Roots: []protocol.TraceNode{}},
 			},
 		},

@@ -109,7 +109,7 @@ export class StationRunOutcomeResponseDto {
   @ApiProperty({
     enum: RUN_RESOLUTIONS,
     description:
-      'What came of the run: failed, sent back, accepted, moved on to another station, or other',
+      'What came of the run: failed, sent back, accepted, moved on to another station, or other. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold with the verdict that the line got it wrong.',
   })
   readonly resolution: string;
 
@@ -124,9 +124,9 @@ export class StationRunOutcomeResponseDto {
   @ApiProperty({
     example: 2,
     description:
-      'How many runs this station has taken on the task, this one included',
+      'The number of this run at its station on the task: 1 plus the earlier runs there that completed or failed. Every stay at the station counts.',
   })
-  readonly visit: number;
+  readonly runNumber: number;
 
   @ApiProperty({ type: StationRunUsageResponseDto, nullable: true })
   readonly usage: StationRunUsageResponseDto | null;
@@ -155,7 +155,8 @@ export class StationRunOutcomeResponseDto {
   @ApiProperty({
     enum: [...PULL_REQUEST_STATES, null],
     nullable: true,
-    description: 'The status of the task’s pull request, if it opened one',
+    description:
+      'The combined status of the task’s pull requests, if it opened any: open while one is open, merged when all merged, else closed',
   })
   readonly pullRequestState: string | null;
 
@@ -166,7 +167,7 @@ export class StationRunOutcomeResponseDto {
     this.ending = outcome.ending;
     this.resolution = outcome.resolution;
     this.failure = outcome.failure;
-    this.visit = outcome.visit;
+    this.runNumber = outcome.runNumber;
     this.usage = outcome.usage
       ? new StationRunUsageResponseDto(outcome.usage)
       : null;
@@ -323,7 +324,7 @@ export class RunTallyResponseDto {
 
   @ApiProperty({
     example: 4,
-    description: 'Tasks among these runs whose pull request merged',
+    description: 'Tasks among these runs whose pull requests all merged',
   })
   readonly merged: number;
 

@@ -261,7 +261,8 @@ export class AgentConfigOutcomesResponseDto {
     nullable: true,
     type: Number,
     example: 0.5,
-    description: 'Share of the runs’ tasks whose pull request merged',
+    description:
+      'Of the runs’ tasks whose pull requests are no longer open, the share whose pull requests all merged',
   })
   readonly merged: number | null;
 

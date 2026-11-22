@@ -10,6 +10,7 @@ import {
   iso,
   spendOf,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
+import { ofTeamTaskPullRequests } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   pullRequestFact,
   pullRequestRecord,
@@ -62,7 +63,7 @@ const coverageOf = (
   sql`${pullRequestRecord.workspaceId} = ${team.workspaceId.value}
     and ${seenRecord}
     and (
-      ${pullRequestRecord.ownerTeamId} = ${team.teamId.value}
+      ${ofTeamTaskPullRequests(team)}
       or ${inLowerCase(pullRequestRecord.repository, repositories)}
     )
     and ${pullRequestRecord.openedAt} < ${iso(team.period.current.to)}::timestamptz

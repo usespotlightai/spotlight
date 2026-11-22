@@ -18,7 +18,7 @@ export interface EndedRun {
   readonly stationId: StationId;
   readonly taskId: TaskId;
   readonly fingerprint: ConfigFingerprint | null;
-  readonly visit: number;
+  readonly runNumber: number;
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;
