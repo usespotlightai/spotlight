@@ -17,8 +17,6 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const runtimeSetting = "SPOTLIGHT_SANDBOX_RUNTIME"
-
 const notAllowed = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't allow this image."
 
 type served struct {

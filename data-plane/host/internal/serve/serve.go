@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/control"
+	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/mirror"
 	"usespotlight.ai/data-plane/host/internal/sandbox"
@@ -659,8 +660,12 @@ func (h *Host) checkRuntime(ctx context.Context) error {
 		return err
 	}
 	if !slices.Contains(runtimes, h.opts.Runtime) {
-		return fmt.Errorf("%s: the container runtime has no runtime %q, only %s. Install it, or unset %s for the default runtime",
-			runtimeSetting, h.opts.Runtime, strings.Join(runtimes, ", "), runtimeSetting)
+		has := "none"
+		if len(runtimes) > 0 {
+			has = "only " + strings.Join(runtimes, ", ")
+		}
+		return fmt.Errorf("%s: the container runtime has no runtime %q, %s. Install it, or unset %s for the default runtime",
+			config.EnvRuntime, h.opts.Runtime, has, config.EnvRuntime)
 	}
 	return nil
 }

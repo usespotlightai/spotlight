@@ -123,17 +123,26 @@ func TestRunsTheProbeAndSandboxesUnderTheHostsRuntimeButNeverEgress(t *testing.T
 }
 
 func TestRefusesToServeUnderARuntimeTheContainerRuntimeDoesNotHave(t *testing.T) {
-	engine, pool := harnessed(), newPool()
-	opts := options(t)
-	opts.Runtime = "sysbox-runc"
-	_, stopped := live(t, opts, engine, pool)
+	for _, each := range []struct {
+		runtimes []string
+		says     string
+	}{
+		{[]string{"runc"}, `SPOTLIGHT_SANDBOX_RUNTIME: the container runtime has no runtime "sysbox-runc", only runc.`},
+		{nil, `SPOTLIGHT_SANDBOX_RUNTIME: the container runtime has no runtime "sysbox-runc", none.`},
+	} {
+		engine, pool := harnessed(), newPool()
+		engine.runtimes = each.runtimes
+		opts := options(t)
+		opts.Runtime = "sysbox-runc"
+		_, stopped := live(t, opts, engine, pool)
 
-	err := stopped()
-	if err == nil || !strings.Contains(err.Error(), `SPOTLIGHT_SANDBOX_RUNTIME: the container runtime has no runtime "sysbox-runc", only runc`) {
-		t.Fatalf("served with %v", err)
-	}
-	if got := engine.workSandboxes(); len(got) != 0 {
-		t.Errorf("started %v", got)
+		err := stopped()
+		if err == nil || !strings.Contains(err.Error(), each.says) {
+			t.Fatalf("%v: served with %v", each.runtimes, err)
+		}
+		if got := engine.workSandboxes(); len(got) != 0 {
+			t.Errorf("%v: started %v", each.runtimes, got)
+		}
 	}
 }
 
