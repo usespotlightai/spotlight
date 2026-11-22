@@ -1,5 +1,5 @@
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { TaskPullRequestStatesPort } from '@work/application/ports/task-pull-request-states.port';
+import type { TaskPullRequestSummariesPort } from '@work/application/ports/task-pull-request-summaries.port';
 import type {
   TaskReaderPort,
   TaskSummary,
@@ -44,22 +44,33 @@ const seeing = (sees = true): WorkAccess =>
     seenTeam: vi.fn(async () => (sees ? { workspaceId: WORKSPACE } : null)),
   }) as unknown as WorkAccess;
 
-const states: TaskPullRequestStatesPort = {
-  of: vi.fn(async () => new Map([[MERGED, 'merged' as const]])),
+const MERGED_SUMMARY = {
+  state: 'merged' as const,
+  title: 'Fix the queue',
+  author: 'octocat',
+  authorImage: 'https://github.com/octocat.png?size=64',
+  additions: 12,
+  deletions: 3,
+  changedFiles: 2,
+  updatedAt: new Date('2026-11-21T10:00:00.000Z'),
+};
+
+const summaries: TaskPullRequestSummariesPort = {
+  of: vi.fn(async () => new Map([[MERGED, MERGED_SUMMARY]])),
 };
 
 const handle = (tasks: TaskReaderPort, access = seeing()) =>
-  new ListTaskPullRequestsHandler(tasks, states, access).execute(
+  new ListTaskPullRequestsHandler(tasks, summaries, access).execute(
     new ListTaskPullRequestsQuery('team_1', 'task_1', 'user_1'),
   );
 
 describe('ListTaskPullRequestsHandler', () => {
-  it('hands back each pull request of the task with its state, null where GitHub has not told it yet', async () => {
+  it('hands back each pull request of the task with its summary, null where GitHub has not told it yet', async () => {
     await expect(handle(reader(task))).resolves.toEqual([
-      { url: MERGED, state: 'merged' },
-      { url: UNSEEN, state: null },
+      { url: MERGED, summary: MERGED_SUMMARY },
+      { url: UNSEEN, summary: null },
     ]);
-    expect(states.of).toHaveBeenCalledWith(WORKSPACE, [
+    expect(summaries.of).toHaveBeenCalledWith(WORKSPACE, [
       expect.objectContaining({ value: MERGED }),
       expect.objectContaining({ value: UNSEEN }),
     ]);

@@ -389,7 +389,8 @@ export class TaskController {
   @Get('tasks/:taskId/pull-requests')
   @ApiOperation({
     operationId: 'listTaskPullRequests',
-    summary: 'List the pull requests of a task, each with its state',
+    summary:
+      'List the pull requests of a task, each with its state and summary',
   })
   @ApiParam({ name: 'taskId', type: String })
   @ApiOkResponse({ type: TaskPullRequestResponseDto, isArray: true })
@@ -408,9 +409,7 @@ export class TaskController {
       throw new NotFoundException();
     }
 
-    return found.map(
-      (each) => new TaskPullRequestResponseDto(each.url, each.state),
-    );
+    return found.map((each) => new TaskPullRequestResponseDto(each));
   }
 
   @Get('tasks/:taskId/runs')

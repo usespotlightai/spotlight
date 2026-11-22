@@ -1,8 +1,8 @@
 import type {
   NumberedPullRequest,
-  PullRequestStatusReaderPort,
-  PullRequestWithStatus,
-} from '@github/application/ports/pull-request-status-reader.port';
+  PullRequestSummaryReaderPort,
+  StoredPullRequestSummary,
+} from '@github/application/ports/pull-request-summary-reader.port';
 import { pullRequestStatusOf } from '@github/domain/value-objects/pull-request-state.vo';
 import { githubPullRequest } from '@github/infrastructure/persistence/drizzle/schemas/pull-request.schema';
 import { Injectable } from '@nestjs/common';
@@ -12,15 +12,15 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { and, eq, or } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzlePullRequestStatusReader
-  implements PullRequestStatusReaderPort
+export class DrizzlePullRequestSummaryReader
+  implements PullRequestSummaryReaderPort
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  async statusesOf(
+  async summariesOf(
     workspaceId: WorkspaceId,
     pullRequests: readonly NumberedPullRequest[],
-  ): Promise<readonly PullRequestWithStatus[]> {
+  ): Promise<readonly StoredPullRequestSummary[]> {
     if (pullRequests.length === 0) {
       return [];
     }
@@ -31,6 +31,13 @@ export class DrizzlePullRequestStatusReader
         number: githubPullRequest.number,
         state: githubPullRequest.state,
         draft: githubPullRequest.draft,
+        title: githubPullRequest.title,
+        author: githubPullRequest.author,
+        authorIsBot: githubPullRequest.authorIsBot,
+        additions: githubPullRequest.additions,
+        deletions: githubPullRequest.deletions,
+        changedFiles: githubPullRequest.changedFiles,
+        updatedAt: githubPullRequest.updatedAt,
       })
       .from(githubPullRequest)
       .where(
@@ -50,7 +57,14 @@ export class DrizzlePullRequestStatusReader
     return rows.map((row) => ({
       repository: Repository.of(row.repository),
       number: row.number,
-      status: pullRequestStatusOf(row.state, row.draft),
+      state: pullRequestStatusOf(row.state, row.draft),
+      title: row.title,
+      author: row.author,
+      authorIsBot: row.authorIsBot,
+      additions: row.additions,
+      deletions: row.deletions,
+      changedFiles: row.changedFiles,
+      updatedAt: row.updatedAt,
     }));
   }
 }

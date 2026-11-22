@@ -3099,7 +3099,7 @@
             "description": "No such task for this caller"
           }
         },
-        "summary": "List the pull requests of a task, each with its state",
+        "summary": "List the pull requests of a task, each with its state and summary",
         "tags": [
           "tasks"
         ]
@@ -12117,11 +12117,57 @@
             "nullable": true,
             "example": "open",
             "description": "Draft, open, merged or closed; null when Spotlight holds no state for it: not seen on GitHub yet, or removed after the retention period"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "Fix the queue",
+            "description": "Null when Spotlight holds no state for it"
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "example": "octocat",
+            "description": "GitHub login of the author; null when not known"
+          },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://github.com/octocat.png?size=64",
+            "description": "Picture of the author; null for bots and unknown authors"
+          },
+          "additions": {
+            "type": "number",
+            "nullable": true,
+            "example": 120
+          },
+          "deletions": {
+            "type": "number",
+            "nullable": true,
+            "example": 14
+          },
+          "changedFiles": {
+            "type": "number",
+            "nullable": true,
+            "example": 6
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-11-21T10:00:00.000Z",
+            "description": "When the pull request last changed on GitHub"
           }
         },
         "required": [
           "url",
-          "state"
+          "state",
+          "title",
+          "author",
+          "authorImage",
+          "additions",
+          "deletions",
+          "changedFiles",
+          "updatedAt"
         ]
       },
       "TaskRunResponseDto": {
