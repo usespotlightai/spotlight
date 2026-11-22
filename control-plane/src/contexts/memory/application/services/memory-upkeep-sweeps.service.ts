@@ -158,9 +158,13 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
       await this.transaction.inTransaction(async () => {
         const standing = await this.schedules.ofTeamLocked(schedule.teamId);
 
-        if (standing?.version === schedule.version) {
-          await this.upkeeps.add(upkeep);
+        if (standing?.version !== schedule.version) {
+          throw new MemoryUpkeepScheduleVersionConflictError(
+            schedule.teamId.value,
+          );
         }
+
+        await this.upkeeps.add(upkeep);
       });
     }
 

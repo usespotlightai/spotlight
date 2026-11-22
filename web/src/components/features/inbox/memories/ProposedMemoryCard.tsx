@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react';
 
 import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
 import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
+import { RetirementLapsedNote } from '@/components/features/inbox/memories/RetirementLapsedNote';
 import { Collapsible } from '@/components/shared/Collapsible';
 import { DecisionActions } from '@/components/shared/DecisionActions';
 import { DecisionCard } from '@/components/shared/DecisionCard';
@@ -10,6 +11,9 @@ import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import { FoldToggle } from '@/components/shared/FoldToggle';
 import { useFocusAfterDecision } from '@/hooks/useFocusAfterDecision';
 import {
+  approvable,
+  dimmed,
+  lapsedRetirementsOf,
   MAX_MEMORY_BODY,
   type ProposedMemory,
   proposalStatusOf,
@@ -43,7 +47,6 @@ export function ProposedMemoryCard({
   const folded = rejected && !unfolded;
   const [body, setBody] = useState(memory.body);
   const open = undecided(memory);
-  const lapsed = open ? memory.inactiveMemories : [];
   const editing = editingOpen && open;
   const bodyId = useId();
   const written = body.trim();
@@ -56,7 +59,7 @@ export function ProposedMemoryCard({
       data-slot="proposed-memory"
       className={cn(
         'gap-0 transition-[opacity,padding] duration-200 ease-out-quad motion-reduce:transition-none',
-        (rejected || memory.state === 'lapsed') && 'opacity-70',
+        dimmed(memory) && 'opacity-70',
         folded && 'pb-2',
       )}
     >
@@ -116,11 +119,7 @@ export function ProposedMemoryCard({
         </div>
       </Collapsible>
 
-      {lapsed.length > 0 && (
-        <p className="pt-2 text-muted-foreground text-sm">
-          {`${lapsed.join(' and ')} ${lapsed.length === 1 ? 'is' : 'are'} no longer active, so this retirement no longer applies.`}
-        </p>
-      )}
+      <RetirementLapsedNote inactive={lapsedRetirementsOf(memory)} />
 
       <Collapsible open={open} appear={false}>
         <div className="pt-3">
@@ -131,7 +130,7 @@ export function ProposedMemoryCard({
             ready={ready}
             bodyId={bodyId}
             onApprove={
-              open && lapsed.length === 0
+              approvable(memory)
                 ? () => {
                     decided();
                     onApprove(

@@ -91,7 +91,7 @@ const CAREFUL = profile({
 const CLAUDE_MEMORY_HOOK = {
   PostToolUse: [
     {
-      matcher: 'Read|Edit|MultiEdit|Write|NotebookEdit|Grep|Glob',
+      matcher: 'Read|Edit|MultiEdit|Write|NotebookEdit',
       hooks: [
         {
           type: 'command',

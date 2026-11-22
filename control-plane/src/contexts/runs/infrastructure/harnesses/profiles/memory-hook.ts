@@ -4,7 +4,7 @@ const POST_TOOL_USE_COMMAND = 'spotlight hook post-tool-use';
 
 const HOOK_TIMEOUT_SECONDS = 10;
 
-const CLAUDE_PATH_TOOLS = 'Read|Edit|MultiEdit|Write|NotebookEdit|Grep|Glob';
+const CLAUDE_PATH_TOOLS = 'Read|Edit|MultiEdit|Write|NotebookEdit';
 
 type Json = Record<string, unknown>;
 

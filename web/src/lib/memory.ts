@@ -86,6 +86,15 @@ const SCOPE_LABELS: Record<ProposedMemory['scope'], string> = {
 export const undecided = (memory: ProposedMemory): boolean =>
   memory.state === 'proposed';
 
+export const lapsedRetirementsOf = (memory: ProposedMemory): string[] =>
+  undecided(memory) ? memory.inactiveMemories : [];
+
+export const approvable = (memory: ProposedMemory): boolean =>
+  undecided(memory) && memory.inactiveMemories.length === 0;
+
+export const dimmed = (memory: ProposedMemory): boolean =>
+  memory.state === 'rejected' || memory.state === 'lapsed';
+
 export const authorOf = (note: MemoryProvenanceNote): string => {
   if (note.by === 'world') {
     return ANOTHER_TOOL;

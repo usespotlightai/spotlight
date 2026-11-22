@@ -16,11 +16,7 @@ export const USED: readonly UsedVia[] = MEMORY_VIAS.filter(
   (via): via is UsedVia => via !== 'cut',
 );
 
-const LOOKED_UP: readonly MemoryVia[] = [
-  'read',
-  'recalled',
-  'delivered',
-];
+const LOOKED_UP: readonly MemoryVia[] = ['read', 'recalled', 'delivered'];
 
 export type RunDriver = 'line' | 'person';
 
