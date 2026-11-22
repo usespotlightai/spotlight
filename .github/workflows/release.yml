@@ -87,7 +87,7 @@ jobs:
   desktop:
     name: build the macOS app
     needs: [release-please, ci-passed]
-    runs-on: macos-15
+    runs-on: macos-26
     permissions:
       contents: write
     defaults:

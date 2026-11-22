@@ -97,7 +97,7 @@ jobs:
     name: build the canary macOS app
     needs: desktop-changed
     if: needs.desktop-changed.outputs.changed == 'true'
-    runs-on: macos-15
+    runs-on: macos-26
     permissions:
       contents: write
     steps:
