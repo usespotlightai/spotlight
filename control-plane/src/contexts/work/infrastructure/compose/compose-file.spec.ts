@@ -120,6 +120,29 @@ describe('declaredServicesOf', () => {
     });
   });
 
+  it('reads a service built from an anchor through a merge key', () => {
+    const db = declaredServicesOf(
+      'x-db: &db\n  image: postgres:17\n  environment:\n    POSTGRES_DB: app\nservices:\n  db:\n    <<: *db\n',
+    )?.[0];
+
+    expect(db).toMatchObject({
+      name: 'db',
+      image: 'postgres:17',
+      env: [{ name: 'POSTGRES_DB', value: 'app' }],
+    });
+  });
+
+  it('keeps a value from the .env file whole, whatever YAML it looks like', () => {
+    const db = declaredServicesOf(
+      `services:\n  db:\n    image: postgres:17\n    environment:\n      POSTGRES_PASSWORD: \${PW}\n`,
+      envFileOf('PW="a: b, [c] #d"'),
+    )?.[0];
+
+    expect(db?.env).toEqual([
+      { name: 'POSTGRES_PASSWORD', value: 'a: b, [c] #d' },
+    ]);
+  });
+
   it('declares nothing in a file without services, and cannot read a file that is not YAML', () => {
     expect(declaredServicesOf('version: "3"\n')).toEqual([]);
     expect(declaredServicesOf('services: [')).toBeNull();

@@ -133,3 +133,19 @@ func TestTheAgentHearsWhichServicesDidNotStart(t *testing.T) {
 		t.Errorf("the briefing does not follow the note:\n%s", got)
 	}
 }
+
+func TestTheRunsServicesAreReachedDirectlyNotThroughTheProxy(t *testing.T) {
+	env := map[string]string{"HTTP_PROXY": "http://127.0.0.1:3128", "NO_PROXY": "localhost,127.0.0.1,::1", "no_proxy": "localhost"}
+
+	got := servicesUnproxied(env, withServicesRun().Spec.Services)
+
+	if got["NO_PROXY"] != "localhost,127.0.0.1,::1,db,cache,search" || got["no_proxy"] != "localhost,db,cache,search" {
+		t.Errorf("unproxied %v", got)
+	}
+	if env["NO_PROXY"] != "localhost,127.0.0.1,::1" {
+		t.Error("the runner's own proxy settings changed")
+	}
+	if got := servicesUnproxied(env, nil); got["NO_PROXY"] != "localhost,127.0.0.1,::1" {
+		t.Errorf("a run without services unproxied %v", got)
+	}
+}

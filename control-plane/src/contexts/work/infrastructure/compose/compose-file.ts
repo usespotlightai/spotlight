@@ -223,10 +223,33 @@ const dependsOnOf = (value: unknown): string[] => {
   return isObject(value) ? Object.keys(value) : [];
 };
 
+/** Fills in the ${NAME}s of every value, never of a key, as Compose does once the file is parsed. */
+const interpolatedValues = (
+  value: unknown,
+  env: ReadonlyMap<string, string>,
+): unknown => {
+  if (typeof value === 'string') {
+    return interpolated(value, env);
+  }
+  if (Array.isArray(value)) {
+    return value.map((each) => interpolatedValues(each, env));
+  }
+  if (isObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, each]) => [
+        key,
+        interpolatedValues(each, env),
+      ]),
+    );
+  }
+  return value;
+};
+
 /**
- * Reads the services a Compose file declares, filling in its ${NAME}s from the .env file beside it, as Compose
- * does. It translates the file's format and decides nothing: which services a run starts is the domain's to say.
- * Null where the file is not YAML.
+ * Reads the services a Compose file declares, with its anchors and merge keys, filling in its ${NAME}s from the
+ * .env file beside it once the file is parsed, as Compose does, so a value can hold anything. It translates the
+ * file's format and decides nothing: which services a run starts is the domain's to say. Null where the file is
+ * not YAML.
  */
 export const declaredServicesOf = (
   text: string,
@@ -234,7 +257,7 @@ export const declaredServicesOf = (
 ): DeclaredService[] | null => {
   let document: unknown;
   try {
-    document = parse(interpolated(text, env));
+    document = interpolatedValues(parse(text, { merge: true }), env);
   } catch {
     return null;
   }

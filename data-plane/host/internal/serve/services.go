@@ -19,7 +19,10 @@ const (
 	// serviceWait bounds how long the services of one run take to pull, start and become ready.
 	serviceWait = 5 * time.Minute
 	// servicePoll is how often the host looks whether a starting service is ready.
-	servicePoll       = 500 * time.Millisecond
+	servicePoll = 500 * time.Millisecond
+	// serviceSettle is how long a service with no health check must keep running before it counts as ready, so one
+	// that exits on a bad setting is not taken for ready.
+	serviceSettle     = time.Second
 	serviceLogLines   = 15
 	serviceLogTimeout = 5 * time.Second
 )
@@ -217,6 +220,7 @@ func (s *egressSidecar) runService(ctx context.Context, run string, service prot
 		Network: s.network,
 		Aliases: []string{service.Name},
 		Health:  healthOf(service.Health),
+		Limits:  s.host.sandboxLimits(),
 	})
 	if err != nil {
 		if id != "" {
@@ -241,11 +245,12 @@ func healthOf(health *protocol.ServiceHealth) *sandbox.Health {
 	}
 }
 
-// ready waits until the service passes its health check, or runs where it has none.
+// ready waits until the service passes its health check, or, where it has none, has kept running a while.
 func (s *egressSidecar) ready(ctx context.Context, id string) error {
 	poll := time.NewTicker(servicePoll)
 	defer poll.Stop()
 
+	var runningSince time.Time
 	for {
 		state, err := s.host.engine.State(ctx, id)
 		switch {
@@ -254,8 +259,14 @@ func (s *egressSidecar) ready(ctx context.Context, id string) error {
 		case err != nil:
 		case !state.Running:
 			return fmt.Errorf("it exited with code %d%s", state.ExitCode, s.lastLogs(id))
-		case state.Health == sandbox.HealthHealthy, state.Health == sandbox.HealthNone:
+		case state.Health == sandbox.HealthHealthy:
 			return nil
+		case state.Health == sandbox.HealthNone:
+			if runningSince.IsZero() {
+				runningSince = time.Now()
+			} else if time.Since(runningSince) >= serviceSettle {
+				return nil
+			}
 		case state.Health == sandbox.HealthUnhealthy:
 			return fmt.Errorf("its health check failed%s", s.lastLogs(id))
 		}

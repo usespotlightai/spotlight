@@ -111,6 +111,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (err error) {
 	log := opts.Log.With("run", run.ID)
+	opts.ProxyEnv = servicesUnproxied(opts.ProxyEnv, run.Spec.Services)
 	journal := &journalWriter{runID: run.ID, journal: opts.Journal}
 	defer func() { err = journal.redactedError(err) }()
 

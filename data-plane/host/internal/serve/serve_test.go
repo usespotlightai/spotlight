@@ -74,8 +74,10 @@ type fakeEngine struct {
 
 	services      map[string]sandbox.Spec
 	serviceStates map[string]sandbox.State
-	serviceStarts []string
-	serviceFails  map[string]bool
+	// serviceSequences answer a service's state calls in turn, keeping the last.
+	serviceSequences map[string][]sandbox.State
+	serviceStarts    []string
+	serviceFails     map[string]bool
 
 	put       map[string]map[string]sandbox.File
 	signals   map[string][]string
@@ -96,9 +98,10 @@ func newEngine() *fakeEngine {
 		egresses: map[string]sandbox.Spec{},
 		networks: map[string]map[string]string{},
 
-		services:      map[string]sandbox.Spec{},
-		serviceStates: map[string]sandbox.State{},
-		serviceFails:  map[string]bool{},
+		services:         map[string]sandbox.Spec{},
+		serviceStates:    map[string]sandbox.State{},
+		serviceSequences: map[string][]sandbox.State{},
+		serviceFails:     map[string]bool{},
 
 		put:      map[string]map[string]sandbox.File{},
 		signals:  map[string][]string{},
@@ -459,6 +462,12 @@ func (e *fakeEngine) State(_ context.Context, id string) (sandbox.State, error) 
 	spec, ok := e.services[id]
 	if !ok || slices.Contains(e.destroyed, id) {
 		return sandbox.State{}, sandbox.ErrGone
+	}
+	if sequence := e.serviceSequences[spec.Aliases[0]]; len(sequence) > 0 {
+		if len(sequence) > 1 {
+			e.serviceSequences[spec.Aliases[0]] = sequence[1:]
+		}
+		return sequence[0], nil
 	}
 	if state, ok := e.serviceStates[spec.Aliases[0]]; ok {
 		return state, nil

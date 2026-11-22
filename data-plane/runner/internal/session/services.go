@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"strings"
 	"time"
@@ -90,6 +91,26 @@ func (o Options) servicesStarted(ctx context.Context, run protocol.Run) ([]proto
 		case <-poll.C:
 		}
 	}
+}
+
+// servicesUnproxied keeps the run's services out of the proxy, so an HTTP client in setup, the agent or a check
+// reaches each by its name on the sandbox's network instead of asking egress for it.
+func servicesUnproxied(env map[string]string, services []protocol.Service) map[string]string {
+	if len(services) == 0 {
+		return env
+	}
+	names := make([]string, 0, len(services))
+	for _, service := range services {
+		names = append(names, service.Name)
+	}
+
+	unproxied := maps.Clone(env)
+	for _, key := range []string{"NO_PROXY", "no_proxy"} {
+		if local, ok := unproxied[key]; ok {
+			unproxied[key] = strings.Join(append([]string{local}, names...), ",")
+		}
+	}
+	return unproxied
 }
 
 // describeServices says, for a person, which services started from which Compose files and why others did not.

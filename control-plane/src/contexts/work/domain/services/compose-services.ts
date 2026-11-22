@@ -1,7 +1,7 @@
 import { isEnvironmentVariableName } from '@shared-kernel/domain/value-objects/environment-variable-name';
 
 /** The Compose files a checkout may have at its top, the preferred first, as Compose itself looks for them. */
-export const COMPOSE_FILES = [
+export const COMPOSE_FILE_NAMES = [
   'compose.yaml',
   'compose.yml',
   'docker-compose.yaml',
@@ -66,7 +66,7 @@ export interface ServicesToStart {
 export const preferredComposeFile = (
   found: readonly ComposeFile[],
 ): ComposeFile | null =>
-  COMPOSE_FILES.flatMap((name) =>
+  COMPOSE_FILE_NAMES.flatMap((name) =>
     found.filter((each) => each.name === name),
   )[0] ?? null;
 

@@ -73,6 +73,9 @@ func TestStartsARunsServicesOnItsSandboxNetworkAndTellsTheSandboxOnceTheyAreRead
 	if db.Health == nil || !slices.Equal(db.Health.Test, []string{"CMD-SHELL", "pg_isready"}) {
 		t.Errorf("db has no health check of its own: %+v", db.Health)
 	}
+	if want := engine.sandbox(id).Limits; db.Limits != want || db.Limits.OOMScoreAdj == 0 {
+		t.Errorf("db runs with limits %+v, want the sandbox's %+v", db.Limits, want)
+	}
 	if db.Labels[serve.LabelService] == "" || db.Labels[serve.LabelHost] == "" {
 		t.Errorf("db is not labelled as a service of this host: %v", db.Labels)
 	}
@@ -246,5 +249,32 @@ func TestTheNextTurnOfARunKeepsItsServicesAfterTheHostRestarted(t *testing.T) {
 
 	if engine.wasDestroyed(db[0]) {
 		t.Error("the restarted host replaced the run's db for its next turn")
+	}
+}
+
+func TestAServiceWithNoHealthCheckThatExitsSoonAfterItStartsIsNotReady(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	running := sandbox.State{Running: true, Health: sandbox.HealthNone}
+	engine.serviceSequences["cache"] = []sandbox.State{running, running, {Running: false, ExitCode: 1}}
+	engine.serviceStates["steady"] = running
+	serving(t, options(t), engine, pool)
+
+	pool.work <- withServices(inSandbox("runner_1", "sandbox_a"),
+		protocol.Service{Name: "cache", Image: "redis:7", From: "compose.yml"},
+		protocol.Service{Name: "steady", Image: "redis:7", From: "compose.yml"},
+	)
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	id := engine.workSandboxes()[0]
+	eventually(t, "the services' outcome in the sandbox", func() bool {
+		_, ok := servicesStartedIn(t, engine, id)
+		return ok
+	})
+
+	started, _ := servicesStartedIn(t, engine, id)
+	if cache := started.Services[0]; cache.Ready || !strings.Contains(cache.Problem, "exited with code 1") {
+		t.Errorf("cache: %+v, want it not ready", cache)
+	}
+	if steady := started.Services[1]; !steady.Ready {
+		t.Errorf("steady: %+v, want it ready once it kept running", steady)
 	}
 }

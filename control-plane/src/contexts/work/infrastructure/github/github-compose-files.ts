@@ -6,7 +6,7 @@ import type {
   ServicesAt,
 } from '@work/application/ports/compose-files.port';
 import {
-  COMPOSE_FILES,
+  COMPOSE_FILE_NAMES,
   type ComposeFile,
 } from '@work/domain/services/compose-services';
 import {
@@ -15,7 +15,7 @@ import {
   envFileOf,
 } from '@work/infrastructure/compose/compose-file';
 
-const NAMES: readonly string[] = [...COMPOSE_FILES, COMPOSE_ENV_FILE];
+const NAMES: readonly string[] = [...COMPOSE_FILE_NAMES, COMPOSE_ENV_FILE];
 
 export class GitHubComposeFiles implements ComposeFilesPort {
   constructor(private readonly contents: RepositoryContentsPort) {}

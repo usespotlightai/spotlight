@@ -363,6 +363,7 @@ export const workSubscribers = (reactions: {
     'work.order-chat-run',
     ['chat.run-assigned'],
     (event) => reactions.chatRuns.on(event),
+    { callsOut: true },
   ),
   subscribing<RunnerAccessCreatedIntegrationEvent>(
     'work.reconcile-setup-on-runner-access',
