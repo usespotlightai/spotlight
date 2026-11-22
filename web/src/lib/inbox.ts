@@ -69,9 +69,6 @@ export type JournalledRun = JournalledRunResponseDto;
 const latestAsk = (notes: readonly Note[]): Note | undefined =>
   notes.findLast((note) => note.kind === 'asked');
 
-export const decisionPending = (notes: readonly Note[]): boolean =>
-  latestAsk(notes)?.form === 'approval';
-
 export const latestAskPosition = (notes: readonly Note[]): number | null =>
   latestAsk(notes)?.position ?? null;
 

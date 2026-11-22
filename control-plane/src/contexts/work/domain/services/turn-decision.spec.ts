@@ -29,6 +29,7 @@ import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -78,6 +79,15 @@ const lineWith = (repositories: readonly RepositorySpec[]) =>
   });
 
 const line = lineWith([]);
+
+const OWNER = {
+  person: UserId.of('user_1'),
+  team: TeamStanding.of({
+    seesTeam: true,
+    actsOnTeam: true,
+    memberOfTeam: true,
+  }),
+};
 
 const handed = () =>
   Task.add({
@@ -156,7 +166,7 @@ describe('TurnDecision', () => {
   });
 
   it('resumes at once, to read them, when messages came in during the turn', () => {
-    const answered = approvalAsked().answer(NotePosition.of(0), {
+    const answered = approvalAsked().answerAs(OWNER, NotePosition.of(0), {
       line: null,
       body: TaskNoteBody.of('Yes.'),
       at: NOW,
@@ -167,7 +177,7 @@ describe('TurnDecision', () => {
   });
 
   it('checks out the repositories its line gained when it resumes at once', () => {
-    const answered = approvalAsked().answer(NotePosition.of(0), {
+    const answered = approvalAsked().answerAs(OWNER, NotePosition.of(0), {
       line: null,
       body: TaskNoteBody.of('Yes.'),
       at: NOW,

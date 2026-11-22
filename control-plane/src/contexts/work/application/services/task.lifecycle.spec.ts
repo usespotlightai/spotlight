@@ -60,6 +60,14 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
+const senderOf = (
+  note: Parameters<Task['receiveMessage']>[1],
+  team: TeamStanding,
+): Parameters<Task['receiveMessage']>[3] => ({
+  person: note.voice.author ?? UserId.of('user_nobody'),
+  team,
+});
+
 const START = new Date('2026-11-20T09:00:00.000Z');
 const TEAM_ID = TeamId.of('team_1');
 const PEOPLE = {
@@ -68,6 +76,14 @@ const PEOPLE = {
   ola: UserId.of('user_ola'),
 } as const;
 const TEAM = TeamMembers.of([PEOPLE.leon, PEOPLE.maya]);
+const actingAs = (person: UserId) => ({
+  person,
+  team: TeamStanding.of({
+    seesTeam: true,
+    actsOnTeam: true,
+    memberOfTeam: TEAM.includes(person),
+  }),
+});
 const LINEAR = IntegrationName.of('linear');
 const PULL_REQUESTS = {
   api: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
@@ -474,8 +490,7 @@ const answered = async (
   return handedToRun(
     services.dispatch,
     task.answerAs(
-      PEOPLE[each.by],
-      TEAM,
+      actingAs(PEOPLE[each.by]),
       from,
       said(world, 'Drain the upload queue.', Voice.person(PEOPLE[each.by])),
       decision,
@@ -499,17 +514,25 @@ const messaged = async (
   const at = world.stationOf.get(run.value) ?? null;
   const note = said(world, 'Use a bounded queue.', Voice.person(PEOPLE[by]));
   const received = task.holdsOnMessage(run, note.voice, at, LINE)
-    ? task
-        .hold({
+    ? task.heldOnMessage(
+        run,
+        {
           id: HoldId.of(`hold_${++world.holds}`),
-          by: PEOPLE[by],
           members: TEAM,
           line: LINE,
           currentRunStarted: true,
           at: world.now,
-        })
-        .addMessage(note, at)
-    : task.receiveMessage(run, note, at, TEAM);
+        },
+        note,
+        at,
+        actingAs(PEOPLE[by]),
+      )
+    : task.receiveMessage(
+        run,
+        note,
+        at,
+        senderOf(note, actingAs(PEOPLE[by]).team),
+      );
 
   return handedToRun(services.dispatch, received, LINE);
 };
@@ -666,8 +689,7 @@ const applied = async (world: World, each: Step): Promise<Task> => {
       return answered(world, services, each);
     case 'resolve':
       return task.resolveAs(
-        PEOPLE[each.by],
-        TEAM,
+        actingAs(PEOPLE[each.by]),
         openFrom(task),
         said(world, 'Resolved.', Voice.person(PEOPLE[each.by])),
       );
@@ -1122,7 +1144,11 @@ describe('a task under any order of runs, people and happenings on its line', ()
   });
 
   it('lets a person answer or resolve exactly when the inbox offers it to them', async () => {
-    const acting = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
+    const acting = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: true,
+    });
 
     await fc.assert(
       lifecycle((visit) => {
@@ -1133,8 +1159,11 @@ describe('a task under any order of runs, people and happenings on its line', ()
         const person = PEOPLE[visit.step.by];
         const conversant = visit.before.conversantOf({
           person,
-          onTeam: TEAM.includes(person),
-          actsOnTasks: true,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: true,
+            memberOfTeam: TEAM.includes(person),
+          }),
         });
         const offered =
           visit.before.openConversation !== null &&
@@ -1181,8 +1210,7 @@ describe('a task under any order of runs, people and happenings on its line', ()
           return Object.values(PEOPLE).some((each) =>
             gives(() =>
               after.answerAs(
-                each,
-                TEAM,
+                actingAs(each),
                 openFrom(after),
                 {
                   line: LINE,
@@ -1267,20 +1295,24 @@ describe('a task held by one person whose turn asks another person', () => {
   const heldByMaya = (): Task =>
     opened('implementation')
       .assignRun(RunId.of('run_line'), LINE)
-      .hold({
-        id: HoldId.of('hold_1'),
-        by: PEOPLE.maya,
-        members: TEAM,
-        line: LINE,
-        currentRunStarted: true,
-        at: START,
-      })
-      .addMessage({
-        line: LINE,
-        body: TaskNoteBody.of('Use a bounded queue.'),
-        at: START,
-        voice: Voice.person(PEOPLE.maya),
-      })
+      .heldOnMessage(
+        null,
+        {
+          id: HoldId.of('hold_1'),
+          members: TEAM,
+          line: LINE,
+          currentRunStarted: true,
+          at: START,
+        },
+        {
+          line: LINE,
+          body: TaskNoteBody.of('Use a bounded queue.'),
+          at: START,
+          voice: Voice.person(PEOPLE.maya),
+        },
+        stationAt('implementation').id,
+        actingAs(PEOPLE.maya),
+      )
       .assignRun(RunId.of('run_turn'), LINE);
 
   it('stays loadable when the turn asks the person who opened the task to connect', () => {
@@ -1317,8 +1349,7 @@ describe('a task held by one person whose turn asks another person', () => {
       START,
     );
     const approved = asked.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(asked),
       {
         line: LINE,
@@ -1332,22 +1363,31 @@ describe('a task held by one person whose turn asks another person', () => {
     expect(
       asked.conversationStandingOf({
         person: PEOPLE.leon,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe('asked');
     expect(
       asked.conversationStandingOf({
         person: PEOPLE.maya,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe('assignee');
     expect(
       approved.conversationStandingOf({
         person: PEOPLE.leon,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe('following');
   });
@@ -1381,8 +1421,7 @@ describe('a task held by one person whose turn asks another person', () => {
       START,
     );
     const approved = asked.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(asked),
       {
         line: LINE,
@@ -1417,16 +1456,14 @@ describe('a task held by one person whose turn asks another person', () => {
       voice: Voice.person(PEOPLE.leon),
     };
     const approved = asked.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(asked),
       { ...words, body: TaskNoteBody.of('Go ahead.') },
       'approved',
     );
 
     const answered = approved.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(approved),
       words,
     );
@@ -1445,8 +1482,7 @@ describe('a task held by one person whose turn asks another person', () => {
 
     expect(() =>
       asked.answerAs(
-        PEOPLE.leon,
-        TEAM,
+        actingAs(PEOPLE.leon),
         openFrom(asked),
         {
           line: LINE,
@@ -1480,8 +1516,7 @@ describe('a task held by one person whose turn asks another person', () => {
     }
 
     const answered = connected.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(connected),
       {
         line: LINE,
@@ -1504,8 +1539,7 @@ describe('a task held by one person whose turn asks another person', () => {
     );
     const moved = asked.assign(PEOPLE.maya, TEAM);
     const approved = moved.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(moved),
       {
         line: LINE,
@@ -1520,8 +1554,11 @@ describe('a task held by one person whose turn asks another person', () => {
     expect(
       moved.conversationStandingOf({
         person: PEOPLE.leon,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe('asked');
     expect(approved.assignee).toEqual(PEOPLE.maya);
@@ -1544,8 +1581,7 @@ describe('a turn that asks again after a question was answered in words', () => 
     );
 
     return asked.answerAs(
-      by,
-      TEAM,
+      actingAs(by),
       openFrom(asked),
       said('The main one.', Voice.person(by)),
     );
@@ -1554,15 +1590,19 @@ describe('a turn that asks again after a question was answered in words', () => 
     answeredInWords(
       opened('implementation')
         .assignRun(RunId.of('run_line'), LINE)
-        .hold({
-          id: HoldId.of('hold_1'),
-          by: PEOPLE.maya,
-          members: TEAM,
-          line: LINE,
-          currentRunStarted: true,
-          at: START,
-        })
-        .addMessage(said('Use a bounded queue.', Voice.person(PEOPLE.maya)))
+        .heldOnMessage(
+          null,
+          {
+            id: HoldId.of('hold_1'),
+            members: TEAM,
+            line: LINE,
+            currentRunStarted: true,
+            at: START,
+          },
+          said('Use a bounded queue.', Voice.person(PEOPLE.maya)),
+          stationAt('implementation').id,
+          actingAs(PEOPLE.maya),
+        )
         .assignRun(run, LINE),
       PEOPLE.maya,
     );
@@ -1570,8 +1610,7 @@ describe('a turn that asks again after a question was answered in words', () => 
   it('lets the person the new approval names give it, on a task held by another person', () => {
     const asked = askingApproval(held(), run, PEOPLE.leon, START);
     const approved = asked.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(asked),
       said('Go ahead.', Voice.person(PEOPLE.leon)),
       'approved',
@@ -1580,8 +1619,11 @@ describe('a turn that asks again after a question was answered in words', () => 
     expect(
       asked.conversationStandingOf({
         person: PEOPLE.leon,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe('asked');
     expect(approved.openAsk?.approval?.status).toBe('approved');
@@ -1600,8 +1642,7 @@ describe('a turn that asks again after a question was answered in words', () => 
       START,
     );
     const approved = asked.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(asked),
       said('Go ahead.', Voice.person(PEOPLE.leon)),
       'approved',
@@ -1620,8 +1661,7 @@ describe('a turn that asks again after a question was answered in words', () => 
     const older = first.openAsk?.position ?? NotePosition.of(0);
     const second = askingApproval(
       first.answerAs(
-        PEOPLE.leon,
-        TEAM,
+        actingAs(PEOPLE.leon),
         openFrom(first),
         said('Not that issue.', Voice.person(PEOPLE.leon)),
       ),
@@ -1631,8 +1671,7 @@ describe('a turn that asks again after a question was answered in words', () => 
     );
     const decide = (at: NotePosition) =>
       second.answerAs(
-        PEOPLE.leon,
-        TEAM,
+        actingAs(PEOPLE.leon),
         openFrom(second),
         said('Go ahead.', Voice.person(PEOPLE.leon)),
         'approved',
@@ -1688,8 +1727,11 @@ describe('a turn that asks again after a question was answered in words', () => 
     expect(
       asked.conversationStandingOf({
         person: PEOPLE.leon,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe('asked');
     expect(connected?.openAsk?.connectionAsk?.met).toBe(true);
@@ -1720,8 +1762,11 @@ describe('a task unassigned while its turn asks a person on its team', () => {
     expect(
       task.conversationStandingOf({
         person: PEOPLE.leon,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe('team');
   });
@@ -1729,8 +1774,7 @@ describe('a task unassigned while its turn asks a person on its team', () => {
   it('assigns the person asked when they resolve it', () => {
     const task = asked();
     const resolved = task.resolveAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(task),
       note('Not needed.'),
     );
@@ -1742,8 +1786,7 @@ describe('a task unassigned while its turn asks a person on its team', () => {
   it('assigns the person asked when they answer in words', () => {
     const task = asked();
     const answered = task.answerAs(
-      PEOPLE.leon,
-      TEAM,
+      actingAs(PEOPLE.leon),
       openFrom(task),
       note('Use the staging key.'),
     );

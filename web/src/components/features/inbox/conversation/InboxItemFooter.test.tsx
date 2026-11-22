@@ -15,6 +15,12 @@ const taskStation = {
   },
 };
 const startRun = vi.fn();
+const stop = vi.fn();
+
+vi.mock('@/hooks/api/useStopRun', () => ({
+  useStopRun: () => ({ mutate: stop }),
+  useStopInFlight: () => false,
+}));
 
 vi.mock('@/hooks/api/useTaskStation', () => ({
   useTaskStation: () => taskStation,
@@ -48,11 +54,14 @@ const ITEM = {
   runId: null,
 } as InboxItem;
 
-const showing = () =>
+const showing = (
+  item: InboxItem = ITEM,
+  progress: 'in-progress' | null = null,
+) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <InboxItemFooter slug="acme" item={ITEM} progress={null} />
+        <InboxItemFooter slug="acme" item={item} progress={progress} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -61,6 +70,41 @@ describe('InboxItemFooter', () => {
   beforeEach(() => {
     startRun.mockReset();
     taskStation.task = { id: 'task_1', runNotStarted: null };
+  });
+
+  it('offers a follower Stop beside the closed text bar while the run works, as the server lets them stop it', async () => {
+    stop.mockReset();
+    showing(
+      {
+        ...ITEM,
+        kind: 'task',
+        standing: 'following',
+        answerable: false,
+        runId: 'run_1',
+        stoppableByYou: true,
+      },
+      'in-progress',
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
+
+    expect(stop).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_1' });
+  });
+
+  it('offers a follower no Stop where the server does not let them stop the run', () => {
+    showing(
+      {
+        ...ITEM,
+        kind: 'task',
+        standing: 'following',
+        answerable: false,
+        runId: 'run_1',
+        stoppableByYou: false,
+      },
+      'in-progress',
+    );
+
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
   it('shows only the text bar while the run of the station can start', () => {

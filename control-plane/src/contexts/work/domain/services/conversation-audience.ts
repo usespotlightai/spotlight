@@ -19,8 +19,7 @@ export type RunStanding = (typeof RUN_STANDINGS)[number];
 
 export interface ConversationViewer {
   readonly person: UserId;
-  readonly onTeam: boolean;
-  readonly actsOnTasks: boolean;
+  readonly team: TeamStanding;
 }
 
 export interface OpenAsk {
@@ -34,18 +33,52 @@ export interface OpenAsk {
   } | null;
 }
 
+export interface Awaiting {
+  readonly assignee: UserId | null;
+  readonly ask: OpenAsk | null;
+}
+
 const awaits = (ask: OpenAsk, person: UserId): boolean =>
   (ask.approval?.open === true &&
     (ask.approval.askedOf?.equals(person) ?? false)) ||
   (ask.connectionAsk?.met === false &&
     ask.connectionAsk.personId.equals(person));
 
-export interface ConversationReader {
+interface AnsweringReader {
   readonly person: UserId;
-  readonly onTeam: boolean;
-  readonly wroteIn: boolean;
+  readonly takesTasks: boolean;
   readonly asked: boolean;
 }
+
+export interface ConversationReader extends AnsweringReader {
+  readonly wroteIn: boolean;
+}
+
+const answeringStandingOf = (
+  assignee: UserId | null,
+  reader: AnsweringReader,
+): ConversationStanding | null => {
+  if (assignee?.equals(reader.person)) {
+    return 'assignee';
+  }
+
+  if (assignee === null && reader.takesTasks) {
+    return 'team';
+  }
+
+  return reader.asked ? 'asked' : null;
+};
+
+const answeringOf = (
+  assignee: UserId | null,
+  ask: OpenAsk | null,
+  viewer: ConversationViewer,
+): ConversationStanding | null =>
+  answeringStandingOf(assignee, {
+    person: viewer.person,
+    takesTasks: viewer.team.takesTasks,
+    asked: ask !== null && awaits(ask, viewer.person),
+  });
 
 export interface Conversant {
   readonly standing: ConversationStanding | null;
@@ -61,19 +94,37 @@ export const ConversationAudience = {
     assignee: UserId | null,
     reader: ConversationReader,
   ): ConversationStanding | null {
-    if (assignee?.equals(reader.person)) {
-      return 'assignee';
-    }
+    return (
+      answeringStandingOf(assignee, reader) ??
+      (assignee !== null && reader.wroteIn ? 'following' : null)
+    );
+  },
 
-    if (assignee === null && reader.onTeam) {
-      return 'team';
-    }
+  waitsFor(
+    assignee: UserId | null,
+    ask: OpenAsk | null,
+    viewer: ConversationViewer,
+  ): boolean {
+    return ConversationAudience.answersAwaiting(
+      { assignee, ask },
+      viewer,
+      false,
+    );
+  },
 
-    if (reader.asked) {
-      return 'asked';
-    }
+  answersAwaiting(
+    awaiting: Awaiting,
+    viewer: ConversationViewer,
+    drives: boolean,
+  ): boolean {
+    return ConversationAudience.mayAnswer(viewer.team, {
+      standing: answeringOf(awaiting.assignee, awaiting.ask, viewer),
+      drives,
+    });
+  },
 
-    return assignee !== null && reader.wroteIn ? 'following' : null;
+  answeredByMessage(ask: OpenAsk | null): boolean {
+    return (ask?.approval ?? null) === null;
   },
 
   answers(standing: ConversationStanding | null): boolean {

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { MESSAGE_OUTCOME_NAMES } from '@work/application/dto/task-run.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
@@ -182,7 +183,21 @@ export class TaskResponseDto {
 
   @ApiProperty({
     description:
-      'Whether the line finished the task. A message to a finished task sends it back to its station.',
+      'Whether the open question waits for you: you act on the tasks of the team, and you are the assignee, it asks you by name, or the task has no assignee and you are a member of the team. False for a question someone else owes.',
+  })
+  readonly waitingForYou: boolean;
+
+  @ApiProperty({
+    enum: MESSAGE_OUTCOME_NAMES,
+    example: 'message',
+    description:
+      'What a message from you to the task does. A message to the task puts nothing on hold, so it is never holds, not-on-team or moved-on. answer: it answers the open question. drives: it drives the next turn while a person holds the task. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message, and starts a run that did not start. awaits-another: it is refused, because the question waits for another person. not-acting: it is refused, because you do not act on the tasks of the team.',
+  })
+  readonly yourMessage: string;
+
+  @ApiProperty({
+    description:
+      'Whether the line finished the task. A message to a finished task sends it back to its station, unless it finished at the completed station.',
   })
   readonly finished: boolean;
 
@@ -252,6 +267,8 @@ export class TaskResponseDto {
     createdAt: string,
     progress: string | null,
     awaitingReview: TaskReviewResponseDto | null,
+    waitingForYou: boolean,
+    yourMessage: string,
     finished: boolean,
     pullRequests: readonly string[],
     createdBy: TaskPersonResponseDto | null,
@@ -270,6 +287,8 @@ export class TaskResponseDto {
     this.createdAt = createdAt;
     this.progress = progress;
     this.awaitingReview = awaitingReview;
+    this.waitingForYou = waitingForYou;
+    this.yourMessage = yourMessage;
     this.finished = finished;
     this.pullRequests = pullRequests;
     this.createdBy = createdBy;

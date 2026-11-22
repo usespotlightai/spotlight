@@ -93,12 +93,19 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-09-12T09:00:00.000Z');
 
@@ -1003,7 +1010,8 @@ describe('UseToolHandler', () => {
     const { useTool, called, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({
-        ...approved.answer(
+        ...approved.answerAs(
+          { person: UserId.of('user_1'), team: MEMBER },
           NotePosition.of(approved.notes.length - 1),
           {
             line: null,
@@ -1051,7 +1059,8 @@ describe('UseToolHandler', () => {
     const { useTool, called } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({
-        ...approved.answer(
+        ...approved.answerAs(
+          { person: UserId.of('user_1'), team: MEMBER },
           NotePosition.of(approved.notes.length - 1),
           {
             line: null,
@@ -1091,7 +1100,8 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const granted = asked.answer(
+    const granted = asked.answerAs(
+      { person: UserId.of('user_1'), team: MEMBER },
       NotePosition.of(asked.notes.length - 1),
       {
         line: null,
@@ -1139,7 +1149,8 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const granted = asked.answer(
+    const granted = asked.answerAs(
+      { person: UserId.of('user_1'), team: MEMBER },
       NotePosition.of(asked.notes.length - 1),
       {
         line: null,
@@ -1183,7 +1194,8 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const granted = asked.answer(
+    const granted = asked.answerAs(
+      { person: UserId.of('user_1'), team: MEMBER },
       NotePosition.of(asked.notes.length - 1),
       {
         line: null,
@@ -1228,7 +1240,8 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const rejected = asked.answer(
+    const rejected = asked.answerAs(
+      { person: UserId.of('user_1'), team: MEMBER },
       NotePosition.of(asked.notes.length - 1),
       {
         line: null,
@@ -1270,12 +1283,16 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const talkedBack = asked.answer(NotePosition.of(asked.notes.length - 1), {
-      line: null,
-      body: TaskNoteBody.of('Mention the ticket too.'),
-      at: NOW,
-      voice: Voice.person(UserId.of('user_1')),
-    });
+    const talkedBack = asked.answerAs(
+      { person: UserId.of('user_1'), team: MEMBER },
+      NotePosition.of(asked.notes.length - 1),
+      {
+        line: null,
+        body: TaskNoteBody.of('Mention the ticket too.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+    );
 
     const { useTool, called, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
@@ -1310,7 +1327,8 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const granted = asked.answer(
+    const granted = asked.answerAs(
+      { person: UserId.of('user_1'), team: MEMBER },
       NotePosition.of(asked.notes.length - 1),
       {
         line: null,
@@ -1412,7 +1430,8 @@ describe('UseToolHandler', () => {
         RunId.of('run_1'),
         null,
       ).task;
-      const granted = asked.answer(
+      const granted = asked.answerAs(
+        { person: UserId.of('user_1'), team: MEMBER },
         NotePosition.of(asked.notes.length - 1),
         {
           line: null,
@@ -1460,7 +1479,8 @@ describe('UseToolHandler', () => {
         RunId.of('run_1'),
         null,
       ).task;
-      const granted = asked.answer(
+      const granted = asked.answerAs(
+        { person: UserId.of('user_1'), team: MEMBER },
         NotePosition.of(asked.notes.length - 1),
         {
           line: null,
@@ -1518,7 +1538,8 @@ describe('UseToolHandler', () => {
         RunId.of('run_1'),
         null,
       ).task;
-      const granted = asked.answer(
+      const granted = asked.answerAs(
+        { person: UserId.of('user_1'), team: MEMBER },
         NotePosition.of(asked.notes.length - 1),
         {
           line: null,

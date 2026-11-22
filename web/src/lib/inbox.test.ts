@@ -12,7 +12,6 @@ import type {
 import {
   chatPreviewOf,
   counted,
-  decisionPending,
   entryKey,
   formatShortDuration,
   inboxItemPath,
@@ -140,19 +139,6 @@ describe('previewOf', () => {
       'The judge and people disagree on a run. Spotlight asks why.',
     );
     expect(previewOf(disagreement(true))).toBe('Disagreement resolved.');
-  });
-});
-
-describe('decisionPending', () => {
-  const asked = (form: Note['form']) => ({ kind: 'asked', form }) as Note;
-
-  it('has a pending decision where the last question put up an approval', () => {
-    expect(decisionPending([asked('words'), asked('approval')])).toBe(true);
-  });
-
-  it('has only a pending answer where the last question was put in words', () => {
-    expect(decisionPending([asked('approval'), asked('words')])).toBe(false);
-    expect(decisionPending([])).toBe(false);
   });
 });
 

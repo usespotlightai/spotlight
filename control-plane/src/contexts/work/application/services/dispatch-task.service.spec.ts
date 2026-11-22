@@ -75,8 +75,15 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 
@@ -894,21 +901,24 @@ describe('DispatchTask', () => {
     const leon = UserId.of('user_1');
     const station = stations[1];
     const line = lineWith(station);
-    const taken = task(station.id.value)
-      .hold({
+    const taken = task(station.id.value).heldOnMessage(
+      null,
+      {
         id: HoldId.of('hold_1'),
-        by: leon,
         members: TeamMembers.of([leon]),
         line,
         currentRunStarted: true,
         at: NOW,
-      })
-      .addMessage({
+      },
+      {
         line,
         body: TaskNoteBody.of('Use a bounded queue.'),
         at: NOW,
         voice: Voice.person(leon),
-      });
+      },
+      station.id,
+      { person: leon, team: MEMBER },
+    );
 
     await dispatch(station, taken);
 

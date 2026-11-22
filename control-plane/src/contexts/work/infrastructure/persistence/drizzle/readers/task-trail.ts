@@ -15,15 +15,20 @@ import type {
 import type { RunReview } from '@work/application/ports/run-reader.port';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
+import type { OpenAsk } from '@work/domain/services/conversation-audience';
+import type { HeldFor } from '@work/domain/services/hold-rights';
 import {
   conversationsOf,
   notesIn,
+  openAskIn,
   pendingIn,
   reviewsIn,
   TURNING_NOTE_KINDS,
 } from '@work/domain/services/conversations';
 import { deferralWaitingIn } from '@work/domain/services/deferred-moves';
 import { foldedVisits } from '@work/domain/services/folded-visits';
+import { Approval } from '@work/domain/value-objects/approval.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import {
@@ -37,6 +42,7 @@ import {
   type FailureRow,
   task,
   taskAttachment,
+  taskHold,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -598,12 +604,37 @@ export const stationsPerLine = async (
   return counts;
 };
 
+export const openAskOf = (note: {
+  readonly approval: ApprovalRow | null;
+  readonly connectionAsk: ConnectionAskRow | null;
+}): OpenAsk => ({
+  approval: note.approval
+    ? {
+        open: Approval.isPending(note.approval.status),
+        askedOf: note.approval.askedOf
+          ? UserId.of(note.approval.askedOf)
+          : null,
+      }
+    : null,
+  connectionAsk: note.connectionAsk
+    ? {
+        met: note.connectionAsk.met,
+        personId: UserId.of(note.connectionAsk.personId),
+      }
+    : null,
+});
+
+export interface AwaitedReview {
+  readonly conversationId: string;
+  readonly ask: OpenAsk | null;
+}
+
 export const awaitedReviewsFor = async (
   db: DrizzleDatabase,
   taskIds: readonly string[],
-): Promise<Map<string, string>> => {
+): Promise<Map<string, AwaitedReview>> => {
   const named = [...new Set(taskIds)];
-  const awaited = new Map<string, string>();
+  const awaited = new Map<string, AwaitedReview>();
 
   if (named.length === 0) {
     return awaited;
@@ -614,6 +645,8 @@ export const awaitedReviewsFor = async (
       taskId: taskNote.taskId,
       position: taskNote.position,
       kind: taskNote.kind,
+      approval: taskNote.approval,
+      connectionAsk: taskNote.connectionAsk,
     })
     .from(taskNote)
     .where(
@@ -624,7 +657,7 @@ export const awaitedReviewsFor = async (
     )
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
-  const trails = new Map<string, { kind: TaskNoteKind; position: number }[]>();
+  const trails = new Map<string, Omit<(typeof rows)[number], 'taskId'>[]>();
 
   for (const { taskId, ...note } of rows) {
     trails.set(taskId, [...(trails.get(taskId) ?? []), note]);
@@ -635,15 +668,42 @@ export const awaitedReviewsFor = async (
     const from = pending?.from.noteIn(trail);
 
     if (from) {
-      awaited.set(
-        taskId,
-        ConversationId.of({ taskId: TaskId.of(taskId), from: from.position })
-          .value,
-      );
+      const ask = openAskIn(trail);
+
+      awaited.set(taskId, {
+        conversationId: ConversationId.of({
+          taskId: TaskId.of(taskId),
+          from: from.position,
+        }).value,
+        ask: ask && openAskOf(ask),
+      });
     }
   }
 
   return awaited;
+};
+
+export const openHoldsFor = async (
+  db: DrizzleDatabase,
+  taskIds: readonly string[],
+): Promise<Map<string, Pick<HeldFor, 'chat'>>> => {
+  const named = [...new Set(taskIds)];
+
+  if (named.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({ taskId: taskHold.taskId, chatId: taskHold.chatId })
+    .from(taskHold)
+    .where(and(inArray(taskHold.taskId, named), isNull(taskHold.endedAt)));
+
+  return new Map(
+    rows.map((row) => [
+      row.taskId,
+      { chat: row.chatId ? ChatId.of(row.chatId) : null },
+    ]),
+  );
 };
 
 type TrailNote = {

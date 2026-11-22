@@ -24,6 +24,8 @@ export const TaskHttpMapper = {
       dto.awaitingReview
         ? new TaskReviewResponseDto(dto.awaitingReview.conversationId)
         : null,
+      dto.waitingForYou,
+      dto.yourMessage,
       dto.finished,
       dto.pullRequests,
       dto.createdBy

@@ -15,7 +15,7 @@ export function TaskState({ task, stateTo }: TaskStateProps) {
     return <OnHoldPill hold={task.hold} to={stateTo} />;
   }
 
-  if (task.awaitingReview) {
+  if (task.waitingForYou) {
     const asked = <WaitingForYouPill />;
 
     return stateTo ? (

@@ -43,10 +43,17 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
@@ -153,20 +160,24 @@ const askingInATurn = () =>
     newId: () => 'task_1',
   })
     .assignRun(RunId.of('run_1'), line())
-    .hold({
-      id: HoldId.of('hold_1'),
-      by: UserId.of('user_1'),
-      members: TeamMembers.of([UserId.of('user_1'), UserId.of('user_2')]),
-      line: line(),
-      currentRunStarted: true,
-      at: NOW,
-    })
-    .addMessage({
-      line: line(),
-      body: TaskNoteBody.of('Comment on the issue.'),
-      at: NOW,
-      voice: Voice.person(UserId.of('user_1')),
-    })
+    .heldOnMessage(
+      null,
+      {
+        id: HoldId.of('hold_1'),
+        members: TeamMembers.of([UserId.of('user_1'), UserId.of('user_2')]),
+        line: line(),
+        currentRunStarted: true,
+        at: NOW,
+      },
+      {
+        line: line(),
+        body: TaskNoteBody.of('Comment on the issue.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      StationId.of('station_1'),
+      { person: UserId.of('user_1'), team: MEMBER },
+    )
     .assignRun(TURN, line())
     .clearFor(
       ApprovalSubject.toolCall(
@@ -444,7 +455,7 @@ describe('AnswerConversation', () => {
     ).toBe('user_9');
   });
 
-  it('refuses a person who only sees the team in a turn of a task on hold, saving nothing', async () => {
+  it('refuses a person who only sees the team in a turn of a task on hold, as not on the team, saving nothing', async () => {
     const held = askingInATurn().pendingConversation;
 
     await expect(
@@ -462,7 +473,7 @@ describe('AnswerConversation', () => {
           onTeam: (_, viewer) => viewer.value !== 'user_9',
         }),
       ),
-    ).rejects.toMatchObject({ kind: 'not-found' });
+    ).rejects.toMatchObject({ kind: 'not-allowed' });
     expect(saved).toBeUndefined();
   });
 

@@ -37,15 +37,13 @@ export const workAccessSeeing = (
     seenTeam,
     seesTeam: async (teamId: TeamId, viewer: UserId) =>
       (await seenTeam(teamId, viewer)) !== null,
-    actsOnTeam: async (teamId: TeamId, viewer: UserId) =>
-      actsOnTeam(teamId, viewer),
-    joinsTeam: async (teamId: TeamId, viewer: UserId) =>
-      actsOnTeam(teamId, viewer) &&
-      (over.members ?? []).some((each) => each.equals(viewer)),
     standingOn: async (teamId: TeamId, viewer: UserId) =>
       TeamStanding.of({
         seesTeam: sees(teamId, viewer),
         actsOnTeam: actsOnTeam(teamId, viewer),
+        memberOfTeam:
+          actsOnTeam(teamId, viewer) &&
+          (over.members ?? []).some((each) => each.equals(viewer)),
       }),
     seesWorkspace: async () => true,
     seesWorkspaceOfTeam: async () => true,

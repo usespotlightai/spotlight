@@ -15,6 +15,7 @@ import { PEOPLE, SAM } from '@/mocks/world/people';
 import { PLATFORM_LINES, PLATFORM_TASKS } from '@/mocks/world/platform';
 import { progressOfState } from '@/mocks/world/run-progress';
 import { runStationOf } from '@/mocks/world/stations';
+import { seenByTheViewer, stationsAmong } from '@/mocks/world/waiting-for-you';
 
 const LINES = [...PLATFORM_LINES, ...GROWTH_LINES];
 
@@ -109,12 +110,19 @@ const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
     run.stationId,
   ),
   review: null,
+  waitingForYou: false,
+  yourMessage: 'message',
+  stoppableByYou: false,
 });
 
 const finalStationOf = (runs: readonly HistoryRun[]): string => {
   const last = runs.at(-1);
   return last?.passed?.to ?? last?.stationId ?? '';
 };
+
+const stations = stationsAmong(
+  ...[...PLATFORM_LINES, ...GROWTH_LINES].map((line) => line.stations),
+);
 
 const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   id: task.id,
@@ -126,6 +134,8 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   createdAt: new Date(task.openedAt).toISOString(),
   progress: null,
   awaitingReview: null,
+  waitingForYou: false,
+  yourMessage: 'message',
   finished: false,
   pullRequests: task.pullRequest
     ? [pullRequestUrlOf(task.teamId, task.id)].filter((url) => url !== null)
@@ -138,6 +148,21 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   runNotStarted: null,
 });
 
+const seenRunOf = (run: HistoryRun): TaskRunResponseDto => {
+  const shown = shownRunOf(run);
+  const task = pastTaskOf(run.taskId);
+
+  if (task) {
+    seenByTheViewer({ ...task }, [shown], stations);
+  }
+  return shown;
+};
+
+const seenOf = (task: TaskResponseDto): TaskResponseDto => {
+  seenByTheViewer(task, [], stations);
+  return task;
+};
+
 export const pastTaskOf = (taskId: string): TaskResponseDto | undefined => {
   if (isCoreTask(taskId)) {
     return undefined;
@@ -147,7 +172,7 @@ export const pastTaskOf = (taskId: string): TaskResponseDto | undefined => {
   if (!found) {
     return undefined;
   }
-  const shown = shownTasks.get(taskId) ?? shownTaskOf(found);
+  const shown = shownTasks.get(taskId) ?? seenOf(shownTaskOf(found));
   shownTasks.set(taskId, shown);
   return shown;
 };
@@ -156,7 +181,7 @@ export const teamOfPastTask = (taskId: string): string | undefined =>
   isCoreTask(taskId) ? undefined : historyTaskOf(taskId)?.teamId;
 
 export const pastRunsOfTask = (taskId: string): TaskRunResponseDto[] =>
-  isCoreTask(taskId) ? [] : historyRunsOfTask(taskId).map(shownRunOf).reverse();
+  isCoreTask(taskId) ? [] : historyRunsOfTask(taskId).map(seenRunOf).reverse();
 
 export const pastTeamRuns = (teamId: string): TeamRunResponseDto[] => {
   const { teamRuns } = index();
@@ -169,7 +194,7 @@ export const pastTeamRuns = (teamId: string): TeamRunResponseDto[] => {
     .map((run): TeamRunResponseDto => {
       const task = pastTaskOf(run.taskId);
       return {
-        ...shownRunOf(run),
+        ...seenRunOf(run),
         taskId: run.taskId,
         taskTitle: task?.title ?? null,
         taskDescription: task?.description ?? null,

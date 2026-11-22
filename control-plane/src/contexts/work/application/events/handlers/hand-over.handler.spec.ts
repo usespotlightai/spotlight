@@ -44,10 +44,17 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
@@ -541,7 +548,8 @@ describe('HandOver', () => {
         null,
       ).task;
 
-      return asked.answer(
+      return asked.answerAs(
+        { person: UserId.of('user_1'), team: MEMBER },
         NotePosition.of(1),
         {
           line: null,

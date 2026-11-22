@@ -5,8 +5,6 @@ import {
   movableByHand,
   moveTargetFor,
   placed,
-  holdsOnMessage,
-  startsAgainOnMessage,
   type Task,
 } from '@/lib/task';
 
@@ -20,6 +18,8 @@ const task = (id: string, stationId: string): Task => ({
   createdAt: '2026-08-04T09:15:00.000Z',
   progress: null,
   awaitingReview: null,
+  waitingForYou: false,
+  yourMessage: 'message',
   finished: false,
   createdBy: null,
   assignee: null,
@@ -187,101 +187,5 @@ describe('moveTargetFor', () => {
 
   it('offers nothing until something is picked', () => {
     expect(moveTargetFor(stations, [task('a', 'build')], [])).toBeNull();
-  });
-});
-
-describe('startsAgainOnMessage', () => {
-  const worked = { id: 'spec', harness: 'claude-code' };
-  const finished: Task = { ...task('a', 'spec'), finished: true };
-
-  it('starts a finished task again at the station its run worked', () => {
-    expect(startsAgainOnMessage(finished, worked, 'spec')).toBe(true);
-  });
-
-  it('leaves a task that is not finished to the hold', () => {
-    expect(startsAgainOnMessage(task('a', 'spec'), worked, 'spec')).toBe(false);
-  });
-
-  it('starts nothing from a run at a station the task has since left', () => {
-    expect(startsAgainOnMessage(finished, worked, 'triage')).toBe(false);
-  });
-
-  it('leaves a task that still has a current run to that run', () => {
-    expect(
-      startsAgainOnMessage(
-        { ...finished, progress: 'in-progress' },
-        worked,
-        'spec',
-      ),
-    ).toBe(false);
-  });
-
-  it('leaves a task waiting on a person to the answer', () => {
-    expect(
-      startsAgainOnMessage(
-        { ...finished, awaitingReview: { conversationId: 'a:0' } },
-        worked,
-        'spec',
-      ),
-    ).toBe(false);
-  });
-
-  it('starts nothing where nothing runs', () => {
-    expect(
-      startsAgainOnMessage(
-        task('a', 'backlog'),
-        { id: 'backlog', harness: null },
-        'backlog',
-      ),
-    ).toBe(false);
-  });
-});
-
-describe('holdsOnMessage', () => {
-  const worked = { id: 'spec', harness: 'claude-code' };
-
-  it('puts a task on hold at the station its run worked', () => {
-    expect(holdsOnMessage(task('a', 'spec'), worked, 'spec')).toBe(true);
-  });
-
-  it('puts a task on hold while the line runs it', () => {
-    expect(
-      holdsOnMessage(
-        { ...task('a', 'spec'), progress: 'in-progress' },
-        worked,
-        'spec',
-      ),
-    ).toBe(true);
-  });
-
-  it('does not hold a task that is on hold already', () => {
-    expect(
-      holdsOnMessage(
-        {
-          ...task('a', 'spec'),
-          hold: {
-            by: { id: 'user_1', name: 'Leon', image: null },
-            startedAt: '2026-08-04T09:15:00.000Z',
-            runId: null,
-            heldMoveTo: null,
-            chatId: null,
-            viewerDrives: true,
-            viewerEnds: true,
-          },
-        },
-        worked,
-        'spec',
-      ),
-    ).toBe(false);
-  });
-
-  it('does not hold a finished task', () => {
-    expect(
-      holdsOnMessage({ ...task('a', 'spec'), finished: true }, worked, 'spec'),
-    ).toBe(false);
-  });
-
-  it('does not hold a task from a run at a station it has left', () => {
-    expect(holdsOnMessage(task('a', 'spec'), worked, 'triage')).toBe(false);
   });
 });

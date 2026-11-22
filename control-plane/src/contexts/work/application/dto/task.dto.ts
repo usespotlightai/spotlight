@@ -1,4 +1,5 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
+import type { MessageOutcome } from '@work/domain/services/message-effect';
 import { HOLD_ENDS } from '@work/domain/value-objects/hold-end';
 import { HOLD_VERDICTS } from '@work/domain/value-objects/hold-verdict';
 import { PROGRESSES, type Progress } from '@work/domain/value-objects/progress';
@@ -45,6 +46,8 @@ export interface TaskDto {
   readonly createdAt: string;
   readonly progress: Progress | null;
   readonly awaitingReview: TaskReviewDto | null;
+  readonly waitingForYou: boolean;
+  readonly yourMessage: MessageOutcome;
   readonly finished: boolean;
   readonly pullRequests: readonly string[];
   readonly note: TaskNoteDto | null;

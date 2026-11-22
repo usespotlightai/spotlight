@@ -130,6 +130,7 @@ export interface InboxItemSummary {
   readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
+  readonly stoppableByYou: boolean;
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailure | null;
@@ -189,6 +190,7 @@ export interface InboxRunSummary {
   readonly section: InboxSection;
   readonly standing: RunStanding;
   readonly reopenable: false;
+  readonly stoppableByYou: boolean;
 }
 
 export interface InboxChatSummary {

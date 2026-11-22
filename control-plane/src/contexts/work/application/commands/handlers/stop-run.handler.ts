@@ -34,17 +34,16 @@ export class StopRunHandler implements CommandHandlerPort<
       const unknown = () =>
         new UnknownRunError(`Run ${command.runId} is not one you may stop.`);
 
-      if (
-        !dispatch?.teamId ||
-        subject?.kind !== 'task' ||
-        !RunStopPolicy.allows(subject, task, stoppedBy)
-      ) {
+      if (!dispatch?.teamId || subject?.kind !== 'task') {
         throw unknown();
       }
 
-      (
-        await this.access.standingOn(dispatch.teamId, stoppedBy)
-      ).assertActsOnTasks(unknown);
+      const standing = await this.access.standingOn(dispatch.teamId, stoppedBy);
+
+      if (!RunStopPolicy.allows(subject, task, standing)) {
+        standing.assertActsOnTasks(unknown);
+        throw unknown();
+      }
 
       const stop = await this.runs.requestStop(runId);
 

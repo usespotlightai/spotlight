@@ -21,6 +21,9 @@ export function useLatestRun(
           id: run.id,
           state: run.state,
           progress: run.progress,
+          waitingForYou: run.waitingForYou,
+          yourMessage: run.yourMessage,
+          stoppableByYou: run.stoppableByYou,
         }
       : null);
   const progress = useRunProgress(latest?.id, latest?.progress ?? null);

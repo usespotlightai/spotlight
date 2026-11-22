@@ -4,34 +4,47 @@ import type {
   TaskHoldSummary,
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
+import type { MessageReading } from '@work/application/services/message-reading';
+import type { ConversationViewer } from '@work/domain/services/conversation-audience';
 import { HoldRights } from '@work/domain/services/hold-rights';
+import type { MessagedTask } from '@work/domain/services/message-effect';
+import { TaskWaits } from '@work/domain/services/task-waits';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
-export interface TaskViewer {
-  readonly id: string;
-  readonly actsOnTasks: boolean;
-}
-
-const holdToDto = (hold: TaskHoldSummary, viewer: TaskViewer) => {
+const holdToDto = (hold: TaskHoldSummary, viewer: ConversationViewer) => {
   const held = {
     by: UserId.of(hold.by.id),
     chat: hold.chatId === null ? null : ChatId.of(hold.chatId),
-  };
-  const person = {
-    person: UserId.of(viewer.id),
-    actsOnTasks: viewer.actsOnTasks,
   };
 
   return {
     ...hold,
     startedAt: hold.startedAt.toISOString(),
-    viewerDrives: HoldRights.drives(held, person),
-    viewerEnds: HoldRights.ends(held, person),
+    viewerDrives: HoldRights.drives(held, viewer),
+    viewerEnds: HoldRights.ends(held, viewer),
   };
 };
 
+const messagedTaskOf = (
+  summary: TaskSummary,
+  reading: MessageReading,
+): MessagedTask => ({
+  running: summary.running,
+  finished: summary.finished,
+  ...reading.stationOf(summary.stationId),
+  hold: summary.hold && {
+    chat: summary.hold.chatId === null ? null : ChatId.of(summary.hold.chatId),
+  },
+  pending: summary.awaitingReview && {
+    assignee: summary.assignee ? UserId.of(summary.assignee.id) : null,
+    ask: summary.awaitingReview.ask,
+  },
+});
+
 export const TaskMapper = {
-  summaryToDto(summary: TaskSummary, viewer: TaskViewer): TaskDto {
+  summaryToDto(summary: TaskSummary, reading: MessageReading): TaskDto {
+    const { viewer } = reading;
+
     return {
       id: summary.id,
       stationId: summary.stationId,
@@ -41,7 +54,10 @@ export const TaskMapper = {
       attachments: summary.attachments,
       createdAt: summary.createdAt.toISOString(),
       progress: summary.progress,
-      awaitingReview: summary.awaitingReview,
+      awaitingReview: summary.awaitingReview && {
+        conversationId: summary.awaitingReview.conversationId,
+      },
+      ...TaskWaits.forViewer(messagedTaskOf(summary, reading), viewer),
       finished: summary.finished,
       pullRequests: summary.pullRequests,
       createdBy: summary.createdBy,

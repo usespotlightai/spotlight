@@ -58,6 +58,8 @@ const inboxWith = async (
     asked = true,
     // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- widens the default to every turn
     turn = 'kept' as 'pending' | 'kept',
+    actsOnTeam = false,
+    onTeam = false,
   } = {},
 ) => {
   const workspaceId = randomUUID();
@@ -169,8 +171,8 @@ const inboxWith = async (
     workspaceId,
     viewer: UserId.of(viewer),
     teamsSeen: new Set(['team_1']),
-    teamsActedOn: new Set(),
-    teamsJoined: new Set(),
+    teamsActedOn: new Set(actsOnTeam ? ['team_1'] : []),
+    teamsJoined: new Set(onTeam ? ['team_1'] : []),
   });
 
   const onBoard = await tasks.findInTeam(
@@ -209,6 +211,14 @@ describe('the progress of a task whose run waits to start', () => {
 
     expect(inbox?.progress).toBe('in-progress');
     expect(board?.progress).toBe('in-progress');
+  });
+
+  it('lets a person who acts on the team stop the run that works on the item, and nobody who only sees the team', async () => {
+    const acting = await inboxWith('claimed', { actsOnTeam: true });
+    const seeing = await inboxWith('claimed');
+
+    expect(acting.inbox?.stoppableByYou).toBe(true);
+    expect(seeing.inbox?.stoppableByYou).toBe(false);
   });
 });
 
@@ -279,6 +289,23 @@ describe('a run on a task with nothing to ask its person', () => {
       station: 'Implementation',
       progress: 'in-progress',
     });
+  });
+
+  it('may be stopped by a member or an admin off the team, and by nobody who only sees the team', async () => {
+    const member = await inboxWith('claimed', {
+      asked: false,
+      actsOnTeam: true,
+      onTeam: true,
+    });
+    const admin = await inboxWith('claimed', {
+      asked: false,
+      actsOnTeam: true,
+    });
+    const reader = await inboxWith('claimed', { asked: false });
+
+    expect(member.running?.stoppableByYou).toBe(true);
+    expect(admin.running?.stoppableByYou).toBe(true);
+    expect(reader.running?.stoppableByYou).toBe(false);
   });
 
   it('is queued while it waits for a runner', async () => {

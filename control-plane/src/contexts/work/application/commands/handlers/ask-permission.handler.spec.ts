@@ -38,8 +38,15 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
 
@@ -157,7 +164,8 @@ const asking = (start: Task, inChat = false) => {
     decide: (decision: ApprovalDecision) => {
       const at = NotePosition.of(current.notes.length - 1);
 
-      current = current.answer(
+      current = current.answerAs(
+        { person: UserId.of('user_1'), team: MEMBER },
         at,
         {
           line: null,

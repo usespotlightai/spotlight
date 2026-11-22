@@ -6,8 +6,7 @@ import {
 } from '@/components/features/runs/RunComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { lockedHold } from '@/lib/hold';
-import { stoppable, type TeamRun, waitsOnPerson } from '@/lib/run';
+import { messageRefusal, stoppable, type TeamRun } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
@@ -16,7 +15,6 @@ type RunFooterProps = {
   run: TeamRun;
   latest: LatestRun;
   conversation: RunNotes | undefined;
-  deciding: boolean;
   onSent?: () => void;
 };
 
@@ -26,34 +24,32 @@ export function RunFooter({
   run,
   latest,
   conversation,
-  deciding,
   onSent,
 }: RunFooterProps) {
   const { station: current, task } = useTaskStation(
     teamId,
     conversation?.taskId,
   );
-  const locked = lockedHold(task?.hold);
-
-  if (locked) {
-    return (
-      <ClosedTaskComposer
-        slug={slug}
-        teamId={teamId}
-        taskId={conversation?.taskId}
-        station={run.station?.name ?? 'the agent'}
-        label={`Message ${run.station?.name ?? 'the agent'}`}
-        placeholder={WRITE_A_MESSAGE}
-        because={
-          locked.chatId
-            ? `An agent chat of ${locked.by.name} holds the task. The agent reads new messages after they hand the task to the line.`
-            : `${locked.by.name} put the task on hold. Only people who act on the team's tasks can send it turns.`
-        }
-      />
-    );
-  }
+  const closed = (
+    station: string,
+    because: string,
+    stopRunId: string | null = null,
+  ) => (
+    <ClosedTaskComposer
+      slug={slug}
+      teamId={teamId}
+      taskId={conversation?.taskId}
+      station={station}
+      label={`Message ${station}`}
+      placeholder={WRITE_A_MESSAGE}
+      because={because}
+      stopRunId={stopRunId}
+    />
+  );
 
   if (current && task?.runNotStarted) {
+    const refusedHere = messageRefusal(task.yourMessage);
+
     return (
       <>
         <RunNotStartedNotice
@@ -62,31 +58,44 @@ export function RunFooter({
           station={current.name}
           harness={task.runNotStarted.harness}
         />
-        <RunComposer
-          slug={slug}
-          teamId={teamId}
-          runId={null}
-          taskId={task.id}
-          station={current.name}
-          stationId={current.id}
-          running={false}
-          answering={false}
-          onSent={onSent}
-        />
+        {refusedHere ? (
+          closed(current.name, refusedHere)
+        ) : (
+          <RunComposer
+            slug={slug}
+            teamId={teamId}
+            runId={null}
+            taskId={task.id}
+            station={current.name}
+            stoppable={false}
+            yourMessage={task.yourMessage}
+            onSent={onSent}
+          />
+        )}
       </>
     );
   }
 
-  if (current && run.station && current.id !== run.station.id) {
+  if (current && latest.yourMessage === 'moved-on') {
     return (
       <MovedOnFooter
         slug={slug}
         teamId={teamId}
         taskId={conversation?.taskId}
         current={current}
-        station={run.station.name}
+        station={run.station?.name ?? 'the agent'}
         onSent={onSent}
       />
+    );
+  }
+
+  const refused = messageRefusal(latest.yourMessage);
+
+  if (refused) {
+    return closed(
+      run.station?.name ?? 'the agent',
+      refused,
+      stoppable(latest) ? latest.id : null,
     );
   }
 
@@ -97,9 +106,8 @@ export function RunFooter({
       runId={latest.id}
       taskId={conversation?.taskId}
       station={run.station?.name ?? 'the agent'}
-      stationId={run.station?.id}
-      running={stoppable(latest)}
-      answering={waitsOnPerson(latest) && !deciding}
+      stoppable={stoppable(latest)}
+      yourMessage={latest.yourMessage}
       onSent={onSent}
     />
   );

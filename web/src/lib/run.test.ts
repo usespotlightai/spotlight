@@ -8,8 +8,8 @@ import {
   inRunFilter,
   type Run,
   runStatus,
-  shownProgress,
   stoppable,
+  shownProgress,
   underway,
   waitsOnPerson,
 } from '@/lib/run';
@@ -115,9 +115,10 @@ describe('underway', () => {
 });
 
 describe('stoppable', () => {
-  const run = (progress: Run['progress']) => ({ progress }) as Run;
+  const run = (progress: Run['progress'], stoppableByYou = true) =>
+    ({ progress, stoppableByYou }) as Run;
 
-  it('is true while the run is in progress', () => {
+  it('is true while the run is in progress and the server lets you stop it', () => {
     expect(stoppable(run('in-progress'))).toBe(true);
   });
 
@@ -125,6 +126,10 @@ describe('stoppable', () => {
     expect(stoppable(run('queued'))).toBe(false);
     expect(stoppable(run('stopping'))).toBe(false);
     expect(stoppable(run(null))).toBe(false);
+  });
+
+  it('is false where the server does not let you stop it', () => {
+    expect(stoppable(run('in-progress', false))).toBe(false);
   });
 });
 
@@ -151,8 +156,11 @@ describe('waitsOnPerson', () => {
 });
 
 describe('runStatus', () => {
-  const run = (state: Run['state'], exitCode: number | null = null) =>
-    ({ state, exitCode, progress: null }) as Run;
+  const run = (
+    state: Run['state'],
+    exitCode: number | null = null,
+    waitingForYou = false,
+  ) => ({ state, exitCode, progress: null, waitingForYou }) as Run;
 
   it('says nothing of a claimed run', () => {
     expect(runStatus(run('claimed'))).toBeNull();
@@ -162,8 +170,12 @@ describe('runStatus', () => {
     expect(runStatus(run('queued'))).toBeNull();
   });
 
-  it('reads a run that asked a person as waiting for you', () => {
-    expect(runStatus(run('suspended'))).toBe('Waiting for you');
+  it('reads a run that waits for your answer as waiting for you', () => {
+    expect(runStatus(run('suspended', null, true))).toBe('Waiting for you');
+  });
+
+  it('says nothing of a run that waits for someone else’s answer', () => {
+    expect(runStatus(run('suspended'))).toBeNull();
   });
 
   it('reads a superseded run as superseded', () => {
@@ -182,34 +194,17 @@ describe('runStatus', () => {
 });
 
 describe('run filters', () => {
-  const pending = {
-    state: 'completed',
-    progress: null,
-    review: { state: 'pending', conversationId: 'c_1' },
-  } as const;
-  const answered = {
-    state: 'completed',
-    progress: null,
-    review: { state: 'answered', conversationId: 'c_2' },
-  } as const;
-  const unreviewed = {
-    state: 'completed',
-    progress: null,
-    review: null,
-  } as const;
-  const asking = { state: 'suspended', progress: null, review: null } as const;
+  const yours = { waitingForYou: true };
+  const theirs = { waitingForYou: false };
 
   it('lets every run through All', () => {
-    expect(inRunFilter('all', pending)).toBe(true);
-    expect(inRunFilter('all', answered)).toBe(true);
-    expect(inRunFilter('all', unreviewed)).toBe(true);
+    expect(inRunFilter('all', yours)).toBe(true);
+    expect(inRunFilter('all', theirs)).toBe(true);
   });
 
-  it('lets only runs with a pending review or answer through Waiting for you', () => {
-    expect(inRunFilter('waiting-for-you', pending)).toBe(true);
-    expect(inRunFilter('waiting-for-you', asking)).toBe(true);
-    expect(inRunFilter('waiting-for-you', answered)).toBe(false);
-    expect(inRunFilter('waiting-for-you', unreviewed)).toBe(false);
+  it('lets only the runs the server says wait for you through Waiting for you', () => {
+    expect(inRunFilter('waiting-for-you', yours)).toBe(true);
+    expect(inRunFilter('waiting-for-you', theirs)).toBe(false);
   });
 
   it('reads a stored filter it knows', () => {

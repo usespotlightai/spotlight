@@ -12,6 +12,7 @@ import type {
 } from '@work/application/ports/viewed-runs';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
+import type { ConversationViewer } from '@work/domain/services/conversation-audience';
 
 export class RunAccess implements RunViewerSource {
   readonly owner = WorkRequesters.owner;
@@ -62,6 +63,10 @@ export class RunAccess implements RunViewerSource {
 
   seesTeamRuns(teamId: TeamId, viewer: UserId): Promise<boolean> {
     return this.access.seesWorkspaceOfTeam(teamId, viewer);
+  }
+
+  async viewerOn(teamId: TeamId, person: UserId): Promise<ConversationViewer> {
+    return { person, team: await this.access.standingOn(teamId, person) };
   }
 
   async shownInWorkspace<T>(

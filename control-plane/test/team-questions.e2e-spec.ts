@@ -10,6 +10,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -68,6 +69,18 @@ const note = (voice: Voice = Voice.station()) => ({
   at: NOW,
   voice,
 });
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
+
+const writtenBy = (task: Task, person: UserId): Task =>
+  task.receiveMessage(null, note(Voice.person(person)), null, {
+    person,
+    team: MEMBER,
+  });
 
 const asked = async (shaped: (task: Task) => Task = (task) => task) => {
   const task = shaped(
@@ -150,7 +163,7 @@ describe('a question on a task without an assignee', () => {
       .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
       .set(TEST_USER_HEADER, ben.value)
       .send({ body: 'From eu-west-2.' })
-      .expect(404);
+      .expect(409);
   });
 
   it('goes to the first person who resolves it', async () => {
@@ -175,7 +188,12 @@ describe('a question on a task without an assignee', () => {
       .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
       .set(TEST_USER_HEADER, dee.value)
       .send({ body: 'From eu-west-1.' })
-      .expect(404);
+      .expect(403)
+      .expect(({ body }: { body: { detail?: string; message?: string } }) =>
+        expect(JSON.stringify(body)).toMatch(
+          /waits for its team\. The first answer assigns the task/,
+        ),
+      );
 
     expect(await assigneeOf(taskId)).toBeNull();
   });
@@ -188,7 +206,12 @@ describe('a question on a task without an assignee', () => {
       .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
       .set(TEST_USER_HEADER, cy.value)
       .send({ body: 'From eu-west-1.' })
-      .expect(404);
+      .expect(403)
+      .expect(({ body }: { body: unknown }) =>
+        expect(JSON.stringify(body)).toMatch(
+          /You are not a member of this team/,
+        ),
+      );
 
     expect(await assigneeOf(taskId)).toBeNull();
   });
@@ -197,9 +220,7 @@ describe('a question on a task without an assignee', () => {
 describe('a task a person wrote in', () => {
   it('stays in their inbox as Following while someone else is the assignee', async () => {
     const taskId = await asked((task) =>
-      task
-        .addMessage(note(Voice.person(cy)))
-        .assign(ben, TeamMembers.of([ben])),
+      writtenBy(task, cy).assign(ben, TeamMembers.of([ben])),
     );
 
     expect(await entryOf(cy, taskId)).toMatchObject({
@@ -214,9 +235,7 @@ describe('a task a person wrote in', () => {
 
   it('refuses an answer from a member of the team who follows it', async () => {
     const taskId = await asked((task) =>
-      task
-        .addMessage(note(Voice.person(ben)))
-        .assign(team.owner, TeamMembers.of([team.owner])),
+      writtenBy(task, ben).assign(team.owner, TeamMembers.of([team.owner])),
     );
     const item = await entryOf(ben, taskId);
 
@@ -231,9 +250,7 @@ describe('a task a person wrote in', () => {
 
   it('refuses an answer from a person outside the team who follows it', async () => {
     const taskId = await asked((task) =>
-      task
-        .addMessage(note(Voice.person(cy)))
-        .assign(ben, TeamMembers.of([ben])),
+      writtenBy(task, cy).assign(ben, TeamMembers.of([ben])),
     );
     const item = await entryOf(cy, taskId);
 
@@ -246,9 +263,7 @@ describe('a task a person wrote in', () => {
 
   it('stays unread for the assignee when the person who follows it opens it', async () => {
     const taskId = await asked((task) =>
-      task
-        .addMessage(note(Voice.person(cy)))
-        .assign(ben, TeamMembers.of([ben])),
+      writtenBy(task, cy).assign(ben, TeamMembers.of([ben])),
     );
     const item = await entryOf(cy, taskId);
 

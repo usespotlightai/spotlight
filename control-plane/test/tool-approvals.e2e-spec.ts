@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -14,15 +15,23 @@ import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf } from './support/run-ended';
 import { createTeam } from './support/team';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
@@ -69,7 +78,7 @@ const withCurrentRun = (task: Task, runId: RunId): Task =>
 
 describe('an approval a run asked for', () => {
   const asking = async (subject: ApprovalSubject = CALL) => {
-    const { list, owner } = await createTeam(
+    const { list, owner, teamId } = await createTeam(
       db,
       tasks,
       `approvals-${randomUUID()}`,
@@ -107,8 +116,22 @@ describe('an approval a run asked for', () => {
       ).task,
     );
 
-    return { task: await readBack(closed), owner, runId };
+    return { task: await readBack(closed), owner, runId, teamId };
   };
+
+  it('is read for the board with the question it asks, so the server can tell whom it waits for', async () => {
+    const { task, teamId } = await asking();
+    const board = new DrizzleTaskReader(db, new DrizzlePersonReader(db), {
+      progressOf: async () => [],
+    });
+
+    const found = await board.findInTeam(teamId, task.id);
+
+    expect(found?.awaitingReview?.ask?.approval).toEqual({
+      open: true,
+      askedOf: null,
+    });
+  });
 
   it('is read back with the call it is for, still open', async () => {
     const { task } = await asking();
@@ -187,7 +210,8 @@ describe('an approval a run asked for', () => {
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answer(
+      task.answerAs(
+        { person: owner, team: MEMBER },
         at,
         {
           line: null,
@@ -239,7 +263,8 @@ describe('an approval a run asked for', () => {
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answer(
+      task.answerAs(
+        { person: owner, team: MEMBER },
         at,
         {
           line: null,
@@ -290,7 +315,8 @@ describe('an approval a run asked for', () => {
       task.notes[task.notes.length - 1]?.position ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answer(
+      task.answerAs(
+        { person: owner, team: MEMBER },
         at,
         {
           line: null,
@@ -324,7 +350,8 @@ describe('an approval a run asked for', () => {
     expect((await readBack(task)).approvalFor(asked)?.approval.open).toBe(true);
 
     await tasks.save(
-      task.answer(
+      task.answerAs(
+        { person: owner, team: MEMBER },
         at,
         {
           line: null,
@@ -387,7 +414,8 @@ describe('an approval a run asked for', () => {
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answer(
+      task.answerAs(
+        { person: owner, team: MEMBER },
         at,
         {
           line: null,

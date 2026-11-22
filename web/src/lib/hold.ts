@@ -64,10 +64,6 @@ export const lockedHold = (
   hold: TaskHoldResponseDto | null | undefined,
 ): TaskHoldResponseDto | null => (hold && !hold.viewerEnds ? hold : null);
 
-export const drivesHold = (
-  hold: TaskHoldResponseDto | null | undefined,
-): boolean => hold?.viewerDrives ?? false;
-
 export const heldBecause = (verdict: HoldVerdict): string =>
   verdict === 'exploring'
     ? 'The task is on hold to try something.'

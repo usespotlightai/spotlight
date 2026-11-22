@@ -80,7 +80,7 @@ export function BoardStation({
             stateTo={
               task.hold
                 ? holdPathOf(slug, teamId, task.hold)
-                : task.awaitingReview
+                : task.waitingForYou && task.awaitingReview
                   ? inboxItemPath(slug, task.awaitingReview.conversationId)
                   : undefined
             }

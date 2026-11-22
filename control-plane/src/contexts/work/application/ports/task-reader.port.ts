@@ -3,6 +3,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
+import type { OpenAsk } from '@work/domain/services/conversation-audience';
 import type { Progress } from '@work/domain/value-objects/progress';
 
 export interface TaskNoteSummary {
@@ -13,6 +14,7 @@ export interface TaskNoteSummary {
 
 interface TaskReviewSummary {
   readonly conversationId: string;
+  readonly ask: OpenAsk | null;
 }
 
 interface TaskPersonSummary {
@@ -40,6 +42,7 @@ export interface TaskSummary {
   readonly progress: Progress | null;
   readonly awaitingReview: TaskReviewSummary | null;
   readonly finished: boolean;
+  readonly running: boolean;
   readonly pullRequests: readonly string[];
   readonly note: TaskNoteSummary | null;
   readonly createdBy: TaskPersonSummary | null;

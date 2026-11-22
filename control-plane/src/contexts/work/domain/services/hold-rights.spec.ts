@@ -1,6 +1,7 @@
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { HoldRights } from '@work/domain/services/hold-rights';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it } from 'vitest';
 
 const LEON = UserId.of('user_leon');
@@ -24,8 +25,22 @@ describe('HoldRights', () => {
 
   it('lets only a person who acts on the team drive or end a hold', () => {
     const hold = { by: LEON, chat: null };
-    const acting = { person: MAYA, actsOnTasks: true };
-    const seeing = { person: MAYA, actsOnTasks: false };
+    const acting = {
+      person: MAYA,
+      team: TeamStanding.of({
+        seesTeam: true,
+        actsOnTeam: true,
+        memberOfTeam: true,
+      }),
+    };
+    const seeing = {
+      person: MAYA,
+      team: TeamStanding.of({
+        seesTeam: true,
+        actsOnTeam: false,
+        memberOfTeam: false,
+      }),
+    };
 
     expect(HoldRights.drives(hold, acting)).toBe(true);
     expect(HoldRights.ends(hold, acting)).toBe(true);
@@ -36,14 +51,35 @@ describe('HoldRights', () => {
   it('lets nobody drive an agent chat, and only its person end it', () => {
     const hold = { by: LEON, chat: ChatId.of('chat_1') };
 
-    expect(HoldRights.drives(hold, { person: LEON, actsOnTasks: true })).toBe(
-      false,
-    );
-    expect(HoldRights.ends(hold, { person: LEON, actsOnTasks: true })).toBe(
-      true,
-    );
-    expect(HoldRights.ends(hold, { person: MAYA, actsOnTasks: true })).toBe(
-      false,
-    );
+    expect(
+      HoldRights.drives(hold, {
+        person: LEON,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      HoldRights.ends(hold, {
+        person: LEON,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      HoldRights.ends(hold, {
+        person: MAYA,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
+      }),
+    ).toBe(false);
   });
 });

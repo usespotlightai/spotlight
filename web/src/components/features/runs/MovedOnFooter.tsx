@@ -4,7 +4,7 @@ import {
   WRITE_A_MESSAGE,
 } from '@/components/features/runs/RunComposer';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
-import { newestRunAt, stoppable, waitsOnPerson } from '@/lib/run';
+import { messageRefusal, newestRunAt, stoppable } from '@/lib/run';
 
 type MovedOnFooterProps = {
   slug: string;
@@ -30,6 +30,22 @@ export function MovedOnFooter({
   }
 
   const there = newestRunAt(runs, current.id);
+  const refused = there && messageRefusal(there.yourMessage);
+
+  if (refused) {
+    return (
+      <ClosedTaskComposer
+        slug={slug}
+        teamId={teamId}
+        taskId={taskId}
+        station={current.name}
+        label={`Message ${current.name}`}
+        placeholder={WRITE_A_MESSAGE}
+        because={refused}
+        stopRunId={stoppable(there) ? there.id : null}
+      />
+    );
+  }
 
   if (there) {
     return (
@@ -39,9 +55,8 @@ export function MovedOnFooter({
         runId={there.id}
         taskId={taskId}
         station={current.name}
-        stationId={current.id}
-        running={stoppable(there)}
-        answering={waitsOnPerson(there)}
+        stoppable={stoppable(there)}
+        yourMessage={there.yourMessage}
         onSent={onSent}
       />
     );

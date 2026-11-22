@@ -34,13 +34,16 @@ import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
+import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   lineMapOf,
   routesOf,
@@ -59,10 +62,27 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
+
+const senderOf = (
+  note: Parameters<Task['receiveMessage']>[1],
+  team: TeamStanding,
+): Parameters<Task['receiveMessage']>[3] => ({
+  person: note.voice.author ?? UserId.of('user_nobody'),
+  team,
+});
+
+const ACTING = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
+
+const OWNER = { person: UserId.of('user_1'), team: ACTING };
 
 const NOTHING_HELD = { line: null, ranksAtHeldMove: [] };
 
@@ -152,8 +172,6 @@ const LINE = lineMapOf({
 });
 
 const RUN = RunId.of('run_1');
-const NOBODY = TeamMembers.of([]);
-
 const HERE = StationId.of('station_1');
 
 const newNote = {
@@ -163,18 +181,47 @@ const newNote = {
   voice: Voice.station(),
 };
 
+const ownersNote = { ...newNote, voice: Voice.person(OWNER.person) };
+
 const lastOf = (task: Task) => task.notes[task.notes.length - 1];
+
+const happenedOn = (
+  task: Task,
+  note: Parameters<Task['receiveMessage']>[1],
+): Task => {
+  const reacted = task.reactTo(
+    {
+      kind: 'stays',
+      line: note.line ?? LINE,
+      body: note.body,
+      anchor: note.anchor ?? null,
+    },
+    {
+      at: note.at,
+      voice: note.voice,
+      attachments: [],
+      ranksAtDestination: [],
+      members: TeamMembers.of([]),
+    },
+  );
+
+  if (!reacted) {
+    throw new Error('the task did not react to the happening');
+  }
+
+  return reacted;
+};
 
 describe('Task, the station a note is written at', () => {
   it('names the station the task is at, from its own line', () => {
-    const noted = added().addMessage({ ...newNote, line: LINE });
+    const noted = added().notedByStation({ ...newNote, line: LINE });
 
     expect(lastOf(noted)?.station?.value).toBe('Triage');
     expect(lastOf(noted)?.stationId.value).toBe('station_1');
   });
 
   it('names no station when its line no longer has it', () => {
-    expect(lastOf(added().addMessage(newNote))?.station).toBeNull();
+    expect(lastOf(added().notedByStation(newNote))?.station).toBeNull();
   });
 });
 
@@ -465,7 +512,12 @@ describe('Task, reopened by a word', () => {
       newNote,
     );
 
-    const written = completed.addMessage(said);
+    const written = completed.receiveMessage(
+      null,
+      said,
+      null,
+      senderOf(said, ACTING),
+    );
 
     expect(written.finished).toBe(true);
     expect(written.stationId).toEqual(StationId.of('completed_1'));
@@ -684,7 +736,7 @@ describe('Task, what it is doing', () => {
     it('survives a person answering what it was waiting on', () => {
       const answered = sessionRecorded()
         .askedAbout(newNote, null)
-        .answer(NotePosition.of(0), newNote);
+        .answerAs(OWNER, NotePosition.of(0), ownersNote);
 
       expect(answered.awaitingReview).toBe(false);
       expect(answered.session).toEqual(session);
@@ -706,9 +758,9 @@ describe('Task, what it is doing', () => {
       const asked = added().askedAbout(newNote, null);
 
       expect(asked.awaitingReview).toBe(true);
-      expect(asked.answer(NotePosition.of(0), newNote).awaitingReview).toBe(
-        false,
-      );
+      expect(
+        asked.answerAs(OWNER, NotePosition.of(0), ownersNote).awaitingReview,
+      ).toBe(false);
     });
 
     it('stops waiting once the task is moved by hand', () => {
@@ -735,7 +787,7 @@ describe('Task, what it is doing', () => {
     it('still waits for it after an answer', () => {
       const asked = added()
         .askedAbout(newNote, null)
-        .answer(NotePosition.of(0), newNote);
+        .answerAs(OWNER, NotePosition.of(0), ownersNote);
 
       expect(asked.openConversation).not.toBeNull();
     });
@@ -749,19 +801,17 @@ describe('Task, what it is doing', () => {
     });
 
     it('rejects an answer to something nobody was asked', () => {
-      expect(() => added().answer(NotePosition.of(0), newNote)).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        added().answerAs(OWNER, NotePosition.of(0), ownersNote),
+      ).toThrow(InvalidTaskTransitionError);
     });
   });
 
   describe('resolving what was put to a person without an answer', () => {
-    const personNote = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
-
     it('waits for nothing once they resolve it, and notes that they did', () => {
       const resolved = added()
         .askedAbout(newNote, null)
-        .resolveAt(NotePosition.of(0), newNote);
+        .resolveAs(OWNER, NotePosition.of(0), ownersNote);
 
       expect(resolved.openConversation).toBeNull();
       expect(resolved.awaitingReview).toBe(false);
@@ -774,8 +824,8 @@ describe('Task, what it is doing', () => {
     it('opens the same conversation again on reopening, waiting on a person', () => {
       const reopened = added()
         .askedAbout(newNote, null)
-        .resolveAt(NotePosition.of(0), personNote)
-        .reopenAt(NotePosition.of(0), personNote);
+        .resolveAs(OWNER, NotePosition.of(0), ownersNote)
+        .reopenAs(OWNER, NotePosition.of(0), ownersNote);
 
       expect(reopened.openConversation).toEqual({
         from: NotePosition.of(0),
@@ -789,29 +839,29 @@ describe('Task, what it is doing', () => {
         .askedAbout(newNote, null)
         .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
-      expect(() => passed.reopenAt(NotePosition.of(0), personNote)).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        passed.reopenAs(OWNER, NotePosition.of(0), ownersNote),
+      ).toThrow(InvalidTaskTransitionError);
     });
 
     it('rejects resolving a conversation that starts somewhere else', () => {
       const asked = added().askedAbout(newNote, null);
 
-      expect(() => asked.resolveAt(NotePosition.of(1), newNote)).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        asked.resolveAs(OWNER, NotePosition.of(1), ownersNote),
+      ).toThrow(InvalidTaskTransitionError);
     });
   });
 
   describe('who it belongs to', () => {
     it('is owned by whoever created it from the start', () => {
-      expect(added().assignedToThem(UserId.of('user_1'))).toBe(true);
+      expect(added().assignee).toEqual(UserId.of('user_1'));
     });
 
     it('falls back to the creator when a person is asked and none is set', () => {
       const asked = added().unassign().askedAbout(newNote, null);
 
-      expect(asked.assignedToThem(UserId.of('user_1'))).toBe(true);
+      expect(asked.assignee).toEqual(UserId.of('user_1'));
     });
 
     it('keeps the assignee it already has when a person is asked', () => {
@@ -819,8 +869,7 @@ describe('Task, what it is doing', () => {
         .assign(UserId.of('user_2'), TeamMembers.of([UserId.of('user_2')]))
         .askedAbout(newNote, null);
 
-      expect(asked.assignedToThem(UserId.of('user_2'))).toBe(true);
-      expect(asked.assignedToThem(UserId.of('user_1'))).toBe(false);
+      expect(asked.assignee).toEqual(UserId.of('user_2'));
     });
 
     it('records a new assignee once, and nothing when it stays the same', () => {
@@ -840,6 +889,14 @@ describe('Task, what it is doing', () => {
     const ANA = UserId.of('user_2');
     const BEN = UserId.of('user_3');
     const MEMBERS = TeamMembers.of([ANA, BEN]);
+    const onTeam = (person: UserId) => ({
+      person,
+      team: TeamStanding.of({
+        seesTeam: true,
+        actsOnTeam: true,
+        memberOfTeam: MEMBERS.includes(person),
+      }),
+    });
     const unowned = () =>
       Task.add({
         line: LINE,
@@ -861,15 +918,21 @@ describe('Task, what it is doing', () => {
       expect(
         unowned().conversationStandingOf({
           person: ANA,
-          onTeam: true,
-          actsOnTasks: true,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: true,
+            memberOfTeam: true,
+          }),
         }),
       ).toBe('team');
       expect(
         unowned().conversationStandingOf({
           person: ANA,
-          onTeam: false,
-          actsOnTasks: false,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: false,
+            memberOfTeam: false,
+          }),
         }),
       ).toBeNull();
     });
@@ -877,7 +940,7 @@ describe('Task, what it is doing', () => {
     it('goes to the first member of the team who answers, and records the assignment', () => {
       const task = unowned();
       task.pullEvents();
-      const answered = task.answerAs(ANA, MEMBERS, ASKED, said(ANA));
+      const answered = task.answerAs(onTeam(ANA), ASKED, said(ANA));
 
       expect(answered.assignee).toEqual(ANA);
       expect(answered.pullEvents().map((each) => each.kind)).toContain(
@@ -886,40 +949,86 @@ describe('Task, what it is doing', () => {
       expect(
         answered.conversationStandingOf({
           person: BEN,
-          onTeam: true,
-          actsOnTasks: true,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: true,
+            memberOfTeam: true,
+          }),
         }),
       ).toBeNull();
     });
 
     it('goes to the member of the team who resolves it', () => {
       expect(
-        unowned().resolveAs(BEN, MEMBERS, ASKED, said(BEN)).assignee,
+        unowned().resolveAs(onTeam(BEN), ASKED, said(BEN)).assignee,
       ).toEqual(BEN);
     });
 
-    it('refuses an answer from a person outside the team', () => {
+    it('refuses an answer, a resolve and a message from a workspace admin who is not on the team', () => {
       const ADMIN = UserId.of('user_9');
+      const admin = onTeam(ADMIN);
+
+      expect(() => unowned().answerAs(admin, ASKED, said(ADMIN))).toThrow(
+        NotOnTheTeamAskedError,
+      );
+      expect(() => unowned().resolveAs(admin, ASKED, said(ADMIN))).toThrow(
+        NotOnTheTeamAskedError,
+      );
+      expect(() =>
+        unowned().receiveMessage(
+          RUN,
+          said(ADMIN),
+          HERE,
+          senderOf(said(ADMIN), admin.team),
+        ),
+      ).toThrow(NotOnTheTeamAskedError);
+    });
+
+    it('refuses the assignee once they no longer act on the team', () => {
+      const seesOnly = {
+        person: ANA,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: false,
+          memberOfTeam: false,
+        }),
+      };
 
       expect(() =>
-        unowned().answerAs(ADMIN, MEMBERS, ASKED, said(ADMIN)),
-      ).toThrow(NotOnTheTeamAskedError);
+        unowned().assign(ANA, MEMBERS).answerAs(seesOnly, ASKED, said(ANA)),
+      ).toThrow(TeamMembershipRequiredError);
+    });
+
+    it('lets only the assignee reopen what they resolved', () => {
+      const resolved = unowned().resolveAs(onTeam(ANA), ASKED, said(ANA));
+
+      expect(() => resolved.reopenAs(onTeam(BEN), ASKED, said(BEN))).toThrow(
+        AssignedToAnotherPersonError,
+      );
+      expect(
+        resolved.reopenAs(onTeam(ANA), ASKED, said(ANA)).openConversation,
+      ).not.toBeNull();
     });
 
     it('refuses an answer from a member once another person is the assignee', () => {
       const assigned = unowned().assign(ANA, MEMBERS);
 
-      expect(() => assigned.answerAs(BEN, MEMBERS, ASKED, said(BEN))).toThrow(
+      expect(() => assigned.answerAs(onTeam(BEN), ASKED, said(BEN))).toThrow(
         AssignedToAnotherPersonError,
       );
-      expect(() => assigned.resolveAs(BEN, MEMBERS, ASKED, said(BEN))).toThrow(
+      expect(() => assigned.resolveAs(onTeam(BEN), ASKED, said(BEN))).toThrow(
         AssignedToAnotherPersonError,
       );
     });
 
     it('goes to the member of the team who answers it on the run', () => {
       expect(
-        unowned().receiveMessage(RUN, said(BEN), HERE, MEMBERS).assignee,
+        unowned().receiveMessage(
+          RUN,
+          said(BEN),
+          HERE,
+          senderOf(said(BEN), ACTING),
+        ).assignee,
       ).toEqual(BEN);
     });
 
@@ -927,12 +1036,144 @@ describe('Task, what it is doing', () => {
       expect(() =>
         unowned()
           .assign(ANA, MEMBERS)
-          .receiveMessage(RUN, said(BEN), HERE, MEMBERS),
+          .receiveMessage(RUN, said(BEN), HERE, senderOf(said(BEN), ACTING)),
       ).toThrow(AssignedToAnotherPersonError);
     });
 
     it('stays without an assignee when the station answers', () => {
-      expect(unowned().answer(ASKED, newNote).assignee).toBeNull();
+      expect(
+        unowned().reactTo(
+          {
+            kind: 'answers',
+            to: ASKED,
+            line: LINE,
+            body: newNote.body,
+            anchor: null,
+          },
+          {
+            at: NOW,
+            voice: Voice.station(),
+            attachments: [],
+            ranksAtDestination: [],
+            members: MEMBERS,
+          },
+        )?.assignee,
+      ).toBeNull();
+    });
+
+    const SEES_ONLY = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: false,
+      memberOfTeam: false,
+    });
+    const OUTSIDE = TeamStanding.outside();
+    const ADMIN_OFF_THE_TEAM = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: false,
+    });
+
+    it('refuses an answer and a resolve from a person who only sees the team, and from a person outside the workspace', () => {
+      for (const [team, error] of [
+        [SEES_ONLY, TeamMembershipRequiredError],
+        [OUTSIDE, UnknownTaskError],
+      ] as const) {
+        const viewer = { person: BEN, team };
+
+        expect(() => unowned().answerAs(viewer, ASKED, said(BEN))).toThrow(
+          error,
+        );
+        expect(() => unowned().resolveAs(viewer, ASKED, said(BEN))).toThrow(
+          error,
+        );
+      }
+    });
+
+    it('refuses a reopen from a workspace admin off the team, a person who only sees it and a person outside the workspace', () => {
+      const resolved = unowned()
+        .resolveAs(onTeam(ANA), ASKED, said(ANA))
+        .unassign();
+      const ADMIN = UserId.of('user_9');
+
+      expect(() =>
+        resolved.reopenAs(
+          { person: ADMIN, team: ADMIN_OFF_THE_TEAM },
+          ASKED,
+          said(ADMIN),
+        ),
+      ).toThrow(NotOnTheTeamAskedError);
+      expect(() =>
+        resolved.reopenAs({ person: BEN, team: SEES_ONLY }, ASKED, said(BEN)),
+      ).toThrow(TeamMembershipRequiredError);
+      expect(() =>
+        resolved.reopenAs({ person: BEN, team: OUTSIDE }, ASKED, said(BEN)),
+      ).toThrow(UnknownTaskError);
+      expect(
+        resolved.reopenAs(onTeam(BEN), ASKED, said(BEN)).openConversation,
+      ).not.toBeNull();
+    });
+
+    it('refuses a message from a person who only sees the team or is outside the workspace, whether or not it answers', () => {
+      const quiet = () =>
+        Task.add({
+          line: LINE,
+          at: HERE,
+          title: TaskTitle.of('Alert fired'),
+          rank: TaskRank.of('i'),
+          now: new Date('2026-08-27T09:15:00.000Z'),
+          newId: () => 'task_1',
+        });
+
+      for (const [team, error] of [
+        [SEES_ONLY, TeamMembershipRequiredError],
+        [OUTSIDE, UnknownTaskError],
+      ] as const) {
+        const viewer = { person: BEN, team };
+
+        expect(() =>
+          unowned().receiveMessage(RUN, said(BEN), HERE, viewer),
+        ).toThrow(error);
+        expect(() =>
+          quiet().receiveMessage(null, said(BEN), HERE, viewer),
+        ).toThrow(error);
+      }
+    });
+
+    it('takes a message from a member as a message while nothing waits', () => {
+      const quiet = Task.add({
+        line: LINE,
+        at: HERE,
+        title: TaskTitle.of('Alert fired'),
+        rank: TaskRank.of('i'),
+        now: new Date('2026-08-27T09:15:00.000Z'),
+        newId: () => 'task_1',
+      });
+
+      const received = quiet.receiveMessage(null, said(BEN), HERE, onTeam(BEN));
+
+      expect(received.assignee).toBeNull();
+      expect([...received.notes].pop()?.kind).toBe('message');
+    });
+
+    it('refuses a note in another person’s voice', () => {
+      expect(() => unowned().answerAs(onTeam(ANA), ASKED, said(BEN))).toThrow(
+        InvalidTaskTransitionError,
+      );
+      expect(() =>
+        unowned().receiveMessage(RUN, said(BEN), HERE, onTeam(ANA)),
+      ).toThrow(InvalidTaskTransitionError);
+    });
+
+    it('names the refused action when a workspace admin off the team resolves what waits for the team', () => {
+      const ADMIN = UserId.of('user_9');
+
+      expect(() =>
+        unowned().resolveAs(
+          { person: ADMIN, team: ADMIN_OFF_THE_TEAM },
+          ASKED,
+          said(ADMIN),
+        ),
+      ).toThrow(/only a member of the team can resolve it/);
     });
   });
 
@@ -942,9 +1183,10 @@ describe('Task, what it is doing', () => {
     const CY = UserId.of('user_4');
 
     it('counts every author and co-author of a person note', () => {
+      const coWritten = { ...newNote, voice: Voice.person(ANA, [BEN]) };
       const task = added()
-        .addMessage({ ...newNote, voice: Voice.person(ANA, [BEN]) })
-        .addMessage(newNote);
+        .receiveMessage(null, coWritten, null, senderOf(coWritten, ACTING))
+        .notedByStation(newNote);
 
       expect(task.wroteIn(ANA)).toBe(true);
       expect(task.wroteIn(BEN)).toBe(true);
@@ -952,20 +1194,32 @@ describe('Task, what it is doing', () => {
     });
 
     it('lets a person who wrote follow it while someone else is the assignee', () => {
-      const task = added().addMessage({ ...newNote, voice: Voice.person(CY) });
+      const fromCy = { ...newNote, voice: Voice.person(CY) };
+      const task = added().receiveMessage(
+        null,
+        fromCy,
+        null,
+        senderOf(fromCy, ACTING),
+      );
 
       expect(
         task.conversationStandingOf({
           person: CY,
-          onTeam: true,
-          actsOnTasks: true,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: true,
+            memberOfTeam: true,
+          }),
         }),
       ).toBe('following');
       expect(
         task.conversationStandingOf({
           person: UserId.of('user_1'),
-          onTeam: true,
-          actsOnTasks: true,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: true,
+            memberOfTeam: true,
+          }),
         }),
       ).toBe('assignee');
     });
@@ -1003,7 +1257,7 @@ describe('Task, what it is doing', () => {
 
     it('reads the whole conversation, not only the note it opens with', () => {
       const carried = asked()
-        .answer(NotePosition.of(0), {
+        .answerAs(OWNER, NotePosition.of(0), {
           ...newNote,
           voice: Voice.person(UserId.of('user_1')),
         })
@@ -1020,7 +1274,7 @@ describe('Task, what it is doing', () => {
     it('is unread again when the station asks something new', () => {
       const again = asked()
         .read(NotePosition.of(0), READ)
-        .answer(NotePosition.of(0), {
+        .answerAs(OWNER, NotePosition.of(0), {
           ...newNote,
           voice: Voice.person(UserId.of('user_1')),
         })
@@ -1038,39 +1292,63 @@ describe('Task, what it is doing', () => {
 
   describe('a message to the agent of the run', () => {
     const here = StationId.of('station_1');
+    const TURN = RunId.of('run_turn');
     const aloud = {
       ...newNote,
       line: LINE,
       voice: Voice.person(UserId.of('user_1')),
     };
+    const holding = { ...aloud, body: TaskNoteBody.of('Hold on.') };
+    const holdStart = {
+      id: HoldId.of('hold_1'),
+      members: TeamMembers.of([OWNER.person]),
+      line: LINE,
+      currentRunStarted: true,
+      at: NOW,
+    };
+    const lastPositionIn = (task: Task) =>
+      NotePosition.of(task.notes.length - 1);
+    const driven = () => {
+      const turn = added()
+        .assignRun(RUN, LINE)
+        .heldOnMessage(RUN, holdStart, holding, here, OWNER)
+        .assignRun(TURN, LINE);
+
+      return turn.acknowledgeUpTo(TURN, lastPositionIn(turn), NOW);
+    };
+    const receivedBy = (task: Task) =>
+      task.receiveMessage(TURN, aloud, here, senderOf(aloud, ACTING));
 
     it('joins the trail where the task still is', () => {
-      const received = added().addMessage(aloud, here);
+      const received = receivedBy(driven());
 
-      expect(received.notes[0]?.kind).toBe('message');
-      expect(received.notes[0]?.body.value).toBe('Reproduced on restart.');
+      expect(lastOf(received)?.kind).toBe('message');
+      expect(lastOf(received)?.body.value).toBe('Reproduced on restart.');
     });
 
     it('waits to be acknowledged', () => {
-      expect(added().addMessage(aloud, here).unacknowledged).toHaveLength(1);
+      expect(receivedBy(driven()).unacknowledged).toHaveLength(1);
     });
 
     it('is acknowledged once the agent has got it', () => {
-      const received = added()
-        .assignRun(RUN, LINE)
-        .addMessage(aloud, here)
-        .acknowledgeUpTo(RUN, NotePosition.of(0), NOW);
+      const received = receivedBy(driven());
 
-      expect(received.unacknowledged).toHaveLength(0);
+      expect(
+        received.acknowledgeUpTo(TURN, lastPositionIn(received), NOW)
+          .unacknowledged,
+      ).toHaveLength(0);
     });
 
     it('is acknowledged only by the run that works the task', () => {
-      const received = added()
-        .assignRun(RUN, LINE)
-        .addMessage(aloud, here)
-        .acknowledgeUpTo(RunId.of('run_gone'), NotePosition.of(0), NOW);
+      const received = receivedBy(driven());
 
-      expect(received.unacknowledged).toHaveLength(1);
+      expect(
+        received.acknowledgeUpTo(
+          RunId.of('run_gone'),
+          lastPositionIn(received),
+          NOW,
+        ).unacknowledged,
+      ).toHaveLength(1);
     });
 
     it('will not go to a station the task has left', () => {
@@ -1081,9 +1359,9 @@ describe('Task, what it is doing', () => {
         newNote,
       );
 
-      expect(() => moved.addMessage(aloud, here)).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        moved.receiveMessage(null, aloud, here, senderOf(aloud, ACTING)),
+      ).toThrow(InvalidTaskTransitionError);
     });
 
     it('leaves the notes of a station out of what is unacknowledged', () => {
@@ -1097,7 +1375,12 @@ describe('Task, what it is doing', () => {
 
       expect(finished.wantsRun(LINE)).toBe(false);
 
-      const received = finished.receiveMessage(RUN, aloud, here, NOBODY);
+      const received = finished.receiveMessage(
+        RUN,
+        aloud,
+        here,
+        senderOf(aloud, ACTING),
+      );
 
       expect(received.finished).toBe(false);
       expect(received.stationId).toEqual(here);
@@ -1107,29 +1390,22 @@ describe('Task, what it is doing', () => {
       ]);
     });
 
-    it('sends a task left idle at a worked station back to work when a person speaks in its last run', () => {
-      const idle = added().assignRun(RUN, LINE).leaveRun(RUN, NOW);
+    it('refuses a message that puts the task on hold, the running run’s or the last run’s of an idle task, which only heldOnMessage takes', () => {
+      const running = added().assignRun(RUN, LINE);
+      const idle = running.leaveRun(RUN, NOW);
 
-      expect(idle.receiveMessage(RUN, aloud, here, NOBODY).wantsRun(LINE)).toBe(
-        true,
-      );
-    });
-
-    it('hands the message of a person to the run still working it, wanting no second run', () => {
-      const received = added()
-        .assignRun(RUN, LINE)
-        .receiveMessage(RUN, aloud, here, NOBODY);
-
-      expect(received.hasCurrentRun(RUN)).toBe(true);
-      expect(received.wantsRun(LINE)).toBe(false);
-      expect(received.unacknowledged).toHaveLength(1);
+      for (const task of [running, idle]) {
+        expect(() =>
+          task.receiveMessage(RUN, aloud, here, senderOf(aloud, ACTING)),
+        ).toThrow(InvalidTaskTransitionError);
+      }
     });
 
     it('tells that a person sent a finished task back, after the run that they sent a message in', () => {
       const received = added()
         .assignRun(RUN, LINE)
         .finishHere(RUN, LINE, newNote)
-        .receiveMessage(RUN, aloud, here, NOBODY);
+        .receiveMessage(RUN, aloud, here, senderOf(aloud, ACTING));
 
       expect(actsOf(received)).toEqual([
         { action: 'sent-back', by: 'user_1', after: 'run_1' },
@@ -1139,24 +1415,24 @@ describe('Task, what it is doing', () => {
     it('tells that a person answered what the task was waiting on', () => {
       const received = added()
         .askedAbout(newNote, null)
-        .receiveMessage(RUN, aloud, here, NOBODY);
+        .receiveMessage(RUN, aloud, here, senderOf(aloud, ACTING));
 
       expect(actsOf(received)).toEqual([
         { action: 'answered', by: 'user_1', after: null },
       ]);
     });
 
-    it('tells nothing a person did when they speak to the run still working it', () => {
-      expect(
-        actsOf(
-          added().assignRun(RUN, LINE).receiveMessage(RUN, aloud, here, NOBODY),
-        ),
-      ).toEqual([]);
-    });
-
     it('keeps a task waiting on a person when a message there is not an answer', () => {
-      const asked = added().askedAbout(newNote, null);
-      const received = asked.addMessage(aloud, here);
+      const asked = driven().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+        ),
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+        { ...newNote, voice: Voice.station(TURN) },
+        TURN,
+        null,
+      ).task;
+      const received = receivedBy(asked);
 
       expect(received.awaitingReview).toBe(true);
       expect(received.wantsRun(LINE)).toBe(false);
@@ -1187,7 +1463,7 @@ describe('Task, what it is doing', () => {
         );
 
     it('offers what nobody has answered, and nothing else', () => {
-      const received = added().addMessage(reviewComment);
+      const received = happenedOn(added(), reviewComment);
 
       expect(received.openReviewComments.map((each) => each.at.value)).toEqual([
         0,
@@ -1196,9 +1472,10 @@ describe('Task, what it is doing', () => {
     });
 
     it('records the reply, and marks the review comment answered', () => {
-      const replied = opened()
-        .addMessage(reviewComment)
-        .recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
+      const replied = happenedOn(
+        opened(),
+        reviewComment,
+      ).recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
 
       expect(replied.notes[0]?.answeredAt).toEqual(NOW);
       expect(replied.openReviewComments).toEqual([]);
@@ -1208,9 +1485,9 @@ describe('Task, what it is doing', () => {
 
     it('replies on the pull request the review comment was made on', () => {
       const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
-      const toReply = opened()
-        .recordPullRequest(RUN, docs, NOW, LINE)
-        .addMessage({
+      const toReply = happenedOn(
+        opened().recordPullRequest(RUN, docs, NOW, LINE),
+        {
           ...reviewComment,
           anchor: Anchor.of({
             body: 'say why.',
@@ -1218,15 +1495,15 @@ describe('Task, what it is doing', () => {
             reviewComment: 'PRRC_docs',
             pullRequest: docs.value,
           }),
-        })
-        .reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0));
+        },
+      ).reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0));
 
       expect(toReply.pullRequest).toEqual(docs);
       expect(toReply.repository).toEqual(Repository.of('acme/docs'));
     });
 
     it('will not guess the pull request of a review comment that names none', () => {
-      const unnamed = opened().addMessage({
+      const unnamed = happenedOn(opened(), {
         ...reviewComment,
         anchor: Anchor.of({
           body: 'pin this.',
@@ -1241,8 +1518,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('leaves the reply out of what is unacknowledged', () => {
-      const replied = opened()
-        .addMessage(reviewComment)
+      const replied = happenedOn(opened(), reviewComment)
         .acknowledgeUpTo(RUN, NotePosition.of(0), NOW)
         .recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
 
@@ -1250,9 +1526,10 @@ describe('Task, what it is doing', () => {
     });
 
     it('will not reply to a review comment twice, or to one that was never made', () => {
-      const replied = opened()
-        .addMessage(reviewComment)
-        .recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
+      const replied = happenedOn(
+        opened(),
+        reviewComment,
+      ).recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
 
       expect(() =>
         replied.recordReviewCommentReply(
@@ -1273,7 +1550,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('will not answer from a station the task has left', () => {
-      const received = opened().addMessage(reviewComment);
+      const received = happenedOn(opened(), reviewComment);
 
       expect(() =>
         received.reviewCommentToReplyFrom(
@@ -1289,15 +1566,15 @@ describe('Task, what it is doing', () => {
 
     it('will not answer where there is no pull request to answer on', () => {
       expect(() =>
-        added()
-          .assignRun(RUN, LINE)
-          .addMessage(reviewComment)
-          .reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0)),
+        happenedOn(
+          added().assignRun(RUN, LINE),
+          reviewComment,
+        ).reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0)),
       ).toThrow(NoRepositoryError);
     });
 
     it('answers only for its current run', () => {
-      const received = opened().addMessage(reviewComment);
+      const received = happenedOn(opened(), reviewComment);
 
       expect(() =>
         received.reviewCommentToReplyFrom(
@@ -1317,9 +1594,10 @@ describe('Task, what it is doing', () => {
     });
 
     it('names the pull request, its repository and the review comment it replies to', () => {
-      const answering = opened()
-        .addMessage(reviewComment)
-        .reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0));
+      const answering = happenedOn(
+        opened(),
+        reviewComment,
+      ).reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0));
 
       expect(answering.repository.value).toBe('acme/widgets');
       expect(answering.reviewComment.value).toBe('PRRC_kwDO');
@@ -1389,10 +1667,12 @@ describe('Task, what it is doing', () => {
         .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote)
         .askedAbout(newNote, null);
 
-      expect(() => carried.answer(NotePosition.of(0), newNote)).toThrow(
-        InvalidTaskTransitionError,
-      );
-      expect(carried.answer(NotePosition.of(2), newNote).notes).toHaveLength(4);
+      expect(() =>
+        carried.answerAs(OWNER, NotePosition.of(0), ownersNote),
+      ).toThrow(InvalidTaskTransitionError);
+      expect(
+        carried.answerAs(OWNER, NotePosition.of(2), ownersNote).notes,
+      ).toHaveLength(4);
     });
 
     it('will not be moved to the station it is already at', () => {
@@ -1412,7 +1692,7 @@ describe('Task, what it is doing', () => {
       expect(ended.finished).toBe(true);
       expect(ended.currentRunId).toBeNull();
       expect(
-        ended.addMessage({ ...newNote, line: LINE, voice: Voice.world() })
+        happenedOn(ended, { ...newNote, line: LINE, voice: Voice.world() })
           .finished,
       ).toBe(false);
     });
@@ -1436,7 +1716,7 @@ describe('Task, what it is doing', () => {
         .askedAbout(newNote, null);
 
       expect(
-        asked.answer(NotePosition.of(1), {
+        asked.answerAs(OWNER, NotePosition.of(1), {
           ...newNote,
           line: LINE,
           voice: Voice.person(UserId.of('user_1')),
@@ -2078,7 +2358,10 @@ describe('Task, what it is doing', () => {
         RUN,
         { ...newNote, voice: Voice.person(UserId.of('user_1')) },
         HERE,
-        NOBODY,
+        senderOf(
+          { ...newNote, voice: Voice.person(UserId.of('user_1')) },
+          ACTING,
+        ),
       );
       reopened.pullEvents();
 
@@ -2309,7 +2592,7 @@ describe('Task, a failure reported on it', () => {
       RUN,
       LINE,
     );
-    const answered = asked.answer(NotePosition.of(0), {
+    const answered = asked.answerAs(OWNER, NotePosition.of(0), {
       ...newNote,
       body: TaskNoteBody.of('Try again.'),
       voice: Voice.person(UserId.of('user_1')),
@@ -2461,7 +2744,7 @@ describe('Task, its revision', () => {
   });
 
   it('does not count a message on it as a move', () => {
-    expect(added().addMessage(newNote).revision.value).toBe(0);
+    expect(added().notedByStation(newNote).revision.value).toBe(0);
   });
 
   it('rejects what was decided on a revision it has moved on from', () => {
@@ -2544,7 +2827,7 @@ describe('Task and the happenings received while it has a current run', () => {
     expect(
       noted.passedOn(RUN, LINE, SPEC, TaskRank.of('m'), newNote).deferredMoveTo,
     ).toBeNull();
-    expect(noted.addMessage(world).deferredMoveTo).toEqual(SPEC);
+    expect(happenedOn(noted, world).deferredMoveTo).toEqual(SPEC);
   });
 
   it('keeps a deferred move across a tool approval asked and granted while the run works', () => {
@@ -2562,7 +2845,8 @@ describe('Task and the happenings received while it has a current run', () => {
 
     expect(asked.deferredMoveTo).toEqual(SPEC);
 
-    const granted = asked.answer(
+    const granted = asked.answerAs(
+      OWNER,
       NotePosition.of(1),
       { ...newNote, voice: Voice.person(UserId.of('user_1')) },
       'approved',
@@ -2593,7 +2877,7 @@ describe('Task and the happenings received while it has a current run', () => {
 
     asking.pullEvents();
 
-    const resolved = asking.resolveAt(NotePosition.of(0), newNote);
+    const resolved = asking.resolveAs(OWNER, NotePosition.of(0), ownersNote);
 
     expect(resolved.currentRunId).toBeNull();
     expect(detached(resolved)).toEqual([RUN]);
@@ -2710,7 +2994,7 @@ describe('Task and the happenings received while it has a current run', () => {
         RUN,
         LINE,
       )
-      .answer(NotePosition.of(0), {
+      .answerAs(OWNER, NotePosition.of(0), {
         ...newNote,
         body: TaskNoteBody.of('Try again.'),
         voice: Voice.person(UserId.of('user_1')),
@@ -2813,7 +3097,7 @@ describe('Task and the happenings received while it has a current run', () => {
     });
 
     it('cannot be moved by a happening while it waits on a tool approval asked after an answered question', () => {
-      const answered = paused().answer(NotePosition.of(0), {
+      const answered = paused().answerAs(OWNER, NotePosition.of(0), {
         ...newNote,
         voice: Voice.person(UserId.of('user_1')),
       });
@@ -2838,12 +3122,12 @@ describe('Task and the happenings received while it has a current run', () => {
       const moved = paused().react(LINE, SPEC, TaskRank.of('m'), world);
       const late = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
 
-      expect(() => moved.answer(NotePosition.of(0), late)).toThrow(
+      expect(() => moved.answerAs(OWNER, NotePosition.of(0), late)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(() => moved.receiveMessage(RUN, late, HERE, NOBODY)).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        moved.receiveMessage(RUN, late, HERE, senderOf(late, ACTING)),
+      ).toThrow(InvalidTaskTransitionError);
       expect(moved.stationId).toEqual(SPEC);
       expect(moved.awaitingReview).toBe(false);
     });
@@ -2871,10 +3155,14 @@ describe('Task and the happenings received while it has a current run', () => {
       expect(finished.awaitingReview).toBe(false);
       expect(finished.decisionPending).toBe(false);
       expect(() =>
-        finished.answer(approving.openConversation?.from as NotePosition, {
-          ...newNote,
-          voice: Voice.person(UserId.of('user_1')),
-        }),
+        finished.answerAs(
+          OWNER,
+          approving.openConversation?.from as NotePosition,
+          {
+            ...newNote,
+            voice: Voice.person(UserId.of('user_1')),
+          },
+        ),
       ).toThrow(InvalidTaskTransitionError);
     });
 
@@ -2911,7 +3199,7 @@ describe('Task, the station of its notes', () => {
   const SPEC = StationId.of('station_2');
 
   it('writes a note at the station the task is at', () => {
-    const [written] = added().addMessage(newNote).notes;
+    const [written] = added().notedByStation(newNote).notes;
 
     expect(written.stationId).toEqual(HERE);
   });

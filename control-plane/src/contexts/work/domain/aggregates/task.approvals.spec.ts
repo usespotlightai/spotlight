@@ -12,6 +12,9 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
+import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -25,6 +28,8 @@ import {
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -86,6 +91,14 @@ const person = (body: string, who = 'user_1') => ({
   voice: Voice.person(UserId.of(who)),
 });
 
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
+
+const member = (who = 'user_1') => ({ person: UserId.of(who), team: MEMBER });
+
 const runningAt = (task: Task, at: StationId = task.stationId): Task =>
   Task.rehydrate({ ...task, stationId: at, currentRunId: RUN });
 
@@ -121,7 +134,7 @@ const decided = (
 ) => {
   const { asked, at } = askedOnce();
 
-  return { task: asked.answer(at, person(words), decision), at };
+  return { task: asked.answerAs(member(), at, person(words), decision), at };
 };
 
 const kindOf = (check: ApprovalCheck) => check.kind;
@@ -252,7 +265,9 @@ describe('clearing a tool call that needs approval', () => {
         throw new Error('nothing was asked');
       }
 
-      return runningAt(asked.answer(at, person('Go ahead.'), 'approved'));
+      return runningAt(
+        asked.answerAs(member(), at, person('Go ahead.'), 'approved'),
+      );
     };
 
     expect(grantedFor(permission).approvalFor(lookalike)).toBeNull();
@@ -298,18 +313,21 @@ describe('deciding an approval', () => {
     const { task, at } = decided('approved');
 
     expect(() =>
-      task.answer(at, person('Dismissed.', 'user_2'), 'dismissed'),
+      task.answerAs(member(), at, person('Dismissed.'), 'dismissed'),
     ).toThrow(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('lets only the person it was asked of approve it, and anyone dismiss it', () => {
+    const BOB = UserId.of('user_bob');
     const askedOfTheTeam = clear(working()).task;
     const alice = ApprovalNeeded.of(
       'linear.comment',
       'Alice wants to approve each call made with their Linear connection.',
       UserId.of('user_alice'),
     );
-    const asked = working().clearFor(CALL, alice, asking(), RUN, null).task;
+    const asked = working()
+      .clearFor(CALL, alice, asking(), RUN, null)
+      .task.assign(BOB, TeamMembers.of([BOB]));
     const at = asked.approvalFor(CALL)?.at;
 
     expect(askedOfTheTeam.approvalFor(CALL)?.approval.askedOf).toBeNull();
@@ -321,16 +339,31 @@ describe('deciding an approval', () => {
     }
 
     expect(() =>
-      asked.answer(at, person('Approved.', 'user_bob'), 'approved'),
+      asked.answerAs(
+        member('user_bob'),
+        at,
+        person('Approved.', 'user_bob'),
+        'approved',
+      ),
     ).toThrow(expect.objectContaining({ kind: 'conflict' }));
     expect(
       asked
-        .answer(at, person('Approved.', 'user_alice'), 'approved')
+        .answerAs(
+          member('user_alice'),
+          at,
+          person('Approved.', 'user_alice'),
+          'approved',
+        )
         .approvalFor(CALL)?.approval.status,
     ).toBe('approved');
     expect(
       asked
-        .answer(at, person('Not now.', 'user_bob'), 'dismissed')
+        .answerAs(
+          member('user_bob'),
+          at,
+          person('Not now.', 'user_bob'),
+          'dismissed',
+        )
         .approvalFor(CALL)?.approval.status,
     ).toBe('dismissed');
   });
@@ -376,7 +409,8 @@ describe('deciding an approval', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
-      asked.answer(
+      asked.answerAs(
+        member(),
         at,
         {
           line: null,
@@ -399,7 +433,7 @@ describe('deciding an approval', () => {
       }
 
       return asked
-        .answer(at, person('Dismissed.'), 'dismissed')
+        .answerAs(member(), at, person('Dismissed.'), 'dismissed')
         .pullEvents()
         .find((each): each is TaskActedOn => each instanceof TaskActedOn)?.tool;
     };
@@ -435,7 +469,7 @@ describe('deciding an approval', () => {
   it('names no tool on words that decide nothing', () => {
     const { asked, at } = askedOnce();
     const acted = asked
-      .answer(at, person('Mention the ticket.'))
+      .answerAs(member(), at, person('Mention the ticket.'))
       .pullEvents()
       .find((each): each is TaskActedOn => each instanceof TaskActedOn);
 
@@ -448,7 +482,7 @@ describe('deciding an approval', () => {
       const { asked, at } = askedOnce();
 
       return asked
-        .answer(at, person('Decided.'), decision)
+        .answerAs(member(), at, person('Decided.'), decision)
         .pullEvents()
         .find((each): each is TaskActedOn => each instanceof TaskActedOn);
     };
@@ -463,7 +497,11 @@ describe('deciding an approval', () => {
 
   it('takes words alone without deciding anything', () => {
     const { asked, at } = askedOnce();
-    const answered = asked.answer(at, person('Mention the ticket.'));
+    const answered = asked.answerAs(
+      member(),
+      at,
+      person('Mention the ticket.'),
+    );
 
     expect(answered.approvalFor(CALL)?.approval.open).toBe(true);
   });
@@ -473,7 +511,9 @@ describe('approving a tool call with changes', () => {
   const edited = (edits: Readonly<Record<string, string>>) => {
     const { asked, at } = askedOnce();
 
-    return runningAt(asked.answer(at, person('Approved.'), 'approved', edits));
+    return runningAt(
+      asked.answerAs(member(), at, person('Approved.'), 'approved', edits),
+    );
   };
   const EDITED = ApprovalSubject.toolCall(
     ToolCall.of(
@@ -523,7 +563,7 @@ describe('approving a tool call with changes', () => {
     }
 
     const granted = runningAt(
-      task.answer(at, person('Approved.'), 'approved', {
+      task.answerAs(member(), at, person('Approved.'), 'approved', {
         queue: 'retries',
         limit: '100',
         dry: 'false',
@@ -542,10 +582,12 @@ describe('approving a tool call with changes', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
-      asked.answer(at, person('Approved.'), 'approved', { body: 'Hi.' }),
+      asked.answerAs(member(), at, person('Approved.'), 'approved', {
+        body: 'Hi.',
+      }),
     ).toThrow(expect.objectContaining({ kind: 'conflict' }));
     expect(() =>
-      asked.answer(at, person('Approved.'), 'approved', {
+      asked.answerAs(member(), at, person('Approved.'), 'approved', {
         issue: 'ENG-12',
         body: 'Hi.',
         title: 'Extra',
@@ -557,7 +599,7 @@ describe('approving a tool call with changes', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
-      asked.answer(at, person('Approved.'), 'approved', {
+      asked.answerAs(member(), at, person('Approved.'), 'approved', {
         issue: 'ENG-12',
         body: '  ',
       }),
@@ -576,7 +618,9 @@ describe('approving a tool call with changes', () => {
     }
 
     expect(() =>
-      task.answer(at, person('Approved.'), 'approved', { limit: 'lots' }),
+      task.answerAs(member(), at, person('Approved.'), 'approved', {
+        limit: 'lots',
+      }),
     ).toThrow(expect.objectContaining({ kind: 'conflict' }));
   });
 
@@ -585,11 +629,11 @@ describe('approving a tool call with changes', () => {
     const edits = { issue: 'ENG-12', body: 'Hi.' };
 
     expect(() =>
-      asked.answer(at, person('Dismissed.'), 'dismissed', edits),
+      asked.answerAs(member(), at, person('Dismissed.'), 'dismissed', edits),
     ).toThrow(expect.objectContaining({ kind: 'conflict' }));
-    expect(() => asked.answer(at, person('Hmm.'), null, edits)).toThrow(
-      expect.objectContaining({ kind: 'conflict' }),
-    );
+    expect(() =>
+      asked.answerAs(member(), at, person('Hmm.'), null, edits),
+    ).toThrow(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('rejects changes to what a harness asked, which only takes a yes or a no', () => {
@@ -610,9 +654,74 @@ describe('approving a tool call with changes', () => {
     }
 
     expect(() =>
-      task.answer(at, person('Approved.'), 'approved', {
+      task.answerAs(member(), at, person('Approved.'), 'approved', {
         title: 'kubectl logs web',
       }),
     ).toThrow(expect.objectContaining({ kind: 'conflict' }));
+  });
+});
+
+describe('an approval asked of a person by name', () => {
+  const ALICE = UserId.of('user_alice');
+  const standing = (acts: boolean, member: boolean, sees = true) =>
+    TeamStanding.of({ seesTeam: sees, actsOnTeam: acts, memberOfTeam: member });
+  const askedOfAlice = () => {
+    const asked = working().clearFor(
+      CALL,
+      ApprovalNeeded.of('linear.comment', 'It posts publicly.', ALICE),
+      asking(),
+      RUN,
+      null,
+    ).task;
+    const at = asked.approvalFor(CALL)?.at;
+
+    if (!at) {
+      throw new Error('nothing was asked');
+    }
+
+    return { asked, at };
+  };
+  const approvedAs = (team: TeamStanding) => {
+    const { asked, at } = askedOfAlice();
+
+    return asked.answerAs(
+      { person: ALICE, team },
+      at,
+      person('Approved.', 'user_alice'),
+      'approved',
+    );
+  };
+
+  it('is approved by Alice as a member of the team, and as a workspace admin off the team', () => {
+    for (const team of [standing(true, true), standing(true, false)]) {
+      expect(approvedAs(team).approvalFor(CALL)?.approval.status).toBe(
+        'approved',
+      );
+    }
+  });
+
+  it('is not approved by Alice once she only sees the team', () => {
+    expect(() => approvedAs(standing(false, false))).toThrow(
+      TeamMembershipRequiredError,
+    );
+  });
+
+  it('is not approved by Alice once she is outside the workspace', () => {
+    expect(() => approvedAs(standing(false, false, false))).toThrow(
+      UnknownTaskError,
+    );
+  });
+
+  it('is not approved in the voice of another person', () => {
+    const { asked, at } = askedOfAlice();
+
+    expect(() =>
+      asked.answerAs(
+        { person: ALICE, team: standing(true, true) },
+        at,
+        person('Approved.', 'user_bob'),
+        'approved',
+      ),
+    ).toThrow(InvalidTaskTransitionError);
   });
 });

@@ -1,5 +1,6 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
 export interface HeldFor {
   readonly by: UserId;
@@ -8,7 +9,7 @@ export interface HeldFor {
 
 export interface HoldViewer {
   readonly person: UserId;
-  readonly actsOnTasks: boolean;
+  readonly team: TeamStanding;
 }
 
 export const HoldRights = {
@@ -21,10 +22,10 @@ export const HoldRights = {
   },
 
   drives(hold: Pick<HeldFor, 'chat'>, viewer: HoldViewer): boolean {
-    return viewer.actsOnTasks && HoldRights.takesTurns(hold);
+    return viewer.team.actsOnTasks && HoldRights.takesTurns(hold);
   },
 
   ends(hold: HeldFor, viewer: HoldViewer): boolean {
-    return viewer.actsOnTasks && HoldRights.endableBy(hold, viewer.person);
+    return viewer.team.actsOnTasks && HoldRights.endableBy(hold, viewer.person);
   },
 };

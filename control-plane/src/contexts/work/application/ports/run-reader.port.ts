@@ -10,6 +10,11 @@ import type {
 } from '@work/application/ports/inbox-reader.port';
 import type { RunsInWorkspace } from '@work/application/ports/viewed-runs';
 import type { ReviewState } from '@work/domain/services/conversations';
+import type {
+  MessageAddress,
+  MessagedTask,
+} from '@work/domain/services/message-effect';
+import type { StoppableRun } from '@work/domain/services/run-stop-policy';
 import type { RunDriver } from '@work/domain/value-objects/dispatch-subject';
 import type { Progress } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
@@ -28,6 +33,15 @@ export interface RunStationSummary {
   readonly count: number;
 }
 
+export interface RunAudience {
+  readonly teamId: TeamId;
+  readonly taskStationId: string;
+  readonly waits: boolean;
+  readonly task: Omit<MessagedTask, 'harnessed' | 'atCompleted'>;
+  readonly to: MessageAddress;
+  readonly run: StoppableRun;
+}
+
 export interface TaskRunSummary {
   readonly id: string;
   readonly state: TaskRunState;
@@ -41,6 +55,7 @@ export interface TaskRunSummary {
   readonly image: string | null;
   readonly station: RunStationSummary | null;
   readonly review: RunReview | null;
+  readonly audience: RunAudience;
   readonly driver: RunDriver;
 }
 
@@ -69,6 +84,7 @@ interface LatestRunSummary {
   readonly id: string;
   readonly state: TaskRunState;
   readonly progress: Progress | null;
+  readonly audience: RunAudience;
 }
 
 export interface RanConfig {

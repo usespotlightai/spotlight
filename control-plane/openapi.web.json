@@ -2996,7 +2996,7 @@
             "description": "No valid session"
           },
           "403": {
-            "description": "The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it"
+            "description": "The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it, or the message would put the task on hold and the caller is not a member of the team"
           },
           "404": {
             "description": "No such run for this caller"
@@ -3532,7 +3532,7 @@
     },
     "/teams/{teamId}/tasks/{taskId}/messages": {
       "post": {
-        "description": "For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station, with the same rules as a message to a run there, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.",
+        "description": "For a task with no run at its station, for example because its agent could not start. The message joins the trail at the task’s station. It answers or drives as a message to a run there does, but it never puts the task on hold, and Spotlight tries to start the station’s agent again. When it still cannot, the message stays and runNotStarted says why.",
         "operationId": "sendTaskMessage",
         "parameters": [
           {
@@ -3579,7 +3579,7 @@
             "description": "No valid session"
           },
           "403": {
-            "description": "The caller is not a member of the team, nor a workspace admin"
+            "description": "The caller is not a member of the team, nor a workspace admin, or the message answers a question that waits for the team and the caller is not a member of it"
           },
           "404": {
             "description": "No such task for this caller"
@@ -10145,6 +10145,10 @@
             "nullable": true,
             "description": "The run working it now, whose steps can be watched as they land"
           },
+          "stoppableByYou": {
+            "type": "boolean",
+            "description": "Whether you may stop the run working it now while it is in progress: the run works at a station of the task, and you act on the tasks of the team"
+          },
           "unread": {
             "type": "boolean",
             "example": true,
@@ -10210,6 +10214,7 @@
           "reopenable",
           "progress",
           "runId",
+          "stoppableByYou",
           "unread",
           "briefing",
           "failure",
@@ -10449,6 +10454,10 @@
               false
             ],
             "description": "Never reopenable"
+          },
+          "stoppableByYou": {
+            "type": "boolean",
+            "description": "Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team"
           }
         },
         "required": [
@@ -10467,7 +10476,8 @@
           "resolved",
           "section",
           "standing",
-          "reopenable"
+          "reopenable",
+          "stoppableByYou"
         ]
       },
       "FoldedVisitResponseDto": {
@@ -10664,6 +10674,10 @@
             "nullable": true,
             "description": "The run working it now, whose steps can be watched as they land"
           },
+          "stoppableByYou": {
+            "type": "boolean",
+            "description": "Whether you may stop the run working it now while it is in progress: the run works at a station of the task, and you act on the tasks of the team"
+          },
           "unread": {
             "type": "boolean",
             "example": true,
@@ -10743,6 +10757,7 @@
           "reopenable",
           "progress",
           "runId",
+          "stoppableByYou",
           "unread",
           "briefing",
           "failure",
@@ -11190,9 +11205,30 @@
               }
             ]
           },
+          "waitingForYou": {
+            "type": "boolean",
+            "description": "Whether the open question waits for you: you act on the tasks of the team, and you are the assignee, it asks you by name, or the task has no assignee and you are a member of the team. False for a question someone else owes."
+          },
+          "yourMessage": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "drives",
+              "holds",
+              "reopens",
+              "waits-for-chat",
+              "message",
+              "awaits-another",
+              "moved-on",
+              "not-acting",
+              "not-on-team"
+            ],
+            "example": "message",
+            "description": "What a message from you to the task does. A message to the task puts nothing on hold, so it is never holds, not-on-team or moved-on. answer: it answers the open question. drives: it drives the next turn while a person holds the task. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message, and starts a run that did not start. awaits-another: it is refused, because the question waits for another person. not-acting: it is refused, because you do not act on the tasks of the team."
+          },
           "finished": {
             "type": "boolean",
-            "description": "Whether the line finished the task. A message to a finished task sends it back to its station."
+            "description": "Whether the line finished the task. A message to a finished task sends it back to its station, unless it finished at the completed station."
           },
           "pullRequests": {
             "example": [
@@ -11271,6 +11307,8 @@
           "createdAt",
           "progress",
           "awaitingReview",
+          "waitingForYou",
+          "yourMessage",
           "finished",
           "pullRequests",
           "createdBy",
@@ -11434,6 +11472,31 @@
             "example": "in-progress",
             "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
+          "waitingForYou": {
+            "type": "boolean",
+            "description": "Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team"
+          },
+          "yourMessage": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "drives",
+              "holds",
+              "reopens",
+              "waits-for-chat",
+              "message",
+              "awaits-another",
+              "moved-on",
+              "not-acting",
+              "not-on-team"
+            ],
+            "example": "message",
+            "description": "What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team."
+          },
+          "stoppableByYou": {
+            "type": "boolean",
+            "description": "Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team"
+          },
           "driver": {
             "type": "string",
             "enum": [
@@ -11470,6 +11533,9 @@
           "station",
           "review",
           "progress",
+          "waitingForYou",
+          "yourMessage",
+          "stoppableByYou",
           "driver",
           "taskId",
           "taskTitle",
@@ -11652,12 +11718,40 @@
             "nullable": true,
             "example": "in-progress",
             "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
+          },
+          "waitingForYou": {
+            "type": "boolean",
+            "description": "Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team"
+          },
+          "yourMessage": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "drives",
+              "holds",
+              "reopens",
+              "waits-for-chat",
+              "message",
+              "awaits-another",
+              "moved-on",
+              "not-acting",
+              "not-on-team"
+            ],
+            "example": "message",
+            "description": "What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team."
+          },
+          "stoppableByYou": {
+            "type": "boolean",
+            "description": "Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team"
           }
         },
         "required": [
           "id",
           "state",
-          "progress"
+          "progress",
+          "waitingForYou",
+          "yourMessage",
+          "stoppableByYou"
         ]
       },
       "RunSpendResponseDto": {
@@ -11948,6 +12042,31 @@
             "example": "in-progress",
             "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
+          "waitingForYou": {
+            "type": "boolean",
+            "description": "Whether it waits for your answer: it waits for a person, you act on the tasks of the team, and you are the assignee of its task, it asks you by name, or its task has no assignee and you are a member of the team"
+          },
+          "yourMessage": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "drives",
+              "holds",
+              "reopens",
+              "waits-for-chat",
+              "message",
+              "awaits-another",
+              "moved-on",
+              "not-acting",
+              "not-on-team"
+            ],
+            "example": "message",
+            "description": "What a message from you does here. answer: it answers the question the task waits on. drives: it drives the next turn while a person holds the task. holds: it puts the task on hold and assigns it to you, and stops a run that is in progress. reopens: it sends the finished task back to its station, where a run starts again if an agent works there. waits-for-chat: it goes to the agent chat that holds the task, and the chat takes it up at once. The station agent reads it once the task is handed back to the line. message: it adds a message. awaits-another: it is refused, because the question waits for another person. moved-on: it is refused, because the task has left the station of the run. not-acting: it is refused, because you do not act on the tasks of the team. not-on-team: it is refused, because it puts the task on hold and you are not a member of the team."
+          },
+          "stoppableByYou": {
+            "type": "boolean",
+            "description": "Whether you may stop it while it is in progress: it works at a station of its task, and you act on the tasks of the team"
+          },
           "driver": {
             "type": "string",
             "enum": [
@@ -11970,6 +12089,9 @@
           "station",
           "review",
           "progress",
+          "waitingForYou",
+          "yourMessage",
+          "stoppableByYou",
           "driver"
         ]
       },

@@ -11,7 +11,7 @@ import type { DraftSending } from '@work/application/services/draft-sending.serv
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { HoldStart, Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -62,9 +62,14 @@ export class MessageSending {
       throw new UnknownTaskError(target.named);
     }
 
-    (await this.access.standingOn(line.teamId, sentBy)).assertActsOnTasks(
-      () => new UnknownTaskError(target.named),
-    );
+    const sender = {
+      person: sentBy,
+      team: await this.access.standingOn(line.teamId, sentBy),
+    };
+
+    if (!sender.team.seesTasks) {
+      throw new UnknownTaskError(target.named);
+    }
 
     const coAuthors = await this.drafts.coAuthors(
       task.id,
@@ -72,9 +77,7 @@ export class MessageSending {
       message.coAuthors,
     );
     const sent = DraftGeneration.sentAs(message.draftGeneration);
-    const members =
-      (await this.access.membersOf(line.teamId)) ?? TeamMembers.of([]);
-    const stationId = target.stationId ?? task.stationId;
+    const { stationId } = target;
 
     const at = this.clock.now();
     const newNote = {
@@ -91,11 +94,14 @@ export class MessageSending {
       stationId,
       line,
     )
-      ? (await this.held(drafted, line, sentBy, members, at)).addMessage(
+      ? drafted.heldOnMessage(
+          target.runId,
+          await this.holdStart(drafted, line, at),
           newNote,
           stationId,
+          sender,
         )
-      : drafted.receiveMessage(target.runId, newNote, stationId, members);
+      : drafted.receiveMessage(target.runId, newNote, stationId, sender);
 
     await this.tasks.save(await handedToRun(this.dispatch, received, line));
     await this.files.takenIn(task.workspaceId, message.attachments);
@@ -103,23 +109,20 @@ export class MessageSending {
     return sent && received.draftGeneration;
   }
 
-  private async held(
+  private async holdStart(
     task: Task,
     line: LineMap,
-    by: UserId,
-    members: TeamMembers,
     at: Date,
-  ): Promise<Task> {
+  ): Promise<Omit<HoldStart, 'by'>> {
     const current = task.currentRunId;
     const [facts] = current ? await this.facts.of([current]) : [];
 
-    return task.hold({
+    return {
       id: HoldId.of(this.ids.generate()),
-      by,
-      members,
+      members: (await this.access.membersOf(line.teamId)) ?? TeamMembers.of([]),
       line,
       currentRunStarted: facts?.started ?? false,
       at,
-    });
+    };
   }
 }

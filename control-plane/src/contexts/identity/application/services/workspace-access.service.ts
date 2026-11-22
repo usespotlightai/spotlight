@@ -208,15 +208,21 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     );
   }
 
-  async joinedTeam(teamId: TeamId, principal: Principal): Promise<boolean> {
+  async accessOnTeam(
+    teamId: TeamId,
+    principal: Principal,
+  ): Promise<{ readonly actsOn: boolean; readonly joined: boolean }> {
     const team = await this.teams.find(teamId);
     const workspace = team
       ? await this.workspaces.find(team.workspaceId)
       : null;
 
     return team && workspace
-      ? TeamAccess.joinedTeam(team, workspace, principal)
-      : false;
+      ? {
+          actsOn: TeamAccess.actsOnTeam(team, workspace, principal),
+          joined: TeamAccess.joinedTeam(team, workspace, principal),
+        }
+      : { actsOn: false, joined: false };
   }
 
   mayPlan(principal: Principal): boolean {

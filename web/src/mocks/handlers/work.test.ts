@@ -260,6 +260,30 @@ describe('the mock work area', () => {
 
     expect(run.state).toBe('failed');
   });
+
+  it('refuses a message to a run at a station the task has left, as the server does', async () => {
+    const { data: before } = await readTeamRun({
+      path: { teamId, runId: 'run_retries_2' },
+      throwOnError: true,
+    });
+    const sent = await sendMessage({
+      path: { teamId, runId: 'run_retries_2' },
+      body: { body: 'Use the older plan.' },
+    });
+    const { data: conversation } = await readRunNotes({
+      path: { teamId, runId: 'run_retries_2' },
+      throwOnError: true,
+    });
+
+    expect(before.yourMessage).toBe('moved-on');
+    expect(sent.response?.status).toBe(409);
+    expect(sent.error).toMatchObject({
+      detail: 'Task task_retries has moved on from that station.',
+    });
+    expect(conversation.notes.map((note) => note.body)).not.toContain(
+      'Use the older plan.',
+    );
+  });
 });
 
 describe('the mock work area in an empty workspace', () => {

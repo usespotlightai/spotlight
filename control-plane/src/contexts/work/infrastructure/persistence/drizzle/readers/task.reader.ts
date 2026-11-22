@@ -204,10 +204,9 @@ export class DrizzleTaskReader implements TaskReaderPort {
           : (pulled.get(rest.id) ?? []),
         attachments: attachmentsOf(attached, rest.id).own,
         progress: awaited.has(rest.id) ? null : progressOf(currentRunId),
-        awaitingReview: awaited.has(rest.id)
-          ? { conversationId: awaited.get(rest.id) as string }
-          : null,
+        awaitingReview: awaited.get(rest.id) ?? null,
         finished: finishedAt !== null,
+        running: currentRunId !== null,
         createdBy: createdById ? person(createdById) : null,
         assignee: assigneeId ? person(assigneeId) : null,
         note: notes.get(rest.id) ?? null,

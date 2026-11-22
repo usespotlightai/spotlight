@@ -1,6 +1,7 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
 import type { FoldedVisitDto, NoteDto } from '@work/application/dto/inbox.dto';
 import type { RunStationDto } from '@work/application/dto/task-run.dto';
+import type { MessageOutcome } from '@work/domain/services/message-effect';
 import type { Progress } from '@work/domain/value-objects/progress';
 
 export interface RunSpendDto {
@@ -16,6 +17,9 @@ interface LatestRunDto {
   readonly id: string;
   readonly state: string;
   readonly progress: Progress | null;
+  readonly waitingForYou: boolean;
+  readonly yourMessage: MessageOutcome;
+  readonly stoppableByYou: boolean;
 }
 
 export interface RunNotesDto {

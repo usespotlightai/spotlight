@@ -54,8 +54,15 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
+
+const MEMBER = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
@@ -158,20 +165,24 @@ const heldWithATurn = () =>
     now: NOW,
     newId: () => 'task_1',
   })
-    .hold({
-      id: HoldId.of('hold_1'),
-      by: UserId.of('user_1'),
-      members: TeamMembers.of([UserId.of('user_1')]),
-      line: line(),
-      currentRunStarted: false,
-      at: NOW,
-    })
-    .addMessage({
-      line: line(),
-      body: TaskNoteBody.of('Flatten the cards, then carry on.'),
-      at: NOW,
-      voice: Voice.person(UserId.of('user_1')),
-    })
+    .heldOnMessage(
+      null,
+      {
+        id: HoldId.of('hold_1'),
+        members: TeamMembers.of([UserId.of('user_1')]),
+        line: line(),
+        currentRunStarted: false,
+        at: NOW,
+      },
+      {
+        line: line(),
+        body: TaskNoteBody.of('Flatten the cards, then carry on.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      StationId.of('station_1'),
+      { person: UserId.of('user_1'), team: MEMBER },
+    )
     .assignRun(RUN, line())
     .acknowledgeUpTo(RUN, NotePosition.of(1), NOW);
 
@@ -363,12 +374,16 @@ describe('TakeTurn', () => {
           at: NOW,
           voice: Voice.station(RUN),
         })
-        .answer(NotePosition.of(0), {
-          line: null,
-          body: TaskNoteBody.of('Yes.'),
-          at: NOW,
-          voice: Voice.person(UserId.of('user_1')),
-        });
+        .answerAs(
+          { person: UserId.of('user_1'), team: MEMBER },
+          NotePosition.of(0),
+          {
+            line: null,
+            body: TaskNoteBody.of('Yes.'),
+            at: NOW,
+            voice: Voice.person(UserId.of('user_1')),
+          },
+        );
       const turn = turning({ task: answeredAlready });
 
       await turn.take(reviewing);

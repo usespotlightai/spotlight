@@ -11,6 +11,21 @@ export type TeamRun = TeamRunResponseDto;
 
 export type Review = NonNullable<Run['review']>;
 
+export type YourMessage = Run['yourMessage'];
+
+const REFUSED: Partial<Record<YourMessage, string>> = {
+  'awaits-another': 'It waits for another person to answer.',
+  'not-acting':
+    'You do not act on the tasks of this team, so you cannot message it.',
+  'moved-on':
+    'The task has moved on from this station. Messages here reach no one.',
+  'not-on-team':
+    'Your message would put the task on hold, and a hold assigns the task to you. Only members of the team can do that.',
+};
+
+export const messageRefusal = (yours: YourMessage): string | null =>
+  REFUSED[yours] ?? null;
+
 export const LINE_SETS_REPOSITORIES =
   'The line sets the repositories. Change them in the line’s configuration.';
 
@@ -51,8 +66,9 @@ export const newestRunAt = (
       null,
     );
 
-export const stoppable = (run: Pick<Run, 'progress'>): boolean =>
-  run.progress === 'in-progress';
+export const stoppable = (
+  run: Pick<Run, 'progress' | 'stoppableByYou'>,
+): boolean => run.stoppableByYou && run.progress === 'in-progress';
 
 export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
   run.state === 'failed'
@@ -62,12 +78,8 @@ export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
 export const waitsOnPerson = (run: Pick<Run, 'state' | 'progress'>): boolean =>
   run.state === 'suspended' && run.progress === null;
 
-export const waitsForYou = (
-  run: Pick<Run, 'state' | 'progress' | 'review'>,
-): boolean => waitsOnPerson(run) || run.review?.state === 'pending';
-
 export const runStatus = (run: Run): string | null => {
-  if (waitsOnPerson(run)) {
+  if (run.waitingForYou) {
     return 'Waiting for you';
   }
   if (run.state === 'cancelled') {
@@ -148,5 +160,5 @@ export const asRunFilter = (raw: string): RunFilter =>
 
 export const inRunFilter = (
   filter: RunFilter,
-  run: Pick<TeamRun, 'state' | 'progress' | 'review'>,
-): boolean => filter === 'all' || waitsForYou(run);
+  run: Pick<TeamRun, 'waitingForYou'>,
+): boolean => filter === 'all' || run.waitingForYou;

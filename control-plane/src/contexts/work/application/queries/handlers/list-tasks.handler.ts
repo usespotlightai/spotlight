@@ -6,11 +6,13 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import { TaskMapper } from '@work/application/mappers/task.mapper';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
 import type {
   ListTasksQuery,
   ReadTaskQuery,
 } from '@work/application/queries/list-tasks.query';
+import { messageReadingOf } from '@work/application/services/message-reading';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 
 export class ListTasksHandler implements QueryHandlerPort<
@@ -20,6 +22,7 @@ export class ListTasksHandler implements QueryHandlerPort<
   constructor(
     private readonly tasks: TaskReaderPort,
     private readonly access: WorkAccess,
+    private readonly lines: LineMapsPort,
   ) {}
 
   async execute(query: ListTasksQuery): Promise<Page<TaskDto> | null> {
@@ -27,7 +30,10 @@ export class ListTasksHandler implements QueryHandlerPort<
       const teamId = TeamId.of(query.teamId);
       const viewer = UserId.of(query.viewerId);
 
-      const standing = await this.access.standingOn(teamId, viewer);
+      const [standing, lines] = await Promise.all([
+        this.access.standingOn(teamId, viewer),
+        this.lines.ofTeam(teamId),
+      ]);
 
       if (!standing.seesTasks) {
         return null;
@@ -44,12 +50,12 @@ export class ListTasksHandler implements QueryHandlerPort<
             },
       );
 
-      return mapPage(found, (each) =>
-        TaskMapper.summaryToDto(each, {
-          id: query.viewerId,
-          actsOnTasks: standing.actsOnTasks,
-        }),
+      const reading = messageReadingOf(
+        { person: viewer, team: standing },
+        lines,
       );
+
+      return mapPage(found, (each) => TaskMapper.summaryToDto(each, reading));
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -63,22 +69,26 @@ export class ReadTaskHandler implements QueryHandlerPort<
   constructor(
     private readonly tasks: TaskReaderPort,
     private readonly access: WorkAccess,
+    private readonly lines: LineMapsPort,
   ) {}
 
   async execute(query: ReadTaskQuery): Promise<TaskDto | null> {
     try {
       const teamId = TeamId.of(query.teamId);
       const viewer = UserId.of(query.viewerId);
-      const standing = await this.access.standingOn(teamId, viewer);
+      const [standing, lines] = await Promise.all([
+        this.access.standingOn(teamId, viewer),
+        this.lines.ofTeam(teamId),
+      ]);
       const found =
         standing.seesTasks &&
         (await this.tasks.findInTeam(teamId, TaskId.of(query.taskId)));
 
       return found
-        ? TaskMapper.summaryToDto(found, {
-            id: query.viewerId,
-            actsOnTasks: standing.actsOnTasks,
-          })
+        ? TaskMapper.summaryToDto(
+            found,
+            messageReadingOf({ person: viewer, team: standing }, lines),
+          )
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

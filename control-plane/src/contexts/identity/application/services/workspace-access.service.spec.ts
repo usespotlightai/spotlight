@@ -4,11 +4,15 @@ import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -53,7 +57,13 @@ const platform = teamOf('platform', ['member_1']);
 const billing = teamOf('billing', ['owner_1']);
 
 const accessIn = (workspace: Workspace | null) => {
-  const teams = { ofWorkspace: vi.fn(async () => [platform, billing]) };
+  const teams = {
+    ofWorkspace: vi.fn(async () => [platform, billing]),
+    find: vi.fn(
+      async (id: TeamId) =>
+        [platform, billing].find((each) => each.id.equals(id)) ?? null,
+    ),
+  };
 
   return {
     teams,
@@ -140,6 +150,63 @@ describe('WorkspaceAccess.teamAccessOfMembers', () => {
         team_platform: { sees: true, actsOn: true },
         team_billing: { sees: true, actsOn: false },
       },
+    });
+  });
+});
+
+describe('WorkspaceAccess.accessOnTeam', () => {
+  const on = (team: TeamId, person: string) =>
+    accessIn(acme).access.accessOnTeam(
+      team,
+      PersonPrincipal.of(UserId.of(person)),
+    );
+
+  it('says a member acts on their own team and joined it', async () => {
+    expect(await on(platform.id, 'member_1')).toEqual({
+      actsOn: true,
+      joined: true,
+    });
+  });
+
+  it('says an admin acts on a team they did not join', async () => {
+    expect(await on(platform.id, 'admin_1')).toEqual({
+      actsOn: true,
+      joined: false,
+    });
+  });
+
+  it('says a member neither acts on nor joined a team of someone else', async () => {
+    expect(await on(billing.id, 'member_1')).toEqual({
+      actsOn: false,
+      joined: false,
+    });
+  });
+
+  it('says a person outside the workspace neither acts on nor joined its team', async () => {
+    expect(await on(platform.id, 'stranger_1')).toEqual({
+      actsOn: false,
+      joined: false,
+    });
+  });
+
+  it('says a token, even one issued by a member, never joined the team', async () => {
+    const access = await accessIn(acme).access.accessOnTeam(
+      platform.id,
+      IssuedTokenGrant.principal({
+        tokenId: WorkspaceTokenId.of('token_1'),
+        workspaceId: acme.id,
+        scopes: TokenScopes.named(['read']),
+        issuedBy: UserId.of('member_1'),
+      }),
+    );
+
+    expect(access).toEqual({ actsOn: true, joined: false });
+  });
+
+  it('says nobody acts on a team that does not exist', async () => {
+    expect(await on(TeamId.of('team_gone'), 'owner_1')).toEqual({
+      actsOn: false,
+      joined: false,
     });
   });
 });

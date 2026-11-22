@@ -13,7 +13,6 @@ import type {
   SendMessageRequestDto,
   TaskResponseDto,
 } from '@/lib/api';
-import { waitsOnPerson } from '@/lib/run';
 import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -22,6 +21,7 @@ import { notesBetween } from '@/mocks/world/folded-visits';
 import { inboxStore } from '@/mocks/world/inbox-store';
 import { SAM } from '@/mocks/world/people';
 import { runNetworkOf } from '@/mocks/world/run-network';
+import { reviewAnswered } from '@/mocks/world/waiting-for-you';
 import {
   addMessage,
   answerStackQuestion,
@@ -33,6 +33,7 @@ import {
   placeStation,
   readableTask,
   runStationIn,
+  seenAgain,
   taskChangeStacksOf,
   taskTraceOf,
   teamRunsOf,
@@ -118,6 +119,9 @@ const queueRunAt = (
       image: null,
       station: runStationIn(teamId, stationId),
       review: null,
+      waitingForYou: false,
+      yourMessage: 'message',
+      stoppableByYou: false,
     },
     ...(world().runs[taskId] ?? []),
   ];
@@ -126,20 +130,10 @@ const queueRunAt = (
 const holdOnMessage = ({
   teamId,
   task,
-  run,
-}: NonNullable<ReturnType<typeof locateRun>>) => {
-  const here = placeStation(teamId, task.stationId)?.station;
-
-  if (
-    !here?.harness ||
-    run.station?.id !== task.stationId ||
-    task.hold ||
-    task.finished ||
-    waitsOnPerson(run)
-  ) {
-    return;
-  }
-
+}: {
+  teamId: string;
+  task: TaskResponseDto;
+}) => {
   queueRunAt(teamId, task.id, task.stationId, 'person');
   replaceTask(teamId, {
     ...task,
@@ -154,6 +148,67 @@ const holdOnMessage = ({
       viewerEnds: true,
     },
   });
+};
+
+const reopenOnMessage = ({
+  teamId,
+  task,
+}: {
+  teamId: string;
+  task: TaskResponseDto;
+}) => {
+  replaceTask(teamId, { ...task, finished: false });
+  if (placeStation(teamId, task.stationId)?.station.harness) {
+    queueRunAt(teamId, task.id, task.stationId);
+  }
+};
+
+const NOT_ON_THE_TEAM = 'Workspace admins who are not on the team cannot.';
+
+const refusalOf = (
+  task: TaskResponseDto,
+  yourMessage: TaskResponseDto['yourMessage'],
+) => {
+  const refusals: Partial<
+    Record<TaskResponseDto['yourMessage'], [number, string]>
+  > = {
+    'moved-on': [409, `Task ${task.id} has moved on from that station.`],
+    'awaits-another': task.assignee
+      ? [409, `Task ${task.id} is assigned to another person.`]
+      : [
+          403,
+          `Task ${task.id} waits for its team. The first answer assigns the task, so only a member of the team can answer it. ${NOT_ON_THE_TEAM}`,
+        ],
+    'not-acting': [
+      403,
+      'You are not a member of this team. Only team members and workspace admins can change its tasks.',
+    ],
+    'not-on-team': [
+      403,
+      `Task ${task.id} goes on hold when you message it. A hold assigns the task, so only a member of the team can message it. ${NOT_ON_THE_TEAM}`,
+    ],
+  };
+  const refused = refusals[yourMessage];
+
+  return refused ? problem(...refused) : null;
+};
+
+const onMessage = (
+  located: { teamId: string; task: TaskResponseDto },
+  yourMessage: TaskResponseDto['yourMessage'],
+) => {
+  const asked = located.task.awaitingReview?.conversationId;
+
+  if (yourMessage === 'answer' && asked) {
+    reviewAnswered(located.task, world().runs[located.task.id] ?? [], asked);
+  }
+  if (yourMessage === 'holds') {
+    holdOnMessage(located);
+  }
+  if (yourMessage === 'reopens') {
+    reopenOnMessage(located);
+  }
+  seenAgain(located.teamId, located.task.id);
 };
 
 export const workHandlers: RequestHandler[] = [
@@ -178,6 +233,8 @@ export const workHandlers: RequestHandler[] = [
         createdAt: new Date().toISOString(),
         progress: null,
         awaitingReview: null,
+        waitingForYou: false,
+        yourMessage: 'message',
         finished: false,
         pullRequests: [],
         createdBy: SAM,
@@ -190,8 +247,9 @@ export const workHandlers: RequestHandler[] = [
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];
       queueRunAt(teamId, task.id, stationId);
+      seenAgain(teamId, task.id);
 
-      return json(task, 201);
+      return json(findTask(teamId, task.id), 201);
     },
   ),
 
@@ -225,6 +283,7 @@ export const workHandlers: RequestHandler[] = [
       if (task.stationId !== body.stationId) {
         queueRunAt(teamId, task.id, body.stationId);
       }
+      seenAgain(teamId, task.id);
 
       if (placeStation(teamId, body.stationId)?.station.kind === 'completed') {
         for (const entry of inboxStore().entries) {
@@ -288,8 +347,9 @@ export const workHandlers: RequestHandler[] = [
       if (next !== 'finish') {
         queueRunAt(teamId, task.id, to);
       }
+      seenAgain(teamId, task.id);
 
-      return json(resumed);
+      return json(findTask(teamId, task.id));
     },
   ),
 
@@ -314,8 +374,9 @@ export const workHandlers: RequestHandler[] = [
           : null,
       };
       replaceTask(teamId, assigned);
+      seenAgain(teamId, task.id);
 
-      return json(assigned);
+      return json(findTask(teamId, task.id));
     },
   ),
 
@@ -400,9 +461,16 @@ export const workHandlers: RequestHandler[] = [
         return notFound();
       }
 
+      const { yourMessage } = located.run;
+      const refused = refusalOf(located.task, yourMessage);
+
+      if (refused) {
+        return refused;
+      }
+
       const body = (await request.json()) as SendMessageRequestDto;
       addMessage(located, body.body, attachmentsOf(body.attachments));
-      holdOnMessage(located);
+      onMessage(located, yourMessage);
 
       return noContent();
     },
@@ -419,6 +487,13 @@ export const workHandlers: RequestHandler[] = [
         return notFound();
       }
 
+      const { yourMessage } = task;
+      const refused = refusalOf(task, yourMessage);
+
+      if (refused) {
+        return refused;
+      }
+
       const body = (await request.json()) as SendMessageRequestDto;
       if (newest) {
         addMessage(
@@ -427,8 +502,9 @@ export const workHandlers: RequestHandler[] = [
           attachmentsOf(body.attachments),
         );
       }
+      onMessage({ teamId, task }, yourMessage);
 
-      return json(task);
+      return json(findTask(teamId, task.id));
     },
   ),
 
@@ -466,6 +542,7 @@ export const workHandlers: RequestHandler[] = [
           : each,
     );
     replaceTask(teamId, { ...located.task, progress: null });
+    seenAgain(teamId, located.task.id);
 
     return noContent();
   }),

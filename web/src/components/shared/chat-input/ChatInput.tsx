@@ -170,7 +170,11 @@ export function ChatInput({
             {settings}
           </ChatInputArea>
 
-          <ChatInputArea disabled={disabled} area="send" className="flex">
+          <ChatInputArea
+            disabled={disabled && !stopping}
+            area="send"
+            className="flex"
+          >
             <SendOrStop onStop={stopping} unsendable={unsendable} />
           </ChatInputArea>
         </div>

@@ -15,7 +15,7 @@ type InboxComposerProps = {
   station: string;
   teamId: string;
   runId: string | null;
-  running: boolean;
+  stoppable: boolean;
 };
 
 export function InboxComposer({
@@ -25,7 +25,7 @@ export function InboxComposer({
   station,
   teamId,
   runId,
-  running,
+  stoppable,
 }: InboxComposerProps) {
   const answer = useAnswerInboxItem();
   const stop = useStopRun();
@@ -38,7 +38,7 @@ export function InboxComposer({
       label={`Answer ${station}`}
       placeholder={answerPlaceholder(station)}
       pending={answer.isPending}
-      running={running}
+      running={stoppable}
       shared={shared}
       focusOnReply
       settings={<FixedAgent agent={currentStation} />}

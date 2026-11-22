@@ -17,7 +17,11 @@ vi.mock('@/hooks/api/useStopRun', () => ({
   useStopInFlight: () => false,
 }));
 
-const run = (state: Run['state'], review: Run['review'] = null) =>
+const run = (
+  state: Run['state'],
+  review: Run['review'] = null,
+  waitingForYou = state === 'suspended' || review?.state === 'pending',
+) =>
   ({
     id: 'run_1',
     state,
@@ -26,6 +30,8 @@ const run = (state: Run['state'], review: Run['review'] = null) =>
     startedAt: new Date().toISOString(),
     station: null,
     review,
+    waitingForYou,
+    stoppableByYou: true,
   }) as unknown as Run;
 
 const PENDING = { state: 'pending', conversationId: 'task_1:3' } as const;
@@ -123,6 +129,18 @@ describe('RunRow, what a run is doing', () => {
     expect(
       screen.getByRole('link', { name: 'Waiting for you' }),
     ).toHaveAttribute('href', '/inbox/task_1:3');
+  });
+
+  it('says nothing is waiting for you while the answer is someone else’s to give', () => {
+    shown(
+      <RunRow
+        run={run('suspended', PENDING, false)}
+        to="/runs/run_1"
+        reviewTo="/inbox/task_1:3"
+      />,
+    );
+
+    expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
   });
 
   it('says waiting for you for a run that is over and still waits for an answer', () => {

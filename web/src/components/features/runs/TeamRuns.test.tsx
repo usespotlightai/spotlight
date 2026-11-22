@@ -38,6 +38,7 @@ const run = (
   id: string,
   taskTitle: string,
   review: TeamRun['review'],
+  waitingForYou = review?.state === 'pending',
 ): TeamRun => ({
   id,
   driver: 'line',
@@ -51,6 +52,9 @@ const run = (
   image: null,
   station: null,
   review,
+  waitingForYou,
+  yourMessage: waitingForYou ? 'answer' : 'message',
+  stoppableByYou: true,
   taskId: `task_${id}`,
   taskTitle,
   taskDescription: null,
@@ -65,6 +69,12 @@ const answered = run('run_2', 'Tidy the settings page', {
   conversationId: 'conv_2',
 });
 const unreviewed = run('run_3', 'Upgrade the harness', null);
+const someoneElses = run(
+  'run_4',
+  'Rotate the signing key',
+  { state: 'pending', conversationId: 'conv_4' },
+  false,
+);
 
 const showing = () =>
   render(
@@ -106,6 +116,18 @@ describe('TeamRuns', () => {
       screen.queryByText('Tidy the settings page'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Upgrade the harness')).not.toBeInTheDocument();
+  });
+
+  it('leaves out a run whose question waits for someone else', async () => {
+    runs.mockReturnValue([pending, someoneElses]);
+    showing();
+
+    await userEvent.click(filter('Waiting for you'));
+
+    expect(screen.getByText('Fix the login bug')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Rotate the signing key'),
+    ).not.toBeInTheDocument();
   });
 
   it('says so when nothing is waiting for you', async () => {

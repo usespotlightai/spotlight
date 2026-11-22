@@ -15,6 +15,7 @@ const task = (over: Partial<Task> = {}) =>
     createdAt: '2026-08-28T09:15:00.000Z',
     progress: null,
     awaitingReview: null,
+    waitingForYou: false,
     note: null,
     ...over,
   }) as Task;
@@ -68,20 +69,39 @@ describe('TaskState', () => {
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 
-  it('marks a task that is waiting on a person', () => {
+  it('marks a task that is waiting for you', () => {
     renderIn(
       <TaskState
-        task={task({ awaitingReview: { conversationId: 'task_1:5' } })}
+        task={task({
+          awaitingReview: { conversationId: 'task_1:5' },
+          waitingForYou: true,
+        })}
       />,
     );
 
     expect(screen.getByText('Waiting for you')).toBeInTheDocument();
   });
 
+  it('says nothing is waiting for you while the question waits for someone else', () => {
+    const { container } = renderIn(
+      <TaskState
+        task={task({
+          awaitingReview: { conversationId: 'task_1:5' },
+          waitingForYou: false,
+        })}
+      />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('leads to the conversation waiting on them', () => {
     renderIn(
       <TaskState
-        task={task({ awaitingReview: { conversationId: 'task_1:5' } })}
+        task={task({
+          awaitingReview: { conversationId: 'task_1:5' },
+          waitingForYou: true,
+        })}
         stateTo="/w/acme/inbox/task_1%3A5"
       />,
     );
@@ -97,6 +117,7 @@ describe('TaskState', () => {
         task={task({
           progress: 'in-progress',
           awaitingReview: { conversationId: 'task_1:5' },
+          waitingForYou: true,
         })}
       />,
     );

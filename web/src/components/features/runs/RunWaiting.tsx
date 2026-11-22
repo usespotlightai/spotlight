@@ -7,10 +7,9 @@ import { type Run, runStatus } from '@/lib/run';
 type RunWaitingProps = {
   slug: string;
   run: Run;
-  deciding: boolean;
 };
 
-export function RunWaiting({ slug, run, deciding }: RunWaitingProps) {
+export function RunWaiting({ slug, run }: RunWaitingProps) {
   return (
     <div
       data-slot="run-waiting"
@@ -29,7 +28,9 @@ export function RunWaiting({ slug, run, deciding }: RunWaitingProps) {
         className="ml-auto"
       >
         <Inbox aria-hidden className="size-3" />
-        {deciding ? 'Open in the inbox' : 'Answer in the inbox'}
+        {run.yourMessage === 'answer'
+          ? 'Answer in the inbox'
+          : 'Open in the inbox'}
       </PillLink>
     </div>
   );

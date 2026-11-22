@@ -20,7 +20,8 @@ import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskHeld } from '@work/domain/events/task-held.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
-import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
+import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import {
   ConversationAudience,
   type ConversationViewer,
@@ -41,6 +42,20 @@ import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { TurnHeads } from '@work/domain/value-objects/turn-heads.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
+
+const senderOf = (
+  note: Parameters<Task['receiveMessage']>[1],
+  team: TeamStanding,
+): Parameters<Task['receiveMessage']>[3] => ({
+  person: note.voice.author ?? UserId.of('user_nobody'),
+  team,
+});
+
+const ACTING = TeamStanding.of({
+  seesTeam: true,
+  actsOnTeam: true,
+  memberOfTeam: true,
+});
 
 const NOW = new Date('2026-11-16T09:00:00.000Z');
 const LATER = new Date('2026-11-16T10:00:00.000Z');
@@ -102,16 +117,6 @@ const running = () => at(BUILD).assignRun(LINE_RUN, line);
 
 const TEAM = TeamMembers.of([LEON, MAYA]);
 
-const onHold = (task: Task = running(), by: UserId = LEON) =>
-  task.hold({
-    id: HoldId.of('hold_1'),
-    by,
-    members: TEAM,
-    line,
-    currentRunStarted: true,
-    at: NOW,
-  });
-
 const said = (body: string, voice: Voice) => ({
   line,
   body: TaskNoteBody.of(body),
@@ -119,15 +124,65 @@ const said = (body: string, voice: Voice) => ({
   voice,
 });
 
-const driving = () =>
-  onHold()
-    .addMessage(said('Use a bounded queue.', Voice.person(LEON)))
-    .assignRun(TURN, line);
+const happenedOn = (task: Task, body: string): Task => {
+  const reacted = task.reactTo(
+    { kind: 'stays', line, body: TaskNoteBody.of(body), anchor: null },
+    {
+      at: NOW,
+      voice: Voice.world(),
+      attachments: [],
+      ranksAtDestination: [],
+      members: TEAM,
+    },
+  );
 
-const driving2 = (task: Task) =>
-  onHold(task)
-    .addMessage(said('Use a bounded queue.', Voice.person(LEON)))
-    .assignRun(TURN, line);
+  if (!reacted) {
+    throw new Error('the task did not react to the happening');
+  }
+
+  return reacted;
+};
+
+const sentBy = (task: Task, by: UserId, body: string): Task =>
+  task.receiveMessage(null, said(body, Voice.person(by)), task.stationId, {
+    person: by,
+    team: ACTING,
+  });
+
+const heldBy = (
+  task: Task,
+  by: UserId,
+  body: string,
+  hold: HoldId = HoldId.of('hold_1'),
+) =>
+  task.heldOnMessage(
+    null,
+    { id: hold, members: TEAM, line, currentRunStarted: true, at: NOW },
+    said(body, Voice.person(by)),
+    task.stationId,
+    { person: by, team: ACTING },
+  );
+
+const settled = (asked: Task): Task => {
+  const from = asked.pendingConversation?.from;
+
+  if (!from) {
+    throw new Error('The task asks nothing.');
+  }
+
+  return asked.resolveAs(
+    { person: LEON, team: ACTING },
+    from,
+    said('Thanks.', Voice.person(LEON)),
+  );
+};
+
+const onHold = (task: Task = running(), by: UserId = LEON) =>
+  heldBy(task, by, 'Use a bounded queue.');
+
+const driving = () => onHold().assignRun(TURN, line);
+
+const driving2 = (task: Task) => onHold(task).assignRun(TURN, line);
 
 const turnDone = (task: Task = driving()) =>
   task.putToAPerson(
@@ -161,10 +216,7 @@ const resumption = (
 const lastOf = (task: Task) => task.notes[task.notes.length - 1];
 
 const answers = (task: Task, viewer: ConversationViewer): boolean =>
-  ConversationAudience.mayAnswer(
-    TeamStanding.of({ seesTeam: true, actsOnTeam: viewer.actsOnTasks }),
-    task.conversantOf(viewer),
-  );
+  ConversationAudience.mayAnswer(viewer.team, task.conversantOf(viewer));
 
 describe('a task a person puts on hold', () => {
   it('stops the line run and counts it as the run the person held it from', () => {
@@ -176,7 +228,7 @@ describe('a task a person puts on hold', () => {
   });
 
   it('leaves the agent its instructions in a note it reads on the next turn', () => {
-    const note = lastOf(onHold());
+    const note = onHold().notes.find((each) => each.form === 'held');
 
     expect(note?.form).toBe('held');
     expect(note?.unacknowledged).toBe(true);
@@ -184,22 +236,15 @@ describe('a task a person puts on hold', () => {
   });
 
   it('starts no run until a person says something', () => {
-    const task = onHold();
+    const task = driving().leaveRun(TURN, LATER);
 
+    expect(onHold().wantsRun(line)).toBe(true);
     expect(task.wantsRun(line)).toBe(false);
-    expect(
-      task.addMessage(said('The checks passed.', Voice.world())).wantsRun(line),
-    ).toBe(false);
-    expect(
-      task
-        .addMessage(said('Use a bounded queue.', Voice.person(LEON)))
-        .wantsRun(line),
-    ).toBe(true);
-    expect(
-      task
-        .addMessage(said('Try this instead.', Voice.person(MAYA)))
-        .wantsRun(line),
-    ).toBe(true);
+    expect(happenedOn(task, 'The checks passed.').wantsRun(line)).toBe(false);
+    expect(sentBy(task, LEON, 'Use a bounded queue.').wantsRun(line)).toBe(
+      true,
+    );
+    expect(sentBy(task, MAYA, 'Try this instead.').wantsRun(line)).toBe(true);
   });
 
   it('counts each run it then starts as a turn driven by the person', () => {
@@ -213,10 +258,8 @@ describe('a task a person puts on hold', () => {
   });
 
   it('cannot be put on hold twice at once, and says who holds it', () => {
-    expect(() => onHold(onHold(), MAYA)).toThrow(TaskOnHoldError);
-    expect(() => onHold(onHold(), MAYA)).toThrow(
-      expect.objectContaining({ by: LEON }),
-    );
+    expect(() => onHold(onHold(), MAYA)).toThrow(InvalidTaskTransitionError);
+    expect(onHold().openHold?.by).toEqual(LEON);
   });
 
   it('cannot be put on hold where no agent works', () => {
@@ -253,7 +296,7 @@ describe('a task a person puts on hold', () => {
       TURN,
       said('Now add a test.', Voice.person(MAYA)),
       BUILD,
-      TEAM,
+      senderOf(said('Now add a test.', Voice.person(MAYA)), ACTING),
     );
 
     expect(fromMaya.pendingConversation).toBeNull();
@@ -261,9 +304,11 @@ describe('a task a person puts on hold', () => {
   });
 
   it('holds aside what the world says, and gives the agent what people say', () => {
-    const task = onHold()
-      .addMessage(said('The checks passed.', Voice.world()))
-      .addMessage(said('Ship it as it is.', Voice.person(MAYA)));
+    const task = sentBy(
+      happenedOn(onHold(), 'The checks passed.'),
+      MAYA,
+      'Ship it as it is.',
+    );
 
     expect(task.notes.slice(-2).map((note) => note.unacknowledged)).toEqual([
       false,
@@ -301,8 +346,11 @@ describe('a task a person drives', () => {
     const task = onHold(running().assign(MAYA, members));
     const viewer = (actsOnTasks: boolean) => ({
       person: MAYA,
-      onTeam: true,
-      actsOnTasks,
+      team: TeamStanding.of({
+        seesTeam: true,
+        actsOnTeam: actsOnTasks,
+        memberOfTeam: actsOnTasks,
+      }),
     });
 
     expect(task.conversantOf(viewer(true))).toEqual({
@@ -315,8 +363,11 @@ describe('a task a person drives', () => {
     expect(
       answers(task, {
         person: LEON,
-        onTeam: true,
-        actsOnTasks: true,
+        team: TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
       }),
     ).toBe(true);
   });
@@ -326,14 +377,17 @@ describe('a task a person drives', () => {
       .receiveMessage(
         TURN,
         said('Drain the old queue first.', Voice.person(MAYA)),
-        null,
-        TEAM,
+        BUILD,
+        senderOf(
+          said('Drain the old queue first.', Voice.person(MAYA)),
+          ACTING,
+        ),
       )
       .receiveMessage(
         TURN,
         said('Keep the retry limit.', Voice.person(LEON)),
-        null,
-        TEAM,
+        BUILD,
+        senderOf(said('Keep the retry limit.', Voice.person(LEON)), ACTING),
       );
     const fromPeople = (task: Task) =>
       task
@@ -361,16 +415,48 @@ describe('a task a person drives', () => {
       return;
     }
 
-    expect(() => asked.answer(from, said('Ship it.', Voice.world()))).toThrow(
-      'Only a person can answer it',
-    );
-    expect(() => asked.resolveAt(from, said('Done.', Voice.world()))).toThrow(
-      'Only a person can resolve it',
-    );
+    expect(() =>
+      asked.answerAs(
+        { person: MAYA, team: ACTING },
+        from,
+        said('Ship it.', Voice.world()),
+      ),
+    ).toThrow(InvalidTaskTransitionError);
+    expect(() =>
+      asked.resolveAs(
+        { person: MAYA, team: ACTING },
+        from,
+        said('Done.', Voice.world()),
+      ),
+    ).toThrow(InvalidTaskTransitionError);
     expect(
-      asked.resolveAs(MAYA, members, from, said('Done.', Voice.person(MAYA)))
-        .pendingConversation,
+      asked.resolveAs(
+        {
+          person: MAYA,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: true,
+            memberOfTeam: true,
+          }),
+        },
+        from,
+        said('Done.', Voice.person(MAYA)),
+      ).pendingConversation,
     ).toBeNull();
+    expect(() =>
+      asked.resolveAs(
+        {
+          person: MAYA,
+          team: TeamStanding.of({
+            seesTeam: true,
+            actsOnTeam: false,
+            memberOfTeam: false,
+          }),
+        },
+        from,
+        said('Done.', Voice.person(MAYA)),
+      ),
+    ).toThrow(TeamMembershipRequiredError);
   });
 
   it('starts the next turn when the person answers a turn that failed', () => {
@@ -384,7 +470,7 @@ describe('a task a person drives', () => {
       TURN,
       said('Try again, smaller.', Voice.person(LEON)),
       BUILD,
-      members,
+      senderOf(said('Try again, smaller.', Voice.person(LEON)), ACTING),
     );
 
     expect(answered.wantsRun(line)).toBe(true);
@@ -419,7 +505,7 @@ describe('a task a person drives', () => {
           TURN,
           said('Now add a test.', Voice.person(LEON)),
           BUILD,
-          members,
+          senderOf(said('Now add a test.', Voice.person(LEON)), ACTING),
         )
         .pullEvents()
         .map((each) => each.kind),
@@ -456,14 +542,7 @@ describe('a task a person drives', () => {
 
   it('is put on hold by a member of its team only', () => {
     expect(() =>
-      running().hold({
-        id: HoldId.of('hold_1'),
-        by: UserId.of('user_guest'),
-        members: TEAM,
-        line,
-        currentRunStarted: true,
-        at: NOW,
-      }),
+      heldBy(running(), UserId.of('user_guest'), 'Use a bounded queue.'),
     ).toThrow(NotATeamMemberError);
   });
 
@@ -491,15 +570,26 @@ describe('a task a person drives', () => {
       return;
     }
 
-    const resolved = asked.resolveAt(from, said('Done.', Voice.person(LEON)));
+    const resolved = asked.resolveAs(
+      { person: LEON, team: ACTING },
+      from,
+      said('Done.', Voice.person(LEON)),
+    );
 
     expect(
-      resolved.reopenAt(from, said('Not yet.', Voice.person(MAYA)))
-        .pendingConversation,
+      resolved.reopenAs(
+        { person: MAYA, team: ACTING },
+        from,
+        said('Not yet.', Voice.person(MAYA)),
+      ).pendingConversation,
     ).not.toBeNull();
     expect(() =>
-      resolved.reopenAt(from, said('Not yet.', Voice.world())),
-    ).toThrow('Only a person can reopen it');
+      resolved.reopenAs(
+        { person: MAYA, team: ACTING },
+        from,
+        said('Not yet.', Voice.world()),
+      ),
+    ).toThrow(InvalidTaskTransitionError);
   });
 
   it('holds a failure a hook reports, telling the line nothing', () => {
@@ -517,9 +607,7 @@ describe('a task a person drives', () => {
   });
 
   it('briefs its turns without what was held aside', () => {
-    const task = driving().addMessage(
-      said('The checks failed.', Voice.world()),
-    );
+    const task = happenedOn(driving(), 'The checks failed.');
 
     expect(task.briefedOn(line).notes.map((note) => note.body)).not.toContain(
       'The checks failed.',
@@ -535,7 +623,8 @@ describe('a task a person drives', () => {
   it('cannot be put on hold once it has finished', () => {
     const finished = resumption(turnDone(), 'finish');
 
-    expect(() => onHold(finished)).toThrow('has finished');
+    expect(finished.finished).toBe(true);
+    expect(() => onHold(finished)).toThrow(InvalidTaskTransitionError);
   });
 });
 
@@ -714,9 +803,8 @@ describe('a task whose line resumes', () => {
   });
 
   it('does not count against a line run twice', () => {
-    const answered = running().putToAPerson(
-      LINE_RUN,
-      said('Done.', Voice.station(LINE_RUN)),
+    const answered = settled(
+      running().putToAPerson(LINE_RUN, said('Done.', Voice.station(LINE_RUN))),
     );
     const once = resumption(turnDone(driving2(answered)), 'continue');
 
@@ -724,21 +812,15 @@ describe('a task whose line resumes', () => {
   });
 
   it('holds from no run of a station it has left', () => {
-    const answered = running().putToAPerson(
-      LINE_RUN,
-      said('Done.', Voice.station(LINE_RUN)),
+    const answered = settled(
+      running().putToAPerson(LINE_RUN, said('Done.', Voice.station(LINE_RUN))),
     );
-    const held = answered
-      .hold({
-        id: HoldId.of('hold_0'),
-        by: LEON,
-        members: TEAM,
-        line,
-        currentRunStarted: true,
-        at: NOW,
-      })
-      .addMessage(said('Try a ring buffer.', Voice.person(LEON)))
-      .assignRun(TURN, line);
+    const held = heldBy(
+      answered,
+      LEON,
+      'Try a ring buffer.',
+      HoldId.of('hold_0'),
+    ).assignRun(TURN, line);
     const moved = resumption(turnDone(held), 'move-on', REVIEW, 'exploring');
 
     expect(moved.stationId.equals(REVIEW)).toBe(true);
@@ -752,9 +834,7 @@ describe('a task whose line resumes', () => {
   });
 
   it('gives the line what arrived while it was on hold', () => {
-    const withCheck = driving().addMessage(
-      said('The checks failed.', Voice.world()),
-    );
+    const withCheck = happenedOn(driving(), 'The checks failed.');
     const check = lastOf(withCheck)?.position;
 
     expect(lastOf(withCheck)?.unacknowledged).toBe(false);
@@ -782,7 +862,11 @@ describe('a task whose line resumes', () => {
     }
 
     const second = waiting
-      .answer(from, said('The retry queue.', Voice.person(LEON)))
+      .answerAs(
+        { person: LEON, team: ACTING },
+        from,
+        said('The retry queue.', Voice.person(LEON)),
+      )
       .assignRun(LINE_RUN, line);
     const back = resumption(turnDone(driving2(second)), 'continue');
 
@@ -808,9 +892,7 @@ describe('a task whose line resumes', () => {
   });
 
   it('keeps what arrived while it was on hold away from the next station', () => {
-    const withCheck = driving().addMessage(
-      said('The checks failed.', Voice.world()),
-    );
+    const withCheck = happenedOn(driving(), 'The checks failed.');
     const check = lastOf(withCheck)?.position;
     const unacknowledged = (task: Task) =>
       task.notes.find((note) => check && note.position.equals(check))
@@ -954,6 +1036,124 @@ describe('a message to a station run', () => {
     expect(
       at(BACKLOG).holdsOnMessage(LINE_RUN, Voice.person(LEON), BACKLOG, line),
     ).toBe(false);
+  });
+
+  const start = {
+    id: HoldId.of('hold_1'),
+    members: TEAM,
+    line,
+    currentRunStarted: true,
+    at: NOW,
+  };
+  const ADMIN = UserId.of('user_admin');
+  const ADMIN_OFF_THE_TEAM = TeamStanding.of({
+    seesTeam: true,
+    actsOnTeam: true,
+    memberOfTeam: false,
+  });
+
+  it('puts the task on hold for a member who steers the run, and assigns it to them', () => {
+    const held = working().heldOnMessage(
+      LINE_RUN,
+      start,
+      said('Use a bounded queue.', Voice.person(MAYA)),
+      BUILD,
+      { person: MAYA, team: ACTING },
+    );
+
+    expect(held.openHold?.by).toEqual(MAYA);
+    expect(held.assignee).toEqual(MAYA);
+  });
+
+  it('refuses an admin off the team, because a hold assigns the task', () => {
+    expect(() =>
+      working().heldOnMessage(
+        LINE_RUN,
+        start,
+        said('Use a bounded queue.', Voice.person(ADMIN)),
+        BUILD,
+        { person: ADMIN, team: ADMIN_OFF_THE_TEAM },
+      ),
+    ).toThrow(NotOnTheTeamAskedError);
+  });
+
+  it('refuses the same message as a plain message, from a member and from an admin off the team', () => {
+    expect(() =>
+      working().receiveMessage(
+        LINE_RUN,
+        said('Use a bounded queue.', Voice.person(MAYA)),
+        BUILD,
+        { person: MAYA, team: ACTING },
+      ),
+    ).toThrow(InvalidTaskTransitionError);
+    expect(() =>
+      working().receiveMessage(
+        LINE_RUN,
+        said('Use a bounded queue.', Voice.person(ADMIN)),
+        BUILD,
+        { person: ADMIN, team: ADMIN_OFF_THE_TEAM },
+      ),
+    ).toThrow(NotOnTheTeamAskedError);
+  });
+
+  it('refuses to hold the task where a message holds nothing', () => {
+    expect(() =>
+      working().heldOnMessage(
+        LINE_RUN,
+        start,
+        said('Use a bounded queue.', Voice.person(MAYA)),
+        REVIEW,
+        { person: MAYA, team: ACTING },
+      ),
+    ).toThrow(InvalidTaskTransitionError);
+  });
+
+  it('adds a message to the task itself and puts nothing on hold, from a member and from an admin off the team', () => {
+    for (const sender of [
+      { person: MAYA, team: ACTING },
+      { person: ADMIN, team: ADMIN_OFF_THE_TEAM },
+    ]) {
+      const words_ = said(
+        'Try with the new image.',
+        Voice.person(sender.person),
+      );
+
+      expect(
+        working().holdsOnMessage(null, Voice.person(sender.person), null, line),
+      ).toBe(false);
+
+      const sent = working().receiveMessage(null, words_, null, sender);
+
+      expect(sent.openHold).toBeNull();
+      expect(sent.assignee).toEqual(LEON);
+      expect(lastOf(sent)?.body).toEqual(words_.body);
+      expect(() =>
+        working().heldOnMessage(null, start, words_, null, sender),
+      ).toThrow(InvalidTaskTransitionError);
+    }
+  });
+
+  it('adds a message to an older run while a question waits on the current run, and leaves the task with the person it waits for', () => {
+    const OLDER_RUN = RunId.of('run_older');
+    const asking = working().putToAPerson(
+      LINE_RUN,
+      said('Which queue should I drain?', Voice.station(LINE_RUN)),
+    );
+    const words = said('Use a bounded queue.', Voice.person(MAYA));
+    const maya = { person: MAYA, team: ACTING };
+
+    expect(
+      asking.holdsOnMessage(OLDER_RUN, Voice.person(MAYA), BUILD, line),
+    ).toBe(false);
+    expect(() =>
+      asking.heldOnMessage(OLDER_RUN, start, words, BUILD, maya),
+    ).toThrow(InvalidTaskTransitionError);
+
+    const sent = asking.receiveMessage(OLDER_RUN, words, BUILD, maya);
+
+    expect(sent.openHold).toBeNull();
+    expect(sent.assignee).toEqual(LEON);
+    expect(sent.pendingConversation).not.toBeNull();
   });
 
   it('does not hold the task for what the line or a station says', () => {

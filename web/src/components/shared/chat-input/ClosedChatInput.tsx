@@ -14,6 +14,7 @@ type ClosedChatInputProps = {
   because: string;
   settings: ReactNode;
   below?: ReactNode;
+  onStop?: () => void;
 };
 
 export function ClosedChatInput({
@@ -23,6 +24,7 @@ export function ClosedChatInput({
   because,
   settings,
   below,
+  onStop,
 }: ClosedChatInputProps) {
   return (
     <Tooltip>
@@ -34,6 +36,8 @@ export function ClosedChatInput({
           placeholder={placeholder}
           settings={settings}
           below={below}
+          running={onStop !== undefined}
+          onStop={onStop}
         />
         <span className="sr-only">{because}</span>
       </TooltipTrigger>
