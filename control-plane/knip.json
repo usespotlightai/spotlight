@@ -4,6 +4,7 @@
   "entry": [
     "src/main.ts",
     "src/**/*.worker.ts",
+    "src/platform/threads/test-thread.fake-spec.ts",
     "scripts/*.ts",
     "drizzle.config.ts"
   ],

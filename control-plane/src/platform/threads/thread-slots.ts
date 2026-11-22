@@ -1,4 +1,4 @@
-export class ReadSlots {
+export class ThreadSlots {
   private busy = 0;
   private readonly waiting: (() => void)[] = [];
 

@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { extname, join } from 'node:path';
-import { Worker } from 'node:worker_threads';
 
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
@@ -16,7 +15,6 @@ import {
   SpecUnreadable,
 } from '@integrations/infrastructure/specs/operation-record';
 import { operationsRead } from '@integrations/infrastructure/specs/operations-read';
-import { ReadSlots } from '@integrations/infrastructure/specs/read-slots';
 import {
   READ_WITHIN_MS,
   type SpecFetch,
@@ -26,32 +24,16 @@ import type {
   SpecInput,
   SpecParsed,
 } from '@integrations/infrastructure/specs/spec-operations';
+import { inThread } from '@platform/threads/in-thread';
+import { ThreadSlots } from '@platform/threads/thread-slots';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { getIntrospectionQuery } from 'graphql';
 
-const FROM_SOURCE = extname(__filename) === '.ts';
-
 const WORKER = join(__dirname, `spec.worker${extname(__filename)}`);
 
-const FROM_SOURCE_WITH = {
-  execArgv: [
-    '-r',
-    'ts-node/register/transpile-only',
-    '-r',
-    'tsconfig-paths/register',
-  ],
-  // oxlint-disable-next-line node/no-process-env -- the worker runs with the parent environment
-  env: { ...process.env, TS_NODE_PROJECT: 'tsconfig.build.json' },
-};
-
-const MAX_HEAP_MB = 1024;
-
-const SLOTS = new ReadSlots(2);
+const SLOTS = new ThreadSlots(2);
 
 const TOO_SLOW = `took longer than ${READ_WITHIN_MS / 1000} seconds to make sense of`;
-
-const reasonOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 const hostOf = (url: string | null): string | null =>
   url ? new URL(url).host.toLowerCase() : null;
@@ -187,37 +169,11 @@ export class ThreadedSpecReader implements SpecReaderPort {
   }
 
   private inWorker(input: SpecInput, left: number): Promise<SpecParsed> {
-    return new Promise((resolve, reject) => {
-      const worker = new Worker(WORKER, {
-        workerData: input,
-        ...(FROM_SOURCE ? FROM_SOURCE_WITH : {}),
-        resourceLimits: { maxOldGenerationSizeMb: MAX_HEAP_MB },
-      });
-      const timer = setTimeout(() => {
-        void worker.terminate();
-        reject(new SpecUnreadable(TOO_SLOW));
-      }, left);
-      const stopTimer = () => clearTimeout(timer);
-
-      worker.once('message', (answered: SpecParsed) => {
-        stopTimer();
-        void worker.terminate();
-        resolve(answered);
-      });
-      worker.once('error', (error) => {
-        stopTimer();
-        reject(
-          new SpecUnreadable(`could not be made sense of: ${reasonOf(error)}`),
-        );
-      });
-      worker.once('exit', (code) => {
-        stopTimer();
-        reject(
-          new SpecUnreadable(
-            `could not be made sense of: reading it stopped with code ${code}`,
-          ),
-        );
-      });
+    return inThread(WORKER, input, {
+      within: left,
+      late: () => new SpecUnreadable(TOO_SLOW),
+      failed: (reason) =>
+        new SpecUnreadable(`could not be made sense of: ${reason}`),
     });
   }
 }

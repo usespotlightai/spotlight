@@ -155,7 +155,7 @@ import { ChatCompletionsChangeStackGenerator } from '@change-review/infrastructu
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { GitPatchWriter } from '@change-review/infrastructure/change-stacks/git-patch.writer';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
-import { TreeSitterSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer';
+import { ThreadedSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/threaded-symbol.indexer';
 import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/decisions/chat-completions-decision.generator';
 import { CHANGE_REVIEW_PAYLOAD_TYPES } from '@change-review/infrastructure/events/change-review-payload-types';
 import { GitHubAvatars } from '@change-review/infrastructure/links/github-avatars';
@@ -389,7 +389,7 @@ const adapters: Provider[] = [
   { provide: REVIEW_DELIVERIES, useClass: DrizzleReviewDeliveries },
   { provide: DIFF_READER, useClass: GitDiffReader },
   { provide: CODE_READING, useClass: PatternCodeReading },
-  { provide: SYMBOL_INDEXER, useClass: TreeSitterSymbolIndexer },
+  { provide: SYMBOL_INDEXER, useValue: new ThreadedSymbolIndexer() },
   { provide: PATCH_WRITER, useClass: GitPatchWriter },
   {
     provide: CHANGE_STACK_GENERATOR,

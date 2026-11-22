@@ -1,5 +1,6 @@
 import type { DiffSource } from '@change-review/application/ports/diff-reader.port';
 import type { IndexedFile } from '@change-review/domain/value-objects/symbol-index.vo';
+import { HUNK_THAT_NEVER_PARSES } from '@change-review/infrastructure/change-stacks/tree-sitter/hunk-that-never-parses.fake-spec';
 import { TreeSitterSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -515,6 +516,27 @@ describe('TreeSitterSymbolIndexer', () => {
   it('leaves files it has no grammar for out', async () => {
     expect(await indexed(source('README.md', ['# Hi']))).toEqual([]);
   });
+
+  it('gives up on a hunk the TypeScript grammar cannot finish, and indexes the files after it', async () => {
+    const files = await indexed(
+      source('src/profiles.spec.ts', HUNK_THAT_NEVER_PARSES),
+      source('src/invite.ts', ['export const invite = () => 1;']),
+    );
+
+    expect(files.map((file) => [file.path, symbolsOf(file)])).toEqual([
+      ['src/invite.ts', [['invite', 'constant', 1]]],
+    ]);
+  }, 10_000);
+
+  it('parses no more files once its time for parsing has run out', async () => {
+    const files = await new TreeSitterSymbolIndexer(500).index([
+      source('src/invite.ts', ['export const invite = () => 1;']),
+      source('src/profiles.spec.ts', HUNK_THAT_NEVER_PARSES),
+      source('src/resend.ts', ['export const resend = () => 2;']),
+    ]);
+
+    expect(files.files.map((file) => file.path)).toEqual(['src/invite.ts']);
+  }, 10_000);
 });
 
 describe('TreeSitterSymbolIndexer spans', () => {

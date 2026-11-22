@@ -44,6 +44,8 @@ const GRAMMARS: readonly Grammar[] = [
 
 const MAX_SOURCE_LENGTH = 512 * 1024;
 
+const PARSE_WITHIN_MS = 2_000;
+
 const THROUGH = /^[\w$.:]{1,60}$/;
 
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/;
@@ -318,6 +320,8 @@ const languages = (): Promise<Map<string, Language>> => {
 };
 
 export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
+  constructor(private readonly parsingWithinMs = Number.POSITIVE_INFINITY) {}
+
   async index(sources: readonly DiffSource[]): Promise<SymbolIndex> {
     const readable = sources.flatMap((source) => {
       const grammar = GRAMMARS.find(({ extensions }) =>
@@ -335,6 +339,7 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
 
     const loaded = await languages();
     const parser = new Parser();
+    const parsingUntil = performance.now() + this.parsingWithinMs;
 
     try {
       const walked = readable.flatMap(({ source, grammar }) => {
@@ -344,11 +349,21 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
           return [];
         }
 
+        const started = performance.now();
+        const until = Math.min(started + PARSE_WITHIN_MS, parsingUntil);
+
+        if (started >= until) {
+          return [];
+        }
+
         parser.setLanguage(language);
         const embedded = grammar.embedded?.(source.text);
-        const tree = parser.parse(embedded?.script ?? source.text);
+        const tree = parser.parse(embedded?.script ?? source.text, null, {
+          progressCallback: () => performance.now() > until,
+        });
 
         if (!tree) {
+          parser.reset();
           return [];
         }
 
