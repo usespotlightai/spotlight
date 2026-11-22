@@ -138,3 +138,42 @@ func TestSetupsThatMissRunAtTheSameTime(t *testing.T) {
 		t.Errorf("the setups that wait for each other did not overlap, or the failures are not in checkout order: %+v", failures)
 	}
 }
+
+func TestACheckoutWithNoSetupGetsOneSetupPerLockfileItFinds(t *testing.T) {
+	dir := t.TempDir()
+	for _, path := range []string{"web", "docs", "named"} {
+		if output, err := exec.Command("git", "init", "--quiet", filepath.Join(dir, path)).CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v: %s", err, output)
+		}
+	}
+	writeFile(t, filepath.Join(dir, "web", "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n")
+	if err := os.MkdirAll(filepath.Join(dir, "web", "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "web", "api", "uv.lock"), "version = 1\n")
+	writeFile(t, filepath.Join(dir, "docs", "README.md"), "no dependencies\n")
+	writeFile(t, filepath.Join(dir, "named", "package-lock.json"), "{}")
+	journal := &journalWriter{}
+
+	got := withDetectedSetups(context.Background(), dir, []protocol.Checkout{
+		{Path: "web"}, {Path: "docs"}, {Path: "named", Setup: "make deps"},
+	}, journal, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	want := []protocol.Checkout{
+		{Path: "web", Setup: "pnpm install --frozen-lockfile"},
+		{Path: "web/api", Setup: "uv sync --frozen"},
+		{Path: "named", Setup: "make deps"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("checkout %d: got %+v, want %+v", i, got[i], want[i])
+		}
+	}
+	if len(journal.pending) != 1 || !strings.Contains(endedOf(t, journal.pending[0]).Output,
+		"The line names no setup for web. Spotlight found `pnpm install --frozen-lockfile` at the root · `uv sync --frozen` in api/.") {
+		t.Errorf("the journal says %+v", journal.pending)
+	}
+}

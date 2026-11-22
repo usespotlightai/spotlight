@@ -1,3 +1,4 @@
+import { agentFeaturesByDefault } from '@lines/domain/services/station-features';
 import { ALL_CLAIMS } from '@lines/domain/value-objects/station-judge.vo';
 
 type LineDefinitionStationKind = 'backlog' | 'work' | 'completed';
@@ -37,10 +38,21 @@ export type LineDefinitionStationSearch = {
 };
 
 export const LINE_DEFINITION_STATION_DEFAULTS = {
-  decisions: false,
-  memories: false,
   judgePassThreshold: ALL_CLAIMS,
 } as const;
+
+/** The switches a station has when its definition leaves them out: one that runs an agent has every agent feature. */
+export const stationSwitchDefaultsOf = (
+  kind: LineDefinitionStationKind,
+): {
+  readonly diffs: boolean;
+  readonly decisions: boolean;
+  readonly memories: boolean;
+} => {
+  const on = agentFeaturesByDefault(kind);
+
+  return { diffs: on, decisions: on, memories: on };
+};
 
 export type LineDefinitionStation = {
   readonly key: string;

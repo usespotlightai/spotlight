@@ -526,8 +526,8 @@ describe('LinePlan', () => {
     expect(error.flaw).toEqual({ in: 'line', rule: 'repositories' });
   });
 
-  it('rejects a station checking its layers while a repository says nothing of how its checkout is made ready', () => {
-    const error = errorOf(() =>
+  it('accepts a station checking its layers while a repository says nothing of how its checkout is made ready', () => {
+    expect(() =>
       plan({
         stations: withStations(checking()),
         repositories: [
@@ -535,15 +535,7 @@ describe('LinePlan', () => {
           repositoryConfig('acme/web'),
         ],
       }),
-    );
-
-    expect(error.message).toMatch(/Station code-review checks its layers/);
-    expect(error.message).toMatch(/acme\/web/);
-    expect(error.flaw).toEqual({
-      in: 'repository',
-      repository: Repository.of('acme/web'),
-      rule: 'setup',
-    });
+    ).not.toThrow();
   });
 
   it('accepts a station checking its layers once every repository says how its checkout is made ready', () => {

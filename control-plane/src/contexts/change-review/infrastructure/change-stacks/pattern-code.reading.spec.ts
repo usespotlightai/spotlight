@@ -26,6 +26,7 @@ describe('PatternCodeReading', () => {
   it('tells incidental files from the ones worth reading', () => {
     expect(classOf('web/package-lock.json')).toBe('lockfile');
     expect(classOf('go.sum')).toBe('lockfile');
+    expect(classOf('web/bun.lock')).toBe('lockfile');
     expect(classOf('web/src/lib/api/types.gen.ts')).toBe('generated');
     expect(classOf('control-plane/drizzle/meta/20260916_snapshot.json')).toBe(
       'generated',

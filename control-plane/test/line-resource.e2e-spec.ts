@@ -816,7 +816,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(again.body.definition).toEqual(made.body.definition);
   });
 
-  it('rejects repositories naming different images, and a station checking its layers while a repository says no setup', async () => {
+  it('rejects repositories naming different images, and takes a station checking its layers while a repository says no setup', async () => {
     const mixed = await create({
       ...DELIVERY,
       repositories: [
@@ -824,7 +824,7 @@ describe('a line, created through the resource API (e2e)', () => {
         { name: 'acme/web', image: 'ghcr.io/acme/web:1' },
       ],
     });
-    const unready = await create({
+    const detected = await create({
       ...DELIVERY,
       repositories: [
         { name: 'acme/api', setup: 'npm ci' },
@@ -839,10 +839,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(mixed.body.errors).toEqual([
       expect.objectContaining({ path: 'repositories' }),
     ]);
-    expect(unready.status).toBe(422);
-    expect(unready.body.errors).toEqual([
-      expect.objectContaining({ path: 'repositories[1].setup' }),
-    ]);
+    expect(detected.status).toBe(201);
   });
 
   it('keeps the key it was created with', async () => {

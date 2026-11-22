@@ -364,7 +364,7 @@ describe('Line, the stations it names by key', () => {
 describe('Line, what it records of its changes', () => {
   const built = () => of([backlog(), at(1, 'Build'), completed(2)]);
 
-  it('rejects a repository with no setup on a line whose station checks its layers', () => {
+  it('takes a repository with no setup on a line whose station checks its layers, since the runner detects one', () => {
     const checking = of([
       backlog(),
       Station.of({
@@ -391,9 +391,10 @@ describe('Line, what it records of its changes', () => {
         changeActorIn(),
       );
 
-    expect(() =>
-      workingIn([LineRepositoryConfig.of(Repository.of('acme/api'))]),
-    ).toThrow(/needs a setup for repository acme\/api/);
+    expect(
+      workingIn([LineRepositoryConfig.of(Repository.of('acme/api'))])
+        .repositories.entries[0]?.setup,
+    ).toBeNull();
     expect(
       workingIn([
         LineRepositoryConfig.of(Repository.of('acme/api'), {

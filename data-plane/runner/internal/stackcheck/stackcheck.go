@@ -147,12 +147,13 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 	}
 
 	var steps []protocol.CheckStepResult
+	installed := map[string]string{}
 	for at, step := range check.Steps {
 		if ctx.Err() != nil {
 			break
 		}
 
-		checked, ready := o.step(ctx, tree, check, step)
+		checked, ready := o.step(ctx, tree, check, step, installed)
 
 		if !ready && at == 0 {
 			return skipped(protocol.SkipSetupFailed, checked.Output)
@@ -241,7 +242,7 @@ func (o Options) useMirrorAlternates(tree, repository string) {
 }
 
 func (o Options) step(
-	ctx context.Context, tree string, check protocol.StackCheck, step protocol.CheckStep,
+	ctx context.Context, tree string, check protocol.StackCheck, step protocol.CheckStep, installed map[string]string,
 ) (protocol.CheckStepResult, bool) {
 	started := time.Now()
 	failed := func(output string) protocol.CheckStepResult {
@@ -267,10 +268,10 @@ func (o Options) step(
 	}
 
 	// Run setup after the patch, so the step installs what it requests.
-	if check.Setup != "" && step.RunsSetup {
-		if output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup, o.Env); err != nil {
+	if step.RunsSetup {
+		if output, err := o.setUp(ctx, tree, check, installed); err != nil {
 			o.Log.Warn("could not make the checkout ready", "step", step.ID, "error", err)
-			return failed("The setup command failed in this checkout.\n\n" + output), false
+			return failed("The setup failed in this checkout.\n\n" + output), false
 		}
 	}
 
@@ -312,4 +313,46 @@ func (o Options) own(path string) error {
 		return nil
 	}
 	return os.Lchown(path, int(o.RunAs.UID), int(o.RunAs.GID))
+}
+
+// setUp installs what the checkout needs: the line's setup where it names one, else the steps Spotlight finds from
+// the lockfiles. Of the found steps, only those whose dependency files changed since they last installed in this
+// check run again, so a layer that changes one lockfile of a monorepo reinstalls only that project; when none
+// changed, as for a file the step does not track, every step runs.
+func (o Options) setUp(ctx context.Context, tree string, check protocol.StackCheck, installed map[string]string) (string, error) {
+	if check.Setup != "" {
+		output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup, o.Env)
+		return output, err
+	}
+
+	steps, err := prepare.DetectSetup(ctx, tree)
+	if err != nil {
+		return "Spotlight couldn't look for a setup in this checkout.", err
+	}
+
+	inputs := make([]string, len(steps))
+	var due []prepare.SetupStep
+	for i, step := range steps {
+		inputs[i], _ = prepare.SetupInputs(ctx, filepath.Join(tree, filepath.FromSlash(step.Dir)), step.Command)
+		if inputs[i] == "" || installed[step.Dir] != inputs[i] {
+			due = append(due, step)
+		}
+	}
+	if len(due) == 0 {
+		due = steps
+	}
+	if len(due) == 0 {
+		return "", nil
+	}
+
+	output, err := prepare.SetupAll(ctx, tree, due, o.RunAs, o.Setup, o.Env)
+	if err != nil {
+		return output, err
+	}
+	for i, step := range steps {
+		if inputs[i] != "" {
+			installed[step.Dir] = inputs[i]
+		}
+	}
+	return output, nil
 }

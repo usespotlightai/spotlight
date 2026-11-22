@@ -1013,10 +1013,7 @@ func (o Options) setUp(
 	ctx context.Context, dir string, checkouts []protocol.Checkout, secrets sandboxEnv, done setUps, journal *journalWriter, log *slog.Logger,
 ) []setupFailure {
 	var missed []protocol.Checkout
-	for _, checkout := range checkouts {
-		if checkout.Setup == "" {
-			continue
-		}
+	for _, checkout := range withDetectedSetups(ctx, dir, checkouts, journal, log) {
 		if done.unchanged(ctx, filepath.Join(dir, checkout.Path), checkout, secrets.fingerprint(), log) {
 			journal.note(setupStep, false, fmt.Sprintf(
 				"Skipped setup for %s: the setup command, the dependency files and the secrets in its environment did not change after the last setup in this sandbox.", checkout.Path,
@@ -1055,6 +1052,39 @@ func (o Options) setUp(
 		done.record(ctx, filepath.Join(dir, checkout.Path), checkout, secrets.fingerprint(), log)
 	}
 	return failures
+}
+
+// withDetectedSetups gives the setup of each checkout: its own where the line names one, else one per lockfile
+// that Spotlight finds in it. A detected step runs in its own directory, so the steps of a monorepo set up apart
+// and at once. A checkout with neither is left out.
+func withDetectedSetups(
+	ctx context.Context, dir string, checkouts []protocol.Checkout, journal *journalWriter, log *slog.Logger,
+) []protocol.Checkout {
+	var setUp []protocol.Checkout
+	for _, checkout := range checkouts {
+		if checkout.Setup != "" {
+			setUp = append(setUp, checkout)
+			continue
+		}
+
+		steps, err := prepare.DetectSetup(ctx, filepath.Join(dir, checkout.Path))
+		if err != nil {
+			log.Warn("could not look for a setup; the checkout is not set up", "path", checkout.Path, "error", err)
+			journal.note(setupStep, false, fmt.Sprintf("Could not look for a setup in %s, so it was not set up: %v", checkout.Path, err))
+			continue
+		}
+		if len(steps) == 0 {
+			continue
+		}
+
+		journal.note(setupStep, false, fmt.Sprintf(
+			"The line names no setup for %s. Spotlight found %s.", checkout.Path, prepare.Describe(steps),
+		))
+		for _, step := range steps {
+			setUp = append(setUp, protocol.Checkout{Path: filepath.ToSlash(filepath.Join(checkout.Path, step.Dir)), Setup: step.Command})
+		}
+	}
+	return setUp
 }
 
 type eventSink interface {

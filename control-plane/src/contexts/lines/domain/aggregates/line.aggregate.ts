@@ -8,14 +8,13 @@ import { InvalidStationLayoutError } from '@lines/domain/exceptions/invalid-stat
 import { InvalidStationSearchError } from '@lines/domain/exceptions/invalid-station-search.error';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { LineVersionConflictError } from '@lines/domain/exceptions/line-version-conflict.error';
-import { UnreadyRepositoryError } from '@lines/domain/exceptions/unready-repository.error';
 import type { LineOpening } from '@lines/domain/services/built-in-lines';
 import {
   reactionsProblem,
   searchProblem,
-  setupProblem,
   stationsProblem,
 } from '@lines/domain/services/line-layout';
+import { agentFeaturesByDefault } from '@lines/domain/services/station-features';
 import type { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
 import type { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import { LineRepositories } from '@lines/domain/value-objects/line-repositories.vo';
@@ -145,9 +144,9 @@ export class Line extends EventRecorder {
           }),
           tools: each.tools,
           skills: each.skills,
-          diffs: each.diffs ?? false,
-          decisions: each.decisions ?? false,
-          memories: each.memories ?? false,
+          diffs: each.diffs ?? agentFeaturesByDefault(each.kind),
+          decisions: each.decisions ?? agentFeaturesByDefault(each.kind),
+          memories: each.memories ?? agentFeaturesByDefault(each.kind),
           judge: each.judge ?? null,
         }),
       ),
@@ -219,13 +218,6 @@ export class Line extends EventRecorder {
       throw new InvalidStationLayoutError(reacting.reason);
     }
 
-    const repositories = LineRepositories.of(layout.repositories ?? []);
-    const unready = setupProblem(stations, repositories);
-
-    if (unready) {
-      throw new UnreadyRepositoryError(unready.reason);
-    }
-
     const searching = searchProblem(
       stations,
       layout.search ?? LineSearchPolicy.DEFAULT,
@@ -250,7 +242,7 @@ export class Line extends EventRecorder {
       stations,
       reactions,
       layout.role ?? null,
-      repositories,
+      LineRepositories.of(layout.repositories ?? []),
       layout.reviews ?? null,
       layout.placement ?? RunnerPlacement.anywhere(),
       layout.warmSandboxes ?? WarmSandboxCount.NONE,

@@ -1,5 +1,4 @@
 import type { IdleStationSetting } from '@lines/domain/services/idle-station';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 
 export type StationRule = 'routes' | 'tools' | 'skills' | IdleStationSetting;
@@ -16,11 +15,6 @@ export type PlanFlaw =
       readonly station: StationKey;
       readonly rule: StationRule;
       readonly setting?: SearchSetting;
-    }
-  | {
-      readonly in: 'repository';
-      readonly repository: Repository;
-      readonly rule: 'setup';
     }
   | {
       readonly in: 'reaction';

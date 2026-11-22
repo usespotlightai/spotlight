@@ -1,4 +1,5 @@
 import type { StationKind } from '@lines/domain/entities/station.entity';
+import { agentFeaturesByDefault } from '@lines/domain/services/station-features';
 import { AgentPrompt } from '@lines/domain/value-objects/agent-prompt.vo';
 import type { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { ReviewPolicy } from '@lines/domain/value-objects/review-policy.vo';
@@ -73,23 +74,27 @@ const opening = (input: {
   memories?: boolean;
   claims?: readonly string[];
   ends?: boolean;
-}): StationOpening => ({
-  key: StationKey.of(input.key),
-  name: StationName.of(input.name),
-  color: StationColor.of(input.color),
-  description: input.description
-    ? StationDescription.of(input.description)
-    : null,
-  kind: input.kind ?? 'work',
-  agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
-  passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
-  tools: input.tools ?? [],
-  diffs: input.diffs ?? false,
-  decisions: input.decisions ?? false,
-  memories: input.memories ?? false,
-  judge: input.claims ? judgeOf(input.claims) : null,
-  ends: input.ends ?? false,
-});
+}): StationOpening => {
+  const kind = input.kind ?? 'work';
+
+  return {
+    key: StationKey.of(input.key),
+    name: StationName.of(input.name),
+    color: StationColor.of(input.color),
+    description: input.description
+      ? StationDescription.of(input.description)
+      : null,
+    kind,
+    agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
+    passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
+    tools: input.tools ?? [],
+    diffs: input.diffs ?? agentFeaturesByDefault(kind),
+    decisions: input.decisions ?? agentFeaturesByDefault(kind),
+    memories: input.memories ?? agentFeaturesByDefault(kind),
+    judge: input.claims ? judgeOf(input.claims) : null,
+    ends: input.ends ?? false,
+  };
+};
 
 const TRIAGE = `## Triage
 
@@ -332,7 +337,6 @@ const REVIEW_STATIONS: readonly StationOpening[] = [
     prompt: PULL_REQUEST_REVIEW,
     claims: PULL_REQUEST_REVIEW_CLAIMS,
     ends: true,
-    diffs: true,
     tools: [REVIEW_COMMENT, REVIEW],
   }),
   opening({
@@ -381,7 +385,6 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     prompt: IMPLEMENTATION,
     claims: IMPLEMENTATION_CLAIMS,
     passesTo: ['code-review', 'spec'],
-    decisions: true,
     tools: [CHECKS],
   }),
   opening({

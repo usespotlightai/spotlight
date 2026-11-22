@@ -14,6 +14,18 @@ describe('the words the built-in lines wait for', () => {
 });
 
 describe('the built-in stations', () => {
+  it('give every station where agents work its change stacks, decisions and memories, and none to the others', () => {
+    for (const opening of BUILT_IN_STATIONS) {
+      const on = opening.kind === 'work';
+
+      expect([opening.diffs, opening.decisions, opening.memories]).toEqual([
+        on,
+        on,
+        on,
+      ]);
+    }
+  });
+
   it('describe each station where agents work', () => {
     for (const opening of BUILT_IN_STATIONS) {
       expect(opening.description !== null).toBe(opening.kind === 'work');
