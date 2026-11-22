@@ -1,4 +1,3 @@
-import type { ChangeJudgePort } from '@replays/application/ports/change-judge.port';
 import { ChangeJudging } from '@replays/domain/aggregates/change-judging.aggregate';
 import type { ChangeJudgingRepository } from '@replays/domain/repositories/change-judging.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -16,23 +15,18 @@ export interface ChangeJudgingRequest {
   readonly reference: RunId | null;
 }
 
-export type ChangeJudgingAnswer = 'requested' | 'unavailable';
+export type ChangeJudgingAnswer = 'requested';
 
-export type ChangeJudgingAgainAnswer = 'requested' | 'unavailable' | 'unjudged';
+export type ChangeJudgingAgainAnswer = 'requested' | 'unjudged';
 
 export class RequestChangeJudging {
   constructor(
     private readonly judgings: ChangeJudgingRepository,
-    private readonly judge: ChangeJudgePort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
 
   async request(request: ChangeJudgingRequest): Promise<ChangeJudgingAnswer> {
-    if (!(await this.judge.availableTo(request.workspaceId.value))) {
-      return 'unavailable';
-    }
-
     const judging = ChangeJudging.requested({
       runId: request.run,
       workspaceId: request.workspaceId,
@@ -51,14 +45,7 @@ export class RequestChangeJudging {
     return 'requested';
   }
 
-  async requeue(
-    run: RunId,
-    workspaceId: WorkspaceId,
-  ): Promise<ChangeJudgingAgainAnswer> {
-    if (!(await this.judge.availableTo(workspaceId.value))) {
-      return 'unavailable';
-    }
-
+  requeue(run: RunId): Promise<ChangeJudgingAgainAnswer> {
     return this.transaction.inTransaction(async () => {
       const first = await this.judgings.of(run, 1);
 

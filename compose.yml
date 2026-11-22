@@ -23,8 +23,6 @@ x-control-plane-env: &control-plane-env
   SMTP_URL: ${SMTP_URL:-smtp://mail:1025}
   MAIL_FROM: ${MAIL_FROM:-Spotlight <noreply@dev.usespotlight.ai>}
   LOG_LEVEL: ${LOG_LEVEL:-debug}
-  LLM_PRICES: ${LLM_PRICES:-models.dev}
-  LLM_PRICES_URL: ${LLM_PRICES_URL:-https://models.dev/api.json}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379}
 
 services:

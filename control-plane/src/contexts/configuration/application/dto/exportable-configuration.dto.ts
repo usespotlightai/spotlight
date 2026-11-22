@@ -19,7 +19,6 @@ export const EXPORTABLE_KINDS = [
   'runner-pool',
   'egress',
   'workspace-runners',
-  'inference-endpoint',
 ] as const;
 
 export type ExportableKind = (typeof EXPORTABLE_KINDS)[number];
@@ -104,13 +103,6 @@ export type ExportableResourceDto =
       readonly kind: 'workspace-runners';
       readonly trusts: readonly string[];
       readonly pools: readonly string[];
-    })
-  | (WorkspaceOwned & {
-      readonly kind: 'inference-endpoint';
-      readonly baseUrl: string;
-      readonly model: string;
-      readonly apiKeySet: boolean;
-      readonly apiKeyVersion: number | null;
     })
   | (TeamOwned & {
       readonly kind: 'line';

@@ -35,8 +35,6 @@ export const terraformFileOf = (resource: ExportableResourceDto): string => {
       return 'workspace.tf';
     case 'secret':
       return 'secrets.tf';
-    case 'inference-endpoint':
-      return 'inference.tf';
     case 'runner-trust':
     case 'egress':
     case 'runner-pool':

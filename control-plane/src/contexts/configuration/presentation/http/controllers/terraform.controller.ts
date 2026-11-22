@@ -42,7 +42,6 @@ const COLLECTION_OF: Readonly<Record<ExportableKind, string>> = {
   'runner-pool': 'runner-pools',
   egress: 'egresses',
   'workspace-runners': 'workspace-runners',
-  'inference-endpoint': 'inference-endpoints',
 };
 
 const kindIn = (collection: string): ExportableKind | undefined =>

@@ -1,4 +1,5 @@
 import type { PairJudgePort } from '@replays/application/ports/pair-judge.port';
+import type { SettledSession } from '@replays/application/ports/session-outcomes';
 import type { SideBySideJudging } from '@replays/domain/aggregates/side-by-side-judging.aggregate';
 import { SideBySideJudgingVersionConflictError } from '@replays/domain/exceptions/side-by-side-judging-version-conflict.error';
 import type { SideBySideJudgingRepository } from '@replays/domain/repositories/side-by-side-judging.repository';
@@ -27,7 +28,7 @@ export class WorkSideBySideJudgings implements PendingJobsPort {
     private readonly judgings: SideBySideJudgingRepository,
     private readonly judge: PairJudgePort,
     private readonly clock: ClockPort,
-    transaction: TransactionPort,
+    private readonly transaction: TransactionPort,
     logger: LoggerPort,
     reports: ErrorReportsPort,
     telemetry: TelemetryPort,
@@ -72,16 +73,48 @@ export class WorkSideBySideJudgings implements PendingJobsPort {
     return this.#loop.idle();
   }
 
+  /** Makes the judging that waits on a settled session due now; a judging that moved on meanwhile is left alone. */
+  async sessionSettled(session: SettledSession): Promise<void> {
+    const round = this.judge.roundOf(session);
+
+    if (!round) {
+      return;
+    }
+
+    await this.transaction.inTransaction(async () => {
+      const judging = await this.judgings.of(round.runId, round.otherRunId);
+
+      if (!judging || judging.workspaceId.value !== session.workspaceId) {
+        return;
+      }
+
+      const woken = judging.wake(round, this.clock.now());
+
+      if (woken === judging) {
+        return;
+      }
+
+      try {
+        await this.judgings.save(woken);
+      } catch (error) {
+        if (!(error instanceof SideBySideJudgingVersionConflictError)) {
+          throw error;
+        }
+      }
+    });
+  }
+
   private async judged(judging: SideBySideJudging): Promise<SideBySideJudging> {
     const judgment = await this.judge.judge({
       workspaceId: judging.workspaceId.value,
-      run: judging.runId,
-      other: judging.otherRunId,
+      round: judging.round,
       reference: judging.reference,
       criteria: judging.criteria,
       orders: judging.orders,
     });
 
-    return judging.recordJudgment(judgment, this.clock.now());
+    return 'status' in judgment
+      ? judging.waitJob(this.clock.now())
+      : judging.recordJudgment(judgment, this.clock.now());
   }
 }

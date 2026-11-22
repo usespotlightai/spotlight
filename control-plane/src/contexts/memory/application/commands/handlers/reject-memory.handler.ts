@@ -1,7 +1,7 @@
 import type { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -19,7 +19,7 @@ export class RejectMemoryHandler implements CommandHandlerPort<
 > {
   constructor(
     private readonly access: MemoryAccess,
-    private readonly drafts: MemoryDraftRepository,
+    private readonly sets: MemoryProposalSetRepository,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -37,13 +37,13 @@ export class RejectMemoryHandler implements CommandHandlerPort<
       }
 
       await this.transaction.inTransaction(async () => {
-        const draft = await this.drafts.forTask(reviewing.task.id);
+        const set = await this.sets.forTask(reviewing.task.id);
 
-        if (!draft) {
+        if (!set) {
           throw new UnknownMemoryError(command.memoryId);
         }
 
-        const decided = draft.reject({
+        const decided = set.reject({
           runId: RunId.of(command.runId),
           id: MemoryId.of(command.memoryId),
           decision: MemoryDecision.of({
@@ -51,7 +51,7 @@ export class RejectMemoryHandler implements CommandHandlerPort<
             at: this.clock.now(),
           }),
         });
-        await this.drafts.save(decided);
+        await this.sets.save(decided);
       });
     } catch (error) {
       rethrowAsApplicationError(error);

@@ -23,7 +23,6 @@ import { StackVisitorContext } from '@/lib/review-context';
 type StackInView = ReturnType<typeof useStackInView>;
 
 type ChangeStackLayoutProps = {
-  slug: string | undefined;
   view: StackInView;
   title: ReactNode;
   actions: ReactNode;
@@ -31,7 +30,6 @@ type ChangeStackLayoutProps = {
 };
 
 function ChangeStackLayout({
-  slug,
   view: { current, stack, layerId, pick, switchTo },
   title,
   actions,
@@ -71,7 +69,7 @@ function ChangeStackLayout({
       {ready ? (
         <ChangeStackView stack={ready} layerId={layerId} onPick={pick} />
       ) : (
-        <ChangeStackNotice slug={slug} stack={stack} back={back} />
+        <ChangeStackNotice stack={stack} back={back} />
       )}
     </div>
   );
@@ -108,7 +106,6 @@ export function ChangeStackPage({
     >
       <DecisionsProvider slug={slug} teamId={teamId} taskId={taskId}>
         <ChangeStackLayout
-          slug={slug}
           view={view}
           title={<Breadcrumbs segments={trail} />}
           actions={taskId ? <SubmitReviewButton /> : undefined}
@@ -133,7 +130,6 @@ export function PublicChangeStackPage({
   return (
     <StackVisitorContext value={{ signedIn }}>
       <ChangeStackLayout
-        slug={undefined}
         view={view}
         title="Change stack"
         actions={undefined}

@@ -25,7 +25,6 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  proposedBy: 'drafter',
   state: 'proposed',
   scope: 'team',
   repository: null,

@@ -98,13 +98,21 @@ const injectedIn = (file: SourceFile): ts.Expression[] => [
   ),
 ];
 
-export const portBindingViolations = (): Violation[] => {
+export type PortBinding = {
+  readonly consumer: string;
+  readonly token: string;
+  readonly declarer: string;
+  readonly provider: string;
+  readonly file: string;
+};
+
+/** Every injection of another context's port, with each context whose wiring binds it. */
+export const portBindings = (): PortBinding[] => {
   const files = sourceFiles('contexts');
   const providers = providersOf(files);
 
   return files.flatMap((file) => {
     const consumer = contextOf(file.path) as string;
-    const upstream = reachableFrom(consumer);
 
     return injectedIn(file).flatMap((element) => {
       const token = tokenOf(element, file);
@@ -115,11 +123,22 @@ export const portBindingViolations = (): Violation[] => {
       }
 
       return [...(providers.get(token) ?? [])]
-        .filter((provider) => provider !== consumer && !upstream.has(provider))
+        .filter((provider) => provider !== consumer)
         .map((provider) => ({
-          key: `${file.path}: ${consumer} injects ${token.split('#')[1]} of ${declarer}, bound by ${provider}, which is not upstream`,
-          at: file.path,
+          consumer,
+          token,
+          declarer,
+          provider,
+          file: file.path,
         }));
     });
   });
 };
+
+export const portBindingViolations = (): Violation[] =>
+  portBindings()
+    .filter(({ consumer, provider }) => !reachableFrom(consumer).has(provider))
+    .map(({ consumer, token, declarer, provider, file }) => ({
+      key: `${file}: ${consumer} injects ${token.split('#')[1]} of ${declarer}, bound by ${provider}, which is not upstream`,
+      at: file,
+    }));

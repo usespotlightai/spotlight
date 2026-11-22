@@ -1,6 +1,11 @@
-import { JudgingError } from '@insights/application/errors/judging.error';
+import type { ChangeJudgment } from '@insights/application/ports/change-judgments.port';
 import type { RunEvidence } from '@insights/application/ports/evidence.port';
 import type { JudgeRequest } from '@insights/application/ports/judge.port';
+import {
+  SESSION_WAITING,
+  type SessionFailed,
+  type SessionWaiting,
+} from '@insights/application/ports/session-outcomes';
 import { ChangeJudgments } from '@insights/application/services/change-judgments.service';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
@@ -42,12 +47,15 @@ const evidenceOf = (runId: string, line: string): RunEvidence => ({
   ],
 });
 
+const ROUND = { runId: RunId.of('replay_1'), judging: 1, attempt: 1 };
+
 const judging = async (
-  answer: (request: JudgeRequest) => Promise<Verdict>,
+  answer: (
+    request: JudgeRequest,
+  ) => Promise<Verdict | SessionFailed | SessionWaiting>,
   options: {
     criteria?: JudgeCriteria;
     reference?: string | null;
-    available?: boolean;
     guidance?: string | null;
     guidanceRequested?: boolean;
     effectsBlocked?: boolean;
@@ -64,29 +72,42 @@ const judging = async (
       of: async (runId) => evidence[runId.value] ?? null,
     },
     {
-      availableTo: async () => options.available ?? true,
       judge: async (request) => {
         requests.push(request);
-        return {
-          model: 'some/model',
-          verdict: await answer(request),
-          guidance: options.guidance ?? null,
-        };
+        const verdict = await answer(request);
+
+        return 'status' in verdict
+          ? verdict
+          : {
+              status: 'judged',
+              model: 'some/model',
+              verdict,
+              guidance: options.guidance ?? null,
+            };
       },
+      roundOf: (session) =>
+        session.key === 'mine'
+          ? { of: 'change', round: ROUND }
+          : { of: 'judging', round: {} as never },
     },
   );
   const reference =
     options.reference === undefined ? 'original_1' : options.reference;
-  const judgment = await judgments.judge({
+  const answered = await judgments.judge({
     workspaceId: 'workspace_1',
-    runId: RunId.of('replay_1'),
+    round: ROUND,
     criteria: options.criteria ?? CRITERIA,
     reference: reference ? RunId.of(reference) : null,
     guidanceRequested: options.guidanceRequested ?? true,
     effectsBlocked: options.effectsBlocked ?? true,
   });
 
-  return { requests, judgment };
+  return {
+    requests,
+    answered,
+    judgment: answered as ChangeJudgment,
+    judgments,
+  };
 };
 
 describe('ChangeJudgments', () => {
@@ -204,22 +225,46 @@ describe('ChangeJudgments', () => {
     expect(judgment).toMatchObject({ judged: true, referenced: false });
   });
 
-  it('asks no judge that is gone', async () => {
-    const { requests, judgment } = await judging(async () => ({ claims: [] }), {
-      available: false,
-    });
+  it('asks for the judging session of the order’s round', async () => {
+    const { requests } = await judging(async () =>
+      oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]),
+    );
 
-    expect(requests).toEqual([]);
+    expect(requests[0]?.round).toEqual({ of: 'change', round: ROUND });
+  });
+
+  it('reads back only the rounds it judged for an asker', async () => {
+    const { judgments } = await judging(async () => SESSION_WAITING);
+    const session = { workspaceId: 'workspace_1', purpose: 'insights.judge' };
+
+    expect(judgments.roundOf({ ...session, key: 'mine' })).toEqual(ROUND);
+    expect(judgments.roundOf({ ...session, key: 'theirs' })).toBeNull();
+  });
+
+  it('answers waiting while the judging session runs, so the job waits', async () => {
+    const { answered } = await judging(async () => SESSION_WAITING);
+
+    expect(answered).toEqual(SESSION_WAITING);
+  });
+
+  it('says the judge is unavailable when there is no harness to judge on', async () => {
+    const { judgment } = await judging(async () => ({
+      status: 'failed',
+      failure: 'unavailable',
+    }));
+
     expect(judgment).toMatchObject({ judged: false, failure: 'unavailable' });
   });
 
   it('says why a judgment failed', async () => {
-    const failed = await judging(async () => {
-      throw new JudgingError('request-failed', 'no credits');
-    });
-    const unreadable = await judging(async () => {
-      throw new JudgingError('unreadable', 'length');
-    });
+    const failed = await judging(async () => ({
+      status: 'failed',
+      failure: 'request-failed',
+    }));
+    const unreadable = await judging(async () => ({
+      status: 'failed',
+      failure: 'unreadable',
+    }));
     const ungrounded = await judging(async () =>
       oneClaim(true, [{ text: 'It drains.', steps: [9], hunks: [] }]),
     );

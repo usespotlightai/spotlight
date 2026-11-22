@@ -58,6 +58,10 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return candidateCmd(args[1:], in, out)
 	case "cause":
 		return causeCmd(args[1:], out)
+	case "decide":
+		return decideCmd(args[1:], out)
+	case "submit":
+		return submitCmd(args[1:], in, out)
 	case "tools":
 		return toolsCmd(args[1:], in, out)
 	default:

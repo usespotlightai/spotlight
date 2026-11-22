@@ -174,7 +174,7 @@ const registrationViolations = (
 
     const name = nameOf(call);
     const named = literalKindsIn(heard).flatMap((kind) => {
-      if (INTEGRATION_EVENT_KIND.test(kind)) {
+      if (INTEGRATION_EVENT_KINDS.has(kind)) {
         return [`names the integration event ${kind} by string`];
       }
 

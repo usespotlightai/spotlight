@@ -202,7 +202,6 @@ import { ChangeReview } from '@replays/infrastructure/acl/change-review.adapter'
 import { TestStationChangeExtension } from '@replays/infrastructure/acl/chat-tool-extension.adapter';
 import { ConfigRepository } from '@replays/infrastructure/acl/config-repository.adapter';
 import { ConfigurationStationSourceEditor } from '@replays/infrastructure/acl/configuration-station-source.editor';
-import { HarnessCommands } from '@replays/infrastructure/acl/harness-commands';
 import { InsightsChangeJudge } from '@replays/infrastructure/acl/insights-change-judge.adapter';
 import { InsightsClaimsRevisions } from '@replays/infrastructure/acl/insights-claims-revisions.adapter';
 import { InsightsJudgeClaimsPullRequests } from '@replays/infrastructure/acl/insights-judge-claims-pull-requests.adapter';
@@ -242,9 +241,9 @@ import { RunnerFailureCausesController } from '@replays/presentation/http/contro
 import { RunnerSearchCandidatesController } from '@replays/presentation/http/controllers/runner-search-candidates.controller';
 import { RunnerSearchViewController } from '@replays/presentation/http/controllers/runner-search-view.controller';
 import {
-  HARNESS_LAUNCH,
-  type HarnessLaunchPort,
-} from '@runs/application/ports/harness-launch.port';
+  HARNESS_COMMANDS,
+  type HarnessCommandsPort,
+} from '@runs/application/ports/harness-commands.port';
 import {
   RUN_FACTS,
   type RunFactsPort,
@@ -354,13 +353,13 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   DrizzleReplayRunDecisionRepository,
   {
     provide: RUNS,
-    inject: [WORK_RUNS, RUN_FACTS, RUN_LEASES, HARNESS_LAUNCH],
+    inject: [WORK_RUNS, RUN_FACTS, RUN_LEASES, HARNESS_COMMANDS],
     useFactory: (
       runs: WorkRunsPort,
       facts: RunFactsPort,
       leases: RunLeasesPort,
-      launch: HarnessLaunchPort,
-    ) => new Runs(runs, facts, leases, new HarnessCommands(launch)),
+      commands: HarnessCommandsPort,
+    ) => new Runs(runs, facts, leases, commands),
   },
   {
     provide: STATION_TRIALS,
@@ -563,28 +562,21 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RequestChangeJudging,
-    inject: [DrizzleChangeJudgingRepository, CHANGE_JUDGE, TRANSACTION, CLOCK],
+    inject: [DrizzleChangeJudgingRepository, TRANSACTION, CLOCK],
     useFactory: (
       judgings: DrizzleChangeJudgingRepository,
-      judge: ChangeJudgePort,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new RequestChangeJudging(judgings, judge, transaction, clock),
+    ) => new RequestChangeJudging(judgings, transaction, clock),
   },
   {
     provide: RequestSideBySideJudging,
-    inject: [
-      DrizzleSideBySideJudgingRepository,
-      PAIR_JUDGE,
-      TRANSACTION,
-      CLOCK,
-    ],
+    inject: [DrizzleSideBySideJudgingRepository, TRANSACTION, CLOCK],
     useFactory: (
       judgings: DrizzleSideBySideJudgingRepository,
-      judge: PairJudgePort,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new RequestSideBySideJudging(judgings, judge, transaction, clock),
+    ) => new RequestSideBySideJudging(judgings, transaction, clock),
   },
   {
     provide: WorkChangeJudgings,
@@ -1997,6 +1989,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       FollowConfigPullRequests,
       RequestJudgeClaimsPullRequests,
       ReportJudgeClaimsPullRequests,
+      WorkChangeJudgings,
+      WorkSideBySideJudgings,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -2040,6 +2034,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       following: FollowConfigPullRequests,
       deletingClaimsPullRequests: RequestJudgeClaimsPullRequests,
       reportingClaimsPullRequests: ReportJudgeClaimsPullRequests,
+      wakingChangeJudgings: WorkChangeJudgings,
+      wakingSideBySideJudgings: WorkSideBySideJudgings,
     ) => {
       types.register('replays', REPLAYS_PAYLOAD_TYPES);
       subscribers.register(
@@ -2083,6 +2079,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           following,
           deletingClaimsPullRequests,
           reportingClaimsPullRequests,
+          wakingChangeJudgings,
+          wakingSideBySideJudgings,
         }),
       );
       return true;

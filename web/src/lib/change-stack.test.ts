@@ -159,6 +159,33 @@ describe('inProgress', () => {
     expect(inProgress([stack({ check: checked('checked') })])).toBe(false);
     expect(inProgress([stack()])).toBe(false);
   });
+
+  it('keeps polling while an answer waits for its grade', () => {
+    const answering = (grading: QuestionAnswer['grading']) =>
+      stack({
+        cohorts: stack().cohorts.map((cohort) => ({
+          ...cohort,
+          layers: cohort.layers.map((layer) => ({
+            ...layer,
+            questions: [
+              {
+                ...ASKED,
+                answered: {
+                  ...MISSED,
+                  reply: 'The routes.',
+                  grading,
+                  verdict: grading === 'graded' ? 'right' : null,
+                },
+              },
+            ],
+          })),
+        })),
+      });
+
+    expect(inProgress([answering('pending')])).toBe(true);
+    expect(inProgress([answering('graded')])).toBe(false);
+    expect(inProgress([answering('failed')])).toBe(false);
+  });
 });
 
 describe('layerAt', () => {
@@ -249,6 +276,7 @@ const ASKED: LayerQuestion = {
 const MISSED: QuestionAnswer = {
   questionId: 'c1.l2.q1',
   reply: null,
+  grading: 'graded',
   verdict: 'missed',
   feedback: null,
   expected: 'The invitation routes.',
@@ -298,6 +326,26 @@ describe('answeredIn', () => {
     };
 
     expect(toReadAgain(right)).toBe(false);
+  });
+
+  it('asks nobody to read a layer again before its answer is graded', () => {
+    const layer = stack().cohorts[0]?.layers[1];
+    const pending = {
+      ...layer,
+      questions: [
+        {
+          ...ASKED,
+          answered: {
+            ...MISSED,
+            reply: 'The routes.',
+            grading: 'pending' as const,
+            verdict: null,
+          },
+        },
+      ],
+    };
+
+    expect(toReadAgain(pending)).toBe(false);
   });
 });
 

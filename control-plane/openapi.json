@@ -15462,956 +15462,6 @@
         ]
       }
     },
-    "/v1/resources/workspaces/{workspaceId}/inference-endpoints": {
-      "post": {
-        "operationId": "createInferenceEndpoint",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
-              "type": "string"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "description": "Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 255
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "baseUrl",
-                  "model"
-                ],
-                "properties": {
-                  "baseUrl": {
-                    "type": "string",
-                    "example": "https://openrouter.ai/api/v1"
-                  },
-                  "model": {
-                    "type": "string",
-                    "example": "openai/gpt-5-mini"
-                  },
-                  "apiKeyWo": {
-                    "type": "string",
-                    "writeOnly": true,
-                    "description": "The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned"
-                  },
-                  "apiKeyWoVersion": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "example": 1,
-                    "description": "Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The inference-endpoint, as a read returns it",
-            "headers": {
-              "ETag": {
-                "description": "The returned version, to send back as If-Match",
-                "schema": {
-                  "type": "string",
-                  "example": "\"3\""
-                }
-              },
-              "Idempotent-Replayed": {
-                "description": "true when this returns the result of an earlier attempt",
-                "schema": {
-                  "type": "string",
-                  "enum": [
-                    "true"
-                  ]
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not allowed to do this to the inference-endpoint; the detail says why",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such inference-endpoint that you may see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A inference-endpoint already exists at that address",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "What is wrong, field by field; or the Idempotency-Key was used for a different request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create the inference endpoint: the OpenAI-compatible API and model a workspace uses for Spotlight features. Spotlight then sends it one test request; a failed test is a warning and does not undo the write",
-        "tags": [
-          "inference"
-        ],
-        "x-spotlight-resource": {
-          "kind": "inference-endpoint",
-          "operation": "create"
-        }
-      },
-      "get": {
-        "operationId": "listInferenceEndpoints",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Every inference-endpoint there, each as a read returns it, in address order",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InferenceEndpointResourceListResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such workspace that you may see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "List the inference endpoint of a workspace: one, or none",
-        "tags": [
-          "inference"
-        ],
-        "x-spotlight-resource": {
-          "kind": "inference-endpoint",
-          "operation": "list"
-        }
-      }
-    },
-    "/v1/resources/inference-endpoints/{id}": {
-      "get": {
-        "operationId": "readInferenceEndpoint",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "6e2b8f1d-4c93-4a7e-8d5b-1f0c9a3e7b62",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The inference-endpoint, every field of it",
-            "headers": {
-              "ETag": {
-                "description": "The returned version, to send back as If-Match",
-                "schema": {
-                  "type": "string",
-                  "example": "\"3\""
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such inference-endpoint that you may see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Read the inference endpoint of a workspace. The API key is never returned",
-        "tags": [
-          "inference"
-        ],
-        "x-spotlight-resource": {
-          "kind": "inference-endpoint",
-          "operation": "read"
-        }
-      },
-      "put": {
-        "operationId": "updateInferenceEndpoint",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "6e2b8f1d-4c93-4a7e-8d5b-1f0c9a3e7b62",
-              "type": "string"
-            }
-          },
-          {
-            "name": "If-Match",
-            "in": "header",
-            "description": "The ETag of the version this write was based on; a write to any other version fails with 409",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "example": "\"3\""
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "baseUrl",
-                  "model"
-                ],
-                "properties": {
-                  "baseUrl": {
-                    "type": "string",
-                    "example": "https://openrouter.ai/api/v1"
-                  },
-                  "model": {
-                    "type": "string",
-                    "example": "openai/gpt-5-mini"
-                  },
-                  "apiKeyWo": {
-                    "type": "string",
-                    "writeOnly": true,
-                    "description": "The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned"
-                  },
-                  "apiKeyWoVersion": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "example": 1,
-                    "description": "Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The inference-endpoint, as a read returns it",
-            "headers": {
-              "ETag": {
-                "description": "The returned version, to send back as If-Match",
-                "schema": {
-                  "type": "string",
-                  "example": "\"3\""
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not allowed to do this to the inference-endpoint; the detail says why",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such inference-endpoint that you may see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "What is wrong, field by field",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "428": {
-            "description": "If-Match is missing",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Update the inference endpoint. Spotlight then sends it one test request; a failed test is a warning and does not undo the write",
-        "tags": [
-          "inference"
-        ],
-        "x-spotlight-resource": {
-          "kind": "inference-endpoint",
-          "operation": "update"
-        }
-      },
-      "delete": {
-        "operationId": "deleteInferenceEndpoint",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "6e2b8f1d-4c93-4a7e-8d5b-1f0c9a3e7b62",
-              "type": "string"
-            }
-          },
-          {
-            "name": "If-Match",
-            "in": "header",
-            "description": "The ETag of the version this write was based on; a write to any other version fails with 409",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "example": "\"3\""
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Deleted"
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not allowed to do this to the inference-endpoint; the detail says why",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such inference-endpoint that you may see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "428": {
-            "description": "If-Match is missing",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Delete the inference endpoint and its API key. Spotlight features that need a model then turn off",
-        "tags": [
-          "inference"
-        ],
-        "x-spotlight-resource": {
-          "kind": "inference-endpoint",
-          "operation": "delete"
-        }
-      }
-    },
-    "/v1/resources/workspaces/{workspaceId}/inference-endpoints/import": {
-      "get": {
-        "operationId": "importInferenceEndpoint",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
-              "type": "string"
-            }
-          },
-          {
-            "name": "address",
-            "required": true,
-            "in": "query",
-            "description": "The inference-endpoint's address within the workspace",
-            "schema": {
-              "example": "acme"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The inference-endpoint, as a read returns it",
-            "headers": {
-              "ETag": {
-                "description": "The returned version, to send back as If-Match",
-                "schema": {
-                  "type": "string",
-                  "example": "\"3\""
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such inference-endpoint that you may see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Find the inference endpoint of a workspace, by its slug, to import it",
-        "tags": [
-          "inference"
-        ],
-        "x-spotlight-resource": {
-          "kind": "inference-endpoint",
-          "operation": "import"
-        }
-      }
-    },
-    "/v1/resources/workspaces/{workspaceId}/inference-endpoint/test": {
-      "post": {
-        "operationId": "testInferenceEndpoint",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "workspaceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "baseUrl",
-                  "model"
-                ],
-                "properties": {
-                  "baseUrl": {
-                    "type": "string",
-                    "example": "https://openrouter.ai/api/v1"
-                  },
-                  "model": {
-                    "type": "string",
-                    "example": "openai/gpt-5-mini"
-                  },
-                  "apiKeyWo": {
-                    "type": "string",
-                    "writeOnly": true,
-                    "description": "The API key to store; accepted with apiKeyWoVersion on create and whenever apiKeyWoVersion changes, and never returned"
-                  },
-                  "apiKeyWoVersion": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "example": 1,
-                    "description": "Required with apiKeyWo. Change it to rotate the key to the apiKeyWo sent with it; leave it out with apiKeyWo to remove the stored key"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectionTestResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not allowed to test the inference endpoint; the detail says why",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such workspace that you may see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "What is wrong, field by field",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Send one minimal request to an inference endpoint and report what happened. Saves nothing. Without apiKeyWo it uses the stored key",
-        "tags": [
-          "inference"
-        ]
-      }
-    },
     "/me/notifications/push-key": {
       "get": {
         "operationId": "getPushKey",
@@ -16498,6 +15548,81 @@
         "summary": "Stop sending Web Push to this browser",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/runs/{runId}/assist-result": {
+      "post": {
+        "description": "A result that does not fit may be fixed and submitted again. Once a result is accepted, the session takes no other.",
+        "operationId": "submitAssistResult",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitAssistResultRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistResultAcceptedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "This runner does not lease the run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run is no assist session, or its session accepted a result already or failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A result that does not fit the shape its kind asks for; errors name each problem’s path in the result",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Submit the result of an assist session from inside its run; Spotlight checks it against the shape its kind asks for",
+        "tags": [
+          "runners"
         ]
       }
     },
@@ -18440,8 +17565,7 @@
                 "runner-trusts",
                 "runner-pools",
                 "egresses",
-                "workspace-runners",
-                "inference-endpoints"
+                "workspace-runners"
               ],
               "type": "string"
             }
@@ -18655,9 +17779,6 @@
           "401": {
             "description": "No valid session"
           },
-          "402": {
-            "description": "The inference endpoint has no credits left"
-          },
           "403": {
             "description": "The caller is not a member of the team, nor a workspace admin"
           },
@@ -18668,7 +17789,7 @@
             "description": "The caller already answered it"
           }
         },
-        "summary": "Answer a question about a layer of a change stack, and get it graded against the expected answer",
+        "summary": "Answer a question about a layer of a change stack. The reply comes back with the expected answer and a pending grade; a session grades it against the expected answer shortly after",
         "tags": [
           "change-stacks"
         ]
@@ -18823,7 +17944,7 @@
             "description": "No such task for this caller"
           }
         },
-        "summary": "The decisions that Spotlight generated for review from the latest run of the task",
+        "summary": "The decisions the task’s agent recorded for review while it worked",
         "tags": [
           "decisions"
         ]
@@ -19163,6 +18284,81 @@
           }
         },
         "summary": "Report that the runner could not make the diff of a push",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/decisions": {
+      "post": {
+        "description": "They join the decisions of the task’s earlier runs, each kept with the run that recorded it. A decision the task holds already is kept once, with the run that first recorded it.",
+        "operationId": "recordDecisions",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDecisionsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedDecisionsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "Not a run this runner leases",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run’s station keeps no decisions, the run works no task of its own or reviews a pull request, the task merged, or it holds as many decisions as it may",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An unknown kind, a missing or too long text, too many alternatives, or no changed file; errors name each problem’s path",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record decisions the agent made while it worked, for review beside the task’s change",
         "tags": [
           "runners"
         ]
@@ -21630,7 +20826,7 @@
             "description": "No such memory for this caller"
           },
           "409": {
-            "description": "It was decided or redrafted meanwhile"
+            "description": "It was decided meanwhile"
           },
           "422": {
             "description": "No memories named, one named twice, an edit too long, or one from outside the team approved with others"
@@ -21697,7 +20893,7 @@
             "description": "No such memory for this caller"
           },
           "409": {
-            "description": "It was decided or redrafted meanwhile"
+            "description": "It was decided meanwhile"
           }
         },
         "summary": "Turn a proposed memory down; it stays stored, never briefed, and not proposed again",
@@ -22280,7 +21476,7 @@
     },
     "/runs/{runId}/memories": {
       "post": {
-        "description": "It waits in the inbox beside the task for a person to approve, like a drafted memory.",
+        "description": "It waits in the inbox beside the task for a person to approve.",
         "operationId": "remember",
         "parameters": [
           {
@@ -34808,104 +34004,6 @@
           "installationId"
         ]
       },
-      "InferenceEndpointResourceResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40",
-            "description": "Issued by Spotlight when the resource is created, and never changed"
-          },
-          "version": {
-            "type": "number",
-            "example": 3,
-            "description": "Rises with every change; the ETag carries it, and a write sends it back as If-Match"
-          },
-          "address": {
-            "type": "string",
-            "example": "core/linear",
-            "description": "Names the resource within its workspace; terraform import takes it"
-          },
-          "warnings": {
-            "description": "What would work better, though nothing stops it working; not settable",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FieldErrorResponseDto"
-            }
-          },
-          "workspaceId": {
-            "type": "string",
-            "example": "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57",
-            "description": "The workspace it belongs to"
-          },
-          "baseUrl": {
-            "type": "string",
-            "example": "https://openrouter.ai/api/v1",
-            "description": "The base URL of an OpenAI-compatible API. Spotlight calls its /chat/completions"
-          },
-          "model": {
-            "type": "string",
-            "example": "openai/gpt-5-mini",
-            "description": "The one model every Spotlight feature of the workspace uses"
-          },
-          "apiKeySet": {
-            "type": "boolean",
-            "example": true,
-            "description": "Whether Spotlight holds an API key. The key is write-only and never returned"
-          },
-          "apiKeyVersion": {
-            "type": "integer",
-            "nullable": true,
-            "example": 1,
-            "description": "Changed, with a new key, to rotate the API key, which is write-only and never returned"
-          }
-        },
-        "required": [
-          "id",
-          "version",
-          "address",
-          "warnings",
-          "workspaceId",
-          "baseUrl",
-          "model",
-          "apiKeySet",
-          "apiKeyVersion"
-        ]
-      },
-      "InferenceEndpointResourceListResponseDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "description": "Every one there is, each as a read returns it, in address order",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/InferenceEndpointResourceResponseDto"
-            }
-          }
-        },
-        "required": [
-          "items"
-        ]
-      },
-      "ConnectionTestResponseDto": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "example": true,
-            "description": "Whether the endpoint answered a minimal request"
-          },
-          "message": {
-            "type": "string",
-            "example": "The endpoint answered.",
-            "description": "What happened, to show to a person"
-          }
-        },
-        "required": [
-          "ok",
-          "message"
-        ]
-      },
       "PushKeyResponseDto": {
         "type": "object",
         "properties": {
@@ -34966,6 +34064,33 @@
         },
         "required": [
           "endpoint"
+        ]
+      },
+      "SubmitAssistResultRequestDto": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "description": "The one JSON result of the assist session, in the shape its kind asks for"
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "AssistResultAcceptedResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "example": true
+          }
+        },
+        "required": [
+          "accepted"
         ]
       },
       "TeamSkillResponseDto": {
@@ -35482,13 +34607,25 @@
             "nullable": true,
             "description": "What the reviewer answered; null when they did not know"
           },
+          "grading": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "graded",
+              "failed"
+            ],
+            "description": "Where grading the reply stands: pending until a session grades it, failed when none could, graded once the verdict is in. An answer of \"I don’t know\" is graded at once"
+          },
           "verdict": {
             "type": "string",
             "enum": [
               "right",
               "partly-right",
-              "missed"
-            ]
+              "missed",
+              null
+            ],
+            "nullable": true,
+            "description": "The grade of the reply; null until it is graded"
           },
           "feedback": {
             "type": "string",
@@ -35509,6 +34646,7 @@
         "required": [
           "questionId",
           "reply",
+          "grading",
           "verdict",
           "feedback",
           "expected",
@@ -36228,8 +35366,12 @@
               "type": "string"
             }
           },
+          "runId": {
+            "type": "string",
+            "description": "The run whose agent recorded it; its journal holds the journal steps"
+          },
           "journalSteps": {
-            "description": "Where the agent reasoned it, as numbers of steps in the run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0",
+            "description": "Where the agent reasoned it, as numbers of steps in the journal of its run: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0. Empty when the agent recorded the decision itself; only decisions drafted from a journal cite steps",
             "type": "array",
             "items": {
               "type": "number"
@@ -36250,6 +35392,7 @@
           "why",
           "alternatives",
           "paths",
+          "runId",
           "journalSteps",
           "disputes"
         ]
@@ -36257,15 +35400,6 @@
       "TaskDecisionsResponseDto": {
         "type": "object",
         "properties": {
-          "runId": {
-            "type": "string",
-            "nullable": true,
-            "description": "The run the decisions were generated from, if there is one"
-          },
-          "generating": {
-            "type": "boolean",
-            "description": "Whether decisions for a later run are being generated"
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -36289,8 +35423,6 @@
           }
         },
         "required": [
-          "runId",
-          "generating",
           "status",
           "merges",
           "decisions"
@@ -36321,10 +35453,6 @@
           "taskId": {
             "type": "string"
           },
-          "runId": {
-            "type": "string",
-            "nullable": true
-          },
           "repository": {
             "type": "string",
             "example": "acme/api"
@@ -36347,7 +35475,6 @@
         },
         "required": [
           "taskId",
-          "runId",
           "repository",
           "commit",
           "mergedAt",
@@ -36494,6 +35621,84 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "RecordedDecisionRequestDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "trade-off",
+              "assumption",
+              "limitation",
+              "rejected-approach",
+              "deviation"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Retries uploads in the request, not from a queue",
+            "description": "What the agent chose, at most 120 characters"
+          },
+          "why": {
+            "type": "string",
+            "description": "What led the agent to it, and what it costs, at most 2000 characters"
+          },
+          "alternatives": {
+            "description": "At most five options the agent weighed and set aside",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "paths": {
+            "example": [
+              "api/src/uploads.ts"
+            ],
+            "description": "One to twenty changed files it covers, from the working copy root",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "why",
+          "alternatives",
+          "paths"
+        ]
+      },
+      "RecordDecisionsRequestDto": {
+        "type": "object",
+        "properties": {
+          "decisions": {
+            "description": "One to twenty decisions",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordedDecisionRequestDto"
+            }
+          }
+        },
+        "required": [
+          "decisions"
+        ]
+      },
+      "RecordedDecisionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "The id of each decision among the task’s decisions, in the order sent. A decision the task holds already keeps its id",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids"
         ]
       },
       "PullRequestLandingResponseDto": {
@@ -38159,15 +37364,6 @@
             "example": "person",
             "description": "person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else"
           },
-          "proposedBy": {
-            "type": "string",
-            "enum": [
-              "drafter",
-              "agent"
-            ],
-            "example": "agent",
-            "description": "drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember"
-          },
           "state": {
             "type": "string",
             "enum": [
@@ -38267,7 +37463,6 @@
           "kind",
           "body",
           "source",
-          "proposedBy",
           "state",
           "scope",
           "repository",
@@ -38793,15 +37988,6 @@
             "example": "person",
             "description": "person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else"
           },
-          "proposedBy": {
-            "type": "string",
-            "enum": [
-              "drafter",
-              "agent"
-            ],
-            "example": "agent",
-            "description": "drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember"
-          },
           "state": {
             "type": "string",
             "enum": [
@@ -38913,7 +38099,6 @@
           "kind",
           "body",
           "source",
-          "proposedBy",
           "state",
           "scope",
           "repository",
@@ -38955,7 +38140,7 @@
             }
           },
           "proposed": {
-            "description": "What the run proposed, drafted or remembered",
+            "description": "What the run proposed or remembered",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RunProposalResponseDto"
@@ -39620,7 +38805,7 @@
           },
           "memories": {
             "type": "boolean",
-            "description": "Whether Spotlight drafts memories after its runs"
+            "description": "Whether its runs may propose memories with spotlight remember"
           },
           "judge": {
             "nullable": true,

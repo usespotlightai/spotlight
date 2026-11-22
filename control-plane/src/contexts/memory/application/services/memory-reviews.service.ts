@@ -6,7 +6,7 @@ import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { lookUpOnce } from '@memory/application/services/people-lookup';
 import { provenanceNotes } from '@memory/application/services/provenance-notes';
-import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -17,13 +17,13 @@ export class MemoryReviews {
     private readonly memories: MemoryRepository,
   ) {}
 
-  async of(draft: MemoryDraft, runId: RunId): Promise<MemoryReviewDto> {
-    const proposals = draft.proposals.filter((each) =>
+  async of(set: MemoryProposalSet, runId: RunId): Promise<MemoryReviewDto> {
+    const proposals = set.proposals.filter((each) =>
       each.provenance.runId.equals(runId),
     );
     const [steps, notes, harness] = await Promise.all([
       this.work.reasoning(runId),
-      this.work.notesOf(draft.taskId),
+      this.work.notesOf(set.taskId),
       this.work.harnessOf(runId),
     ]);
     const person = lookUpOnce(this.people);
@@ -40,7 +40,6 @@ export class MemoryReviews {
         kind: proposal.kind,
         body: proposal.body.value,
         source: proposal.source,
-        proposedBy: proposal.proposedBy,
         state: proposal.state,
         scope: proposal.scope.level,
         repository: proposal.scope.repository?.value ?? null,
@@ -70,6 +69,6 @@ export class MemoryReviews {
       })),
     );
 
-    return { taskId: draft.taskId.value, runId: runId.value, memories };
+    return { taskId: set.taskId.value, runId: runId.value, memories };
   }
 }

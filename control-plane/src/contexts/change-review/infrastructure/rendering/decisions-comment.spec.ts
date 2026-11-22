@@ -4,8 +4,6 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const FOUND: TaskDecisionsDto = {
-  runId: 'run_1',
-  generating: false,
   status: 'proposed',
   merges: [],
   decisions: [
@@ -16,6 +14,7 @@ const FOUND: TaskDecisionsDto = {
       why: 'Backoff is not in the client yet.',
       alternatives: [],
       paths: ['api/src/uploads.ts'],
+      runId: 'run_1',
       journalSteps: [7],
       disputes: [
         {
@@ -35,6 +34,7 @@ const FOUND: TaskDecisionsDto = {
       why: 'A queue needs a worker the service does not run.',
       alternatives: ['Retry from a queue', 'Retry in the browser'],
       paths: ['api/src/uploads.ts', 'web/src/Upload.tsx'],
+      runId: 'run_1',
       journalSteps: [3],
       disputes: [],
     },

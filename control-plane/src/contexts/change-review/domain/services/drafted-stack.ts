@@ -1,16 +1,12 @@
-import {
-  InvalidChangeStackError,
-  shapeProblem,
-} from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type {
   DraftedCohort,
   DraftedLayer,
-  DraftedOutline,
-  OutlinedCohort,
   ProposedCohort,
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 
 type Unknown = (raw: string, where: string) => void;
 
@@ -58,7 +54,7 @@ const read = <T>(reading: (unknown: Unknown) => T): T => {
   });
 
   if (problems.length > 0) {
-    throw new InvalidChangeStackError(problems.map(shapeProblem));
+    throw new InvalidChangeStackError(problems.map(StackProblem.shape));
   }
 
   return result;
@@ -70,21 +66,6 @@ export const DraftedStack = {
       drafted.map((cohort, c) => ({
         ...cohort,
         layers: layersIn(cohort.layers, `cohort ${c + 1}, `, unknown),
-      })),
-    );
-  },
-
-  layers(drafted: readonly DraftedLayer[]): ProposedLayer[] {
-    return read((unknown) => layersIn(drafted, '', unknown));
-  },
-
-  outline(drafted: readonly DraftedOutline[]): OutlinedCohort[] {
-    return read((unknown) =>
-      drafted.map((cohort, c) => ({
-        ...cohort,
-        hunks: cohort.hunks.flatMap((hunk) =>
-          hunkIn(hunk, `cohort ${c + 1}`, unknown),
-        ),
       })),
     );
   },

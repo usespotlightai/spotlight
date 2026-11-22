@@ -1,6 +1,6 @@
-import { JudgingError } from '@insights/application/errors/judging.error';
 import type { EvidencePort } from '@insights/application/ports/evidence.port';
 import type { JudgePort } from '@insights/application/ports/judge.port';
+import type { SettledSession } from '@insights/application/ports/session-outcomes';
 import type { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import { JudgingVersionConflictError } from '@insights/domain/exceptions/judging-version-conflict.error';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
@@ -27,7 +27,7 @@ export class WorkJudgings implements PendingJobsPort {
     private readonly evidence: EvidencePort,
     private readonly judge: JudgePort,
     private readonly clock: ClockPort,
-    transaction: TransactionPort,
+    private readonly transaction: TransactionPort,
     logger: LoggerPort,
     reports: ErrorReportsPort,
     telemetry: TelemetryPort,
@@ -66,6 +66,37 @@ export class WorkJudgings implements PendingJobsPort {
     return this.#loop.idle();
   }
 
+  /** Makes the judging that waits on a settled session due now; a judging that moved on meanwhile is left alone. */
+  async sessionSettled(session: SettledSession): Promise<void> {
+    const round = this.judge.roundOf(session);
+
+    if (round?.of !== 'judging') {
+      return;
+    }
+
+    await this.transaction.inTransaction(async () => {
+      const judging = await this.judgings.of(round.round.runId);
+
+      if (!judging || judging.workspaceId.value !== session.workspaceId) {
+        return;
+      }
+
+      const woken = judging.wake(round.round, this.clock.now());
+
+      if (woken === judging) {
+        return;
+      }
+
+      try {
+        await this.judgings.save(woken);
+      } catch (error) {
+        if (!(error instanceof JudgingVersionConflictError)) {
+          throw error;
+        }
+      }
+    });
+  }
+
   private async judged(judging: Judging): Promise<Judging> {
     const run = await this.evidence.of(judging.runId);
 
@@ -85,32 +116,35 @@ export class WorkJudgings implements PendingJobsPort {
       return judging.failed(JudgingFailure.of('no-evidence', this.clock.now()));
     }
 
-    try {
-      const { verdict, model } = await this.judge.judge({
-        workspaceId: judging.workspaceId.value,
-        claims: judging.rubric.claims,
-        title: evidence.title,
-        description: evidence.description,
-        steps: evidence.steps,
-        stepsLeftOut: evidence.stepsLeftOut,
-        hunks: evidence.hunks,
-        hunksLeftOut: evidence.hunksLeftOut,
-        reference: null,
-        guidanceRequested: false,
-        effectsBlocked: false,
-      });
+    const answer = await this.judge.judge({
+      workspaceId: judging.workspaceId.value,
+      round: { of: 'judging', round: judging.round },
+      claims: judging.rubric.claims,
+      title: evidence.title,
+      description: evidence.description,
+      steps: evidence.steps,
+      stepsLeftOut: evidence.stepsLeftOut,
+      hunks: evidence.hunks,
+      hunksLeftOut: evidence.hunksLeftOut,
+      reference: null,
+      guidanceRequested: false,
+      effectsBlocked: false,
+    });
 
-      return judging.recordVerdict({
-        verdict,
-        evidence,
-        model,
-        now: this.clock.now(),
-      });
-    } catch (error) {
-      if (error instanceof JudgingError) {
-        return judging.failed(JudgingFailure.of(error.kind, this.clock.now()));
-      }
-      throw error;
+    switch (answer.status) {
+      case 'waiting':
+        return judging.waitJob(this.clock.now());
+      case 'failed':
+        return judging.failed(
+          JudgingFailure.of(answer.failure, this.clock.now()),
+        );
+      case 'judged':
+        return judging.recordVerdict({
+          verdict: answer.verdict,
+          evidence,
+          model: answer.model,
+          now: this.clock.now(),
+        });
     }
   }
 }

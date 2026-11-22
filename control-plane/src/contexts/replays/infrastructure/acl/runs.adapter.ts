@@ -13,10 +13,6 @@ import {
   ReplaysRequester,
 } from '@replays/domain/value-objects/replays-requester.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
-import type {
-  HarnessChoiceProblem,
-  HarnessCommands,
-} from '@replays/infrastructure/acl/harness-commands';
 import { WorkTrialRun } from '@replays/infrastructure/acl/work-trial-run';
 import {
   type RunOrderContract,
@@ -24,6 +20,10 @@ import {
   type RunRequesterContract,
   workingCopyKeyOf,
 } from '@runs/application/contracts/run-order.contract';
+import type {
+  HarnessChoiceProblem,
+  HarnessCommandsPort,
+} from '@runs/application/ports/harness-commands.port';
 import type {
   RunFactsPort,
   RunStateFact,
@@ -116,7 +116,7 @@ export class Runs implements RunsPort {
     private readonly runs: RunQueuePort,
     private readonly facts: RunFactsPort,
     private readonly leases: RunLeasesPort,
-    private readonly commands: HarnessCommands,
+    private readonly commands: HarnessCommandsPort,
   ) {}
 
   async enqueueTrial({ run, trial }: ReplayTrialRun): Promise<RunEnqueueing> {
@@ -134,7 +134,7 @@ export class Runs implements RunsPort {
     const requester = requesterContractOf(order.requester, order.teamId.value);
     const command = this.commands.commandFor(
       choiceOf(order.agent),
-      requester,
+      `${requester.kind}:${requester.id}`,
       order.run.value,
     );
 

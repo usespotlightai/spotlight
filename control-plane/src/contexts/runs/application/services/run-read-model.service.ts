@@ -1,3 +1,4 @@
+import type { RunArchivesPort } from '@runs/application/ports/run-archives.port';
 import type { RunFactsReaderPort } from '@runs/application/ports/run-facts-reader.port';
 import type {
   RunFacts as RunFactsDto,
@@ -17,6 +18,7 @@ import type {
   TurnFacts,
   TurnsCursor,
 } from '@runs/application/ports/run-turns.port';
+import type { TeamRunsPort } from '@runs/application/ports/team-runs.port';
 import { runOutcomeText } from '@runs/application/rendering/run-outcome.text';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
@@ -31,6 +33,7 @@ import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-co
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const factsOf = (
   run: Run,
@@ -167,7 +170,13 @@ const turnFactsOf = (run: Run): TurnFacts | null => {
 };
 
 export class RunReadModel
-  implements RunFactsPort, RunLeasesPort, RunTurnsPort, RunProgressPort
+  implements
+    RunFactsPort,
+    RunLeasesPort,
+    RunTurnsPort,
+    RunProgressPort,
+    RunArchivesPort,
+    TeamRunsPort
 {
   constructor(private readonly reader: RunFactsReaderPort) {}
 
@@ -178,6 +187,31 @@ export class RunReadModel
     return found.map((run) =>
       factsOf(run, (archive) => stored.has(archive.value)),
     );
+  }
+
+  newestCompletedOfTeam(team: TeamId, owner: string): Promise<RunId | null> {
+    return this.reader.newestCompletedOfTeam(team, owner);
+  }
+
+  async restorableFor(runId: RunId): Promise<string | null> {
+    const run = await this.one(runId);
+
+    if (!run) {
+      return null;
+    }
+
+    const newest = await this.reader.newestArchiveOf(run.id);
+
+    if (newest?.isAvailableIn(run.workspaceId)) {
+      return newest.id.value;
+    }
+
+    const startedFrom = run.startedFrom?.archive;
+
+    return startedFrom &&
+      (await this.storedArchives([run])).has(startedFrom.value)
+      ? startedFrom.value
+      : null;
   }
 
   async progressOf(

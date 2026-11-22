@@ -141,8 +141,6 @@ export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
 
 export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
   task_postgres: {
-    runId: POSTGRES_RUN,
-    generating: false,
     status: 'proposed',
     merges: [],
     decisions: [
@@ -154,6 +152,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
         why: 'The spec says nothing on batching. One statement is simplest and took 40 seconds on a copy of production, with a lock on invoices the whole time.',
         alternatives: ['Rewrite in batches of 50,000 from a backfill job'],
         paths: [MIGRATION_PATH],
+        runId: POSTGRES_RUN,
         journalSteps: stepsOf(POSTGRES_RUN, MIGRATION_PATH),
         disputes: [],
       },
@@ -165,6 +164,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
         why: 'The migration widens the column but cannot recover microseconds that were never stored.',
         alternatives: [],
         paths: ['src/db/timestamps.ts', MIGRATION_PATH],
+        runId: POSTGRES_RUN,
         journalSteps: stepsOf(POSTGRES_RUN, 'src/db/timestamps.ts'),
         disputes: [],
       },
@@ -175,6 +175,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
         why: 'pg 8.13 in plain JavaScript is as fast for our query sizes, and the binding broke the Alpine image build.',
         alternatives: ['Keep pg-native and pin libpq in the image'],
         paths: ['package.json', 'src/db/pool.ts'],
+        runId: POSTGRES_RUN,
         journalSteps: stepsOf(
           POSTGRES_RUN,
           'npm uninstall pg-native && npm install pg@8.13.1',
@@ -196,8 +197,6 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
     ],
   },
   task_search: {
-    runId: SEARCH_RUN,
-    generating: false,
     status: 'merged',
     merges: [
       {
@@ -214,14 +213,13 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
         why: 'Task titles are short and people type fragments of them, which full-text search ranks poorly.',
         alternatives: ['Postgres full-text search with a tsvector column'],
         paths: [TRIGRAM_MIGRATION, 'src/search/workspace-search.ts'],
+        runId: SEARCH_RUN,
         journalSteps: stepsOf(SEARCH_RUN, TRIGRAM_MIGRATION),
         disputes: [],
       },
     ],
   },
   task_retries: {
-    runId: null,
-    generating: true,
     status: 'proposed',
     merges: [],
     decisions: [],
@@ -229,8 +227,6 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
 });
 
 export const noDecisions = (): TaskDecisionsResponseDto => ({
-  runId: null,
-  generating: false,
   status: 'proposed',
   merges: [],
   decisions: [],

@@ -32,7 +32,7 @@ export class PostDecisionsComment {
 
     const found = await this.decisions.ofTask(taskId);
 
-    if (!found?.runId) {
+    if (!found) {
       return;
     }
 

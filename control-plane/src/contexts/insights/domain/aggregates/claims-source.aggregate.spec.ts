@@ -150,6 +150,16 @@ describe('ClaimsSource', () => {
     ).toThrow(InvalidClaimsSourceError);
   });
 
+  it('waits without spending the lookup it leased', () => {
+    const waiting = recorded()
+      .mergedBy([], RECORDED_AT)
+      .leaseJob(minutesAfter(1))
+      .waitJob(minutesAfter(1));
+
+    expect(waiting.job?.attempts).toBe(0);
+    expect(waiting.job?.waitingSince).toEqual(minutesAfter(1));
+  });
+
   it('looks up its pull request exactly while unresolved, at most four times', () => {
     const source = recorded();
     const fields = {

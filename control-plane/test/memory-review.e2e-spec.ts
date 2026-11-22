@@ -1,17 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
-import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
-import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
+import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import {
-  MEMORY_DRAFTS,
-  type MemoryDraftRepository,
-} from '@memory/domain/repositories/memory-draft.repository';
-import { DraftEvidence } from '@memory/domain/services/draft-evidence';
-import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
+  MEMORY_PROPOSAL_SETS,
+  type MemoryProposalSetRepository,
+} from '@memory/domain/repositories/memory-proposal-set.repository';
+import { Remembering } from '@memory/domain/services/remembering';
+import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -27,8 +26,6 @@ import { createTeam } from './support/team';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 
-const FIRST_RUN_ORDERED_AT = Date.parse('2026-09-01T00:00:00.000Z');
-let runsOrdered = 0;
 const API = Repository.of('acme/api');
 
 interface ReviewBody {
@@ -53,23 +50,9 @@ interface InboxBody {
   } | null;
 }
 
-const remembered = (body: string): ProposedMemory => ({
-  kind: 'preference',
-  body,
-  scope: 'team',
-  repository: null,
-  paths: [],
-  steps: [5],
-  notes: [],
-  supersedes: null,
-  retires: null,
-});
-
 let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
-
-const orderedAt = new Map<string, Date>();
 
 const proposing = async (
   bodies: readonly string[],
@@ -77,59 +60,53 @@ const proposing = async (
   kept: { readonly runId: RunId; readonly attempt: number } | null = null,
 ): Promise<RunId> => {
   const runId = kept?.runId ?? RunId.of(`run_${randomUUID().slice(0, 8)}`);
-  if (!orderedAt.has(runId.value)) {
-    runsOrdered += 1;
-    orderedAt.set(
-      runId.value,
-      new Date(FIRST_RUN_ORDERED_AT + runsOrdered * 60_000),
-    );
-  }
-  const turn = AgentTurn.of(
+  const sets = app.get<MemoryProposalSetRepository>(MEMORY_PROPOSAL_SETS);
+  const existing = await sets.forTask(team.list.id);
+  const remembering = Remembering.of({
+    taskId: team.list.id,
     runId,
-    kept?.attempt ?? 1,
-    orderedAt.get(runId.value) ?? new Date(FIRST_RUN_ORDERED_AT),
-  );
-  const drafts = app.get<MemoryDraftRepository>(MEMORY_DRAFTS);
-  const existing = await drafts.forTask(team.list.id);
-  const requested = (
-    existing ??
-    MemoryDraft.create({
-      id: MemoryDraftId.of(randomUUID()),
-      taskId: team.list.id,
-      workspaceId: team.workspaceId,
-    })
-  ).requestDrafting(turn, NOW);
-  const drafted = requested.recordDraft({
-    turn,
-    proposed: bodies.map(remembered),
-    evidence: DraftEvidence.of({
-      taskId: team.list.id,
-      turn,
-      runContext: {
-        teamId: team.teamId,
-        lineId: LineId.of(team.line.id.value),
-        stationId: StationId.of(team.stationId.value),
-        repositories: [API],
-      },
-      steps: [
-        { index: 5, kind: 'message', text: 'Branches are named for tickets.' },
-      ],
-      notes: [],
-      notesRead: 0,
-      changed: [],
-      known: [],
-      used: [],
-      elsewhere: [],
-      fromOutside,
-    }),
-    newId: () => randomUUID(),
-    now: NOW,
+    asOf: null,
+    isolated: false,
+    trial: false,
   });
+  const drafted = bodies.reduce(
+    (set, body) =>
+      set.remember(
+        remembering.proposalOf({
+          id: MemoryId.of(randomUUID()),
+          remembered: {
+            kind: 'preference',
+            body,
+            scope: 'team',
+            paths: [],
+            supersedes: null,
+          },
+          at: {
+            runContext: {
+              teamId: team.teamId,
+              lineId: LineId.of(team.line.id.value),
+              stationId: StationId.of(team.stationId.value),
+              repositories: [API],
+            },
+            steps: [{ index: 5, kind: 'remember' }],
+            cited: [],
+            fromOutside,
+          },
+          now: NOW,
+        }),
+      ),
+    existing ??
+      MemoryProposalSet.create({
+        id: MemoryProposalSetId.of(randomUUID()),
+        taskId: team.list.id,
+        workspaceId: team.workspaceId,
+      }),
+  );
 
   if (existing) {
-    await drafts.save(drafted);
+    await sets.save(drafted);
   } else {
-    await drafts.add(drafted);
+    await sets.add(drafted);
   }
 
   return runId;

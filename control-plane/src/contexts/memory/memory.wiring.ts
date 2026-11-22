@@ -1,4 +1,8 @@
 import {
+  ASSIST_SESSIONS,
+  type AssistSessionsPort,
+} from '@assist/application/ports/assist-sessions.port';
+import {
   REPOSITORY_CONTENTS,
   type RepositoryContentsPort,
 } from '@github/application/ports/repository-contents.port';
@@ -44,10 +48,6 @@ import {
   MEMORY_CONSOLIDATOR,
   type MemoryConsolidatorPort,
 } from '@memory/application/ports/memory-consolidator.port';
-import {
-  MEMORY_DRAFTER,
-  type MemoryDrafterPort,
-} from '@memory/application/ports/memory-drafter.port';
 import { MEMORY_LISTING } from '@memory/application/ports/memory-listing.port';
 import {
   MEMORY_RELEVANCE,
@@ -59,10 +59,6 @@ import {
 } from '@memory/application/ports/memory-uses.port';
 import { PEOPLE, type PeoplePort } from '@memory/application/ports/people.port';
 import {
-  REJECTED_MEMORIES,
-  type RejectedMemoriesPort,
-} from '@memory/application/ports/rejected-memories.port';
-import {
   REPOSITORY_PATHS,
   type RepositoryPathsPort,
 } from '@memory/application/ports/repository-paths.port';
@@ -70,6 +66,10 @@ import {
   REVIEWS,
   type ReviewsPort,
 } from '@memory/application/ports/reviews.port';
+import {
+  TEAM_HOST_RUNS,
+  type TeamHostRunsPort,
+} from '@memory/application/ports/team-host-runs.port';
 import { TEAM_MEMORY_USE } from '@memory/application/ports/team-memory-use.port';
 import {
   UPKEEP_NOTICES,
@@ -95,7 +95,7 @@ import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memor
 import { RecallMemoriesQuery } from '@memory/application/queries/recall-memories.query';
 import { RecallMemoryQuery } from '@memory/application/queries/recall-memory.query';
 import { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
-import { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
+import { DeleteMemoryProposalSet } from '@memory/application/services/delete-memory-proposal-set.service';
 import { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
@@ -104,16 +104,15 @@ import { MemoryUpkeepSweeps } from '@memory/application/services/memory-upkeep-s
 import { RecalledMemoryViews } from '@memory/application/services/recalled-memory-views.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
-import { RequestMemories } from '@memory/application/services/request-memories.service';
 import { RunProposing } from '@memory/application/services/run-proposing.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
-import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
+import { WakeUpkeepSweeps } from '@memory/application/services/wake-upkeep-sweeps.service';
 import {
-  MEMORY_DRAFTS,
-  type MemoryDraftRepository,
-} from '@memory/domain/repositories/memory-draft.repository';
+  MEMORY_PROPOSAL_SETS,
+  type MemoryProposalSetRepository,
+} from '@memory/domain/repositories/memory-proposal-set.repository';
 import {
   MEMORY_UPKEEP_SCHEDULES,
   MEMORY_UPKEEPS,
@@ -128,13 +127,13 @@ import { Lines } from '@memory/infrastructure/acl/lines.adapter';
 import { People } from '@memory/infrastructure/acl/people.adapter';
 import { RepositoryPaths } from '@memory/infrastructure/acl/repository-paths.adapter';
 import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
+import { TeamHostRunsAdapter } from '@memory/infrastructure/acl/team-host-runs.adapter';
 import { UpkeepNotices } from '@memory/infrastructure/acl/upkeep-notices.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
-import { ChatCompletionsMemoryConsolidator } from '@memory/infrastructure/drafting/chat-completions-memory-consolidator';
-import { ChatCompletionsMemoryDrafter } from '@memory/infrastructure/drafting/chat-completions-memory.drafter';
+import { AssistMemoryConsolidator } from '@memory/infrastructure/consolidation/assist-memory-consolidator';
 import { MEMORY_PAYLOAD_TYPES } from '@memory/infrastructure/events/memory-payload-types';
-import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { DrizzleMemoryListing } from '@memory/infrastructure/persistence/drizzle/repositories/memory-listing.reader';
+import { DrizzleMemoryProposalSetRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-proposal-set.repository';
 import { DrizzleMemoryRelevance } from '@memory/infrastructure/persistence/drizzle/repositories/memory-relevance.reader';
 import {
   DrizzleMemoryUpkeepRepository,
@@ -142,7 +141,6 @@ import {
 } from '@memory/infrastructure/persistence/drizzle/repositories/memory-upkeep.repository';
 import { DrizzleMemoryUses } from '@memory/infrastructure/persistence/drizzle/repositories/memory-uses.ledger';
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
-import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleTeamMemoryUse } from '@memory/infrastructure/persistence/drizzle/repositories/team-memory-use.reader';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
@@ -159,6 +157,10 @@ import { IntegrationEventMappers } from '@platform/events/integration-event-mapp
 import { PayloadTypes } from '@platform/events/payload-types';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
+  TEAM_RUNS,
+  type TeamRunsPort,
+} from '@runs/application/ports/team-runs.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -170,10 +172,6 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
-import {
-  INFERENCE_CALLS,
-  type InferenceCallsPort,
-} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -240,7 +238,10 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     useFactory: (access: WorkspaceAccessPort, people: PersonReaderPort) =>
       new People(access, people),
   },
-  { provide: MEMORY_DRAFTS, useClass: DrizzleMemoryDraftRepository },
+  {
+    provide: MEMORY_PROPOSAL_SETS,
+    useClass: DrizzleMemoryProposalSetRepository,
+  },
   { provide: MEMORIES, useClass: DrizzleMemoryRepository },
   { provide: MEMORY_UPKEEPS, useClass: DrizzleMemoryUpkeepRepository },
   {
@@ -260,9 +261,24 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: MEMORY_CONSOLIDATOR,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) =>
-      new ChatCompletionsMemoryConsolidator(calls),
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) =>
+      new AssistMemoryConsolidator(sessions),
+  },
+  {
+    provide: TEAM_HOST_RUNS,
+    inject: [TEAM_RUNS],
+    useFactory: (runs: TeamRunsPort) => new TeamHostRunsAdapter(runs),
+  },
+  {
+    provide: WakeUpkeepSweeps,
+    inject: [MEMORY_CONSOLIDATOR, MEMORY_UPKEEP_SCHEDULES, TRANSACTION, CLOCK],
+    useFactory: (
+      consolidator: MemoryConsolidatorPort,
+      schedules: MemoryUpkeepScheduleRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new WakeUpkeepSweeps(consolidator, schedules, transaction, clock),
   },
   {
     provide: UpkeepReactions,
@@ -301,6 +317,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       MEMORY_USES,
       REPOSITORY_PATHS,
       MEMORY_CONSOLIDATOR,
+      TEAM_HOST_RUNS,
       ID_GENERATOR,
       CLOCK,
       LOGGER,
@@ -316,6 +333,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       uses: MemoryUsesPort,
       paths: RepositoryPathsPort,
       consolidator: MemoryConsolidatorPort,
+      hosts: TeamHostRunsPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
       logger: LoggerPort,
@@ -331,6 +349,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
         uses,
         paths,
         consolidator,
+        hosts,
         ids,
         clock,
         logger,
@@ -381,7 +400,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     inject: [
       RunnerMemoryLoader,
       WORK,
-      MEMORY_DRAFTS,
+      MEMORY_PROPOSAL_SETS,
       TRANSACTION,
       ID_GENERATOR,
       CLOCK,
@@ -389,11 +408,11 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     useFactory: (
       loader: RunnerMemoryLoader,
       work: WorkPort,
-      drafts: MemoryDraftRepository,
+      sets: MemoryProposalSetRepository,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
-    ) => new RunProposing(loader, work, drafts, transaction, ids, clock),
+    ) => new RunProposing(loader, work, sets, transaction, ids, clock),
   },
   {
     provide: MemoryReviews,
@@ -406,31 +425,31 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: MemoryReactions,
-    inject: [REVIEWS, MEMORY_DRAFTS, MEMORIES, TRANSACTION, CLOCK],
+    inject: [REVIEWS, MEMORY_PROPOSAL_SETS, MEMORIES, TRANSACTION, CLOCK],
     useFactory: (
       reviews: ReviewsPort,
-      drafts: MemoryDraftRepository,
+      sets: MemoryProposalSetRepository,
       memories: MemoryRepository,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new MemoryReactions(reviews, drafts, memories, transaction, clock),
+    ) => new MemoryReactions(reviews, sets, memories, transaction, clock),
   },
   ...bindCommandHandler(ApproveMemoriesCommand, ApproveMemoriesHandler, [
     MemoryAccess,
-    MEMORY_DRAFTS,
+    MEMORY_PROPOSAL_SETS,
     MEMORIES,
     TRANSACTION,
     CLOCK,
   ]),
   ...bindCommandHandler(RejectMemoryCommand, RejectMemoryHandler, [
     MemoryAccess,
-    MEMORY_DRAFTS,
+    MEMORY_PROPOSAL_SETS,
     TRANSACTION,
     CLOCK,
   ]),
   ...bindCommandHandler(RestoreMemoryCommand, RestoreMemoryHandler, [
     MemoryAccess,
-    MEMORY_DRAFTS,
+    MEMORY_PROPOSAL_SETS,
     TRANSACTION,
   ]),
   {
@@ -513,7 +532,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MemoryAccess,
     WORK,
     MEMORIES,
-    MEMORY_DRAFTS,
+    MEMORY_PROPOSAL_SETS,
     MEMORY_USES,
     MemoryReviews,
     TeamMemoryViews,
@@ -526,7 +545,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadMemoryReviewQuery, ReadMemoryReviewHandler, [
     MemoryAccess,
-    MEMORY_DRAFTS,
+    MEMORY_PROPOSAL_SETS,
     MemoryReviews,
   ]),
   {
@@ -561,40 +580,14 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ForgetCommand, ForgetHandler, [RunProposing, MEMORIES]),
   ...bindQueryHandler(ReadProposedMemoryQuery, ReadProposedMemoryHandler, [
     RunnerMemoryLoader,
-    MEMORY_DRAFTS,
+    MEMORY_PROPOSAL_SETS,
     MemoryReviews,
   ]),
-  { provide: REJECTED_MEMORIES, useClass: DrizzleRejectedMemories },
   {
-    provide: MEMORY_DRAFTER,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) =>
-      new ChatCompletionsMemoryDrafter(calls),
-  },
-  {
-    provide: RequestMemories,
-    inject: [
-      WORK,
-      MEMORY_DRAFTS,
-      MEMORY_DRAFTER,
-      TRANSACTION,
-      ID_GENERATOR,
-      CLOCK,
-    ],
-    useFactory: (
-      work: WorkPort,
-      drafts: MemoryDraftRepository,
-      drafter: MemoryDrafterPort,
-      transaction: TransactionPort,
-      ids: IdGeneratorPort,
-      clock: ClockPort,
-    ) => new RequestMemories(work, drafts, drafter, transaction, ids, clock),
-  },
-  {
-    provide: DeleteMemoryDraft,
-    inject: [MEMORY_DRAFTS],
-    useFactory: (drafts: MemoryDraftRepository) =>
-      new DeleteMemoryDraft(drafts),
+    provide: DeleteMemoryProposalSet,
+    inject: [MEMORY_PROPOSAL_SETS],
+    useFactory: (sets: MemoryProposalSetRepository) =>
+      new DeleteMemoryProposalSet(sets),
   },
   {
     provide: DeleteTeamMemories,
@@ -607,58 +600,10 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ) => new DeleteTeamMemories(memories, transaction, upkeeps, schedules),
   },
   {
-    provide: WorkMemoryDrafts,
-    inject: [
-      MEMORY_DRAFTS,
-      WORK,
-      ApplicableMemories,
-      REJECTED_MEMORIES,
-      MEMORY_USES,
-      MEMORY_DRAFTER,
-      ID_GENERATOR,
-      CLOCK,
-      TRANSACTION,
-      LOGGER,
-      ERROR_REPORTS,
-      TELEMETRY,
-    ],
-    useFactory: (
-      drafts: MemoryDraftRepository,
-      work: WorkPort,
-      applicable: ApplicableMemories,
-      rejections: RejectedMemoriesPort,
-      uses: MemoryUsesPort,
-      drafter: MemoryDrafterPort,
-      ids: IdGeneratorPort,
-      clock: ClockPort,
-      transaction: TransactionPort,
-      logger: LoggerPort,
-      reports: ErrorReportsPort,
-      telemetry: TelemetryPort,
-    ) =>
-      new WorkMemoryDrafts(
-        drafts,
-        work,
-        applicable,
-        rejections,
-        uses,
-        drafter,
-        ids,
-        clock,
-        transaction,
-        logger,
-        reports,
-        telemetry,
-      ),
-  },
-  {
     provide: PendingJobWorker,
-    inject: [WorkMemoryDrafts, MemoryUpkeepSweeps, LOGGER],
-    useFactory: (
-      drafts: WorkMemoryDrafts,
-      sweeps: MemoryUpkeepSweeps,
-      logger: LoggerPort,
-    ) => new PendingJobWorker([drafts, sweeps], logger),
+    inject: [MemoryUpkeepSweeps, LOGGER],
+    useFactory: (sweeps: MemoryUpkeepSweeps, logger: LoggerPort) =>
+      new PendingJobWorker([sweeps], logger),
   },
   {
     provide: MEMORY_EVENTS,
@@ -666,34 +611,34 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       PayloadTypes,
       IntegrationEventMappers,
       EventSubscribers,
-      RequestMemories,
-      DeleteMemoryDraft,
+      DeleteMemoryProposalSet,
       DeleteTeamMemories,
       MemoryReactions,
       RecordRunMemoryUses,
       UpkeepReactions,
+      WakeUpkeepSweeps,
     ],
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
-      requesting: RequestMemories,
-      deleting: DeleteMemoryDraft,
+      deleting: DeleteMemoryProposalSet,
       deletingMemories: DeleteTeamMemories,
       reactions: MemoryReactions,
       recording: RecordRunMemoryUses,
       upkeep: UpkeepReactions,
+      waking: WakeUpkeepSweeps,
     ) => {
       types.register('memory', MEMORY_PAYLOAD_TYPES);
       mappers.register(MEMORY_EVENT_MAPPERS);
       subscribers.register(
         memorySubscribers(
-          requesting,
           deleting,
           deletingMemories,
           reactions,
           recording,
           upkeep,
+          waking,
         ),
       );
       return true;

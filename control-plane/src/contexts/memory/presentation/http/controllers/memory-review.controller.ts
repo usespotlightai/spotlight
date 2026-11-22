@@ -86,7 +86,7 @@ export class MemoryReviewController {
   })
   @ApiNotFoundResponse({ description: 'No such memory for this caller' })
   @ApiConflictResponse({
-    description: 'It was decided or redrafted meanwhile',
+    description: 'It was decided meanwhile',
   })
   async approve(
     @Param('teamId') teamId: string,
@@ -119,7 +119,7 @@ export class MemoryReviewController {
   @ApiOkResponse({ type: MemoryReviewResponseDto })
   @ApiNotFoundResponse({ description: 'No such memory for this caller' })
   @ApiConflictResponse({
-    description: 'It was decided or redrafted meanwhile',
+    description: 'It was decided meanwhile',
   })
   async reject(
     @Param('teamId') teamId: string,

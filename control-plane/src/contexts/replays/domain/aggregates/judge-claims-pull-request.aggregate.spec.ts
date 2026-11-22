@@ -76,6 +76,14 @@ describe('JudgeClaimsPullRequest', () => {
     );
   });
 
+  it('waits without spending the try it leased', () => {
+    const waiting = requested().leaseJob(NOW).waitJob(LATER);
+
+    expect(waiting.job?.attempts).toBe(0);
+    expect(waiting.job?.waitingSince).toEqual(LATER);
+    expect(waiting.updatedAt).toEqual(LATER);
+  });
+
   it('waits before the next try, and runs out of tries', () => {
     let pullRequest = requested();
 

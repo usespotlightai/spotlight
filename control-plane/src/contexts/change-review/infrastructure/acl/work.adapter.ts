@@ -1,10 +1,8 @@
 import type {
   ReviewedTask,
   RunForReview,
-  RunReasoning,
   WorkPort,
 } from '@change-review/application/ports/work.port';
-import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -68,21 +66,6 @@ export class Work implements WorkPort {
 
   async repositoriesOfRun(runId: RunId): Promise<readonly Repository[]> {
     return (await this.work.contextOfRun(runId))?.repositories ?? [];
-  }
-
-  async reasoningThrough(turn: AgentTurn): Promise<RunReasoning | null> {
-    const reasoning = await this.work.reasoning(turn.runId, turn.attempt);
-
-    return (
-      reasoning && {
-        steps: reasoning.steps.map((step) => ({
-          index: step.index,
-          kind: step.kind,
-          text: step.text,
-        })),
-        changed: [...reasoning.changed],
-      }
-    );
   }
 
   async task(taskId: TaskId): Promise<ReviewedTask | null> {

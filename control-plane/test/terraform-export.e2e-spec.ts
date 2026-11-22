@@ -33,8 +33,6 @@ const VALUE = 'lin_api_exported_never_7c1f';
 
 const POOL_TOKEN = `pool${randomUUID().replaceAll('-', '')}`;
 
-const INFERENCE_KEY = `sk-${randomUUID().replaceAll('-', '')}`;
-
 const EGRESS_TOKEN = `egress${randomUUID().replaceAll('-', '')}`;
 
 const PROVISION_SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`;
@@ -242,16 +240,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
         `workspaces/${workspaceId}/workspace-runners`,
         { trusts: ['production'], pools: ['ephemeral'] },
       ],
-      [
-        'inference-endpoint',
-        `workspaces/${workspaceId}/inference-endpoints`,
-        {
-          baseUrl: 'http://127.0.0.1:4000/v1',
-          model: 'openai/gpt-5-mini',
-          apiKeyWo: INFERENCE_KEY,
-          apiKeyWoVersion: 1,
-        },
-      ],
       ['skill', `teams/${workspaceId}/skills`, GRAFANA],
       ['integration', `teams/${workspaceId}/integrations`, LINEAR],
       ['hook', `teams/${workspaceId}/hooks`, AUDIT],
@@ -284,9 +272,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
     await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
-    await db
-      .delete(schema.inferenceEndpoint)
-      .where(eq(schema.inferenceEndpoint.workspaceId, workspaceId));
     await db
       .delete(schema.workspaceToken)
       .where(eq(schema.workspaceToken.workspaceId, workspaceId));
@@ -321,7 +306,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
         'workspace.tf',
         'secrets.tf',
         'runners.tf',
-        'inference.tf',
         'team-team.tf',
         'line-team-delivery.tf',
         'skills-team.tf',
@@ -344,11 +328,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['spotlight_runner_pool', 'ephemeral', `${workspaceId}/ephemeral`],
       [
         'spotlight_workspace_runners',
-        workspaceId,
-        `${workspaceId}/${workspaceId}`,
-      ],
-      [
-        'spotlight_inference_endpoint',
         workspaceId,
         `${workspaceId}/${workspaceId}`,
       ],
@@ -441,14 +420,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
     for (const file of files) {
       expect(file.content).not.toContain(VALUE);
       expect(file.content).not.toContain(POOL_TOKEN);
-      expect(file.content).not.toContain(INFERENCE_KEY);
     }
-    expect(
-      blockOf(main, `resource "spotlight_inference_endpoint" "${workspaceId}"`),
-    ).toContain(
-      '  api_key_wo         = var.inference_api_key\n  api_key_wo_version = 1\n',
-    );
-    expect(variables).toContain('variable "inference_api_key" {');
     expect(main).toContain(
       '  value_wo         = var.secret_linear_api_key\n  value_wo_version = 1\n',
     );
@@ -584,11 +556,6 @@ describe('a workspace exported as Terraform (e2e)', () => {
         'workspace-runners',
         made['workspace-runners'],
         'spotlight_workspace_runners',
-      ],
-      [
-        'inference-endpoints',
-        made['inference-endpoint'],
-        'spotlight_inference_endpoint',
       ],
     ]) {
       const answered = await as(seat.member).get(
@@ -728,15 +695,6 @@ const bodyOf = (
       };
     case 'workspace-runners':
       return { trusts: resource.trusts, pools: resource.pools };
-    case 'inference-endpoint':
-      return {
-        baseUrl: resource.baseUrl,
-        model: resource.model,
-        ...(resource.apiKeySet ? { apiKeyWo: INFERENCE_KEY } : {}),
-        ...(resource.apiKeyVersion === null
-          ? {}
-          : { apiKeyWoVersion: resource.apiKeyVersion }),
-      };
     case 'line':
     case 'integration':
       return resource.definition;
@@ -783,7 +741,6 @@ const COLLECTIONS: Readonly<
   egress: 'egresses',
   'runner-pool': 'runner-pools',
   'workspace-runners': 'workspace-runners',
-  'inference-endpoint': 'inference-endpoints',
   team: 'teams',
   skill: 'skills',
   integration: 'integrations',
@@ -838,9 +795,6 @@ describe('the configuration the export spec renders (e2e)', () => {
     await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
-    await db
-      .delete(schema.inferenceEndpoint)
-      .where(eq(schema.inferenceEndpoint.workspaceId, workspaceId));
     await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
@@ -912,10 +866,7 @@ describe('the configuration the export spec renders (e2e)', () => {
               };
             }
 
-            if (
-              each.kind === 'workspace-runners' ||
-              each.kind === 'inference-endpoint'
-            ) {
+            if (each.kind === 'workspace-runners') {
               return { ...each, address: workspaceId };
             }
 

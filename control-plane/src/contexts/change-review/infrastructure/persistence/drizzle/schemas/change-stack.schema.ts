@@ -9,6 +9,7 @@ import type {
   StoredFacts,
   StoredFile,
   StoredRemovedLayer,
+  StoredStackProblem,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
@@ -80,6 +81,11 @@ export const changeStack = pgTable(
       .notNull(),
     jobAttempts: integer('job_attempts').notNull(),
     jobDueAt: timestamptz('job_due_at'),
+    waitingSince: timestamptz('waiting_since'),
+    draftProblems: jsonb('draft_problems')
+      .$type<StoredStackProblem[]>()
+      .notNull()
+      .default([]),
     version: integer('version').notNull(),
   },
   (table) => [

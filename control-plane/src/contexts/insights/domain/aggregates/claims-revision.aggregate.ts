@@ -11,6 +11,7 @@ import {
   type RevisionTrigger,
 } from '@insights/domain/services/revision-trigger';
 import type { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
+import { ClaimsRevisionRound } from '@insights/domain/value-objects/claims-revision-round.vo';
 import {
   type RevisionEndReason,
   RevisionOutcome,
@@ -37,6 +38,12 @@ export interface RevisedStation {
   readonly stationId: StationId;
 }
 
+/** The judge calls the round of `attempt` reserved before it ordered their sessions. */
+export interface JudgeCallReservation {
+  readonly attempt: number;
+  readonly judgeCalls: number;
+}
+
 interface ClaimsRevisionFields {
   readonly id: ClaimsRevisionId;
   readonly station: RevisedStation;
@@ -44,7 +51,9 @@ interface ClaimsRevisionFields {
   readonly trigger: RevisionTrigger;
   readonly startedAt: Date;
   readonly job: PendingJob | null;
+  /** Judge calls spent by earlier rounds and reserved by the latest one. */
   readonly judgeCalls: number;
+  readonly reservation: JudgeCallReservation | null;
   readonly pick: PickedCandidate | null;
   readonly pickedAt: Date | null;
   readonly outcome: RevisionOutcome | null;
@@ -97,6 +106,7 @@ export class ClaimsRevision
       startedAt: input.now,
       job: PendingJob.fresh(),
       judgeCalls: 0,
+      reservation: null,
       pick: null,
       pickedAt: null,
       outcome: null,
@@ -127,11 +137,15 @@ export class ClaimsRevision
       phases !== 1 ||
       (fields.outcome === null) !== (fields.endedAt === null) ||
       (fields.pick === null) !== (fields.pickedAt === null) ||
-      (fields.job !== null && fields.pick !== null)
+      (fields.job !== null && fields.pick !== null) ||
+      (fields.reservation !== null &&
+        (fields.reservation.attempt < 1 ||
+          fields.reservation.judgeCalls < 0 ||
+          fields.reservation.judgeCalls > fields.judgeCalls))
     ) {
       throw new InconsistentStateError(
         'claims revision',
-        'is running, waits for its pull request with a picked candidate, or ended with an outcome and a time',
+        'is running, waits for its pull request with a picked candidate, or ended with an outcome and a time, and counts what a round reserved among its judge calls',
       );
     }
 
@@ -164,6 +178,10 @@ export class ClaimsRevision
 
   get judgeCalls(): number {
     return this.fields.judgeCalls;
+  }
+
+  get reservation(): JudgeCallReservation | null {
+    return this.fields.reservation;
   }
 
   get pick(): PickedCandidate | null {
@@ -221,26 +239,95 @@ export class ClaimsRevision
     return job ? this.with({ job: job.scheduleRetry(now) }) : this;
   }
 
-  deadLetter(now: Date): ClaimsRevision {
-    return this.ended({ reason: 'interrupted', now });
+  waitJob(now: Date): ClaimsRevision {
+    return this.job ? this.with({ job: this.job.wait(now) }) : this;
   }
 
-  spending(judgeCalls: number): ClaimsRevision {
+  /** The round the leased job runs. */
+  get round(): ClaimsRevisionRound {
+    if (!this.fields.job) {
+      throw new InvalidClaimsRevisionError('has no round once it has ended');
+    }
+
+    return this.roundOf(this.fields.job.attempts);
+  }
+
+  /**
+   * Makes the job due now when a session it waits on has settled. A waiting job handed its try back, so it waits
+   * on the round of its next try; a job already due, or a session of any other round, is left as it is.
+   */
+  wake(round: ClaimsRevisionRound, now: Date): ClaimsRevision {
+    const { job } = this.fields;
+
+    if (
+      !job ||
+      job.isDue(now) ||
+      !round.equals(this.roundOf(job.attempts + 1))
+    ) {
+      return this;
+    }
+
+    const woken = job.wake(now);
+
+    return woken === job ? this : this.with({ job: woken });
+  }
+
+  /** The judge calls the round may make: those left, and those it reserved already. */
+  judgeCallsLeftIn(round: ClaimsRevisionRound): number {
+    return this.judgeCallsLeft + this.reservedIn(round);
+  }
+
+  /**
+   * Reserves the round's judge calls before it orders their sessions, so the ceiling holds before anything is
+   * spent. A round asked again reserves only the calls it has not reserved yet.
+   */
+  reserveJudgeCalls(
+    round: ClaimsRevisionRound,
+    judgeCalls: number,
+  ): ClaimsRevision {
     if (!this.fields.job) {
       throw new InvalidClaimsRevisionError('has already ended');
+    }
+    if (!round.equals(this.round)) {
+      throw new InvalidClaimsRevisionError(
+        'reserves judge calls only for the round it runs',
+      );
     }
     if (!Number.isInteger(judgeCalls) || judgeCalls < 0) {
       throw new InvalidClaimsRevisionError(
         'counts judge calls in whole numbers',
       );
     }
-    if (judgeCalls > this.judgeCallsLeft) {
+
+    const reserved = this.reservedIn(round);
+
+    if (judgeCalls <= reserved) {
+      return this;
+    }
+    if (judgeCalls > this.judgeCallsLeftIn(round)) {
       throw new InvalidClaimsRevisionError(
         `makes at most ${MAX_REVISION_JUDGE_CALLS} judge calls`,
       );
     }
 
-    return this.with({ judgeCalls: this.fields.judgeCalls + judgeCalls });
+    return this.with({
+      judgeCalls: this.fields.judgeCalls - reserved + judgeCalls,
+      reservation: { attempt: round.attempt, judgeCalls },
+    });
+  }
+
+  /** A drafting session that failed is drafted again in a new round, until the job runs out of tries. */
+  draftingFailed(now: Date): ClaimsRevision {
+    return this.scheduleRetry(now);
+  }
+
+  /** Ends the revision when its sessions have nowhere to run: no harness, or a run of another workspace. */
+  unavailable(now: Date): ClaimsRevision {
+    return this.ended({ reason: 'unavailable', now });
+  }
+
+  deadLetter(now: Date): ClaimsRevision {
+    return this.ended({ reason: 'interrupted', now });
   }
 
   picked(input: { pick: PickedCandidate; now: Date }): ClaimsRevision {
@@ -352,6 +439,18 @@ export class ClaimsRevision
     );
 
     return next;
+  }
+
+  private roundOf(attempt: number): ClaimsRevisionRound {
+    return ClaimsRevisionRound.of({ revisionId: this.fields.id, attempt });
+  }
+
+  private reservedIn(round: ClaimsRevisionRound): number {
+    const { reservation } = this.fields;
+
+    return reservation && round.equals(this.roundOf(reservation.attempt))
+      ? reservation.judgeCalls
+      : 0;
   }
 
   private with(change: Partial<ClaimsRevisionFields>): ClaimsRevision {

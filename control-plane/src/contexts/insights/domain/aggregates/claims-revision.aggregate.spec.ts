@@ -12,6 +12,7 @@ import {
   startedRevision,
 } from '@insights/judge-repair.fake-spec';
 import { rubricOf } from '@insights/judging.fake-spec';
+import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { describe, expect, it } from 'vitest';
 
 const AGREEMENT = {
@@ -174,35 +175,97 @@ describe('ClaimsRevision', () => {
     expect(ended.outcome?.reason).toBe('too-few-labelled-runs');
   });
 
-  it('counts the judge calls it spends across attempts', () => {
-    const spent = startedRevision().spending(100).spending(40);
+  it('reserves the judge calls of each round, and counts them across rounds', () => {
+    const leased = startedRevision().leaseJob(later(1));
+    const first = leased.reserveJudgeCalls(leased.round, 100);
+    const retried = first.scheduleRetry(later(2)).leaseJob(later(3_600_000));
+    const second = retried.reserveJudgeCalls(retried.round, 40);
 
-    expect(spent.judgeCalls).toBe(140);
-    expect(spent.judgeCallsLeft).toBe(MAX_REVISION_JUDGE_CALLS - 140);
-    expect(spent.ended({ reason: 'no-gain', now: later(1) }).judgeCalls).toBe(
+    expect(first.reservation).toEqual({ attempt: 1, judgeCalls: 100 });
+    expect(second.reservation).toEqual({ attempt: 2, judgeCalls: 40 });
+    expect(second.judgeCalls).toBe(140);
+    expect(second.judgeCallsLeft).toBe(MAX_REVISION_JUDGE_CALLS - 140);
+    expect(second.ended({ reason: 'no-gain', now: later(4) }).judgeCalls).toBe(
       140,
     );
   });
 
-  it('makes no more judge calls than the ceiling, however often it retries', () => {
-    const spent = startedRevision()
-      .spending(100)
-      .scheduleRetry(later(1))
-      .spending(50);
+  it('reserves nothing again for a round asked again after it waited, and leaves it the calls it reserved', () => {
+    const leased = startedRevision().leaseJob(later(1));
+    const reserved = leased.reserveJudgeCalls(leased.round, 100);
+    const again = reserved.waitJob(later(2)).leaseJob(later(2 + WAIT_MS));
 
-    expect(spent.judgeCallsLeft).toBe(0);
-    expect(() => spent.spending(1)).toThrow(InvalidClaimsRevisionError);
-    expect(() => startedRevision().spending(-1)).toThrow(
+    expect(again.round.equals(leased.round)).toBe(true);
+    expect(again.reserveJudgeCalls(again.round, 100)).toBe(again);
+    expect(again.judgeCallsLeftIn(again.round)).toBe(MAX_REVISION_JUDGE_CALLS);
+    expect(again.reserveJudgeCalls(again.round, 120).judgeCalls).toBe(120);
+  });
+
+  it('makes no more judge calls than the ceiling, however often it retries', () => {
+    const leased = startedRevision().leaseJob(later(1));
+    const spent = leased.reserveJudgeCalls(leased.round, 100);
+    const retried = spent.scheduleRetry(later(2)).leaseJob(later(3_600_000));
+    const full = retried.reserveJudgeCalls(retried.round, 50);
+
+    expect(full.judgeCallsLeft).toBe(0);
+    expect(() => full.reserveJudgeCalls(full.round, 51)).toThrow(
+      InvalidClaimsRevisionError,
+    );
+    expect(() => leased.reserveJudgeCalls(leased.round, -1)).toThrow(
+      InvalidClaimsRevisionError,
+    );
+    expect(() => retried.reserveJudgeCalls(leased.round, 1)).toThrow(
       InvalidClaimsRevisionError,
     );
   });
 
-  it('spends no judge calls once it ended', () => {
+  it('waits for its assist sessions without spending the attempt it leased', () => {
+    const waiting = startedRevision().leaseJob(later(1)).waitJob(later(2));
+
+    expect(waiting.job?.attempts).toBe(0);
+    expect(waiting.job?.nextAttemptAt).toEqual(
+      new Date(later(2).getTime() + WAIT_MS),
+    );
+    expect(waiting.job?.waitingSince).toEqual(later(2));
+    expect(waiting.judgeCalls).toBe(0);
+  });
+
+  it('reserves no judge calls once it ended', () => {
+    const leased = startedRevision().leaseJob(later(1));
+
     expect(() =>
-      startedRevision()
+      leased
         .ended({ reason: 'no-gain', now: later(1) })
-        .spending(1),
+        .reserveJudgeCalls(leased.round, 1),
     ).toThrow(InvalidClaimsRevisionError);
+  });
+
+  it('wakes when a session of the round it waits on settles, and only then', () => {
+    const leased = startedRevision().leaseJob(later(1));
+    const waiting = leased.waitJob(later(2));
+    const woken = waiting.wake(leased.round, later(3));
+
+    expect(woken.job?.nextAttemptAt).toEqual(later(3));
+    expect(woken.wake(leased.round, later(4))).toBe(woken);
+    expect(leased.wake(leased.round, later(3))).toBe(leased);
+    expect(
+      waiting.wake(
+        waiting
+          .leaseJob(later(2 + WAIT_MS))
+          .scheduleRetry(later(3))
+          .leaseJob(later(3_600_000)).round,
+        later(3),
+      ),
+    ).toBe(waiting);
+  });
+
+  it('ends as unavailable when its sessions have nowhere to run, and drafts again after a failed draft', () => {
+    const leased = startedRevision().leaseJob(later(1));
+
+    expect(leased.unavailable(later(2)).outcome?.reason).toBe('unavailable');
+    expect(
+      leased.draftingFailed(later(2)).job?.nextAttemptAt?.getTime(),
+    ).toBeGreaterThan(later(2).getTime());
   });
 
   it('ends as interrupted when its job keeps failing', () => {

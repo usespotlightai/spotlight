@@ -164,6 +164,12 @@ export class JudgeClaimsPullRequest
       : this;
   }
 
+  waitJob(now: Date): JudgeClaimsPullRequest {
+    return this.job
+      ? this.with({ job: this.job.wait(now), updatedAt: now })
+      : this;
+  }
+
   deadLetter(now: Date): JudgeClaimsPullRequest {
     return this.failed(OUT_OF_TRIES, now);
   }

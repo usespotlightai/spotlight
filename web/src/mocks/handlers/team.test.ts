@@ -139,7 +139,6 @@ describe('the mock team memories', () => {
       throwOnError: true,
     });
 
-    expect(data.proposedBy).toBe('agent');
     expect(data.state).toBe('proposed');
   });
 });

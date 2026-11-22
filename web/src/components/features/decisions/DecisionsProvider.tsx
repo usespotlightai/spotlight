@@ -2,6 +2,7 @@ import { type ReactNode, useMemo } from 'react';
 
 import { useDisputeDecision } from '@/hooks/api/useDisputeDecision';
 import { useTaskDecisions } from '@/hooks/api/useTaskDecisions';
+import type { Decision } from '@/lib/decision';
 import { DecisionsContext } from '@/lib/decisions-context';
 import { runPath } from '@/lib/run';
 
@@ -27,9 +28,8 @@ export function DecisionsProvider({
       found && taskId
         ? {
             found,
-            reasoningAt: found.runId
-              ? runPath(slug, teamId, found.runId)
-              : null,
+            reasoningAt: (decision: Decision) =>
+              runPath(slug, teamId, decision.runId),
             disputing: {
               pending: isPending,
               dispute: (decisionId: string, path: string, reason: string) =>

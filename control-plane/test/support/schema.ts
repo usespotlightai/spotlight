@@ -1,3 +1,4 @@
+export * from '@assist/infrastructure/persistence/drizzle/schemas/assist-session.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/question-answer.schema';
@@ -17,7 +18,6 @@ export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 export * from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
-export * from '@inference/infrastructure/persistence/drizzle/schemas/inference.schema';
 export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 export * from '@notifications/infrastructure/persistence/drizzle/schemas/arrival-ledger.schema';
 export * from '@notifications/infrastructure/persistence/drizzle/schemas/push-subscription.schema';

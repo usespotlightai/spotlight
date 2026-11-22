@@ -31,7 +31,7 @@ export class MemoryProvenance {
     steps: readonly number[];
     notes: readonly number[];
   }): MemoryProvenance {
-    const steps = cited(input.steps, 'steps of the run it was drafted from');
+    const steps = cited(input.steps, 'steps of the run that proposed it');
     const notes = cited(input.notes, 'notes of its task');
 
     if (steps.length === 0 && notes.length === 0) {

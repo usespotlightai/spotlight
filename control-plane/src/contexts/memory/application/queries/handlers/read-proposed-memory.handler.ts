@@ -3,7 +3,7 @@ import type { ReadProposedMemoryQuery } from '@memory/application/queries/read-p
 import type { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -15,7 +15,7 @@ export class ReadProposedMemoryHandler implements QueryHandlerPort<
 > {
   constructor(
     private readonly loader: RunnerMemoryLoader,
-    private readonly drafts: MemoryDraftRepository,
+    private readonly sets: MemoryProposalSetRepository,
     private readonly reviews: MemoryReviews,
   ) {}
 
@@ -25,9 +25,9 @@ export class ReadProposedMemoryHandler implements QueryHandlerPort<
         RunId.of(query.runId),
         RunnerId.of(query.runnerId),
       );
-      const draft = run.taskId ? await this.drafts.forTask(run.taskId) : null;
-      const shown = draft
-        ? (await this.reviews.of(draft, run.id)).memories.find(
+      const set = run.taskId ? await this.sets.forTask(run.taskId) : null;
+      const shown = set
+        ? (await this.reviews.of(set, run.id)).memories.find(
             (each) => each.id === query.memoryId,
           )
         : undefined;

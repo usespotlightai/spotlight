@@ -23,15 +23,12 @@ const configured = async () => {
     }),
   );
   await secrets.save(
-    Secret.create(
-      definition({ name: 'SPOTLIGHT_INFERENCE_API_KEY', bindings: [] }),
-      {
-        id: SecretId.of('secret_2'),
-        workspaceId: WORKSPACE,
-        by: BY,
-        at,
-      },
-    ),
+    Secret.create(definition({ name: 'SPOTLIGHT_GITHUB_KEY', bindings: [] }), {
+      id: SecretId.of('secret_2'),
+      workspaceId: WORKSPACE,
+      by: BY,
+      at,
+    }),
   );
 
   return new SecretConfiguration(secrets);

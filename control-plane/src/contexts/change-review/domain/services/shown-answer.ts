@@ -1,3 +1,4 @@
+import type { AnswerGrading } from '@change-review/domain/value-objects/answer-grading.vo';
 import type { AnswerVerdict } from '@change-review/domain/value-objects/answer-verdict.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
@@ -20,14 +21,16 @@ export interface GivenAnswer extends AnswerScope {
   readonly asked: string;
   readonly expected: string;
   readonly reply: string | null;
-  readonly verdict: AnswerVerdict;
+  readonly grading: AnswerGrading;
+  readonly verdict: AnswerVerdict | null;
   readonly feedback: string | null;
   readonly answeredAt: Date;
 }
 
 export interface ShownAnswer {
   readonly reply: string | null;
-  readonly verdict: AnswerVerdict;
+  readonly grading: AnswerGrading;
+  readonly verdict: AnswerVerdict | null;
   readonly feedback: string | null;
   readonly expected: string | null;
   readonly outdated: boolean;
@@ -72,6 +75,7 @@ export const shownAnswerFor = (
   if (current) {
     return {
       reply: current.reply,
+      grading: current.grading,
       verdict: current.verdict,
       feedback: current.feedback,
       expected: current.expected,
@@ -84,6 +88,7 @@ export const shownAnswerFor = (
   return earlier
     ? {
         reply: earlier.reply,
+        grading: earlier.grading,
         verdict: earlier.verdict,
         feedback: null,
         expected: null,

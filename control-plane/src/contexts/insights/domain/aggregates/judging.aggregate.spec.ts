@@ -8,6 +8,7 @@ import {
   rubricOf,
 } from '@insights/judging.fake-spec';
 import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
+import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -177,6 +178,19 @@ describe('Judging', () => {
     expect(judging.deadLetter(NOW).failure?.code).toBe('interrupted');
   });
 
+  it('waits for its assist session without spending the attempt it leased', () => {
+    const at = new Date(NOW.getTime() + 15_000);
+    const waiting = oneClaim().leaseJob(NOW).waitJob(at);
+
+    expect(waiting.hasPendingJob).toBe(true);
+    expect(waiting.job?.attempts).toBe(0);
+    expect(waiting.job?.nextAttemptAt).toEqual(
+      new Date(at.getTime() + WAIT_MS),
+    );
+    expect(waiting.job?.waitingSince).toEqual(at);
+    expect(judged(oneClaim(), true).waitJob(at).hasPendingJob).toBe(false);
+  });
+
   it('ignores a verdict once it is done', () => {
     const done = judged(oneClaim(), true);
     done.pullEvents();
@@ -209,5 +223,48 @@ describe('Judging', () => {
 
     expect(queued.rejudged(rubricOf(NEXT_RUBRIC_VERSION), NOW)).toBe(queued);
     expect(done.rejudged(done.rubric, NOW)).toBe(done);
+  });
+
+  it('judges a run again on a new rubric in a new round', () => {
+    const first = oneClaim().leaseJob(NOW);
+    const done = judged(oneClaim(), true);
+    const next = rubricOf(NEXT_RUBRIC_VERSION, ['It retries twice.']);
+    const again = done.rejudged(next, NOW).leaseJob(NOW);
+
+    expect(first.round.attempt).toBe(1);
+    expect(again.round.attempt).toBe(1);
+    expect(again.round.rubricVersion).toBe(NEXT_RUBRIC_VERSION);
+    expect(again.round.equals(first.round)).toBe(false);
+    expect(() => done.round).toThrow(InvalidJudgingError);
+  });
+
+  it('tries again in a new round, and keeps its round while it waits', () => {
+    const leased = oneClaim().leaseJob(NOW);
+    const resumed = leased
+      .waitJob(NOW)
+      .leaseJob(new Date(NOW.getTime() + WAIT_MS));
+    const retried = leased
+      .failed(JudgingFailure.of('request-failed', NOW))
+      .leaseJob(new Date(NOW.getTime() + 3_600_000));
+
+    expect(resumed.round.equals(leased.round)).toBe(true);
+    expect(retried.round.attempt).toBe(2);
+  });
+
+  it('wakes when the session of the round it waits on settles, and only then', () => {
+    const leased = oneClaim().leaseJob(NOW);
+    const waiting = leased.waitJob(NOW);
+    const at = new Date(NOW.getTime() + 1_000);
+    const woken = waiting.wake(leased.round, at);
+    const otherRound = oneClaim()
+      .leaseJob(NOW)
+      .failed(JudgingFailure.of('request-failed', NOW))
+      .leaseJob(new Date(NOW.getTime() + 3_600_000)).round;
+
+    expect(woken.job?.nextAttemptAt).toEqual(at);
+    expect(woken.job?.attempts).toBe(0);
+    expect(woken.wake(leased.round, at)).toBe(woken);
+    expect(waiting.wake(otherRound, at)).toBe(waiting);
+    expect(leased.wake(leased.round, at)).toBe(leased);
   });
 });

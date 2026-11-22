@@ -9,10 +9,9 @@ import type {
   MergedSought,
 } from '@change-review/application/ports/decision-reader.port';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
-import {
-  type DecisionSetRow,
-  generationRunOf,
-  type MergeRow,
+import type {
+  DecisionSetRow,
+  MergeRow,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.rows';
 import {
   decision,
@@ -78,6 +77,7 @@ const toDecision = (
   why: row.why,
   alternatives: row.alternatives,
   paths: row.paths,
+  runId: row.runId,
   journalSteps: row.journalSteps,
   disputes: disputes
     .filter((dispute) => dispute.decisionId === row.id)
@@ -126,8 +126,6 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
       .orderBy(asc(decisionSetMerge.mergedAt));
 
     return {
-      runId: set.sourceRunId,
-      generating: generationRunOf(set) !== null,
       status: set.status,
       merges: merges.map(toMerge),
       decisions: decisionsIn(set, decisions, disputes),
@@ -175,7 +173,6 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
         ? [
             {
               taskId: set.taskId,
-              runId: set.sourceRunId,
               repository: merge.repository,
               commit: merge.commit,
               mergedAt: merge.mergedAt,

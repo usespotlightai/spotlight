@@ -29,6 +29,7 @@ import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
 import { PairReason } from '@insights/domain/value-objects/pair-reason.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
@@ -52,6 +53,7 @@ import { Tombstones } from '@insights/domain/value-objects/tombstones.vo';
 import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
 import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 export const INSIGHTS_PAYLOAD_TYPES = [
+  JudgingRound,
   TraceRange,
   FactOwner,
   Tombstones,

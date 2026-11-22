@@ -130,7 +130,7 @@ describe('SetSecretValueHandler', () => {
     await secrets.save(
       Secret.create(
         definition({
-          name: 'SPOTLIGHT_INFERENCE_API_KEY',
+          name: 'SPOTLIGHT_GITHUB_KEY',
           value: null,
           valueVersion: null,
         }),
@@ -143,8 +143,8 @@ describe('SetSecretValueHandler', () => {
       ),
     );
 
-    expect(await set(' SPOTLIGHT_INFERENCE_API_KEY ', 'x')).toBeNull();
-    expect(await storedValue('SPOTLIGHT_INFERENCE_API_KEY')).toBeNull();
+    expect(await set(' SPOTLIGHT_GITHUB_KEY ', 'x')).toBeNull();
+    expect(await storedValue('SPOTLIGHT_GITHUB_KEY')).toBeNull();
   });
 
   it('refuses a value when the secret changed while it was being set', async () => {

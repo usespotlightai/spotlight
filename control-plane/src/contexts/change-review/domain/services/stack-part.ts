@@ -11,7 +11,7 @@ import {
 } from '@change-review/domain/value-objects/diff.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
-export interface StackPart {
+interface StackPart {
   readonly diff: Diff;
   readonly facts: DiffFacts;
 }
@@ -87,9 +87,3 @@ export const stackPartsOf = (diff: Diff, facts: DiffFacts): StackParts => {
     };
   };
 };
-
-export const stackPartOf = (
-  diff: Diff,
-  facts: DiffFacts,
-  hunks: readonly HunkId[],
-): StackPart => stackPartsOf(diff, facts)(hunks);

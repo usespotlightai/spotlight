@@ -60,6 +60,7 @@ const toJudging = (row: JudgingRow): Judging =>
       ? PendingJob.rehydrate({
           attempts: row.jobAttempts,
           nextAttemptAt: row.jobDueAt,
+          waitingSince: row.waitingSince,
         })
       : null,
     judgedAt: row.judgedAt,
@@ -76,6 +77,7 @@ const columnsOf = (stored: Judging) => ({
   pending: stored.job !== null,
   jobAttempts: stored.job?.attempts ?? 0,
   jobDueAt: stored.job?.nextAttemptAt ?? null,
+  waitingSince: stored.job?.waitingSince ?? null,
   judgedAt: stored.judgedAt,
   failure: stored.failure?.code ?? null,
   failedAt: stored.failure?.at ?? null,

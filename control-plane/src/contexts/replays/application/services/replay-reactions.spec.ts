@@ -5,7 +5,6 @@ import { DispatchReplayRuns } from '@replays/application/services/dispatch-repla
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
 import {
   changeJudgingRequestsFor,
-  FakeChangeJudge,
   InMemoryChangeJudgings,
   judgedOnce,
 } from '@replays/application/services/judgings.fake-spec';
@@ -790,7 +789,6 @@ describe('scoring a replayed task', () => {
   const JUDGED = 'candidate_judged';
   let changes: FakeChangeReview;
   let insights: FakeInsights;
-  let judge: FakeChangeJudge;
   let changeJudgings: InMemoryChangeJudgings;
 
   const ending = () =>
@@ -813,7 +811,7 @@ describe('scoring a replayed task', () => {
       memory.replayRepository,
       memory.candidateRepository,
       insights,
-      changeJudgingRequestsFor(changeJudgings, judge),
+      changeJudgingRequestsFor(changeJudgings),
       TRANSACTION,
       CLOCK,
     );
@@ -850,7 +848,6 @@ describe('scoring a replayed task', () => {
   beforeEach(() => {
     changes = new FakeChangeReview();
     insights = new FakeInsights();
-    judge = new FakeChangeJudge();
     changeJudgings = new InMemoryChangeJudgings();
   });
 
@@ -917,34 +914,6 @@ describe('scoring a replayed task', () => {
     );
 
     expect([...changeJudgings.stored.values()][0]?.reference).toBeNull();
-  });
-
-  it('records a judge that cannot take the request as unjudged, and finishes', async () => {
-    const run = await started();
-    judge.available = false;
-
-    await completed(run);
-    await requestingJudging().requested(
-      memory.events.find(
-        (each) => each.kind === 'replay.judging-requested',
-      ) as ReplayJudgingRequested,
-    );
-    await new RecordReplayRunUsage(
-      memory.replayRepository,
-      TRANSACTION,
-      CLOCK,
-    ).usageRecorded({
-      runId: run,
-      ms: 1,
-      steps: 1,
-      changedLines: 4,
-      cost: 0.1,
-      currency: 'USD',
-      tokens: { input: 1, output: 1, cacheRead: null, cacheWrite: null },
-    });
-
-    expect(entry()?.reasons.map((each) => each.code)).toEqual(['unjudged']);
-    expect(memory.replays.get('replay_1')?.current).toBe('finished');
   });
 
   const checkFailed = (): StackStatus => ({
@@ -1156,18 +1125,16 @@ describe('probing a set', () => {
 
   const entries = () => memory.replays.get('replay_calibration')?.entries ?? [];
 
-  let judge: FakeChangeJudge;
   let changeJudgings: InMemoryChangeJudgings;
 
   beforeEach(() => {
     changes = new FakeChangeReview();
-    judge = new FakeChangeJudge();
     changeJudgings = new InMemoryChangeJudgings();
   });
 
   const rejudging = () =>
     new RequestReplayRejudging(
-      changeJudgingRequestsFor(changeJudgings, judge),
+      changeJudgingRequestsFor(changeJudgings),
       new RecordReplayVerdict(memory.replayRepository, TRANSACTION, CLOCK),
     );
 
@@ -1215,16 +1182,15 @@ describe('probing a set', () => {
     ]);
   });
 
-  it('says a second judging nobody could request, and records it as unjudged on its own', async () => {
+  it('says a second judging of a run never judged, and records it as unjudged on its own', async () => {
     await calibrated();
-    judge.available = false;
 
     const [first] = wanted<ReplayRejudgingRequested>(
       'replay.rejudging-requested',
     );
     await rejudging().requested(first);
 
-    expect(entries()[0]?.secondJudging?.unjudged).toBe('unavailable');
+    expect(entries()[0]?.secondJudging?.unjudged).toBe('errored');
     expect(entries()[1]?.secondJudging?.pending).toBe(true);
   });
 

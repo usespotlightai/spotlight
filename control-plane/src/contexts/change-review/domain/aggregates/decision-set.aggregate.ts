@@ -1,40 +1,31 @@
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
-import {
-  Decision,
-  type ProposedDecision,
-} from '@change-review/domain/entities/decision.entity';
+import type { Decision } from '@change-review/domain/entities/decision.entity';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
+import { DecisionsRefusedError } from '@change-review/domain/exceptions/decisions-refused.error';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
+import { DECISION_LIMITS } from '@change-review/domain/services/decision-policy';
 import type { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import type { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
-import { DecisionGeneration } from '@change-review/domain/value-objects/decision-generation.vo';
-import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
+import type { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import type { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import type { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
-import type { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class DecisionSet
-  extends EventRecorder
-  implements HasPendingJob<DecisionSet>
-{
+export class DecisionSet extends EventRecorder {
   private constructor(
     readonly id: DecisionSetId,
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
-    readonly source: AgentTurn | null,
     readonly decisions: readonly Decision[],
-    readonly generation: DecisionGeneration | null,
     readonly status: DecisionStatus,
     readonly version: number,
   ) {
@@ -50,9 +41,7 @@ export class DecisionSet
       input.id,
       input.taskId,
       input.workspaceId,
-      null,
       [],
-      null,
       DecisionStatus.proposed(),
       0,
     );
@@ -62,19 +51,10 @@ export class DecisionSet
     id: DecisionSetId;
     taskId: TaskId;
     workspaceId: WorkspaceId;
-    source: AgentTurn | null;
     decisions: readonly Decision[];
-    generation: DecisionGeneration | null;
     status: DecisionStatus;
     version: number;
   }): DecisionSet {
-    if (input.decisions.length > 0 && !input.source) {
-      throw new InconsistentStateError(
-        'decision set',
-        'has decisions without the run they were made in',
-      );
-    }
-
     if (
       new Set(input.decisions.map((each) => each.id.value)).size !==
       input.decisions.length
@@ -89,108 +69,54 @@ export class DecisionSet
       input.id,
       input.taskId,
       input.workspaceId,
-      input.source,
       input.decisions,
-      input.generation,
       input.status,
       input.version,
     );
   }
 
-  get hasPendingJob(): boolean {
-    return this.generation !== null;
-  }
-
-  get jobExhausted(): boolean {
-    return this.generation?.job.exhausted ?? false;
-  }
-
-  requestGeneration(turn: AgentTurn, now: Date): DecisionSet {
-    if (
-      this.status.isMerged ||
-      this.generation?.turn.covers(turn) ||
-      this.source?.covers(turn)
-    ) {
-      return this;
+  /**
+   * Records decisions the agent of a run made itself. They join the decisions of earlier runs of the task, each kept
+   * with the run that recorded it, and a decision the task holds already is kept once.
+   */
+  recordFromRun(runId: RunId, decisions: readonly Decision[]): DecisionSet {
+    if (decisions.length === 0 || decisions.length > DECISION_LIMITS.atOnce) {
+      throw InvalidDecisionError.ofSet(
+        `must list between 1 and ${DECISION_LIMITS.atOnce} decisions`,
+      );
     }
 
-    return this.with({
-      generation: DecisionGeneration.requested(turn, now),
-    });
-  }
-
-  leaseJob(now: Date): DecisionSet {
-    if (!this.generation) {
-      throw InvalidDecisionError.ofSet('has no run to generate decisions from');
-    }
-    if (!this.generation.job.isDue(now) || this.generation.job.exhausted) {
-      throw InvalidDecisionError.ofSet('cannot generate decisions again yet');
+    if (decisions.some((each) => !each.recordedIn.equals(runId))) {
+      throw InvalidDecisionError.ofSet(
+        'takes in only decisions of the run that records them',
+      );
     }
 
-    return this.with({
-      generation: this.generation.withJob(this.generation.job.lease(now)),
-    });
-  }
-
-  scheduleRetry(now: Date): DecisionSet {
-    if (!this.generation) {
-      return this;
+    if (this.status.isMerged) {
+      throw new DecisionsRefusedError('task-merged');
     }
 
-    return this.generation.job.exhausted
-      ? this.deadLetter()
-      : this.with({
-          generation: this.generation.withJob(
-            this.generation.job.scheduleRetry(now),
-          ),
-        });
-  }
-
-  deadLetter(): DecisionSet {
-    if (!this.generation) {
-      return this;
-    }
-
-    return this.with({ generation: null });
-  }
-
-  recordGeneration(input: {
-    turn: AgentTurn;
-    proposed: readonly ProposedDecision[];
-    evidence: DecisionEvidence;
-    newId: () => string;
-  }): DecisionSet {
-    if (!this.generation?.isFor(input.turn)) {
-      return this;
-    }
-
-    const valid = input.proposed.flatMap((each) => {
-      try {
-        const decision = Decision.of(DecisionId.of(input.newId()), each);
-        return input.evidence.supports(decision) ? [decision] : [];
-      } catch (error) {
-        if (error instanceof InvalidDecisionError) {
-          return [];
-        }
-        throw error;
-      }
-    });
-
-    const recorded = this.with({
-      source: input.turn,
-      decisions: valid,
-      generation: null,
-    });
-    recorded.record(
-      new DecisionsRecorded(
-        this.id,
-        this.taskId,
-        input.turn.runId,
-        valid.length,
-        input.proposed.length - valid.length,
-      ),
+    const recorded = decisions.filter(
+      (each, at, all) =>
+        !this.decisions.some((one) => one.sameAs(each)) &&
+        all.findIndex((one) => one.sameAs(each)) === at,
     );
-    return recorded;
+
+    if (recorded.length === 0) {
+      return this;
+    }
+
+    if (this.decisions.length + recorded.length > DECISION_LIMITS.perTask) {
+      throw new DecisionsRefusedError('task-full');
+    }
+
+    const next = this.with({ decisions: [...this.decisions, ...recorded] });
+
+    next.record(
+      new DecisionsRecorded(this.id, this.taskId, runId, recorded.length),
+    );
+
+    return next;
   }
 
   dispute(input: {
@@ -267,18 +193,14 @@ export class DecisionSet
   }
 
   private with(change: {
-    source?: AgentTurn;
     decisions?: readonly Decision[];
-    generation?: DecisionGeneration | null;
     status?: DecisionStatus;
   }): DecisionSet {
     const next = new DecisionSet(
       this.id,
       this.taskId,
       this.workspaceId,
-      change.source ?? this.source,
       change.decisions ?? this.decisions,
-      change.generation !== undefined ? change.generation : this.generation,
       change.status ?? this.status,
       this.version,
     );

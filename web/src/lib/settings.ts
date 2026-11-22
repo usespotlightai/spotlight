@@ -11,11 +11,6 @@ export const secretsPath = (slug: string): string =>
 export const workspaceGeneralPath = (slug: string): string =>
   `${settingsPath(slug)}/general`;
 
-export const INFERENCE_SECTION = 'inference';
-
-export const inferenceSettingsPath = (slug: string): string =>
-  `${workspaceGeneralPath(slug)}#${INFERENCE_SECTION}`;
-
 export const TEAM_SETTINGS_PAGES = [
   { id: 'general', label: 'General', icon: Settings2 },
   { id: 'integrations', label: 'Integrations', icon: Webhook },

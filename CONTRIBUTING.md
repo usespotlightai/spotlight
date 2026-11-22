@@ -86,6 +86,8 @@ see.
 | Term | Meaning |
 |---|---|
 | Admin token | The token for the whole deployment, `SPOTLIGHT_ADMIN_TOKEN`, that gives access to `/api/admin` (`AdminOnly`, `AdminGuard`). It is not the workspace admin role. |
+| Assist session | One run that Spotlight starts on behalf of a context to get one JSON result, such as a verdict or a drafted stack (`AssistSession`). The context orders it with a purpose, a session key and a base run, and reads its state: `waiting`, `submitted` or `failed`. |
+| Base run | The run an assist session is based on (`basedOnRun`). The session takes its harness, model, effort, placement and working copy. It must be a run of the same workspace. |
 | Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). A change made with the admin token shows as Spotlight. |
 | Delivery lane | One of the two sets of event deliveries that the outbox worker delivers apart from each other (`DeliveryLane`, `DELIVERY_LANES`): `contexts` for the subscribers of the contexts, and `sinks` for the event sinks. Each lane is a filter on `event_delivery`. The worker ticks each lane on its own, so a slow or failing sink does not stop the subscribers of the contexts. |
 | Error kind | The class of a domain or application error (`ErrorKind`), such as `invalid` or `conflict`. The HTTP filters map it to a status code. |
@@ -101,13 +103,16 @@ see.
 | Platform pool | The push pool that Spotlight adds to each workspace when the deployment sets `SPOTLIGHT_PLATFORM_POOL_URL` (`runner_pool.platform`). The deployment gives its provision URL and secret, so the row keeps neither. It takes only work that no other pool or trust of the workspace fits, and the operator can disable it for one workspace. Terraform does not see or change it. Compare the platform egress. |
 | Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
 | Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
+| Purpose | What an assist session is for, named `<context>.<name>` by the context that orders it, such as `insights.judge` (`AssistPurpose`). |
 | Recipient | The public key that Spotlight seals a run's secrets to: one key for each run in an egress sidecar, one key for each process in a shared egress. |
 | Refused run | A run that Spotlight creates and ends failed before it starts, because the station needs something that is missing (`RefusalReason`, such as `SecretAwaitingValue`). A reply to its inbox item orders a new run. Compare run not started. |
 | Resume key | The key of a working copy archive (`task-<id>` or `chat-<id>`). A run restores the archive of its resume key. |
 | Run not started | A task that has no run, because Spotlight cannot start the station's harness (`RunNotStarted`). Try again or a message starts it. Compare refused run. |
+| Session key | The name of one assist session among the sessions of a workspace and purpose (`AssistSessionKey`). The same key reports the same session; a new key orders a new session. |
 | Signing secret | A Standard Webhooks secret, `whsec_` followed by 24 to 64 base64-encoded random bytes, that signs outgoing calls (`SigningSecret`, `SIGNING_SECRET_RULE`). Hooks, push pools, the platform pool and the event webhook use it. A push pool calls it its provision secret (`provision.secret`, and `EncryptedProvisionSecret` when it is stored). `SigningSecret.of` refuses a bad secret with `InvalidSigningSecretError`, and the definition schemas show its reason at the field (`madeBy`). A context that names the field in its own error checks `SigningSecret.isWellFormed` first, as a hook does at `signing.secret`. |
 | Tombstone | A row that Spotlight keeps after it deletes data, so that it does not restore the data (`deleted_*` tables). |
 | Value origin | Where a secret's value comes from (`SecretValueOrigin`): `awaiting` (no value yet), `spotlight` (a person set it, or Terraform handed it over) or `terraform` (`valueWoVersion` is set). |
+| Waiting job | A pending job that waits for something outside it, such as an assist session (`waitJob`, `waiting_since`). Waiting costs no attempt. The job loop looks again after `WAIT_MS`, and a job that waits longer than `MAX_WAIT_MS` (24 h) is exhausted. |
 | Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |
 | Workspace directory | Every workspace of the deployment, not scoped to a viewer (`WorkspaceDirectoryPort`). |
 

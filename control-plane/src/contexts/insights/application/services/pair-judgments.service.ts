@@ -1,16 +1,18 @@
-import { JudgingError } from '@insights/application/errors/judging.error';
 import type { EvidencePort } from '@insights/application/ports/evidence.port';
 import type {
   PairJudgment,
   PairJudgmentOrder,
   PairJudgmentOrderKind,
+  PairJudgmentRound,
   PairJudgmentsPort,
 } from '@insights/application/ports/pair-judgments.port';
-import type { SideBySideJudgePort } from '@insights/application/ports/side-by-side-judge.port';
 import {
-  groundedPair,
-  type PairShown,
-} from '@insights/domain/services/grounded-pair';
+  allSettled,
+  type SessionWaiting,
+  type SettledSession,
+} from '@insights/application/ports/session-outcomes';
+import type { SideBySideJudgePort } from '@insights/application/ports/side-by-side-judge.port';
+import { groundedPair } from '@insights/domain/services/grounded-pair';
 import { PairEvidence } from '@insights/domain/services/pair-evidence';
 import type { PairOrder } from '@insights/domain/value-objects/pair-order';
 import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/judging-failure.vo';
@@ -28,21 +30,16 @@ const unjudged = (failure: JudgingFailureCode): PairJudgment => ({
 export class PairJudgments implements PairJudgmentsPort {
   constructor(
     private readonly evidence: EvidencePort,
-    private readonly llmJudge: SideBySideJudgePort,
+    private readonly judging: SideBySideJudgePort,
   ) {}
 
-  availableTo(workspaceId: string): Promise<boolean> {
-    return this.llmJudge.availableTo(workspaceId);
-  }
-
-  async judge(order: PairJudgmentOrder): Promise<PairJudgment> {
-    if (!(await this.llmJudge.availableTo(order.workspaceId))) {
-      return unjudged('unavailable');
-    }
-
+  async judge(
+    order: PairJudgmentOrder,
+  ): Promise<PairJudgment | SessionWaiting> {
+    const { runId, otherRunId } = order.round;
     const [run, other, reference] = await Promise.all([
-      this.evidence.of(order.runId),
-      this.evidence.of(order.otherRunId),
+      this.evidence.of(runId),
+      this.evidence.of(otherRunId),
       this.evidence.of(order.reference),
     ]);
 
@@ -50,52 +47,59 @@ export class PairJudgments implements PairJudgmentsPort {
       return unjudged('no-evidence');
     }
 
-    const shown = order.orders.map((each) =>
-      PairEvidence.of({
-        run: { run: order.runId, hunks: run.hunks },
-        other: { run: order.otherRunId, hunks: other.hunks },
-        order: ORDER_OF[each],
+    const shown = order.orders.flatMap((pass) => {
+      const evidence = PairEvidence.of({
+        run: { run: runId, hunks: run.hunks },
+        other: { run: otherRunId, hunks: other.hunks },
+        order: ORDER_OF[pass],
         title: run.title,
         description: run.description,
         reference: reference.hunks,
-      }),
-    );
+      });
 
-    if (shown.length === 0 || shown.some((each) => each.isEmpty)) {
+      return evidence.reference && !evidence.isEmpty
+        ? [{ pass, evidence, reference: evidence.reference }]
+        : [];
+    });
+
+    if (shown.length === 0 || shown.length !== order.orders.length) {
       return unjudged('no-evidence');
     }
 
-    const passes: PairShown[] = [];
-    const models: string[] = [];
+    const judged = allSettled(
+      await Promise.all(
+        shown.map(({ pass, evidence, reference: shownReference }) =>
+          this.judging.judgePair({
+            workspaceId: order.workspaceId,
+            round: order.round,
+            pass,
+            claims: order.criteria.claims,
+            title: evidence.title,
+            description: evidence.description,
+            a: evidence.a,
+            b: evidence.b,
+            reference: shownReference,
+          }),
+        ),
+      ),
+    );
 
-    try {
-      for (const evidence of shown) {
-        const { reference: shownReference } = evidence;
-
-        if (!shownReference) {
-          return unjudged('no-evidence');
-        }
-
-        const { verdict, model } = await this.llmJudge.judgePair({
-          workspaceId: order.workspaceId,
-          claims: order.criteria.claims,
-          title: evidence.title,
-          description: evidence.description,
-          a: evidence.a,
-          b: evidence.b,
-          reference: shownReference,
-        });
-
-        passes.push({ verdict, evidence });
-        models.push(model);
-      }
-    } catch (error) {
-      return error instanceof JudgingError
-        ? unjudged(error.kind)
-        : unjudged('errored');
+    if ('status' in judged) {
+      return judged;
     }
 
-    const [model] = models;
+    const failed = judged.find((each) => each.status === 'failed');
+
+    if (failed?.status === 'failed') {
+      return unjudged(failed.failure);
+    }
+
+    const passes = judged.flatMap((each, at) =>
+      each.status === 'judged' && shown[at]
+        ? [{ verdict: each.verdict, evidence: shown[at].evidence }]
+        : [],
+    );
+    const model = judged.find((each) => each.status === 'judged')?.model;
     const grounded = groundedPair(passes);
 
     if (model === undefined) {
@@ -118,5 +122,9 @@ export class PairJudgments implements PairJudgmentsPort {
       })),
       model,
     };
+  }
+
+  roundOf(session: SettledSession): PairJudgmentRound | null {
+    return this.judging.roundOf(session);
   }
 }

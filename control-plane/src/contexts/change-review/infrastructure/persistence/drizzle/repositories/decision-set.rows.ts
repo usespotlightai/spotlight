@@ -6,6 +6,3 @@ import type {
 export type DecisionSetRow = typeof decisionSet.$inferSelect;
 
 export type MergeRow = typeof decisionSetMerge.$inferSelect;
-
-export const generationRunOf = (row: DecisionSetRow): string | null =>
-  row.generationRunId;

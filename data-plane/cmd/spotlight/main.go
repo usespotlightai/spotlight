@@ -46,11 +46,12 @@ var commands = help.NewRegistry(
 )
 
 var agentSections = []help.Section{
-	{Title: "Hand the task on", Paths: []string{"handover", "reply"}},
+	{Title: "Hand the task on", Paths: []string{"handover", "reply", "decide"}},
 	{Title: "Tools", Paths: []string{"tools", "tools search", "tools describe", "tools call"}},
 	{Title: "Team memory", Paths: []string{"recall", "remember"}},
 	{Title: "Earlier work", Paths: []string{"trace", "history"}},
 	{Title: "Station search", Paths: []string{"candidate", "cause"}},
+	{Title: "Assist sessions", Paths: []string{"submit"}},
 }
 
 var operatorSections = []help.Section{

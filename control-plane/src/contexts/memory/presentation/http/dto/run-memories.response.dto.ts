@@ -58,7 +58,7 @@ export class RunMemoriesResponseDto {
   @ApiProperty({
     type: RunProposalResponseDto,
     isArray: true,
-    description: 'What the run proposed, drafted or remembered',
+    description: 'What the run proposed or remembered',
   })
   readonly proposed: readonly RunProposalResponseDto[];
 

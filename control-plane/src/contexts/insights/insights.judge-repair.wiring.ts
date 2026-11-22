@@ -1,4 +1,8 @@
 import {
+  ASSIST_SESSIONS,
+  type AssistSessionsPort,
+} from '@assist/application/ports/assist-sessions.port';
+import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
@@ -57,7 +61,7 @@ import type { JudgeDisagreementRepository } from '@insights/domain/repositories/
 import { CommitPullRequests } from '@insights/infrastructure/acl/commit-pull-requests.adapter';
 import { JudgeDisagreementQuestions } from '@insights/infrastructure/acl/judge-disagreement-questions.adapter';
 import { JUDGE_REPAIR_PAYLOAD_TYPES } from '@insights/infrastructure/events/judge-repair-payload-types';
-import { ChatCompletionsClaimsDrafter } from '@insights/infrastructure/judging/chat-completions-claims-drafter';
+import { AssistClaimsDrafter } from '@insights/infrastructure/judging/assist-claims-drafter';
 import { DrizzleClaimsRevisionRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-revision.repository';
 import { DrizzleClaimsSourceRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-source.repository';
 import { DrizzleJudgeDisagreementRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judge-disagreement.repository';
@@ -81,10 +85,6 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
-import {
-  INFERENCE_CALLS,
-  type InferenceCallsPort,
-} from '@shared-kernel/application/ports/inference-calls.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -165,9 +165,9 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: CLAIMS_DRAFTER,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) =>
-      new ChatCompletionsClaimsDrafter(calls),
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) =>
+      new AssistClaimsDrafter(sessions),
   },
   {
     provide: LabelledRuns,
@@ -283,7 +283,6 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
       DrizzleJudgingRepository,
       STATION_FACTS,
       STATION_JUDGES,
-      JUDGE,
       FactRecorder,
       TRANSACTION,
       CLOCK,
@@ -292,7 +291,6 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
       judgings: DrizzleJudgingRepository,
       facts: StationFactsPort,
       judges: StationJudgesPort,
-      judge: JudgePort,
       recorder: FactRecorder,
       transaction: TransactionPort,
       clock: ClockPort,
@@ -301,7 +299,6 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
         judgings,
         facts,
         judges,
-        judge,
         recorder,
         transaction,
         clock,
@@ -428,6 +425,7 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
       ProposeClaimsRevisions,
       BackfillJudgings,
       ClaimsSources,
+      WorkClaimsRevisions,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -438,6 +436,7 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
       proposing: ProposeClaimsRevisions,
       backfilling: BackfillJudgings,
       sourcing: ClaimsSources,
+      waking: WorkClaimsRevisions,
     ) => {
       types.register('insights', JUDGE_REPAIR_PAYLOAD_TYPES);
       subscribers.register(
@@ -448,6 +447,7 @@ export const JUDGE_REPAIR_PROVIDERS: readonly Provider[] = [
           proposing,
           backfilling,
           sourcing,
+          waking,
         }),
       );
       return true;

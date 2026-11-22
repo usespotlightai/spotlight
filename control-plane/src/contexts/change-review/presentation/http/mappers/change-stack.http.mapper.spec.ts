@@ -57,6 +57,7 @@ describe('ChangeStackHttpMapper', () => {
                       answered: {
                         questionId: 'c1.l1.q1',
                         reply: null,
+                        grading: 'graded',
                         verdict: 'missed',
                         feedback: null,
                         expected: null,
@@ -99,6 +100,7 @@ describe('ChangeStackHttpMapper', () => {
           answered: {
             questionId: 'c1.l1.q1',
             reply: null,
+            grading: 'graded',
             verdict: 'missed',
             feedback: null,
             expected: null,

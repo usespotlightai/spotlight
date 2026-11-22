@@ -18,7 +18,6 @@ const listing = (over: { mayView?: boolean } = {}) => {
       return [
         {
           taskId: 'task_1',
-          runId: 'run_1',
           repository: 'acme/api',
           commit: 'c'.repeat(40),
           mergedAt: MERGED_AT,
@@ -30,6 +29,7 @@ const listing = (over: { mayView?: boolean } = {}) => {
               why: 'Backoff is not in the client yet.',
               alternatives: [],
               paths: ['api/src/uploads.ts'],
+              runId: 'run_1',
               journalSteps: [7],
               disputes: [
                 {

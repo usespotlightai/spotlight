@@ -1,4 +1,10 @@
 import type { RunEvidence } from '@insights/application/ports/evidence.port';
+import type { PairJudgment } from '@insights/application/ports/pair-judgments.port';
+import {
+  SESSION_WAITING,
+  type SessionFailed,
+  type SessionWaiting,
+} from '@insights/application/ports/session-outcomes';
 import type { SideBySideJudgeRequest } from '@insights/application/ports/side-by-side-judge.port';
 import { PairJudgments } from '@insights/application/services/pair-judgments.service';
 import type { PairVerdict } from '@insights/domain/services/grounded-pair';
@@ -26,8 +32,16 @@ const evidenceOf = (runId: string, line: string): RunEvidence => ({
   ],
 });
 
+const ROUND = {
+  runId: RunId.of('replay_1'),
+  otherRunId: RunId.of('replay_2'),
+  attempt: 1,
+};
+
 const judging = async (
-  answer: (request: SideBySideJudgeRequest) => PairVerdict,
+  answer: (
+    request: SideBySideJudgeRequest,
+  ) => PairVerdict | SessionFailed | SessionWaiting,
   evidence: Record<string, RunEvidence> = {
     replay_1: evidenceOf('replay_1', '+drainFast()'),
     replay_2: evidenceOf('replay_2', '+drain()'),
@@ -41,20 +55,20 @@ const judging = async (
       of: async (runId) => evidence[runId.value] ?? null,
     },
     {
-      availableTo: async () => true,
       judgePair: async (request) => {
         requests.push(request);
-        return {
-          model: 'some/model',
-          verdict: answer(request),
-        };
+        const verdict = answer(request);
+
+        return 'status' in verdict
+          ? verdict
+          : { status: 'judged', model: 'some/model', verdict };
       },
+      roundOf: () => ROUND,
     },
   );
   const judgment = await judgments.judge({
     workspaceId: 'workspace_1',
-    runId: RunId.of('replay_1'),
-    otherRunId: RunId.of('replay_2'),
+    round: ROUND,
     reference: RunId.of('original_1'),
     criteria: JudgeCriteria.of({
       claims: ['It drains.', 'It keeps the order.', 'It logs.'],
@@ -62,7 +76,7 @@ const judging = async (
     orders: ORDERS,
   });
 
-  return { requests, judgment };
+  return { requests, answered: judgment, judgment: judgment as PairJudgment };
 };
 
 const fastSide = (request: SideBySideJudgeRequest): 'A' | 'B' =>
@@ -100,6 +114,32 @@ describe('PairJudgments', () => {
     ]);
   });
 
+  it('asks for one judging session per order, each a pass of the order’s round', async () => {
+    const { requests } = await judging((request) => ({
+      preferred: fastSide(request),
+      reasons: [],
+    }));
+
+    expect(requests.map((each) => [each.round, each.pass])).toEqual([
+      [ROUND, 'other-first'],
+      [ROUND, 'run-first'],
+    ]);
+  });
+
+  it('orders both sessions before it waits for the one still running', async () => {
+    const asked: string[] = [];
+
+    const { answered } = await judging((request) => {
+      asked.push(request.pass);
+      return request.pass === 'run-first'
+        ? SESSION_WAITING
+        : { preferred: fastSide(request), reasons: [] };
+    });
+
+    expect(answered).toEqual(SESSION_WAITING);
+    expect(asked).toHaveLength(2);
+  });
+
   it('fails with no accepted change to set beside them, asking nobody', async () => {
     const { requests, judgment } = await judging(
       () => ({ preferred: 'tie', reasons: [] }),
@@ -123,12 +163,10 @@ describe('PairJudgments', () => {
     expect(judgment).toMatchObject({ judged: false, failure: 'ungrounded' });
   });
 
-  it('fails when the second call breaks', async () => {
-    let calls = 0;
+  it('fails the way a failed pass session failed, once no pass waits', async () => {
     const { judgment } = await judging((request) => {
-      calls += 1;
-      if (calls === 2) {
-        throw new Error('the connection dropped');
+      if (request.pass === 'run-first') {
+        return { status: 'failed', failure: 'request-failed' };
       }
       return {
         preferred: fastSide(request),
@@ -141,6 +179,9 @@ describe('PairJudgments', () => {
       };
     });
 
-    expect(judgment).toMatchObject({ judged: false, failure: 'errored' });
+    expect(judgment).toMatchObject({
+      judged: false,
+      failure: 'request-failed',
+    });
   });
 });

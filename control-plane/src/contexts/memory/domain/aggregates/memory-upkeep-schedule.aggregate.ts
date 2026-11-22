@@ -1,4 +1,5 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { ConsolidationRound } from '@memory/domain/value-objects/consolidation-round.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -114,6 +115,35 @@ export class MemoryUpkeepSchedule implements HasPendingJob<MemoryUpkeepSchedule>
 
   scheduleRetry(now: Date): MemoryUpkeepSchedule {
     return this.with({ job: this.s.job.scheduleRetry(now) });
+  }
+
+  /** The round its sweep consolidates in now: a retried job consolidates in a new round, a waiting job keeps its round. */
+  consolidationRound(): ConsolidationRound {
+    return ConsolidationRound.of({
+      teamId: this.s.teamId,
+      dueAt: this.s.dueAt,
+      attempt: this.s.job.attempts,
+    });
+  }
+
+  /** Makes its waiting job due now, once the session of its sweep's round settled. Any other schedule stays as it is. */
+  wake(round: ConsolidationRound, now: Date): MemoryUpkeepSchedule {
+    if (!round.sweeps(this.s.teamId, this.s.dueAt)) {
+      return this;
+    }
+
+    const job = this.s.job.wake(now);
+
+    return job === this.s.job ? this : this.with({ job });
+  }
+
+  /** Whether its job may wait once more, or would run out of time waiting and be dead-lettered. */
+  mayWaitAgain(now: Date): boolean {
+    return !this.s.job.wait(now).exhausted;
+  }
+
+  waitJob(now: Date): MemoryUpkeepSchedule {
+    return this.hasPendingJob ? this.with({ job: this.s.job.wait(now) }) : this;
   }
 
   deadLetter(now: Date): MemoryUpkeepSchedule {

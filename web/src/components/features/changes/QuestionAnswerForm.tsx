@@ -1,4 +1,3 @@
-import { AnswerFailed } from '@/components/features/changes/AnswerFailed';
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
 import { Composer } from '@/components/shared/form/Composer';
 import { Button } from '@/components/ui/button';
@@ -58,7 +57,11 @@ export function QuestionAnswerForm({
         }
       />
 
-      {answering.isError && <AnswerFailed error={answering.error} />}
+      {answering.isError && (
+        <p role="alert" className="text-destructive text-xs leading-5">
+          Sorry, the answer couldn’t be saved. Please try again.
+        </p>
+      )}
     </>
   );
 }

@@ -67,9 +67,15 @@ export class DecisionResponseDto {
   readonly paths: string[];
 
   @ApiProperty({
+    description:
+      'The run whose agent recorded it; its journal holds the journal steps',
+  })
+  readonly runId: string;
+
+  @ApiProperty({
     type: [Number],
     description:
-      'Where the agent reasoned it, as numbers of steps in the run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0',
+      'Where the agent reasoned it, as numbers of steps in the journal of its run: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0. Empty when the agent recorded the decision itself; only decisions drafted from a journal cite steps',
   })
   readonly journalSteps: number[];
 
@@ -86,6 +92,7 @@ export class DecisionResponseDto {
     this.why = decision.why;
     this.alternatives = [...decision.alternatives];
     this.paths = [...decision.paths];
+    this.runId = decision.runId;
     this.journalSteps = [...decision.journalSteps];
     this.disputes = decision.disputes.map(
       (each) => new DisputeResponseDto(each),
@@ -111,18 +118,6 @@ export class DecisionMergeResponseDto {
 }
 
 export class TaskDecisionsResponseDto {
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    description: 'The run the decisions were generated from, if there is one',
-  })
-  readonly runId: string | null;
-
-  @ApiProperty({
-    description: 'Whether decisions for a later run are being generated',
-  })
-  readonly generating: boolean;
-
   @ApiProperty({ enum: DECISION_STATUS_NAMES })
   readonly status: TaskDecisionsDto['status'];
 
@@ -140,8 +135,6 @@ export class TaskDecisionsResponseDto {
   readonly decisions: DecisionResponseDto[];
 
   constructor(found: TaskDecisionsDto) {
-    this.runId = found.runId;
-    this.generating = found.generating;
     this.status = found.status;
     this.merges = found.merges.map(
       (each) => new DecisionMergeResponseDto(each),
@@ -170,9 +163,6 @@ export class MergedDecisionsResponseDto {
   @ApiProperty()
   readonly taskId: string;
 
-  @ApiProperty({ nullable: true, type: String })
-  readonly runId: string | null;
-
   @ApiProperty({ example: 'acme/api' })
   readonly repository: string;
 
@@ -191,7 +181,6 @@ export class MergedDecisionsResponseDto {
 
   constructor(found: MergedDecisionsDto) {
     this.taskId = found.taskId;
-    this.runId = found.runId;
     this.repository = found.repository;
     this.commit = found.commit;
     this.mergedAt = found.mergedAt.toISOString();

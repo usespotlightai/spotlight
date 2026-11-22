@@ -5,6 +5,7 @@ import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const DECISION_KINDS = [
   'trade-off',
@@ -21,7 +22,6 @@ const MAX_WHY = 2_000;
 const MAX_ALTERNATIVES = 5;
 const MAX_ALTERNATIVE = 300;
 const MAX_PATHS = 20;
-const MAX_STEPS = 20;
 
 export interface ProposedDecision {
   readonly kind: string;
@@ -29,14 +29,23 @@ export interface ProposedDecision {
   readonly why: string;
   readonly alternatives: readonly string[];
   readonly paths: readonly string[];
-  readonly steps: readonly number[];
 }
 
-const text = (raw: string, max: number, what: string): string => {
+export type DecisionField = 'kind' | 'title' | 'why' | 'alternatives' | 'paths';
+
+const text = (
+  raw: string,
+  max: number,
+  what: string,
+  field: DecisionField,
+): string => {
   const trimmed = raw.trim();
 
   if (!trimmed || trimmed.length > max) {
-    throw new InvalidDecisionError(`${what} must be at most ${max} characters`);
+    throw InvalidDecisionError.at(
+      field,
+      `${what} must be between 1 and ${max} characters`,
+    );
   }
 
   return trimmed;
@@ -52,23 +61,36 @@ export class Decision {
     readonly why: string,
     readonly alternatives: readonly string[],
     readonly paths: readonly FilePath[],
+    /** The run whose agent recorded it. */
+    readonly recordedIn: RunId,
+    /**
+     * Steps of the journal of `recordedIn` that reason it. Only decisions drafted from a run's journal, before agents
+     * recorded their own, cite any; an agent's own decision cites none.
+     */
     readonly journalSteps: readonly number[],
     readonly disputes: readonly DecisionDispute[],
   ) {}
 
-  static of(id: DecisionId, proposed: ProposedDecision): Decision {
+  /** A decision the agent of `recordedIn` recorded itself. */
+  static of(
+    id: DecisionId,
+    recordedIn: RunId,
+    proposed: ProposedDecision,
+  ): Decision {
     if (!(DECISION_KINDS as readonly string[]).includes(proposed.kind)) {
-      throw new InvalidDecisionError(
+      throw InvalidDecisionError.at(
+        'kind',
         `kind must be one of ${DECISION_KINDS.join(', ')}, not ${proposed.kind}`,
       );
     }
 
     const alternatives = proposed.alternatives.map((each) =>
-      text(each, MAX_ALTERNATIVE, 'alternative'),
+      text(each, MAX_ALTERNATIVE, 'alternative', 'alternatives'),
     );
 
     if (alternatives.length > MAX_ALTERNATIVES) {
-      throw new InvalidDecisionError(
+      throw InvalidDecisionError.at(
+        'alternatives',
         `can weigh at most ${MAX_ALTERNATIVES} alternatives`,
       );
     }
@@ -80,31 +102,21 @@ export class Decision {
     ).map(FilePath.of);
 
     if (paths.length === 0 || paths.length > MAX_PATHS) {
-      throw new InvalidDecisionError(
-        `must name between 1 and ${MAX_PATHS} paths`,
-      );
-    }
-
-    const steps = distinct(proposed.steps).sort((a, b) => a - b);
-
-    if (
-      steps.length === 0 ||
-      steps.length > MAX_STEPS ||
-      steps.some((each) => !Number.isInteger(each) || each < 0)
-    ) {
-      throw new InvalidDecisionError(
-        `must cite between 1 and ${MAX_STEPS} steps of its run`,
+      throw InvalidDecisionError.at(
+        'paths',
+        `must name between 1 and ${MAX_PATHS} changed files`,
       );
     }
 
     return new Decision(
       id,
       proposed.kind as DecisionKind,
-      text(proposed.title, MAX_TITLE, 'title'),
-      text(proposed.why, MAX_WHY, 'reason'),
+      text(proposed.title, MAX_TITLE, 'title', 'title'),
+      text(proposed.why, MAX_WHY, 'reason', 'why'),
       alternatives,
       paths,
-      steps,
+      recordedIn,
+      [],
       [],
     );
   }
@@ -116,6 +128,7 @@ export class Decision {
     why: string;
     alternatives: readonly string[];
     paths: readonly FilePath[];
+    recordedIn: RunId;
     journalSteps: readonly number[];
     disputes: readonly DecisionDispute[];
   }): Decision {
@@ -126,6 +139,7 @@ export class Decision {
       input.why,
       input.alternatives,
       input.paths,
+      input.recordedIn,
       input.journalSteps,
       input.disputes,
     );
@@ -142,6 +156,17 @@ export class Decision {
 
   equals(other: Decision): boolean {
     return this.id.equals(other.id);
+  }
+
+  /** Whether it records the same choice, so that recording it again keeps one. */
+  sameAs(other: Decision): boolean {
+    return (
+      this.kind === other.kind &&
+      this.title === other.title &&
+      this.why === other.why &&
+      this.paths.length === other.paths.length &&
+      this.paths.every((each) => other.covers(each))
+    );
   }
 
   covers(path: FilePath): boolean {
@@ -168,6 +193,7 @@ export class Decision {
       this.why,
       this.alternatives,
       this.paths,
+      this.recordedIn,
       this.journalSteps,
       [...this.disputes, dispute],
     );

@@ -73,14 +73,7 @@ const preview: Preview = {
           'Settings',
           [
             'Workspace',
-            [
-              'General',
-              'Members',
-              'Inference',
-              'Inference required',
-              'Runners',
-              'API access',
-            ],
+            ['General', 'Members', 'Runners', 'API access'],
             'Team',
             ['General', 'Integrations', 'Skills'],
           ],

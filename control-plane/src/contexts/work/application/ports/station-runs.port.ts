@@ -24,6 +24,12 @@ export interface EndedStationRun {
   readonly runningMs: number;
 }
 
+export interface RunHarnessChoice {
+  readonly harness: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+}
+
 export interface StationTaskRun {
   readonly runId: string;
   readonly workspaceId: string;
@@ -75,6 +81,9 @@ export interface StationRunsPort {
   ended(runId: string): Promise<EndedStationRun | null>;
 
   taskRunOf(runId: string): Promise<StationTaskRun | null>;
+
+  /** The harness, model and effort a task or trial run was configured with; null when no station configured it. */
+  harnessChoiceOf(runId: string): Promise<RunHarnessChoice | null>;
 
   unfinished(teamId: string): Promise<readonly UnfinishedStationRun[]>;
 

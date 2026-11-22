@@ -6,9 +6,9 @@ import type { ReviewWorkRunnersPort } from '@change-review/application/ports/rev
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
-import type { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import type { StackPushes } from '@change-review/application/services/stack-pushes.service';
+import type { WakeSessionWaits } from '@change-review/application/services/wake-session-waits.service';
 import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
 import { PushDiffLeaseReleased } from '@change-review/domain/events/push-diff-lease-released.event';
 import { PushDiffRecorded } from '@change-review/domain/events/push-diff-recorded.event';
@@ -21,6 +21,10 @@ import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo'
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
+import {
+  ASSIST_SESSION_SETTLED,
+  type AssistSessionSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/assist-session-settled.integration-event';
 import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import {
@@ -213,8 +217,34 @@ describe('change review receiving a run begin and end', () => {
 });
 
 describe('change review receiving a run end', () => {
-  it('requests the decisions a task’s run made, saying whether it hands the work over, and none for a run with no task', async () => {
-    const runEnded = vi.fn(async () => {});
+  it('generates no decisions, since the run’s agent records its own', () => {
+    const subscribers = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as StickyCommentPosterPort,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    expect(
+      subscribers
+        .filter((each) => each.kinds.includes('work.dispatch-ended.v1'))
+        .map((each) => each.name),
+    ).toEqual(['change-review.signal-reviewed']);
+  });
+});
+
+describe('change review receiving a settled assist session', () => {
+  it('wakes the job that waits for the session', async () => {
+    const settled = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
@@ -224,146 +254,30 @@ describe('change review receiving a run end', () => {
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
       {} as never,
-      { runEnded } as unknown as RequestDecisions,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
-    ).find((each) => each.name === 'change-review.request-decisions');
+      { settled } as unknown as WakeSessionWaits,
+    ).find((each) => each.kinds.includes(ASSIST_SESSION_SETTLED));
 
-    const ofTask: DispatchEndedIntegrationEvent = {
-      kind: 'work.dispatch-ended.v1',
-      runId: 'run_1',
+    const event: AssistSessionSettledIntegrationEvent = {
+      kind: ASSIST_SESSION_SETTLED,
       workspaceId: 'ws_1',
-      taskId: 'task_1',
-      stationId: 'station_1',
-      driver: 'line',
-      handsOver: true,
-      outcome: 'completed',
-      failure: null,
-      stopped: false,
+      purpose: 'change-review.grade',
+      key: 'answer-1:1793613600000:1',
+      outcome: 'submitted',
     };
 
-    await subscriber?.handle(ofTask, anOutboxRecord());
-    const ofChat: DispatchEndedIntegrationEvent = {
-      ...ofTask,
-      runId: 'run_2',
-      taskId: null,
-    };
+    await subscriber?.handle(event, anOutboxRecord());
 
-    await subscriber?.handle(ofChat, anOutboxRecord());
-    const ofTurn: DispatchEndedIntegrationEvent = {
-      ...ofTask,
-      runId: 'run_3',
-      driver: 'person',
-      handsOver: false,
-    };
-
-    await subscriber?.handle(ofTurn, anOutboxRecord());
-
-    expect(subscriber?.kinds).toEqual(['work.dispatch-ended.v1']);
-    expect(runEnded).toHaveBeenCalledTimes(2);
-    expect(runEnded).toHaveBeenCalledWith(
-      TaskId.of('task_1'),
-      RunId.of('run_1'),
-      true,
+    expect(subscriber?.name).toBe(
+      'change-review.wake-on-assist-session-settled',
     );
-    expect(runEnded).toHaveBeenCalledWith(
-      TaskId.of('task_1'),
-      RunId.of('run_3'),
-      false,
-    );
-  });
-});
-
-describe('change review receiving a kept turn', () => {
-  const awaited: TaskTurnAwaitedIntegrationEvent = {
-    kind: 'work.task-turn-awaited.v1',
-    taskId: 'task_1',
-    workspaceId: 'ws_1',
-    runId: 'run_1',
-    attempt: 2,
-    handsOver: true,
-  };
-
-  const subscribersWith = (
-    signalling: Partial<SignalReviewing>,
-    deciding: Partial<RequestDecisions>,
-  ) =>
-    changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      signalling as unknown as SignalReviewing,
-      {} as never,
-      deciding as unknown as RequestDecisions,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-    );
-
-  it('signals the review again once a kept run resumes', async () => {
-    const signalRun = vi.fn(async (_run: RunId) => {});
-    const subscriber = subscribersWith({ signalRun }, {}).find(
-      (each) => each.name === 'change-review.signal-review-resumed',
-    );
-    const resumed: RunResumedIntegrationEvent = {
-      kind: 'runs.run-resumed.v1',
-      runId: 'run_1',
-      workspaceId: 'ws_1',
-    };
-
-    await subscriber?.handle(resumed, anOutboxRecord());
-
-    expect(subscriber?.kinds).toEqual(['runs.run-resumed.v1']);
-    expect(subscriber?.callsOut).toBe(true);
-    expect(signalRun).toHaveBeenCalledWith(RunId.of('run_1'));
-  });
-
-  it('signals the review ended while the run waits for its person', async () => {
-    const signal = vi.fn(async (_task: TaskId) => {});
-    const subscriber = subscribersWith({ signal }, {}).find(
-      (each) => each.name === 'change-review.signal-review-awaited',
-    );
-
-    await subscriber?.handle(awaited, anOutboxRecord());
-
-    expect(subscriber?.kinds).toEqual(['work.task-turn-awaited.v1']);
-    expect(signal).toHaveBeenCalledWith(TaskId.of('task_1'));
-  });
-
-  it('requests the decisions of the turn, saying whether it hands the work over', async () => {
-    const turnAwaited = vi.fn(async () => {});
-    const subscriber = subscribersWith({}, { turnAwaited }).find(
-      (each) => each.name === 'change-review.request-decisions-of-awaited-turn',
-    );
-
-    await subscriber?.handle(awaited, anOutboxRecord());
-    const handsNothingOver: TaskTurnAwaitedIntegrationEvent = {
-      ...awaited,
-      handsOver: false,
-    };
-    await subscriber?.handle(handsNothingOver, anOutboxRecord());
-
-    expect(subscriber?.kinds).toEqual(['work.task-turn-awaited.v1']);
-    expect(turnAwaited).toHaveBeenNthCalledWith(
-      1,
-      TaskId.of('task_1'),
-      RunId.of('run_1'),
-      2,
-      true,
-    );
-    expect(turnAwaited).toHaveBeenNthCalledWith(
-      2,
-      TaskId.of('task_1'),
-      RunId.of('run_1'),
-      2,
-      false,
-    );
+    expect(settled).toHaveBeenCalledWith({
+      purpose: 'change-review.grade',
+      key: 'answer-1:1793613600000:1',
+    });
   });
 });
 
@@ -379,8 +293,8 @@ describe('change review receiving a pull request close', () => {
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
       {} as never,
-      {} as never,
       { closed } as unknown as ApplyPullRequestClose,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -423,8 +337,8 @@ describe('change review receiving a stack’s check end', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { checkReleased: released } as unknown as ReviewWorkRunnersPort,
+      {} as never,
       {} as never,
     ).find(
       (each) => each.name === 'change-review.release-runner-of-checked-stack',
@@ -489,8 +403,8 @@ describe('change review receiving that a check was deleted while a runner leased
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { checkReleased: released } as unknown as ReviewWorkRunnersPort,
+      {} as never,
       {} as never,
     ).find(
       (each) => each.name === 'change-review.release-runner-of-deleted-check',
@@ -525,8 +439,8 @@ describe('change review receiving a check drop the runner reserved for it', () =
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { reservationDropped } as unknown as ReviewWorkRunnersPort,
+      {} as never,
       {} as never,
     ).find((each) => each.name === 'change-review.release-reserved-runner');
 
@@ -571,9 +485,9 @@ describe('change review receiving a push to a pull request', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { diffReleased, reservationDropped } as unknown as ReviewWorkRunnersPort,
       { pushed, supersedeEarlier } as unknown as StackPushes,
+      {} as never,
     ).find((each) => each.name === name);
 
     if (!subscriber) {
@@ -766,5 +680,62 @@ describe('change review removing what a deleted task or team owned', () => {
     );
 
     expect(removeStacks).toHaveBeenCalledWith(TeamId.of('team_1'));
+  });
+});
+
+describe('change review receiving a kept turn', () => {
+  const subscribersWith = (signalling: Partial<SignalReviewing>) =>
+    changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as StickyCommentPosterPort,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      signalling as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+  it('signals the review again once a kept run resumes', async () => {
+    const signalRun = vi.fn(async (_run: RunId) => {});
+    const subscriber = subscribersWith({ signalRun }).find(
+      (each) => each.name === 'change-review.signal-review-resumed',
+    );
+    const resumed: RunResumedIntegrationEvent = {
+      kind: 'runs.run-resumed.v1',
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+    };
+
+    await subscriber?.handle(resumed, anOutboxRecord());
+
+    expect(subscriber?.kinds).toEqual(['runs.run-resumed.v1']);
+    expect(subscriber?.callsOut).toBe(true);
+    expect(signalRun).toHaveBeenCalledWith(RunId.of('run_1'));
+  });
+
+  it('signals the review ended while the run waits for its person', async () => {
+    const signal = vi.fn(async (_task: TaskId) => {});
+    const subscriber = subscribersWith({ signal }).find(
+      (each) => each.name === 'change-review.signal-review-awaited',
+    );
+    const awaited: TaskTurnAwaitedIntegrationEvent = {
+      kind: 'work.task-turn-awaited.v1',
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      runId: 'run_1',
+      attempt: 2,
+      handsOver: true,
+    };
+
+    await subscriber?.handle(awaited, anOutboxRecord());
+
+    expect(subscriber?.kinds).toEqual(['work.task-turn-awaited.v1']);
+    expect(signal).toHaveBeenCalledWith(TaskId.of('task_1'));
   });
 });

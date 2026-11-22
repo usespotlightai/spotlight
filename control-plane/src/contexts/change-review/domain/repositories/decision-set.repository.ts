@@ -8,7 +8,5 @@ export interface DecisionSetRepository {
 
   forTask(taskId: TaskId): Promise<DecisionSet | null>;
 
-  nextDueJob(now: Date): Promise<DecisionSet | null>;
-
   remove(set: DecisionSet): Promise<void>;
 }

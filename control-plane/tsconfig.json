@@ -31,9 +31,9 @@
       "@configuration/*": ["./src/contexts/configuration/*"],
       "@identity/*": ["./src/contexts/identity/*"],
       "@secrets/*": ["./src/contexts/secrets/*"],
-      "@inference/*": ["./src/contexts/inference/*"],
       "@catalog/*": ["./src/contexts/catalog/*"],
       "@notifications/*": ["./src/contexts/notifications/*"],
+      "@assist/*": ["./src/contexts/assist/*"],
       "@/*": ["./src/*"]
     },
     "strict": true,

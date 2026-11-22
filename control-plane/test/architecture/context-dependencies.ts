@@ -19,17 +19,17 @@ export const UPSTREAM_CONTEXTS: Readonly<Record<string, readonly string[]>> = {
   catalog: ['identity'],
   github: ['identity'],
   runners: ['identity', 'secrets'],
-  inference: ['identity', 'secrets'],
   lines: ['identity', 'catalog'],
   runs: ['identity', 'secrets', 'runners', 'lines'],
   work: ['catalog', 'github', 'runners', 'lines', 'runs'],
-  configuration: ['work', 'inference'],
-  'change-review': ['work', 'inference'],
-  memory: ['work', 'lines', 'inference'],
-  insights: ['change-review', 'memory', 'configuration', 'inference'],
+  configuration: ['work'],
+  'change-review': ['work', 'assist'],
+  memory: ['work', 'lines', 'assist'],
+  insights: ['change-review', 'memory', 'configuration', 'assist'],
   replays: ['change-review', 'insights', 'configuration'],
   integrations: ['configuration'],
   notifications: ['work'],
+  assist: ['work'],
 };
 
 export const reachableFrom = (context: string): ReadonlySet<string> => {

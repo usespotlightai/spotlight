@@ -1,3 +1,7 @@
+import {
+  ASSIST_SESSIONS,
+  type AssistSessionsPort,
+} from '@assist/application/ports/assist-sessions.port';
 import { AnswerQuestionCommand } from '@change-review/application/commands/answer-question.command';
 import { DeleteReviewCommentCommand } from '@change-review/application/commands/delete-review-comment.command';
 import { DisputeDecisionCommand } from '@change-review/application/commands/dispute-decision.command';
@@ -14,9 +18,11 @@ import { FailPushDiffHandler } from '@change-review/application/commands/handler
 import { GenerateRunChangeStackHandler } from '@change-review/application/commands/handlers/generate-run-change-stack.handler';
 import { RecordChangeStackCheckHandler } from '@change-review/application/commands/handlers/record-change-stack-check.handler';
 import { RecordPushDiffHandler } from '@change-review/application/commands/handlers/record-push-diff.handler';
+import { RecordRunDecisionsHandler } from '@change-review/application/commands/handlers/record-run-decisions.handler';
 import { SubmitReviewHandler } from '@change-review/application/commands/handlers/submit-review.handler';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
 import { RecordPushDiffCommand } from '@change-review/application/commands/record-push-diff.command';
+import { RecordRunDecisionsCommand } from '@change-review/application/commands/record-run-decisions.command';
 import { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
 import { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import { DecisionReactions } from '@change-review/application/events/handlers/decision-reactions.handler';
@@ -25,7 +31,14 @@ import { StackCheckReactions } from '@change-review/application/events/handlers/
 import { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
 import { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
-import { ANSWER_GRADER } from '@change-review/application/ports/answer-grader.port';
+import {
+  ANSWER_GRADER,
+  type AnswerGraderPort,
+} from '@change-review/application/ports/answer-grader.port';
+import {
+  ASSIST_ROUNDS,
+  type AssistRoundsPort,
+} from '@change-review/application/ports/assist-rounds.port';
 import { AVATARS } from '@change-review/application/ports/avatars.port';
 import {
   CHANGE_STACK_GENERATOR,
@@ -44,10 +57,6 @@ import {
   COMMENT_BODIES,
   type CommentBodiesPort,
 } from '@change-review/application/ports/comment-bodies.port';
-import {
-  DECISION_GENERATOR,
-  type DecisionGeneratorPort,
-} from '@change-review/application/ports/decision-generator.port';
 import {
   DECISION_READER,
   type DecisionReaderPort,
@@ -135,14 +144,14 @@ import { PublicWorkAccess } from '@change-review/application/services/public-wor
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { RecheckTrialChanges } from '@change-review/application/services/recheck-trial-changes.service';
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
-import { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import { ReviewWorkAccess } from '@change-review/application/services/review-work-access.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { StackPushes } from '@change-review/application/services/stack-pushes.service';
 import { SubmitReview } from '@change-review/application/services/submit-review.service';
 import { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
+import { WakeSessionWaits } from '@change-review/application/services/wake-session-waits.service';
+import { WorkAnswerGrades } from '@change-review/application/services/work-answer-grades.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
-import { WorkDecisionSets } from '@change-review/application/services/work-decision-sets.service';
 import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
 import { RepositoryVisibility } from '@change-review/infrastructure/acl/repository-visibility.adapter';
@@ -150,13 +159,13 @@ import { GitHubReviewPosting } from '@change-review/infrastructure/acl/review-po
 import { ReviewWorkRunners } from '@change-review/infrastructure/acl/review-work-runners.adapter';
 import { Work } from '@change-review/infrastructure/acl/work.adapter';
 import { Workspaces } from '@change-review/infrastructure/acl/workspaces.adapter';
-import { ChatCompletionsAnswerGrader } from '@change-review/infrastructure/answers/chat-completions-answer.grader';
-import { ChatCompletionsChangeStackGenerator } from '@change-review/infrastructure/change-stacks/chat-completions-change-stack.generator';
+import { AssistAnswerGrader } from '@change-review/infrastructure/answers/assist-answer.grader';
+import { AssistRounds } from '@change-review/infrastructure/assist/assist-rounds';
+import { AssistChangeStackGenerator } from '@change-review/infrastructure/change-stacks/assist-change-stack.generator';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { GitPatchWriter } from '@change-review/infrastructure/change-stacks/git-patch.writer';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
 import { ThreadedSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/threaded-symbol.indexer';
-import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/decisions/chat-completions-decision.generator';
 import { CHANGE_REVIEW_PAYLOAD_TYPES } from '@change-review/infrastructure/events/change-review-payload-types';
 import { GitHubAvatars } from '@change-review/infrastructure/links/github-avatars';
 import { WebReviewLinks } from '@change-review/infrastructure/links/web-review.links';
@@ -182,6 +191,7 @@ import { MergedDecisionController } from '@change-review/presentation/http/contr
 import { PublicChangeStackController } from '@change-review/presentation/http/controllers/public-change-stack.controller';
 import { ReviewController } from '@change-review/presentation/http/controllers/review.controller';
 import { RunnerChangeStackController } from '@change-review/presentation/http/controllers/runner-change-stack.controller';
+import { RunnerDecisionController } from '@change-review/presentation/http/controllers/runner-decision.controller';
 import { ReviewDeliveryWorker } from '@change-review/presentation/workers/review-delivery.worker';
 import {
   PULL_REQUEST_COMMENTS,
@@ -245,10 +255,6 @@ import {
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
 import {
-  INFERENCE_CALLS,
-  type InferenceCallsPort,
-} from '@shared-kernel/application/ports/inference-calls.port';
-import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
@@ -280,6 +286,7 @@ export const CHANGE_REVIEW_CONTROLLERS: readonly Type[] = [
   DecisionController,
   MergedDecisionController,
   RunnerChangeStackController,
+  RunnerDecisionController,
   ReviewController,
 ];
 
@@ -393,21 +400,16 @@ const adapters: Provider[] = [
   { provide: PATCH_WRITER, useClass: GitPatchWriter },
   {
     provide: CHANGE_STACK_GENERATOR,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) =>
-      new ChatCompletionsChangeStackGenerator(calls),
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) =>
+      new AssistChangeStackGenerator(sessions),
   },
-  {
-    provide: DECISION_GENERATOR,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) =>
-      new ChatCompletionsDecisionGenerator(calls),
-  },
+  { provide: ASSIST_ROUNDS, useClass: AssistRounds },
   {
     provide: ANSWER_GRADER,
-    inject: [INFERENCE_CALLS],
-    useFactory: (calls: InferenceCallsPort) =>
-      new ChatCompletionsAnswerGrader(calls),
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) =>
+      new AssistAnswerGrader(sessions),
   },
   {
     provide: REVIEW_LINKS,
@@ -528,25 +530,6 @@ const services: Provider[] = [
       ),
   },
   {
-    provide: RequestDecisions,
-    inject: [
-      WORK,
-      DrizzleDecisionSetRepository,
-      DECISION_GENERATOR,
-      TRANSACTION,
-      ID_GENERATOR,
-      CLOCK,
-    ],
-    useFactory: (
-      work: WorkPort,
-      sets: DrizzleDecisionSetRepository,
-      generator: DecisionGeneratorPort,
-      transaction: TransactionPort,
-      ids: IdGeneratorPort,
-      clock: ClockPort,
-    ) => new RequestDecisions(work, sets, generator, transaction, ids, clock),
-  },
-  {
     provide: PostDecisionsComment,
     inject: [
       DECISION_READER,
@@ -601,12 +584,11 @@ const services: Provider[] = [
     ) => new ApplyPullRequestClose(work, sets, transaction, clock),
   },
   {
-    provide: WorkDecisionSets,
+    provide: WorkAnswerGrades,
     inject: [
-      DrizzleDecisionSetRepository,
-      WORK,
-      DECISION_GENERATOR,
-      ID_GENERATOR,
+      DrizzleQuestionAnswerRepository,
+      DrizzleChangeStackRepository,
+      ANSWER_GRADER,
       TRANSACTION,
       CLOCK,
       LOGGER,
@@ -614,21 +596,19 @@ const services: Provider[] = [
       TELEMETRY,
     ],
     useFactory: (
-      sets: DrizzleDecisionSetRepository,
-      work: WorkPort,
-      generator: DecisionGeneratorPort,
-      ids: IdGeneratorPort,
+      answers: DrizzleQuestionAnswerRepository,
+      stacks: DrizzleChangeStackRepository,
+      grader: AnswerGraderPort,
       transaction: TransactionPort,
       clock: ClockPort,
       logger: LoggerPort,
       reports: ErrorReportsPort,
       telemetry: TelemetryPort,
     ) =>
-      new WorkDecisionSets(
-        sets,
-        work,
-        generator,
-        ids,
+      new WorkAnswerGrades(
+        answers,
+        stacks,
+        grader,
         transaction,
         clock,
         logger,
@@ -637,10 +617,27 @@ const services: Provider[] = [
       ),
   },
   {
+    provide: WakeSessionWaits,
+    inject: [
+      ASSIST_ROUNDS,
+      DrizzleChangeStackRepository,
+      DrizzleQuestionAnswerRepository,
+      TRANSACTION,
+      CLOCK,
+    ],
+    useFactory: (
+      rounds: AssistRoundsPort,
+      stacks: DrizzleChangeStackRepository,
+      answers: DrizzleQuestionAnswerRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new WakeSessionWaits(rounds, stacks, answers, transaction, clock),
+  },
+  {
     provide: PendingJobWorker,
     inject: [
       WorkChangeStacks,
-      WorkDecisionSets,
+      WorkAnswerGrades,
       DrizzleStackCheckRepository,
       DrizzlePushDiffRepository,
       CLOCK,
@@ -648,7 +645,7 @@ const services: Provider[] = [
     ],
     useFactory: (
       stacks: WorkChangeStacks,
-      decisions: WorkDecisionSets,
+      grades: WorkAnswerGrades,
       checks: DrizzleStackCheckRepository,
       diffs: DrizzlePushDiffRepository,
       clock: ClockPort,
@@ -657,7 +654,7 @@ const services: Provider[] = [
       new PendingJobWorker(
         [
           stacks,
-          decisions,
+          grades,
           new ExpireWaitingReviewWork(checks, diffs, clock, logger),
         ],
         logger,
@@ -932,6 +929,13 @@ const handlers: Provider[] = [
     CHANGE_STACK_READER,
     CLOCK,
   ]),
+  ...bindCommandHandler(RecordRunDecisionsCommand, RecordRunDecisionsHandler, [
+    WORK,
+    RUN_LEASES,
+    DrizzleDecisionSetRepository,
+    TRANSACTION,
+    ID_GENERATOR,
+  ]),
   ...bindCommandHandler(DisputeDecisionCommand, DisputeDecisionHandler, [
     TeamWorkAccess,
     DrizzleDecisionSetRepository,
@@ -953,7 +957,6 @@ const handlers: Provider[] = [
     TeamWorkAccess,
     DrizzleChangeStackRepository,
     DrizzleQuestionAnswerRepository,
-    ANSWER_GRADER,
     ID_GENERATOR,
     CLOCK,
   ]),
@@ -1001,11 +1004,11 @@ const published: Provider[] = [
       ReceiveReviewComment,
       SignalReviewing,
       StackCheckReactions,
-      RequestDecisions,
       ApplyPullRequestClose,
       DecisionReactions,
       REVIEW_WORK_RUNNERS,
       StackPushes,
+      WakeSessionWaits,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1022,11 +1025,11 @@ const published: Provider[] = [
       receiving: ReceiveReviewComment,
       signalling: SignalReviewing,
       checks: StackCheckReactions,
-      deciding: RequestDecisions,
       pullRequestClose: ApplyPullRequestClose,
       decisions: DecisionReactions,
       runners: ReviewWorkRunnersPort,
       pushes: StackPushes,
+      waking: WakeSessionWaits,
     ) => {
       types.register('change-review', CHANGE_REVIEW_PAYLOAD_TYPES);
       mappers.register(CHANGE_REVIEW_EVENT_MAPPERS);
@@ -1040,11 +1043,11 @@ const published: Provider[] = [
           receiving,
           signalling,
           checks,
-          deciding,
           pullRequestClose,
           decisions,
           runners,
           pushes,
+          waking,
         ),
       );
       return true;

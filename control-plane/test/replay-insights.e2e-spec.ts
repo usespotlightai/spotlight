@@ -77,12 +77,13 @@ const archiveStore: WorkingCopyArchiveStorePort = {
 };
 
 const judge: JudgePort = {
-  availableTo: async () => true,
+  roundOf: () => null,
   judge: async (request) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
+      status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
       verdict: {

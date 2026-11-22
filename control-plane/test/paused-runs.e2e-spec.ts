@@ -264,7 +264,7 @@ const awaitedTurnsOf = (runId: string, count = 1): Promise<AwaitedTurn[]> =>
 const deliveredTo = (
   runId: string,
   kind: string = TASK_TURN_AWAITED,
-  count = 3,
+  count = 1,
 ): Promise<string[]> =>
   eventually(async () => {
     const delivered = (
@@ -550,13 +550,9 @@ describe('a run that asks a person', () => {
     expect(await awaitedTurnsOf(runId)).toEqual([
       { runId, taskId, attempt: 1, handsOver: true },
     ]);
-    expect(await deliveredTo(runId)).toEqual(
-      expect.arrayContaining([
-        'change-review.request-decisions-of-awaited-turn',
-        'change-review.signal-review-awaited',
-        'memory.request-memories-of-awaited-turn',
-      ]),
-    );
+    expect(await deliveredTo(runId)).toEqual([
+      'change-review.signal-review-awaited',
+    ]);
 
     await answered(taskId, 'The default one.');
     await runIn(runId, 'queued');

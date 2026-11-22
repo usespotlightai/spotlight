@@ -6,7 +6,7 @@ import type { MemoryRetirementApproved } from '@memory/domain/events/memory-reti
 import type { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
-import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { inactiveOf } from '@memory/domain/services/memory-lapse';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -17,7 +17,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 export class MemoryReactions {
   constructor(
     private readonly reviews: ReviewsPort,
-    private readonly drafts: MemoryDraftRepository,
+    private readonly sets: MemoryProposalSetRepository,
     private readonly memories: MemoryRepository,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
@@ -37,9 +37,9 @@ export class MemoryReactions {
 
   private reviewed(taskId: TaskId, runId: RunId): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      const draft = await this.drafts.forTaskLocked(taskId);
+      const set = await this.sets.forTaskLocked(taskId);
 
-      await (draft?.awaitsReviewIn(runId)
+      await (set?.awaitsReviewIn(runId)
         ? this.reviews.reopen(taskId, runId)
         : this.reviews.resolve(taskId, runId));
     });
@@ -98,13 +98,13 @@ export class MemoryReactions {
 
     if (!retired) {
       await this.transaction.inTransaction(async () => {
-        const draft = await this.drafts.forTask(event.taskId);
-        const proposal = draft?.proposals.find((each) =>
+        const set = await this.sets.forTask(event.taskId);
+        const proposal = set?.proposals.find((each) =>
           each.id.equals(event.proposalId),
         );
 
-        if (draft && proposal?.state === 'approved') {
-          await this.drafts.save(draft.lapse(event.proposalId));
+        if (set && proposal?.state === 'approved') {
+          await this.sets.save(set.lapse(event.proposalId));
         }
       });
     }

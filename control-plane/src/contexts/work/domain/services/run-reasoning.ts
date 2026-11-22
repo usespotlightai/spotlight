@@ -1,10 +1,13 @@
 import type { StepKind } from '@work/domain/value-objects/step-kind';
 
+/** The commands of the spotlight CLI that a briefing tells the agent to run, and that its journal shows it ran. */
 export const HANDOVER_COMMAND = 'spotlight handover';
 
 export const REMEMBER_COMMAND = 'spotlight remember';
 
 export const FORGET_COMMAND = 'spotlight forget';
+
+export const DECIDE_COMMAND = 'spotlight decide';
 
 type ReasoningKind =
   | 'message'

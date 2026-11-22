@@ -29,6 +29,8 @@ type channel struct {
 	touched  func(received protocol.TouchedRequest) string
 	propose  func(received protocol.CandidateProposal) (int, string)
 	cause    func(received protocol.CauseRecord) (int, string)
+	submit   func(received protocol.AssistSubmission) (int, string)
+	decide   func(received protocol.ProposedDecision) (int, string)
 
 	mu       sync.Mutex
 	handover *protocol.Handover
@@ -95,6 +97,14 @@ func (h *channel) Candidates(propose func(received protocol.CandidateProposal) (
 
 func (h *channel) Causes(cause func(received protocol.CauseRecord) (int, string)) {
 	h.cause = cause
+}
+
+func (h *channel) Submits(submit func(received protocol.AssistSubmission) (int, string)) {
+	h.submit = submit
+}
+
+func (h *channel) Decisions(decide func(received protocol.ProposedDecision) (int, string)) {
+	h.decide = decide
 }
 
 func (h *channel) Handover() *protocol.Handover {
@@ -189,6 +199,24 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		status, body := h.cause(received)
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	case r.URL.Path == protocol.AgentAPISubmitPath:
+		var received protocol.AssistSubmission
+		if h.submit == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusNotImplemented, "this run cannot submit a result: only an assist session does")
+			return
+		}
+		status, body := h.submit(received)
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	case r.URL.Path == protocol.AgentAPIDecisionPath:
+		var received protocol.ProposedDecision
+		if h.decide == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusNotImplemented, "this run cannot record a decision")
+			return
+		}
+		status, body := h.decide(received)
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
 	default:

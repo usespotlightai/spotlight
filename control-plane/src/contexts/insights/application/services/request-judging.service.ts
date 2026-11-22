@@ -1,5 +1,4 @@
 import type { EvidencePort } from '@insights/application/ports/evidence.port';
-import type { JudgePort } from '@insights/application/ports/judge.port';
 import type { StationJudgesPort } from '@insights/application/ports/station-judges.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
@@ -31,7 +30,6 @@ export class RequestJudging {
     private readonly work: WorkPort,
     private readonly evidence: EvidencePort,
     private readonly judges: StationJudgesPort,
-    private readonly judge: JudgePort,
     private readonly judgings: JudgingRepository,
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
@@ -57,12 +55,7 @@ export class RequestJudging {
       : null;
     const settings = run ? await this.judges.judgeAt(run.stationId) : null;
 
-    if (
-      !run ||
-      !settings ||
-      !sampledForJudging(runId, settings.sample) ||
-      !(await this.judge.availableTo(run.workspaceId.value))
-    ) {
+    if (!run || !settings || !sampledForJudging(runId, settings.sample)) {
       return;
     }
 

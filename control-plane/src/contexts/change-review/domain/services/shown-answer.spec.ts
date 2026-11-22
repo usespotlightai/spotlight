@@ -28,6 +28,7 @@ const at = (
   asked: QUESTION.question,
   expected,
   reply: `Reply at ${iso}`,
+  grading: 'graded' as const,
   verdict: 'right' as const,
   feedback: 'Well read.',
   answeredAt: new Date(iso),
@@ -43,6 +44,7 @@ describe('shownAnswerFor', () => {
       ]),
     ).toEqual({
       reply: 'Reply at 2026-11-02T10:00:00Z',
+      grading: 'graded',
       verdict: 'right',
       feedback: 'Well read.',
       expected: QUESTION.answer,
@@ -68,6 +70,7 @@ describe('shownAnswerFor', () => {
       ]),
     ).toEqual({
       reply: 'Reply at 2026-11-03T10:00:00Z',
+      grading: 'graded',
       verdict: 'right',
       feedback: null,
       expected: null,
@@ -99,5 +102,25 @@ describe('shownAnswerFor', () => {
         at('2026-11-02T10:00:00Z', QUESTION.answer, { taskId: null }),
       ]),
     ).toBeNull();
+  });
+
+  it('shows a reply still being graded with the expected answer', () => {
+    expect(
+      shownAnswerFor(QUESTION, STACK, [
+        {
+          ...at('2026-11-02T10:00:00Z', QUESTION.answer),
+          grading: 'pending',
+          verdict: null,
+          feedback: null,
+        },
+      ]),
+    ).toEqual({
+      reply: 'Reply at 2026-11-02T10:00:00Z',
+      grading: 'pending',
+      verdict: null,
+      feedback: null,
+      expected: QUESTION.answer,
+      outdated: false,
+    });
   });
 });

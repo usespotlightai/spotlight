@@ -1,3 +1,4 @@
+import { AssistBindingsModule } from '@assist/assist.module';
 import { ChangeReviewBindingsModule } from '@change-review/change-review.module';
 import { ConfigurationBindingsModule } from '@configuration/configuration.module';
 import { InsightsBindingsModule } from '@insights/insights.module';
@@ -11,6 +12,7 @@ import { WorkBindingsModule } from '@work/work.module';
 const BINDINGS = [
   RunsBindingsModule,
   WorkBindingsModule,
+  AssistBindingsModule,
   ConfigurationBindingsModule,
   ChangeReviewBindingsModule,
   IntegrationsBindingsModule,

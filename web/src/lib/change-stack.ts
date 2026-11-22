@@ -28,7 +28,7 @@ export type LayerQuestion = LayerQuestionResponseDto;
 
 export type QuestionAnswer = QuestionAnswerResponseDto;
 
-export type AnswerVerdict = QuestionAnswer['verdict'];
+export type AnswerVerdict = NonNullable<QuestionAnswer['verdict']>;
 
 export const stackOfPublic = (
   stack: PublicChangeStackResponseDto,
@@ -106,10 +106,19 @@ export const currentStacks = (
 export const generating = (stacks: readonly ChangeStack[]): boolean =>
   currentStacks(stacks).some((stack) => stack.state === 'generating');
 
+const gradingIn = (stack: ChangeStack): boolean =>
+  stack.cohorts.some((cohort) =>
+    cohort.layers.some((layer) =>
+      layer.questions.some((each) => each.answered?.grading === 'pending'),
+    ),
+  );
+
 export const inProgress = (stacks: readonly ChangeStack[]): boolean =>
   currentStacks(stacks).some(
     (stack) =>
-      stack.state === 'generating' || stack.check?.status === 'waiting',
+      stack.state === 'generating' ||
+      stack.check?.status === 'waiting' ||
+      gradingIn(stack),
   );
 
 export const layersOf = (stack: ChangeStack): LocatedLayer[] =>
@@ -236,6 +245,7 @@ export const toReadAgain = (layer: StackLayer): boolean =>
     (each) =>
       each.answered !== null &&
       !each.answered.outdated &&
+      each.answered.verdict !== null &&
       each.answered.verdict !== 'right',
   );
 

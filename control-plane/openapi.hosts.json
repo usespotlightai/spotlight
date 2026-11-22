@@ -2011,6 +2011,81 @@
         ]
       }
     },
+    "/runs/{runId}/assist-result": {
+      "post": {
+        "description": "A result that does not fit may be fixed and submitted again. Once a result is accepted, the session takes no other.",
+        "operationId": "submitAssistResult",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitAssistResultRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistResultAcceptedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "This runner does not lease the run",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run is no assist session, or its session accepted a result already or failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A result that does not fit the shape its kind asks for; errors name each problem’s path in the result",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Submit the result of an assist session from inside its run; Spotlight checks it against the shape its kind asks for",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/change-stacks": {
       "post": {
         "description": "Spotlight generates a change stack for each run of a station that asks for diffs: the runner hands over the diff of each checkout.",
@@ -2202,6 +2277,81 @@
         ]
       }
     },
+    "/runs/{runId}/decisions": {
+      "post": {
+        "description": "They join the decisions of the task’s earlier runs, each kept with the run that recorded it. A decision the task holds already is kept once, with the run that first recorded it.",
+        "operationId": "recordDecisions",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDecisionsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedDecisionsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "Not a run this runner leases",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run’s station keeps no decisions, the run works no task of its own or reviews a pull request, the task merged, or it holds as many decisions as it may",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An unknown kind, a missing or too long text, too many alternatives, or no changed file; errors name each problem’s path",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record decisions the agent made while it worked, for review beside the task’s change",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/memories/recall": {
       "post": {
         "operationId": "recallMemories",
@@ -2358,7 +2508,7 @@
     },
     "/runs/{runId}/memories": {
       "post": {
-        "description": "It waits in the inbox beside the task for a person to approve, like a drafted memory.",
+        "description": "It waits in the inbox beside the task for a person to approve.",
         "operationId": "remember",
         "parameters": [
           {
@@ -5447,6 +5597,33 @@
           "body"
         ]
       },
+      "SubmitAssistResultRequestDto": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "description": "The one JSON result of the assist session, in the shape its kind asks for"
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "AssistResultAcceptedResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "example": true
+          }
+        },
+        "required": [
+          "accepted"
+        ]
+      },
       "GenerateChangeStackRequestDto": {
         "type": "object",
         "properties": {
@@ -5572,6 +5749,84 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "RecordedDecisionRequestDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "trade-off",
+              "assumption",
+              "limitation",
+              "rejected-approach",
+              "deviation"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Retries uploads in the request, not from a queue",
+            "description": "What the agent chose, at most 120 characters"
+          },
+          "why": {
+            "type": "string",
+            "description": "What led the agent to it, and what it costs, at most 2000 characters"
+          },
+          "alternatives": {
+            "description": "At most five options the agent weighed and set aside",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "paths": {
+            "example": [
+              "api/src/uploads.ts"
+            ],
+            "description": "One to twenty changed files it covers, from the working copy root",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "why",
+          "alternatives",
+          "paths"
+        ]
+      },
+      "RecordDecisionsRequestDto": {
+        "type": "object",
+        "properties": {
+          "decisions": {
+            "description": "One to twenty decisions",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordedDecisionRequestDto"
+            }
+          }
+        },
+        "required": [
+          "decisions"
+        ]
+      },
+      "RecordedDecisionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "The id of each decision among the task’s decisions, in the order sent. A decision the task holds already keeps its id",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids"
         ]
       },
       "RetiringResponseDto": {
@@ -5736,15 +5991,6 @@
             "example": "person",
             "description": "person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else"
           },
-          "proposedBy": {
-            "type": "string",
-            "enum": [
-              "drafter",
-              "agent"
-            ],
-            "example": "agent",
-            "description": "drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember"
-          },
           "state": {
             "type": "string",
             "enum": [
@@ -5844,7 +6090,6 @@
           "kind",
           "body",
           "source",
-          "proposedBy",
           "state",
           "scope",
           "repository",
