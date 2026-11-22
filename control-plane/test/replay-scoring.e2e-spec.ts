@@ -791,6 +791,13 @@ describe('a task run’s change', () => {
     const taskId = randomUUID();
     const runId = randomUUID();
 
+    // The replay above can leave a run queued once its entries are scored, and a claim may hand it out before
+    // this run: claims take the first runs of each line, not the one run with the highest priority.
+    await db
+      .update(schema.run)
+      .set({ state: 'cancelled', endedAt: new Date() })
+      .where(eq(schema.run.state, 'queued'));
+
     await db.insert(schema.task).values({
       id: taskId,
       branch: `feat/test-${taskId}`,
