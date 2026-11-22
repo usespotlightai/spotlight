@@ -405,6 +405,16 @@ describe('ChatBriefing', () => {
       );
     });
 
+    it('suggests Docker Compose as the setup command of a repository that has a Compose file', () => {
+      const briefing = brief(setup);
+
+      expect(briefing).toContain('a Compose file (`compose.yaml`');
+      expect(briefing).toContain(
+        'suggest `docker compose up -d --wait` as its `setup` command',
+      );
+      expect(briefing).toContain('needs Docker where their runs run');
+    });
+
     it('leads the team to own what it ships in production', () => {
       const briefing = brief(setup);
 
