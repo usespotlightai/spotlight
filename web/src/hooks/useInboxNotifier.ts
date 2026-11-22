@@ -31,7 +31,6 @@ export function useInboxNotifier() {
       const shown = new Notification(notification.title, {
         body: notification.body ?? undefined,
         tag: notification.id,
-        icon: '/email-logo.png',
       });
 
       shown.onclick = () => {

@@ -83,7 +83,6 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(notification.title, {
       body: notification.body ?? undefined,
       tag: notification.id,
-      icon: '/email-logo.png',
       data: { path: notification.path },
     }),
   );
