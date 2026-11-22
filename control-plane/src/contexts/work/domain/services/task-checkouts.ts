@@ -14,6 +14,10 @@ export interface TaskCheckout {
   readonly setup: string | null;
 }
 
+/** The ref a checkout reads at: the head it reviews, or its task's branch. */
+export const checkedOutAt = (checkout: TaskCheckout): string | null =>
+  checkout.ref ?? checkout.branch?.value ?? null;
+
 export const reviewedOrAll = <T>(
   reviewing: T | null,
   all: readonly T[],

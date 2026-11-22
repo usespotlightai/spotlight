@@ -5,10 +5,7 @@ import type {
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
-import type {
-  RunServiceShape,
-  RunSpecShape,
-} from '@runs/application/contracts/run-spec.contract';
+import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type {
   HarnessLaunchPort,
   SkillsHome,
@@ -42,7 +39,6 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { ServicesAt } from '@work/application/ports/checkout-services.port';
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import {
   cannedReadyProfiles,
@@ -56,10 +52,13 @@ import type {
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import type { OrderedRun } from '@work/application/services/ordered-run';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
+import { servicesOver } from '@work/application/services/run-services.fake-spec';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import type { ComposeFile } from '@work/domain/services/compose-services';
+import { declared } from '@work/domain/services/compose-services.fake-spec';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -353,8 +352,8 @@ let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 let awaitingValue: readonly string[] = [];
 let sandboxNotAllowed: readonly string[] = [];
-let servicesAsked: (readonly ServicesAt[])[] = [];
-let composeServices: readonly RunServiceShape[] = [];
+let composeFiles: readonly ComposeFile[] = [];
+let runServices = servicesOver(() => composeFiles);
 
 const dispatch = async (
   station: Station,
@@ -399,12 +398,7 @@ const dispatch = async (
           allowsSandbox: !sandboxNotAllowed.includes(name),
         })),
     },
-    {
-      of: async (_workspace, checkouts) => {
-        servicesAsked.push(checkouts);
-        return composeServices;
-      },
-    },
+    runServices.services,
   );
   const working = existing ?? task(station.id.value);
   const line = lineWith(station, repositories);
@@ -430,8 +424,8 @@ describe('DispatchTask', () => {
   beforeEach(() => {
     awaitingValue = [];
     sandboxNotAllowed = [];
-    servicesAsked = [];
-    composeServices = [];
+    composeFiles = [];
+    runServices = servicesOver(() => composeFiles);
     readyAs = {};
     briefedAt = [];
     remembered = { briefed: [], omitted: [], folder: null };
@@ -990,16 +984,23 @@ describe('DispatchTask', () => {
   });
 
   it('starts the services the Compose files of its checkouts name, and none where they name none', async () => {
-    composeServices = [
-      { name: 'db', image: 'postgres:17', from: 'api/compose.yml' },
+    composeFiles = [
+      {
+        from: 'api/compose.yml',
+        name: 'compose.yml',
+        services: [declared({ name: 'db', image: 'postgres:17' })],
+      },
     ];
     await dispatch(stations[1], undefined, ['acme/api']);
-    composeServices = [];
+    composeFiles = [];
     await dispatch(stations[1], undefined, ['acme/api']);
 
     expect(
-      servicesAsked[0]?.map(({ repository, ref }) => [repository.value, ref]),
-    ).toEqual([['acme/api', 'fix/fix-the-queue-task_1']]);
+      runServices.asked.map(({ repository, ref }) => [repository.value, ref]),
+    ).toEqual([
+      ['acme/api', 'fix/fix-the-queue-task_1'],
+      ['acme/api', 'fix/fix-the-queue-task_1'],
+    ]);
     expect(written(queued[0]).services).toEqual([
       { name: 'db', image: 'postgres:17', from: 'api/compose.yml' },
     ]);

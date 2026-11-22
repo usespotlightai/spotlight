@@ -8,7 +8,6 @@ import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunSpecPartsMapper } from '@work/application/mappers/run-spec-parts.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
-import type { CheckoutServicesPort } from '@work/application/ports/checkout-services.port';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { SavepointPort } from '@work/application/ports/savepoint.port';
@@ -30,6 +29,7 @@ import {
   runOrderOf,
 } from '@work/application/services/ordered-run';
 import { chatWords } from '@work/application/services/remembering-words';
+import type { RunServices } from '@work/application/services/run-services';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import {
@@ -59,7 +59,7 @@ export class DispatchChat implements ChatDispatching {
     private readonly spotlightUrl: string,
     private readonly controlPlane: ControlPlaneReleasePort,
     private readonly extensions: ChatToolExtensions,
-    private readonly services: CheckoutServicesPort,
+    private readonly services: RunServices,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {

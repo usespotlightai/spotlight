@@ -7,7 +7,6 @@ import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo'
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { CheckoutServicesPort } from '@work/application/ports/checkout-services.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import type { SavepointPort } from '@work/application/ports/savepoint.port';
@@ -25,6 +24,7 @@ import {
 } from '@work/application/services/ordered-run';
 import { taskWords } from '@work/application/services/remembering-words';
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
+import type { RunServices } from '@work/application/services/run-services';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
@@ -33,7 +33,10 @@ import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { describedTools } from '@work/domain/services/enabled-for-run';
 import { launchAt, taskOrderedAt } from '@work/domain/services/run-order';
-import { repositoriesForTask } from '@work/domain/services/task-checkouts';
+import {
+  checkedOutAt,
+  repositoriesForTask,
+} from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
@@ -61,7 +64,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly savepoint: SavepointPort,
     hash: ContentHashPort,
     bound: BoundSecretsPort,
-    private readonly services: CheckoutServicesPort,
+    private readonly services: RunServices,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -183,7 +186,7 @@ export class DispatchTask implements TaskDispatching {
       task.workspaceId,
       order.checkouts.map((each) => ({
         repository: each.repository,
-        ref: each.ref ?? each.branch?.value ?? null,
+        ref: checkedOutAt(each),
       })),
     );
 

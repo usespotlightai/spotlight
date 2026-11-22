@@ -289,9 +289,9 @@ import {
 } from '@work/application/ports/chat-reader.port';
 import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensions.port';
 import {
-  CHECKOUT_SERVICES,
-  type CheckoutServicesPort,
-} from '@work/application/ports/checkout-services.port';
+  COMPOSE_FILES,
+  type ComposeFilesPort,
+} from '@work/application/ports/compose-files.port';
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import {
   CONTENT_HASH,
@@ -587,6 +587,7 @@ import { RunEvidences } from '@work/application/services/run-evidences.service';
 import { RunFiles } from '@work/application/services/run-files.service';
 import { RunLoader } from '@work/application/services/run-loader.service';
 import { RunRouting } from '@work/application/services/run-routing.service';
+import { RunServices } from '@work/application/services/run-services';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
 import { SetupStatus } from '@work/application/services/setup-status.service';
@@ -638,7 +639,7 @@ import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus
 import { WORK_PAYLOAD_TYPES } from '@work/infrastructure/events/work-payload-types';
 import { GitReceivePack } from '@work/infrastructure/git/receive-pack';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
-import { GitHubCheckoutServices } from '@work/infrastructure/github/github-checkout-services';
+import { GitHubComposeFiles } from '@work/infrastructure/github/github-compose-files';
 import { GitHubTaskPullRequestSummaries } from '@work/infrastructure/github/github-task-pull-request-summaries';
 import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
@@ -1541,7 +1542,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ENV,
       CONTROL_PLANE_RELEASE,
       ChatToolExtensions,
-      CHECKOUT_SERVICES,
+      RunServices,
     ],
     useFactory: (
       ids: IdGeneratorPort,
@@ -1556,7 +1557,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       env: Env,
       controlPlane: ControlPlaneReleasePort,
       extensions: ChatToolExtensions,
-      services: CheckoutServicesPort,
+      services: RunServices,
     ) =>
       new DispatchChat(
         ids,
@@ -1655,7 +1656,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       SAVEPOINT,
       CONTENT_HASH,
       BOUND_SECRETS,
-      CHECKOUT_SERVICES,
+      RunServices,
     ],
     useFactory: (
       ids: IdGeneratorPort,
@@ -1674,7 +1675,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       savepoint: SavepointPort,
       hash: ContentHashPort,
       bound: BoundSecretsPort,
-      services: CheckoutServicesPort,
+      services: RunServices,
     ) =>
       new DispatchTask(
         ids,
@@ -1698,10 +1699,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: CHECKOUT_SERVICES,
-    inject: [REPOSITORY_CONTENTS, LOGGER],
-    useFactory: (contents: RepositoryContentsPort, logger: LoggerPort) =>
-      new GitHubCheckoutServices(contents, logger),
+    provide: COMPOSE_FILES,
+    inject: [REPOSITORY_CONTENTS],
+    useFactory: (contents: RepositoryContentsPort) =>
+      new GitHubComposeFiles(contents),
+  },
+
+  {
+    provide: RunServices,
+    inject: [COMPOSE_FILES, LOGGER],
+    useFactory: (files: ComposeFilesPort, logger: LoggerPort) =>
+      new RunServices(files, logger),
   },
 
   {
@@ -1725,7 +1733,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TRACE_PARENT,
       RUN_EVIDENCE,
       CLOCK,
-      CHECKOUT_SERVICES,
+      RunServices,
     ],
     useFactory: (
       facts: RunFactsPort,
@@ -1746,7 +1754,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tracing: TraceParentPort,
       evidence: RunEvidencePort,
       clock: ClockPort,
-      services: CheckoutServicesPort,
+      services: RunServices,
     ) =>
       new StationTrials(
         facts,

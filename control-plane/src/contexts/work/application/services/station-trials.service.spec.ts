@@ -30,6 +30,7 @@ import type { BriefedContext } from '@work/application/ports/team-memories.port'
 import { candidateOf } from '@work/application/services/candidate-lines.fake-spec';
 import type { CandidateLines } from '@work/application/services/candidate-lines.service';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
+import { servicesOver } from '@work/application/services/run-services.fake-spec';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import { StationTrials } from '@work/application/services/station-trials.service';
@@ -37,6 +38,7 @@ import { TeamIntegrations } from '@work/application/services/team-integrations.s
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { declared } from '@work/domain/services/compose-services.fake-spec';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -375,14 +377,16 @@ const trialsOf = () =>
       }),
     } as unknown as RunEvidencePort,
     { now: () => NOW, sleep: async () => {} },
-    {
-      of: async (_workspace, at) => {
-        servicesAskedAt.push(
-          ...at.map(({ repository, ref }) => [repository.value, ref] as const),
-        );
-        return [{ name: 'db', image: 'postgres:17', from: 'api/compose.yml' }];
-      },
-    },
+    servicesOver(({ repository, ref }) => {
+      servicesAskedAt.push([repository.value, ref]);
+      return [
+        {
+          from: 'api/compose.yml',
+          name: 'compose.yml',
+          services: [declared({ name: 'db', image: 'postgres:17' })],
+        },
+      ];
+    }).services,
   );
 
 const request = (

@@ -1,28 +1,11 @@
-import type { RunServiceShape } from '@runs/application/contracts/run-spec.contract';
-import { isEnvironmentVariableName } from '@shared-kernel/domain/value-objects/environment-variable-name';
+import type {
+  DeclaredService,
+  ServiceHealth,
+} from '@work/domain/services/compose-services';
 import { parse } from 'yaml';
 
-/** The Compose files a checkout may have at its top, the preferred first, as Compose itself looks for them. */
-export const COMPOSE_FILES = [
-  'compose.yaml',
-  'compose.yml',
-  'docker-compose.yaml',
-  'docker-compose.yml',
-] as const;
-
+/** The file beside a Compose file that Compose fills its ${NAME}s in from. */
 export const COMPOSE_ENV_FILE = '.env';
-
-const SERVICE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
-
-export interface LeftOutService {
-  readonly name: string;
-  readonly why: string;
-}
-
-export interface ComposeServices {
-  readonly services: readonly RunServiceShape[];
-  readonly leftOut: readonly LeftOutService[];
-}
 
 type Json = Record<string, unknown>;
 
@@ -181,12 +164,10 @@ const envOf = (
       }
     }
   }
-  return pairs
-    .filter(([name]) => isEnvironmentVariableName(name))
-    .map(([name, each]) => ({ name, value: each }));
+  return pairs.map(([name, each]) => ({ name, value: each }));
 };
 
-type Health = NonNullable<RunServiceShape['health']>;
+type Health = ServiceHealth;
 
 const NO_HEALTH_CHECK: Health = { test: ['NONE'] };
 
@@ -243,93 +224,38 @@ const dependsOnOf = (value: unknown): string[] => {
 };
 
 /**
- * Reads the services of a Compose file that a run can start from an image: a service that builds its image, that
- * only starts under a profile, or that names no image is left out, saying why. Ports and volumes do not carry over:
- * the run reaches each service by its name, and each run starts from a fresh one. Services come in an order where
- * each follows the ones it depends on; a service that depends on one left out, or on itself through others, is
- * left out too.
+ * Reads the services a Compose file declares, filling in its ${NAME}s from the .env file beside it, as Compose
+ * does. It translates the file's format and decides nothing: which services a run starts is the domain's to say.
+ * Null where the file is not YAML.
  */
-export const composeServicesOf = (
+export const declaredServicesOf = (
   text: string,
-  from: string,
   env: ReadonlyMap<string, string> = new Map(),
-): ComposeServices => {
+): DeclaredService[] | null => {
   let document: unknown;
   try {
     document = parse(interpolated(text, env));
   } catch {
-    return { services: [], leftOut: [{ name: from, why: 'it is not YAML' }] };
+    return null;
   }
   if (!isObject(document) || !isObject(document.services)) {
-    return { services: [], leftOut: [] };
+    return [];
   }
 
-  const leftOut: LeftOutService[] = [];
-  const candidates = new Map<string, RunServiceShape>();
-  for (const [name, raw] of Object.entries(document.services)) {
-    if (!isObject(raw)) {
-      continue;
-    }
-    const why = !SERVICE_NAME.test(name)
-      ? 'its name cannot be a host name'
-      : raw.build !== undefined
-        ? 'it builds its own image'
-        : raw.profiles !== undefined
-          ? 'it only starts under a profile'
-          : typeof raw.image !== 'string' || !raw.image.trim()
-            ? 'it names no image'
-            : null;
-    if (why) {
-      leftOut.push({ name, why });
-      continue;
-    }
-
-    const command = raw.command === undefined ? null : commandOf(raw.command);
-    const environment = envOf(raw.environment);
-    const health = healthOf(raw.healthcheck);
-    const dependsOn = dependsOnOf(raw.depends_on);
-    candidates.set(name, {
-      name,
-      image: (raw.image as string).trim(),
-      ...(command?.length ? { command } : {}),
-      ...(environment.length ? { env: environment } : {}),
-      ...(health ? { health } : {}),
-      ...(dependsOn.length ? { dependsOn } : {}),
-      from,
-    });
-  }
-
-  const ordered: RunServiceShape[] = [];
-  const placed = new Set<string>();
-  const visiting = new Set<string>();
-  const place = (name: string): boolean => {
-    if (placed.has(name)) {
-      return true;
-    }
-    const service = candidates.get(name);
-    if (!service || visiting.has(name)) {
-      return false;
-    }
-    visiting.add(name);
-    const missing = (service.dependsOn ?? []).find((each) => !place(each));
-    visiting.delete(name);
-    if (missing !== undefined) {
-      candidates.delete(name);
-      if (!leftOut.some((each) => each.name === name)) {
-        leftOut.push({
-          name,
-          why: `it depends on ${missing}, which cannot start before it`,
-        });
-      }
-      return false;
-    }
-    placed.add(name);
-    ordered.push(service);
-    return true;
-  };
-  for (const name of candidates.keys()) {
-    place(name);
-  }
-
-  return { services: ordered, leftOut };
+  return Object.entries(document.services).flatMap(([name, raw]) =>
+    isObject(raw)
+      ? [
+          {
+            name,
+            image: typeof raw.image === 'string' ? raw.image : null,
+            builds: raw.build !== undefined,
+            profiled: raw.profiles !== undefined,
+            command: raw.command === undefined ? null : commandOf(raw.command),
+            env: envOf(raw.environment),
+            health: healthOf(raw.healthcheck) ?? null,
+            dependsOn: dependsOnOf(raw.depends_on),
+          },
+        ]
+      : [],
+  );
 };

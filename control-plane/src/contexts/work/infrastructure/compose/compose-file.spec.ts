@@ -1,5 +1,5 @@
 import {
-  composeServicesOf,
+  declaredServicesOf,
   durationMs,
   envFileOf,
   interpolated,
@@ -43,21 +43,35 @@ services:
     profiles: [debug]
 `;
 
-describe('composeServicesOf', () => {
-  it('reads the services a run can start from an image, each after the ones it depends on', () => {
-    const { services, leftOut } = composeServicesOf(COMPOSE, 'app/compose.yml');
-
-    expect(services).toEqual([
+describe('declaredServicesOf', () => {
+  it('translates each service as the file declares it, deciding nothing', () => {
+    expect(declaredServicesOf(COMPOSE)).toEqual([
       {
-        name: 'cache',
-        image: 'redis:7',
-        env: [{ name: 'MODE', value: 'lru' }],
-        health: { test: ['NONE'] },
-        from: 'app/compose.yml',
+        name: 'web',
+        image: null,
+        builds: true,
+        profiled: false,
+        command: null,
+        env: [],
+        health: null,
+        dependsOn: ['db'],
+      },
+      {
+        name: 'worker',
+        image: 'acme/worker:1',
+        builds: false,
+        profiled: false,
+        command: ['node', 'worker.js', '--queue', 'slow jobs'],
+        env: [],
+        health: null,
+        dependsOn: ['cache', 'db'],
       },
       {
         name: 'db',
         image: 'postgres:17',
+        builds: false,
+        profiled: false,
+        command: null,
         env: [
           { name: 'POSTGRES_PASSWORD', value: 'local' },
           { name: 'POSTGRES_DB', value: 'app' },
@@ -69,65 +83,46 @@ describe('composeServicesOf', () => {
           startPeriodMs: 500,
           retries: 10,
         },
-        from: 'app/compose.yml',
+        dependsOn: [],
       },
       {
-        name: 'worker',
-        image: 'acme/worker:1',
-        command: ['node', 'worker.js', '--queue', 'slow jobs'],
-        dependsOn: ['cache', 'db'],
-        from: 'app/compose.yml',
+        name: 'cache',
+        image: 'redis:7',
+        builds: false,
+        profiled: false,
+        command: null,
+        env: [{ name: 'MODE', value: 'lru' }],
+        health: { test: ['NONE'] },
+        dependsOn: [],
       },
-    ]);
-    expect(leftOut).toEqual([
-      { name: 'web', why: 'it builds its own image' },
-      { name: 'tools', why: 'it only starts under a profile' },
+      {
+        name: 'tools',
+        image: 'acme/tools',
+        builds: false,
+        profiled: true,
+        command: null,
+        env: [],
+        health: null,
+        dependsOn: [],
+      },
     ]);
   });
 
   it('fills in values from the .env file beside it', () => {
-    const { services } = composeServicesOf(
+    const db = declaredServicesOf(
       COMPOSE,
-      'compose.yml',
       envFileOf('# local\nDB_PASSWORD="from file"\n'),
-    );
+    )?.find((each) => each.name === 'db');
 
-    expect(services.find((each) => each.name === 'db')?.env?.[0]).toEqual({
+    expect(db?.env[0]).toEqual({
       name: 'POSTGRES_PASSWORD',
       value: 'from file',
     });
   });
 
-  it('leaves out a service that depends on one left out or on itself', () => {
-    const { services, leftOut } = composeServicesOf(
-      `
-services:
-  api: { image: api, depends_on: [web] }
-  web: { build: . }
-  a: { image: a, depends_on: [b] }
-  b: { image: b, depends_on: [a] }
-  ok: { image: ok }
-`,
-      'compose.yml',
-    );
-
-    expect(services.map((each) => each.name)).toEqual(['ok']);
-    expect(leftOut.map((each) => each.name).sort()).toEqual([
-      'a',
-      'api',
-      'b',
-      'web',
-    ]);
-  });
-
-  it('finds nothing in a file without services, and says when the file is not YAML', () => {
-    expect(composeServicesOf('version: "3"\n', 'compose.yml')).toEqual({
-      services: [],
-      leftOut: [],
-    });
-    expect(composeServicesOf('services: [', 'compose.yml').leftOut).toEqual([
-      { name: 'compose.yml', why: 'it is not YAML' },
-    ]);
+  it('declares nothing in a file without services, and cannot read a file that is not YAML', () => {
+    expect(declaredServicesOf('version: "3"\n')).toEqual([]);
+    expect(declaredServicesOf('services: [')).toBeNull();
   });
 });
 

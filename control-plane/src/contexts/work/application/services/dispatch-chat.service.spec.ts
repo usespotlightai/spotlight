@@ -23,9 +23,11 @@ import type { TraceParentPort } from '@work/application/ports/trace-parent.port'
 import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import type { OrderedRun } from '@work/application/services/ordered-run';
+import { servicesOver } from '@work/application/services/run-services.fake-spec';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import { declared } from '@work/domain/services/compose-services.fake-spec';
 import { SETUP_PULL_REQUEST } from '@work/domain/value-objects/built-in-tools';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -151,14 +153,17 @@ const dispatching = (
     new ChatToolExtensions({
       find: async () => null,
     } as unknown as ChatRepository),
-    {
-      of: async (_workspace, at) =>
-        at.flatMap(({ repository, ref }) =>
-          repository.value === 'acme/api' && ref === null
-            ? [{ name: 'db', image: 'postgres:17', from: 'api/compose.yml' }]
-            : [],
-        ),
-    },
+    servicesOver(({ repository, ref }) =>
+      repository.value === 'acme/api' && ref === null
+        ? [
+            {
+              from: 'api/compose.yml',
+              name: 'compose.yml',
+              services: [declared({ name: 'db', image: 'postgres:17' })],
+            },
+          ]
+        : [],
+    ).services,
   );
 
   return {

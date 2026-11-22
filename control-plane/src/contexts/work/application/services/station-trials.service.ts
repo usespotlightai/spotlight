@@ -11,7 +11,6 @@ import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import { TrialabilityMapper } from '@work/application/mappers/trialability.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
-import type { CheckoutServicesPort } from '@work/application/ports/checkout-services.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
 import type {
@@ -25,6 +24,7 @@ import type { TraceParentPort } from '@work/application/ports/trace-parent.port'
 import { Answered } from '@work/application/rendering/answered';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import type { CandidateLines } from '@work/application/services/candidate-lines.service';
+import type { RunServices } from '@work/application/services/run-services';
 import type { StationOrdering } from '@work/application/services/station-ordering';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
@@ -105,7 +105,7 @@ export class StationTrials implements StationTrialsPort {
     private readonly tracing: TraceParentPort,
     private readonly evidence: RunEvidencePort,
     private readonly clock: ClockPort,
-    private readonly services: CheckoutServicesPort,
+    private readonly services: RunServices,
   ) {}
 
   async followUpsOf(basedOn: string): Promise<TrialFollowUps | null> {
