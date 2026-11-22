@@ -44,6 +44,8 @@ const GRAMMARS: readonly Grammar[] = [
 
 const MAX_SOURCE_LENGTH = 512 * 1024;
 
+export const PARSE_WITHIN_MS = 2_000;
+
 const THROUGH = /^[\w$.:]{1,60}$/;
 
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/;
@@ -346,9 +348,13 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
 
         parser.setLanguage(language);
         const embedded = grammar.embedded?.(source.text);
-        const tree = parser.parse(embedded?.script ?? source.text);
+        const started = performance.now();
+        const tree = parser.parse(embedded?.script ?? source.text, null, {
+          progressCallback: () => performance.now() - started > PARSE_WITHIN_MS,
+        });
 
         if (!tree) {
+          parser.reset();
           return [];
         }
 
