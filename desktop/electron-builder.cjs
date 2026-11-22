@@ -12,7 +12,14 @@ module.exports = {
     output: 'release',
     buildResources: 'build',
   },
-  files: ['dist/**', 'package.json'],
+  files: [
+    'dist/**',
+    'package.json',
+    '!node_modules/@sentry/bundler-plugins{,/**}',
+    '!node_modules/oxc-parser{,/**}',
+    '!node_modules/@oxc-parser{,/**}',
+    '!node_modules/sentry{,/**}',
+  ],
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
