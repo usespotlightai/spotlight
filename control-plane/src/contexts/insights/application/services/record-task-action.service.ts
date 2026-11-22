@@ -1,10 +1,10 @@
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
-import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
-import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
+import { TaskActions } from '@insights/domain/aggregates/task-actions.aggregate';
+import type { TaskActionsRepository } from '@insights/domain/repositories/task-actions.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
-import { humanActionKindOf } from '@insights/domain/value-objects/human-action.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
-import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
+import { actionKindOf } from '@insights/domain/value-objects/person-action.vo';
+import { TaskAction } from '@insights/domain/value-objects/task-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -40,9 +40,9 @@ export interface TaskActedOnReceived {
   readonly at: string;
 }
 
-export class RecordTaskHumanAction {
+export class RecordTaskAction {
   constructor(
-    private readonly humanActions: TaskHumanActionsRepository,
+    private readonly taskActions: TaskActionsRepository,
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
   ) {}
@@ -58,7 +58,7 @@ export class RecordTaskHumanAction {
 
     return this.recording(
       event,
-      (humanActions) => humanActions.recordOpen(opening),
+      (taskActions) => taskActions.recordOpen(opening),
       opening.teamId,
     );
   }
@@ -66,31 +66,31 @@ export class RecordTaskHumanAction {
   asked(event: TaskAskedReceived): Promise<void> {
     const ask = InboxAsk.of(StationId.of(event.stationId), new Date(event.at));
 
-    return this.recording(event, (humanActions) => humanActions.asked(ask));
+    return this.recording(event, (taskActions) => taskActions.asked(ask));
   }
 
   acted(event: TaskActedOnReceived): Promise<void> {
-    const kind = humanActionKindOf(event.action);
+    const kind = actionKindOf(event.action);
 
     if (!kind) {
       return Promise.resolve();
     }
 
-    const action = TaskHumanAction.of({
+    const action = TaskAction.of({
       kind,
       by: UserId.of(event.by),
       stationId: StationId.of(event.stationId),
       at: new Date(event.at),
     });
 
-    return this.recording(event, (humanActions) =>
-      humanActions.recordAction(action),
+    return this.recording(event, (taskActions) =>
+      taskActions.recordAction(action),
     );
   }
 
   private recording(
     event: { readonly taskId: string; readonly workspaceId: string },
-    change: (humanActions: TaskHumanActions) => TaskHumanActions,
+    change: (taskActions: TaskActions) => TaskActions,
     teamId: TeamId | null = null,
   ): Promise<void> {
     const taskId = TaskId.of(event.taskId);
@@ -99,12 +99,12 @@ export class RecordTaskHumanAction {
     const owner = FactOwner.of(workspaceId, { teamId, taskId });
 
     return this.transaction.inTransaction(() =>
-      this.recorder.record(this.humanActions, {
+      this.recorder.record(this.taskActions, {
         owner,
         deleted: (existing) => existing.delete(),
-        load: () => this.humanActions.of(taskId),
+        load: () => this.taskActions.of(taskId),
         ownerOf: (existing) => owner.withTeam(existing.opening?.teamId),
-        fresh: () => TaskHumanActions.empty(taskId, workspaceId),
+        fresh: () => TaskActions.empty(taskId, workspaceId),
         change,
       }),
     );

@@ -12,7 +12,7 @@ import { StationAlertStateVersionConflictError } from '@insights/domain/exceptio
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
@@ -64,12 +64,12 @@ const watching = (initially: readonly AlertRule[] | null) => {
     { now: () => day('2026-09-30', 23), sleep: async () => {} },
   );
 
-  const ran = async (hour: number, act: 'accepted' | 'sent-back') => {
+  const ran = async (hour: number, action: 'accepted' | 'sent-back') => {
     const record = endedRecord(`run_${hour}`, {
       taskId: `task_${hour}`,
       endedAt: day('2026-09-30', hour),
     }).recordAction(
-      HumanAction.of(act, day('2026-09-30', hour), UserId.of('user_actor')),
+      PersonAction.of(action, day('2026-09-30', hour), UserId.of('user_actor')),
     );
     const [ended] = record.pullEvents();
     await records.add(record);
@@ -86,10 +86,14 @@ const watching = (initially: readonly AlertRule[] | null) => {
     await service.runEnded(event as RunRecordEnded);
   };
 
-  const actedOn = async (hour: number, act: 'accepted' | 'sent-back') => {
+  const actedOn = async (hour: number, action: 'accepted' | 'sent-back') => {
     const record = await records.of(RunId.of(`run_${hour}`));
     const acted = record?.recordAction(
-      HumanAction.of(act, day('2026-09-30', hour + 1), UserId.of('user_actor')),
+      PersonAction.of(
+        action,
+        day('2026-09-30', hour + 1),
+        UserId.of('user_actor'),
+      ),
     );
     const [event] = acted?.pullEvents() ?? [];
     expect(event).toBeInstanceOf(RunOutcomeChanged);
@@ -158,7 +162,7 @@ describe('WatchStations', () => {
   it('reopens the alert it resolved when the station rises again within its cooldown runs', async () => {
     const station = watching([SENT_BACK_RISES]);
 
-    for (const [hour, act] of [
+    for (const [hour, action] of [
       [1, 'accepted'],
       [2, 'accepted'],
       [3, 'sent-back'],
@@ -168,7 +172,7 @@ describe('WatchStations', () => {
       [7, 'sent-back'],
       [8, 'sent-back'],
     ] as const) {
-      await station.ran(hour, act);
+      await station.ran(hour, action);
     }
 
     expect(station.kinds()).toEqual([
@@ -184,7 +188,7 @@ describe('WatchStations', () => {
   it('fires a new alert once the station has stayed clear past its cooldown runs', async () => {
     const station = watching([SENT_BACK_RISES]);
 
-    for (const [hour, act] of [
+    for (const [hour, action] of [
       [1, 'accepted'],
       [2, 'accepted'],
       [3, 'sent-back'],
@@ -196,7 +200,7 @@ describe('WatchStations', () => {
       [9, 'sent-back'],
       [10, 'sent-back'],
     ] as const) {
-      await station.ran(hour, act);
+      await station.ran(hour, action);
     }
 
     expect(station.kinds()).toEqual([
@@ -279,7 +283,7 @@ describe('WatchStations', () => {
     expect(station.alertStates.stored.size).toBe(0);
   });
 
-  it('reads an accepted rate only from runs a person acted on, so a newest run nobody answered yet trips nothing', async () => {
+  it('reads an accepted rate only from runs whose resolution is not Other, so a newest run whose resolution is still Other trips nothing', async () => {
     const station = watching([
       AlertRule.of({ measure: 'accepted_rate', fallsBy: 0.5, over: 2 }),
     ]);
@@ -292,7 +296,7 @@ describe('WatchStations', () => {
     expect(station.kinds()).toEqual([]);
   });
 
-  it('resolves once a person accepts a run that ended unanswered', async () => {
+  it('resolves once a person accepts a run with no deciding action', async () => {
     const station = watching([
       AlertRule.of({ measure: 'accepted_rate', below: 0.5, over: 1 }),
     ]);

@@ -1,4 +1,5 @@
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
+import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
@@ -24,8 +25,8 @@ export interface RunOutcomeDto {
   readonly runNumber: number;
   readonly usage: RunUsageDto | null;
   readonly checks: CheckVerdict | null;
-  readonly firstHumanAction: {
-    readonly kind: string;
+  readonly humanAction: {
+    readonly kind: RunHumanAction;
     readonly at: string;
   } | null;
   readonly passed: { readonly to: string; readonly at: string } | null;
@@ -56,10 +57,10 @@ export const runOutcomeOf = (record: RunFact): RunOutcomeDto => {
         }
       : null,
     checks: record.checks,
-    firstHumanAction: record.firstHumanAction
+    humanAction: record.actions.humanAction
       ? {
-          kind: record.firstHumanAction.kind,
-          at: record.firstHumanAction.at.toISOString(),
+          kind: record.actions.humanAction.kind,
+          at: record.actions.humanAction.at.toISOString(),
         }
       : null,
     passed: record.passed

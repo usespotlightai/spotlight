@@ -143,7 +143,7 @@ const agentConfigOf = (
   const costPerRun = costPerRunOf(runs);
   const judge = judged ? judgeOf(runs) : null;
   const tasks = distinct(runs.map((run) => run.taskId)).length;
-  const decided = tally.runs - tally.resolutions.other;
+  const notOther = tally.runs - tally.resolutions.other;
 
   return {
     harness: first.harness,
@@ -155,9 +155,15 @@ const agentConfigOf = (
     currency: costPerRun === null ? null : CURRENCY,
     priced: costPerRun !== null,
     outcomes: {
-      accepted: rounded(shareOf(tally.resolutions.accepted, decided)),
-      sent_back: rounded(shareOf(tally.resolutions.sentBack, decided)),
-      passed: rounded(shareOf(tally.passed, tally.runs)),
+      accepted: rounded(shareOf(tally.resolutions.accepted, notOther)),
+      sent_back: rounded(shareOf(tally.resolutions.sentBack, notOther)),
+      passed: rounded(
+        shareOf(
+          tally.passed,
+          runs.filter((run) => run.humanAction !== null || run.passed !== null)
+            .length,
+        ),
+      ),
       checks_passed: rounded(
         shareOf(tally.checksPassed, tally.checksPassed + tally.checksFailed),
       ),

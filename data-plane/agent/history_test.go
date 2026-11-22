@@ -81,7 +81,7 @@ func sampleHistory() protocol.History {
 				Outcome: &protocol.RunOutcome{
 					Ending: "failed", Failure: &failure, RunNumber: 2,
 					Usage:  &protocol.RunUsage{Ms: &ms, Steps: 14, Errors: 1, Cost: &cost, Currency: &currency},
-					Checks: &checks, FirstHumanAction: &protocol.HumanAction{Kind: "accepted", At: "2026-09-29T10:01:31Z"}, PullRequestState: &pullRequestState,
+					Checks: &checks, HumanAction: &protocol.HumanAction{Kind: "accepted", At: "2026-09-29T10:01:31Z"}, PullRequestState: &pullRequestState,
 				},
 				Changes: []protocol.HistoryChange{
 					{Path: "api/upload.go", Before: "package api\n\nfunc upload() {}\n", After: "package api\n\nfunc upload() { retry() }\n"},

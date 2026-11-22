@@ -8,7 +8,7 @@ import {
   chatRecord,
   pullRequestRecord,
   runFact,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { type SQL, sql } from 'drizzle-orm';
 
@@ -21,17 +21,17 @@ export const ofTeamTaskPullRequests = (team: TeamInPeriod): SQL =>
     or ${pullRequestRecord.ownerTaskId} in (${endedInLookback(team)})
   )`;
 
-export const ofTeamHumanActions = (team: TeamInPeriod): SQL => {
+export const ofTeamTaskActions = (team: TeamInPeriod): SQL => {
   const { lookback } = team.period;
 
-  return sql`${taskHumanAction.workspaceId} = ${team.workspaceId.value}
+  return sql`${taskAction.workspaceId} = ${team.workspaceId.value}
     and (
       (
-        ${taskHumanAction.teamId} = ${team.teamId.value}
-        and ${taskHumanAction.lastActionAt} >= ${iso(lookback.from)}::timestamptz
-        and ${taskHumanAction.openedAt} < ${iso(lookback.to)}::timestamptz
+        ${taskAction.teamId} = ${team.teamId.value}
+        and ${taskAction.lastActionAt} >= ${iso(lookback.from)}::timestamptz
+        and ${taskAction.openedAt} < ${iso(lookback.to)}::timestamptz
       )
-      or ${taskHumanAction.taskId} in (${endedInLookback(team)})
+      or ${taskAction.taskId} in (${endedInLookback(team)})
     )`;
 };
 
@@ -40,9 +40,9 @@ export const teamActivity = (team: TeamInPeriod): SQL => {
 
   return sql`(
     with acted as (
-      select ${taskHumanAction.openedById} as opened_by, ${taskHumanAction.openedAt} as opened_at, ${taskHumanAction.actions} as actions
-      from ${taskHumanAction}
-      where ${ofTeamHumanActions(team)}
+      select ${taskAction.openedById} as opened_by, ${taskAction.openedAt} as opened_at, ${taskAction.actions} as actions
+      from ${taskAction}
+      where ${ofTeamTaskActions(team)}
     )
     select acted.opened_by as person, 'opened' as kind, acted.opened_at as at
     from acted

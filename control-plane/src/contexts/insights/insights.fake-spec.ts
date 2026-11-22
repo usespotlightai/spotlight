@@ -1,16 +1,16 @@
 import type { TeamWindow } from '@insights/application/ports/insights-reader.port';
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import { TaskActions } from '@insights/domain/aggregates/task-actions.aggregate';
 import { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
-import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
+import { TaskActionsVersionConflictError } from '@insights/domain/exceptions/task-actions-version-conflict.error';
 import { TaskFailuresVersionConflictError } from '@insights/domain/exceptions/task-failures-version-conflict.error';
-import { TaskHumanActionsVersionConflictError } from '@insights/domain/exceptions/task-human-actions-version-conflict.error';
+import type { TaskActionsRepository } from '@insights/domain/repositories/task-actions.repository';
 import type { TaskFailuresRepository } from '@insights/domain/repositories/task-failures.repository';
-import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
-import type { HumanActionKind } from '@insights/domain/value-objects/human-action.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
-import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
+import type { ActionKind } from '@insights/domain/value-objects/person-action.vo';
+import { TaskAction } from '@insights/domain/value-objects/task-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
 import { TEAM, WORKSPACE } from '@insights/runs.fake-spec';
 import { inScope, removeVersioned } from '@insights/scoped.fake-spec';
@@ -20,42 +20,40 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class TaskHumanActionsInMemory implements TaskHumanActionsRepository {
-  readonly stored = new Map<string, TaskHumanActions>();
+export class TaskActionsInMemory implements TaskActionsRepository {
+  readonly stored = new Map<string, TaskActions>();
 
-  async add(humanActions: TaskHumanActions): Promise<void> {
-    if (this.stored.has(humanActions.taskId.value)) {
-      throw new TaskHumanActionsVersionConflictError(humanActions.taskId.value);
+  async add(taskActions: TaskActions): Promise<void> {
+    if (this.stored.has(taskActions.taskId.value)) {
+      throw new TaskActionsVersionConflictError(taskActions.taskId.value);
     }
-    this.stored.set(humanActions.taskId.value, humanActions);
+    this.stored.set(taskActions.taskId.value, taskActions);
   }
 
-  async save(humanActions: TaskHumanActions): Promise<void> {
-    if (humanActions.isDeleted) {
-      return this.removed(humanActions);
+  async save(taskActions: TaskActions): Promise<void> {
+    if (taskActions.isDeleted) {
+      return this.removed(taskActions);
     }
 
-    const existing = this.stored.get(humanActions.taskId.value);
+    const existing = this.stored.get(taskActions.taskId.value);
 
-    if (!existing || existing.version !== humanActions.version) {
-      throw new TaskHumanActionsVersionConflictError(humanActions.taskId.value);
+    if (!existing || existing.version !== taskActions.version) {
+      throw new TaskActionsVersionConflictError(taskActions.taskId.value);
     }
     this.stored.set(
-      humanActions.taskId.value,
-      TaskHumanActions.rehydrate({
-        ...humanActions,
-        version: humanActions.version + 1,
+      taskActions.taskId.value,
+      TaskActions.rehydrate({
+        ...taskActions,
+        version: taskActions.version + 1,
       }),
     );
   }
 
-  async of(taskId: TaskId): Promise<TaskHumanActions | null> {
+  async of(taskId: TaskId): Promise<TaskActions | null> {
     return this.stored.get(taskId.value) ?? null;
   }
 
-  async ofTasks(
-    taskIds: readonly TaskId[],
-  ): Promise<readonly TaskHumanActions[]> {
+  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskActions[]> {
     return taskIds.flatMap((each) => {
       const existing = this.stored.get(each.value);
       return existing ? [existing] : [];
@@ -65,7 +63,7 @@ export class TaskHumanActionsInMemory implements TaskHumanActionsRepository {
   async ofScope(
     scope: DeletionScope,
     max: number,
-  ): Promise<readonly TaskHumanActions[]> {
+  ): Promise<readonly TaskActions[]> {
     return inScope(
       this.stored,
       scope,
@@ -78,12 +76,12 @@ export class TaskHumanActionsInMemory implements TaskHumanActionsRepository {
     );
   }
 
-  private async removed(removed: TaskHumanActions): Promise<void> {
+  private async removed(removed: TaskActions): Promise<void> {
     removeVersioned(
       this.stored,
       removed.taskId.value,
       removed,
-      () => new TaskHumanActionsVersionConflictError(removed.taskId.value),
+      () => new TaskActionsVersionConflictError(removed.taskId.value),
     );
   }
 }
@@ -161,20 +159,17 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
 export const day = (date: string, hour = 12): Date =>
   new Date(`${date}T${String(hour).padStart(2, '0')}:00:00.000Z`);
 
-export const humanActionsOf = (
+export const taskActionsOf = (
   taskId: string,
   given: {
     openedBy?: string | null;
     openedAt?: Date;
     lineId?: string;
     asks?: readonly (readonly [string, Date])[];
-    actions?: readonly (readonly [HumanActionKind, string, string, Date])[];
+    actions?: readonly (readonly [ActionKind, string, string, Date])[];
   } = {},
-): TaskHumanActions => {
-  const opened = TaskHumanActions.empty(
-    TaskId.of(taskId),
-    WORKSPACE,
-  ).recordOpen(
+): TaskActions => {
+  const opened = TaskActions.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
     TaskOpening.of({
       teamId: TEAM,
       lineId: LineId.of(given.lineId ?? 'line_1'),
@@ -195,7 +190,7 @@ export const humanActionsOf = (
   return (given.actions ?? []).reduce(
     (current, [act, by, stationId, at]) =>
       current.recordAction(
-        TaskHumanAction.of({
+        TaskAction.of({
           kind: act,
           by: UserId.of(by),
           stationId: StationId.of(stationId),

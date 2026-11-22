@@ -11,12 +11,10 @@ import type {
 import { world } from '@/mocks/world';
 import { hookFailuresAt, runFailuresOf } from '@/mocks/world/insights';
 import { type HistoryRun, history } from '@/mocks/world/insights-history';
-import {
-  runResolutionOf,
-  resolutionTallyOf,
-} from '@/mocks/world/insights-measures';
+import { resolutionTallyOf } from '@/mocks/world/insights-measures';
 import { profileOf } from '@/mocks/world/insights-profiles';
 import { historyTaskOf, runNumberOf } from '@/mocks/world/past-work';
+import { runResolutionOf } from '@/mocks/world/run-labels';
 import { storyOf } from '@/mocks/world/run-stories';
 import { IMPLEMENTATION_VERSIONS } from '@/mocks/world/station-history';
 import {
@@ -79,12 +77,12 @@ const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   runNumber: runNumberOf(run.runId),
   usage: usageOf(run),
   checks: run.checks,
-  firstHumanAction: run.firstHumanAction,
+  humanAction: run.humanAction,
   passed: run.passed,
   pullRequestState: run.pullRequestState,
 });
 
-const historyAt = (
+export const historyAt = (
   teamId: string,
   lineId: string,
   stationId: string,

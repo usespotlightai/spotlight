@@ -28,7 +28,6 @@ import {
   distinct,
   NO_CHANGE,
   type PeriodName,
-  runResolutionOf,
   type Span,
   shareOf,
   spanOf,
@@ -52,6 +51,7 @@ import {
   versionChangesOf,
 } from '@/mocks/world/insights-tally';
 import { PEOPLE } from '@/mocks/world/people';
+import { runResolutionOf } from '@/mocks/world/run-labels';
 import { tracedTaskOf } from '@/mocks/world/work';
 
 const dayWindow = (day: string): Window => {
@@ -59,15 +59,17 @@ const dayWindow = (day: string): Window => {
   return { from, to: from + DAY_MS };
 };
 
+const actionsOf = (run: HistoryRun): number =>
+  (run.humanAction ? 1 : 0) +
+  run.calls.filter((call) => call.dismissed !== null).length;
+
 const headlineOf = (teamId: string, window: Window) => {
   const runs = runsIn(teamId, window);
   const tasks = distinct(runs.map((run) => run.taskId));
   const finished = pullRequestsClosedIn(teamId, window);
   const merged = mergedIn(teamId, window);
   const spend = spendOf(runs);
-  const humanActions = runs.filter(
-    (run) => run.firstHumanAction !== null,
-  ).length;
+  const actions = runs.reduce((total, run) => total + actionsOf(run), 0);
   const people = distinct(
     tasksOfTeam(teamId)
       .filter(
@@ -93,8 +95,8 @@ const headlineOf = (teamId: string, window: Window) => {
     taskToMerge: spreadOf(
       merged.map((task) => (task.pullRequest?.closedAt ?? 0) - task.openedAt),
     ),
-    humanActions,
-    humanActionsPerTask: shareOf(humanActions, tasks.length),
+    actions,
+    actionsPerTask: shareOf(actions, tasks.length),
     activePeople: people.length,
     mergedTaskIds: merged.map((task) => task.id),
     peopleIds: people,
@@ -115,7 +117,7 @@ const SIGNALS: readonly SignalRule[] = [
     share: true,
     of: (runs) =>
       shareOf(
-        runs.filter((run) => run.firstHumanAction?.kind === 'sent-back').length,
+        runs.filter((run) => runResolutionOf(run) === 'sent-back').length,
         runs.length,
       ),
   },
@@ -246,11 +248,7 @@ const changesOfHeadline = (
     before.taskToMerge.p50Ms,
     'down',
   ),
-  humanActionsPerTask: changeOf(
-    now.humanActionsPerTask,
-    before.humanActionsPerTask,
-    'down',
-  ),
+  actionsPerTask: changeOf(now.actionsPerTask, before.actionsPerTask, 'down'),
   activePeople: changeOf(now.activePeople, before.activePeople, 'up'),
 });
 
@@ -307,9 +305,7 @@ const flowStationsOf = (teamId: string, span: Span) => {
         .map((run) => run.taskId),
     ).length;
     const answered = runs.flatMap((run) =>
-      run.firstHumanAction
-        ? [Date.parse(run.firstHumanAction.at) - run.at]
-        : [],
+      run.humanAction ? [Date.parse(run.humanAction.at) - run.at] : [],
     );
     const unanswered = unansweredTasks.filter(
       (task) => task.stationId === profile.stationId,
@@ -582,10 +578,10 @@ const CHATS: Record<string, number> = {
 
 const loadOf = (teamId: string, window: Window, unanswered: number) => {
   const runs = runsIn(teamId, window);
-  const asked = runs.filter((run) => run.firstHumanAction !== null);
+  const asked = runs.filter((run) => run.humanAction !== null);
   const tasks = distinct(runs.map((run) => run.taskId));
   const sentBack = asked.filter(
-    (run) => run.firstHumanAction?.kind === 'sent-back',
+    (run) => runResolutionOf(run) === 'sent-back',
   ).length;
   const asks = asked.length + unanswered;
 
@@ -594,7 +590,7 @@ const loadOf = (teamId: string, window: Window, unanswered: number) => {
     tasks: tasks.length,
     asksPerTask: shareOf(asks, tasks.length),
     toAnswer: spreadOf(
-      asked.map((run) => Date.parse(run.firstHumanAction?.at ?? '') - run.at),
+      asked.map((run) => Date.parse(run.humanAction?.at ?? '') - run.at),
     ),
     unanswered,
     sentBack,
@@ -617,7 +613,7 @@ const lastActOf = (runs: readonly HistoryRun[], personId: string) =>
       (latest, run) =>
         Math.max(
           latest,
-          run.firstHumanAction ? Date.parse(run.firstHumanAction.at) : run.at,
+          run.humanAction ? Date.parse(run.humanAction.at) : run.at,
         ),
       0,
     );
@@ -649,9 +645,9 @@ export const peopleOf = (
       name: PEOPLE.find((person) => person.id === personId)?.name ?? null,
       tasksOpened: opened.filter((task) => within(task.openedAt, span.now))
         .length,
-      actions: now.filter(
-        (run) => run.openedBy === personId && run.firstHumanAction !== null,
-      ).length,
+      actions: now
+        .filter((run) => run.openedBy === personId)
+        .reduce((total, run) => total + actionsOf(run), 0),
       chats: Math.round((CHATS[personId] ?? 0) * scale),
       firstSeenAt: new Date(firstSeen).toISOString(),
       lastActiveAt: new Date(lastActOf(now, personId)).toISOString(),
@@ -823,10 +819,10 @@ const RUN_MATCHERS: {
   stationId: (run, value) => run.stationId === value,
   outcome: (run, value) => run.ending === value,
   pullRequestState: (run, value) => run.pullRequestState === value,
-  humanAction: (run, value) => run.firstHumanAction?.kind === value,
+  humanAction: (run, value) => run.humanAction?.kind === value,
   resolution: (run, value) =>
     run.ending !== 'cancelled' && runResolutionOf(run) === value,
-  asked: (run, value) => value !== 'true' || run.firstHumanAction !== null,
+  asked: (run, value) => value !== 'true' || run.humanAction !== null,
   harness: (run, value) => run.harness === value,
   model: (run, value) => (run.model ?? '') === value,
   repository: (run, value) => run.repositories.includes(value),

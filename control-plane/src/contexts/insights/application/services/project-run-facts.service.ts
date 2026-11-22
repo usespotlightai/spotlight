@@ -6,7 +6,7 @@ import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-reco
 import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
-import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
+import type { TaskActionsRepository } from '@insights/domain/repositories/task-actions.repository';
 import { followedAtOf } from '@insights/domain/services/followed-run';
 import type {
   RunFact,
@@ -63,7 +63,7 @@ const tasksOf = (records: readonly RunRecord[]): readonly TaskId[] =>
 export class ProjectRunFacts implements RunFactsMaintenance {
   constructor(
     private readonly records: RunRecordRepository,
-    private readonly humanActions: TaskHumanActionsRepository,
+    private readonly taskActions: TaskActionsRepository,
     private readonly pullRequests: PullRequestRecordRepository,
     private readonly facts: RunFactsPort,
     private readonly transaction: TransactionPort,
@@ -233,7 +233,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
 
     const openings = new Map<string, TaskOpeningFact>();
 
-    for (const each of await this.humanActions.ofTasks(tasks)) {
+    for (const each of await this.taskActions.ofTasks(tasks)) {
       if (each.opening) {
         openings.set(placeKey(each.workspaceId.value, each.taskId.value), {
           by: each.opening.by,

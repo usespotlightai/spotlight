@@ -1,7 +1,7 @@
 import type { FirstSeenPort } from '@insights/application/ports/first-seen.port';
 import {
   chatRecord,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -48,24 +48,24 @@ export class DrizzleFirstSeen implements FirstSeenPort {
     }
 
     const onTeam = and(
-      eq(taskHumanAction.workspaceId, workspaceId.value),
-      eq(taskHumanAction.teamId, teamId.value),
+      eq(taskAction.workspaceId, workspaceId.value),
+      eq(taskAction.teamId, teamId.value),
     );
     const opened = await this.context.db
       .select({
-        person: taskHumanAction.openedById,
-        at: min(taskHumanAction.openedAt),
+        person: taskAction.openedById,
+        at: min(taskAction.openedAt),
       })
-      .from(taskHumanAction)
-      .where(and(onTeam, inArray(taskHumanAction.openedById, [...people])))
-      .groupBy(taskHumanAction.openedById);
+      .from(taskAction)
+      .where(and(onTeam, inArray(taskAction.openedById, [...people])))
+      .groupBy(taskAction.openedById);
     const acted = await this.context.db
       .select({
         person: sql<string>`act.value->>'by'`,
         at: sql<string>`min(act.value->>'at')`,
       })
       .from(
-        sql`${taskHumanAction}, jsonb_array_elements(${taskHumanAction.actions}) as act`,
+        sql`${taskAction}, jsonb_array_elements(${taskAction.actions}) as act`,
       )
       .where(
         and(

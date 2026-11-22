@@ -1,10 +1,10 @@
 import type { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import {
-  HumanAction,
-  type HumanActionKind,
-} from '@insights/domain/value-objects/human-action.vo';
 import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
+import {
+  PersonAction,
+  type ActionKind,
+} from '@insights/domain/value-objects/person-action.vo';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -16,17 +16,17 @@ const NEXT_RUN_ENDED = new Date('2026-09-30T10:30:00.000Z');
 
 const ACTOR = UserId.of('user_lin');
 
-const actedOn = (act: HumanActionKind) =>
-  endedRecord('run_1').recordAction(HumanAction.of(act, AT, ACTOR));
+const actedOn = (action: ActionKind) =>
+  endedRecord('run_1').recordAction(PersonAction.of(action, AT, ACTOR));
 
 const pullRequestOf = (merged: boolean) =>
   ownedRecordOf('task_1', { openedAt: AT, closedAt: AT, merged });
 
 const MERGED_LAST_RUN = {
-  firstHumanAction: null,
+  decidingAction: null,
   taskMerged: true,
   ending: 'completed',
-  followedAt: null,
+  followed: false,
 } as const;
 
 const labelled = (change: {
@@ -50,18 +50,52 @@ describe('HumanLabel.of', () => {
     ['held-as-wrong', 'held-as-wrong'],
     ['started', 'merged'],
     ['parked', 'merged'],
-    ['answered', 'merged'],
-  ] as const)(
-    'labels a merged run whose first act is %s as %s',
-    (act, from) => {
+  ] as const)('labels a merged run that people %s as %s', (action, from) => {
+    expect(
+      HumanLabel.of({
+        ...MERGED_LAST_RUN,
+        decidingAction: PersonAction.of(action, AT, ACTOR),
+      })?.from,
+    ).toBe(from);
+  });
+
+  it.each(['failed', 'exhausted', 'cancelled', 'superseded'] as const)(
+    'passes nothing a person accepted after a run that %s, which left no work to judge',
+    (ending) => {
       expect(
         HumanLabel.of({
           ...MERGED_LAST_RUN,
-          firstHumanAction: HumanAction.of(act, AT, ACTOR),
-        })?.from,
-      ).toBe(from);
+          ending,
+          decidingAction: PersonAction.of('accepted', AT, ACTOR),
+        }),
+      ).toBeNull();
     },
   );
+
+  it.each(['failed', 'exhausted', 'cancelled', 'superseded'] as const)(
+    'fails a run that %s where a person sent it back or held it',
+    (ending) => {
+      for (const action of ['sent-back', 'held-as-wrong'] as const) {
+        expect(
+          HumanLabel.of({
+            ...MERGED_LAST_RUN,
+            ending,
+            decidingAction: PersonAction.of(action, AT, ACTOR),
+          }),
+        ).toEqual({ from: action, by: ACTOR });
+      }
+    },
+  );
+
+  it('labels what a person did after a run that stopped', () => {
+    expect(
+      HumanLabel.of({
+        ...MERGED_LAST_RUN,
+        ending: 'stopped',
+        decidingAction: PersonAction.of('accepted', AT, ACTOR),
+      })?.from,
+    ).toBe('accepted');
+  });
 
   it('labels a merge only on a completed run no later run followed', () => {
     expect(HumanLabel.of(MERGED_LAST_RUN)).toEqual({
@@ -69,19 +103,17 @@ describe('HumanLabel.of', () => {
       by: null,
     });
     expect(HumanLabel.of({ ...MERGED_LAST_RUN, ending: 'stopped' })).toBeNull();
-    expect(
-      HumanLabel.of({ ...MERGED_LAST_RUN, followedAt: NEXT_RUN_ENDED }),
-    ).toBeNull();
+    expect(HumanLabel.of({ ...MERGED_LAST_RUN, followed: true })).toBeNull();
     expect(HumanLabel.of({ ...MERGED_LAST_RUN, taskMerged: false })).toBeNull();
   });
 });
 
 describe('a run fact’s human label', () => {
   it.each(['accepted', 'sent-back', 'held-as-wrong'] as const)(
-    'labels a run people %s by that act, and by the person who did it',
-    (act) => {
-      expect(labelled({ record: actedOn(act) })).toEqual({
-        from: act,
+    'labels a run people %s by that action, and by the person who did it',
+    (action) => {
+      expect(labelled({ record: actedOn(action) })).toEqual({
+        from: action,
         by: ACTOR,
       });
     },
@@ -89,8 +121,8 @@ describe('a run fact’s human label', () => {
 
   it.each(['approved', 'dismissed'] as const)(
     'knows nothing of a run people only %s a tool for',
-    (act) => {
-      expect(labelled({ record: actedOn(act) })).toBeNull();
+    (action) => {
+      expect(labelled({ record: actedOn(action) })).toBeNull();
     },
   );
 
@@ -173,7 +205,7 @@ describe('a run fact’s human label', () => {
     ).toMatchObject({ from: 'sent-back' });
   });
 
-  it('knows nothing of a run whose first act gives no label', () => {
+  it('knows nothing of a run people only answered', () => {
     expect(labelled({ record: actedOn('answered') })).toBeNull();
   });
 });

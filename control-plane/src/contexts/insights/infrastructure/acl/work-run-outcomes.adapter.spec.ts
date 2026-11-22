@@ -1,6 +1,6 @@
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
@@ -26,7 +26,7 @@ describe('WorkRunOutcomes', () => {
     await records.add(
       endedRecord('run_1', { runNumber: 2 })
         .recordCheck('passed', RECEIVED_AT)
-        .recordAction(HumanAction.of('accepted', AT, UserId.of('user_actor'))),
+        .recordAction(PersonAction.of('accepted', AT, UserId.of('user_actor'))),
     );
     await records.add(RunRecord.empty(RunId.of('run_2'), WORKSPACE));
     await pullRequestRecords.add(ownedRecordOf('task_1', { openedAt: AT }));
@@ -46,7 +46,7 @@ describe('WorkRunOutcomes', () => {
       failure: null,
       runNumber: 2,
       checks: 'passed',
-      firstHumanAction: { kind: 'accepted', at: AT.toISOString() },
+      humanAction: { kind: 'accepted', at: AT.toISOString() },
       pullRequestState: 'open',
     });
   });
@@ -68,7 +68,7 @@ describe('WorkRunOutcomes', () => {
       endedRecord('run_1', { runNumber: 2 })
         .recordCheck('passed', later(2))
         .recordAction(
-          HumanAction.of('accepted', later(3), UserId.of('user_actor')),
+          PersonAction.of('accepted', later(3), UserId.of('user_actor')),
         )
         .supersededByItsTask(later(4)),
     );
@@ -93,18 +93,18 @@ describe('WorkRunOutcomes', () => {
     expect(await of(AT)).toMatchObject({
       ending: 'completed',
       checks: null,
-      firstHumanAction: null,
+      humanAction: null,
       pullRequestState: null,
     });
     expect(await of(later(2))).toMatchObject({
       checks: 'passed',
-      firstHumanAction: null,
+      humanAction: null,
       pullRequestState: 'open',
     });
     expect(await of(later(6))).toMatchObject({
       ending: 'superseded',
       checks: 'passed',
-      firstHumanAction: { kind: 'accepted' },
+      humanAction: { kind: 'accepted' },
       pullRequestState: 'merged',
     });
   });

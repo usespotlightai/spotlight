@@ -284,9 +284,7 @@ const stationStages = (
       const running = sumOf(runs.map((run) => run.runningMs ?? 0));
       const inbox = sumOf(
         runs.map((run) =>
-          run.firstHumanAction
-            ? Date.parse(run.firstHumanAction.at) - run.at
-            : 0,
+          run.humanAction ? Date.parse(run.humanAction.at) - run.at : 0,
         ),
       );
       total.push({ type: fact.type, ms: queued + running + inbox });

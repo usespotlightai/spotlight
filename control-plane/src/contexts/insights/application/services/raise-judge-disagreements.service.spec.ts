@@ -8,7 +8,7 @@ import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.e
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import {
   type Acted,
@@ -160,12 +160,12 @@ describe('RaiseJudgeDisagreements', () => {
     expect(disagreements.stored.size).toBe(0);
   });
 
-  it('asks the person the run’s first act names, whatever the task’s history holds', async () => {
+  it('asks the person who took the run’s deciding action, whatever the task’s history holds', async () => {
     const score = FAILED();
     const { disagreements, raising, station } = await setUp('accepted', [
       score,
     ]);
-    station.humanActions.stored.clear();
+    station.taskActions.stored.clear();
 
     await raising.scoreRecorded(recordedOf(score));
 
@@ -361,7 +361,7 @@ describe('RaiseJudgeDisagreements', () => {
 
       await records.save(
         run.recordAction(
-          HumanAction.of('sent-back', day('2026-09-30', 14), ACTOR),
+          PersonAction.of('sent-back', day('2026-09-30', 14), ACTOR),
         ),
       );
       await raising.outcomeChanged(
@@ -382,7 +382,7 @@ describe('RaiseJudgeDisagreements', () => {
 
       await records.save(
         run.recordAction(
-          HumanAction.of('accepted', day('2026-09-30', 14), ACTOR),
+          PersonAction.of('accepted', day('2026-09-30', 14), ACTOR),
         ),
       );
       await raising.outcomeChanged(

@@ -15,7 +15,7 @@ import type {
   StationInsightsDto,
 } from '@insights/application/dto/station-insights.dto';
 import { CHECK_VERDICTS } from '@insights/domain/value-objects/check-verdict';
-import { TASK_ACTIONS } from '@insights/domain/value-objects/human-action.vo';
+import { RUN_HUMAN_ACTIONS } from '@insights/domain/value-objects/person-action.vo';
 import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
 import { RUN_RESOLUTIONS } from '@insights/domain/value-objects/run-resolution';
@@ -65,7 +65,7 @@ export class StationRunUsageResponseDto {
 }
 
 export class HumanActionResponseDto {
-  @ApiProperty({ enum: TASK_ACTIONS })
+  @ApiProperty({ enum: RUN_HUMAN_ACTIONS })
   readonly kind: string;
 
   @ApiProperty({ example: '2026-09-30T10:05:00.000Z' })
@@ -109,7 +109,7 @@ export class StationRunOutcomeResponseDto {
   @ApiProperty({
     enum: RUN_RESOLUTIONS,
     description:
-      'What came of the run: failed, sent back, accepted, moved on to another station, or other. Sent back: a person wrote to the run after it ended, reopened its task, or ended a hold with the verdict that the line got it wrong.',
+      'What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. Sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong',
   })
   readonly resolution: string;
 
@@ -141,9 +141,10 @@ export class StationRunOutcomeResponseDto {
   @ApiProperty({
     type: HumanActionResponseDto,
     nullable: true,
-    description: 'The first thing a person did with the task after the run',
+    description:
+      'The run’s deciding action: the first start, park, accept, send back, or hold that ended with the reason The line got it wrong, credited to the run; or else the first answer to it',
   })
-  readonly firstHumanAction: HumanActionResponseDto | null;
+  readonly humanAction: HumanActionResponseDto | null;
 
   @ApiProperty({
     type: StationPassResponseDto,
@@ -172,8 +173,8 @@ export class StationRunOutcomeResponseDto {
       ? new StationRunUsageResponseDto(outcome.usage)
       : null;
     this.checks = outcome.checks;
-    this.firstHumanAction = outcome.firstHumanAction
-      ? new HumanActionResponseDto(outcome.firstHumanAction)
+    this.humanAction = outcome.humanAction
+      ? new HumanActionResponseDto(outcome.humanAction)
       : null;
     this.passed = outcome.passed
       ? new StationPassResponseDto(outcome.passed)
@@ -197,7 +198,8 @@ export class ResolutionCountsResponseDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Runs that ended Failed and no person accepted or sent back',
+    description:
+      'Runs that ended Failed and that people’s verdict did not fail',
   })
   readonly failed: number;
 
@@ -246,7 +248,7 @@ export class ResolutionSharesResponseDto {
     type: Number,
     example: 0.5,
     description:
-      'Runs that ended Failed and no person accepted or sent back, of the runs; none where none ran',
+      'Runs that ended Failed and that people’s verdict did not fail, of the runs; none where none ran',
   })
   readonly failed: number | null;
 

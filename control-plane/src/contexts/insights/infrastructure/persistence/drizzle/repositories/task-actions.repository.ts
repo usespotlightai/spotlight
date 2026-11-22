@@ -1,12 +1,12 @@
-import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
-import { TaskHumanActionsVersionConflictError } from '@insights/domain/exceptions/task-human-actions-version-conflict.error';
-import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
+import { TaskActions } from '@insights/domain/aggregates/task-actions.aggregate';
+import { TaskActionsVersionConflictError } from '@insights/domain/exceptions/task-actions-version-conflict.error';
+import type { TaskActionsRepository } from '@insights/domain/repositories/task-actions.repository';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
-import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
+import { TaskAction } from '@insights/domain/value-objects/task-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
 import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
-import { taskHumanAction } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
+import { taskAction } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { inList } from '@platform/persistence/drizzle/in-list';
@@ -23,15 +23,15 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
 
-type HumanActionsRow = typeof taskHumanAction.$inferSelect;
+type TaskActionsRow = typeof taskAction.$inferSelect;
 
-const openingOf = (row: HumanActionsRow): TaskOpening | null => {
+const openingOf = (row: TaskActionsRow): TaskOpening | null => {
   if (!row.openedAt) {
     return null;
   }
   if (!row.teamId || !row.lineId || !row.stationId) {
     throw new InconsistentStateError(
-      'task human actions',
+      'task actions',
       'were opened without saying on which team, line and station',
     );
   }
@@ -45,8 +45,8 @@ const openingOf = (row: HumanActionsRow): TaskOpening | null => {
   });
 };
 
-const toHumanActions = (row: HumanActionsRow): TaskHumanActions =>
-  TaskHumanActions.rehydrate({
+const toTaskActions = (row: TaskActionsRow): TaskActions =>
+  TaskActions.rehydrate({
     taskId: TaskId.of(row.taskId),
     workspaceId: WorkspaceId.of(row.workspaceId),
     opening: openingOf(row),
@@ -54,7 +54,7 @@ const toHumanActions = (row: HumanActionsRow): TaskHumanActions =>
       InboxAsk.of(StationId.of(each.stationId), new Date(each.at)),
     ),
     actions: row.actions.map((each) =>
-      TaskHumanAction.of({
+      TaskAction.of({
         kind: each.kind,
         by: UserId.of(each.by),
         stationId: StationId.of(each.stationId),
@@ -64,29 +64,29 @@ const toHumanActions = (row: HumanActionsRow): TaskHumanActions =>
     version: row.version,
   });
 
-const columnsOf = (humanActions: TaskHumanActions) =>
+const columnsOf = (taskActions: TaskActions) =>
   ({
-    teamId: humanActions.opening?.teamId.value ?? null,
-    lineId: humanActions.opening?.lineId.value ?? null,
-    stationId: humanActions.opening?.stationId.value ?? null,
-    openedById: humanActions.opening?.by?.value ?? null,
-    openedAt: humanActions.opening?.at ?? null,
-    asks: humanActions.asks.map((each) => ({
+    teamId: taskActions.opening?.teamId.value ?? null,
+    lineId: taskActions.opening?.lineId.value ?? null,
+    stationId: taskActions.opening?.stationId.value ?? null,
+    openedById: taskActions.opening?.by?.value ?? null,
+    openedAt: taskActions.opening?.at ?? null,
+    asks: taskActions.asks.map((each) => ({
       stationId: each.stationId.value,
       at: each.at.toISOString(),
     })),
-    actions: humanActions.actions.map((each) => ({
+    actions: taskActions.actions.map((each) => ({
       kind: each.kind,
       by: each.by.value,
       stationId: each.stationId.value,
       at: each.at.toISOString(),
     })),
-    lastActionAt: humanActions.lastActionAt,
-  }) satisfies Partial<typeof taskHumanAction.$inferInsert>;
+    lastActionAt: taskActions.lastActionAt,
+  }) satisfies Partial<typeof taskAction.$inferInsert>;
 
 @Injectable()
-export class DrizzleTaskHumanActionsRepository
-  implements TaskHumanActionsRepository
+export class DrizzleTaskActionsRepository
+  implements TaskActionsRepository
 {
   constructor(
     private readonly context: DrizzleContext,
@@ -94,96 +94,96 @@ export class DrizzleTaskHumanActionsRepository
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async add(added: TaskHumanActions): Promise<void> {
+  async add(added: TaskActions): Promise<void> {
     await this.context.inTransaction(async () => {
       const written = await this.context.db
-        .insert(taskHumanAction)
+        .insert(taskAction)
         .values({
           taskId: added.taskId.value,
           workspaceId: added.workspaceId.value,
           version: added.version,
           ...columnsOf(added),
         })
-        .onConflictDoNothing({ target: taskHumanAction.taskId })
-        .returning({ taskId: taskHumanAction.taskId });
+        .onConflictDoNothing({ target: taskAction.taskId })
+        .returning({ taskId: taskAction.taskId });
 
       if (written.length === 0) {
-        throw new TaskHumanActionsVersionConflictError(added.taskId.value);
+        throw new TaskActionsVersionConflictError(added.taskId.value);
       }
 
       await this.events.dispatch(added.pullEvents());
     });
   }
 
-  async save(saved: TaskHumanActions): Promise<void> {
+  async save(saved: TaskActions): Promise<void> {
     if (saved.isDeleted) {
       return this.removed(saved);
     }
 
     await this.context.inTransaction(async () => {
       const written = await this.context.db
-        .update(taskHumanAction)
+        .update(taskAction)
         .set({ version: saved.version + 1, ...columnsOf(saved) })
         .where(
           and(
-            eq(taskHumanAction.taskId, saved.taskId.value),
-            eq(taskHumanAction.version, saved.version),
+            eq(taskAction.taskId, saved.taskId.value),
+            eq(taskAction.version, saved.version),
           ),
         )
-        .returning({ taskId: taskHumanAction.taskId });
+        .returning({ taskId: taskAction.taskId });
 
       if (written.length === 0) {
-        throw new TaskHumanActionsVersionConflictError(saved.taskId.value);
+        throw new TaskActionsVersionConflictError(saved.taskId.value);
       }
 
       await this.events.dispatch(saved.pullEvents());
     });
   }
 
-  async of(taskId: TaskId): Promise<TaskHumanActions | null> {
+  async of(taskId: TaskId): Promise<TaskActions | null> {
     const [row] = await this.context.db
       .select()
-      .from(taskHumanAction)
-      .where(eq(taskHumanAction.taskId, taskId.value))
+      .from(taskAction)
+      .where(eq(taskAction.taskId, taskId.value))
       .limit(1);
 
-    return row ? toHumanActions(row) : null;
+    return row ? toTaskActions(row) : null;
   }
 
   async ofTasks(
     taskIds: readonly TaskId[],
-  ): Promise<readonly TaskHumanActions[]> {
+  ): Promise<readonly TaskActions[]> {
     if (taskIds.length === 0) {
       return [];
     }
 
     const rows = await this.context.db
       .select()
-      .from(taskHumanAction)
+      .from(taskAction)
       .where(
         inList(
-          taskHumanAction.taskId,
+          taskAction.taskId,
           taskIds.map((each) => each.value),
         ),
       );
 
-    return rows.map(toHumanActions);
+    return rows.map(toTaskActions);
   }
 
-  private async removed(removed: TaskHumanActions): Promise<void> {
+  private async removed(removed: TaskActions): Promise<void> {
     await this.context.inTransaction(async () => {
       const gone = await this.context.db
-        .delete(taskHumanAction)
+        .delete(taskAction)
         .where(
           and(
-            eq(taskHumanAction.taskId, removed.taskId.value),
-            eq(taskHumanAction.version, removed.version),
+            eq(taskAction.taskId, removed.taskId.value),
+            eq(taskAction.version, removed.version),
           ),
         )
-        .returning({ taskId: taskHumanAction.taskId });
+        .returning({ taskId: taskAction.taskId });
 
       if (gone.length === 0) {
-        throw new TaskHumanActionsVersionConflictError(removed.taskId.value);
+        throw new TaskActionsVersionConflictError(removed.taskId.value);
       }
 
       await this.events.dispatch(removed.pullEvents());
@@ -193,13 +193,13 @@ export class DrizzleTaskHumanActionsRepository
   async ofScope(
     scope: DeletionScope,
     max: number,
-  ): Promise<readonly TaskHumanActions[]> {
+  ): Promise<readonly TaskActions[]> {
     const rows = await this.context.db
       .select()
-      .from(taskHumanAction)
-      .where(inScope(taskHumanAction, scope))
+      .from(taskAction)
+      .where(inScope(taskAction, scope))
       .limit(max);
 
-    return rows.map(toHumanActions);
+    return rows.map(toTaskActions);
   }
 }

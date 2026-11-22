@@ -47,7 +47,7 @@ export class ResolutionDeltasResponseDto {
     type: DeltaResponseDto,
     nullable: true,
     description:
-      'Runs that ended Failed and no person accepted or sent back, against the period before',
+      'Runs that ended Failed and that people’s verdict did not fail, against the period before',
   })
   readonly failed: DeltaResponseDto | null;
 

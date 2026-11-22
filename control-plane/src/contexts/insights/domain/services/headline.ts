@@ -28,8 +28,8 @@ export interface Headline {
   readonly mergeRate: number | null;
   readonly costPerMerge: Money | null;
   readonly taskToMerge: Spread;
-  readonly humanActions: number;
-  readonly humanActionsPerTask: number | null;
+  readonly actions: number;
+  readonly actionsPerTask: number | null;
   readonly activePeople: number;
   readonly mergedTaskIds: readonly string[];
   readonly peopleIds: readonly string[];
@@ -41,7 +41,7 @@ export interface HeadlineCounts {
   readonly spend: Money | null;
   readonly unpriced: number;
   readonly mixedCurrencies: boolean;
-  readonly humanActions: number;
+  readonly actions: number;
   readonly people: readonly string[];
 }
 
@@ -72,8 +72,8 @@ export const headlineFrom = (
         each.taskOpenedAt ? [between(each.taskOpenedAt, each.closedAt)] : [],
       ),
     ),
-    humanActions: counts.humanActions,
-    humanActionsPerTask: rateOf(counts.humanActions, counts.tasks),
+    actions: counts.actions,
+    actionsPerTask: rateOf(counts.actions, counts.tasks),
     activePeople: counts.people.length,
     mergedTaskIds: tasksOf(merged),
     peopleIds: counts.people,
@@ -86,7 +86,7 @@ export interface HeadlineDeltas {
   readonly mergeRate: Delta | null;
   readonly costPerMerge: Delta | null;
   readonly taskToMerge: Delta | null;
-  readonly humanActionsPerTask: Delta | null;
+  readonly actionsPerTask: Delta | null;
   readonly activePeople: Delta | null;
 }
 
@@ -109,14 +109,10 @@ export const headlineDeltasOf = (
     better: 'down',
     unit: 'percent',
   }),
-  humanActionsPerTask: deltaOf(
-    now.humanActionsPerTask,
-    before.humanActionsPerTask,
-    {
-      better: 'down',
-      unit: 'percent',
-    },
-  ),
+  actionsPerTask: deltaOf(now.actionsPerTask, before.actionsPerTask, {
+    better: 'down',
+    unit: 'percent',
+  }),
   activePeople: deltaOf(now.activePeople, before.activePeople, {
     better: 'up',
     unit: 'percent',

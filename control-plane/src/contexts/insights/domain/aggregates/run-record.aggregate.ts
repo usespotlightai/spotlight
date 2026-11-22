@@ -8,8 +8,9 @@ import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict'
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import type {
   ActedOnTool,
-  HumanAction,
-} from '@insights/domain/value-objects/human-action.vo';
+  PersonAction,
+} from '@insights/domain/value-objects/person-action.vo';
+import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import {
   RunFact,
@@ -40,7 +41,7 @@ export class RunRecord extends EventRecorder {
     readonly supersededAt: Date | null,
     readonly checks: CheckVerdict | null,
     readonly checkedAt: Date | null,
-    readonly firstHumanAction: HumanAction | null,
+    readonly actions: RunActions,
     readonly approvalAnsweredAt: Date | null,
     readonly usage: RunUsage | null,
     readonly passed: StationPass | null,
@@ -65,7 +66,7 @@ export class RunRecord extends EventRecorder {
       null,
       null,
       null,
-      null,
+      RunActions.NONE,
       null,
       null,
       null,
@@ -84,7 +85,7 @@ export class RunRecord extends EventRecorder {
     supersededAt: Date | null;
     checks: CheckVerdict | null;
     checkedAt: Date | null;
-    firstHumanAction: HumanAction | null;
+    actions: RunActions;
     approvalAnsweredAt: Date | null;
     usage: RunUsage | null;
     passed: StationPass | null;
@@ -102,11 +103,6 @@ export class RunRecord extends EventRecorder {
     if ((input.checks === null) !== (input.checkedAt === null)) {
       throw new InvalidOutcomeError('must say when its change was checked');
     }
-    if (input.firstHumanAction?.answersApproval) {
-      throw new InvalidOutcomeError(
-        'cannot be decided by answering an approval',
-      );
-    }
     if (input.tools !== null && input.usage === null) {
       throw new InvalidOutcomeError(
         'must have its tools once its usage is recorded',
@@ -121,7 +117,7 @@ export class RunRecord extends EventRecorder {
       input.supersededAt,
       input.checks,
       input.checkedAt,
-      input.firstHumanAction,
+      input.actions,
       input.approvalAnsweredAt,
       input.usage,
       input.passed,
@@ -173,7 +169,7 @@ export class RunRecord extends EventRecorder {
           followedAt,
           checks: this.checks,
           checkedAt: this.checkedAt,
-          firstHumanAction: this.firstHumanAction,
+          actions: this.actions,
           approvalAnsweredAt: this.approvalAnsweredAt,
           usage: this.usage,
           passed: this.passed,
@@ -229,7 +225,7 @@ export class RunRecord extends EventRecorder {
   }
 
   recordAction(
-    action: HumanAction,
+    action: PersonAction,
     acted: ActedOnTool | null = null,
   ): RunRecord {
     const recorded = this.recordedAction(action);
@@ -238,7 +234,7 @@ export class RunRecord extends EventRecorder {
     return dismissal ? recorded.dismissed(dismissal) : recorded;
   }
 
-  private recordedAction(action: HumanAction): RunRecord {
+  private recordedAction(action: PersonAction): RunRecord {
     if (action.answersApproval) {
       return this.approvalAnsweredAt &&
         this.approvalAnsweredAt.getTime() <= action.at.getTime()
@@ -246,9 +242,9 @@ export class RunRecord extends EventRecorder {
         : this.withOutcome({ approvalAnsweredAt: action.at });
     }
 
-    return this.firstHumanAction && !action.before(this.firstHumanAction)
-      ? this
-      : this.withOutcome({ firstHumanAction: action });
+    const actions = this.actions.with(action);
+
+    return actions === this.actions ? this : this.withOutcome({ actions });
   }
 
   recordUsage(usage: RunUsage, tools: RunTools): RunRecord {
@@ -305,7 +301,7 @@ export class RunRecord extends EventRecorder {
     passed?: StationPass;
     checks?: CheckVerdict;
     checkedAt?: Date;
-    firstHumanAction?: HumanAction;
+    actions?: RunActions;
     approvalAnsweredAt?: Date;
     usage?: RunUsage;
     tools?: RunTools;
@@ -327,7 +323,7 @@ export class RunRecord extends EventRecorder {
     supersededAt?: Date;
     checks?: CheckVerdict;
     checkedAt?: Date;
-    firstHumanAction?: HumanAction;
+    actions?: RunActions;
     approvalAnsweredAt?: Date;
     usage?: RunUsage;
     passed?: StationPass;
@@ -343,7 +339,7 @@ export class RunRecord extends EventRecorder {
       change.supersededAt ?? this.supersededAt,
       change.checks ?? this.checks,
       change.checkedAt ?? this.checkedAt,
-      change.firstHumanAction ?? this.firstHumanAction,
+      change.actions ?? this.actions,
       change.approvalAnsweredAt ?? this.approvalAnsweredAt,
       change.usage ?? this.usage,
       change.passed ?? this.passed,

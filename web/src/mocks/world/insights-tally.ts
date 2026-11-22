@@ -18,7 +18,6 @@ import {
   emptyTally,
   MEASURES,
   resolutionTallyOf,
-  runResolutionOf,
   quantile,
   type Reading,
   shareOf,
@@ -33,6 +32,7 @@ import {
   type Version,
 } from '@/mocks/world/insights-profiles';
 import { PEOPLE } from '@/mocks/world/people';
+import { runResolutionOf } from '@/mocks/world/run-labels';
 
 export const runsIn = (teamId: string, window: Window): readonly HistoryRun[] =>
   runsOfTeam(teamId).filter((run) => within(run.at, window));
@@ -113,7 +113,7 @@ const readingOf = (
   runs: readonly HistoryRun[],
 ): Reading => {
   const tally = tallyOf(runs);
-  const decided = tally.runs - tally.resolutions.other;
+  const notOther = tally.runs - tally.resolutions.other;
   const checked = tally.checksPassed + tally.checksFailed;
   const tasks = distinct(runs.map((run) => run.taskId)).length;
   const finishedTasks = distinct(
@@ -129,13 +129,13 @@ const readingOf = (
   switch (measure) {
     case 'sent_back_rate':
       return {
-        value: shareOf(tally.resolutions.sentBack, decided),
-        measured: decided,
+        value: shareOf(tally.resolutions.sentBack, notOther),
+        measured: notOther,
       };
     case 'accepted_rate':
       return {
-        value: shareOf(tally.resolutions.accepted, decided),
-        measured: decided,
+        value: shareOf(tally.resolutions.accepted, notOther),
+        measured: notOther,
       };
     case 'checks_failed_rate':
       return { value: shareOf(tally.checksFailed, checked), measured: checked };

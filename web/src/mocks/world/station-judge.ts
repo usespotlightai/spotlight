@@ -4,7 +4,12 @@ import type {
 } from '@/lib/api';
 import { daysAgo } from '@/mocks/clock';
 import { perWorld, world } from '@/mocks/world';
-import { stationOf, stationRuns } from '@/mocks/world/station-insights';
+import { labelOf } from '@/mocks/world/run-labels';
+import {
+  historyAt,
+  stationOf,
+  stationRuns,
+} from '@/mocks/world/station-insights';
 
 export const RUBRIC =
   '9c41e2d7a6b3f0851e2c4d6a8b0f1e3d5c7a9b1d3f5e7a9c1b3d5f7e9a1c3b5d';
@@ -358,8 +363,8 @@ export const stationJudge = (
   }
 
   const { runs } = stationRuns(teamId, lineId, stationId);
-  const answered = runs.filter(
-    (run) => run.outcome.firstHumanAction !== null,
+  const labelled = historyAt(teamId, lineId, stationId).filter(
+    (run) => labelOf(run) !== null,
   ).length;
   const judge = station.judge;
 
@@ -378,7 +383,7 @@ export const stationJudge = (
         failing: true,
       },
       versions: [],
-      coverage: coverageOf(runs.length, 0, 0, answered),
+      coverage: coverageOf(runs.length, 0, 0, labelled),
     };
   }
 
@@ -411,7 +416,7 @@ export const stationJudge = (
         failing: false,
       },
       versions: [],
-      coverage: coverageOf(runs.length, 0, 0, answered),
+      coverage: coverageOf(runs.length, 0, 0, labelled),
     };
   }
 
@@ -465,6 +470,6 @@ export const stationJudge = (
         'below-min-agreement',
     },
     versions: JUDGED_VERSIONS,
-    coverage: coverageOf(runs.length, 16, 3, Math.max(0, answered - 9)),
+    coverage: coverageOf(runs.length, 16, 3, Math.max(0, labelled - 9)),
   };
 };

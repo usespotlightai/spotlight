@@ -23,7 +23,7 @@ import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/dr
 import { teamActivity } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   runFact,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { sql } from 'drizzle-orm';
@@ -33,9 +33,9 @@ interface TasksRow extends Record<string, unknown> {
   readonly tasks: number;
 }
 
-interface HumanActionsRow extends Record<string, unknown> {
+interface ActionsRow extends Record<string, unknown> {
   readonly is_current: boolean;
-  readonly human_actions: number;
+  readonly actions: number;
 }
 
 interface PersonRow extends Record<string, unknown> {
@@ -68,24 +68,24 @@ const tasksIn = async (
   return result.rows;
 };
 
-const humanActionsIn = async (
+const actionsIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
-): Promise<readonly HumanActionsRow[]> => {
+): Promise<readonly ActionsRow[]> => {
   const { current, previous } = team.period;
   const at = sql`(act.value->>'at')::timestamptz`;
-  const result = await db.execute<HumanActionsRow>(sql`
+  const result = await db.execute<ActionsRow>(sql`
     with worked as (
       select distinct ${runFact.taskId} as task_id, ${isCurrent} as is_current
       from ${factsInPeriod(team)}
       where ${ran}
     )
-    select worked.is_current, count(*)::int as human_actions
+    select worked.is_current, count(*)::int as actions
     from worked
-    join ${taskHumanAction}
-      on ${taskHumanAction.taskId} = worked.task_id
-      and ${taskHumanAction.workspaceId} = ${team.workspaceId.value}
-    cross join lateral jsonb_array_elements(${taskHumanAction.actions}) as act(value)
+    join ${taskAction}
+      on ${taskAction.taskId} = worked.task_id
+      and ${taskAction.workspaceId} = ${team.workspaceId.value}
+    cross join lateral jsonb_array_elements(${taskAction.actions}) as act(value)
     where ${at} >= case when worked.is_current then ${asUtc(current.from)} else ${asUtc(previous.from)} end
       and ${at} < case when worked.is_current then ${asUtc(current.to)} else ${asUtc(previous.to)} end
     group by worked.is_current
@@ -137,7 +137,7 @@ const markersIn = async (
 const headlineCountsFrom = (
   tally: TallyCounts,
   tasks: TasksRow | undefined,
-  humanActions: HumanActionsRow | undefined,
+  actions: ActionsRow | undefined,
   people: readonly string[],
 ): HeadlineCounts => ({
   runs: tally.runs,
@@ -145,7 +145,7 @@ const headlineCountsFrom = (
   spend: tally.cost,
   unpriced: tally.unpriced,
   mixedCurrencies: tally.mixedCurrencies,
-  humanActions: humanActions?.human_actions ?? 0,
+  actions: actions?.actions ?? 0,
   people: [...people].sort(),
 });
 
@@ -155,7 +155,7 @@ export const overviewCountsIn = async (
 ): Promise<OverviewCounts> => {
   const stations = await stationCountsIn(db, team);
   const tasks = await tasksIn(db, team);
-  const humanActions = await humanActionsIn(db, team);
+  const actions = await actionsIn(db, team);
   const people = await peopleIn(db, team);
   const deliveries = await pullRequestDeliveriesIn(db, team);
   const markers = await markersIn(db, team);
@@ -164,7 +164,7 @@ export const overviewCountsIn = async (
     headlineCountsFrom(
       tally,
       tasks.find((each) => each.is_current === current),
-      humanActions.find((each) => each.is_current === current),
+      actions.find((each) => each.is_current === current),
       people
         .filter((each) => each.is_current === current)
         .map((each) => each.person),

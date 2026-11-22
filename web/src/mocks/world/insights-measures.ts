@@ -159,39 +159,7 @@ export const NO_CHANGE: DeltaResponseDto = {
   tone: 'flat',
 };
 
-type ResolvedRun = {
-  readonly ending: string;
-  readonly firstHumanAction: { readonly kind: string } | null;
-  readonly passed: unknown;
-  readonly pullRequestState: string | null;
-  readonly followed: boolean;
-};
-
 type Resolution = StationRunOutcomeResponseDto['resolution'];
-
-export const runResolutionOf = (run: ResolvedRun): Resolution => {
-  const action = run.firstHumanAction?.kind;
-
-  if (action === 'sent-back') {
-    return 'sent-back';
-  }
-  if (action === 'accepted') {
-    return 'accepted';
-  }
-  if (run.ending === 'failed') {
-    return 'failed';
-  }
-  if (run.ending !== 'completed') {
-    return 'other';
-  }
-  if (run.passed !== null || action === 'started') {
-    return 'moved-on';
-  }
-
-  return run.pullRequestState === 'merged' && !run.followed
-    ? 'accepted'
-    : 'other';
-};
 
 export const resolutionTallyOf = (
   runs: readonly { readonly resolution: Resolution }[],

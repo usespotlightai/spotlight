@@ -84,7 +84,7 @@ export class BackfillJudgings {
     const labelled = (
       await this.facts.lastEndedAt({ ...station, last: MAX_RECENT_RUNS })
     )
-      .filter((fact) => fact.humanLabel !== null)
+      .filter((fact) => fact.leftWork && fact.humanLabel !== null)
       .slice(0, MAX_LABELLED_RUNS);
 
     for (const fact of labelled) {

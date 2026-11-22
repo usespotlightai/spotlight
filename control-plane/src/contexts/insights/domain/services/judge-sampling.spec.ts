@@ -1,7 +1,4 @@
-import {
-  judgesRunThatEnded,
-  sampledForJudging,
-} from '@insights/domain/services/judge-sampling';
+import { sampledForJudging } from '@insights/domain/services/judge-sampling';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -32,16 +29,5 @@ describe('judge sampling', () => {
         .filter((each) => sampledForJudging(each, 0.2))
         .every((each) => sampledForJudging(each, 0.5)),
     ).toBe(true);
-  });
-
-  it.each([
-    ['completed', true],
-    ['stopped', true],
-    ['failed', false],
-    ['exhausted', false],
-    ['superseded', false],
-    ['cancelled', false],
-  ] as const)('judges a run that ended %s: %s', (ending, judged) => {
-    expect(judgesRunThatEnded(ending)).toBe(judged);
   });
 });

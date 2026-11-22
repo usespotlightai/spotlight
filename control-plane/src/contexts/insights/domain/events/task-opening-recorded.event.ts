@@ -3,7 +3,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class TaskOpeningRecorded implements DomainEvent {
-  readonly kind = 'task-human-actions.opening-recorded';
+  readonly kind = 'task-actions.opening-recorded';
 
   constructor(
     readonly taskId: TaskId,

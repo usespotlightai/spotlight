@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { DrizzleTaskActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-actions.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
-import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
 import type {
   InsightsAgentConfigsResponseDto,
   InsightsChangesResponseDto,
@@ -237,8 +237,7 @@ beforeAll(async () => {
       revertedBy: null,
       version,
     } as never);
-  const humanActions = () =>
-    app.get(DrizzleTaskHumanActionsRepository).of(TASK);
+  const taskActions = () => app.get(DrizzleTaskActionsRepository).of(TASK);
   const failures = () => app.get(DrizzleTaskFailuresRepository).of(TASK);
   const delivered = async (
     events: readonly DomainEvent[],
@@ -264,7 +263,7 @@ beforeAll(async () => {
         false,
       ),
     ],
-    async () => (await humanActions())?.opening,
+    async () => (await taskActions())?.opening,
   );
   await delivered([ended], async () => (await record())?.hasEnded);
   await delivered(
@@ -316,7 +315,7 @@ beforeAll(async () => {
   );
   await delivered(
     [new TaskAsked(TASK, workspaceId, station, team.owner, ago(230), 'line')],
-    async () => (await humanActions())?.asks.length === 1,
+    async () => (await taskActions())?.asks.length === 1,
   );
   await delivered(
     [
@@ -331,8 +330,8 @@ beforeAll(async () => {
       ),
     ],
     async () =>
-      (await record())?.firstHumanAction &&
-      (await humanActions())?.actions.length === 1,
+      (await record())?.actions.answer &&
+      (await taskActions())?.actions.length === 1,
   );
   await delivered(
     [
@@ -436,7 +435,8 @@ describe('what the insights context receives for a team (e2e)', () => {
       cacheWrite: null,
     });
     expect(record?.passed?.to.value).toBe(NEXT);
-    expect(record?.firstHumanAction?.kind).toBe('answered');
+    expect(record?.actions.answer?.kind).toBe('answered');
+    expect(record?.actions.decidingAction).toBeNull();
     expect(record?.end?.agentConfig).toMatchObject({
       harness: 'claude-code',
       model: 'sonnet',
@@ -477,16 +477,14 @@ describe('what the insights context receives for a team (e2e)', () => {
   });
 
   it('stores who opened the task, what it asked and every failure raised on it', async () => {
-    const humanActions = await app
-      .get(DrizzleTaskHumanActionsRepository)
-      .of(TASK);
+    const taskActions = await app.get(DrizzleTaskActionsRepository).of(TASK);
     const failures = await app.get(DrizzleTaskFailuresRepository).of(TASK);
 
-    expect(humanActions?.opening?.by?.equals(team.owner)).toBe(true);
-    expect(humanActions?.opening?.teamId.equals(team.teamId)).toBe(true);
-    expect(humanActions?.asks).toHaveLength(1);
+    expect(taskActions?.opening?.by?.equals(team.owner)).toBe(true);
+    expect(taskActions?.opening?.teamId.equals(team.teamId)).toBe(true);
+    expect(taskActions?.asks).toHaveLength(1);
     expect(
-      humanActions?.actions.some((each) => each.by.equals(team.owner)),
+      taskActions?.actions.some((each) => each.by.equals(team.owner)),
     ).toBe(true);
     expect(
       failures?.occurrences.map((each) => [
@@ -515,8 +513,8 @@ describe('the team’s insights (e2e)', () => {
       mergedPullRequests: 1,
       mergeRate: 1,
       costPerMerge: { amount: 1.25, currency: 'USD' },
-      humanActions: 2,
-      humanActionsPerTask: 2,
+      actions: 2,
+      actionsPerTask: 2,
       activePeople: 1,
       mergedTaskIds: [TASK.value],
     });

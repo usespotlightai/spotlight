@@ -10,9 +10,9 @@ import type { RunMemoriesRecorded } from '@insights/domain/events/run-memories-r
 import type { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import type { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import type { RunRecordErased } from '@insights/domain/events/run-record-erased.event';
+import type { TaskActionsErased } from '@insights/domain/events/task-actions-erased.event';
 import type { TaskChangeShapeErased } from '@insights/domain/events/task-change-shape-erased.event';
 import type { TaskChangeShaped } from '@insights/domain/events/task-change-shaped.event';
-import type { TaskHumanActionsErased } from '@insights/domain/events/task-human-actions-erased.event';
 import type { TaskOpeningRecorded } from '@insights/domain/events/task-opening-recorded.event';
 import {
   type EventProjection,
@@ -28,7 +28,7 @@ type RunChanged =
   | RunDismissalRecorded
   | RunRecordErased;
 
-type TaskOpeningChanged = TaskOpeningRecorded | TaskHumanActionsErased;
+type TaskOpeningChanged = TaskOpeningRecorded | TaskActionsErased;
 
 type PullRequestChanged =
   | PullRequestSeen
@@ -48,8 +48,8 @@ const RUN_CHANGES: readonly string[] = [
 ];
 
 const TASK_OPENING_CHANGES: readonly string[] = [
-  'task-human-actions.opening-recorded',
-  'task-human-actions.erased',
+  'task-actions.opening-recorded',
+  'task-actions.erased',
 ];
 
 const PULL_REQUEST_CHANGES: readonly string[] = [

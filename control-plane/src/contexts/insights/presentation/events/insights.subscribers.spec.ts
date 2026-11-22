@@ -8,16 +8,16 @@ import { FactRecorder } from '@insights/application/services/fact-recorder.servi
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
-import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
+import { RecordRunAction } from '@insights/application/services/record-run-action.service';
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
 import { RecordRunUsageSummary } from '@insights/application/services/record-run-usage-summary.service';
 import { RecordStationPass } from '@insights/application/services/record-station-pass.service';
 import { RecordSupersededRun } from '@insights/application/services/record-superseded-run.service';
+import { RecordTaskAction } from '@insights/application/services/record-task-action.service';
 import { RecordTaskFailure } from '@insights/application/services/record-task-failure.service';
-import { RecordTaskHumanAction } from '@insights/application/services/record-task-human-action.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
@@ -27,7 +27,7 @@ import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   TaskFailuresInMemory,
-  TaskHumanActionsInMemory,
+  TaskActionsInMemory,
 } from '@insights/insights.fake-spec';
 import {
   ClaimsRevisionsInMemory,
@@ -128,7 +128,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   };
   const judgings = new JudgingsInMemory();
   const scores = new ScoresInMemory();
-  const humanActions = new TaskHumanActionsInMemory();
+  const taskActions = new TaskActionsInMemory();
   const failures = new TaskFailuresInMemory();
   const chats = chatsInMemory();
   const pullRequests = new PullRequestRecordsInMemory();
@@ -152,7 +152,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       new FactRecorder(deletions),
       inTransaction,
     ),
-    acting: new RecordHumanAction(
+    acting: new RecordRunAction(
       WORK,
       records,
       new FactRecorder(deletions),
@@ -163,7 +163,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         records,
         judgings,
         scores,
-        humanActions,
+        taskActions,
         failures,
         shapes,
         pullRequests,
@@ -241,8 +241,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       new FactRecorder(deletions),
       inTransaction,
     ),
-    recordingHumanActions: new RecordTaskHumanAction(
-      humanActions,
+    recordingTaskActions: new RecordTaskAction(
+      taskActions,
       new FactRecorder(deletions),
       inTransaction,
     ),
@@ -308,7 +308,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       null,
     judgings,
     scores,
-    humanActions,
+    taskActions,
     failures,
     chats,
     pullRequests,
@@ -437,7 +437,7 @@ describe('insightsSubscribers', () => {
     expect(await subscriber.record()).toBeNull();
   });
 
-  it('fills in the checks, the first human action and the superseding in any order', async () => {
+  it('fills in the checks, the human action and the superseding in any order', async () => {
     const subscriber = subscribed();
 
     await subscriber.deliver('insights.record-checked-change', {
@@ -447,7 +447,7 @@ describe('insightsSubscribers', () => {
       workspaceId: 'ws_1',
       passed: true,
     });
-    await subscriber.deliver('insights.record-first-human-action', {
+    await subscriber.deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -469,7 +469,7 @@ describe('insightsSubscribers', () => {
 
     const record = await subscriber.record();
     expect(record?.checks).toBe('passed');
-    expect(record?.firstHumanAction?.kind).toBe('sent-back');
+    expect(record?.actions.decidingAction?.kind).toBe('sent-back');
     expect(record?.factWith(null, null, null)?.ending).toBe('superseded');
   });
 
@@ -736,7 +736,7 @@ describe('insightsSubscribers', () => {
       driver: 'person',
     });
 
-    expect(await subscriber.humanActions.of(TaskId.of('task_1'))).toBeNull();
+    expect(await subscriber.taskActions.of(TaskId.of('task_1'))).toBeNull();
     expect(await subscriber.failures.of(TaskId.of('task_1'))).toBeNull();
   });
 
@@ -761,7 +761,7 @@ describe('insightsSubscribers', () => {
       by: 'user_ada',
       at: '2026-09-30T09:00:00.000Z',
     });
-    await subscriber.deliver('insights.record-task-human-action', {
+    await subscriber.deliver('insights.record-task-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -774,13 +774,13 @@ describe('insightsSubscribers', () => {
       server: null,
     });
 
-    const humanActions = await subscriber.humanActions.of(TaskId.of('task_1'));
-    expect(humanActions?.opening?.by?.value).toBe('user_ada');
+    const taskActions = await subscriber.taskActions.of(TaskId.of('task_1'));
+    expect(taskActions?.opening?.by?.value).toBe('user_ada');
     expect(
-      humanActions?.asks.map((each) => [each.stationId.value, each.at]),
+      taskActions?.asks.map((each) => [each.stationId.value, each.at]),
     ).toEqual([['station_1', new Date('2026-09-30T10:10:00.000Z')]]);
     expect(
-      humanActions?.actions.map((each) => [each.by.value, each.at]),
+      taskActions?.actions.map((each) => [each.by.value, each.at]),
     ).toEqual([['user_bob', new Date('2026-09-30T10:20:00.000Z')]]);
   });
 
@@ -801,7 +801,7 @@ describe('insightsSubscribers', () => {
     expect(subscriber.chats.stored.size).toBe(1);
   });
 
-  it('deletes the human actions and failures of a deleted task, and the chats of a deleted workspace', async () => {
+  it('deletes the actions and failures of a deleted task, and the chats of a deleted workspace', async () => {
     const subscriber = subscribed();
     await subscriber.deliver('insights.record-inbox-ask', {
       kind: TASK_ASKED,
@@ -839,7 +839,7 @@ describe('insightsSubscribers', () => {
     };
 
     await subscriber.deliver(
-      'insights.delete-human-actions-of-deleted-task',
+      'insights.delete-task-actions-of-deleted-task',
       deleted,
     );
     await subscriber.deliver(
@@ -852,7 +852,7 @@ describe('insightsSubscribers', () => {
       slug: 'acme',
     });
 
-    expect(subscriber.humanActions.stored.size).toBe(0);
+    expect(subscriber.taskActions.stored.size).toBe(0);
     expect(subscriber.failures.stored.size).toBe(0);
     expect(subscriber.chats.stored.size).toBe(0);
   });
@@ -974,7 +974,7 @@ describe('insightsSubscribers', () => {
 
   it('records nothing more of a task received after it was deleted, whichever deletion came first', async () => {
     const subscriber = subscribed();
-    await subscriber.deliver('insights.delete-human-actions-of-deleted-task', {
+    await subscriber.deliver('insights.delete-task-actions-of-deleted-task', {
       kind: TASK_DELETED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1032,7 +1032,7 @@ describe('insightsSubscribers', () => {
       workspaceId: 'ws_1',
       taskId: 'task_1',
     });
-    await subscriber.deliver('insights.record-first-human-action', {
+    await subscriber.deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1074,7 +1074,7 @@ describe('insightsSubscribers', () => {
     });
 
     expect(subscriber.records.stored.size).toBe(0);
-    expect(subscriber.humanActions.stored.size).toBe(0);
+    expect(subscriber.taskActions.stored.size).toBe(0);
     expect(subscriber.failures.stored.size).toBe(0);
     expect(subscriber.pullRequests.stored.size).toBe(0);
   });
@@ -1130,11 +1130,11 @@ describe('insightsSubscribers', () => {
 
     expect(subscriber.records.stored.size).toBe(0);
     expect(subscriber.chats.stored.size).toBe(0);
-    expect(subscriber.humanActions.stored.size).toBe(0);
+    expect(subscriber.taskActions.stored.size).toBe(0);
     expect(subscriber.failures.stored.size).toBe(0);
   });
 
-  it('records no later ask or act of a task whose team was deleted, whichever came first', async () => {
+  it('records no later ask or action of a task whose team was deleted, whichever came first', async () => {
     const opened = {
       kind: TASK_OPENED,
       taskId: 'task_1',
@@ -1175,21 +1175,21 @@ describe('insightsSubscribers', () => {
 
     await openedFirst.deliver('insights.record-task-opening', opened);
     await openedFirst.deliver(
-      'insights.delete-human-actions-of-deleted-team',
+      'insights.delete-task-actions-of-deleted-team',
       teamDeleted,
     );
     await openedFirst.deliver('insights.record-inbox-ask', asked);
-    await openedFirst.deliver('insights.record-task-human-action', acted);
+    await openedFirst.deliver('insights.record-task-action', acted);
     await deletedFirst.deliver(
-      'insights.delete-human-actions-of-deleted-team',
+      'insights.delete-task-actions-of-deleted-team',
       teamDeleted,
     );
     await deletedFirst.deliver('insights.record-inbox-ask', asked);
     await deletedFirst.deliver('insights.record-task-opening', opened);
-    await deletedFirst.deliver('insights.record-task-human-action', acted);
+    await deletedFirst.deliver('insights.record-task-action', acted);
 
-    expect(openedFirst.humanActions.stored.size).toBe(0);
-    expect(deletedFirst.humanActions.stored.size).toBe(0);
+    expect(openedFirst.taskActions.stored.size).toBe(0);
+    expect(deletedFirst.taskActions.stored.size).toBe(0);
   });
 
   it('records nothing more of a workspace received after it was deleted', async () => {
@@ -1226,7 +1226,7 @@ describe('insightsSubscribers', () => {
 
     expect(subscriber.records.stored.size).toBe(0);
     expect(subscriber.chats.stored.size).toBe(0);
-    expect(subscriber.humanActions.stored.size).toBe(0);
+    expect(subscriber.taskActions.stored.size).toBe(0);
     expect(subscriber.pullRequests.stored.size).toBe(0);
   });
 

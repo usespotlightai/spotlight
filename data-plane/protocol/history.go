@@ -125,7 +125,7 @@ type RunOutcome struct {
 	RunNumber        int          `json:"runNumber"`
 	Usage            *RunUsage    `json:"usage"`
 	Checks           *string      `json:"checks"`
-	FirstHumanAction *HumanAction `json:"firstHumanAction"`
+	HumanAction      *HumanAction `json:"humanAction"`
 	PullRequestState *string      `json:"pullRequestState"`
 }
 

@@ -245,7 +245,8 @@ export class AgentConfigOutcomesResponseDto {
     nullable: true,
     type: Number,
     example: 0.3,
-    description: 'Share of runs that passed their task to another station',
+    description:
+      'Runs that passed their task to another station, of the runs with a human action or that passed their task',
   })
   readonly passed: number | null;
 

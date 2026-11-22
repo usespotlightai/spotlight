@@ -1,5 +1,6 @@
 import { DELIVERY_ID, PLATFORM_ID } from '@/mocks/world';
 import { type HistoryRun, history } from '@/mocks/world/insights-history';
+import { runResolutionOf } from '@/mocks/world/run-labels';
 import { FINGERPRINTS } from '@/mocks/world/station-history';
 
 export const ALERT_STATION = 'station_implementation';
@@ -31,7 +32,7 @@ type Watch = {
 
 const SENT_BACK: Watch = {
   over: ALERT_OVER,
-  measure: (run) => (run.firstHumanAction?.kind === 'sent-back' ? 1 : 0),
+  measure: (run) => (runResolutionOf(run) === 'sent-back' ? 1 : 0),
   fromBaseline: true,
   crosses: (value, baseline) =>
     baseline !== null && value - baseline >= ALERT_RISES_BY - 1e-9,

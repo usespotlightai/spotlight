@@ -4,8 +4,8 @@ import { DrizzlePullRequestFacts } from '@insights/infrastructure/persistence/dr
 import { DrizzleRunFacts } from '@insights/infrastructure/persistence/drizzle/projections/run-facts.projection';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { DrizzleTaskActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-actions.repository';
 import { DrizzleTaskChangeShapeRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
-import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
 import { insightsProjections } from '@insights/presentation/events/insights.projections';
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -25,10 +25,7 @@ export const projectedInsights = (context: DrizzleContext) => {
     },
   };
   const records = new DrizzleRunRecordRepository(context, dispatcher);
-  const humanActions = new DrizzleTaskHumanActionsRepository(
-    context,
-    dispatcher,
-  );
+  const taskActions = new DrizzleTaskActionsRepository(context, dispatcher);
   const pullRequests = new DrizzlePullRequestRecordRepository(
     context,
     dispatcher,
@@ -36,7 +33,7 @@ export const projectedInsights = (context: DrizzleContext) => {
   const shapes = new DrizzleTaskChangeShapeRepository(context, dispatcher);
   const runFacts = new ProjectRunFacts(
     records,
-    humanActions,
+    taskActions,
     pullRequests,
     new DrizzleRunFacts(context),
     context,
@@ -53,7 +50,7 @@ export const projectedInsights = (context: DrizzleContext) => {
   return {
     dispatcher,
     records,
-    humanActions,
+    taskActions,
     pullRequests,
     shapes,
     runFacts,

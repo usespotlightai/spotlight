@@ -105,7 +105,7 @@ const outcomeOf = (
   failure: null,
   runNumber: 1,
   checks: null,
-  firstHumanAction: null,
+  humanAction: null,
   pullRequestState: null,
 });
 

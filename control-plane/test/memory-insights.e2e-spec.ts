@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -90,7 +90,7 @@ const ran = async (runId: string) => {
     .add(
       runId.endsWith('x')
         ? ended.recordAction(
-            HumanAction.of('accepted', ago(1), UserId.of('user_actor')),
+            PersonAction.of('accepted', ago(1), UserId.of('user_actor')),
           )
         : ended,
     );

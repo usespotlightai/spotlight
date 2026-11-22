@@ -1,13 +1,13 @@
 import type { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { TaskActions } from '@insights/domain/aggregates/task-actions.aggregate';
 import { TaskChangeShape } from '@insights/domain/aggregates/task-change-shape.aggregate';
-import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
 import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal';
 import { runFilterOf } from '@insights/domain/services/run-filter';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -19,15 +19,15 @@ import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
 import { DrizzleInsightsReader } from '@insights/infrastructure/persistence/drizzle/readers/insights.reader';
 import type { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import type { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { DrizzleTaskActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-actions.repository';
 import type { DrizzleTaskChangeShapeRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
-import type { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
 import {
   pullRequestFact,
   pullRequestRecord,
   runFact,
   runRecord,
   taskChangeShape,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { seenOf } from '@insights/pull-requests.fake-spec';
 import type { Env } from '@platform/config/env.schema';
@@ -59,7 +59,7 @@ const at = (hoursAgo: number) => new Date(NOW - hoursAgo * HOUR);
 let database: TestDatabase;
 let facts: ProjectRunFacts;
 let records: DrizzleRunRecordRepository;
-let humanActions: DrizzleTaskHumanActionsRepository;
+let taskActions: DrizzleTaskActionsRepository;
 let pullRequests: DrizzlePullRequestRecordRepository;
 let shapes: DrizzleTaskChangeShapeRepository;
 
@@ -120,8 +120,8 @@ const withUsageRecorded = (record: RunRecord): RunRecord =>
     RunTools.NONE,
   );
 
-const opening = (taskId: string, teamId: TeamId): TaskHumanActions =>
-  TaskHumanActions.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
+const opening = (taskId: string, teamId: TeamId): TaskActions =>
+  TaskActions.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
     TaskOpening.of({
       teamId,
       lineId: LineId.of('line_1'),
@@ -232,7 +232,7 @@ beforeAll(async () => {
 
   facts = projected.runFacts;
   records = projected.records;
-  humanActions = projected.humanActions;
+  taskActions = projected.taskActions;
   pullRequests = projected.pullRequests;
   shapes = projected.shapes;
 }, 60_000);
@@ -243,7 +243,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await database.db.delete(runRecord);
-  await database.db.delete(taskHumanAction);
+  await database.db.delete(taskAction);
   await database.db.delete(pullRequestRecord);
   await database.db.delete(taskChangeShape);
   await database.db.delete(runFact);
@@ -274,7 +274,7 @@ describe('run facts', () => {
     const recorded = await records.of(RunId.of('run_1'));
     await records.save(
       withUsageRecorded(recorded as RunRecord).recordAction(
-        HumanAction.of('accepted', at(0.5), UserId.of('user_actor')),
+        PersonAction.of('accepted', at(0.5), UserId.of('user_actor')),
       ),
     );
 
@@ -283,13 +283,13 @@ describe('run facts', () => {
       cost: 1.25,
       currency: 'USD',
       ms: 900_000,
-      firstHumanAction: 'accepted',
-      firstHumanActionAt: at(0.5),
-      firstHumanActionBy: 'user_actor',
+      decidingAction: 'accepted',
+      decidingActionAt: at(0.5),
+      decidingActionBy: 'user_actor',
     });
-    expect((await records.of(RunId.of('run_1')))?.firstHumanAction?.by).toEqual(
-      UserId.of('user_actor'),
-    );
+    expect(
+      (await records.of(RunId.of('run_1')))?.actions.decidingAction?.by,
+    ).toEqual(UserId.of('user_actor'));
   });
 
   it('stores the memories a run was briefed with before it ended in its fact, and those it recalled after', async () => {
@@ -326,8 +326,8 @@ describe('run facts', () => {
     await records.add(ended('run_1', 'task_1'));
     await records.add(ended('run_2', 'task_1'));
 
-    await humanActions.add(
-      TaskHumanActions.empty(TaskId.of('task_1'), WORKSPACE).recordOpen(
+    await taskActions.add(
+      TaskActions.empty(TaskId.of('task_1'), WORKSPACE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: LineId.of('line_1'),
@@ -357,8 +357,8 @@ describe('run facts', () => {
   });
 
   it('takes no opener or pull request from another workspace’s records of the same task', async () => {
-    await humanActions.add(
-      TaskHumanActions.empty(TaskId.of('task_x'), ELSEWHERE).recordOpen(
+    await taskActions.add(
+      TaskActions.empty(TaskId.of('task_x'), ELSEWHERE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: LineId.of('line_1'),
@@ -427,7 +427,7 @@ describe('run facts', () => {
       ['task_shared', TEAM, 8],
       ['task_theirs', NEXT_DOOR, 9],
     ] as const) {
-      await humanActions.add(opening(taskId, teamId));
+      await taskActions.add(opening(taskId, teamId));
       await pullRequests.add(
         merged(
           taskId,
@@ -440,7 +440,7 @@ describe('run facts', () => {
     const team = DeletionScope.ofTeam(WORKSPACE, TEAM);
 
     await erased(records, team);
-    await erased(humanActions, team);
+    await erased(taskActions, team);
     await released(pullRequests, team);
 
     expect(await factOf('run_ours')).toBeNull();
@@ -478,7 +478,7 @@ describe('run facts', () => {
     await whileLocked(
       (first) =>
         released(first.pullRequests, DeletionScope.ofTeam(WORKSPACE, TEAM)),
-      () => second.humanActions.add(opening('task_1', NEXT_DOOR)),
+      () => second.taskActions.add(opening('task_1', NEXT_DOOR)),
     );
 
     expect(await factOf('run_1')).toMatchObject({
@@ -617,7 +617,7 @@ describe('run facts', () => {
     );
     await records.save(
       ((await records.of(RunId.of('run_3'))) as RunRecord).recordAction(
-        HumanAction.of('sent-back', at(0.4), UserId.of('user_actor')),
+        PersonAction.of('sent-back', at(0.4), UserId.of('user_actor')),
       ),
     );
 
@@ -822,5 +822,64 @@ describe('run facts', () => {
         each.ending,
       ]),
     ).toEqual([['run_superseded', 'superseded']]);
+  });
+
+  it('lists a run by its deciding action once a person decides it after answering, and by Answered until then', async () => {
+    const person = UserId.of('user_actor');
+    await records.add(
+      ended('run_answered', 'task_1', { endedHoursAgo: 2 }).recordAction(
+        PersonAction.of('answered', at(1), person),
+      ),
+    );
+    await records.add(
+      ended('run_decided', 'task_2', { endedHoursAgo: 2 })
+        .recordAction(PersonAction.of('answered', at(1), person))
+        .recordAction(PersonAction.of('started', at(0.5), person)),
+    );
+    const reader = new DrizzleInsightsReader(
+      new DrizzleReading(database.db, {
+        DATABASE_READ_TIMEOUT_MS: 15_000,
+      } as Env),
+    );
+    const window = { from: at(24), to: at(0) };
+    const listed = async (humanAction: string) =>
+      (
+        await reader.runPage({
+          window: { workspaceId: WORKSPACE, teamId: TEAM, ...window },
+          filter: runFilterOf(
+            {
+              lineId: null,
+              stationId: null,
+              outcome: null,
+              harness: null,
+              model: { kind: 'any' },
+              repository: { kind: 'any' },
+              fingerprint: null,
+              taskId: null,
+              taskIds: null,
+              personId: null,
+              day: null,
+              week: null,
+              skillEnabled: null,
+              skillUsed: null,
+              server: null,
+              serverFailed: null,
+              failedAfter: null,
+              dismissedTool: null,
+              dismissedServer: { kind: 'any' },
+              pullRequestState: null,
+              humanAction,
+              resolution: null,
+              asked: false,
+            },
+            window,
+          ),
+          offset: 0,
+          limit: 10,
+        })
+      ).runs.map((each) => each.runId);
+
+    expect(await listed('answered')).toEqual(['run_answered']);
+    expect(await listed('started')).toEqual(['run_decided']);
   });
 });

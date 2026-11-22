@@ -1,4 +1,4 @@
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { MemoryReference } from '@insights/domain/value-objects/run-memories.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { costedRecord, endedRecord, factOf } from '@insights/runs.fake-spec';
@@ -43,21 +43,36 @@ describe('RunFact', () => {
 
   it('turned out as its run did', () => {
     const accepted = endedRecord('run_1', { ending: 'failed' }).recordAction(
-      HumanAction.of('accepted', AT, ACTOR),
+      PersonAction.of('accepted', AT, ACTOR),
     );
 
     expect(factOf(accepted).disposition).toBe(
       accepted.factWith(null, null, null)?.disposition,
     );
-    expect(factOf(accepted).disposition).toBe('accepted');
+    expect(factOf(accepted).disposition).toBe('failed');
+    expect(factOf(accepted).resolution).toBe('failed');
+  });
+
+  it('knows a person answered it before they decided it, as of any moment between', () => {
+    const fact = endedRecord('run_1', { endedAt: EARLIER })
+      .recordAction(PersonAction.of('answered', AT, ACTOR))
+      .recordAction(PersonAction.of('started', LATER, ACTOR))
+      .factWith(null, null, null);
+
+    expect(fact?.asOf(EARLIER)?.disposition).toBe('other');
+    expect(fact?.asOf(AT)?.actions.answer?.at).toEqual(AT);
+    expect(fact?.asOf(AT)?.actions.decidingAction).toBeNull();
+    expect(fact?.asOf(AT)?.disposition).toBe('asked');
+    expect(fact?.asOf(LATER)?.actions.decidingAction?.kind).toBe('started');
+    expect(fact?.asOf(LATER)?.disposition).toBe('asked');
   });
 
   it('knows what was known of it at a moment, its task’s pull request too', () => {
     const fact = endedRecord('run_1', { endedAt: EARLIER })
       .supersededByItsTask(LATER)
       .recordCheck('passed', AT)
-      .recordAction(HumanAction.of('approved', LATER, ACTOR))
-      .recordAction(HumanAction.of('accepted', LATER, ACTOR))
+      .recordAction(PersonAction.of('approved', LATER, ACTOR))
+      .recordAction(PersonAction.of('accepted', LATER, ACTOR))
       .passTo(StationPass.of(StationId.of('station_2'), LATER))
       .factWith(null, PULL_REQUEST, null);
     const known = fact?.asOf(AT);
@@ -65,7 +80,7 @@ describe('RunFact', () => {
     expect(known?.ending).toBe('completed');
     expect(known?.checks).toBe('passed');
     expect(known?.approvalAnsweredAt).toBeNull();
-    expect(known?.firstHumanAction).toBeNull();
+    expect(known?.actions.decidingAction).toBeNull();
     expect(known?.passed).toBeNull();
     expect(known?.pullRequest).toEqual({
       ...PULL_REQUEST,

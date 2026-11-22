@@ -2,8 +2,8 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class TaskHumanActionsErased implements DomainEvent {
-  readonly kind = 'task-human-actions.erased';
+export class TaskActionsErased implements DomainEvent {
+  readonly kind = 'task-actions.erased';
 
   constructor(
     readonly taskId: TaskId,

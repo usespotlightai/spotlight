@@ -16,8 +16,8 @@ import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
@@ -491,7 +491,7 @@ describe('how often the judge agrees with people', () => {
       const yes = at % 2 === 0;
       await records.add(
         endedRecord(runId).recordAction(
-          HumanAction.of(
+          PersonAction.of(
             yes ? 'accepted' : 'sent-back',
             LATER,
             UserId.of('user_actor'),

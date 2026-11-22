@@ -11,7 +11,7 @@ export class RunAcceptance implements RunAcceptancePort {
   async acceptedAfter(runId: string): Promise<boolean> {
     const [fact] = await this.facts.ofRuns([RunId.of(runId)]);
 
-    return fact?.firstHumanAction?.accepts ?? false;
+    return fact?.disposition === 'accepted';
   }
 
   async dispositions(

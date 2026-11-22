@@ -20,12 +20,12 @@ import {
   withResolution,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
-  ofTeamHumanActions,
+  ofTeamTaskActions,
   teamActivity,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   runFact,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { sql } from 'drizzle-orm';
@@ -69,7 +69,7 @@ const asksIn = async (
   team: TeamInPeriod,
 ): Promise<readonly AsksRow[]> => {
   const { current, previous } = team.period;
-  const answerMs = msOf(sql`asked.answered_at - asked.asked_at`);
+  const answerMs = msOf(sql`asked.acted_at - asked.asked_at`);
   const result = await db.execute<AsksRow>(sql`
     with asked as (
       select waits.*, waits.asked_at >= ${asUtc(current.from)} as is_current
@@ -81,8 +81,8 @@ const asksIn = async (
     select
       asked.is_current,
       count(*)::int as asks,
-      count(*) filter (where asked.answered_at is null)::int as unanswered,
-      ${spreadOver(answerMs, sql`asked.answered_at is not null`)} as to_answer,
+      count(*) filter (where asked.acted_at is null)::int as unanswered,
+      ${spreadOver(answerMs, sql`asked.acted_at is not null`)} as to_answer,
       (
         select ${inLastActionOrder(sql`tasks.task_id`, sql`tasks.last_action_at`)}
         from tasks
@@ -117,24 +117,24 @@ const dismissedIn = async (
   team: TeamInPeriod,
 ): Promise<readonly DismissedRow[]> => {
   const { current, previous } = team.period;
-  const at = sql`(act.value->>'at')::timestamptz`;
+  const at = sql`(action.value->>'at')::timestamptz`;
   const result = await db.execute<DismissedRow>(sql`
     with dismissals as (
       select
-        ${taskHumanAction.taskId} as task_id,
-        ${taskHumanAction.lastActionAt} as last_action_at,
+        ${taskAction.taskId} as task_id,
+        ${taskAction.lastActionAt} as last_action_at,
         ${at} >= ${asUtc(current.from)} as is_current,
-        count(*) as acts
-      from ${taskHumanAction}
-      cross join lateral jsonb_array_elements(${taskHumanAction.actions}) as act(value)
-      where ${ofTeamHumanActions(team)}
-        and act.value->>'kind' = 'dismissed'
+        count(*) as dismissed
+      from ${taskAction}
+      cross join lateral jsonb_array_elements(${taskAction.actions}) as action(value)
+      where ${ofTeamTaskActions(team)}
+        and action.value->>'kind' = 'dismissed'
         and ${atWithin(at, { from: previous.from, to: current.to })}
       group by 1, 2, 3
     )
     select
       dismissals.is_current,
-      sum(dismissals.acts)::int as dismissed,
+      sum(dismissals.dismissed)::int as dismissed,
       ${inLastActionOrder(sql`dismissals.task_id`, sql`dismissals.last_action_at`)} as task_ids
     from dismissals
     group by dismissals.is_current

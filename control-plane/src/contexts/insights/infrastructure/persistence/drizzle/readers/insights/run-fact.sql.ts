@@ -194,13 +194,13 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
 const finished = sql`${ran} and ${runFact.pullRequestState} is not null and ${runFact.pullRequestState} <> 'open'`;
 
 export const measuredColumns = sql`
-  ${counted(sql`${ran} and ${runFact.resolution} <> 'other'`)} as decided,
+  ${counted(sql`${ran} and ${runFact.resolution} <> 'other'`)} as not_other,
   ${counted(finished)} as finished,
   count(distinct ${runFact.taskId}) filter (where ${finished})::int as finished_tasks,
   ${counted(sql`${ran} and ${runFact.usageRecorded}`)} as usage_recorded`;
 
 export interface GroupColumns extends TallyColumns {
-  readonly decided: number;
+  readonly not_other: number;
   readonly finished: number;
   readonly finished_tasks: number;
   readonly usage_recorded: number;
@@ -209,7 +209,7 @@ export interface GroupColumns extends TallyColumns {
 export const groupCountsOfRow = (row: GroupColumns): GroupCounts => ({
   tally: tallyCountsOf(row),
   measured: {
-    decided: row.decided,
+    notOther: row.not_other,
     finished: row.finished,
     finishedTasks: row.finished_tasks,
     usageRecorded: row.usage_recorded,

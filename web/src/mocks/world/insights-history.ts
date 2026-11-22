@@ -87,7 +87,7 @@ type MadeRun = {
   readonly ending: RunEnding;
   readonly failure: string | null;
   readonly checks: 'passed' | 'failed' | 'skipped' | null;
-  readonly firstHumanAction: HumanActionResponseDto | null;
+  readonly humanAction: HumanActionResponseDto | null;
   readonly passed: StationPassResponseDto | null;
   readonly pullRequestState: 'open' | 'merged' | 'closed' | null;
   readonly teamId: string;
@@ -324,7 +324,7 @@ const makeRun = (
       ? (profile.failures[Math.floor(draw() * profile.failures.length)] ?? null)
       : null,
     checks,
-    firstHumanAction:
+    humanAction:
       ended && outcome.kind === 'ask'
         ? {
             kind: sentBack ? 'sent-back' : 'accepted',
@@ -565,14 +565,14 @@ const runDeliveryTask = (
     const reviewed = chainOf(draw, task, [reviewStep], ids, cutoff, runs, at);
     const reviews = runs.slice(before);
     rounds += reviews.length;
-    firstReviewAt ??= reviews[0]?.firstHumanAction
-      ? Date.parse(reviews[0].firstHumanAction.at)
+    firstReviewAt ??= reviews[0]?.humanAction
+      ? Date.parse(reviews[0].humanAction.at)
       : null;
     if (reviewed !== null) {
       doneAt = reviewed;
     } else {
-      at = reviews.at(-1)?.firstHumanAction
-        ? Date.parse(reviews.at(-1)?.firstHumanAction?.at ?? '')
+      at = reviews.at(-1)?.humanAction
+        ? Date.parse(reviews.at(-1)?.humanAction?.at ?? '')
         : null;
     }
   }
@@ -633,11 +633,9 @@ const runExperiment = (
   );
   const built = runs
     .slice(before)
-    .find(
-      (each) => each.stationId === 'station_build' && each.firstHumanAction,
-    );
-  if (built?.firstHumanAction) {
-    const reviewedAt = Date.parse(built.firstHumanAction.at);
+    .find((each) => each.stationId === 'station_build' && each.humanAction);
+  if (built?.humanAction) {
+    const reviewedAt = Date.parse(built.humanAction.at);
     task.pullRequest = pullRequestOf(
       draw,
       task,
@@ -851,7 +849,7 @@ const worldRuns = (
             ? 'failed'
             : 'passed'
           : null,
-        firstHumanAction:
+        humanAction:
           answeredAt === null
             ? null
             : { kind: 'accepted', at: new Date(answeredAt).toISOString() },
@@ -898,7 +896,7 @@ const SENT_BACK_AFTER_MERGE_HOURS = 20;
 const passedAfterHoursOf = (shape: PastShape): number =>
   shape === 'accepted' ? 0.6 : 0.4;
 
-const NAMED_FIRST_ACTS: Partial<
+const NAMED_HUMAN_ACTIONS: Partial<
   Record<
     PastShape,
     {
@@ -915,13 +913,13 @@ const NAMED_FIRST_ACTS: Partial<
   },
 };
 
-const namedFirstActOf = (
+const namedHumanActionOf = (
   shape: PastShape,
   later: (hours: number) => string,
 ): HumanActionResponseDto | null => {
-  const act = NAMED_FIRST_ACTS[shape];
+  const action = NAMED_HUMAN_ACTIONS[shape];
 
-  return act ? { kind: act.kind, at: later(act.afterHours) } : null;
+  return action ? { kind: action.kind, at: later(action.afterHours) } : null;
 };
 
 const namedRunOf = (
@@ -967,7 +965,7 @@ const namedRunOf = (
           : 'completed',
     failure: past.shape === 'failed' ? 'The agent ran out of turns' : null,
     checks: ended ? (past.shape === 'sent-back' ? 'failed' : 'passed') : null,
-    firstHumanAction: namedFirstActOf(past.shape, later),
+    humanAction: namedHumanActionOf(past.shape, later),
     passed: PASSED_ON_SHAPES.includes(past.shape)
       ? {
           to: 'station_review',
@@ -1021,7 +1019,7 @@ const namedHistory = (): Made => {
       );
       const mergeTimes = pasts.flatMap((each) => mergedAtOf(each) ?? []);
       const mergedAt = mergeTimes.length > 0 ? Math.min(...mergeTimes) : null;
-      const delivered = runs.some((run) => run.passed || run.firstHumanAction);
+      const delivered = runs.some((run) => run.passed || run.humanAction);
       const pullRequest: PullRequestRecord | null = delivered
         ? {
             repository: 'acme/api',

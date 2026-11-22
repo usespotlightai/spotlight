@@ -1,13 +1,13 @@
 import { InvalidRunFilterError } from '@insights/domain/exceptions/invalid-run-filter.error';
 import { weekWindowOf } from '@insights/domain/services/pull-request-insights';
 import {
-  TASK_ACTIONS,
-  type TaskAction,
-} from '@insights/domain/value-objects/human-action.vo';
-import {
   type Window,
   within,
 } from '@insights/domain/value-objects/insights-period.vo';
+import {
+  RUN_HUMAN_ACTIONS,
+  type RunHumanAction,
+} from '@insights/domain/value-objects/person-action.vo';
 import {
   PULL_REQUEST_STATES,
   type PullRequestState,
@@ -74,7 +74,7 @@ export interface RunFilter {
   readonly dismissedTool: string | null;
   readonly dismissedServer: Narrowing;
   readonly pullRequestState: PullRequestState | null;
-  readonly humanAction: TaskAction | null;
+  readonly humanAction: RunHumanAction | null;
   readonly resolution: RunResolution | null;
   readonly askedWithin: Window | null;
 }
@@ -197,7 +197,7 @@ export const runFilterOf = (
     input.pullRequestState,
     'pull request state',
   ),
-  humanAction: oneOf(TASK_ACTIONS, input.humanAction, 'human action'),
+  humanAction: oneOf(RUN_HUMAN_ACTIONS, input.humanAction, 'human action'),
   resolution: oneOf(RUN_RESOLUTIONS, input.resolution, 'resolution'),
   askedWithin: input.asked ? period : null,
 });

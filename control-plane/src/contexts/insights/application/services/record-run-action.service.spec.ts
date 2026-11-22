@@ -2,7 +2,7 @@ import { deletionsInMemory } from '@insights/application/ports/deletions.fake-sp
 import type { EndedRun, WorkPort } from '@insights/application/ports/work.port';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
-import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
+import { RecordRunAction } from '@insights/application/services/record-run-action.service';
 import { RecordRunUsageSummary } from '@insights/application/services/record-run-usage-summary.service';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import {
@@ -52,7 +52,7 @@ const acting = async (...runs: Ended[]) => {
     await records.add(endedRecord(runId, { endedAt: at(hour), ...change }));
   }
 
-  const service = new RecordHumanAction(
+  const service = new RecordRunAction(
     workOfTeam('team_1'),
     records,
     new FactRecorder(deletions),
@@ -63,7 +63,7 @@ const acting = async (...runs: Ended[]) => {
     records,
     deletions,
     acted: (
-      act: string,
+      action: string,
       hour: number,
       after: string | null = null,
       tool: { tool: string; server: string | null } | null = null,
@@ -72,7 +72,7 @@ const acting = async (...runs: Ended[]) => {
         taskId: 'task_1',
         workspaceId: 'ws_1',
         stationId: 'station_1',
-        action: act,
+        action,
         by: 'user_alice',
         afterRunId: after,
         at: at(hour).toISOString(),
@@ -88,9 +88,12 @@ const acting = async (...runs: Ended[]) => {
       (await records.of(RunId.of(runId)))?.factWith(null, null, null)
         ?.disposition ?? null,
     next: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.firstHumanAction?.kind ?? null,
+      (await records.of(RunId.of(runId)))?.actions.decidingAction?.kind ?? null,
     actor: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.firstHumanAction?.by?.value ?? null,
+      (await records.of(RunId.of(runId)))?.actions.decidingAction?.by?.value ??
+      null,
+    answeredAt: async (runId: string) =>
+      (await records.of(RunId.of(runId)))?.actions.answer?.at ?? null,
   };
 };
 
@@ -117,7 +120,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.dismissals('run_1')).toEqual([]);
   });
 
-  it('attributes the act to the run it names', async () => {
+  it('attributes the action to the run it names', async () => {
     const recorder = await acting(['run_1', 9], ['run_2', 10]);
 
     await recorder.acted('sent-back', 11, 'run_1');
@@ -126,7 +129,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.next('run_2')).toBeNull();
   });
 
-  it('keeps the person who acted on the run’s first act', async () => {
+  it('keeps the person who took the run’s deciding action', async () => {
     const recorder = await acting(['run_1', 9]);
 
     await recorder.acted('accepted', 10, 'run_1');
@@ -134,7 +137,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.actor('run_1')).toBe('user_alice');
   });
 
-  it('attributes an act that names no run to the task’s latest run that ended before it', async () => {
+  it('attributes an action that names no run to the task’s latest run that ended before it', async () => {
     const recorder = await acting(['run_1', 9], ['run_2', 10], ['run_3', 12]);
 
     await recorder.acted('accepted', 11);
@@ -144,7 +147,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.next('run_3')).toBeNull();
   });
 
-  it('attributes an act that names no run to the latest run at the station the task was acted on at', async () => {
+  it('attributes an action that names no run to the latest run at the station the task was acted on at', async () => {
     const recorder = await acting(
       ['run_1', 9],
       ['run_2', 10, { stationId: 'station_2' }],
@@ -156,7 +159,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.next('run_2')).toBeNull();
   });
 
-  it('attributes no act to a run cancelled before it ran', async () => {
+  it('attributes no action to a run cancelled before it ran', async () => {
     const recorder = await acting(
       ['run_1', 9],
       ['run_2', 10, { ending: 'cancelled' }],
@@ -168,7 +171,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.next('run_2')).toBeNull();
   });
 
-  it('counts only the first act after a run', async () => {
+  it('counts only the first deciding action after a run', async () => {
     const recorder = await acting(['run_1', 9]);
 
     await recorder.acted('sent-back', 10);
@@ -177,7 +180,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.next('run_1')).toBe('sent-back');
   });
 
-  it('counts the first act after a run even when it receives a later one first', async () => {
+  it('counts the first deciding action after a run even when it receives a later one first', async () => {
     const recorder = await acting(['run_1', 9]);
 
     await recorder.acted('accepted', 12, 'run_1');
@@ -186,13 +189,16 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.next('run_1')).toBe('sent-back');
   });
 
-  it('lets the act after a tool approval decide the run, not the approval', async () => {
+  it('lets the deciding action after a tool approval decide the run, not the approval', async () => {
     const tool = { tool: 'mcp__linear__create_issue', server: 'linear' };
-    const decided = async (approval: 'approved' | 'dismissed', act: string) => {
+    const decided = async (
+      approval: 'approved' | 'dismissed',
+      action: string,
+    ) => {
       const recorder = await acting(['run_1', 9]);
 
       await recorder.acted(approval, 10, 'run_1', tool);
-      await recorder.acted(act, 11, 'run_1');
+      await recorder.acted(action, 11, 'run_1');
 
       return recorder.disposition('run_1');
     };
@@ -202,7 +208,7 @@ describe('recording what a person did after a run', () => {
     expect(await decided('dismissed', 'accepted')).toBe('accepted');
   });
 
-  it('reads a run a person only decided a tool approval for as asking, neither accepted nor sent back', async () => {
+  it('reads a run a person only answered a tool approval for as asking, neither accepted nor sent back', async () => {
     const recorder = await acting(['run_1', 9]);
 
     await recorder.acted('approved', 10, 'run_1', {
@@ -214,7 +220,7 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.disposition('run_1')).toBe('asked');
   });
 
-  it('does not hand a later act to an earlier run already acted on', async () => {
+  it('does not hand a later action to an earlier run already acted on', async () => {
     const recorder = await acting(['run_1', 9], ['run_2', 10]);
     await recorder.acted('sent-back', 11, 'run_2');
 
@@ -224,18 +230,27 @@ describe('recording what a person did after a run', () => {
     expect(await recorder.next('run_2')).toBe('sent-back');
   });
 
-  it('keeps an act that names a run, received before the run ended', async () => {
+  it('keeps an action that names a run, received before the run ended', async () => {
     const recorder = await acting();
 
-    await recorder.acted('answered', 11, 'run_7');
+    await recorder.acted('parked', 11, 'run_7');
 
-    expect(await recorder.next('run_7')).toBe('answered');
+    expect(await recorder.next('run_7')).toBe('parked');
     expect((await recorder.records.of(RunId.of('run_7')))?.taskId?.value).toBe(
       'task_1',
     );
   });
 
-  it('keeps no act on a run of a team that was deleted', async () => {
+  it('keeps an answer that names a run, received before the run ended, apart from what decides the run', async () => {
+    const recorder = await acting();
+
+    await recorder.acted('answered', 11, 'run_7');
+
+    expect(await recorder.answeredAt('run_7')).not.toBeNull();
+    expect(await recorder.next('run_7')).toBeNull();
+  });
+
+  it('keeps no action on a run of a team that was deleted', async () => {
     const recorder = await acting();
     await recorder.deletions.markDeleted(
       DeletionScope.ofTeam(WORKSPACE, TeamId.of('team_1')),
@@ -250,7 +265,7 @@ describe('recording what a person did after a run', () => {
     expect(recorder.deletions.locks).toEqual(['ws_1 team_1 task_1']);
   });
 
-  it('ignores an act that names no run when the task has no ended run', async () => {
+  it('ignores an action that names no run when the task has no ended run', async () => {
     const recorder = await acting();
 
     await recorder.acted('accepted', 11);
@@ -258,7 +273,7 @@ describe('recording what a person did after a run', () => {
     expect(recorder.records.stored.size).toBe(0);
   });
 
-  it('ignores an act it does not know', async () => {
+  it('ignores an action it does not know', async () => {
     const recorder = await acting(['run_1', 9]);
 
     await recorder.acted('danced', 10);

@@ -1,5 +1,5 @@
 {
-  "id": "055ffe8d-ca34-4d97-8fbb-75560601d07a",
+  "id": "716ec76c-1ae8-49ff-a448-dba18a12e6dc",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6196,21 +6196,33 @@
           "primaryKey": false,
           "notNull": false
         },
-        "first_human_action": {
-          "name": "first_human_action",
-          "type": "human_action",
+        "deciding_action": {
+          "name": "deciding_action",
+          "type": "deciding_action",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
         },
-        "first_human_action_at": {
-          "name": "first_human_action_at",
+        "deciding_action_at": {
+          "name": "deciding_action_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "first_human_action_by": {
-          "name": "first_human_action_by",
+        "deciding_action_by": {
+          "name": "deciding_action_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "answered_at": {
+          "name": "answered_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "answered_by": {
+          "name": "answered_by",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -6689,21 +6701,33 @@
           "primaryKey": false,
           "notNull": false
         },
-        "first_human_action": {
-          "name": "first_human_action",
-          "type": "human_action",
+        "deciding_action": {
+          "name": "deciding_action",
+          "type": "deciding_action",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
         },
-        "first_human_action_at": {
-          "name": "first_human_action_at",
+        "deciding_action_at": {
+          "name": "deciding_action_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "first_human_action_by": {
-          "name": "first_human_action_by",
+        "deciding_action_by": {
+          "name": "deciding_action_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "answered_at": {
+          "name": "answered_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "answered_by": {
+          "name": "answered_by",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -7402,6 +7426,125 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.task_action": {
+      "name": "task_action",
+      "schema": "",
+      "columns": {
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "line_id": {
+          "name": "line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opened_by_id": {
+          "name": "opened_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asks": {
+          "name": "asks",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "actions": {
+          "name": "actions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "last_action_at": {
+          "name": "last_action_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "task_action_team_idx": {
+          "name": "task_action_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_action_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_action_workspace_idx": {
+          "name": "task_action_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.task_change_shape": {
       "name": "task_change_shape",
       "schema": "",
@@ -7558,125 +7701,6 @@
             },
             {
               "expression": "last_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.task_human_action": {
-      "name": "task_human_action",
-      "schema": "",
-      "columns": {
-        "task_id": {
-          "name": "task_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "line_id": {
-          "name": "line_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "station_id": {
-          "name": "station_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "opened_by_id": {
-          "name": "opened_by_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "opened_at": {
-          "name": "opened_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "asks": {
-          "name": "asks",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "actions": {
-          "name": "actions",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "last_action_at": {
-          "name": "last_action_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "task_human_action_team_idx": {
-          "name": "task_human_action_team_idx",
-          "columns": [
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "last_action_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_human_action_workspace_idx": {
-          "name": "task_human_action_workspace_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -20706,14 +20730,13 @@
         "cost_per_run"
       ]
     },
-    "public.human_action": {
-      "name": "human_action",
+    "public.deciding_action": {
+      "name": "deciding_action",
       "schema": "public",
       "values": [
         "started",
         "parked",
         "accepted",
-        "answered",
         "sent-back",
         "held-as-wrong"
       ]

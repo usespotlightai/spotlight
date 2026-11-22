@@ -187,7 +187,7 @@ describe('outcomePartsOf', () => {
       ['Accepted', 'done', 2, 0.25],
       ['Moved on', 'movedOn', 3, 0.375],
       ['Sent back', 'sentBack', 1, 0.125],
-      ['Failed, no answer', 'failed', 1, 0.125],
+      ['Failed', 'failed', 1, 0.125],
       ['Other', 'quiet', 1, 0.125],
     ]);
   });

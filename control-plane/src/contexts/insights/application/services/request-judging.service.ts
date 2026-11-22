@@ -5,13 +5,13 @@ import type { WorkPort } from '@insights/application/ports/work.port';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
-import {
-  judgesRunThatEnded,
-  sampledForJudging,
-} from '@insights/domain/services/judge-sampling';
+import { sampledForJudging } from '@insights/domain/services/judge-sampling';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
-import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import {
+  leftWork,
+  type RunEnding,
+} from '@insights/domain/value-objects/run-ending';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -46,7 +46,7 @@ export class RequestJudging {
       !event.taskId ||
       !event.stationId ||
       !ending ||
-      !judgesRunThatEnded(ending)
+      !leftWork(ending)
     ) {
       return;
     }

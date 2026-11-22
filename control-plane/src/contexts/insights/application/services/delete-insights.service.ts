@@ -9,9 +9,9 @@ import type { RunRecordRepository } from '@insights/domain/repositories/run-reco
 import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal';
 import type { ScoreRepository } from '@insights/domain/repositories/score.repository';
 import type { StationAlertStateRepository } from '@insights/domain/repositories/station-alert-state.repository';
+import type { TaskActionsRepository } from '@insights/domain/repositories/task-actions.repository';
 import type { TaskChangeShapeRepository } from '@insights/domain/repositories/task-change-shape.repository';
 import type { TaskFailuresRepository } from '@insights/domain/repositories/task-failures.repository';
-import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
@@ -25,7 +25,7 @@ export interface InsightsRepositories {
   readonly records: RunRecordRepository;
   readonly judgings: JudgingRepository;
   readonly scores: ScoreRepository;
-  readonly humanActions: TaskHumanActionsRepository;
+  readonly taskActions: TaskActionsRepository;
   readonly failures: TaskFailuresRepository;
   readonly shapes: TaskChangeShapeRepository;
   readonly pullRequests: PullRequestRecordRepository;
@@ -70,14 +70,13 @@ export class DeleteInsights {
     );
   }
 
-  humanActions(scope: DeletionScope): Promise<void> {
+  taskActions(scope: DeletionScope): Promise<void> {
     return this.erase(
       scope,
-      this.repositories.humanActions,
+      this.repositories.taskActions,
       () => null,
-      (humanActions) => humanActions.delete(),
-      (humanActions) =>
-        DeletionScope.taskDeletedWith(scope, humanActions.taskId),
+      (taskActions) => taskActions.delete(),
+      (taskActions) => DeletionScope.taskDeletedWith(scope, taskActions.taskId),
     );
   }
 

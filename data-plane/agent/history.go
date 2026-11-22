@@ -300,8 +300,8 @@ func runRow(run protocol.HistoryRun) []string {
 	}
 
 	humanAction, cost, steps, took := "", "", "", tookMs(run.Trace.Ms)
-	if outcome.FirstHumanAction != nil {
-		humanAction = outcome.FirstHumanAction.Kind
+	if outcome.HumanAction != nil {
+		humanAction = outcome.HumanAction.Kind
 	}
 	if usage := outcome.Usage; usage != nil {
 		steps = strconv.Itoa(usage.Steps)

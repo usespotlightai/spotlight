@@ -11,8 +11,8 @@ import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-reco
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { Score } from '@insights/domain/aggregates/score.aggregate';
 import type { StationAlertState } from '@insights/domain/aggregates/station-alert-state.aggregate';
+import type { TaskActions } from '@insights/domain/aggregates/task-actions.aggregate';
 import type { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
-import type { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
 import { RunRecordVersionConflictError } from '@insights/domain/exceptions/run-record-version-conflict.error';
 import type {
   RecordsOwner,
@@ -322,8 +322,8 @@ export interface FactSources {
   readonly pullRequests?: {
     ownedBy(taskIds: readonly TaskId[]): Promise<readonly PullRequestRecord[]>;
   };
-  readonly humanActions?: {
-    ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskHumanActions[]>;
+  readonly taskActions?: {
+    ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskActions[]>;
   };
   readonly scores?: { readonly stored: ReadonlyMap<string, Score> };
   readonly failures?: { readonly stored: ReadonlyMap<string, TaskFailures> };
@@ -367,7 +367,7 @@ export class StationFactsInMemory implements StationFactsPort {
       ),
     ].map(TaskId.of);
     const owned = (await this.sources.pullRequests?.ownedBy(tasks)) ?? [];
-    const opened = (await this.sources.humanActions?.ofTasks(tasks)) ?? [];
+    const opened = (await this.sources.taskActions?.ofTasks(tasks)) ?? [];
 
     return ended.flatMap((record) => {
       const taskId = record.taskId;

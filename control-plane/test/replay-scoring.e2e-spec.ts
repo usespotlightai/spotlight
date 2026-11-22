@@ -13,7 +13,7 @@ import {
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -318,7 +318,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
             asked: false,
           }),
         )
-        .recordAction(HumanAction.of('accepted', at, UserId.of('user_actor'))),
+        .recordAction(PersonAction.of('accepted', at, UserId.of('user_actor'))),
     );
   }
 

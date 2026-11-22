@@ -8,6 +8,7 @@ import type {
   Narrowing,
   RunFilter,
 } from '@insights/domain/services/run-filter';
+import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import {
   msOf,
@@ -15,7 +16,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
   runFact,
-  taskHumanAction,
+  taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import {
@@ -25,6 +26,7 @@ import {
   getTableColumns,
   gte,
   inArray,
+  isNotNull,
   isNull,
   lt,
   type SQL,
@@ -122,12 +124,22 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
   ];
 };
 
+const humanActionWhere = (action: RunHumanAction | null): SQL | undefined => {
+  if (action === null) {
+    return undefined;
+  }
+
+  return action === 'answered'
+    ? and(isNull(runFact.decidingAction), isNotNull(runFact.answeredAt))
+    : sql`${runFact.decidingAction}::text = ${action}`;
+};
+
 const askedWithin = (window: TeamWindow, asked: Window | null) =>
   asked === null
     ? undefined
     : inArray(
         runFact.taskId,
-        sql`(select ${taskHumanAction.taskId} from ${taskHumanAction} where ${taskHumanAction.workspaceId} = ${window.workspaceId.value} and exists (select 1 from jsonb_array_elements(${taskHumanAction.asks}) as ask where (ask->>'at')::timestamptz >= ${asked.from.toISOString()}::timestamptz and (ask->>'at')::timestamptz < ${asked.to.toISOString()}::timestamptz))`,
+        sql`(select ${taskAction.taskId} from ${taskAction} where ${taskAction.workspaceId} = ${window.workspaceId.value} and exists (select 1 from jsonb_array_elements(${taskAction.asks}) as ask where (ask->>'at')::timestamptz >= ${asked.from.toISOString()}::timestamptz and (ask->>'at')::timestamptz < ${asked.to.toISOString()}::timestamptz))`,
       );
 
 const filtered = (window: TeamWindow, filter: RunFilter): SQL | undefined =>
@@ -151,9 +163,7 @@ const filtered = (window: TeamWindow, filter: RunFilter): SQL | undefined =>
         : inArray(runFact.taskId, [...filter.taskIds]),
     endedWithin(filter.day),
     ...toolsWhere(filter),
-    filter.humanAction === null
-      ? undefined
-      : sql`${runFact.firstHumanAction}::text = ${filter.humanAction}`,
+    humanActionWhere(filter.humanAction),
     filter.resolution === null ? undefined : withResolution(filter.resolution),
     filter.personId === null
       ? undefined
@@ -203,10 +213,6 @@ const listedOf = (row: FactRow): ListedRun => ({
   ending: row.ending,
   failure: row.failure,
   checks: row.checks,
-  firstHumanAction:
-    row.firstHumanAction && row.firstHumanActionAt
-      ? { kind: row.firstHumanAction, at: row.firstHumanActionAt }
-      : null,
   passed:
     row.passedTo && row.passedAt
       ? { to: row.passedTo, at: row.passedAt }

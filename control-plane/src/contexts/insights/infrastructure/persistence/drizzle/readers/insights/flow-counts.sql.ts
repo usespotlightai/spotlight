@@ -20,9 +20,7 @@ import {
   stationsInEndOrder,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
-import {
-  runFact,
-} from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
+import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { sql } from 'drizzle-orm';
 
@@ -99,14 +97,14 @@ const inboxIn = async (
   team: TeamInPeriod,
 ): Promise<readonly InboxRow[]> => {
   const { current, previous } = team.period;
-  const answerMs = msOf(sql`waits.answered_at - waits.asked_at`);
+  const answerMs = msOf(sql`waits.acted_at - waits.asked_at`);
   const result = await db.execute<InboxRow>(sql`
     select
       waits.asked_at >= ${asUtc(current.from)} as is_current,
       waits.station_id,
       count(*)::int as asks,
-      count(*) filter (where waits.answered_at is null)::int as unanswered,
-      ${spreadOver(answerMs, sql`waits.answered_at is not null`)} as inbox
+      count(*) filter (where waits.acted_at is null)::int as unanswered,
+      ${spreadOver(answerMs, sql`waits.acted_at is not null`)} as inbox
     from ${inboxWaits(team, previous.from, current.to)}
     group by 1, 2
   `);
