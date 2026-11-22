@@ -16,5 +16,6 @@ export class DispatchEnded implements DomainEvent {
     readonly stationId: StationId | null,
     readonly ending: DispatchEnding,
     readonly driver: RunDriver,
+    readonly handsOver: boolean,
   ) {}
 }

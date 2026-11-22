@@ -9,6 +9,7 @@ import type { DecisionSetRepository } from '@change-review/domain/repositories/d
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -16,8 +17,11 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-21T10:00:00Z');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
 const RUN = RunId.of('run_1');
+const TURN = AgentTurn.of(RUN, 2, RUN_ORDERED_AT);
 
 const REASONED: RunReasoning = {
   steps: [
@@ -55,10 +59,11 @@ const working = (
     id: DecisionSetId.of('set_1'),
     taskId: TaskId.of('task_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-  }).requestGeneration(RUN, NOW);
+  }).requestGeneration(TURN, NOW);
   let now = NOW;
   let ids = 0;
   const generate = vi.fn(answer);
+  const reasoned = vi.fn(async (_turn: AgentTurn) => reasoning);
 
   const sets = {
     forTask: async () => stored,
@@ -71,7 +76,7 @@ const working = (
 
   const service = new WorkDecisionSets(
     sets,
-    { reasoning: async () => reasoning } as unknown as WorkPort,
+    { reasoningThrough: reasoned } as unknown as WorkPort,
     { availableTo: async () => true, generate },
     {
       generate: () => {
@@ -92,7 +97,7 @@ const working = (
     await service.idle();
   };
 
-  return { tick, generate, stored: () => stored };
+  return { tick, generate, reasoned, stored: () => stored };
 };
 
 describe('generating the decisions a run made', () => {
@@ -109,6 +114,15 @@ describe('generating the decisions a run made', () => {
       'Retries uploads in the request',
     ]);
     expect(worked.stored().hasPendingJob).toBe(false);
+    expect(worked.stored().source?.equals(TURN)).toBe(true);
+  });
+
+  it('reads the reasoning of the run only up to the turn it generates for', async () => {
+    const worked = working(REASONED, async () => [DECIDED]);
+
+    await worked.tick();
+
+    expect(worked.reasoned).toHaveBeenCalledWith(TURN);
   });
 
   it('records none, calling no model, where the run changed nothing', async () => {
@@ -118,7 +132,7 @@ describe('generating the decisions a run made', () => {
 
     expect(worked.generate).not.toHaveBeenCalled();
     expect(worked.stored().decisions).toEqual([]);
-    expect(worked.stored().sourceRunId?.equals(RUN)).toBe(true);
+    expect(worked.stored().source?.runId.equals(RUN)).toBe(true);
   });
 
   it('dead-letters the job for a run whose journal cannot be read', async () => {
@@ -127,7 +141,7 @@ describe('generating the decisions a run made', () => {
     await worked.tick();
 
     expect(worked.stored().hasPendingJob).toBe(false);
-    expect(worked.stored().sourceRunId).toBeNull();
+    expect(worked.stored().source).toBeNull();
   });
 
   it('retries later when generation fails, then dead-letters the job', async () => {
@@ -149,7 +163,7 @@ describe('generating the decisions a run made', () => {
       id: DecisionSetId.of('set_1'),
       taskId: TaskId.of('task_1'),
       workspaceId: WorkspaceId.of('ws_1'),
-    }).requestGeneration(RUN, NOW);
+    }).requestGeneration(TURN, NOW);
     let due: DecisionSet | null = leased;
 
     const service = new WorkDecisionSets(

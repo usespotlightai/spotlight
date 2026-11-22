@@ -348,7 +348,8 @@ const anOriginal = async (title: string): Promise<Original> => {
           ending: 'completed',
           failure: null,
           runNumber: 1,
-          asked: false,
+          queuedMs: 0,
+          runningMs: 0,
         }),
       )
       .recordAction(PersonAction.of('accepted', at, UserId.of('user_actor'))),

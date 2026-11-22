@@ -78,7 +78,9 @@ export class RunRouting {
     if (routing.kind === 'ask') {
       return routing.failure
         ? task.failed(routing.failure, newNote, run, lineOf(task, line))
-        : task.askedAbout(this.questionOf(handover, line, run), run);
+        : routing.runAsked
+          ? task.askedBy(this.questionOf(handover, line, run), run)
+          : task.askedAbout(this.questionOf(handover, line, run), run);
     }
 
     const ranks = (await this.placements.placementsAt(routing.to.id)).map(

@@ -20,7 +20,6 @@ export interface DispatchEndingParts {
   readonly outcome: DispatchOutcome;
   readonly failure: RunFailureCode | null;
   readonly stopped: boolean;
-  readonly askedAPerson: boolean;
 }
 
 export class DispatchEnding implements DispatchEndingParts {
@@ -29,7 +28,6 @@ export class DispatchEnding implements DispatchEndingParts {
     readonly outcome: DispatchOutcome,
     readonly failure: RunFailureCode | null,
     readonly stopped: boolean,
-    readonly askedAPerson: boolean,
   ) {}
 
   static of(parts: DispatchEndingParts): DispatchEnding {
@@ -38,7 +36,6 @@ export class DispatchEnding implements DispatchEndingParts {
       parts.outcome,
       parts.failure,
       parts.stopped,
-      parts.askedAPerson,
     );
   }
 
@@ -59,8 +56,7 @@ export class DispatchEnding implements DispatchEndingParts {
       this.endedAt.getTime() === other.endedAt.getTime() &&
       this.outcome === other.outcome &&
       this.failure === other.failure &&
-      this.stopped === other.stopped &&
-      this.askedAPerson === other.askedAPerson
+      this.stopped === other.stopped
     );
   }
 }

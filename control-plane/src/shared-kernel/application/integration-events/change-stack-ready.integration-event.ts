@@ -5,6 +5,8 @@ export type ChangeStackReadyIntegrationEvent = {
   readonly runId: string;
   readonly taskId: string | null;
   readonly workspaceId: string;
+  readonly repository: string | null;
+  readonly stackStartedAt: string;
   readonly changeTitles: readonly string[];
   readonly changeIntents: readonly string[];
   readonly at: string;

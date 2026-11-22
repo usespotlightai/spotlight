@@ -11,7 +11,6 @@ import type {
 import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import {
-  msOf,
   withResolution,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
@@ -174,10 +173,7 @@ const filtered = (window: TeamWindow, filter: RunFilter): SQL | undefined =>
     askedWithin(window, filter.askedWithin),
   );
 
-type FactRow = typeof runFact.$inferSelect & {
-  readonly queuedMs: number | null;
-  readonly runningMs: number | null;
-};
+type FactRow = typeof runFact.$inferSelect;
 
 const listedOf = (row: FactRow): ListedRun => ({
   runId: row.runId,
@@ -230,15 +226,7 @@ export const runPageIn = async (
     .from(runFact)
     .where(where);
   const rows = await db
-    .select({
-      ...getTableColumns(runFact),
-      queuedMs: sql<
-        number | null
-      >`${msOf(sql`${runFact.startedAt} - ${runFact.queuedAt}`)}`,
-      runningMs: sql<
-        number | null
-      >`${msOf(sql`${runFact.endedAt} - ${runFact.startedAt}`)}`,
-    })
+    .select(getTableColumns(runFact))
     .from(runFact)
     .where(where)
     .orderBy(sql`${runFact.endedAt} desc, ${runFact.runId} collate "C" desc`)

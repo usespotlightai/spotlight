@@ -41,9 +41,10 @@ export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
         ? targets.step(citation.step.index)
         : null;
     const label = formatStep(citation);
+    const title = citation.step?.text ?? undefined;
 
     return reveal
-      ? { key, label, onClick: reveal }
+      ? { key, label, title, onClick: reveal }
       : { key, label, unavailable: MISSING_STEP };
   };
 

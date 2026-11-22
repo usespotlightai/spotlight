@@ -7,6 +7,8 @@ import type {
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
 import {
+  checkedOf,
+  checkedColumnOf,
   dismissalsOf,
   endOf,
   actionsOf,
@@ -39,8 +41,8 @@ const toRecord = (row: RecordRow): RunRecord =>
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     end: endOf(row, 'run record'),
     supersededAt: row.supersededAt,
-    checks: row.checks,
-    checkedAt: row.checkedAt,
+    asked: row.asked,
+    checked: checkedOf(row),
     actions: actionsOf(row, 'run record'),
     approvalAnsweredAt: row.approvalAnsweredAt,
     usage: usageOf(row, 'run record'),
@@ -68,6 +70,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
           workspaceId: added.workspaceId.value,
           version: added.version,
           ...partColumnsOf(added),
+          repositoryChecks: checkedColumnOf(added),
         })
         .onConflictDoNothing({ target: runRecord.runId })
         .returning({ runId: runRecord.runId });
@@ -91,6 +94,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
         .set({
           version: saved.version + 1,
           ...partColumnsOf(saved),
+          repositoryChecks: checkedColumnOf(saved),
         })
         .where(
           and(

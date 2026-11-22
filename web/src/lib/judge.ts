@@ -249,7 +249,9 @@ export const lineRangeOf = (hunk: CitedHunk): LineRange | null => {
 };
 
 export const formatStep = (citation: Citation): string =>
-  `step ${citation.step?.index ?? ''}`.trim();
+  [citation.step?.tool ?? citation.step?.kind, 'step']
+    .filter((each) => each)
+    .join(' ');
 
 export const COVERAGE_PARTS = [
   { key: 'both', label: 'Both' },

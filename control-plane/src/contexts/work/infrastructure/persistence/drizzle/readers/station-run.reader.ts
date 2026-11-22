@@ -125,8 +125,10 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       harness: run.harness.value,
       reviewing: briefedTask?.reviewing ?? null,
       queuedAt: orderedAt,
-      startedAt: run.startedAt,
+      startedAt: run.spent.firstStartedAt,
       endedAt: run.endedAt,
+      queuedMs: run.spent.queuedMs,
+      runningMs: run.spent.runningMs,
     };
   }
 
@@ -166,7 +168,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
               ...row,
               harness: run.harness.value,
               progress: RunReadingMapper.progress(run.progress),
-              startedAt: run.startedAt,
+              startedAt: run.spent.firstStartedAt,
             },
           ]
         : [];

@@ -81,6 +81,10 @@ import {
   REVIEW_WORK_RUNNERS,
   type ReviewWorkRunnersPort,
 } from '@change-review/application/ports/review-work-runners.port';
+import {
+  REVIEWING_LOCKS,
+  type ReviewingLocksPort,
+} from '@change-review/application/ports/reviewing-locks.port';
 import { RUN_CHANGE_CHECKS } from '@change-review/application/ports/run-change-checks.port';
 import {
   STICKY_COMMENT_POSTER,
@@ -169,6 +173,7 @@ import { DrizzleReviewReader } from '@change-review/infrastructure/persistence/d
 import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleRunChangeChecksReader } from '@change-review/infrastructure/persistence/drizzle/repositories/run-change-checks.reader';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
+import { DrizzleReviewingLocks } from '@change-review/infrastructure/persistence/drizzle/reviewing-locks';
 import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import { ChangeStackController } from '@change-review/presentation/http/controllers/change-stack.controller';
@@ -320,6 +325,7 @@ const adapters: Provider[] = [
   DrizzlePushDiffRepository,
   { provide: CHANGE_STACK_READER, useClass: DrizzleChangeStackReader },
   { provide: CHANGE_STACK_LOCKS, useClass: DrizzleChangeStackLocks },
+  { provide: REVIEWING_LOCKS, useClass: DrizzleReviewingLocks },
   {
     provide: REVIEW_WORK_ACCESS,
     inject: [
@@ -845,12 +851,18 @@ const services: Provider[] = [
   },
   {
     provide: SignalReviewing,
-    inject: [WORK, WORKSPACE_CONNECTIONS, PULL_REQUEST_REACTIONS],
+    inject: [
+      WORK,
+      WORKSPACE_CONNECTIONS,
+      PULL_REQUEST_REACTIONS,
+      REVIEWING_LOCKS,
+    ],
     useFactory: (
       work: WorkPort,
       connections: WorkspaceConnectionsPort,
       reactions: PullRequestReactionsPort,
-    ) => new SignalReviewing(work, connections, reactions),
+      locks: ReviewingLocksPort,
+    ) => new SignalReviewing(work, connections, reactions, locks),
   },
   {
     provide: PULL_REQUEST_REVIEWING,

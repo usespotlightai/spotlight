@@ -10,6 +10,7 @@ import { WorkingCopyPath } from '@change-review/domain/value-objects/working-cop
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -21,8 +22,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-09-21T10:00:00.000Z');
-const FIRST = RunId.of('run_1');
-const SECOND = RunId.of('run_2');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
+const SECOND_ORDERED_AT = new Date('2026-09-01T01:00:00.000Z');
+const FIRST = AgentTurn.of(RunId.of('run_1'), 1, RUN_ORDERED_AT);
+const SECOND = AgentTurn.of(RunId.of('run_2'), 1, SECOND_ORDERED_AT);
 
 const EVIDENCE = DecisionEvidence.of({
   steps: [3, 7],
@@ -41,18 +45,18 @@ const decided = (change: Partial<ProposedDecision> = {}): ProposedDecision => ({
 
 const generated = (
   set: DecisionSet,
-  runId: RunId,
+  turn: AgentTurn,
   decisions: readonly ProposedDecision[],
   evidence: DecisionEvidence = EVIDENCE,
 ): DecisionSet => {
   let made = 0;
   return set.recordGeneration({
-    runId,
+    turn,
     proposed: decisions,
     evidence,
     newId: () => {
       made += 1;
-      return `${set.id.value}_${runId.value}_${made}`;
+      return `${set.id.value}_${turn.runId.value}_${turn.attempt}_${made}`;
     },
   });
 };
@@ -106,7 +110,7 @@ describe('storing a task’s decisions', () => {
 
     const read = await sets.forTask(set.taskId);
 
-    expect(read?.sourceRunId?.equals(FIRST)).toBe(true);
+    expect(read?.source?.equals(FIRST)).toBe(true);
     expect(read?.hasPendingJob).toBe(false);
     expect(
       read?.decisions.map((each) => [each.kind, each.title, each.journalSteps]),
@@ -140,10 +144,39 @@ describe('storing a task’s decisions', () => {
 
     const latest = await sets.forTask(set.taskId);
 
-    expect(latest?.sourceRunId?.equals(SECOND)).toBe(true);
+    expect(latest?.source?.equals(SECOND)).toBe(true);
     expect(latest?.decisions.map((each) => each.title)).toEqual([
       'Skipped the retry banner',
     ]);
+  });
+
+  it('keeps the turn of the run its decisions come from, so only a later turn generates again', async () => {
+    const kept = AgentTurn.of(RunId.of('run_kept'), 2, RUN_ORDERED_AT);
+    const set = opened().requestGeneration(kept, NOW);
+    await sets.add(set);
+
+    const waiting = await sets.forTask(set.taskId);
+    expect(waiting?.generation?.isFor(kept)).toBe(true);
+    if (!waiting) throw new Error('not stored');
+    await sets.save(generated(waiting, kept, [decided()]));
+
+    const read = await sets.forTask(set.taskId);
+    if (!read) throw new Error('not stored');
+
+    expect(read.source?.equals(kept)).toBe(true);
+    expect(read.requestGeneration(kept, NOW)).toBe(read);
+    expect(
+      read.requestGeneration(
+        AgentTurn.of(RunId.of('run_kept'), 1, RUN_ORDERED_AT),
+        NOW,
+      ),
+    ).toBe(read);
+    expect(
+      read.requestGeneration(
+        AgentTurn.of(RunId.of('run_kept'), 3, RUN_ORDERED_AT),
+        NOW,
+      ).hasPendingJob,
+    ).toBe(true);
   });
 
   it('hands out a set with a pending job once its lease runs out, and none while the lease runs', async () => {

@@ -11,6 +11,7 @@ import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -25,6 +26,9 @@ import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
+
+const FIRST_RUN_ORDERED_AT = Date.parse('2026-09-01T00:00:00.000Z');
+let runsOrdered = 0;
 const API = Repository.of('acme/api');
 
 interface ReviewBody {
@@ -64,11 +68,26 @@ let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
 
+const orderedAt = new Map<string, Date>();
+
 const proposing = async (
   bodies: readonly string[],
   fromOutside = false,
+  kept: { readonly runId: RunId; readonly attempt: number } | null = null,
 ): Promise<RunId> => {
-  const runId = RunId.of(`run_${randomUUID().slice(0, 8)}`);
+  const runId = kept?.runId ?? RunId.of(`run_${randomUUID().slice(0, 8)}`);
+  if (!orderedAt.has(runId.value)) {
+    runsOrdered += 1;
+    orderedAt.set(
+      runId.value,
+      new Date(FIRST_RUN_ORDERED_AT + runsOrdered * 60_000),
+    );
+  }
+  const turn = AgentTurn.of(
+    runId,
+    kept?.attempt ?? 1,
+    orderedAt.get(runId.value) ?? new Date(FIRST_RUN_ORDERED_AT),
+  );
   const drafts = app.get<MemoryDraftRepository>(MEMORY_DRAFTS);
   const existing = await drafts.forTask(team.list.id);
   const requested = (
@@ -78,13 +97,13 @@ const proposing = async (
       taskId: team.list.id,
       workspaceId: team.workspaceId,
     })
-  ).requestDrafting(runId, NOW);
+  ).requestDrafting(turn, NOW);
   const drafted = requested.recordDraft({
-    runId,
+    turn,
     proposed: bodies.map(remembered),
     evidence: DraftEvidence.of({
       taskId: team.list.id,
-      runId,
+      turn,
       runContext: {
         teamId: team.teamId,
         lineId: LineId.of(team.line.id.value),
@@ -285,6 +304,32 @@ describe('reviewing the memories a run proposed', () => {
         each.decision,
       ]),
     ).toEqual([['proposed', null]]);
+    const reopened = await eventually(async () => {
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
+      return item && !item.resolved && item;
+    });
+    expect(reopened.resolved).toBe(false);
+  });
+
+  it('opens the item of a run again when it proposes more after everything it proposed was decided', async () => {
+    const runId = await proposing(['Decide me first.']);
+    const [only] = (
+      (
+        await served(app)
+          .get(reviewPath(runId))
+          .set(TEST_USER_HEADER, team.owner.value)
+      ).body as ReviewBody
+    ).memories;
+    await served(app)
+      .post(`${reviewPath(runId)}/${only?.id}/reject`)
+      .set(TEST_USER_HEADER, team.owner.value);
+    await eventually(async () => {
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
+      return item?.resolved;
+    });
+
+    await proposing(['Ask me after the wait.'], false, { runId, attempt: 2 });
+
     const reopened = await eventually(async () => {
       const item = inboxRequestFor(await inbox(team.owner.value), runId);
       return item && !item.resolved && item;

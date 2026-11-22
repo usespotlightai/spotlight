@@ -7,6 +7,8 @@ import type { RunLocation } from '@insights/domain/value-objects/run-location.vo
 const before = (earlier: Date | null, later: Date | null): boolean =>
   earlier === null || later === null || earlier.getTime() <= later.getTime();
 
+const isDuration = (ms: number): boolean => Number.isInteger(ms) && ms >= 0;
+
 export class RunEnd {
   private constructor(
     readonly location: RunLocation,
@@ -15,10 +17,11 @@ export class RunEnd {
     readonly queuedAt: Date | null,
     readonly startedAt: Date | null,
     readonly endedAt: Date,
+    private readonly spentQueuedMs: number,
+    private readonly spentRunningMs: number,
     readonly ending: RunEnding,
     readonly failure: string | null,
     readonly runNumber: number,
-    readonly asked: boolean,
   ) {}
 
   static of(input: {
@@ -28,10 +31,11 @@ export class RunEnd {
     queuedAt: Date | null;
     startedAt: Date | null;
     endedAt: Date;
+    queuedMs: number;
+    runningMs: number;
     ending: RunEnding;
     failure: string | null;
     runNumber: number;
-    asked: boolean;
   }): RunEnd {
     if (!Number.isInteger(input.runNumber) || input.runNumber < 1) {
       throw new InvalidOutcomeError('run number must be 1 or later');
@@ -44,6 +48,14 @@ export class RunEnd {
         'must be queued, started and ended in order',
       );
     }
+    if (!isDuration(input.queuedMs) || !isDuration(input.runningMs)) {
+      throw new InvalidOutcomeError(
+        'must spend a whole number of milliseconds queued and running',
+      );
+    }
+    if (input.startedAt === null && input.runningMs > 0) {
+      throw new InvalidOutcomeError('cannot run without starting');
+    }
 
     return new RunEnd(
       input.location,
@@ -52,10 +64,11 @@ export class RunEnd {
       input.queuedAt,
       input.startedAt,
       input.endedAt,
+      input.queuedMs,
+      input.runningMs,
       input.ending,
       input.failure,
       input.runNumber,
-      input.asked,
     );
   }
 
@@ -76,14 +89,10 @@ export class RunEnd {
   }
 
   get queuedMs(): number | null {
-    return this.queuedAt && this.startedAt
-      ? this.startedAt.getTime() - this.queuedAt.getTime()
-      : null;
+    return this.startedAt ? this.spentQueuedMs : null;
   }
 
   get runningMs(): number | null {
-    return this.startedAt
-      ? this.endedAt.getTime() - this.startedAt.getTime()
-      : null;
+    return this.startedAt ? this.spentRunningMs : null;
   }
 }

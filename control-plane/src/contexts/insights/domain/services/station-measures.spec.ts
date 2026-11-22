@@ -12,7 +12,12 @@ import {
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { day, ownedRecordOf } from '@insights/insights.fake-spec';
-import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
+import {
+  checkOf,
+  costedRecord,
+  endedRecord,
+  factsWith,
+} from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -89,12 +94,10 @@ describe('measureOf', () => {
   it('measures failed checks among checked runs, and merges among tasks', () => {
     const records = [
       endedRecord('run_1', { taskId: 'task_1', endedAt: at(1) }).recordCheck(
-        'failed',
-        RECEIVED_AT,
+        checkOf('failed', RECEIVED_AT),
       ),
       endedRecord('run_2', { taskId: 'task_1', endedAt: at(2) }).recordCheck(
-        'passed',
-        RECEIVED_AT,
+        checkOf('passed', RECEIVED_AT),
       ),
       endedRecord('run_3', { taskId: 'task_2', endedAt: at(3) }),
     ];
@@ -245,12 +248,10 @@ describe('readingOf, among measured runs', () => {
     const cost = AlertRule.of({ measure: 'cost_per_run', above: 1, over: 1 });
     const records = [
       endedRecord('run_3', { taskId: 'task_3', endedAt: at(3) }).recordCheck(
-        'skipped',
-        RECEIVED_AT,
+        checkOf('skipped', RECEIVED_AT),
       ),
       costedRecord('run_2', { amount: 3, endedAt: at(2) }).recordCheck(
-        'failed',
-        RECEIVED_AT,
+        checkOf('failed', RECEIVED_AT),
       ),
     ];
 

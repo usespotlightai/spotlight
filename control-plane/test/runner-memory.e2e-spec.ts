@@ -10,6 +10,7 @@ import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -38,6 +39,8 @@ import {
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 
 interface Recalled {
   readonly id: string;
@@ -294,9 +297,12 @@ describe('recalling what the team remembers from inside a run', () => {
         taskId: team.list.id,
         workspaceId: team.workspaceId,
       })
-        .requestDrafting(proposedIn, new Date())
+        .requestDrafting(
+          AgentTurn.of(proposedIn, 1, RUN_ORDERED_AT),
+          new Date(),
+        )
         .recordDraft({
-          runId: proposedIn,
+          turn: AgentTurn.of(proposedIn, 1, RUN_ORDERED_AT),
           proposed: [
             {
               kind: 'failure',
@@ -311,7 +317,7 @@ describe('recalling what the team remembers from inside a run', () => {
           ],
           evidence: DraftEvidence.of({
             taskId: team.list.id,
-            runId: proposedIn,
+            turn: AgentTurn.of(proposedIn, 1, RUN_ORDERED_AT),
             runContext: {
               teamId: TeamId.of(team.teamId.value),
               lineId: LineId.of(DELIVERY),

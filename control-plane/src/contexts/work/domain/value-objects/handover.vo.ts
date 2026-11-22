@@ -15,6 +15,7 @@ export class Handover {
     readonly note: string,
     readonly suggest: string,
     readonly attachments: readonly Attachment[],
+    private readonly overruled: boolean,
   ) {}
 
   static of(input: {
@@ -36,6 +37,7 @@ export class Handover {
       (input.note ?? '').trim(),
       (input.suggest ?? '').trim(),
       attachments,
+      false,
     );
   }
 
@@ -47,6 +49,7 @@ export class Handover {
         .join('\n\n'),
       '',
       this.attachments,
+      this.overruled || !this.requestsReview(),
     );
   }
 
@@ -56,6 +59,10 @@ export class Handover {
 
   requestsReview(): boolean {
     return requestsAPerson(this.next);
+  }
+
+  asksAPersonItself(): boolean {
+    return this.requestsReview() && !this.overruled;
   }
 
   suggestsClosing(): boolean {
@@ -73,6 +80,7 @@ export class Handover {
       this.next === other.next &&
       this.note === other.note &&
       this.suggest === other.suggest &&
+      this.overruled === other.overruled &&
       this.attachments.length === other.attachments.length &&
       this.attachments.every((each, at) => each.equals(other.attachments[at]))
     );

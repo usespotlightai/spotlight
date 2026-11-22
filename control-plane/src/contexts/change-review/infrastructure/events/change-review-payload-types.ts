@@ -38,6 +38,7 @@ import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo'
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -58,6 +59,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   RunnerAssignment,
   Diff,
   RepositoryName,
+  RepositoryStack,
   ReviewAnchor,
   QuestionAnswerId,
   ReviewCommentId,

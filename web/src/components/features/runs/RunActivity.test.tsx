@@ -23,6 +23,7 @@ const step = (part: Partial<JournalStep>): JournalStep => ({
 const journal = (steps: JournalStep[]): RunJournal => ({
   runId: 'run_1',
   attempt: 1,
+  firstStep: 0,
   activity: null,
   background: [],
   steps,

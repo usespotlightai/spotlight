@@ -14,6 +14,7 @@ export interface RunProgressFacts {
   readonly turn: RunTurnFact | null;
   readonly progress: RunProgressFact | null;
   readonly resumable: boolean;
+  readonly working: boolean;
   readonly suspendedAt: Date | null;
   readonly queuedAt: Date;
 }

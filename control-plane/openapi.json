@@ -30111,7 +30111,7 @@
             "type": "number",
             "nullable": true,
             "example": 11,
-            "description": "On a row of a journal step: where the step sits in the run’s journal, from 0. A citation of a step names this place"
+            "description": "On a row of a journal step: the number of the step in the run’s journal, (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0. A citation of a step names this place"
           },
           "span": {
             "nullable": true,
@@ -32355,6 +32355,11 @@
             "type": "number",
             "example": 1
           },
+          "firstStep": {
+            "type": "number",
+            "example": 0,
+            "description": "The number of the attempt’s first step, (attempt − 1) × 1,000,000. Each later step is numbered one more. A citation of a step names its number"
+          },
           "steps": {
             "type": "array",
             "items": {
@@ -32408,6 +32413,7 @@
         "required": [
           "runId",
           "attempt",
+          "firstStep",
           "steps",
           "spans",
           "ms",
@@ -35918,7 +35924,7 @@
             }
           },
           "journalSteps": {
-            "description": "Where the agent reasoned it, as steps of the run’s journal",
+            "description": "Where the agent reasoned it, as numbers of steps in the run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0",
             "type": "array",
             "items": {
               "type": "number"
@@ -37715,7 +37721,7 @@
           "index": {
             "type": "number",
             "example": 12,
-            "description": "The position of the step in its run"
+            "description": "The number of the step in its run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0"
           },
           "kind": {
             "type": "string",
@@ -40244,7 +40250,7 @@
           "index": {
             "type": "number",
             "example": 12,
-            "description": "Where the step sits in the run’s journal"
+            "description": "The number of the step in its run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0"
           },
           "kind": {
             "type": "string",

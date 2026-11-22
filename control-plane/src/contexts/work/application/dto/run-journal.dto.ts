@@ -82,6 +82,7 @@ interface RunSpentDto {
 export interface RunJournalDto {
   readonly runId: string;
   readonly attempt: number;
+  readonly firstStep: number;
   readonly steps: readonly JournalStepDto[];
   readonly spans: readonly RunSpanDto[];
   readonly ms: number | null;

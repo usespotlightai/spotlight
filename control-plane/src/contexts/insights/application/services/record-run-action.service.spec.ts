@@ -38,6 +38,7 @@ const workOfTeam = (teamId: string): WorkPort => ({
     }) as EndedRun,
   taskRunOf: async (runId) => ({
     runId,
+    workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of(teamId),
     taskId: TaskId.of('task_1'),
   }),
@@ -282,6 +283,8 @@ describe('recording what a person did after a run', () => {
   });
 });
 
+const STACK = { repository: 'api', startedAt: RECEIVED_AT };
+
 describe('recording how a run’s change was checked', () => {
   it('fills in the verdict on a recorded run', async () => {
     const records = new RunRecordsInMemory();
@@ -295,11 +298,41 @@ describe('recording how a run’s change was checked', () => {
       RunId.of('run_1'),
       WORKSPACE,
       TaskId.of('task_1'),
+      STACK,
       false,
       RECEIVED_AT,
     );
 
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
+  });
+
+  it('takes the verdict of the run’s later handover', async () => {
+    const records = new RunRecordsInMemory();
+    await records.add(endedRecord('run_1'));
+    const checking = new RecordChangeChecks(
+      records,
+      new FactRecorder(deletionsInMemory()),
+      inTransaction,
+    );
+
+    await checking.checked(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TaskId.of('task_1'),
+      STACK,
+      false,
+      RECEIVED_AT,
+    );
+    await checking.checked(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TaskId.of('task_1'),
+      { ...STACK, startedAt: new Date(STACK.startedAt.getTime() + 60_000) },
+      true,
+      RECEIVED_AT,
+    );
+
+    expect((await records.of(RunId.of('run_1')))?.checks).toBe('passed');
   });
 
   it('keeps a verdict received before the end of the run', async () => {
@@ -313,6 +346,7 @@ describe('recording how a run’s change was checked', () => {
       RunId.of('run_1'),
       WORKSPACE,
       TaskId.of('task_1'),
+      STACK,
       null,
       RECEIVED_AT,
     );

@@ -14,7 +14,11 @@ export class DispatchRunEndings {
   ) {}
 
   onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
-    return this.ended(RunEndedFacts.runId(event), RunEndedFacts.ending(event));
+    return this.ended(
+      RunEndedFacts.runId(event),
+      RunEndedFacts.ending(event),
+      event.handsOver,
+    );
   }
 
   onTaskRunDetached(event: TaskRunDetached): Promise<void> {
@@ -27,14 +31,18 @@ export class DispatchRunEndings {
     }
   }
 
-  private async ended(runId: RunId, ending: DispatchEnding): Promise<void> {
+  private async ended(
+    runId: RunId,
+    ending: DispatchEnding,
+    runHandsOver: boolean,
+  ): Promise<void> {
     const dispatch = await this.dispatches.find(runId);
 
     if (!dispatch || dispatch.ending) {
       return;
     }
 
-    await this.dispatches.save(dispatch.ended(ending));
+    await this.dispatches.save(dispatch.ended(ending, runHandsOver));
   }
 
   private async detached(runId: RunId): Promise<void> {

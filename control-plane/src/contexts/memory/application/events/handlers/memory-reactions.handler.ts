@@ -5,28 +5,42 @@ import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import type { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
+import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export class MemoryReactions {
   constructor(
     private readonly reviews: ReviewsPort,
+    private readonly drafts: MemoryDraftRepository,
     private readonly memories: MemoryRepository,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
 
-  async onReviewRequested(event: MemoryReviewRequested): Promise<void> {
-    await this.reviews.create(event.taskId, event.runId);
+  onReviewRequested(event: MemoryReviewRequested): Promise<void> {
+    return this.reviewed(event.taskId, event.runId);
   }
 
-  async onReviewResolved(event: MemoryReviewResolved): Promise<void> {
-    await this.reviews.resolve(event.taskId, event.runId);
+  onReviewResolved(event: MemoryReviewResolved): Promise<void> {
+    return this.reviewed(event.taskId, event.runId);
   }
 
-  async onReviewReopened(event: MemoryReviewReopened): Promise<void> {
-    await this.reviews.reopen(event.taskId, event.runId);
+  onReviewReopened(event: MemoryReviewReopened): Promise<void> {
+    return this.reviewed(event.taskId, event.runId);
+  }
+
+  private reviewed(taskId: TaskId, runId: RunId): Promise<void> {
+    return this.transaction.inTransaction(async () => {
+      const draft = await this.drafts.forTaskLocked(taskId);
+
+      await (draft?.awaitsReviewIn(runId)
+        ? this.reviews.reopen(taskId, runId)
+        : this.reviews.resolve(taskId, runId));
+    });
   }
 
   async onApproved(event: MemoryApproved): Promise<void> {

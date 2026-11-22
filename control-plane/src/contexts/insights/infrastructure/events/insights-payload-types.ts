@@ -34,6 +34,7 @@ import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunChecks } from '@insights/domain/value-objects/run-checks.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -71,6 +72,7 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   RunLocation,
   RunTools,
   RunMemories,
+  RunChecks,
   Dismissal,
   Citation,
   JudgeReason,

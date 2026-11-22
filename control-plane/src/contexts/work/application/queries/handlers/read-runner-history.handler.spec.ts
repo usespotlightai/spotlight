@@ -63,6 +63,7 @@ const ran = (runId: string): StationRunRow => ({
 const journal = (runId: string): RunJournal => ({
   runId,
   attempt: 1,
+  firstStep: 0,
   steps: [
     {
       kind: 'tool',

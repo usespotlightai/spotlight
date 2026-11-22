@@ -2,6 +2,7 @@ import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggre
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
 import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
+import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
@@ -11,6 +12,7 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
 import {
   RunnerClaim,
@@ -144,6 +146,7 @@ const waiting = () => {
     trial: false,
     workspaceId: ready.workspaceId,
     request: CheckRequest.of('npx tsc --noEmit', null),
+    stack: RepositoryStack.of(ready),
     entries: ready.entries(),
     now: LATER,
   });
@@ -186,6 +189,7 @@ const rehydrated = ({
     trial: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     request: CheckRequest.of('npx tsc --noEmit', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: LATER }),
     status: 'waiting',
     entries: [],
     redraftCount: 0,
@@ -287,6 +291,48 @@ describe('StackCheck', () => {
 
     expect(checked.outcome?.status).toBe('checked');
     expect(checked.failedLayers()).toEqual(['c1.l2']);
+  });
+
+  it('says which repository’s stack it checked, and when that stack began', () => {
+    const ready = ChangeStack.startGeneration({
+      id: ChangeStackId.of('stack-3'),
+      origin: StackOrigin.run(RunId.of('run-1')),
+      taskId: null,
+      teamOfRun: TeamId.of('team_1'),
+      trial: false,
+      checkouts: 2,
+      workspaceId: WorkspaceId.of('workspace-1'),
+      owner: 'acme',
+      repository: 'api',
+      base: null,
+      diff: DIFF,
+      facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+      request: CheckRequest.of('npx tsc --noEmit', null),
+      now: NOW,
+    }).propose(
+      [cohort('Invitations', [['h1', 'h2', 'h3', 'h4', 'h5']])],
+      LATER,
+    );
+    const begun = StackCheck.beginFor(ready, LATER);
+
+    if (!begun) {
+      throw new Error('the ready stack began no check');
+    }
+
+    const checked = begun
+      .claimedFor(RUNNER, ANY, LATER)
+      .recordResult(
+        RUNNER,
+        { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
+        [step(WHOLE_STEP, true)],
+        LATER,
+      );
+    const event = checked
+      .pullEvents()
+      .find((each): each is StackChecked => each instanceof StackChecked);
+
+    expect(event?.stack.repository?.value).toBe('api');
+    expect(event?.stack.startedAt).toEqual(NOW);
   });
 
   it('judges no layer where the finished change itself fails', () => {
@@ -455,6 +501,7 @@ describe('StackCheck', () => {
         trial: false,
         workspaceId: ready.workspaceId,
         request: CheckRequest.of('npx tsc --noEmit', null),
+        stack: RepositoryStack.of({ repository: null, startedAt: LATER }),
         entries: ready.entries(),
         now: LATER,
       });
@@ -474,6 +521,7 @@ describe('StackCheck', () => {
           trial: false,
           workspaceId: ready.workspaceId,
           request: CheckRequest.of('npx tsc --noEmit', null),
+          stack: RepositoryStack.of({ repository: null, startedAt: LATER }),
           entries: ready.entries(),
           now: LATER,
         }),
@@ -543,6 +591,7 @@ describe('StackCheck', () => {
           null,
           RunnerPlacement.of(['vpc-internal']),
         ),
+        stack: RepositoryStack.of({ repository: null, startedAt: LATER }),
         entries: [],
         now: LATER,
       });
@@ -1202,6 +1251,7 @@ describe('StackCheck, rechecked', () => {
       trial: true,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
+      stack: RepositoryStack.of({ repository: null, startedAt: LATER }),
       entries: ready.entries(),
       now: LATER,
     }).claimedFor(RUNNER, ANY, LATER);

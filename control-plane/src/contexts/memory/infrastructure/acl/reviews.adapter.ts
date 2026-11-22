@@ -8,14 +8,6 @@ const FORM = 'memories';
 export class Reviews implements ReviewsPort {
   constructor(private readonly inboxRequests: InboxRequestsPort) {}
 
-  create(taskId: TaskId, runId: RunId): Promise<void> {
-    return this.inboxRequests.create({
-      taskId,
-      form: FORM,
-      about: runId.value,
-    });
-  }
-
   resolve(taskId: TaskId, runId: RunId): Promise<void> {
     return this.inboxRequests.resolve({
       taskId,

@@ -58,6 +58,7 @@ export interface RunFactParts {
   readonly end: RunEnd;
   readonly supersededAt: Date | null;
   readonly followedAt: Date | null;
+  readonly asked: boolean;
   readonly checks: CheckVerdict | null;
   readonly checkedAt: Date | null;
   readonly actions: RunActions;
@@ -102,6 +103,7 @@ export class RunFact implements RunFactParts {
   readonly end!: RunEnd;
   readonly supersededAt!: Date | null;
   readonly followedAt!: Date | null;
+  readonly asked!: boolean;
   readonly checks!: CheckVerdict | null;
   readonly checkedAt!: Date | null;
   readonly actions!: RunActions;
@@ -164,7 +166,7 @@ export class RunFact implements RunFactParts {
       decidingAction: this.actions.decidingAction,
       taskMerged: this.taskMerged,
       followed: this.followedAt !== null,
-      asked: this.end.asked,
+      asked: this.asked,
       answered: this.actions.answer !== null,
       approvalAnswered: this.approvalAnsweredAt !== null,
       passed: this.passed !== null,

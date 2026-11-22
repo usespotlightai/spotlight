@@ -24,6 +24,7 @@ const stepOf = (text: string, detail: string | null = null): JournalStep => ({
 const journalOf = (attempt: number, steps: JournalStep[]): RunJournal => ({
   runId: 'run_1',
   attempt,
+  firstStep: (attempt - 1) * 1_000_000,
   activity: null,
   background: [],
   ms: null,
@@ -55,10 +56,10 @@ function Focusing({ index }: { index: number }) {
 }
 
 describe('StepAnchorsProvider', () => {
-  it('names each step by its place across the run’s attempts, and opens the one requested', async () => {
+  it('names each step by its number in the run’s journal, and opens the one requested', async () => {
     render(
       <StepAnchorsProvider runId="run_1" journals={JOURNALS}>
-        <Focusing index={1} />
+        <Focusing index={1_000_000} />
         <StepsDisclosure label="Worked" steps={SECOND} />
       </StepAnchorsProvider>,
     );
@@ -68,13 +69,15 @@ describe('StepAnchorsProvider', () => {
       'false',
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Go to step 1' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Go to step 1000000' }),
+    );
 
     expect(screen.getByRole('button', { name: 'Worked' })).toHaveAttribute(
       'aria-expanded',
       'true',
     );
-    const step = document.getElementById('step-run_1-1');
+    const step = document.getElementById('step-run_1-1000000');
     expect(step).toHaveAttribute('data-focused', 'true');
     expect(step?.querySelector('[aria-expanded]')).toHaveAttribute(
       'aria-expanded',

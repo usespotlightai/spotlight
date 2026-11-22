@@ -23,6 +23,7 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import type {
   OutlinedCohort,
@@ -963,6 +964,10 @@ describe('RedraftChangeStack', () => {
       trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
+      stack: RepositoryStack.of({
+        repository: null,
+        startedAt: new Date('2026-09-16T10:00:00Z'),
+      }),
       entries: ready.entries(),
       now: new Date('2026-09-16T10:00:00Z'),
     })
@@ -1066,6 +1071,10 @@ describe('RedraftChangeStack', () => {
       trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
+      stack: RepositoryStack.of({
+        repository: null,
+        startedAt: new Date('2026-09-16T10:00:00Z'),
+      }),
       entries: ready.entries(),
       now: new Date('2026-09-16T10:00:00Z'),
     })
@@ -1212,6 +1221,10 @@ describe('the problems a broken stack is settled with', () => {
       trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
+      stack: RepositoryStack.of({
+        repository: null,
+        startedAt: new Date('2026-09-16T10:00:00Z'),
+      }),
       entries: ready.entries(),
       now: new Date('2026-09-16T10:00:00Z'),
     })

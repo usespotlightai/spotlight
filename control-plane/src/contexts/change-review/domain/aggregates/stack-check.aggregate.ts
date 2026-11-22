@@ -8,6 +8,7 @@ import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack
 import { assertOneOwner } from '@change-review/domain/services/stack-owner';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { RunnerAssignment } from '@change-review/domain/value-objects/runner-assignment.vo';
 import type { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
@@ -74,6 +75,7 @@ export class StackCheck extends EventRecorder {
     readonly trial: boolean,
     readonly workspaceId: WorkspaceId,
     readonly request: CheckRequest,
+    readonly stack: RepositoryStack,
     readonly status: StackCheckStatus,
     readonly entries: readonly CheckEntry[],
     readonly redraftCount: number,
@@ -93,6 +95,7 @@ export class StackCheck extends EventRecorder {
     trial: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
+    stack: RepositoryStack;
     entries: readonly CheckEntry[];
     now: Date;
   }): StackCheck {
@@ -110,6 +113,7 @@ export class StackCheck extends EventRecorder {
       input.trial,
       input.workspaceId,
       input.request,
+      input.stack,
       'waiting',
       input.entries,
       0,
@@ -133,6 +137,7 @@ export class StackCheck extends EventRecorder {
       trial: stack.trial,
       workspaceId: stack.workspaceId,
       request: stack.request,
+      stack: RepositoryStack.of(stack),
       entries: stack.entries(),
       now,
     });
@@ -146,6 +151,7 @@ export class StackCheck extends EventRecorder {
     trial: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
+    stack: RepositoryStack;
     status: StackCheckStatus;
     entries: readonly CheckEntry[];
     redraftCount: number;
@@ -194,6 +200,7 @@ export class StackCheck extends EventRecorder {
       input.trial,
       input.workspaceId,
       input.request,
+      input.stack,
       input.status,
       input.entries,
       input.redraftCount,
@@ -251,6 +258,7 @@ export class StackCheck extends EventRecorder {
       this.trial,
       this.workspaceId,
       this.request,
+      this.stack,
       'waiting',
       this.entries,
       0,
@@ -562,6 +570,7 @@ export class StackCheck extends EventRecorder {
         this.workspaceId,
         this.outcome?.whole?.passed ?? null,
         this.trial,
+        this.stack,
         now,
       ),
     );
@@ -613,6 +622,7 @@ export class StackCheck extends EventRecorder {
               ? (outcome.whole?.passed ?? null)
               : null,
             this.trial,
+            this.stack,
             now,
           ),
     );
@@ -658,6 +668,7 @@ export class StackCheck extends EventRecorder {
       this.trial,
       this.workspaceId,
       this.request,
+      this.stack,
       change.status ?? this.status,
       change.entries ?? this.entries,
       change.redraftCount ?? this.redraftCount,

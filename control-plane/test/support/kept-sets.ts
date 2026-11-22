@@ -51,10 +51,10 @@ export const runEnded = async (
     taskId: randomUUID(),
     stationId: at.stationId,
     driver: 'line',
+    handsOver: true,
     outcome: 'completed',
     failure: null,
     stopped: false,
-    asked: false,
   };
 
   await subscriber.handle(ended, anOutboxRecord());

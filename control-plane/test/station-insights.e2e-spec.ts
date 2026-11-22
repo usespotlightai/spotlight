@@ -10,6 +10,7 @@ import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
+import { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
@@ -45,7 +46,7 @@ import { DrizzleStationAlertStateRepository } from '@insights/infrastructure/per
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { chatRecord } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { insightsSubscribers } from '@insights/presentation/events/insights.subscribers';
-import { factOf, lastConfigRunsFrom } from '@insights/runs.fake-spec';
+import { checkOf, factOf, lastConfigRunsFrom } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
@@ -124,6 +125,8 @@ const endedRun = (
     skills: [],
     queuedAt: new Date('2026-09-30T00:00:00.000Z'),
     startedAt: null,
+    queuedMs: 0,
+    runningMs: 0,
     ...change,
   };
   ended.set(runId, run);
@@ -135,7 +138,14 @@ const work: WorkPort = {
   taskRunOf: async (runId) => {
     const run = ended.get(runId.value);
 
-    return run ? { runId, taskId: run.taskId, teamId: run.teamId } : null;
+    return run
+      ? {
+          runId,
+          workspaceId: run.workspaceId,
+          taskId: run.taskId,
+          teamId: run.teamId,
+        }
+      : null;
   },
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
@@ -193,6 +203,7 @@ const runEnded = async (
     taskId,
     stationId: 'station_1',
     driver: 'line',
+    handsOver: true,
     outcome: 'completed',
     failure: null,
     stopped: false,
@@ -258,6 +269,7 @@ beforeAll(async () => {
     ending: new RecordRunEnding(work, records, recorder, context),
     superseding: new RecordSupersededRun(records, recorder, context),
     checking: new RecordChangeChecks(records, recorder, context),
+    asking: new RecordAskingRun(records, recorder, context),
     acting: new RecordRunAction(work, records, recorder, context),
     deleting: new DeleteInsights(
       {
@@ -393,6 +405,8 @@ describe('how a station’s runs turned out', () => {
   it('attaches checks received before and after the run ended', async () => {
     await deliver('insights.record-checked-change', {
       kind: CHANGE_CHECKED,
+      repository: 'api',
+      stackStartedAt: '2026-09-30T09:50:00.000Z',
       runId: 'run_2',
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -408,6 +422,8 @@ describe('how a station’s runs turned out', () => {
     await runEnded('run_2');
     await deliver('insights.record-checked-change', {
       kind: CHANGE_CHECKED,
+      repository: 'api',
+      stackStartedAt: '2026-09-30T09:50:00.000Z',
       runId: 'run_1',
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -417,6 +433,34 @@ describe('how a station’s runs turned out', () => {
 
     expect((await records.of(RunId.of('run_2')))?.checks).toBe('passed');
     expect((await records.of(RunId.of('run_2')))?.end?.runNumber).toBe(2);
+    expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
+  });
+
+  it('keeps the verdict of the latest handover in each repository of a run', async () => {
+    const checked = (
+      repository: string,
+      stackStartedAt: string,
+      passed: boolean,
+    ) =>
+      deliver('insights.record-checked-change', {
+        kind: CHANGE_CHECKED,
+        repository,
+        stackStartedAt,
+        runId: 'run_1',
+        taskId: 'task_1',
+        workspaceId: WORKSPACE,
+        passed,
+        at: RECEIVED_AT.toISOString(),
+      });
+
+    await checked('api', '2026-09-30T10:00:00.000Z', false);
+    await checked('api', '2026-09-30T11:00:00.000Z', true);
+    await checked('api', '2026-09-30T10:30:00.000Z', false);
+
+    expect((await records.of(RunId.of('run_1')))?.checks).toBe('passed');
+
+    await checked('web', '2026-09-30T11:00:00.000Z', false);
+
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
   });
 
@@ -685,10 +729,10 @@ describe('how a station’s runs turned out', () => {
       throw new Error('not stored');
     }
 
-    await records.save(read.recordCheck('passed', RECEIVED_AT));
+    await records.save(read.recordCheck(checkOf('passed', RECEIVED_AT)));
 
     await expect(
-      records.save(read.recordCheck('failed', RECEIVED_AT)),
+      records.save(read.recordCheck(checkOf('failed', RECEIVED_AT))),
     ).rejects.toBeInstanceOf(RunRecordVersionConflictError);
   });
 
@@ -866,7 +910,6 @@ describe('the config runs a station’s runs make', () => {
         stationId,
         ending: outcome,
         failure: outcome === 'failed' ? 'exited' : null,
-        asked: false,
         drivenByAPerson: false,
       });
     }

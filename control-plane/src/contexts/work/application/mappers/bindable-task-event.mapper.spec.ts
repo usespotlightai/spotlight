@@ -42,7 +42,16 @@ describe('bindableTaskEventOf', () => {
         PullRequestUrl.of('https://x/1'),
         new Date(),
       ),
-      new TaskAsked(task, workspace, station, null, new Date(), 'line'),
+      new TaskAsked(
+        task,
+        workspace,
+        station,
+        null,
+        new Date(),
+        null,
+        'line',
+        false,
+      ),
       new TaskFinished(task, workspace, station, new Date()),
       new TaskFailed(
         task,

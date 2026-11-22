@@ -82,9 +82,15 @@ interface BackgroundTask {
   readonly description: string;
 }
 
+export interface NumberedJournalStep {
+  readonly index: number;
+  readonly step: JournalStep;
+}
+
 export interface RunJournal {
   readonly runId: string;
   readonly attempt: number;
+  readonly firstStep: number;
   readonly steps: readonly JournalStep[];
   readonly spans: readonly RunSpan[];
   readonly ms: number | null;

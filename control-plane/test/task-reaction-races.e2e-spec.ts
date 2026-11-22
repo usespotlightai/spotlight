@@ -243,6 +243,7 @@ const asking = (task: Task, run: RunId, how: Waiting): Task => {
         note,
         session: HarnessSession.of('session_1'),
         runner: RunnerId.of('runner_1'),
+        runAsked: true,
       });
     case 'approval':
       return task.clearFor(

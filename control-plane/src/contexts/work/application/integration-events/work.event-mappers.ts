@@ -78,6 +78,10 @@ import {
   TASK_RUN_ASSIGNED,
   type TaskRunAssignedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
+import {
+  TASK_TURN_AWAITED,
+  type TaskTurnAwaitedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
@@ -101,6 +105,7 @@ import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskPassed } from '@work/domain/events/task-passed.event';
 import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
+import type { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 
 const inboxRequestOpened = (
   event: InboxRequestOpened | InboxRequestReopened,
@@ -173,6 +178,17 @@ export const WORK_EVENT_MAPPERS = [
       runId: event.runId.value,
     }),
   ),
+  mapping<TaskTurnAwaited>(
+    'task.turn-awaited',
+    (event): TaskTurnAwaitedIntegrationEvent => ({
+      kind: TASK_TURN_AWAITED,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      runId: event.turn.runId.value,
+      attempt: event.turn.attempt,
+      handsOver: event.handsOver,
+    }),
+  ),
   mapping<TaskOpened>('task.opened', (event): TaskOpenedIntegrationEvent => ({
     kind: TASK_OPENED,
     taskId: event.taskId.value,
@@ -203,7 +219,7 @@ export const WORK_EVENT_MAPPERS = [
       outcome: event.ending.outcome,
       failure: event.ending.failure,
       stopped: event.ending.stopped,
-      asked: event.ending.askedAPerson,
+      handsOver: event.handsOver,
     }),
   ),
   mapping<DispatchSuperseded>(
@@ -290,7 +306,9 @@ export const WORK_EVENT_MAPPERS = [
     workspaceId: event.workspaceId.value,
     stationId: event.stationId.value,
     at: event.at.toISOString(),
+    runId: event.by?.value ?? null,
     driver: event.driver,
+    runAsked: event.runAsked,
   })),
   mapping<ChatStarted>(
     'chat.started',

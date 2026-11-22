@@ -36,6 +36,7 @@ import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
+import { TimeSpent } from '@runs/domain/value-objects/time-spent.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import {
@@ -521,6 +522,9 @@ const startOf = (saving: Run) => ({
   startedFromAttempt: saving.startedFrom?.attempt ?? null,
   startedFromAt: saving.startedFrom?.at ?? null,
   endHeads: saving.endHeads.map((each) => each.parts),
+  firstStartedAt: saving.spent.firstStartedAt,
+  queuedMs: saving.spent.queuedMs,
+  runningMs: saving.spent.runningMs,
 });
 
 const startFrom = (row: Row): StartingPoint | null => {
@@ -722,4 +726,9 @@ export const toRun = ({ run: row }: Selected): Run =>
     queuedAt: row.queuedAt,
     createdAt: row.createdAt,
     endHeads: row.endHeads.map((each) => CheckoutHead.rehydrate(each)),
+    spent: TimeSpent.rehydrate({
+      queuedMs: row.queuedMs,
+      runningMs: row.runningMs,
+      firstStartedAt: row.firstStartedAt,
+    }),
   });

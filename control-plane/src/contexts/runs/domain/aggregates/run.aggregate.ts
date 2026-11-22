@@ -42,6 +42,7 @@ import {
   type RunSpec,
 } from '@runs/domain/value-objects/run-spec.vo';
 import {
+  isActive,
   LEASED_RUN_STATES,
   type RunState,
   TERMINAL_RUN_STATES,
@@ -52,6 +53,7 @@ import {
   type ReportedStart,
   StartingPoint,
 } from '@runs/domain/value-objects/starting-point.vo';
+import { TimeSpent } from '@runs/domain/value-objects/time-spent.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import type {
@@ -186,7 +188,8 @@ export class Run extends EventRecorder {
     readonly endedAt: Date | null = null,
     readonly queuedAt: Date,
     readonly createdAt: Date,
-    readonly endHeads: readonly CheckoutHead[] = [],
+    readonly endHeads: readonly CheckoutHead[],
+    readonly spent: TimeSpent,
   ) {
     super();
   }
@@ -253,6 +256,8 @@ export class Run extends EventRecorder {
       null,
       input.now,
       input.now,
+      [],
+      TimeSpent.none(),
     );
 
     return input.refusal
@@ -341,10 +346,12 @@ export class Run extends EventRecorder {
     queuedAt: Date;
     createdAt: Date;
     endHeads?: readonly CheckoutHead[];
+    spent: TimeSpent;
   }): Run {
     const ordered = Run.orderedFrom(input);
 
     Run.guardReconstituted({ ...input, ordered });
+    Run.guardSpent(input.startedAt ?? null, input.spent);
 
     return new Run(
       input.id,
@@ -377,7 +384,22 @@ export class Run extends EventRecorder {
       input.queuedAt,
       input.createdAt,
       input.endHeads ?? [],
+      input.spent,
     );
+  }
+
+  private static guardSpent(startedAt: Date | null, spent: TimeSpent): void {
+    const first = spent.firstStartedAt;
+
+    if (
+      startedAt &&
+      (first === null || first.getTime() > startedAt.getTime())
+    ) {
+      throw new InconsistentStateError(
+        'run',
+        'started before it first started',
+      );
+    }
   }
 
   private static guardReconstituted(input: {
@@ -419,7 +441,7 @@ export class Run extends EventRecorder {
         `is ${input.state} without an outcome that ends it so`,
       );
     }
-    if ((input.state === 'queued' || isLeased(input.state)) && input.outcome) {
+    if (isActive(input.state) && input.outcome) {
       throw new InconsistentStateError(
         'run',
         `is ${input.state} yet has an outcome`,
@@ -750,6 +772,7 @@ export class Run extends EventRecorder {
       provisioning,
       outcome,
       endedAt: now,
+      spent: this.spentUntil(now),
     });
 
     ended.record(failed);
@@ -825,6 +848,7 @@ export class Run extends EventRecorder {
       leaseExpiresAt: null,
       outcome,
       endedAt: now,
+      spent: this.spentUntil(now),
     });
 
     exhausted.record(
@@ -846,6 +870,7 @@ export class Run extends EventRecorder {
 
   private backOnTheQueue(now: Date): Run {
     return this.with({
+      spent: this.spentUntil(now),
       state: 'queued',
       queuedAt: now,
       outcome: null,
@@ -874,6 +899,7 @@ export class Run extends EventRecorder {
     }
 
     const unclaimed = this.with({
+      spent: this.spentUntil(now),
       state: 'queued',
       queuedAt: now,
       claimedBy: null,
@@ -910,6 +936,9 @@ export class Run extends EventRecorder {
     const started = this.with({
       ranIn: image,
       startedAt: this.startedAt ?? now,
+      spent: this.startedAt
+        ? this.spent
+        : this.spent.startedAfter(this.queuedAt, now),
     });
 
     started.record(new RunStarted(this.id, this.workspaceId, by));
@@ -1004,6 +1033,7 @@ export class Run extends EventRecorder {
       outcome,
       leaseExpiresAt: null,
       endedAt: now,
+      spent: this.spentUntil(now),
       ...this.headsIn(report),
     });
 
@@ -1074,6 +1104,7 @@ export class Run extends EventRecorder {
       outcome,
       suspendedAttempts: [...this.suspendedAttempts, this.attempt],
       turn: RunTurn.pending(report, by, now),
+      spent: this.spentUntil(now),
       ...this.headsIn(report),
     });
 
@@ -1236,6 +1267,7 @@ export class Run extends EventRecorder {
       leaseExpiresAt: null,
       outcome,
       endedAt: now,
+      spent: this.spentUntil(now),
     });
 
     ended.record(
@@ -1309,6 +1341,7 @@ export class Run extends EventRecorder {
     }
 
     const requeued = this.with({
+      spent: this.spentUntil(now),
       state: 'queued',
       queuedAt: now,
       claimedBy: null,
@@ -1336,6 +1369,7 @@ export class Run extends EventRecorder {
       outcome,
       turn: null,
       endedAt: now,
+      spent: this.spentUntil(now),
     });
 
     ended.record(
@@ -1406,12 +1440,14 @@ export class Run extends EventRecorder {
     const outcome =
       this.outcome ??
       RunOutcome.of({ exitCode: ExitCode.clean(), failed: false });
+    const endedAt = this.turn?.suspendedAt ?? now;
     const ended = this.with({
       state: endingIn(outcome),
       leaseExpiresAt: null,
       outcome,
       turn: null,
-      endedAt: now,
+      endedAt,
+      spent: this.spentUntil(endedAt),
     });
 
     ended.record(
@@ -1427,7 +1463,7 @@ export class Run extends EventRecorder {
         ended.askedAPerson,
         this.hasStarted,
         false,
-        now,
+        endedAt,
         'cancellation',
       ),
     );
@@ -1460,6 +1496,7 @@ export class Run extends EventRecorder {
       outcome,
       reservation: null,
       endedAt: now,
+      spent: this.spentUntil(now),
     });
 
     if (this.reservation) {
@@ -1633,6 +1670,7 @@ export class Run extends EventRecorder {
     endedAt?: Date | null;
     queuedAt?: Date;
     endHeads?: readonly CheckoutHead[];
+    spent?: TimeSpent;
   }): Run {
     const next = new Run(
       this.id,
@@ -1667,11 +1705,22 @@ export class Run extends EventRecorder {
       part.queuedAt ?? this.queuedAt,
       this.createdAt,
       part.endHeads ?? this.endHeads,
+      part.spent ?? this.spent,
     );
 
     next.inheritEvents(this);
 
     return next;
+  }
+
+  private spentUntil(now: Date): TimeSpent {
+    if (!isActive(this.state)) {
+      return this.spent;
+    }
+
+    return this.startedAt
+      ? this.spent.ranBetween(this.startedAt, now)
+      : this.spent.queuedBetween(this.queuedAt, now);
   }
 
   private recordReservationDropped(runner: RunnerId): void {

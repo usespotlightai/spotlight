@@ -3,6 +3,7 @@ import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
+import { RunResumed } from '@runs/domain/events/run-resumed.event';
 import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
@@ -39,6 +40,12 @@ const RUN = RunId.of('run_1');
 const SUBJECT = orderedFor.holdingTurn('task_1', 0).requester;
 
 describe('RUNS_EVENT_MAPPERS', () => {
+  it('publishes a run that resumed', () => {
+    expect(published(new RunResumed(RUN, WORKSPACE))).toEqual([
+      { kind: 'runs.run-resumed.v1', runId: 'run_1', workspaceId: 'ws_1' },
+    ]);
+  });
+
   it('publishes the end of a task run, with its report, session and runner', () => {
     expect(
       published(

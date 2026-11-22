@@ -5,6 +5,7 @@ import type { QuestionAnswerRepository } from '@change-review/domain/repositorie
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -24,6 +25,7 @@ const trialCheck = (stack: string) =>
     trial: true,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
     entries: [],
     now: NOW,
   });

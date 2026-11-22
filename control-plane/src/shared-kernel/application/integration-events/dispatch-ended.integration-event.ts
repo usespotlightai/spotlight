@@ -16,5 +16,5 @@ export type DispatchEndedIntegrationEvent = {
   readonly outcome: DispatchOutcomePublished;
   readonly failure: string | null;
   readonly stopped: boolean;
-  readonly asked: boolean;
+  readonly handsOver: boolean;
 };

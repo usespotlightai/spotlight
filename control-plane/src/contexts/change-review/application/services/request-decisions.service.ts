@@ -1,5 +1,8 @@
 import type { DecisionGeneratorPort } from '@change-review/application/ports/decision-generator.port';
-import type { WorkPort } from '@change-review/application/ports/work.port';
+import type {
+  RunForReview,
+  WorkPort,
+} from '@change-review/application/ports/work.port';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { decidesFrom } from '@change-review/domain/services/decision-policy';
@@ -7,6 +10,7 @@ import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -23,30 +27,53 @@ export class RequestDecisions {
   async runEnded(
     taskId: TaskId,
     runId: RunId,
-    drivenByAPerson: boolean,
+    handsOver: boolean,
   ): Promise<void> {
-    if (drivenByAPerson) {
-      return;
-    }
-
     const run = await this.work.run(runId);
-    const task = run ? await this.work.task(taskId) : null;
+
+    if (run) {
+      await this.requested(taskId, run, run.attempt, handsOver);
+    }
+  }
+
+  async turnAwaited(
+    taskId: TaskId,
+    runId: RunId,
+    attempt: number,
+    handsOver: boolean,
+  ): Promise<void> {
+    const run = await this.work.run(runId);
+
+    if (run) {
+      await this.requested(taskId, run, attempt, handsOver);
+    }
+  }
+
+  private async requested(
+    taskId: TaskId,
+    run: RunForReview,
+    attempt: number,
+    handsOver: boolean,
+  ): Promise<void> {
+    const task = await this.work.task(taskId);
 
     if (
-      !run ||
       !task ||
-      !decidesFrom(run, task) ||
+      !run.orderedAt ||
+      !decidesFrom(run, handsOver, task) ||
       !(await this.generator.availableTo(task.workspaceId.value))
     ) {
       return;
     }
+
+    const turn = AgentTurn.of(run.id, attempt, run.orderedAt);
 
     await this.transaction.inTransaction(async () => {
       const now = this.clock.now();
       const existing = await this.sets.forTask(taskId);
 
       if (existing) {
-        await this.sets.save(existing.requestGeneration(runId, now));
+        await this.sets.save(existing.requestGeneration(turn, now));
         return;
       }
 
@@ -55,7 +82,7 @@ export class RequestDecisions {
           id: DecisionSetId.of(this.ids.generate()),
           taskId,
           workspaceId: task.workspaceId,
-        }).requestGeneration(runId, now),
+        }).requestGeneration(turn, now),
       );
     });
   }

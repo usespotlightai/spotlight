@@ -99,9 +99,11 @@ interface Seen {
   readonly leased?: boolean;
   readonly for?: DispatchedFor | null;
   readonly lineGone?: boolean;
-  readonly journal?: RunJournal | null;
+  readonly attempts?: readonly RunJournal[];
   readonly changesOfTask?: readonly RunChanges[];
 }
+
+const ORDERED_AT = new Date('2026-09-30T09:00:00.000Z');
 
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
@@ -111,6 +113,7 @@ const WORKING_COPIES: Readonly<Record<string, string>> = {
   '/runs/run_1/api/src/uploads.ts': 'api/src/uploads.ts',
   '/runs/run_2/api/src/uploads.ts': 'api/src/uploads.ts',
   '/runs/run_1/web/src/Upload.tsx': 'web/src/Upload.tsx',
+  '/runs/run_1/api/src/queue.ts': 'api/src/queue.ts',
 };
 
 const readings = runJournalReadings({
@@ -135,6 +138,7 @@ const lookingUp = (seen: Seen) => {
               runId: RUN,
               for: seen.for ?? taskAt('implementation'),
               briefedMemories: { briefed: [], omitted: [] },
+              orderedAt: ORDERED_AT,
             },
     },
     { find: async () => null } as unknown as TaskRepository,
@@ -145,7 +149,7 @@ const lookingUp = (seen: Seen) => {
       findByStation: async () => (seen.lineGone ? null : line),
     } as unknown as LineMapsPort,
     {
-      ofRun: async () => seen.journal ?? null,
+      attemptsOfRun: async () => [...(seen.attempts ?? [])],
       changesOfTask: async () => seen.changesOfTask ?? [],
     } as unknown as RunJournalReaderPort,
     readings,
@@ -176,11 +180,22 @@ describe('WorkRunLookup, looking up a run', () => {
     ).toEqual([['vpc-internal']]);
   });
 
-  it('says whether the run completed, not only whether it ended', async () => {
-    expect((await runAt('implementation'))?.completed).toBe(true);
-    expect(
-      (await runAt('implementation', { state: 'failed' }))?.completed,
-    ).toBe(false);
+  it('says when the run was ordered, and nothing for a run Work did not dispatch', async () => {
+    expect((await runAt('implementation'))?.orderedAt).toEqual(ORDERED_AT);
+    expect((await lookingUp({ for: null }).run(RUN))?.orderedAt).toBeNull();
+  });
+
+  it('says the run works as its facts say', async () => {
+    expect((await runAt('implementation', { working: true }))?.working).toBe(
+      true,
+    );
+    expect((await runAt('implementation', { working: false }))?.working).toBe(
+      false,
+    );
+  });
+
+  it('says which attempt of the run it looked up', async () => {
+    expect((await runAt('implementation', { attempt: 3 }))?.attempt).toBe(3);
   });
 
   it('names the task of a task’s run, and none for a trial, which is isolated', async () => {
@@ -311,19 +326,21 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
   const edited = (path: string) =>
     step({ change: { path, before: 'a', after: 'b' } });
 
-  const journalOf = (steps: readonly JournalStep[]) =>
-    ({ runId: 'run_1', steps }) as unknown as RunJournal;
+  const journalOf = (steps: readonly JournalStep[], attempt = 1) =>
+    ({ runId: 'run_1', attempt, steps }) as unknown as RunJournal;
 
   it('offers the messages, thoughts and plans of the agent, where it is in the journal', async () => {
     const reasoned = await lookingUp({
       for: { kind: 'chat', chatId: ChatId.of('chat_1') },
-      journal: journalOf([
-        step({ kind: 'planned', text: '[pending] Retry uploads' }),
-        step({ kind: 'tool', text: 'Edit uploads.ts' }),
-        step({ kind: 'thought', text: 'A queue needs a worker.' }),
-        step({ kind: 'message', text: 'Retrying in the request.' }),
-      ]),
-    }).reasoning(RUN);
+      attempts: [
+        journalOf([
+          step({ kind: 'planned', text: '[pending] Retry uploads' }),
+          step({ kind: 'tool', text: 'Edit uploads.ts' }),
+          step({ kind: 'thought', text: 'A queue needs a worker.' }),
+          step({ kind: 'message', text: 'Retrying in the request.' }),
+        ]),
+      ],
+    }).reasoning(RUN, 1);
 
     expect(reasoned?.steps.map((each) => [each.index, each.kind])).toEqual([
       [0, 'planned'],
@@ -332,9 +349,46 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
     ]);
   });
 
+  it('reads every attempt of a kept run up to the turn asked about, numbering each attempt’s steps apart so a later step of one attempt moves none of the next', async () => {
+    const attempts = [
+      journalOf(
+        [
+          step({ kind: 'message', text: 'Shall I retry uploads?' }),
+          step({ kind: 'thought', text: 'The person wants a queue.' }),
+        ],
+        2,
+      ),
+      journalOf([step({ kind: 'thought', text: 'Uploads fail.' })], 1),
+      journalOf([step({ kind: 'message', text: 'Queue added.' })], 3),
+    ];
+    const reasonedThrough = async (attempt: number | null) =>
+      (
+        await lookingUp({
+          for: { kind: 'chat', chatId: ChatId.of('chat_1') },
+          attempts,
+        }).reasoning(RUN, attempt)
+      )?.steps.map((each) => [each.index, each.text]);
+
+    expect(await reasonedThrough(2)).toEqual([
+      [0, 'Uploads fail.'],
+      [1_000_000, 'Shall I retry uploads?'],
+      [1_000_001, 'The person wants a queue.'],
+    ]);
+    expect(await reasonedThrough(null)).toEqual([
+      [0, 'Uploads fail.'],
+      [1_000_000, 'Shall I retry uploads?'],
+      [1_000_001, 'The person wants a queue.'],
+      [2_000_000, 'Queue added.'],
+    ]);
+  });
+
+  it('knows no reasoning for a run with no journal yet', async () => {
+    expect(await lookingUp({ attempts: [] }).reasoning(RUN, 1)).toBeNull();
+  });
+
   it('names the files earlier runs of the task changed too', async () => {
     const reasoned = await lookingUp({
-      journal: journalOf([edited('/runs/run_2/api/src/uploads.ts')]),
+      attempts: [journalOf([edited('/runs/run_2/api/src/uploads.ts')])],
       changesOfTask: [
         {
           runId: 'run_0',
@@ -347,13 +401,50 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
           paths: ['/runs/run_1/api/src/uploads.ts'],
         },
       ],
-    }).reasoning(RUN);
+    }).reasoning(RUN, 1);
 
     expect(reasoned?.changed).toEqual(['docs/a.md', 'api/src/uploads.ts']);
   });
 
+  it('names only the files the run changed up to the turn asked about, beside the other runs of the task', async () => {
+    const reasonedThrough = async (attempt: number | null) =>
+      (
+        await lookingUp({
+          attempts: [
+            journalOf([edited('/runs/run_1/api/src/uploads.ts')], 1),
+            journalOf([edited('/runs/run_1/api/src/queue.ts')], 2),
+          ],
+          changesOfTask: [
+            {
+              runId: 'run_0',
+              checkouts: ['docs'],
+              paths: ['/runs/run_0/docs/a.md'],
+            },
+            {
+              runId: 'run_1',
+              checkouts: ['api'],
+              paths: [
+                '/runs/run_1/api/src/uploads.ts',
+                '/runs/run_1/api/src/queue.ts',
+              ],
+            },
+          ],
+        }).reasoning(RUN, attempt)
+      )?.changed;
+
+    expect(await reasonedThrough(1)).toEqual([
+      'docs/a.md',
+      'api/src/uploads.ts',
+    ]);
+    expect(await reasonedThrough(null)).toEqual([
+      'docs/a.md',
+      'api/src/uploads.ts',
+      'api/src/queue.ts',
+    ]);
+  });
+
   it('names each file the run changed once, in the repository it lies in', async () => {
-    const changed = await new WorkRunLookup(
+    const lookup = new WorkRunLookup(
       { of: async () => [factsOf()] },
       {} as RunLeasesPort,
       {
@@ -361,6 +452,7 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
           runId: RUN,
           for: taskAt('implementation'),
           briefedMemories: { briefed: [], omitted: [] },
+          orderedAt: ORDERED_AT,
         }),
       },
       { find: async () => null } as unknown as TaskRepository,
@@ -371,20 +463,32 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
         }),
       } as unknown as LineMapsPort,
       {
-        ofRun: async () =>
+        attemptsOfRun: async () => [
           journalOf([
             edited('/runs/run_1/api/src/uploads.ts'),
             edited('/runs/run_1/api/src/uploads.ts'),
             edited('/runs/run_1/web/src/Upload.tsx'),
             edited('/tmp/scratch.ts'),
           ]),
+          journalOf([edited('/runs/run_1/api/src/queue.ts')], 2),
+        ],
       } as unknown as RunJournalReaderPort,
       readings,
-    ).changedBy(RUN);
+    );
+    const changedThrough = async (attempt: number | null) =>
+      (await lookup.changedBy(RUN, attempt))?.map((each) => [
+        each.repository.value,
+        each.path,
+      ]);
 
-    expect(changed?.map((each) => [each.repository.value, each.path])).toEqual([
+    expect(await changedThrough(1)).toEqual([
       ['acme/api', 'src/uploads.ts'],
       ['acme/web', 'src/Upload.tsx'],
+    ]);
+    expect(await changedThrough(null)).toEqual([
+      ['acme/api', 'src/uploads.ts'],
+      ['acme/web', 'src/Upload.tsx'],
+      ['acme/api', 'src/queue.ts'],
     ]);
   });
 });

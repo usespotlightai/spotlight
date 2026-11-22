@@ -1,7 +1,9 @@
+import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunChecks } from '@insights/domain/value-objects/run-checks.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { RunMemories } from '@insights/domain/value-objects/run-memories.vo';
@@ -10,6 +12,7 @@ import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import type {
   runRecord,
+  StoredRepositoryCheck,
   StoredTools,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -22,14 +25,15 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export type RunPartsRow = Omit<
   typeof runRecord.$inferSelect,
-  'runId' | 'workspaceId' | 'version'
+  'runId' | 'workspaceId' | 'version' | 'repositoryChecks'
 >;
 
 export interface RunParts {
   readonly taskId: TaskId | null;
   readonly end: RunEnd | null;
   readonly supersededAt: Date | null;
-  readonly checks: RunPartsRow['checks'];
+  readonly asked: boolean;
+  readonly checks: CheckVerdict | null;
   readonly checkedAt: Date | null;
   readonly actions: RunActions;
   readonly approvalAnsweredAt: Date | null;
@@ -41,6 +45,23 @@ export interface RunParts {
 }
 
 export type StoredRunParts = 'run record' | 'run fact';
+
+const spentOf = (
+  row: RunPartsRow,
+  stored: StoredRunParts,
+): { queuedMs: number; runningMs: number } => {
+  if (row.startedAt === null) {
+    return { queuedMs: 0, runningMs: 0 };
+  }
+  if (row.queuedMs === null || row.runningMs === null) {
+    throw new InconsistentStateError(
+      stored,
+      'started without saying how long it queued and ran',
+    );
+  }
+
+  return { queuedMs: row.queuedMs, runningMs: row.runningMs };
+};
 
 export const endOf = (
   row: RunPartsRow,
@@ -85,10 +106,10 @@ export const endOf = (
     queuedAt: row.queuedAt,
     startedAt: row.startedAt,
     endedAt: row.endedAt,
+    ...spentOf(row, stored),
     ending: row.ending,
     failure: row.failure,
     runNumber: row.runNumber,
-    asked: row.asked,
   });
 };
 
@@ -213,6 +234,28 @@ export const dismissalsOf = (row: RunPartsRow): readonly Dismissal[] =>
     }),
   );
 
+export const checkedOf = (row: {
+  readonly repositoryChecks: readonly StoredRepositoryCheck[];
+}): RunChecks =>
+  RunChecks.of(
+    row.repositoryChecks.map((each) => ({
+      repository: each.repository,
+      stackStartedAt: new Date(each.stackStartedAt),
+      verdict: each.verdict,
+      checkedAt: new Date(each.checkedAt),
+    })),
+  );
+
+export const checkedColumnOf = (record: {
+  readonly checked: RunChecks;
+}): StoredRepositoryCheck[] =>
+  record.checked.repositories.map((each) => ({
+    repository: each.repository,
+    stackStartedAt: each.stackStartedAt.toISOString(),
+    verdict: each.verdict,
+    checkedAt: each.checkedAt.toISOString(),
+  }));
+
 export const memoriesOf = (row: RunPartsRow): RunMemories =>
   RunMemories.of({
     briefed: row.memories.briefed,
@@ -253,13 +296,13 @@ export const partColumnsOf = (record: RunParts): RunPartsRow => {
     queuedAt: end?.queuedAt ?? null,
     startedAt: end?.startedAt ?? null,
     endedAt: end?.endedAt ?? null,
+    queuedMs: end?.queuedMs ?? null,
+    runningMs: end?.runningMs ?? null,
     ending: end?.ending ?? null,
     failure: end?.failure ?? null,
     runNumber: end?.runNumber ?? null,
-    asked: end?.asked ?? false,
+    asked: record.asked,
     supersededAt: record.supersededAt,
-    checks: record.checks,
-    checkedAt: record.checkedAt,
     decidingAction: record.actions.decidingAction?.decidingKind ?? null,
     decidingActionAt: record.actions.decidingAction?.at ?? null,
     decidingActionBy: record.actions.decidingAction?.by.value ?? null,

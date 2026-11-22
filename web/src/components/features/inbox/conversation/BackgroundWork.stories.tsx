@@ -43,6 +43,7 @@ const journal = (
 ): RunJournal => ({
   runId: 'run_background',
   attempt: 1,
+  firstStep: 0,
   ...session,
   ms: 600_000,
   spans: [],

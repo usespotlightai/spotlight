@@ -27,6 +27,7 @@ import type { CheckRequest } from '@change-review/domain/value-objects/check-req
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import type {
   CheckEntry,
   CheckStep,
@@ -614,6 +615,7 @@ export class ChangeStack
         this.runId,
         this.taskId,
         this.workspaceId,
+        RepositoryStack.of(this),
         this.cohorts.map((each) => ({
           kind: each.kind,
           title: each.title,

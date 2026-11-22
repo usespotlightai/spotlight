@@ -130,6 +130,7 @@ export class TakeTurn {
           note: this.routing.questionOf(decision.handover, line, runId),
           session: RunsTranslation.session(turn.session),
           runner: turn.reportedBy,
+          runAsked: decision.runAsked,
         }),
       );
       await this.runs.keep(runId, attempt);

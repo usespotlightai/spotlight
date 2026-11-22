@@ -4,10 +4,12 @@ export interface DecidedTask {
 
 export interface DecidedRun {
   readonly decisions: boolean;
-  readonly completed: boolean;
 }
 
 export const keepsDecisions = (task: DecidedTask): boolean => !task.reviewing;
 
-export const decidesFrom = (run: DecidedRun, task: DecidedTask): boolean =>
-  run.decisions && run.completed && keepsDecisions(task);
+export const decidesFrom = (
+  run: DecidedRun,
+  handsOver: boolean,
+  task: DecidedTask,
+): boolean => run.decisions && handsOver && keepsDecisions(task);

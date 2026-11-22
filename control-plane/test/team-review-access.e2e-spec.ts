@@ -179,6 +179,7 @@ beforeAll(async () => {
     originStationId: team.stationId.value,
     createdById: team.owner.value,
   });
+  const ranAt = new Date();
   await db.insert(schema.run).values({
     ...requestedByTask(TASK, { teamId: team.teamId.value }),
     id: RUN,
@@ -192,10 +193,11 @@ beforeAll(async () => {
       handover: { options: [], noteLimit: 0 },
       resume: {},
     },
-    createdAt: new Date(),
-    queuedAt: new Date(),
-    startedAt: new Date(),
-    endedAt: new Date(),
+    createdAt: ranAt,
+    queuedAt: ranAt,
+    startedAt: ranAt,
+    firstStartedAt: ranAt,
+    endedAt: ranAt,
   });
   await db.insert(schema.dispatch).values(
     aDispatch({

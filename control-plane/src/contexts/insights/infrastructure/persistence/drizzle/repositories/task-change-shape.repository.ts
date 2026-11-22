@@ -22,18 +22,24 @@ const toShape = (row: ShapeRow): TaskChangeShape =>
     taskId: TaskId.of(row.taskId),
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
-    shape: {
-      changeTitles: row.changeTitles,
-      changeIntents: row.changeIntents,
-      at: row.shapedAt,
-    },
+    shapes: row.shapes.map((each) => ({
+      repository: each.repository,
+      stackStartedAt: new Date(each.stackStartedAt),
+      changeTitles: each.changeTitles,
+      changeIntents: each.changeIntents,
+      at: new Date(each.at),
+    })),
     version: row.version,
   });
 
 const columnsOf = (shape: TaskChangeShape) => ({
-  changeTitles: [...shape.shape.changeTitles],
-  changeIntents: [...shape.shape.changeIntents],
-  shapedAt: shape.shape.at,
+  shapes: shape.shapes.map((each) => ({
+    repository: each.repository,
+    stackStartedAt: each.stackStartedAt.toISOString(),
+    changeTitles: [...each.changeTitles],
+    changeIntents: [...each.changeIntents],
+    at: each.at.toISOString(),
+  })),
 });
 
 @Injectable()

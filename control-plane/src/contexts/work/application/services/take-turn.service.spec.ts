@@ -37,6 +37,7 @@ import { RunRouting } from '@work/application/services/run-routing.service';
 import { TakeTurn } from '@work/application/services/take-turn.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -423,6 +424,7 @@ describe('TakeTurn', () => {
         },
         session: null,
         runner: null,
+        runAsked: true,
       });
       const turn = turning({ task: asked });
 
@@ -543,6 +545,25 @@ describe('TakeTurn', () => {
         'The hook core/qa denied the handover: tests are red.',
       );
       expect(turn.runs.keep).toHaveBeenCalledWith(RUN, 1);
+      expect(
+        turn.tasks[0]?.pullEvents().find((each) => each instanceof TaskAsked),
+      ).toMatchObject({ runAsked: false });
+    });
+
+    it('says the run asked when it handed over for review and a hook denied that too', async () => {
+      const turn = turning({
+        task: claimedByTheRun(),
+        decision: {
+          kind: 'denied',
+          reason: 'The hook core/qa denied the handover: tests are red.',
+        },
+      });
+
+      await turn.take(handingOver('review'));
+
+      expect(
+        turn.tasks[0]?.pullEvents().find((each) => each instanceof TaskAsked),
+      ).toMatchObject({ runAsked: true });
     });
 
     it('calls no hooks when the run failed, was stopped or handed over nothing', async () => {

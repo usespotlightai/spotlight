@@ -63,11 +63,6 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     );
   }
 
-  async ofRun(runId: RunId): Promise<RunJournal | null> {
-    const [journal] = await this.journals.ofRuns([runId]);
-    return journal ?? null;
-  }
-
   lastWordsReceivedAt(runId: RunId): Promise<Date | null> {
     return this.journals.lastWordsReceivedAt(runId);
   }

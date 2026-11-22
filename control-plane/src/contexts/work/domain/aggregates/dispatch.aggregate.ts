@@ -11,6 +11,7 @@ import { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
 import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { InvalidDispatchTransitionError } from '@work/domain/exceptions/invalid-dispatch-transition.error';
+import { handsOverOnEnd } from '@work/domain/services/hand-over';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { DispatchEnding } from '@work/domain/value-objects/dispatch-ending.vo';
@@ -390,7 +391,7 @@ export class Dispatch extends EventRecorder {
     return this.with({ detachedAt: at }).supersededIfDue();
   }
 
-  ended(ending: DispatchEnding): Dispatch {
+  ended(ending: DispatchEnding, runHandsOver: boolean): Dispatch {
     if (this.state.ending) {
       return this;
     }
@@ -399,6 +400,8 @@ export class Dispatch extends EventRecorder {
     const ended = this.with({ ending });
 
     if (subject.kind !== 'trial') {
+      const driver = subject.kind === 'task' ? subject.driver : 'line';
+
       ended.record(
         new DispatchEnded(
           this.id,
@@ -406,7 +409,8 @@ export class Dispatch extends EventRecorder {
           taskOfDispatch(subject),
           stationOfDispatch(subject),
           ending,
-          subject.kind === 'task' ? subject.driver : 'line',
+          driver,
+          handsOverOnEnd(driver, runHandsOver),
         ),
       );
     }

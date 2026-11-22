@@ -2,8 +2,10 @@ import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggrega
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { parseStoredSkip } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import {
@@ -47,6 +49,10 @@ export const toStackCheck = (row: Row): StackCheck =>
         row.placementImage ? RunnerImage.of(row.placementImage) : null,
       ),
     ),
+    stack: RepositoryStack.of({
+      repository: RepositoryName.optional(row.repository),
+      startedAt: row.stackStartedAt,
+    }),
     status: row.status,
     entries: row.entries.map(entryOf),
     redraftCount: row.redraftCount,
@@ -133,6 +139,8 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         setup: added.request.setup,
         placement: added.request.placement.labelGroups,
         placementImage: added.request.placement.image?.value ?? null,
+        repository: added.stack.repository?.value ?? null,
+        stackStartedAt: added.stack.startedAt,
         version: added.version,
         ...valuesOf(added),
       });

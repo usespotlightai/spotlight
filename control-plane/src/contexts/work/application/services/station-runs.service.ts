@@ -35,6 +35,7 @@ export class StationRuns implements StationRunsPort {
     return subject?.kind === 'task' && dispatch?.teamId
       ? {
           runId,
+          workspaceId: dispatch.workspaceId.value,
           taskId: subject.taskId.value,
           teamId: dispatch.teamId.value,
         }

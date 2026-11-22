@@ -48,7 +48,7 @@ describe('JudgeReasonItem', () => {
     const hunks = vi.fn((_hunk: CitedHunk) => hunk);
     showing({ step: steps, hunk: hunks });
 
-    await userEvent.click(link('step 2'));
+    await userEvent.click(link('read step'));
     await userEvent.click(link('retry.ts:1'));
 
     expect(steps).toHaveBeenCalledWith(2);
@@ -64,18 +64,18 @@ describe('JudgeReasonItem', () => {
         '[data-slot="cited-step"], [data-slot="cited-hunk"]',
       ),
     ).toBeNull();
-    expect(link('step 2')).not.toHaveAttribute('aria-disabled');
+    expect(link('read step')).not.toHaveAttribute('aria-disabled');
   });
 
   it('greys out a step the page does not show, and says why', async () => {
     const hunk = vi.fn();
     showing({ step: () => null, hunk: () => hunk });
 
-    expect(link('step 2')).toHaveAttribute('aria-disabled', 'true');
-    expect(link('step 2')).toHaveAccessibleDescription(
+    expect(link('read step')).toHaveAttribute('aria-disabled', 'true');
+    expect(link('read step')).toHaveAccessibleDescription(
       'The step is no longer in the run’s journal.',
     );
-    await userEvent.click(link('step 2'));
+    await userEvent.click(link('read step'));
     await userEvent.click(link('retry.ts:1'));
     expect(hunk).toHaveBeenCalledOnce();
   });
@@ -88,7 +88,7 @@ describe('JudgeReasonItem', () => {
       'The file is no longer in the run’s changes.',
     );
     expect(link('retry.ts:1')).not.toHaveAttribute('title');
-    expect(link('step 2')).not.toHaveAttribute('aria-disabled');
+    expect(link('read step')).not.toHaveAttribute('aria-disabled');
   });
 
   it('greys out a step whose text the journal no longer has, without asking the page for it', () => {
@@ -107,7 +107,7 @@ describe('JudgeReasonItem', () => {
       },
     );
 
-    expect(link('step 4')).toHaveAccessibleDescription(
+    expect(link('step')).toHaveAccessibleDescription(
       'The step is no longer in the run’s journal.',
     );
     expect(steps).not.toHaveBeenCalled();
@@ -120,7 +120,7 @@ describe('JudgeReasonItem', () => {
       </ul>,
     );
 
-    expect(link('step 2')).toHaveAttribute('aria-disabled', 'true');
+    expect(link('read step')).toHaveAttribute('aria-disabled', 'true');
     expect(link('retry.ts:1')).toHaveAttribute('aria-disabled', 'true');
   });
 });

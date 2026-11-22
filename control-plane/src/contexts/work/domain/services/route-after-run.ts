@@ -6,7 +6,11 @@ import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 
 export type RunRouting =
   | { readonly kind: 'finish'; readonly line: LineMap }
-  | { readonly kind: 'ask'; readonly failure: TaskFailure | null }
+  | {
+      readonly kind: 'ask';
+      readonly failure: TaskFailure | null;
+      readonly runAsked: boolean;
+    }
   | { readonly kind: 'detach'; readonly failure: TaskFailure | null }
   | {
       readonly kind: 'advance';
@@ -25,6 +29,12 @@ export const putsItToAPerson = (routing: RunRouting): boolean =>
 const failureOf = (handover: ResolvedHandover): TaskFailure | null =>
   handover.kind === 'review' ? handover.failure : null;
 
+const askOf = (handover: ResolvedHandover): RunRouting => ({
+  kind: 'ask',
+  failure: failureOf(handover),
+  runAsked: handover.kind === 'review' && handover.asked,
+});
+
 export const routeAfterRun = (
   handover: ResolvedHandover,
   line: LineMap | null,
@@ -33,7 +43,7 @@ export const routeAfterRun = (
   if (task.onHold) {
     return task.awaitingReview
       ? { kind: 'detach', failure: failureOf(handover) }
-      : { kind: 'ask', failure: failureOf(handover) };
+      : askOf(handover);
   }
 
   const passedTo =
@@ -61,5 +71,5 @@ export const routeAfterRun = (
     return { kind: 'finish', line };
   }
 
-  return { kind: 'ask', failure: failureOf(handover) };
+  return askOf(handover);
 };

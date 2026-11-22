@@ -85,7 +85,6 @@ const changing = (saved: Dispatch) => ({
   outcome: saved.ending?.outcome ?? null,
   failure: saved.ending?.failure ?? null,
   stopped: saved.ending?.stopped ?? false,
-  askedAPerson: saved.ending?.askedAPerson ?? false,
   superseded: saved.superseded,
 });
 
@@ -173,7 +172,6 @@ const toDispatch = (row: Row): Dispatch =>
             outcome: row.outcome,
             failure: failureOf(row.failure),
             stopped: row.stopped,
-            askedAPerson: row.askedAPerson,
           })
         : null,
     superseded: row.superseded,

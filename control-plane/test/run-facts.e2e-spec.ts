@@ -92,10 +92,11 @@ const ended = (
       queuedAt: at((options.endedHoursAgo ?? 1) + 0.5),
       startedAt: at((options.endedHoursAgo ?? 1) + 0.25),
       endedAt: at(options.endedHoursAgo ?? 1),
+      queuedMs: 15 * 60_000,
+      runningMs: 10 * 60_000,
       ending: 'completed',
       failure: null,
       runNumber: 1,
-      asked: false,
     }),
   );
 
@@ -580,6 +581,8 @@ describe('run facts', () => {
           fingerprint: 'a'.repeat(64),
           agentConfig: (ended('run_2', 'task_2').end as RunEnd).agentConfig,
           startedAt: null,
+          queuedMs: 0,
+          runningMs: 0,
           ending: 'cancelled',
         }),
       ),
@@ -591,6 +594,8 @@ describe('run facts', () => {
       ran: true,
       ranAConfig: true,
       size: 'small',
+      queuedMs: 15 * 60_000,
+      runningMs: 10 * 60_000,
     });
     expect(await factOf('run_2')).toMatchObject({
       endedAs: 'cancelled',
@@ -598,6 +603,8 @@ describe('run facts', () => {
       ran: false,
       ranAConfig: false,
       size: null,
+      queuedMs: null,
+      runningMs: null,
     });
   });
 
@@ -711,6 +718,8 @@ describe('run facts', () => {
         workspaceId: WORKSPACE,
         teamId: TEAM,
         shape: {
+          repository: null,
+          stackStartedAt: at(0.2),
           changeTitles: ['Add uploads', 'Add retries'],
           changeIntents: ['', ''],
           at: at(0.1),
@@ -726,6 +735,49 @@ describe('run facts', () => {
     );
 
     expect(await factFor(PULL)).toMatchObject({ madeBy: 'people' });
+  });
+
+  it('types each pull request of a task from the change stack of its own repository', async () => {
+    const web = PullRequestUrl.of('https://github.com/acme/web/pull/9');
+    await pullRequests.add(
+      opened('task_1', TEAM).seenAs(
+        seenOf({ title: 'Something', reviewRounds: 1 }),
+      ),
+    );
+    await pullRequests.add(
+      opened('task_1', TEAM, web).seenAs(
+        seenOf({ number: 9, title: 'Something', reviewRounds: 1 }),
+      ),
+    );
+    const shapeIn = (repository: string, title: string) => ({
+      repository,
+      stackStartedAt: at(0.3),
+      changeTitles: [title],
+      changeIntents: [''],
+      at: at(0.2),
+    });
+    await shapes.add(
+      TaskChangeShape.create({
+        taskId: TaskId.of('task_1'),
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        shape: shapeIn('api', 'Fix the upload retry'),
+      }),
+    );
+    const stored = await shapes.forTask(TaskId.of('task_1'));
+    if (!stored) throw new Error('not stored');
+    await shapes.save(stored.withShape(shapeIn('web', 'Add an upload button')));
+
+    const typeOf = async (url: PullRequestUrl) =>
+      (
+        await database.db
+          .select({ type: pullRequestFact.type })
+          .from(pullRequestFact)
+          .where(eq(pullRequestFact.pullRequest, url.value))
+      )[0]?.type;
+
+    expect(await typeOf(PULL)).toBe('fix');
+    expect(await typeOf(web)).toBe('feature');
   });
 
   it('marks a run followed once the station’s next run on its task completes', async () => {
@@ -765,6 +817,8 @@ describe('run facts', () => {
           location: (ended(runId, taskId).end as RunEnd).location,
           fingerprint: 'a'.repeat(64),
           agentConfig: (ended(runId, taskId).end as RunEnd).agentConfig,
+          queuedMs: 15 * 60_000,
+          runningMs: 10 * 60_000,
           ending: 'failed',
         }),
       );

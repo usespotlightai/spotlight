@@ -5,6 +5,7 @@ import type { EndedRun } from '@insights/application/ports/work.port';
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
+import { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
@@ -101,12 +102,19 @@ const ENDED: EndedRun = {
   endedAt: new Date('2026-09-30T10:00:00.000Z'),
 };
 
+const HELD = RunId.of('run_held');
+
 const WORK = {
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   taskRunOf: async (runId: RunId) =>
-    runId.equals(ENDED.runId)
-      ? { runId, taskId: ENDED.taskId, teamId: ENDED.teamId }
+    runId.equals(ENDED.runId) || runId.equals(HELD)
+      ? {
+          runId,
+          workspaceId: ENDED.workspaceId,
+          taskId: ENDED.taskId,
+          teamId: ENDED.teamId,
+        }
       : null,
   endedRun: async (runId: RunId) => (runId.equals(ENDED.runId) ? ENDED : null),
   configsInOrder: async () => [],
@@ -148,6 +156,11 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       inTransaction,
     ),
     checking: new RecordChangeChecks(
+      records,
+      new FactRecorder(deletions),
+      inTransaction,
+    ),
+    asking: new RecordAskingRun(
       records,
       new FactRecorder(deletions),
       inTransaction,
@@ -331,6 +344,7 @@ const runEnded = (change: Record<string, unknown> = {}) => ({
   taskId: 'task_1',
   stationId: 'station_1',
   driver: 'line',
+  handsOver: true,
   outcome: 'completed',
   failure: null,
   stopped: false,
@@ -428,6 +442,8 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.record-checked-change', {
       kind: CHANGE_CHECKED,
+      repository: 'api',
+      stackStartedAt: '2026-09-30T09:50:00.000Z',
       runId: 'run_1',
       taskId: null,
       workspaceId: 'ws_1',
@@ -442,10 +458,13 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.record-checked-change', {
       kind: CHANGE_CHECKED,
+      repository: 'api',
+      stackStartedAt: '2026-09-30T09:50:00.000Z',
       runId: 'run_1',
       taskId: 'task_1',
       workspaceId: 'ws_1',
       passed: true,
+      at: '2026-09-30T10:00:00.000Z',
     });
     await subscriber.deliver('insights.record-run-action', {
       kind: TASK_ACTED_ON,
@@ -711,6 +730,57 @@ describe('insightsSubscribers', () => {
     ]);
   });
 
+  it('records that a line run asked a person, before or after the run ended', async () => {
+    const subscriber = subscribed();
+
+    await subscriber.deliver('insights.record-asking-run', {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+      runId: 'run_1',
+      driver: 'line',
+      runAsked: true,
+    });
+    await subscriber.deliver('insights.record-ended-run', runEnded());
+
+    const record = await subscriber.record();
+    expect(record?.asked).toBe(true);
+    expect(record?.factWith(null, null, null)?.disposition).toBe('asked');
+  });
+
+  it('records no asking run for an ask a person drove, a failure the run reported, or no run made', async () => {
+    const subscriber = subscribed();
+    const ask = {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+      runAsked: true,
+    };
+
+    await subscriber.deliver('insights.record-asking-run', {
+      ...ask,
+      runId: 'run_1',
+      driver: 'person',
+    });
+    await subscriber.deliver('insights.record-asking-run', {
+      ...ask,
+      runId: 'run_1',
+      driver: 'line',
+      runAsked: false,
+    });
+    await subscriber.deliver('insights.record-asking-run', {
+      ...ask,
+      runId: null,
+      driver: 'line',
+    });
+
+    expect(await subscriber.record()).toBeNull();
+  });
+
   it('keeps no ask and no failure of a turn a person drove', async () => {
     const subscriber = subscribed();
 
@@ -720,7 +790,9 @@ describe('insightsSubscribers', () => {
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
+      runId: 'run_turn',
       driver: 'person',
+      runAsked: true,
     });
     await subscriber.deliver('insights.record-task-failure', {
       kind: TASK_FAILED,
@@ -1021,6 +1093,8 @@ describe('insightsSubscribers', () => {
     });
     await subscriber.deliver('insights.record-checked-change', {
       kind: CHANGE_CHECKED,
+      repository: 'api',
+      stackStartedAt: '2026-09-30T09:50:00.000Z',
       runId: 'run_3',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -1862,6 +1936,8 @@ describe('insightsSubscribers', () => {
 
       await subscriber.deliver('insights.record-change-shape', {
         kind: CHANGE_STACK_READY,
+        repository: 'api',
+        stackStartedAt: '2026-09-30T09:50:00.000Z',
         runId: 'run_1',
         taskId: 'task_2',
         workspaceId: 'ws_1',
@@ -1871,6 +1947,8 @@ describe('insightsSubscribers', () => {
       });
       await subscriber.deliver('insights.record-change-shape', {
         kind: CHANGE_STACK_READY,
+        repository: 'api',
+        stackStartedAt: '2026-09-30T09:50:00.000Z',
         runId: 'run_1',
         taskId: 'task_1',
         workspaceId: 'ws_2',
@@ -1883,11 +1961,38 @@ describe('insightsSubscribers', () => {
       expect(await subscriber.shapes.forTask(TaskId.of('task_2'))).toBeNull();
     });
 
+    it('records the cohorts of a run a person drove on the task', async () => {
+      const subscriber = subscribed();
+
+      await subscriber.deliver('insights.record-change-shape', {
+        kind: CHANGE_STACK_READY,
+        repository: 'api',
+        stackStartedAt: '2026-09-30T09:50:00.000Z',
+        runId: HELD.value,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        changeTitles: ['Fix the retry loop'],
+        changeIntents: [''],
+        at: '2026-09-30T10:00:00.000Z',
+      });
+
+      expect(
+        (await subscriber.shapes.forTask(TaskId.of('task_1')))?.shapes,
+      ).toEqual([
+        expect.objectContaining({
+          repository: 'api',
+          changeTitles: ['Fix the retry loop'],
+        }),
+      ]);
+    });
+
     it('records the cohorts of the latest change stack a task’s run left', async () => {
       const subscriber = subscribed();
 
       await subscriber.deliver('insights.record-change-shape', {
         kind: CHANGE_STACK_READY,
+        repository: 'api',
+        stackStartedAt: '2026-09-30T09:50:00.000Z',
         runId: 'run_1',
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -1897,6 +2002,8 @@ describe('insightsSubscribers', () => {
       });
       await subscriber.deliver('insights.record-change-shape', {
         kind: CHANGE_STACK_READY,
+        repository: 'api',
+        stackStartedAt: '2026-09-30T09:50:00.000Z',
         runId: 'run_unknown',
         taskId: 'task_2',
         workspaceId: 'ws_1',
@@ -1906,8 +2013,9 @@ describe('insightsSubscribers', () => {
       });
 
       expect(
-        (await subscriber.shapes.forTask(TaskId.of('task_1')))?.shape
-          .changeTitles,
+        (await subscriber.shapes.forTask(TaskId.of('task_1')))?.shapeOf(
+          PullRequestUrl.of(PULL),
+        )?.changeTitles,
       ).toEqual(['Fix the retry loop']);
       expect(
         (await subscriber.shapes.forTask(TaskId.of('task_1')))?.teamId.value,

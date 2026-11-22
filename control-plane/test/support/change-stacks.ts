@@ -11,6 +11,7 @@ export const awaitingCheck = async (
 ): Promise<string> => {
   const stackId = randomUUID();
   const runId = randomUUID();
+  const startedAt = new Date();
 
   await db.insert(schema.changeStack).values({
     id: stackId,
@@ -55,7 +56,7 @@ export const awaitingCheck = async (
       links: [],
       imports: [],
     },
-    startedAt: new Date(),
+    startedAt,
     completedAt: new Date(),
     cohorts: [
       {
@@ -106,6 +107,7 @@ export const awaitingCheck = async (
     attempts: 0,
     provisionAttempts: 0,
     waitingSince: new Date(),
+    stackStartedAt: startedAt,
     version: 0,
   });
 

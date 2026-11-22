@@ -21,6 +21,7 @@ import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import type { RunSpecParts } from '@runs/domain/value-objects/run-spec.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { TimeSpent } from '@runs/domain/value-objects/time-spent.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -87,6 +88,7 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     version: 0,
     queuedAt: noon,
     createdAt: noon,
+    spent: TimeSpent.none(),
   });
 
 describe('Run', () => {

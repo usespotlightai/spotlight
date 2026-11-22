@@ -10,17 +10,23 @@ import {
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
+import { RUN_RESUMED } from '@shared-kernel/application/integration-events/run-resumed.integration-event';
+import { TASK_TURN_AWAITED } from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import {
+  STATION_RUN_READER,
+  type StationRunReaderPort,
+} from '@work/application/ports/station-run-reader.port';
 import {
   TASK_VIEWS,
   type TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import { TakeTurn } from '@work/application/services/take-turn.service';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { eq, ne } from 'drizzle-orm';
+import { and, eq, isNotNull, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
@@ -131,6 +137,13 @@ const claimed = async (runId: string): Promise<string> => {
   return assignment.token;
 };
 
+const started = (token: string, runId: string) =>
+  runner(token)
+    .post(`/api/runs/${runId}/image`, {
+      image: `ghcr.io/acme/runner@sha256:${'a'.repeat(64)}`,
+    })
+    .expect(204);
+
 const aTaskWithLeasedRun = async (
   at = BUILD,
 ): Promise<{ taskId: string; runId: string }> => {
@@ -218,6 +231,64 @@ const runIn = (runId: string, state: string) =>
     const row = await runRow(runId);
 
     return row?.state === state ? row : null;
+  });
+
+interface AwaitedTurn {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly attempt: number;
+  readonly handsOver: boolean;
+}
+
+const awaitedTurnsOf = (runId: string, count = 1): Promise<AwaitedTurn[]> =>
+  eventually(async () => {
+    const turns = (
+      await db
+        .select({ payload: schema.eventOutbox.payload })
+        .from(schema.eventOutbox)
+        .where(eq(schema.eventOutbox.kind, TASK_TURN_AWAITED))
+    )
+      .map((each) => each.payload as AwaitedTurn)
+      .filter((each) => each.runId === runId)
+      .map(({ runId: run, taskId, attempt, handsOver }) => ({
+        runId: run,
+        taskId,
+        attempt,
+        handsOver,
+      }))
+      .sort((a, b) => a.attempt - b.attempt);
+
+    return turns.length >= count ? turns : null;
+  });
+
+const deliveredTo = (
+  runId: string,
+  kind: string = TASK_TURN_AWAITED,
+  count = 3,
+): Promise<string[]> =>
+  eventually(async () => {
+    const delivered = (
+      await db
+        .select({
+          subscriber: schema.eventDelivery.subscriber,
+          payload: schema.eventOutbox.payload,
+        })
+        .from(schema.eventDelivery)
+        .innerJoin(
+          schema.eventOutbox,
+          eq(schema.eventOutbox.id, schema.eventDelivery.eventId),
+        )
+        .where(
+          and(
+            eq(schema.eventOutbox.kind, kind),
+            isNotNull(schema.eventDelivery.deliveredAt),
+          ),
+        )
+    )
+      .filter((each) => (each.payload as { runId: string }).runId === runId)
+      .map((each) => each.subscriber);
+
+    return delivered.length >= count ? delivered : null;
   });
 
 const answered = async (taskId: string, body: string) => {
@@ -466,6 +537,87 @@ describe('a run that asks a person', () => {
     expect(ended?.stopped).toBe(false);
     expect(ended?.exitCode).toBe(0);
     expect((await taskRow(taskId))?.currentRunId).not.toBe(runId);
+  });
+
+  it('tells the other contexts of each kept turn, with its attempt, while the run waits, and of each resume', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const first = await claimed(runId);
+    await started(first, runId);
+    await runner(first)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+
+    expect(await awaitedTurnsOf(runId)).toEqual([
+      { runId, taskId, attempt: 1, handsOver: true },
+    ]);
+    expect(await deliveredTo(runId)).toEqual(
+      expect.arrayContaining([
+        'change-review.request-decisions-of-awaited-turn',
+        'change-review.signal-review-awaited',
+        'memory.request-memories-of-awaited-turn',
+      ]),
+    );
+
+    await answered(taskId, 'The default one.');
+    await runIn(runId, 'queued');
+    expect(await deliveredTo(runId, RUN_RESUMED, 1)).toEqual([
+      'change-review.signal-review-resumed',
+    ]);
+    const second = await claimed(runId);
+    await started(second, runId);
+    const resumed = await runRow(runId);
+    const unfinished = await app
+      .get<StationRunReaderPort>(STATION_RUN_READER)
+      .unfinishedOfTeam(team.teamId);
+    expect(resumed?.firstStartedAt).toBeInstanceOf(Date);
+    expect(resumed?.startedAt).not.toEqual(resumed?.firstStartedAt);
+    expect(unfinished.find((each) => each.runId === runId)?.startedAt).toEqual(
+      resumed?.firstStartedAt,
+    );
+    const pending = (
+      await runner(second).get(`/api/runs/${runId}/messages`).expect(200)
+    ).body as PendingMessage[];
+    await runner(second)
+      .post(`/api/runs/${runId}/messages/ack`, {
+        upTo: Math.max(...pending.map((each) => each.position)),
+      })
+      .expect(204);
+    await runner(second)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+
+    expect(
+      (await awaitedTurnsOf(runId, 2)).map((each) => each.attempt),
+    ).toEqual([1, 2]);
+  });
+
+  it('ends a parked run at the time it was suspended, leaving the person’s wait out of its time', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+    const suspended = await runRow(runId);
+    await inboxItemOf(taskId);
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+
+    await http()
+      .post(
+        `/api/teams/${team.teamId.value}/lines/${DELIVERY}/tasks/${taskId}/move`,
+      )
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ stationId: BACKLOG, revision: 0 })
+      .expect((response) => expect(response.status).toBeLessThan(300));
+
+    const ended = await runIn(runId, 'completed');
+    expect(ended?.endedAt).toEqual(suspended?.suspendedAt);
+    expect(ended?.firstStartedAt).toEqual(suspended?.startedAt);
+    expect(
+      (ended?.queuedMs ?? 0) + (ended?.runningMs ?? 0),
+    ).toBeLessThanOrEqual(
+      (suspended?.suspendedAt?.getTime() ?? 0) -
+        (suspended?.queuedAt.getTime() ?? 0),
+    );
   });
 
   it('takes a message in the run chat as the answer, taking the same run up once', async () => {

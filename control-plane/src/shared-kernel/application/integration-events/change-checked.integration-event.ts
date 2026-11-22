@@ -5,6 +5,8 @@ export type ChangeCheckedIntegrationEvent = {
   readonly runId: string;
   readonly taskId: string | null;
   readonly workspaceId: string;
+  readonly repository: string | null;
+  readonly stackStartedAt: string;
   readonly passed: boolean | null;
   readonly at: string;
 };

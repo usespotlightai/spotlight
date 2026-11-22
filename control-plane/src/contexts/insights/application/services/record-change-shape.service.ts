@@ -1,20 +1,19 @@
 import type { WorkPort } from '@insights/application/ports/work.port';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import {
-  type ChangeShape,
+  type RepositoryShape,
   TaskChangeShape,
 } from '@insights/domain/aggregates/task-change-shape.aggregate';
 import type { TaskChangeShapeRepository } from '@insights/domain/repositories/task-change-shape.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface ChangeShaped {
   readonly runId: string;
   readonly taskId: string | null;
   readonly workspaceId: string;
-  readonly shape: ChangeShape;
+  readonly shape: RepositoryShape;
 }
 
 export class RecordChangeShape {
@@ -27,7 +26,7 @@ export class RecordChangeShape {
 
   async shaped(shaped: ChangeShaped): Promise<void> {
     const run = shaped.taskId
-      ? await this.work.endedRun(RunId.of(shaped.runId))
+      ? await this.work.taskRunOf(RunId.of(shaped.runId))
       : null;
 
     if (
@@ -38,9 +37,7 @@ export class RecordChangeShape {
       return;
     }
 
-    const taskId = run.taskId;
-    const workspaceId = WorkspaceId.of(shaped.workspaceId);
-    const teamId = run.teamId;
+    const { taskId, workspaceId, teamId } = run;
 
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.shapes, {

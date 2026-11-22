@@ -10,6 +10,7 @@ import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
 import {
   MAX_ATTEMPTS,
@@ -233,6 +234,7 @@ const waiting = (isTrial: boolean): StackCheck => {
     trial: isTrial,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: START }),
     entries: [],
     now: START,
   });
@@ -424,6 +426,7 @@ const stored = (check: StackCheck): StackCheck =>
     trial: check.trial,
     workspaceId: check.workspaceId,
     request: check.request,
+    stack: check.stack,
     status: check.status,
     entries: check.entries,
     redraftCount: check.redraftCount,

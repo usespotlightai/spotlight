@@ -1,5 +1,6 @@
 import type { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import type { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import type { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import type { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import type { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import type { RecordChat } from '@insights/application/services/record-chat.service';
@@ -119,6 +120,7 @@ export interface InsightsHandlers {
   readonly ending: RecordRunEnding;
   readonly superseding: RecordSupersededRun;
   readonly checking: RecordChangeChecks;
+  readonly asking: RecordAskingRun;
   readonly acting: RecordRunAction;
   readonly deleting: DeleteInsights;
   readonly judging: RequestJudging;
@@ -309,6 +311,10 @@ export const insightsSubscribers = (
         RunId.of(event.runId),
         WorkspaceId.of(event.workspaceId),
         event.taskId ? TaskId.of(event.taskId) : null,
+        {
+          repository: event.repository,
+          startedAt: new Date(event.stackStartedAt),
+        },
         event.passed,
         new Date(event.at),
       ),
@@ -337,9 +343,10 @@ export const insightsSubscribers = (
     'insights.record-task-failure',
     [TASK_FAILED],
     (event) =>
-      event.driver === 'person'
-        ? Promise.resolve()
-        : handlers.failing.failed(event),
+      handlers.failing.failed({
+        ...event,
+        drivenByAPerson: event.driver === 'person',
+      }),
   ),
   subscribing<TaskOpenedIntegrationEvent>(
     'insights.record-task-opening',
@@ -350,9 +357,22 @@ export const insightsSubscribers = (
     'insights.record-inbox-ask',
     [TASK_ASKED],
     (event) =>
-      event.driver === 'person'
-        ? Promise.resolve()
-        : handlers.recordingTaskActions.asked(event),
+      handlers.recordingTaskActions.asked({
+        ...event,
+        drivenByAPerson: event.driver === 'person',
+      }),
+  ),
+  subscribing<TaskAskedIntegrationEvent>(
+    'insights.record-asking-run',
+    [TASK_ASKED],
+    (event) =>
+      handlers.asking.asked({
+        runId: event.runId ? RunId.of(event.runId) : null,
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        taskId: TaskId.of(event.taskId),
+        drivenByAPerson: event.driver === 'person',
+        runAsked: event.runAsked,
+      }),
   ),
   subscribing<TaskActedOnIntegrationEvent>(
     'insights.record-task-action',
@@ -416,6 +436,8 @@ export const insightsSubscribers = (
         taskId: event.taskId,
         workspaceId: event.workspaceId,
         shape: {
+          repository: event.repository,
+          stackStartedAt: new Date(event.stackStartedAt),
           changeTitles: event.changeTitles,
           changeIntents: event.changeIntents,
           at: new Date(event.at),

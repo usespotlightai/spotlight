@@ -10,6 +10,7 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
@@ -128,6 +129,7 @@ const checkFor = (stack: ChangeStack) =>
     trial: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: LATER }),
     entries: stack.entries(),
     now: LATER,
   });

@@ -76,7 +76,6 @@ export const dispatch = pgTable(
     outcome: dispatchOutcome('outcome'),
     failure: text('failure'),
     stopped: boolean('stopped').notNull().default(false),
-    askedAPerson: boolean('asked_a_person').notNull().default(false),
     superseded: boolean('superseded').notNull().default(false),
     version: integer('version').notNull().default(0),
   },

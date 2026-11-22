@@ -132,6 +132,9 @@ beforeAll(async () => {
       createdAt: ago(130),
       queuedAt: ago(130),
       startedAt: ago(125),
+      firstStartedAt: ago(125),
+      queuedMs: 5 * MINUTE,
+      runningMs: 5 * MINUTE,
       endedAt: ago(120),
     });
     await db.insert(schema.dispatch).values(
@@ -153,10 +156,10 @@ beforeAll(async () => {
       taskId: taskId.value,
       stationId: team.stationId.value,
       driver: 'line',
+      handsOver: true,
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
     };
     await delivered([ended], async () => (await records.of(runId))?.hasEnded);
 

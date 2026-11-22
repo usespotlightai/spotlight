@@ -1,6 +1,10 @@
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
 import type { TaskFailuresRepository } from '@insights/domain/repositories/task-failures.repository';
+import {
+  type DrivenRun,
+  isLineWork,
+} from '@insights/domain/services/line-work';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -9,7 +13,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TaskFailedReceived {
+export interface TaskFailedReceived extends DrivenRun {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -29,6 +33,10 @@ export class RecordTaskFailure {
   ) {}
 
   failed(event: TaskFailedReceived): Promise<void> {
+    if (!isLineWork(event)) {
+      return Promise.resolve();
+    }
+
     const occurrence = FailureOccurrence.of({
       stationId: StationId.of(event.stationId),
       runId: event.runId,

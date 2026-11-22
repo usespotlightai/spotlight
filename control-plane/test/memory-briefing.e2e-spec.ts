@@ -14,6 +14,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -40,6 +41,8 @@ import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
 
 interface Written {
   readonly id: string;
@@ -297,9 +300,9 @@ describe('briefing runs with what the team remembers', () => {
         taskId: team.list.id,
         workspaceId: team.workspaceId,
       })
-        .requestDrafting(runId, new Date())
+        .requestDrafting(AgentTurn.of(runId, 1, RUN_ORDERED_AT), new Date())
         .recordDraft({
-          runId,
+          turn: AgentTurn.of(runId, 1, RUN_ORDERED_AT),
           proposed: [
             {
               kind: 'preference',
@@ -314,7 +317,7 @@ describe('briefing runs with what the team remembers', () => {
           ],
           evidence: DraftEvidence.of({
             taskId: team.list.id,
-            runId,
+            turn: AgentTurn.of(runId, 1, RUN_ORDERED_AT),
             runContext: {
               teamId: TeamId.of(team.teamId.value),
               lineId: LineId.of(DELIVERY),

@@ -60,6 +60,8 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
             runId,
             taskId: event.taskId?.value ?? null,
             workspaceId: event.workspaceId.value,
+            repository: event.stack.repository?.value ?? null,
+            stackStartedAt: event.stack.startedAt.toISOString(),
             passed: event.passed,
             at: event.at.toISOString(),
           };
@@ -75,6 +77,8 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
         runId: event.runId.value,
         taskId: event.taskId?.value ?? null,
         workspaceId: event.workspaceId.value,
+        repository: event.stack.repository?.value ?? null,
+        stackStartedAt: event.stack.startedAt.toISOString(),
         changeTitles: changes.map((each) => each.title),
         changeIntents: changes.map((each) => each.intent),
         at: event.at.toISOString(),

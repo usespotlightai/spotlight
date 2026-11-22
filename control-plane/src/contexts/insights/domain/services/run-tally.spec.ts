@@ -10,7 +10,12 @@ import {
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
-import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
+import {
+  checkOf,
+  costedRecord,
+  endedRecord,
+  factsWith,
+} from '@insights/runs.fake-spec';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -34,14 +39,14 @@ describe('runTally', () => {
     const tally = tallyWith(
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
-          .recordCheck('failed', RECEIVED_AT)
+          .recordCheck(checkOf('failed', RECEIVED_AT))
           .recordAction(PersonAction.of('sent-back', AT, ACTOR)),
         endedRecord('run_2', { ending: 'stopped' }),
         endedRecord('run_3')
-          .recordCheck('passed', RECEIVED_AT)
+          .recordCheck(checkOf('passed', RECEIVED_AT))
           .recordAction(PersonAction.of('approved', AT, ACTOR)),
         endedRecord('run_4')
-          .recordCheck('skipped', RECEIVED_AT)
+          .recordCheck(checkOf('skipped', RECEIVED_AT))
           .recordAction(PersonAction.of('accepted', AT, ACTOR)),
         endedRecord('run_5').recordAction(
           PersonAction.of('dismissed', AT, ACTOR),
@@ -331,9 +336,11 @@ describe('tallyRatesOf', () => {
     const tally = tallyWith(
       [
         endedRecord('run_1', { taskId: 'task_1' })
-          .recordCheck('passed', AT)
+          .recordCheck(checkOf('passed', AT))
           .recordAction(PersonAction.of('accepted', AT, ACTOR)),
-        endedRecord('run_2', { taskId: 'task_2' }).recordCheck('failed', AT),
+        endedRecord('run_2', { taskId: 'task_2' }).recordCheck(
+          checkOf('failed', AT),
+        ),
         endedRecord('run_3', { taskId: 'task_3' }),
         endedRecord('run_4', { taskId: 'task_4' }),
       ],

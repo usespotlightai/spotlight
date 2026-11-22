@@ -148,15 +148,22 @@ describe('TurnDecision', () => {
   it('keeps a turn that hands the task over for review, so the task is put to a person', () => {
     const decision = deciding({});
 
-    expect(decision.kind).toBe('keep');
-    expect(decision.kind === 'keep' && decision.handover.body.value).toBe(
-      'Which queue?',
-    );
+    expect(decision).toMatchObject({
+      kind: 'keep',
+      handover: { body: { value: 'Which queue?' } },
+      runAsked: true,
+    });
   });
 
-  it('keeps a turn that ends without a handover to a station, or names a station it cannot pass to', () => {
-    expect(deciding({ handover: null }).kind).toBe('keep');
-    expect(deciding({ handover: { next: 'nowhere' } }).kind).toBe('keep');
+  it('keeps a turn that ends without a handover to a station, or names a station it cannot pass to, as Spotlight asking rather than the run', () => {
+    expect(deciding({ handover: null })).toMatchObject({
+      kind: 'keep',
+      runAsked: false,
+    });
+    expect(deciding({ handover: { next: 'nowhere' } })).toMatchObject({
+      kind: 'keep',
+      runAsked: false,
+    });
   });
 
   it('keeps a turn after a tool approval was put to a person', () => {

@@ -9,6 +9,7 @@ import { CheckRequest } from '@change-review/domain/value-objects/check-request.
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
 import type { ReviewWork } from '@runs/application/ports/review-work.port';
@@ -55,6 +56,7 @@ const waiting = (stack: string, placement: string[] = []) =>
     trial: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null, RunnerPlacement.of(placement)),
+    stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
     entries: [],
     now: NOW,
   });

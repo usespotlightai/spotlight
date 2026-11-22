@@ -4,6 +4,7 @@ import { changeCheckStatusOf } from '@change-review/domain/services/change-check
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
 import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
@@ -105,6 +106,7 @@ const checkOf = (
     trial: true,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: since }),
     status: outcome?.status ?? 'waiting',
     entries: [],
     redraftCount: 0,

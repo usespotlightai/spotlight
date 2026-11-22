@@ -6,6 +6,7 @@ import type { FactRecorder } from '@insights/application/services/fact-recorder.
 import { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
 import { sampledForJudging } from '@insights/domain/services/judge-sampling';
+import { isLineWork } from '@insights/domain/services/line-work';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import {
@@ -42,7 +43,7 @@ export class RequestJudging {
     const runId = RunId.of(event.runId);
 
     if (
-      event.drivenByAPerson ||
+      !isLineWork(event) ||
       !event.taskId ||
       !event.stationId ||
       !ending ||

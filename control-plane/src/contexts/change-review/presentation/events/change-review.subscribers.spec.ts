@@ -18,6 +18,7 @@ import { StackCheckReservationDropped } from '@change-review/domain/events/stack
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
@@ -27,7 +28,9 @@ import {
   type PullRequestPushedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-pushed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
+import type { RunResumedIntegrationEvent } from '@shared-kernel/application/integration-events/run-resumed.integration-event';
 import type { TaskRunAssignedIntegrationEvent } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
+import type { TaskTurnAwaitedIntegrationEvent } from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -127,8 +130,7 @@ describe('change review receiving a review comment on GitHub', () => {
 
 describe('change review receiving a run begin and end', () => {
   const signalled = () => {
-    const began = vi.fn(async () => {});
-    const ended = vi.fn(async () => {});
+    const signal = vi.fn(async (_task: TaskId) => {});
     const subscribers = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
@@ -136,7 +138,7 @@ describe('change review receiving a run begin and end', () => {
       {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
-      { began, ended } as unknown as SignalReviewing,
+      { signal } as unknown as SignalReviewing,
       {} as never,
       {} as never,
       {} as never,
@@ -154,11 +156,11 @@ describe('change review receiving a run begin and end', () => {
       return found;
     };
 
-    return { receiving, began, ended };
+    return { receiving, signal };
   };
 
-  it('signals a review begun when a task is dispatched to a run', async () => {
-    const { receiving, began } = signalled();
+  it('signals the review of a task when it is dispatched to a run', async () => {
+    const { receiving, signal } = signalled();
 
     const handed: TaskRunAssignedIntegrationEvent = {
       kind: 'work.task-run-assigned.v1',
@@ -169,11 +171,11 @@ describe('change review receiving a run begin and end', () => {
 
     await receiving(handed.kind).handle(handed, anOutboxRecord());
 
-    expect(began).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
+    expect(signal).toHaveBeenCalledWith(TaskId.of('task_1'));
   });
 
-  it('signals a review ended when its run ends, a person’s turn too, and nothing for a run with no task', async () => {
-    const { receiving, ended } = signalled();
+  it('signals the review of a task when its run ends, a person’s turn too, and nothing for a run with no task', async () => {
+    const { receiving, signal } = signalled();
     const subscriber = receiving('work.dispatch-ended.v1');
 
     const ofTask: DispatchEndedIntegrationEvent = {
@@ -183,10 +185,10 @@ describe('change review receiving a run begin and end', () => {
       taskId: 'task_1',
       stationId: 'station_1',
       driver: 'line',
+      handsOver: true,
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
     };
     const ofChat: DispatchEndedIntegrationEvent = {
       ...ofTask,
@@ -200,17 +202,18 @@ describe('change review receiving a run begin and end', () => {
       ...ofTask,
       runId: 'run_3',
       driver: 'person',
+      handsOver: false,
     };
 
     await subscriber.handle(ofTurn, anOutboxRecord());
 
-    expect(ended).toHaveBeenCalledTimes(2);
-    expect(ended).toHaveBeenCalledWith(TaskId.of('task_1'), RunId.of('run_1'));
+    expect(signal).toHaveBeenCalledTimes(2);
+    expect(signal).toHaveBeenCalledWith(TaskId.of('task_1'));
   });
 });
 
 describe('change review receiving a run end', () => {
-  it('requests the decisions a task’s run made, saying whether a person drove it, and none for a run with no task', async () => {
+  it('requests the decisions a task’s run made, saying whether it hands the work over, and none for a run with no task', async () => {
     const runEnded = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
@@ -235,10 +238,10 @@ describe('change review receiving a run end', () => {
       taskId: 'task_1',
       stationId: 'station_1',
       driver: 'line',
+      handsOver: true,
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
     };
 
     await subscriber?.handle(ofTask, anOutboxRecord());
@@ -253,6 +256,7 @@ describe('change review receiving a run end', () => {
       ...ofTask,
       runId: 'run_3',
       driver: 'person',
+      handsOver: false,
     };
 
     await subscriber?.handle(ofTurn, anOutboxRecord());
@@ -262,12 +266,103 @@ describe('change review receiving a run end', () => {
     expect(runEnded).toHaveBeenCalledWith(
       TaskId.of('task_1'),
       RunId.of('run_1'),
-      false,
+      true,
     );
     expect(runEnded).toHaveBeenCalledWith(
       TaskId.of('task_1'),
       RunId.of('run_3'),
+      false,
+    );
+  });
+});
+
+describe('change review receiving a kept turn', () => {
+  const awaited: TaskTurnAwaitedIntegrationEvent = {
+    kind: 'work.task-turn-awaited.v1',
+    taskId: 'task_1',
+    workspaceId: 'ws_1',
+    runId: 'run_1',
+    attempt: 2,
+    handsOver: true,
+  };
+
+  const subscribersWith = (
+    signalling: Partial<SignalReviewing>,
+    deciding: Partial<RequestDecisions>,
+  ) =>
+    changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as StickyCommentPosterPort,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      signalling as unknown as SignalReviewing,
+      {} as never,
+      deciding as unknown as RequestDecisions,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+  it('signals the review again once a kept run resumes', async () => {
+    const signalRun = vi.fn(async (_run: RunId) => {});
+    const subscriber = subscribersWith({ signalRun }, {}).find(
+      (each) => each.name === 'change-review.signal-review-resumed',
+    );
+    const resumed: RunResumedIntegrationEvent = {
+      kind: 'runs.run-resumed.v1',
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+    };
+
+    await subscriber?.handle(resumed, anOutboxRecord());
+
+    expect(subscriber?.kinds).toEqual(['runs.run-resumed.v1']);
+    expect(subscriber?.callsOut).toBe(true);
+    expect(signalRun).toHaveBeenCalledWith(RunId.of('run_1'));
+  });
+
+  it('signals the review ended while the run waits for its person', async () => {
+    const signal = vi.fn(async (_task: TaskId) => {});
+    const subscriber = subscribersWith({ signal }, {}).find(
+      (each) => each.name === 'change-review.signal-review-awaited',
+    );
+
+    await subscriber?.handle(awaited, anOutboxRecord());
+
+    expect(subscriber?.kinds).toEqual(['work.task-turn-awaited.v1']);
+    expect(signal).toHaveBeenCalledWith(TaskId.of('task_1'));
+  });
+
+  it('requests the decisions of the turn, saying whether it hands the work over', async () => {
+    const turnAwaited = vi.fn(async () => {});
+    const subscriber = subscribersWith({}, { turnAwaited }).find(
+      (each) => each.name === 'change-review.request-decisions-of-awaited-turn',
+    );
+
+    await subscriber?.handle(awaited, anOutboxRecord());
+    const handsNothingOver: TaskTurnAwaitedIntegrationEvent = {
+      ...awaited,
+      handsOver: false,
+    };
+    await subscriber?.handle(handsNothingOver, anOutboxRecord());
+
+    expect(subscriber?.kinds).toEqual(['work.task-turn-awaited.v1']);
+    expect(turnAwaited).toHaveBeenNthCalledWith(
+      1,
+      TaskId.of('task_1'),
+      RunId.of('run_1'),
+      2,
       true,
+    );
+    expect(turnAwaited).toHaveBeenNthCalledWith(
+      2,
+      TaskId.of('task_1'),
+      RunId.of('run_1'),
+      2,
+      false,
     );
   });
 });
@@ -353,6 +448,10 @@ describe('change review receiving a stack’s check end', () => {
         WorkspaceId.of('ws_1'),
         true,
         false,
+        RepositoryStack.of({
+          repository: null,
+          startedAt: new Date('2026-10-02T09:00:00.000Z'),
+        }),
         new Date('2026-10-02T09:30:00.000Z'),
       ),
       anOutboxRecord(),

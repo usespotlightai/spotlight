@@ -82,6 +82,7 @@ import {
   worksOn,
 } from '@work/domain/services/conversations';
 import { deferralIn } from '@work/domain/services/deferred-moves';
+import { handsOverOnWait } from '@work/domain/services/hand-over';
 import {
   type MessageAddress,
   MessageEffect,
@@ -2675,11 +2676,15 @@ export class Task extends EventRecorder {
   }
 
   askedAbout(newNote: NewNote, by: RunId | null): Task {
-    return this.asked(newNote, by, null);
+    return this.asked(newNote, by, null, false);
+  }
+
+  askedBy(newNote: NewNote, run: RunId): Task {
+    return this.asked(newNote, run, null, true);
   }
 
   putToAPerson(by: RunId, newNote: NewNote): Task {
-    return this.asked(newNote, by, by);
+    return this.asked(newNote, by, by, true);
   }
 
   awaitTurn(turn: {
@@ -2687,6 +2692,7 @@ export class Task extends EventRecorder {
     readonly note: NewNote;
     readonly session: HarnessSession | null;
     readonly runner: RunnerId | null;
+    readonly runAsked: boolean;
   }): Task {
     const runId = turn.turn.runId;
 
@@ -2707,14 +2713,21 @@ export class Task extends EventRecorder {
       : this;
     const asked = recorded.awaitingReview
       ? recorded
-      : recorded.putToAPerson(runId, turn.note);
+      : recorded.asked(turn.note, runId, runId, turn.runAsked);
 
     const awaiting = asked.with({
       awaitedTurn: turn.turn,
       answeredTurnAt: null,
     });
 
-    awaiting.record(new TaskTurnAwaited(this.id, this.workspaceId, turn.turn));
+    awaiting.record(
+      new TaskTurnAwaited(
+        this.id,
+        this.workspaceId,
+        turn.turn,
+        handsOverOnWait(this.driverOf(runId)),
+      ),
+    );
 
     return awaiting;
   }
@@ -2729,6 +2742,7 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     by: RunId | null,
     waiting: RunId | null,
+    runAsked: boolean,
   ): Task {
     this.assertNoOtherRun(by, 'put it to a person');
 
@@ -2756,7 +2770,9 @@ export class Task extends EventRecorder {
         asked.stationId,
         asked.assignee,
         newNote.at,
+        by,
         by ? this.driverOf(by) : 'line',
+        runAsked,
       ),
     );
 

@@ -29,8 +29,8 @@ export const ranOfOpened = (team: TeamInPeriod): SQL => sql`
 
 export const stationTimeOfOpened = (team: TeamInPeriod): SQL => {
   const { lookback } = team.period;
-  const queuedMs = msOf(sql`facts.started_at - facts.queued_at`);
-  const runningMs = msOf(sql`facts.ended_at - facts.started_at`);
+  const queuedMs = sql`facts.queued_ms::float8`;
+  const runningMs = sql`facts.running_ms::float8`;
   const answerMs = msOf(sql`waits.acted_at - waits.asked_at`);
 
   return sql`

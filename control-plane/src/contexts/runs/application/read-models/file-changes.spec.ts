@@ -24,6 +24,7 @@ const step = (
 const journal = (steps: JournalStep[]): RunJournal => ({
   runId: 'run_1',
   attempt: 1,
+  firstStep: 0,
   steps,
   spans: [],
   ms: null,

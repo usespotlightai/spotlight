@@ -68,7 +68,8 @@ export class DecisionResponseDto {
 
   @ApiProperty({
     type: [Number],
-    description: 'Where the agent reasoned it, as steps of the run’s journal',
+    description:
+      'Where the agent reasoned it, as numbers of steps in the run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0',
   })
   readonly journalSteps: number[];
 

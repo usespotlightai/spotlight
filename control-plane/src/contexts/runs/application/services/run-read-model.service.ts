@@ -23,6 +23,7 @@ import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RequesterOwner } from '@runs/domain/value-objects/run-requester.vo';
 import {
+  isWorking,
   resumable,
   progressOf as runProgressOf,
 } from '@runs/domain/value-objects/run-state';
@@ -59,6 +60,11 @@ const factsOf = (
     queuedAt: queuedAtOf(run),
     startedAt: run.startedAt,
     endedAt: run.endedAt,
+    spent: {
+      queuedMs: run.spent.queuedMs,
+      runningMs: run.spent.runningMs,
+      firstStartedAt: run.spent.firstStartedAt,
+    },
     started: run.hasStarted,
     askedAPerson: run.askedAPerson,
     failed: run.outcome?.failed ?? false,
@@ -97,6 +103,7 @@ const progressFactsOf = (run: Run) => {
       turn,
     }),
     resumable: resumable(run.state, run.stopRequested, turn),
+    working: isWorking(run.state, run.stopRequested),
   };
 };
 

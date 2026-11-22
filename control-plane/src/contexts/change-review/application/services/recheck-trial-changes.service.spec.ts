@@ -3,6 +3,7 @@ import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggrega
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { StackCheckStatus } from '@change-review/domain/value-objects/stack-check.vo';
@@ -34,6 +35,7 @@ const checkOf = (
     trial: over.trial ?? true,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
+    stack: RepositoryStack.of({ repository: null, startedAt: NOW }),
     status,
     entries: [],
     redraftCount: 0,

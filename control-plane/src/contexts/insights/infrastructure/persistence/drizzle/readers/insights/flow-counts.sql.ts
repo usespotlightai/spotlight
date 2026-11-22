@@ -56,8 +56,8 @@ const runsIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<readonly RunsRow[]> => {
-  const queuedMs = msOf(sql`ran_here.started_at - ran_here.queued_at`);
-  const runningMs = msOf(sql`ran_here.ended_at - ran_here.started_at`);
+  const queuedMs = sql`ran_here.queued_ms::float8`;
+  const runningMs = sql`ran_here.running_ms::float8`;
   const result = await db.execute<RunsRow>(sql`
     with ran_here as (
       select
@@ -83,8 +83,8 @@ const runsIn = async (
         where tasks.is_current = ran_here.is_current
           and tasks.station_id = ran_here.station_id
       ) as task_ids,
-      ${spreadOver(queuedMs, sql`ran_here.queued_at is not null and ran_here.started_at is not null`)} as queued,
-      ${spreadOver(runningMs, sql`ran_here.started_at is not null`)} as running
+      ${spreadOver(queuedMs, sql`ran_here.queued_ms is not null`)} as queued,
+      ${spreadOver(runningMs, sql`ran_here.running_ms is not null`)} as running
     from ran_here
     group by ran_here.is_current, ran_here.station_id
   `);

@@ -2,6 +2,7 @@ import { ChangeStackReactions } from '@change-review/application/events/handlers
 import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -34,6 +35,10 @@ const checked = (
     WorkspaceId.of('ws_1'),
     true,
     trial,
+    RepositoryStack.of({
+      repository: null,
+      startedAt: new Date('2026-10-02T09:00:00.000Z'),
+    }),
     new Date('2026-10-02T09:30:00.000Z'),
   );
 

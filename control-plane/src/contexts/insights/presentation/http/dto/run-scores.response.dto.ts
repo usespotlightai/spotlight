@@ -14,7 +14,8 @@ import { ApiProperty } from '@nestjs/swagger';
 export class CitedStepResponseDto {
   @ApiProperty({
     example: 12,
-    description: 'Where the step sits in the run’s journal',
+    description:
+      'The number of the step in its run’s journal: (attempt − 1) × 1,000,000 + its position in that attempt’s journal, from 0',
   })
   readonly index: number;
 

@@ -7,6 +7,7 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { HandoverFor } from '@work/domain/services/handover-for';
 import { routeAfterRun } from '@work/domain/services/route-after-run';
 import {
   lineMapOf,
@@ -71,6 +72,8 @@ const waiting = (deferredMoveTo: StationId | null) => ({
   onHold: false,
 });
 
+const ASKED = ResolvedHandover.asked(NOTE, NOTE, [], false);
+
 const endings: readonly [string, ResolvedHandover][] = [
   ['asks a person', ResolvedHandover.review(NOTE)],
   ['hands over the task as done', ResolvedHandover.done(NOTE)],
@@ -105,11 +108,10 @@ describe('routeAfterRun', () => {
   });
 
   it('ends as the run handed over where the station deferred to has left the line', () => {
-    expect(
-      routeAfterRun(ResolvedHandover.review(NOTE), LINE, working(GONE)),
-    ).toEqual({
+    expect(routeAfterRun(ASKED, LINE, working(GONE))).toEqual({
       kind: 'ask',
       failure: null,
+      runAsked: true,
     });
     expect(
       routeAfterRun(
@@ -120,6 +122,7 @@ describe('routeAfterRun', () => {
     ).toEqual({
       kind: 'ask',
       failure: FAILURE,
+      runAsked: false,
     });
     expect(
       routeAfterRun(ResolvedHandover.done(NOTE), LINE, working(GONE)),
@@ -129,11 +132,17 @@ describe('routeAfterRun', () => {
   });
 
   it('ends as the run handed over with nothing deferred', () => {
+    expect(routeAfterRun(ASKED, LINE, working(null))).toEqual({
+      kind: 'ask',
+      failure: null,
+      runAsked: true,
+    });
     expect(
       routeAfterRun(ResolvedHandover.review(NOTE), LINE, working(null)),
     ).toEqual({
       kind: 'ask',
       failure: null,
+      runAsked: false,
     });
     expect(
       routeAfterRun(ResolvedHandover.done(NOTE), LINE, working(null)),
@@ -193,6 +202,15 @@ describe('routeAfterRun', () => {
     ).toEqual({
       kind: 'ask',
       failure: null,
+      runAsked: false,
+    });
+  });
+
+  it('asks a person for a run a person stopped, as no question of the run', () => {
+    expect(routeAfterRun(HandoverFor.stopped(), LINE, working(null))).toEqual({
+      kind: 'ask',
+      failure: null,
+      runAsked: false,
     });
   });
 
@@ -203,8 +221,12 @@ describe('routeAfterRun', () => {
       ResolvedHandover.pass(StationId.of('station_2'), NOTE),
       ResolvedHandover.done(NOTE),
       ResolvedHandover.review(NOTE),
+      ASKED,
     ]) {
-      expect(routeAfterRun(handover, LINE, onHold).kind).toBe('ask');
+      expect(routeAfterRun(handover, LINE, onHold)).toMatchObject({
+        kind: 'ask',
+        runAsked: handover === ASKED,
+      });
     }
     expect(
       routeAfterRun(ResolvedHandover.done(NOTE), LINE, {

@@ -11,6 +11,8 @@ import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { codeOf } from '@platform/persistence/drizzle/violations';
+import { AgentTurn } from '@shared-kernel/domain/value-objects/agent-turn.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -24,9 +26,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
+
+const RUN_ORDERED_AT = new Date('2026-09-01T00:00:00.000Z');
+const SECOND_ORDERED_AT = new Date('2026-09-01T01:00:00.000Z');
 const LATER = new Date('2026-09-27T11:00:00.000Z');
 const FIRST = RunId.of('run_1');
 const SECOND = RunId.of('run_2');
+const FIRST_TURN = AgentTurn.of(FIRST, 1, RUN_ORDERED_AT);
+const SECOND_TURN = AgentTurn.of(SECOND, 1, SECOND_ORDERED_AT);
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
@@ -66,16 +73,16 @@ const newDraft = () => {
 
 const drafting = (
   draft: MemoryDraft,
-  runId: RunId,
+  turn: AgentTurn,
   proposed: readonly ProposedMemory[],
 ) => {
   let made = 0;
   return draft.recordDraft({
-    runId,
+    turn,
     proposed,
     evidence: DraftEvidence.of({
       taskId: draft.taskId,
-      runId,
+      turn,
       runContext: STATION_CONTEXT,
       steps: [{ index: 5, kind: 'message', text: 'Retrying in the request.' }],
       notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
@@ -86,7 +93,7 @@ const drafting = (
     }),
     newId: () => {
       made += 1;
-      return `${draft.id.value}_${runId.value}_${made}`;
+      return `${draft.id.value}_${turn.runId.value}_${turn.attempt}_${made}`;
     },
     now: NOW,
   });
@@ -116,15 +123,17 @@ afterAll(async () => {
 
 describe('storing a task’s memory draft', () => {
   it('stores what a run proposed, where it applies and what it cites', async () => {
-    const draft = newDraft().requestDrafting(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
     await drafts.add(draft);
 
-    await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
+    await drafts.save(
+      drafting(await stored(draft), FIRST_TURN, [remembered()]),
+    );
 
     const read = await stored(draft);
     const [proposal] = read.proposals;
     expect(read.hasPendingJob).toBe(false);
-    expect(read.draftedIn?.equals(FIRST)).toBe(true);
+    expect(read.draftedIn?.equals(FIRST_TURN)).toBe(true);
     expect(read.notesRead).toBe(5);
     expect(proposal?.kind).toBe('correction');
     expect(proposal?.source).toBe('run');
@@ -142,19 +151,41 @@ describe('storing a task’s memory draft', () => {
     expect(proposal?.provenance.runId.equals(FIRST)).toBe(true);
   });
 
-  it('replaces what an earlier run proposed with what the latest proposed', async () => {
-    const draft = newDraft().requestDrafting(FIRST, NOW);
+  it('keeps the attempt of a kept run it drafts, and drafts the run again for a later turn', async () => {
+    const resumed = AgentTurn.of(FIRST, 2, RUN_ORDERED_AT);
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
     await drafts.add(draft);
     await drafts.save(
-      drafting(await stored(draft), FIRST, [
+      drafting(await stored(draft), FIRST_TURN, [remembered()]),
+    );
+
+    expect(
+      (await stored(draft)).requestDrafting(FIRST_TURN, LATER).hasPendingJob,
+    ).toBe(false);
+
+    await drafts.save((await stored(draft)).requestDrafting(resumed, LATER));
+    const requested = await stored(draft);
+    expect(requested.drafting?.isFor(resumed)).toBe(true);
+
+    await drafts.save(drafting(requested, resumed, [remembered()]));
+    expect((await stored(draft)).draftedIn?.equals(resumed)).toBe(true);
+  });
+
+  it('replaces what an earlier run proposed with what the latest proposed', async () => {
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
+    await drafts.add(draft);
+    await drafts.save(
+      drafting(await stored(draft), FIRST_TURN, [
         remembered(),
         remembered({ kind: 'environment', body: 'CI has no network.' }),
       ]),
     );
 
-    await drafts.save((await stored(draft)).requestDrafting(SECOND, LATER));
     await drafts.save(
-      drafting(await stored(draft), SECOND, [
+      (await stored(draft)).requestDrafting(SECOND_TURN, LATER),
+    );
+    await drafts.save(
+      drafting(await stored(draft), SECOND_TURN, [
         remembered({ kind: 'failure', body: 'The upload test flakes.' }),
       ]),
     );
@@ -171,7 +202,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('stores a failure that allows no other attempt, and the draft it ended', async () => {
-    const draft = newDraft().requestDrafting(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
     await drafts.add(draft);
     const leased = (await stored(draft)).leaseJob(NOW);
     await drafts.save(leased);
@@ -204,7 +235,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('does not write over a draft that changed since it was read', async () => {
-    const draft = newDraft().requestDrafting(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
     await drafts.add(draft);
     const read = await stored(draft);
     await drafts.save(read.leaseJob(NOW));
@@ -216,8 +247,8 @@ describe('storing a task’s memory draft', () => {
 
   it('hands out the oldest draft that is due, and none that is waiting', async () => {
     await database.db.execute(sql`delete from memory_draft`);
-    const waiting = newDraft().requestDrafting(FIRST, NOW);
-    const due = newDraft().requestDrafting(SECOND, LATER);
+    const waiting = newDraft().requestDrafting(FIRST_TURN, NOW);
+    const due = newDraft().requestDrafting(SECOND_TURN, LATER);
     await drafts.add(waiting);
     await drafts.add(due);
     await drafts.save(
@@ -235,10 +266,39 @@ describe('storing a task’s memory draft', () => {
     expect(handed?.id.equals(due.id)).toBe(true);
   });
 
-  it('deletes the draft of a deleted task, and its proposals with it', async () => {
-    const draft = newDraft().requestDrafting(FIRST, NOW);
+  it('reads a task’s draft under a lock, so no one else changes it until the reader is done', async () => {
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
     await drafts.add(draft);
-    await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
+
+    await database.db.transaction(async (tx) => {
+      const locked = await new DrizzleMemoryDraftRepository(
+        new DrizzleContext(tx),
+        { dispatch: async () => {} },
+      ).forTaskLocked(draft.taskId);
+
+      expect(locked?.id.equals(draft.id)).toBe(true);
+      const refused = await database.db
+        .transaction(async (other) => {
+          await other.execute(sql`set local lock_timeout = '200ms'`);
+          await other.execute(
+            sql`select id from memory_draft where id = ${draft.id.value} for update`,
+          );
+        })
+        .then(
+          () => null,
+          (error: unknown) => codeOf(error),
+        );
+
+      expect(refused).toBe('55P03');
+    });
+  });
+
+  it('deletes the draft of a deleted task, and its proposals with it', async () => {
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
+    await drafts.add(draft);
+    await drafts.save(
+      drafting(await stored(draft), FIRST_TURN, [remembered()]),
+    );
 
     await drafts.save((await stored(draft)).delete());
 
@@ -303,10 +363,10 @@ describe('reading what the team already knows', () => {
   });
 
   it('reads the proposals people turned down lately, in scope', async () => {
-    const draft = newDraft().requestDrafting(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST_TURN, NOW);
     await drafts.add(draft);
     await drafts.save(
-      drafting(await stored(draft), FIRST, [
+      drafting(await stored(draft), FIRST_TURN, [
         remembered({ body: 'Turned down lately' }),
         remembered({ body: 'Turned down long ago' }),
         remembered({ body: 'Still waiting' }),

@@ -10,7 +10,6 @@ const endedAs = (outcome: DispatchOutcome) =>
     outcome,
     failure: null,
     stopped: false,
-    askedAPerson: false,
   });
 
 describe('DispatchEnding', () => {

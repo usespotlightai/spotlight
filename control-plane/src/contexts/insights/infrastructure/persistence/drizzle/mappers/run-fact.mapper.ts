@@ -34,6 +34,8 @@ export const rowOfFact = (fact: RunFact): RunFactRow => {
 
   return {
     ...parts,
+    checks: fact.checks,
+    checkedAt: fact.checkedAt,
     runId: fact.runId.value,
     workspaceId: fact.workspaceId.value,
     teamId: required(parts.teamId),
@@ -71,6 +73,7 @@ export const factOfRow = (row: RunFactRow): RunFact => {
     end: required(endOf(parts, 'run fact')),
     supersededAt: row.supersededAt,
     followedAt: row.followedAt,
+    asked: row.asked,
     checks: row.checks,
     checkedAt: row.checkedAt,
     actions: actionsOf(parts, 'run fact'),

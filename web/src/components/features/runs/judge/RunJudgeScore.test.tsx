@@ -79,10 +79,9 @@ describe('RunJudgeScore', () => {
   it('greys out its See links when the page around it shows no steps or files', () => {
     showing();
 
-    expect(screen.getByRole('button', { name: 'step 1' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(
+      screen.getByRole('button', { name: 'execute step' }),
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('button', { name: 'retry.ts:1' }),
     ).toHaveAccessibleDescription(

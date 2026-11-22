@@ -154,6 +154,9 @@ beforeAll(async () => {
     spec: SPEC,
     createdAt: ago(300),
     startedAt: ago(298),
+    firstStartedAt: ago(298),
+    queuedMs: 2 * MINUTE,
+    runningMs: 58 * MINUTE,
     ...endingFor('completed', ago(240)),
   });
   await db.insert(schema.dispatch).values(
@@ -189,10 +192,10 @@ beforeAll(async () => {
     taskId: TASK.value,
     stationId: team.stationId.value,
     driver: 'line',
+    handsOver: true,
     outcome: 'completed',
     failure: null,
     stopped: false,
-    asked: false,
   };
 
   const record = () => app.get(DrizzleRunRecordRepository).of(RUN);
@@ -314,7 +317,18 @@ beforeAll(async () => {
     async () => (await record())?.passed,
   );
   await delivered(
-    [new TaskAsked(TASK, workspaceId, station, team.owner, ago(230), 'line')],
+    [
+      new TaskAsked(
+        TASK,
+        workspaceId,
+        station,
+        team.owner,
+        ago(230),
+        null,
+        'line',
+        false,
+      ),
+    ],
     async () => (await taskActions())?.asks.length === 1,
   );
   await delivered(
@@ -1032,10 +1046,10 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       taskId: task.value,
       stationId: team.stationId.value,
       driver: 'line',
+      handsOver: false,
       outcome: 'cancelled',
       failure: null,
       stopped: false,
-      asked: false,
     };
 
     await app.get(EventOutbox).record([ended]);
@@ -1058,6 +1072,64 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     expect(await total('skillEnabled=grafana')).toBe(1);
   });
 
+  it('records that a run asked a person when Work puts its task to one', async () => {
+    const asking = RunId.of(randomUUID());
+    const task = TaskId.of(randomUUID());
+
+    await app
+      .get(EventOutbox)
+      .record([
+        new TaskAsked(
+          task,
+          team.workspaceId,
+          team.stationId,
+          team.owner,
+          ago(30),
+          asking,
+          'line',
+          true,
+        ),
+      ]);
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+      return (await app.get(DrizzleRunRecordRepository).of(asking))?.asked;
+    }, 60_000);
+
+    expect(
+      (await app.get(DrizzleRunRecordRepository).of(asking))?.taskId?.equals(
+        task,
+      ),
+    ).toBe(true);
+  });
+
+  it('records no asking run when Work puts a task to a person that the run did not ask about', async () => {
+    const failing = RunId.of(randomUUID());
+    const asking = RunId.of(randomUUID());
+    const putToTheOwner = (run: RunId, runAsked: boolean) =>
+      new TaskAsked(
+        TaskId.of(randomUUID()),
+        team.workspaceId,
+        team.stationId,
+        team.owner,
+        ago(30),
+        run,
+        'line',
+        runAsked,
+      );
+
+    await app
+      .get(EventOutbox)
+      .record([putToTheOwner(failing, false), putToTheOwner(asking, true)]);
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+      return (await app.get(DrizzleRunRecordRepository).of(asking))?.asked;
+    }, 60_000);
+
+    expect(
+      (await app.get(DrizzleRunRecordRepository).of(failing))?.asked ?? false,
+    ).toBe(false);
+  });
+
   const seeded = async (seed: {
     readonly outcome: 'completed' | 'failed';
     readonly superseded?: boolean;
@@ -1076,6 +1148,9 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       spec: SPEC,
       createdAt: ago(100),
       startedAt: ago(99),
+      firstStartedAt: ago(99),
+      queuedMs: MINUTE,
+      runningMs: 9 * MINUTE,
       ...endingFor(seed.outcome, ago(90)),
     });
     await db.insert(schema.dispatch).values(
@@ -1112,10 +1187,10 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       taskId: task.value,
       stationId: team.stationId.value,
       driver: 'line',
+      handsOver: seed.outcome === 'completed',
       outcome: seed.outcome,
       failure: seed.outcome === 'failed' ? 'exited' : null,
       stopped: false,
-      asked: false,
     };
     const superseded: DispatchSupersededIntegrationEvent = {
       kind: DISPATCH_SUPERSEDED,

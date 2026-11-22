@@ -36,6 +36,5 @@ export const runEndedOf = (event: DispatchEndedIntegrationEvent): RunEnded => ({
   stationId: event.stationId,
   ending: endingOf(event),
   failure: event.failure,
-  asked: event.asked,
   drivenByAPerson: event.driver === 'person',
 });

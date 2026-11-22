@@ -71,6 +71,7 @@ export class DrizzleDispatchedRuns implements DispatchedRunsPort {
         asOf: dispatch.asOf,
         trialRepositories: dispatch.trialRepositories,
         briefedMemories: dispatch.briefedMemories,
+        orderedAt: dispatch.orderedAt,
       })
       .from(dispatch)
       .where(eq(dispatch.id, runId.value))
@@ -81,6 +82,7 @@ export class DrizzleDispatchedRuns implements DispatchedRunsPort {
           runId: RunId.of(row.id),
           for: forOf(row),
           briefedMemories: row.briefedMemories,
+          orderedAt: row.orderedAt,
         }
       : null;
   }

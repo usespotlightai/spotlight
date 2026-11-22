@@ -11,6 +11,10 @@ import type {
   PersonAction,
 } from '@insights/domain/value-objects/person-action.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
+import {
+  type RepositoryCheck,
+  RunChecks,
+} from '@insights/domain/value-objects/run-checks.vo';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import {
   RunFact,
@@ -39,8 +43,8 @@ export class RunRecord extends EventRecorder {
     readonly taskId: TaskId | null,
     readonly end: RunEnd | null,
     readonly supersededAt: Date | null,
-    readonly checks: CheckVerdict | null,
-    readonly checkedAt: Date | null,
+    readonly asked: boolean,
+    readonly checked: RunChecks,
     readonly actions: RunActions,
     readonly approvalAnsweredAt: Date | null,
     readonly usage: RunUsage | null,
@@ -64,8 +68,8 @@ export class RunRecord extends EventRecorder {
       taskId,
       null,
       null,
-      null,
-      null,
+      false,
+      RunChecks.NONE,
       RunActions.NONE,
       null,
       null,
@@ -83,8 +87,8 @@ export class RunRecord extends EventRecorder {
     taskId: TaskId | null;
     end: RunEnd | null;
     supersededAt: Date | null;
-    checks: CheckVerdict | null;
-    checkedAt: Date | null;
+    asked: boolean;
+    checked: RunChecks;
     actions: RunActions;
     approvalAnsweredAt: Date | null;
     usage: RunUsage | null;
@@ -100,9 +104,6 @@ export class RunRecord extends EventRecorder {
     ) {
       throw new InvalidOutcomeError('must end on its own task');
     }
-    if ((input.checks === null) !== (input.checkedAt === null)) {
-      throw new InvalidOutcomeError('must say when its change was checked');
-    }
     if (input.tools !== null && input.usage === null) {
       throw new InvalidOutcomeError(
         'must have its tools once its usage is recorded',
@@ -115,8 +116,8 @@ export class RunRecord extends EventRecorder {
       input.taskId,
       input.end,
       input.supersededAt,
-      input.checks,
-      input.checkedAt,
+      input.asked,
+      input.checked,
       input.actions,
       input.approvalAnsweredAt,
       input.usage,
@@ -143,6 +144,14 @@ export class RunRecord extends EventRecorder {
     }, null);
   }
 
+  get checks(): CheckVerdict | null {
+    return this.checked.verdict;
+  }
+
+  get checkedAt(): Date | null {
+    return this.checked.checkedAt;
+  }
+
   get superseded(): boolean {
     return this.supersededAt !== null;
   }
@@ -167,6 +176,7 @@ export class RunRecord extends EventRecorder {
           end: this.end,
           supersededAt: this.supersededAt,
           followedAt,
+          asked: this.asked,
           checks: this.checks,
           checkedAt: this.checkedAt,
           actions: this.actions,
@@ -213,15 +223,14 @@ export class RunRecord extends EventRecorder {
     return this.superseded ? this : this.withOutcome({ supersededAt: at });
   }
 
-  recordCheck(verdict: CheckVerdict, at: Date): RunRecord {
-    if (
-      this.checks === null ||
-      (this.checks === 'skipped' && verdict !== 'skipped')
-    ) {
-      return this.withOutcome({ checks: verdict, checkedAt: at });
-    }
+  recordAsked(): RunRecord {
+    return this.asked ? this : this.withOutcome({ asked: true });
+  }
 
-    return this;
+  recordCheck(check: RepositoryCheck): RunRecord {
+    const checked = this.checked.checked(check);
+
+    return checked === this.checked ? this : this.withOutcome({ checked });
   }
 
   recordAction(
@@ -299,8 +308,8 @@ export class RunRecord extends EventRecorder {
   private withOutcome(change: {
     supersededAt?: Date;
     passed?: StationPass;
-    checks?: CheckVerdict;
-    checkedAt?: Date;
+    asked?: boolean;
+    checked?: RunChecks;
     actions?: RunActions;
     approvalAnsweredAt?: Date;
     usage?: RunUsage;
@@ -321,8 +330,8 @@ export class RunRecord extends EventRecorder {
     taskId?: TaskId;
     end?: RunEnd;
     supersededAt?: Date;
-    checks?: CheckVerdict;
-    checkedAt?: Date;
+    asked?: boolean;
+    checked?: RunChecks;
     actions?: RunActions;
     approvalAnsweredAt?: Date;
     usage?: RunUsage;
@@ -337,8 +346,8 @@ export class RunRecord extends EventRecorder {
       change.taskId ?? this.taskId,
       change.end ?? this.end,
       change.supersededAt ?? this.supersededAt,
-      change.checks ?? this.checks,
-      change.checkedAt ?? this.checkedAt,
+      change.asked ?? this.asked,
+      change.checked ?? this.checked,
       change.actions ?? this.actions,
       change.approvalAnsweredAt ?? this.approvalAnsweredAt,
       change.usage ?? this.usage,
