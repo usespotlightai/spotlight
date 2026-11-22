@@ -552,7 +552,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.dispatch-briefed.v2',
+        kind: 'work.dispatch-briefed.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',

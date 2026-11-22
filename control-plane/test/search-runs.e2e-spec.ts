@@ -606,7 +606,7 @@ describe('a search run ending', () => {
       },
     ]);
 
-    for (const kind of ['work.dispatch-ended.v1', 'work.dispatch-briefed.v2']) {
+    for (const kind of ['work.dispatch-ended.v1', 'work.dispatch-briefed.v1']) {
       expect(await published(kind, runId)).toEqual([]);
     }
     expect(

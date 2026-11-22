@@ -26,7 +26,7 @@ describe('what memory tells other contexts', () => {
       ),
     ).toEqual([
       {
-        kind: 'memory.memories-used.v2',
+        kind: 'memory.memories-used.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',

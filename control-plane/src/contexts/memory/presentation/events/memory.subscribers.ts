@@ -15,8 +15,8 @@ import type { MemoryUpkeepSettled } from '@memory/domain/events/memory-upkeep-se
 import type { MemoryUpkeepSwept } from '@memory/domain/events/memory-upkeep-swept.event';
 import type { UpkeepProposalApproved } from '@memory/domain/events/upkeep-proposal-approved.event';
 import {
-  DISPATCH_BRIEFED_V2,
-  type DispatchBriefedV2IntegrationEvent,
+  DISPATCH_BRIEFED,
+  type DispatchBriefedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
 import {
   DISPATCH_ENDED,
@@ -78,9 +78,9 @@ export const memorySubscribers = (
     (event) => upkeep.onMerged(event),
     { callsOut: true },
   ),
-  subscribing<DispatchBriefedV2IntegrationEvent>(
+  subscribing<DispatchBriefedIntegrationEvent>(
     'memory.record-briefed-memories',
-    [DISPATCH_BRIEFED_V2],
+    [DISPATCH_BRIEFED],
     (event) =>
       recording.runBriefed(
         {

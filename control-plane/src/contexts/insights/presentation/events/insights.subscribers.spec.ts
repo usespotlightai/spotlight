@@ -59,11 +59,11 @@ import {
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHANGE_STACK_READY } from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
-import { DISPATCH_BRIEFED_V2 } from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
+import { DISPATCH_BRIEFED } from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
 import { DISPATCH_ENDED } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import { DISPATCH_SUPERSEDED } from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
-import { MEMORIES_USED_V2 } from '@shared-kernel/application/integration-events/memories-used.integration-event';
+import { MEMORIES_USED } from '@shared-kernel/application/integration-events/memories-used.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import { PULL_REQUEST_PURGED } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import { PULL_REQUEST_REVIEW_TAKEN } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
@@ -624,7 +624,7 @@ describe('insightsSubscribers', () => {
     const subscriber = subscribed();
     const used = (via: string, memories: readonly string[]) =>
       subscriber.deliver('insights.record-run-memories', {
-        kind: MEMORIES_USED_V2,
+        kind: MEMORIES_USED,
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',
@@ -647,7 +647,7 @@ describe('insightsSubscribers', () => {
     const subscriber = subscribed();
     const briefed = (driver: 'line' | 'person') =>
       subscriber.deliver('insights.record-cut-memories', {
-        kind: DISPATCH_BRIEFED_V2,
+        kind: DISPATCH_BRIEFED,
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',
@@ -672,7 +672,7 @@ describe('insightsSubscribers', () => {
     const subscriber = subscribed();
     const used = (taskId: string | null, via: string) =>
       subscriber.deliver('insights.record-run-memories', {
-        kind: MEMORIES_USED_V2,
+        kind: MEMORIES_USED,
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId,
