@@ -1,8 +1,9 @@
-import { parentPort, workerData } from 'node:worker_threads';
+import { workerData } from 'node:worker_threads';
 
 import {
   type SpecInput,
   specOperations,
 } from '@integrations/infrastructure/specs/spec-operations';
+import { answerParent } from '@platform/threads/in-thread';
 
-parentPort?.postMessage(specOperations(workerData as SpecInput));
+answerParent(() => specOperations(workerData as SpecInput));

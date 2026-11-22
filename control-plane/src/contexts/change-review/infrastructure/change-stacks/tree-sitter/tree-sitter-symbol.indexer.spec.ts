@@ -527,6 +527,16 @@ describe('TreeSitterSymbolIndexer', () => {
       ['src/invite.ts', [['invite', 'constant', 1]]],
     ]);
   }, 10_000);
+
+  it('parses no more files once its time for parsing has run out', async () => {
+    const files = await new TreeSitterSymbolIndexer(500).index([
+      source('src/invite.ts', ['export const invite = () => 1;']),
+      source('src/profiles.spec.ts', HUNK_THAT_NEVER_PARSES),
+      source('src/resend.ts', ['export const resend = () => 2;']),
+    ]);
+
+    expect(files.files.map((file) => file.path)).toEqual(['src/invite.ts']);
+  }, 10_000);
 });
 
 describe('TreeSitterSymbolIndexer spans', () => {
