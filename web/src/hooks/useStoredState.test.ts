@@ -43,6 +43,17 @@ describe('useStoredState', () => {
     expect(second.result.current[0]).toBe('7d');
   });
 
+  it('takes a value stored in another tab', () => {
+    const { result } = renderHook(() => useStoredState(KEY, '30d'));
+
+    act(() => {
+      window.localStorage.setItem(KEY, '7d');
+      window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+    });
+
+    expect(result.current[0]).toBe('7d');
+  });
+
   it('keeps the value for this page when the browser refuses storage', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('denied');
