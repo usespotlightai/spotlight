@@ -4,6 +4,11 @@ name: staging
 # starts Build Images in usespotlightai/infrastructure, which builds the images
 # and then deploys them to staging. A newer push replaces a push that still
 # waits for CI.
+#
+# When desktop/ changed since the last canary app, this also builds, signs and
+# notarizes the macOS app and puts it on the canary prerelease, next to the
+# staging binaries. A canary app updates itself from there. The
+# desktop-canary tag marks the commit of the canary app.
 
 on:
   push:
@@ -61,4 +66,100 @@ jobs:
             echo "### ${SHA:0:12}"
             echo
             echo "Requested an image build and a staging deploy in ${{ github.repository_owner }}/infrastructure."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  desktop-changed:
+    name: desktop changed since the canary app
+    needs: ci-passed
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: diff
+        run: |
+          if ! git fetch --quiet origin refs/tags/desktop-canary:refs/tags/desktop-canary; then
+            echo "No canary app yet."
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          elif git diff --quiet desktop-canary "${GITHUB_SHA}" -- desktop .github/actions/build-desktop-app; then
+            echo "desktop/ is the same as in the canary app ($(git rev-parse --short desktop-canary))."
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+          else
+            git diff --stat desktop-canary "${GITHUB_SHA}" -- desktop .github/actions/build-desktop-app
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+  desktop-canary:
+    name: build the canary macOS app
+    needs: desktop-changed
+    if: needs.desktop-changed.outputs.changed == 'true'
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Name the version
+        id: version
+        run: |
+          base=$(jq -r '."."' .release-please-manifest.json)
+          echo "version=${base}-canary.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" >> "${GITHUB_OUTPUT}"
+
+      - uses: ./.github/actions/build-desktop-app
+        with:
+          version: ${{ steps.version.outputs.version }}
+          channel: canary
+          certificate: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          certificate-password: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+          api-key-id: ${{ secrets.APPLE_API_KEY_ID }}
+          api-issuer: ${{ secrets.APPLE_API_ISSUER }}
+
+      - name: Put the app on the canary prerelease
+        working-directory: desktop/release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if ! gh release view canary --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create canary --repo "$GITHUB_REPOSITORY" --title canary \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --notes "Build of ${GITHUB_SHA} for staging. This is not a release." \
+              || gh release view canary --repo "$GITHUB_REPOSITORY" >/dev/null
+          fi
+
+          cp "Spotlight-${VERSION}.dmg" Spotlight-canary.dmg
+          app=("Spotlight-${VERSION}.dmg" "Spotlight-${VERSION}.dmg.blockmap" "Spotlight-${VERSION}-mac.zip" "Spotlight-${VERSION}-mac.zip.blockmap" Spotlight-canary.dmg)
+          gh release upload canary --repo "$GITHUB_REPOSITORY" --clobber "${app[@]}"
+          gh release upload canary --repo "$GITHUB_REPOSITORY" --clobber canary-mac.yml
+
+          gh release view canary --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' \
+            | grep '^Spotlight-' | grep -vxF -f <(printf '%s\n' "${app[@]}") \
+            | while read -r asset; do
+                gh release delete-asset canary "$asset" --repo "$GITHUB_REPOSITORY" --yes
+              done
+
+      - name: Mark the commit of the canary app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/desktop-canary" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/desktop-canary" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref=refs/tags/desktop-canary -f sha="$GITHUB_SHA" >/dev/null
+          fi
+
+          {
+            echo "### Spotlight for macOS ${VERSION}"
+            echo
+            echo "Put the signed and notarized canary app on the canary prerelease."
           } >> "${GITHUB_STEP_SUMMARY}"

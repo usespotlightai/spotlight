@@ -29,7 +29,24 @@ The `desktop` job in `.github/workflows/release.yml` builds a universal app,
 signs and notarizes it, and uploads the `.dmg`, the `.zip` and `latest-mac.yml`
 to the release. The installed app updates itself from the latest release.
 
-It needs these repository secrets:
+## Canary
+
+When a push to `develop` changes `desktop/`, the `desktop-canary` job in
+`.github/workflows/staging.yml` builds the same app as version
+`<release>-canary.<run>.<attempt>`. It puts the app on the `canary`
+prerelease, next to the staging binaries, and moves the `desktop-canary` tag to
+the commit. A push that leaves `desktop/` as it is at that tag builds no app.
+
+Install it from
+[Spotlight-canary.dmg](https://github.com/usespotlightai/spotlight/releases/download/canary/Spotlight-canary.dmg).
+A canary app updates itself from `canary-mac.yml` on the `canary` prerelease,
+never from a release. A released app never updates to a canary app.
+
+`SPOTLIGHT_DESKTOP_CHANNEL=canary` makes `electron-builder.cjs` publish to the
+canary prerelease instead of the releases.
+
+Both jobs build with `.github/actions/build-desktop-app` and need these
+repository secrets:
 
 | Secret                       | Value                                                                 |
 | ---------------------------- | --------------------------------------------------------------------- |

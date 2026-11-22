@@ -99,43 +99,14 @@ jobs:
           ref: ${{ needs.release-please.outputs.tag }}
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/build-desktop-app
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
-
-      - name: Install
-        run: |
-          npm install -g npm@11.19.1
-          npm ci --ignore-scripts
-
-      - name: Use Xcode 26 for the Icon Composer icon
-        working-directory: .
-        run: |
-          xcode=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
-          [ -n "$xcode" ] || { echo "::error::No Xcode 26 on this runner; actool needs it for build/Spotlight.icon."; exit 1; }
-          sudo xcode-select -s "$xcode"
-          xcrun actool --version | grep -A1 short-bundle-version
-
-      - name: Set the version
-        env:
-          TAG: ${{ needs.release-please.outputs.tag }}
-        run: npm version "${TAG#v}" --no-git-tag-version
-
-      - name: Write the notarization key
-        env:
-          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-        run: printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
-
-      - name: Build, sign and notarize
-        env:
-          CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY: ${{ runner.temp }}/AuthKey.p8
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: npm run dist
+          version: ${{ needs.release-please.outputs.tag }}
+          certificate: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          certificate-password: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          api-key: ${{ secrets.APPLE_API_KEY_P8 }}
+          api-key-id: ${{ secrets.APPLE_API_KEY_ID }}
+          api-issuer: ${{ secrets.APPLE_API_ISSUER }}
 
       - name: Upload to the release
         env:
