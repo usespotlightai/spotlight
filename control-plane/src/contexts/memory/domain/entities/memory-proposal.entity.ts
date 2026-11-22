@@ -1,5 +1,7 @@
+import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
+import { inactiveOf } from '@memory/domain/services/memory-lapse';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -15,6 +17,7 @@ export const MEMORY_PROPOSAL_STATES = [
   'proposed',
   'approved',
   'rejected',
+  'lapsed',
 ] as const;
 
 export type MemoryProposalState = (typeof MEMORY_PROPOSAL_STATES)[number];
@@ -28,6 +31,26 @@ export interface ProposedMemory {
   readonly steps: readonly number[];
   readonly notes: readonly number[];
   readonly supersedes: string | null;
+  readonly retires: string | null;
+}
+
+const MAX_REASON = 500;
+
+const reasonOf = (raw: string): string => {
+  const reason = raw.trim();
+
+  if (!reason || reason.length > MAX_REASON) {
+    throw new InvalidMemoryError(
+      `says why to retire a memory in at most ${MAX_REASON} characters`,
+    );
+  }
+
+  return reason;
+};
+
+export interface Retiring {
+  readonly memory: MemoryId;
+  readonly reason: string;
 }
 
 export class MemoryProposal {
@@ -40,6 +63,7 @@ export class MemoryProposal {
     readonly source: MemorySource,
     readonly proposedBy: MemoryProposer,
     readonly supersedes: MemoryId | null,
+    readonly retires: Retiring | null,
     readonly recordedAt: Date,
     readonly state: MemoryProposalState,
     readonly decision: MemoryDecision | null,
@@ -69,6 +93,41 @@ export class MemoryProposal {
       input.source,
       input.proposedBy,
       input.supersedes,
+      null,
+      input.recordedAt,
+      'proposed',
+      null,
+    );
+  }
+
+  static retiring(input: {
+    id: MemoryId;
+    retired: {
+      readonly id: MemoryId;
+      readonly kind: MemoryKind;
+      readonly body: MemoryBody;
+      readonly scope: MemoryScope;
+    };
+    reason: string;
+    provenance: MemoryProvenance;
+    source: MemorySource;
+    proposedBy: MemoryProposer;
+    recordedAt: Date;
+  }): MemoryProposal {
+    if (input.retired.id.equals(input.id)) {
+      throw new InvalidMemoryError('cannot retire itself');
+    }
+
+    return new MemoryProposal(
+      input.id,
+      input.retired.kind,
+      input.retired.body,
+      input.retired.scope,
+      input.provenance,
+      input.source,
+      input.proposedBy,
+      null,
+      { memory: input.retired.id, reason: reasonOf(input.reason) },
       input.recordedAt,
       'proposed',
       null,
@@ -84,6 +143,7 @@ export class MemoryProposal {
     source: MemorySource;
     proposedBy: MemoryProposer;
     supersedes: MemoryId | null;
+    retires: Retiring | null;
     recordedAt: Date;
     state: MemoryProposalState;
     decision: MemoryDecision | null;
@@ -92,6 +152,20 @@ export class MemoryProposal {
       throw new InconsistentStateError(
         'memory proposal',
         'is decided without saying who decided it and when, or says so while still proposed',
+      );
+    }
+
+    if (input.state === 'lapsed' && !input.retires) {
+      throw new InconsistentStateError(
+        'memory proposal',
+        'lapsed without retiring a memory',
+      );
+    }
+
+    if (input.retires && input.supersedes) {
+      throw new InconsistentStateError(
+        'memory proposal',
+        'both retires a memory and supersedes one',
       );
     }
 
@@ -104,6 +178,7 @@ export class MemoryProposal {
       input.source,
       input.proposedBy,
       input.supersedes,
+      input.retires,
       input.recordedAt,
       input.state,
       input.decision,
@@ -112,6 +187,16 @@ export class MemoryProposal {
 
   get proposed(): boolean {
     return this.state === 'proposed';
+  }
+
+  get editable(): boolean {
+    return this.proposed && !this.retires;
+  }
+
+  inactiveIn(current: readonly Memory[]): readonly string[] {
+    return this.retires
+      ? inactiveOf([this.retires.memory], current, this.scope.teamId)
+      : [];
   }
 
   get fromOutside(): boolean {
@@ -131,10 +216,24 @@ export class MemoryProposal {
   }
 
   matches(other: MemoryProposal): boolean {
+    if (this.retires || other.retires) {
+      return Boolean(
+        this.retires &&
+        other.retires &&
+        this.retires.memory.equals(other.retires.memory),
+      );
+    }
+
     return this.kind === other.kind && this.body.equals(other.body);
   }
 
   approve(decision: MemoryDecision, body?: string): MemoryProposal {
+    if (this.retires && body !== undefined && body !== this.body.value) {
+      throw new InvalidMemoryError(
+        'is approved as it stands when it retires a memory',
+      );
+    }
+
     return this.decided(
       'approved',
       decision,
@@ -144,6 +243,30 @@ export class MemoryProposal {
 
   reject(decision: MemoryDecision): MemoryProposal {
     return this.decided('rejected', decision, this.body);
+  }
+
+  lapse(): MemoryProposal {
+    if (this.state !== 'approved' || !this.retires || !this.decision) {
+      throw new InconsistentStateError(
+        'memory proposal',
+        'lapses only an approved retirement',
+      );
+    }
+
+    return new MemoryProposal(
+      this.id,
+      this.kind,
+      this.body,
+      this.scope,
+      this.provenance,
+      this.source,
+      this.proposedBy,
+      this.supersedes,
+      this.retires,
+      this.recordedAt,
+      'lapsed',
+      this.decision,
+    );
   }
 
   restore(): MemoryProposal {
@@ -160,6 +283,7 @@ export class MemoryProposal {
       this.source,
       this.proposedBy,
       this.supersedes,
+      this.retires,
       this.recordedAt,
       'proposed',
       null,
@@ -184,6 +308,7 @@ export class MemoryProposal {
       this.source,
       this.proposedBy,
       this.supersedes,
+      this.retires,
       this.recordedAt,
       state,
       decision,

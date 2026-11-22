@@ -113,6 +113,24 @@ describe('Notices', () => {
     expect(memory.stored.size).toBe(2);
   });
 
+  it('resolves the team notice of a subject, and leaves the others open', async () => {
+    const memory = new InMemoryNotices();
+    const notices = noticesOver(memory);
+    const team = { ...STALLED, addressee: null, form: 'advice' as const };
+
+    await notices.create(team);
+    await notices.create({ ...team, subject: 'memory-upkeep upkeep_2' });
+    await notices.resolve({
+      teamId: team.teamId,
+      form: 'advice',
+      subject: team.subject,
+    });
+
+    expect(
+      [...memory.stored.values()].map((each) => each.resolvedAt !== null),
+    ).toEqual([true, false]);
+  });
+
   it('deletes the notices of a deleted team, and only those', async () => {
     const memory = new InMemoryNotices();
     const notices = noticesOver(memory);
@@ -137,6 +155,24 @@ describe('Notices', () => {
       ...STALLED,
       teamId: TeamId.of('team_gone'),
     });
+
+    expect(memory.stored.size).toBe(0);
+  });
+
+  it('creates no team notice for a team that is gone', async () => {
+    const memory = new InMemoryNotices();
+    const gone = {
+      ...access,
+      membersOf: async () => null,
+    } as unknown as typeof access;
+
+    await new Notices(
+      memory,
+      gone,
+      { inTransaction: <T>(work: () => Promise<T>) => work() },
+      { generate: () => `notice_${++next}` },
+      { now: () => NOW, sleep: async () => {} },
+    ).create({ ...STALLED, addressee: null });
 
     expect(memory.stored.size).toBe(0);
   });

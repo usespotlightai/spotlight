@@ -20,6 +20,7 @@ type conversation struct {
 	sessionID    string
 	joined       []string
 	unready      []setupFailure
+	touches      *pathMemories
 	journal      *journalWriter
 	control      Journal
 	archiver     *archiver
@@ -152,11 +153,18 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 	steered, resent, nudged := false, false, false
 	var waitUntil time.Time
 
-	c.harness.Watch(c.journal.append)
+	c.harness.Watch(func(event protocol.Event) {
+		c.touches.saw(event)
+		c.journal.append(event)
+	})
 
 	for {
 		turn, endTurn := context.WithCancel(ctx)
 		go c.steer(turn)
+
+		if note := c.touches.pending(ctx); note != "" {
+			prompt = note + "\n\n" + prompt
+		}
 
 		result, err := c.harness.Prompt(ctx, prompt)
 		endTurn()

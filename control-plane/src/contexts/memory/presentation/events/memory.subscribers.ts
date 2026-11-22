@@ -1,13 +1,19 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
+import type { UpkeepReactions } from '@memory/application/events/handlers/upkeep-reactions.handler';
 import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
 import type { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import type { RequestMemories } from '@memory/application/services/request-memories.service';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryMerged } from '@memory/domain/events/memory-merged.event';
+import type { MemoryRetirementApproved } from '@memory/domain/events/memory-retirement-approved.event';
 import type { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
+import type { MemoryUpkeepSettled } from '@memory/domain/events/memory-upkeep-settled.event';
+import type { MemoryUpkeepSwept } from '@memory/domain/events/memory-upkeep-swept.event';
+import type { UpkeepProposalApproved } from '@memory/domain/events/upkeep-proposal-approved.event';
 import {
   DISPATCH_BRIEFED,
   type DispatchBriefedIntegrationEvent,
@@ -43,7 +49,35 @@ export const memorySubscribers = (
   deletingMemories: DeleteTeamMemories,
   reactions: MemoryReactions,
   recording: RecordRunMemoryUses,
+  upkeep: UpkeepReactions,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<MemoryUpkeepSwept>(
+    'memory.notify-upkeep',
+    ['memory-upkeep.swept'],
+    (event) => upkeep.onSwept(event),
+  ),
+  subscribing<MemoryUpkeepSettled>(
+    'memory.settle-upkeep-notice',
+    ['memory-upkeep.settled'],
+    (event) => upkeep.onSettled(event),
+  ),
+  subscribing<UpkeepProposalApproved>(
+    'memory.apply-upkeep',
+    ['memory-upkeep.approved'],
+    (event) => upkeep.onApproved(event),
+    { callsOut: true },
+  ),
+  subscribing<MemoryCreated>(
+    'memory.count-new-memory-for-upkeep',
+    ['memory.created'],
+    (event) => upkeep.onCreated(event),
+  ),
+  subscribing<MemoryMerged>(
+    'memory.supersede-merged-memories',
+    ['memory.merged'],
+    (event) => upkeep.onMerged(event),
+    { callsOut: true },
+  ),
   subscribing<DispatchBriefedIntegrationEvent>(
     'memory.record-briefed-memories',
     [DISPATCH_BRIEFED],
@@ -77,6 +111,12 @@ export const memorySubscribers = (
     'memory.create-approved-memory',
     ['memory-draft.approved'],
     (event) => reactions.onApproved(event),
+  ),
+  subscribing<MemoryRetirementApproved>(
+    'memory.retire-approved-retirement',
+    ['memory-draft.retirement-approved'],
+    (event) => reactions.onRetirementApproved(event),
+    { callsOut: true },
   ),
   subscribing<MemoryCreated>(
     'memory.retire-superseded-memory',

@@ -180,6 +180,7 @@ const repositoryContents: RepositoryContentsPort = {
           defaultBranch: 'main',
         };
   },
+  pathsAt: async () => [...github.files.keys()],
   filesUnder: async (_workspace, _repository, directory) =>
     [...github.files.entries()]
       .filter(([path]) => !directory || path.startsWith(`${directory}/`))

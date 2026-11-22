@@ -4,6 +4,8 @@ export const HANDOVER_COMMAND = 'spotlight handover';
 
 export const REMEMBER_COMMAND = 'spotlight remember';
 
+export const FORGET_COMMAND = 'spotlight forget';
+
 type ReasoningKind =
   | 'message'
   | 'thought'
@@ -30,6 +32,7 @@ const invoking = (command: string): RegExp =>
 const COMMANDS: readonly [RegExp, ReasoningKind][] = [
   [invoking(HANDOVER_COMMAND), 'handover'],
   [invoking(REMEMBER_COMMAND), 'remember'],
+  [invoking(FORGET_COMMAND), 'remember'],
 ];
 
 const firstIn = (text: string): ReasoningKind | null => {

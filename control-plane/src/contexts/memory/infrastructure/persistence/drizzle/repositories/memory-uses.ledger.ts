@@ -10,7 +10,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { and, asc, countDistinct, eq, inArray } from 'drizzle-orm';
+import { and, asc, countDistinct, eq, inArray, max } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleMemoryUses implements MemoryUsesPort {
@@ -44,19 +44,26 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
     });
   }
 
-  async usedBy(runId: RunId, via: MemoryUse): Promise<readonly MemoryId[]> {
+  async usedBy(
+    runId: RunId,
+    vias: readonly MemoryUse[],
+  ): Promise<readonly MemoryId[]> {
     const rows = await this.context.db
       .select({ memoryId: memoryUse.memoryId })
       .from(memoryUse)
-      .where(and(eq(memoryUse.runId, runId.value), eq(memoryUse.via, via)))
+      .where(
+        and(eq(memoryUse.runId, runId.value), inArray(memoryUse.via, [...vias])),
+      )
       .orderBy(asc(memoryUse.at));
 
-    return rows.map((row) => MemoryId.of(row.memoryId));
+    return [...new Set(rows.map((row) => row.memoryId))].map((each) =>
+      MemoryId.of(each),
+    );
   }
 
   async runsUsing(
     memories: readonly MemoryId[],
-    via?: MemoryUse,
+    vias?: readonly MemoryUse[],
   ): Promise<ReadonlyMap<string, number>> {
     if (memories.length === 0) {
       return new Map();
@@ -74,11 +81,34 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
             memoryUse.memoryId,
             memories.map((each) => each.value),
           ),
-          via ? eq(memoryUse.via, via) : undefined,
+          vias ? inArray(memoryUse.via, [...vias]) : undefined,
         ),
       )
       .groupBy(memoryUse.memoryId);
 
     return new Map(rows.map((row) => [row.memoryId, row.runs]));
+  }
+
+  async lastUsed(
+    memories: readonly MemoryId[],
+  ): Promise<ReadonlyMap<string, Date>> {
+    if (memories.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select({ memoryId: memoryUse.memoryId, at: max(memoryUse.at) })
+      .from(memoryUse)
+      .where(
+        inArray(
+          memoryUse.memoryId,
+          memories.map((each) => each.value),
+        ),
+      )
+      .groupBy(memoryUse.memoryId);
+
+    return new Map(
+      rows.flatMap((row) => (row.at ? [[row.memoryId, row.at] as const] : [])),
+    );
   }
 }

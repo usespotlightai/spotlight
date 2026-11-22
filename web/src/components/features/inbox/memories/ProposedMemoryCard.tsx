@@ -43,6 +43,7 @@ export function ProposedMemoryCard({
   const folded = rejected && !unfolded;
   const [body, setBody] = useState(memory.body);
   const open = undecided(memory);
+  const lapsed = open ? memory.inactiveMemories : [];
   const editing = editingOpen && open;
   const bodyId = useId();
   const written = body.trim();
@@ -55,7 +56,7 @@ export function ProposedMemoryCard({
       data-slot="proposed-memory"
       className={cn(
         'gap-0 transition-[opacity,padding] duration-200 ease-out-quad motion-reduce:transition-none',
-        rejected && 'opacity-70',
+        (rejected || memory.state === 'lapsed') && 'opacity-70',
         folded && 'pb-2',
       )}
     >
@@ -78,7 +79,7 @@ export function ProposedMemoryCard({
                 copy={{ text: memory.body, label: `Copy memory ${position}` }}
                 editLabel={`Edit memory ${position}`}
                 pending={pending}
-                onEdit={open ? () => setEditing(true) : undefined}
+                onEdit={memory.editable ? () => setEditing(true) : undefined}
                 restoreLabel={`Restore memory ${position}`}
                 onRestore={
                   rejected
@@ -115,6 +116,12 @@ export function ProposedMemoryCard({
         </div>
       </Collapsible>
 
+      {lapsed.length > 0 && (
+        <p className="pt-2 text-muted-foreground text-sm">
+          {`${lapsed.join(' and ')} ${lapsed.length === 1 ? 'is' : 'are'} no longer active, so this retirement no longer applies.`}
+        </p>
+      )}
+
       <Collapsible open={open} appear={false}>
         <div className="pt-3">
           <ProposedMemoryControls
@@ -124,7 +131,7 @@ export function ProposedMemoryCard({
             ready={ready}
             bodyId={bodyId}
             onApprove={
-              open
+              open && lapsed.length === 0
                 ? () => {
                     decided();
                     onApprove(

@@ -8,7 +8,7 @@ import type {
 export const MEMORY_DRAFTER = Symbol('MEMORY_DRAFTER');
 
 export interface KnownMemory {
-  readonly id: string;
+  readonly handle: string | null;
   readonly kind: string;
   readonly body: string;
 }
@@ -23,6 +23,7 @@ export interface MemoryDraftRequest {
   readonly notes: readonly EvidenceNote[];
   readonly changed: readonly ChangedPath[];
   readonly active: readonly KnownMemory[];
+  readonly elsewhere: readonly KnownMemory[];
   readonly proposed: readonly KnownMemory[];
   readonly rejected: readonly KnownMemory[];
 }

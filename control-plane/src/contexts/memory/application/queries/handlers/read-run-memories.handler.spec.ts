@@ -132,7 +132,7 @@ const reading = (input: {
       forTask: async () => (input.proposed ? draftProposing() : null),
     } as unknown as MemoryDraftRepository,
     uses,
-    new MemoryReviews(work, people),
+    new MemoryReviews(work, people, memories),
     new TeamMemoryViews(memories, people, uses),
     { reviewItemOf: async () => 'request_1' } as unknown as ReviewsPort,
   ).execute(new ReadRunMemoriesQuery('team_1', 'run_1', 'user_1'));

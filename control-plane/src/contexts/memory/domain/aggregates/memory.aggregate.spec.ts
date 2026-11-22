@@ -1,5 +1,6 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import { MemoryMerged } from '@memory/domain/events/memory-merged.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -58,7 +59,9 @@ describe('Memory', () => {
 
     expect(memory.status).toBe('active');
     expect(memory.body.value).toBe('Name branches after the ticket.');
-    expect(memory.pullEvents()).toEqual([new MemoryCreated(NEW, OLD)]);
+    expect(memory.pullEvents()).toEqual([
+      new MemoryCreated(NEW, OLD, TEAM, WorkspaceId.of('ws_1'), 'corrected'),
+    ]);
   });
 
   it('supersedes only a memory that is still active', () => {
@@ -210,7 +213,9 @@ describe('Memory', () => {
     expect(
       successor.provenance?.equals(original.provenance as MemoryProvenance),
     ).toBe(true);
-    expect(successor.pullEvents()).toEqual([new MemoryCreated(OLD, NEW)]);
+    expect(successor.pullEvents()).toEqual([
+      new MemoryCreated(OLD, NEW, TEAM, WorkspaceId.of('ws_1'), 'corrected'),
+    ]);
   });
 
   it('does not correct a memory that was already retired', () => {
@@ -230,5 +235,59 @@ describe('Memory', () => {
         by: MemoryDecision.of({ by: UserId.of('user_bea'), at: LATER }),
       }),
     ).toThrow(MemoryAlreadyRetiredError);
+  });
+});
+
+describe('Memory.merged', () => {
+  const by = MemoryDecision.of({ by: UserId.of('user_ada'), at: LATER });
+  const merging = (replacing: Memory[]) =>
+    Memory.merged({
+      id: MemoryId.of('memory_merged'),
+      handle: MemoryHandle.of(9),
+      body: MemoryBody.of('One rule.'),
+      replacing,
+      by,
+    });
+
+  it('takes the kind and scope of what it merges, replacing the first and counting as merged', () => {
+    const merged = merging([old(), created({ id: MemoryId.of('memory_2') })]);
+
+    expect(merged.kind).toBe('preference');
+    expect(merged.scope.equals(MemoryScope.of({ teamId: TEAM }))).toBe(true);
+    expect(merged.supersedes?.equals(OLD)).toBe(true);
+    expect(merged.pullEvents()).toEqual([
+      new MemoryCreated(
+        MemoryId.of('memory_merged'),
+        OLD,
+        TEAM,
+        WorkspaceId.of('ws_1'),
+        'merged',
+      ),
+      new MemoryMerged(
+        MemoryId.of('memory_merged'),
+        MemoryHandle.of(9),
+        [OLD, MemoryId.of('memory_2')],
+        by,
+      ),
+    ]);
+  });
+
+  it('refuses memories that apply in different places, fewer than two, or an inactive one', () => {
+    expect(() =>
+      merging([
+        old(),
+        created({
+          id: MemoryId.of('memory_2'),
+          scope: MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_1') }),
+        }),
+      ]),
+    ).toThrow(InvalidMemoryError);
+    expect(() => merging([old()])).toThrow(InvalidMemoryError);
+    expect(() =>
+      merging([
+        old().retire({ by: UserId.of('user_ada'), reason: 'Gone.', at: NOW }),
+        created({ id: MemoryId.of('memory_2') }),
+      ]),
+    ).toThrow(InvalidMemoryError);
   });
 });

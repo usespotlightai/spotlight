@@ -50,6 +50,10 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return recall(args[1:], out)
 	case "remember":
 		return remember(args[1:], in, out)
+	case "forget":
+		return forget(args[1:], in, out)
+	case "hook":
+		return hook(args[1:], in, out)
 	case "candidate":
 		return candidateCmd(args[1:], in, out)
 	case "cause":

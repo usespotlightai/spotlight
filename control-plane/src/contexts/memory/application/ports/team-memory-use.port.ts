@@ -21,6 +21,17 @@ export interface TeamMemoryUse {
   readonly flagged: readonly FlaggedMemory[];
 }
 
+export interface DescribedMemory {
+  readonly memoryId: string;
+  readonly handle: string;
+  readonly body: string;
+}
+
 export interface TeamMemoryUsePort {
   between(window: MemoryUseWindow): Promise<TeamMemoryUse>;
+
+  described(
+    workspaceId: string,
+    memories: readonly string[],
+  ): Promise<readonly DescribedMemory[]>;
 }

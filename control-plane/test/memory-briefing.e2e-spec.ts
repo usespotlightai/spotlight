@@ -286,7 +286,7 @@ describe('briefing runs with what the team remembers', () => {
 
       return record?.memories.briefed.length ? record.memories : null;
     });
-    expect(stored).toEqual({
+    expect(stored).toMatchObject({
       briefed: [byPath.id, teamWide.id].sort(),
       recalled: [],
     });
@@ -313,6 +313,7 @@ describe('briefing runs with what the team remembers', () => {
               steps: [1],
               notes: [],
               supersedes: null,
+              retires: null,
             },
           ],
           evidence: DraftEvidence.of({
@@ -329,6 +330,8 @@ describe('briefing runs with what the team remembers', () => {
             notesRead: 0,
             changed: [],
             known: [],
+            used: [],
+            elsewhere: [],
             fromOutside: false,
           }),
           newId: () => randomUUID(),

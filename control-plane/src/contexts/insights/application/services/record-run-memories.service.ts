@@ -6,6 +6,8 @@ import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import {
   isMemoryVia,
   MemoryReference,
+  type RunDriver,
+  recordsCuts,
 } from '@insights/domain/value-objects/run-memories.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -20,6 +22,14 @@ export interface RunMemoriesReceived {
   readonly memories: readonly string[];
 }
 
+export interface RunBriefedReceived {
+  readonly runId: string;
+  readonly workspaceId: string;
+  readonly taskId: string | null;
+  readonly driver: RunDriver;
+  readonly omitted: readonly string[];
+}
+
 export class RecordRunMemories {
   constructor(
     private readonly work: WorkPort,
@@ -27,6 +37,14 @@ export class RecordRunMemories {
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
   ) {}
+
+  async briefed(event: RunBriefedReceived): Promise<void> {
+    if (!recordsCuts(event.driver) || event.omitted.length === 0) {
+      return;
+    }
+
+    await this.used({ ...event, via: 'cut', memories: event.omitted });
+  }
 
   async used(event: RunMemoriesReceived): Promise<void> {
     const via = event.via;

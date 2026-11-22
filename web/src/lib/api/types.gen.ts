@@ -5610,6 +5610,15 @@ export type CallbackNoteRequestDto = {
   body: string;
 };
 
+export type RetiringResponseDto = {
+  memoryId: string;
+  handle: string;
+  /**
+   * Why the memory is wrong
+   */
+  reason: string;
+};
+
 export type MemoryDecisionResponseDto = {
   by: string;
   name: string | null;
@@ -5662,7 +5671,7 @@ export type ProposedMemoryResponseDto = {
    * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
    */
   proposedBy: 'drafter' | 'agent';
-  state: 'proposed' | 'approved' | 'rejected';
+  state: 'proposed' | 'approved' | 'rejected' | 'lapsed';
   /**
    * Where it applies: the whole team, its line, or its station
    */
@@ -5673,6 +5682,18 @@ export type ProposedMemoryResponseDto = {
    * The active memory it replaces after approval
    */
   supersedes: string | null;
+  /**
+   * The active memory it retires after approval, and why; its kind, body and scope are that memory’s
+   */
+  retires: RetiringResponseDto | null;
+  /**
+   * Whether a person may change its body before approving; false once decided and for a retirement
+   */
+  editable: boolean;
+  /**
+   * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
+   */
+  inactiveMemories: Array<string>;
   /**
    * Who approved or rejected it, and when
    */
@@ -5842,7 +5863,7 @@ export type RunProposalResponseDto = {
    * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
    */
   proposedBy: 'drafter' | 'agent';
-  state: 'proposed' | 'approved' | 'rejected';
+  state: 'proposed' | 'approved' | 'rejected' | 'lapsed';
   /**
    * Where it applies: the whole team, its line, or its station
    */
@@ -5853,6 +5874,18 @@ export type RunProposalResponseDto = {
    * The active memory it replaces after approval
    */
   supersedes: string | null;
+  /**
+   * The active memory it retires after approval, and why; its kind, body and scope are that memory’s
+   */
+  retires: RetiringResponseDto | null;
+  /**
+   * Whether a person may change its body before approving; false once decided and for a retirement
+   */
+  editable: boolean;
+  /**
+   * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
+   */
+  inactiveMemories: Array<string>;
   /**
    * Who approved or rejected it, and when
    */
@@ -5889,7 +5922,7 @@ export type RunMemoriesResponseDto = {
    */
   omitted: Array<TeamMemoryResponseDto>;
   /**
-   * What the run looked up with spotlight recall, or read from the memory folder in its working copy
+   * What the run looked up with spotlight recall, read from the memory folder in its working copy, or was given when it touched a path a memory is about
    */
   recalled: Array<TeamMemoryResponseDto>;
   /**
@@ -5907,6 +5940,13 @@ export type RecallMemoriesRequestDto = {
    * Words to look for
    */
   words: string;
+};
+
+export type DeliveredMemoriesRequestDto = {
+  /**
+   * Memories the run showed its agent because the agent used a path they are about
+   */
+  handles: Array<string>;
 };
 
 export type RecalledMemoryResponseDto = {
@@ -5965,12 +6005,86 @@ export type RememberRequestDto = {
   supersedes?: string | null;
 };
 
+export type ForgetRequestDto = {
+  /**
+   * Why the memory is wrong, for the person who reviews it
+   */
+  because: string;
+};
+
+export type MemoryFileRepositoryResponseDto = {
+  owner: string;
+  name: string;
+};
+
 export type MemoryFileResponseDto = {
   /**
    * Where to write it, relative to the run’s working copy
    */
   path: string;
   body: string;
+  handle: string;
+  /**
+   * The repository the memory is about, if it is about one
+   */
+  repository: MemoryFileRepositoryResponseDto | null;
+  /**
+   * Paths in the repository the memory is about
+   */
+  paths: Array<string>;
+  /**
+   * Whether the run’s briefing already lists the memory, so touching one of its paths need not show it again
+   */
+  briefed: boolean;
+  /**
+   * Whether it was learned at another line or station about one of the run’s repositories, so it is laid out for reference and never shown for a path the agent used
+   */
+  elsewhere: boolean;
+};
+
+export type UpkeepMemoryResponseDto = {
+  id: string;
+  handle: string;
+  kind: string;
+  body: string;
+  status: 'active' | 'retired';
+};
+
+export type UpkeepPersonResponseDto = {
+  id: string;
+  name: string | null;
+};
+
+export type UpkeepProposalResponseDto = {
+  id: string;
+  /**
+   * retire ends the memory, merge replaces the memories with one new memory
+   */
+  change: 'retire' | 'merge';
+  /**
+   * Which check found it
+   */
+  finding: 'path-gone' | 'repository-gone' | 'unused' | 'wrong' | 'overlap';
+  reason: string;
+  state: 'pending' | 'approved' | 'rejected' | 'lapsed';
+  /**
+   * The body of the memory a merge writes
+   */
+  body: string | null;
+  memories: Array<UpkeepMemoryResponseDto>;
+  decidedBy: UpkeepPersonResponseDto | null;
+  decidedAt: string | null;
+  /**
+   * The handles of the memories of an undecided change that are no longer active, so the change no longer applies
+   */
+  inactiveMemories: Array<string>;
+};
+
+export type MemoryUpkeepResponseDto = {
+  id: string;
+  teamId: string;
+  sweptAt: string;
+  proposals: Array<UpkeepProposalResponseDto>;
 };
 
 export type ConfigProfileResponseDto = {
@@ -7825,6 +7939,16 @@ export type InsightsAgentConfigsResponseDto = {
   judges: Array<StationJudgeCalibrationResponseDto>;
 };
 
+export type CutMemoryResponseDto = {
+  memoryId: string;
+  handle: string;
+  body: string;
+  /**
+   * Runs that the cap cut it from and that then read it
+   */
+  runs: number;
+};
+
 export type FlaggedMemoryResponseDto = {
   memoryId: string;
   handle: string;
@@ -7849,17 +7973,45 @@ export type InsightsMemoryResponseDto = {
    */
   memoriesBriefed: number;
   /**
-   * Memories a run read for itself in the period
+   * Memories a run read from the memory folder in the period
+   */
+  memoriesRead: number;
+  /**
+   * Memories a run looked up with spotlight recall in the period
    */
   memoriesRecalled: number;
+  /**
+   * Memories given to a run when it touched a path they are about, in the period
+   */
+  memoriesDelivered: number;
+  /**
+   * Memories the cap cut from a run that the run then read, recalled or was given
+   */
+  memoriesCutThenRead: number;
   /**
    * Runs briefed any memory
    */
   runsBriefed: number;
   /**
-   * Runs that read any memory
+   * Runs that read any memory from the folder
+   */
+  runsRead: number;
+  /**
+   * Runs that looked up any memory with spotlight recall
    */
   runsRecalled: number;
+  /**
+   * Runs given any memory when they touched its path
+   */
+  runsDelivered: number;
+  /**
+   * Runs that read, recalled or were given a memory the cap cut from their briefing
+   */
+  runsCutThenRead: number;
+  /**
+   * The five memories the cap cut most often from runs that then read them, the most runs first
+   */
+  cutThenRead: Array<CutMemoryResponseDto>;
   /**
    * Memories a person retired as wrong in the period, rather than a newer memory replacing them, the latest first
    */
@@ -21064,6 +21216,43 @@ export type RecallMemoriesResponses = {
 
 export type RecallMemoriesResponse = RecallMemoriesResponses[keyof RecallMemoriesResponses];
 
+export type RecordDeliveredMemoriesData = {
+  body: DeliveredMemoriesRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/memories/delivered';
+};
+
+export type RecordDeliveredMemoriesErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run leased by this runner
+   */
+  404: unknown;
+  /**
+   * The run is a search, which is shown nothing the team remembers
+   */
+  409: unknown;
+  /**
+   * Not a handle like M-12
+   */
+  422: unknown;
+};
+
+export type RecordDeliveredMemoriesResponses = {
+  /**
+   * Recorded
+   */
+  204: void;
+};
+
+export type RecordDeliveredMemoriesResponse = RecordDeliveredMemoriesResponses[keyof RecordDeliveredMemoriesResponses];
+
 export type RecallMemoryData = {
   body?: never;
   path: {
@@ -21133,6 +21322,41 @@ export type RememberResponses = {
 
 export type RememberResponse = RememberResponses[keyof RememberResponses];
 
+export type ForgetData = {
+  body: ForgetRequestDto;
+  path: {
+    runId: string;
+    handle: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/memories/{handle}/forget';
+};
+
+export type ForgetErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run leased by this runner
+   */
+  404: unknown;
+  /**
+   * The run is isolated from the team or set at a past time, and changes nothing the team remembers
+   */
+  409: unknown;
+  /**
+   * Not a handle like M-12, a memory that is not active in the run’s team, no reason, or a chat run
+   */
+  422: unknown;
+};
+
+export type ForgetResponses = {
+  201: ProposedMemoryResponseDto;
+};
+
+export type ForgetResponse = ForgetResponses[keyof ForgetResponses];
+
 export type ReadMemoryFilesData = {
   body?: never;
   path: {
@@ -21158,6 +21382,97 @@ export type ReadMemoryFilesResponses = {
 };
 
 export type ReadMemoryFilesResponse = ReadMemoryFilesResponses[keyof ReadMemoryFilesResponses];
+
+export type ReadMemoryUpkeepData = {
+  body?: never;
+  path: {
+    teamId: string;
+    upkeepId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memory-upkeep/{upkeepId}';
+};
+
+export type ReadMemoryUpkeepErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such upkeep for this caller
+   */
+  404: unknown;
+};
+
+export type ReadMemoryUpkeepResponses = {
+  200: MemoryUpkeepResponseDto;
+};
+
+export type ReadMemoryUpkeepResponse = ReadMemoryUpkeepResponses[keyof ReadMemoryUpkeepResponses];
+
+export type ApproveUpkeepProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    upkeepId: string;
+    proposalId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memory-upkeep/{upkeepId}/proposals/{proposalId}/approve';
+};
+
+export type ApproveUpkeepProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such upkeep for this caller
+   */
+  404: unknown;
+  /**
+   * It was decided meanwhile
+   */
+  409: unknown;
+};
+
+export type ApproveUpkeepProposalResponses = {
+  200: MemoryUpkeepResponseDto;
+};
+
+export type ApproveUpkeepProposalResponse = ApproveUpkeepProposalResponses[keyof ApproveUpkeepProposalResponses];
+
+export type RejectUpkeepProposalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    upkeepId: string;
+    proposalId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memory-upkeep/{upkeepId}/proposals/{proposalId}/reject';
+};
+
+export type RejectUpkeepProposalErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such upkeep for this caller
+   */
+  404: unknown;
+  /**
+   * It was decided meanwhile
+   */
+  409: unknown;
+};
+
+export type RejectUpkeepProposalResponses = {
+  200: MemoryUpkeepResponseDto;
+};
+
+export type RejectUpkeepProposalResponse = RejectUpkeepProposalResponses[keyof RejectUpkeepProposalResponses];
 
 export type ReadStationInsightsData = {
   body?: never;

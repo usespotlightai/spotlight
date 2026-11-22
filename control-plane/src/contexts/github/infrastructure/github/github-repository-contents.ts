@@ -36,6 +36,7 @@ interface TreeEntry {
 
 interface Tree {
   readonly tree?: TreeEntry[];
+  readonly truncated?: boolean;
 }
 
 interface Ref {
@@ -163,6 +164,31 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
           : [],
       ),
     );
+  }
+
+  async pathsAt(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    ref: string,
+  ): Promise<readonly string[] | null> {
+    const token = await this.tokenFor(workspaceId);
+    const response = await call(
+      `${this.at(repository)}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+      token,
+    );
+
+    if (response.status === NOT_FOUND) {
+      return null;
+    }
+
+    const found = await answered<Tree>(
+      response,
+      `GitHub would not list the paths of ${repository.value} at ${ref}`,
+    );
+
+    return found.truncated
+      ? null
+      : (found.tree ?? []).flatMap((each) => (each.path ? [each.path] : []));
   }
 
   async committed(

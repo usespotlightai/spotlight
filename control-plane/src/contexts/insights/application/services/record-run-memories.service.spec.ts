@@ -34,7 +34,16 @@ const recording = () => {
       memories,
     });
 
-  return { records, deletions, received };
+  const briefed = (driver: 'line' | 'person', omitted: readonly string[]) =>
+    service.briefed({
+      runId: RUN.value,
+      workspaceId: WORKSPACE.value,
+      taskId: TASK.value,
+      driver,
+      omitted,
+    });
+
+  return { records, deletions, received, briefed };
 };
 
 describe('RecordRunMemories', () => {
@@ -87,5 +96,15 @@ describe('RecordRunMemories', () => {
     await received('briefed', ['mem_1']);
 
     expect(await records.of(RUN)).toBeNull();
+  });
+
+  it('keeps the memories the cap cut from a line’s run, but none from a run a person drives', async () => {
+    const { records, briefed } = recording();
+
+    await briefed('person', ['mem_1']);
+    expect(await records.of(RUN)).toBeNull();
+
+    await briefed('line', ['mem_2']);
+    expect((await records.of(RUN))?.memories.cut).toEqual(['mem_2']);
   });
 });

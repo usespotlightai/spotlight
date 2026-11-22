@@ -4,6 +4,7 @@ import type {
   MemoryDraftRequest,
 } from '@memory/application/ports/memory-drafter.port';
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
+import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type {
   RejectedMemoriesPort,
   RejectedMemory,
@@ -97,7 +98,7 @@ const CANDIDATES: readonly Memory[] = [
 ];
 
 const ACTIVE: readonly KnownMemory[] = [
-  { id: 'memory_old', kind: 'preference', body: 'Retry twice.' },
+  { handle: 'M-10', kind: 'preference', body: 'Retry twice.' },
 ];
 
 const rejection = (
@@ -125,7 +126,7 @@ const REJECTIONS: readonly RejectedMemory[] = [
 ];
 
 const REJECTED: readonly KnownMemory[] = [
-  { id: 'memory_no', kind: 'rejected-approach', body: 'Retry forever.' },
+  { handle: null, kind: 'rejected-approach', body: 'Retry forever.' },
 ];
 
 const REMEMBERED: ProposedMemory = {
@@ -136,7 +137,8 @@ const REMEMBERED: ProposedMemory = {
   paths: ['src/uploads.ts'],
   steps: [],
   notes: [1],
-  supersedes: 'memory_old',
+  supersedes: 'M-10',
+  retires: null,
 };
 
 const QUIET: LoggerPort = {
@@ -200,6 +202,7 @@ const working = (input: {
     new ApplicableMemories(
       {
         mayApplyAt: async () => CANDIDATES,
+        ofRepositories: async () => [],
         successorsOf: async () => [],
       } as unknown as MemoryRepository,
       {} as MemoryRelevancePort,
@@ -210,6 +213,12 @@ const working = (input: {
         return REJECTIONS;
       },
     } satisfies RejectedMemoriesPort,
+    {
+      record: async () => undefined,
+      usedBy: async () => [],
+      runsUsing: async () => new Map(),
+      lastUsed: async () => new Map(),
+    } satisfies MemoryUsesPort,
     { availableTo: async () => true, draft },
     {
       generate: () => {
@@ -272,6 +281,7 @@ describe('drafting what a run should leave the team remembering', () => {
       notes: NOTES,
       changed: CHANGED,
       active: ACTIVE,
+      elsewhere: [],
       proposed: [],
       rejected: REJECTED,
     });

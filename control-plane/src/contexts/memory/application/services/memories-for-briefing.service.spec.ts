@@ -11,6 +11,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -45,6 +46,7 @@ const briefing = (
   touching: readonly { repository: Repository; path: string }[] = [
     { repository: API, path: 'src/uploads/retry.ts' },
   ],
+  elsewhere: Memory[] = [],
 ) => {
   const touched = vi.fn(async () => touching);
   const rank = vi.fn(async () => ranks);
@@ -53,6 +55,7 @@ const briefing = (
     new ApplicableMemories(
       {
         mayApplyAt: async () => stored,
+        ofRepositories: async () => elsewhere,
         successorsOf: async () => [],
       } as unknown as MemoryRepository,
       relevance,
@@ -122,5 +125,30 @@ describe('MemoriesForBriefing', () => {
     expect(folder?.guide).toContain('station/');
     expect(folder?.guide).toContain('repositories/<owner>/<name>/<path>/');
     expect((await briefing([]).brief()).folder).toBeNull();
+  });
+
+  it('points at the memory folder where only other stations learned something about the repositories', async () => {
+    const learned = Memory.write({
+      id: MemoryId.of('memory_other'),
+      handle: MemoryHandle.of(40),
+      workspaceId: WorkspaceId.of('ws_1'),
+      kind: 'rationale',
+      body: MemoryBody.of('Uploads are retried by the gateway.'),
+      scope: MemoryScope.of({
+        teamId: TEAM,
+        lineId: LineId.of('line_2'),
+        repository: API,
+      }),
+      provenance: null,
+      by: MemoryDecision.of({
+        by: UserId.of('user_1'),
+        at: new Date('2026-09-27T10:00:00.000Z'),
+      }),
+    });
+
+    const folder = (await briefing([], new Map(), [], [learned]).brief())
+      .folder;
+
+    expect(folder?.guide).toContain('elsewhere/<owner>/<name>/<path>/');
   });
 });

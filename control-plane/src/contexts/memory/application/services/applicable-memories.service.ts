@@ -23,6 +23,21 @@ export class ApplicableMemories {
     return this.current(applying, asOf);
   }
 
+  async elsewhere(
+    runContext: RunContext,
+    asOf: Date | null = null,
+  ): Promise<Memory[]> {
+    const found = (
+      await this.memories.ofRepositories(
+        runContext.teamId,
+        runContext.repositories,
+        asOf,
+      )
+    ).filter((each) => !each.appliesAt(runContext, asOf));
+
+    return this.current(found, asOf);
+  }
+
   async recalled(
     teamId: TeamId,
     words: RecallWords,

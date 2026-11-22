@@ -247,3 +247,157 @@ func day(at string) string {
 func flat(text string) string {
 	return strings.Join(strings.Fields(text), " ")
 }
+
+func forget(args []string, in io.Reader, out io.Writer) error {
+	flags := flag.NewFlagSet("forget", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	because := flags.String("because", "", "why the memory no longer applies")
+
+	handle, rest := "", args
+	if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
+		handle, rest = rest[0], rest[1:]
+	}
+	if err := flags.Parse(rest); err != nil {
+		return fmt.Errorf("%v\n%s", err, forgetHelp.Synopsis())
+	}
+	if handle == "" && flags.NArg() > 0 {
+		handle = flags.Arg(0)
+	} else if flags.NArg() > 0 {
+		return fmt.Errorf("name one memory, not %q\n%s", flags.Arg(0), forgetHelp.Synopsis())
+	}
+
+	if !handleShape.MatchString(handle) {
+		return fmt.Errorf("say which memory, like M-12\n%s", forgetHelp.Synopsis())
+	}
+
+	reason, err := prose(*because, in)
+	if err != nil {
+		return fmt.Errorf("read the reason: %w", err)
+	}
+	if reason == "" {
+		return fmt.Errorf("--because is required\n%s", forgetHelp.Synopsis())
+	}
+
+	answered, err := memoryCall(protocol.AgentAPIForgetPath, protocol.ForgetRequest{
+		Handle:  strings.ToUpper(handle),
+		Because: reason,
+	}, "forget")
+	if err != nil {
+		return err
+	}
+
+	var proposed protocol.ProposedMemory
+	if err := json.Unmarshal([]byte(answered), &proposed); err != nil {
+		return fmt.Errorf("Spotlight answered with %q", answered)
+	}
+
+	fmt.Fprintf(
+		out,
+		"Proposed to retire %s: %s\nIt waits in the inbox for a person to approve it. The team keeps the memory until then.\n",
+		strings.ToUpper(handle), flat(proposed.Body),
+	)
+
+	return nil
+}
+
+var patchedFile = regexp.MustCompile(`(?m)^\*\*\* (?:Update|Add|Delete) File: (.+)$`)
+
+type toolHook struct {
+	Cwd       string          `json:"cwd"`
+	ToolInput json.RawMessage `json:"tool_input"`
+}
+
+func hook(args []string, in io.Reader, out io.Writer) error {
+	if len(args) != 1 || args[0] != "post-tool-use" {
+		return fmt.Errorf("say which hook: post-tool-use\n%s", hookHelp.Synopsis())
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(in, 8<<20))
+	if err != nil {
+		return nil
+	}
+
+	used := usedPaths(raw)
+	if len(used) == 0 {
+		return nil
+	}
+
+	answered, err := memoryCall(protocol.AgentAPITouchedPath, protocol.TouchedRequest{Paths: used}, "show what the team remembers")
+	if err != nil {
+		return nil
+	}
+
+	var touched protocol.TouchedAnswer
+	if json.Unmarshal([]byte(answered), &touched) != nil || touched.Context == "" {
+		return nil
+	}
+
+	return json.NewEncoder(out).Encode(map[string]any{
+		"hookSpecificOutput": map[string]string{
+			"hookEventName":     "PostToolUse",
+			"additionalContext": touched.Context,
+		},
+	})
+}
+
+func usedPaths(raw []byte) []string {
+	var called toolHook
+	if json.Unmarshal(raw, &called) != nil {
+		return nil
+	}
+
+	found := []string{}
+	var input map[string]json.RawMessage
+	if json.Unmarshal(called.ToolInput, &input) == nil {
+		for _, key := range []string{"file_path", "path", "notebook_path"} {
+			var value string
+			if json.Unmarshal(input[key], &value) == nil && value != "" {
+				found = append(found, value)
+			}
+		}
+	}
+
+	for _, text := range stringsIn(called.ToolInput) {
+		for _, match := range patchedFile.FindAllStringSubmatch(text, -1) {
+			found = append(found, strings.TrimSpace(match[1]))
+		}
+	}
+
+	used := make([]string, 0, len(found))
+	for _, each := range found {
+		if !filepath.IsAbs(each) && called.Cwd != "" {
+			each = filepath.Join(called.Cwd, each)
+		}
+		used = append(used, each)
+	}
+
+	return used
+}
+
+func stringsIn(raw json.RawMessage) []string {
+	var value any
+	if json.Unmarshal(raw, &value) != nil {
+		return nil
+	}
+
+	found := []string{}
+	var walk func(any)
+	walk = func(each any) {
+		switch typed := each.(type) {
+		case string:
+			found = append(found, typed)
+		case []any:
+			for _, item := range typed {
+				walk(item)
+			}
+		case map[string]any:
+			for _, item := range typed {
+				walk(item)
+			}
+		}
+	}
+	walk(value)
+
+	return found
+}

@@ -8,10 +8,15 @@ export const MEMORY_USES = Symbol('MEMORY_USES');
 export interface MemoryUsesPort {
   record(uses: MemoryUses): Promise<void>;
 
-  usedBy(runId: RunId, via: MemoryUse): Promise<readonly MemoryId[]>;
+  usedBy(
+    runId: RunId,
+    vias: readonly MemoryUse[],
+  ): Promise<readonly MemoryId[]>;
 
   runsUsing(
     memories: readonly MemoryId[],
-    via?: MemoryUse,
+    vias?: readonly MemoryUse[],
   ): Promise<ReadonlyMap<string, number>>;
+
+  lastUsed(memories: readonly MemoryId[]): Promise<ReadonlyMap<string, Date>>;
 }

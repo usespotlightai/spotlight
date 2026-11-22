@@ -731,7 +731,10 @@ describe('TaskBriefing', () => {
       );
       expect(briefing).toContain('changing them changes nothing');
       expect(briefing).toContain(
-        '`spotlight remember --kind <kind> --body "…" [--path <path>]`',
+        '`spotlight remember --kind <kind> --body "…" [--scope <scope>] [--path <path>]`, choosing the widest scope that is still true',
+      );
+      expect(briefing).toContain(
+        'Where one no longer applies and nothing replaces it, run `spotlight forget <handle> --because "…"`; a person approves it before the team retires it.',
       );
       expect(briefing).not.toContain('spotlight recall "');
     });

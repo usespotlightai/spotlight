@@ -38,6 +38,10 @@ export class ReadInsightsMemoryHandler implements QueryHandlerPort<
         }),
       );
       const use = await this.memory.between(windowOf(access, period.current));
+      const cut = await this.memory.described(
+        access.workspaceId,
+        compared.cutThenRead.most.map((each) => each.memoryId),
+      );
       const names = await this.people.namesOf(
         use.flagged.flatMap((each) => (each.by ? [each.by] : [])),
       );
@@ -45,10 +49,21 @@ export class ReadInsightsMemoryHandler implements QueryHandlerPort<
       return {
         period: periodOf(period),
         activeCount: use.activeCount,
-        memoriesBriefed: compared.memoriesBriefed,
-        memoriesRecalled: compared.memoriesRecalled,
-        runsBriefed: compared.runsBriefed,
-        runsRecalled: compared.runsRecalled,
+        memoriesBriefed: compared.briefed.memories,
+        memoriesRead: compared.read.memories,
+        memoriesRecalled: compared.recalled.memories,
+        memoriesDelivered: compared.delivered.memories,
+        memoriesCutThenRead: compared.cutThenRead.memories,
+        runsBriefed: compared.briefed.runs,
+        runsRead: compared.read.runs,
+        runsRecalled: compared.recalled.runs,
+        runsDelivered: compared.delivered.runs,
+        runsCutThenRead: compared.cutThenRead.runs,
+        cutThenRead: compared.cutThenRead.most.flatMap((each) => {
+          const memory = cut.get(each.memoryId);
+
+          return memory ? [{ ...memory, runs: each.runs }] : [];
+        }),
         flagged: use.flagged.map((each) => ({
           ...each,
           byName: each.by ? (names.get(each.by) ?? null) : null,

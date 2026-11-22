@@ -30,6 +30,7 @@ const MEMORIES = new JsonSchema(
         steps: z.array(z.number().int()),
         notes: z.array(z.number().int()),
         supersedes: z.string().nullable(),
+        retires: z.string().nullable(),
       }),
     ),
   }),
@@ -57,12 +58,13 @@ Rules:
 
 1. Record only what the steps and notes state or plainly imply. Never infer a memory from what a good engineer would have done.
 2. Cite in "steps" every step, and in "notes" every note, that supports the memory, by its number. Cite nothing you were not given. A memory cites at least one step or note.
-3. "scope" says where the memory applies: "team" for all of the team's work, "line" for the work of this line, "station" for the work of this station. Choose the narrowest that fits.
+3. "scope" says where the memory applies: "team" for all of the team's work, "line" for the work of this line, "station" for the work of this station. Choose the widest that is still true. A trap in a repository is true wherever that repository is worked on, so give it the scope "team" and name the repository; choose "station" only for what is true of this station's work alone.
 4. Name a "repository" only when the memory is about one of the repositories listed, and "paths" only when it is about particular files; paths are relative to their repository and must come from the files the run changed in it. Otherwise give null and an empty list.
 5. "body" is one to three plain sentences that are complete in themselves, so that a reader who has none of this context understands them. Say the thing to remember, not the story of how it was learned.
-6. Skip anything that an approved team memory already says. When what you read shows that one of these memories is wrong or out of date, propose its replacement and give that memory's id in "supersedes"; otherwise give null.
-7. Never propose again what people recently turned down, nor what the agent already proposed itself.
-8. Prefer a few memories that matter to many that do not. When nothing is worth remembering, give none.`;
+6. Skip anything that an approved team memory already says, including the memories learned elsewhere. When what you read shows that one of the memories approved here is wrong or out of date and you know what is right, propose its replacement and give that memory's handle, such as "M-12", in "supersedes"; otherwise give null.
+7. When what you read shows that a memory approved here is wrong and nothing replaces it, give its handle in "retires" and say in "body" why it is wrong, in one or two plain sentences. Cite the steps and notes that show it. For such an entry, "kind", "scope", "repository" and "paths" are ignored, and "supersedes" is null. Otherwise give null in "retires".
+8. Never propose again what people recently turned down, nor what the agent already proposed itself.
+9. Prefer a few memories that matter to many that do not. When nothing is worth remembering, give none.`;
 
 const MAX_KNOWN = 1_000;
 
@@ -98,7 +100,13 @@ const buildPrompt = (request: MemoryDraftRequest): string => {
       : `The agent's steps:\n${listed(steps, '(none)')}`,
     `Memories the team approved here:\n${listed(
       request.active.map(
-        (each) => `- ${each.id} (${each.kind}): ${known(each.body)}`,
+        (each) => `- ${each.handle} (${each.kind}): ${known(each.body)}`,
+      ),
+      '(none)',
+    )}`,
+    `Memories learned elsewhere about the same repositories, at other lines or stations. Do not propose them again, and never supersede or retire them:\n${listed(
+      request.elsewhere.map(
+        (each) => `- ${each.handle} (${each.kind}): ${known(each.body)}`,
       ),
       '(none)',
     )}`,

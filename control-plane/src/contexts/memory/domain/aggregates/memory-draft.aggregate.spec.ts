@@ -1,4 +1,5 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import {
   MemoryProposal,
   type ProposedMemory,
@@ -9,6 +10,7 @@ import { MemoryReviewRequested } from '@memory/domain/events/memory-review-reque
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
+import { MemoryRetirementLapsedError } from '@memory/domain/exceptions/memory-retirement-lapsed.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { Remembering } from '@memory/domain/services/remembering';
@@ -16,6 +18,7 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
@@ -68,6 +71,8 @@ const evidence = (
     notesRead: 0,
     changed: [{ repository: API, path: 'src/uploads.ts' }],
     known: [],
+    used: [],
+    elsewhere: [],
     fromOutside: false,
   });
 
@@ -80,6 +85,7 @@ const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   steps: [5],
   notes: [],
   supersedes: null,
+  retires: null,
   ...change,
 });
 
@@ -125,6 +131,7 @@ const rejected = (id: string) =>
     source: 'person',
     proposedBy: 'drafter',
     supersedes: null,
+    retires: null,
     recordedAt: NOW,
     state: 'rejected',
     decision: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
@@ -299,6 +306,8 @@ describe('MemoryDraft', () => {
           notesRead: 0,
           changed: [],
           known: [],
+          used: [],
+          elsewhere: [],
           fromOutside: false,
         }),
         newId,
@@ -498,6 +507,8 @@ describe('MemoryDraft', () => {
             notesRead: 0,
             changed: [{ repository: API, path: 'src/uploads.ts' }],
             known: [],
+            used: [],
+            elsewhere: [],
             fromOutside: true,
           }),
           newId,
@@ -518,6 +529,7 @@ describe('MemoryDraft', () => {
 
       const approved = draft.approve({
         runId: FIRST,
+        current: [],
         approving: [{ id: idOf(draft, 0) }],
         decision: ADA,
       });
@@ -541,6 +553,7 @@ describe('MemoryDraft', () => {
 
       const approved = draft.approve({
         runId: FIRST,
+        current: [],
         approving: [{ id: idOf(draft, 0), body: '  Edited.  ' }],
         decision: ADA,
       });
@@ -556,6 +569,7 @@ describe('MemoryDraft', () => {
 
       const approved = draft.approve({
         runId: FIRST,
+        current: [],
         approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
         decision: ADA,
       });
@@ -573,6 +587,7 @@ describe('MemoryDraft', () => {
       expect(() =>
         draft.approve({
           runId: FIRST,
+          current: [],
           approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
           decision: ADA,
         }),
@@ -580,6 +595,7 @@ describe('MemoryDraft', () => {
       expect(
         draft.approve({
           runId: FIRST,
+          current: [],
           approving: [{ id: idOf(draft, 0) }],
           decision: ADA,
         }).proposals[0]?.state,
@@ -622,6 +638,7 @@ describe('MemoryDraft', () => {
       const draft = three();
       const approved = draft.approve({
         runId: FIRST,
+        current: [],
         approving: [{ id: idOf(draft, 0) }],
         decision: ADA,
       });
@@ -645,6 +662,7 @@ describe('MemoryDraft', () => {
       expect(() =>
         rejected.approve({
           runId: FIRST,
+          current: [],
           approving: [{ id: idOf(draft, 0) }],
           decision: ADA,
         }),
@@ -672,6 +690,7 @@ describe('MemoryDraft', () => {
       expect(() =>
         draft.approve({
           runId: FIRST,
+          current: [],
           approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 0) }],
           decision: ADA,
         }),
@@ -683,6 +702,7 @@ describe('MemoryDraft', () => {
 
       draft = draft.approve({
         runId: FIRST,
+        current: [],
         approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
         decision: ADA,
       });
@@ -724,6 +744,7 @@ describe('MemoryDraft', () => {
       const decided = draft
         .approve({
           runId: FIRST,
+          current: [],
           approving: [{ id: idOf(draft, 0) }],
           decision: ADA,
         })
@@ -894,5 +915,80 @@ describe('MemoryDraft', () => {
         }),
       ).toThrow(InconsistentStateError);
     });
+  });
+});
+
+describe('approving a retirement', () => {
+  const BY = MemoryDecision.of({ by: UserId.of('user_ada'), at: LATER });
+  const target = Memory.write({
+    id: MemoryId.of('memory_old'),
+    handle: MemoryHandle.of(3),
+    workspaceId: WorkspaceId.of('ws_1'),
+    kind: 'preference',
+    body: MemoryBody.of('Name branches after the ticket.'),
+    scope: MemoryScope.of({ teamId: TEAM }),
+    provenance: null,
+    by: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
+  });
+  const retiring = MemoryDraft.rehydrate({
+    id: MemoryDraftId.of('draft_1'),
+    taskId: TASK,
+    workspaceId: WorkspaceId.of('ws_1'),
+    drafting: null,
+    draftedIn: FIRST,
+    notesRead: 0,
+    proposals: [
+      MemoryProposal.retiring({
+        id: MemoryId.of('memory_forget'),
+        retired: target,
+        reason: 'The team moved to numbered branches.',
+        provenance: MemoryProvenance.of({
+          taskId: TASK,
+          runId: FIRST,
+          steps: [],
+          notes: [1],
+        }),
+        source: 'run',
+        proposedBy: 'agent',
+        recordedAt: NOW,
+      }),
+    ],
+    failure: null,
+    version: 1,
+  });
+  const approving = [{ id: MemoryId.of('memory_forget') }];
+
+  it('names the memory it retires', () => {
+    expect(retiring.retiredBy(FIRST, [MemoryId.of('memory_forget')])).toEqual([
+      target.id,
+    ]);
+  });
+
+  it('is approved while the memory is still active', () => {
+    expect(
+      retiring.approve({
+        runId: FIRST,
+        approving,
+        decision: BY,
+        current: [target],
+      }).proposals[0]?.state,
+    ).toBe('approved');
+  });
+
+  it('is refused once the memory was retired or replaced', () => {
+    const retired = target.retire({
+      by: UserId.of('user_ada'),
+      reason: 'Gone.',
+      at: NOW,
+    });
+
+    expect(() =>
+      retiring.approve({
+        runId: FIRST,
+        approving,
+        decision: BY,
+        current: [retired],
+      }),
+    ).toThrow(new MemoryRetirementLapsedError(['M-3']));
   });
 });

@@ -44,6 +44,9 @@ const memory = (over: Partial<ProposedMemory>): ProposedMemory => ({
   repository: null,
   paths: [],
   supersedes: null,
+  retires: null,
+  editable: true,
+  inactiveMemories: [],
   decision: null,
   harness: null,
   steps: [],
@@ -72,6 +75,49 @@ beforeEach(() => {
 });
 
 describe('ProposedMemories', () => {
+  it('shows which memory a retirement ends and why, and offers no edit', () => {
+    showing([
+      memory({
+        editable: false,
+        retires: {
+          memoryId: 'memory_9',
+          handle: 'M-9',
+          reason: 'The code no longer does this.',
+        },
+      }),
+    ]);
+
+    expect(screen.getByText('M-9')).toBeTruthy();
+    expect(screen.getByText('The code no longer does this.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit memory 1' })).toBeNull();
+  });
+
+  it('offers no approval for a retirement whose memory is no longer active', () => {
+    showing([
+      memory({
+        editable: false,
+        inactiveMemories: ['M-9'],
+        retires: {
+          memoryId: 'memory_9',
+          handle: 'M-9',
+          reason: 'The code no longer does this.',
+        },
+      }),
+    ]);
+
+    expect(
+      screen.getByText(
+        'M-9 is no longer active, so this retirement no longer applies.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Approve memory 1' }),
+    ).toHaveProperty('disabled', true);
+    expect(
+      screen.getByRole('button', { name: 'Reject memory 1' }),
+    ).toHaveProperty('disabled', false);
+  });
+
   it('lists every memory the run proposed', () => {
     showing([
       memory({ id: 'one', body: 'One.' }),

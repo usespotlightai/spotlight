@@ -44,6 +44,8 @@ type Journal interface {
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.RememberRequest) (json.RawMessage, error)
+	Forget(ctx context.Context, runID string, forgotten protocol.ForgetRequest) (json.RawMessage, error)
+	DeliveredMemories(ctx context.Context, runID string, handles []string) error
 	ProposeCandidate(ctx context.Context, runID string, proposal protocol.CandidateProposal) (json.RawMessage, error)
 	RecordCause(ctx context.Context, runID string, record protocol.CauseRecord) (json.RawMessage, error)
 	MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error)
@@ -206,12 +208,13 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 		}
 	}
 
+	var memoryFiles []protocol.MemoryFile
 	if searches(run) {
 		if err := space.Remove(memoryFolder); err != nil {
 			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear the team's memory: %w", err))
 		}
 	} else {
-		writeMemoryFiles(ctx, opts.Journal, run.ID, space, log)
+		memoryFiles = writeMemoryFiles(ctx, opts.Journal, run.ID, space, log)
 	}
 
 	state, err := space.State()
@@ -313,6 +316,31 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 		},
 	)
 
+	channel.Forgetting(func(ctx context.Context, forgotten protocol.ForgetRequest) (json.RawMessage, error) {
+		if replays(run) {
+			return nil, notAllowedInReplay("forget")
+		}
+		if searches(run) {
+			return nil, notAllowedInSearch("propose to retire a memory")
+		}
+
+		journal.flush(ctx)
+		return opts.Journal.Forget(ctx, run.ID, forgotten)
+	})
+
+	var touches *pathMemories
+	if !replays(run) && !searches(run) {
+		touches = newPathMemories(space.Dir, run.Spec.Checkouts, memoryFiles, func(ctx context.Context, handles, paths []string) {
+			from := time.Now()
+			err := opts.Journal.DeliveredMemories(ctx, run.ID, handles)
+			journal.append(protocol.Event{Type: protocol.EventSpan, Data: deliveredSpan(handles, paths, from, time.Now(), err)})
+			if err != nil {
+				log.Warn("could not record the memories shown for paths the agent used", "error", err)
+			}
+		})
+		channel.Touches(touches.touched)
+	}
+
 	if searches(run) {
 		channel.Candidates(func(ctx context.Context, proposal protocol.CandidateProposal) (json.RawMessage, error) {
 			journal.flush(ctx)
@@ -390,6 +418,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 		sessionID: sessionID,
 		joined:    joined,
 		unready:   unready,
+		touches:   touches,
 		journal:   journal,
 		control:   opts.Journal,
 		archiver:  archiver,
@@ -623,7 +652,7 @@ const memoryFolder = ".spotlight/memory"
 
 const unreadMemory = "The team's memory could not be read for this run, so nothing is written here.\n"
 
-func writeMemoryFiles(ctx context.Context, journal Journal, runID string, space *workspace.Workspace, log *slog.Logger) {
+func writeMemoryFiles(ctx context.Context, journal Journal, runID string, space *workspace.Workspace, log *slog.Logger) []protocol.MemoryFile {
 	files, err := journal.MemoryFiles(ctx, runID)
 	if err != nil {
 		log.Warn("could not read what the team remembers", "error", err)
@@ -642,18 +671,23 @@ func writeMemoryFiles(ctx context.Context, journal Journal, runID string, space 
 	if err := space.Prune(memoryFolder, written); err != nil {
 		if err := space.Remove(memoryFolder); err != nil {
 			log.Warn("could not clear the memory folder", "error", err)
-			return
+			return nil
 		}
 	}
 
+	kept := make([]protocol.MemoryFile, 0, len(files))
 	for _, file := range files {
 		if !slices.Contains(written, filepath.Clean(file.Path)) {
 			continue
 		}
 		if err := space.Replace(file.Path, nil, writing(file.Body)); err != nil {
 			log.Warn("could not write a memory file", "path", file.Path, "error", err)
+			continue
 		}
+		kept = append(kept, file)
 	}
+
+	return kept
 }
 
 const skillFile = "SKILL.md"

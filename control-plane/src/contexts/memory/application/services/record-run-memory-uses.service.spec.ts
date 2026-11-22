@@ -13,6 +13,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -24,6 +25,7 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const TEAM = TeamId.of('team_1');
 const ADA = UserId.of('user_ada');
+const API = Repository.of('acme/api');
 const RUN = {
   id: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
@@ -34,6 +36,7 @@ const storedMemory = (
   handle: MemoryHandle,
   active: boolean,
   applies: boolean,
+  repository: Repository | null = null,
 ) => {
   const memory = Memory.write({
     id: MemoryId.of(`memory_${handle.number}`),
@@ -44,6 +47,7 @@ const storedMemory = (
     scope: MemoryScope.of({
       teamId: TEAM,
       lineId: LineId.of(applies ? 'line_1' : 'line_other'),
+      repository,
     }),
     provenance: null,
     by: MemoryDecision.of({ by: ADA, at: NOW }),
@@ -56,6 +60,7 @@ const recording = (
   referenced: readonly string[] | null,
   isActive: (handle: string) => boolean = () => true,
   applies: (handle: string) => boolean = () => true,
+  about: (handle: string) => Repository | null = () => null,
 ) => {
   const dispatched: DomainEvent[] = [];
   const record = vi.fn(
@@ -84,7 +89,7 @@ const recording = (
         teamId: TEAM,
         lineId: LineId.of('line_1'),
         stationId: StationId.of('station_1'),
-        repositories: [],
+        repositories: [API],
       }),
       memoryFilesRead: async () => referenced,
     } as unknown as WorkPort,
@@ -92,7 +97,12 @@ const recording = (
       withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {
         lookedUp.push({ teamId, handles: handles.map((each) => each.value) });
         return handles.map((each) =>
-          storedMemory(each, isActive(each.value), applies(each.value)),
+          storedMemory(
+            each,
+            isActive(each.value),
+            applies(each.value),
+            about(each.value),
+          ),
         );
       },
     } as unknown as MemoryRepository,
@@ -102,7 +112,7 @@ const recording = (
 };
 
 describe('RecordRunMemoryUses, when a run ends', () => {
-  it('counts every memory file the run referred to as recalled, looked up within its team', async () => {
+  it('counts every memory file the run referred to as read, looked up within its team', async () => {
     const { record, dispatched, lookedUp, service } = recording([
       '.spotlight/memory/team/M-3.md',
       '.spotlight/memory/repositories/acme/api/src/uploads/M-18.md',
@@ -112,14 +122,14 @@ describe('RecordRunMemoryUses, when a run ends', () => {
 
     expect(lookedUp).toEqual([{ teamId: TEAM, handles: ['M-3', 'M-18'] }]);
     expect(dispatched).toEqual([
-      new MemoriesUsed(RUN.id, RUN.workspaceId, RUN.taskId, 'recalled', [
+      new MemoriesUsed(RUN.id, RUN.workspaceId, RUN.taskId, 'read', [
         MemoryId.of('memory_3'),
         MemoryId.of('memory_18'),
       ]),
     ]);
     expect(record).toHaveBeenCalledWith(
       RunId.of('run_1'),
-      'recalled',
+      'read',
       [MemoryId.of('memory_3'), MemoryId.of('memory_18')],
       NOW,
     );
@@ -146,7 +156,7 @@ describe('RecordRunMemoryUses, when a run ends', () => {
 
     expect(record).toHaveBeenCalledWith(
       RunId.of('run_1'),
-      'recalled',
+      'read',
       [MemoryId.of('memory_3')],
       NOW,
     );
@@ -163,8 +173,31 @@ describe('RecordRunMemoryUses, when a run ends', () => {
 
     expect(record).toHaveBeenCalledWith(
       RunId.of('run_1'),
-      'recalled',
+      'read',
       [MemoryId.of('memory_3')],
+      NOW,
+    );
+  });
+});
+
+describe('RecordRunMemoryUses, for what other stations learned', () => {
+  it('counts a memory laid out from another line about one of the run’s repositories as read', async () => {
+    const { record, service } = recording(
+      [
+        '.spotlight/memory/elsewhere/acme/api/src/uploads/M-21.md',
+        '.spotlight/memory/line/M-8.md',
+      ],
+      () => true,
+      () => false,
+      (handle) => (handle === 'M-21' ? API : null),
+    );
+
+    await service.runEnded(RUN, false);
+
+    expect(record).toHaveBeenCalledWith(
+      RunId.of('run_1'),
+      'read',
+      [MemoryId.of('memory_21')],
       NOW,
     );
   });

@@ -60,6 +60,9 @@ const KNOWN = [
   }),
 ];
 
+const handleOf = (id: string): string =>
+  KNOWN.find((each) => each.id.value === id)?.handle.value ?? 'M-999';
+
 const evidence = (fromOutside = false) =>
   DraftEvidence.of({
     taskId: TaskId.of('task_1'),
@@ -84,6 +87,8 @@ const evidence = (fromOutside = false) =>
       { repository: WEB, path: 'src/Upload.tsx' },
     ],
     known: KNOWN,
+    used: [],
+    elsewhere: [],
     fromOutside,
   });
 
@@ -96,6 +101,7 @@ const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   steps: [5],
   notes: [],
   supersedes: null,
+  retires: null,
   ...change,
 });
 
@@ -248,24 +254,56 @@ describe('DraftEvidence', () => {
   });
 
   describe('superseding', () => {
-    it('supersedes an active memory in scope', () => {
+    it('supersedes an active memory in scope, named by its handle', () => {
       expect(
-        proposalOf(remembered({ supersedes: 'memory_old' })).supersedes?.value,
+        proposalOf(remembered({ supersedes: handleOf('memory_old') }))
+          .supersedes?.value,
       ).toBe('memory_old');
     });
 
-    it('does not supersede a memory it was not shown', () => {
-      expect(() =>
-        proposalOf(remembered({ supersedes: 'memory_elsewhere' })),
-      ).toThrow(InvalidMemoryError);
-    });
-
-    it('does not supersede a memory that does not apply where the run worked, or is no longer active', () => {
-      for (const supersedes of ['memory_other_station', 'memory_retired']) {
+    it('does not supersede a memory it was not shown, nor one named by its id', () => {
+      for (const supersedes of ['M-999', 'memory_old']) {
         expect(() => proposalOf(remembered({ supersedes }))).toThrow(
           InvalidMemoryError,
         );
       }
+    });
+
+    it('does not supersede a memory that does not apply where the run worked, or is no longer active', () => {
+      for (const id of ['memory_other_station', 'memory_retired']) {
+        expect(() =>
+          proposalOf(remembered({ supersedes: handleOf(id) })),
+        ).toThrow(InvalidMemoryError);
+      }
+    });
+
+    it('drafts the retirement of an active memory in scope, with its body and the reason it is wrong', () => {
+      const proposal = proposalOf(
+        remembered({
+          retires: handleOf('memory_old'),
+          body: 'Retries were removed in October.',
+          kind: 'correction',
+        }),
+      );
+
+      expect(proposal.retires).toEqual({
+        memory: MemoryId.of('memory_old'),
+        reason: 'Retries were removed in October.',
+      });
+      expect(proposal.body.value).toBe('Retry twice.');
+      expect(proposal.kind).toBe('preference');
+      expect(proposal.supersedes).toBeNull();
+    });
+
+    it('never drafts the retirement of a memory that does not apply where the run worked', () => {
+      expect(() =>
+        proposalOf(
+          remembered({
+            retires: handleOf('memory_other_station'),
+            body: 'Wrong.',
+          }),
+        ),
+      ).toThrow(InvalidMemoryError);
     });
 
     it('shows the drafter only what is active where the run worked, newest first', () => {
@@ -288,10 +326,54 @@ describe('DraftEvidence', () => {
         notesRead: 0,
         changed: [],
         known: [...KNOWN, newer],
+        used: [],
+        elsewhere: [],
         fromOutside: false,
       }).active.map((each) => each.id.value);
 
       expect(shown).toEqual(['memory_newer', 'memory_old']);
+    });
+
+    it('always shows the drafter what the run was briefed with or read, past its cap, and keeps memories learned elsewhere apart', () => {
+      const many = Array.from({ length: 60 }, (_, at) =>
+        approved(
+          `memory_many_${at}`,
+          MemoryScope.of({ teamId: TEAM }),
+          new Date(Date.UTC(2026, 8, 1, 0, 0, 60 - at)),
+        ),
+      );
+      const otherStation = approved(
+        'memory_at_other_station',
+        MemoryScope.of({
+          teamId: TEAM,
+          lineId: LineId.of('line_2'),
+          repository: API,
+        }),
+      );
+      const shown = DraftEvidence.of({
+        taskId: TaskId.of('task_1'),
+        runId: RunId.of('run_1'),
+        runContext: {
+          teamId: TEAM,
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+          repositories: [API],
+        },
+        steps: [],
+        notes: [],
+        notesRead: 0,
+        changed: [],
+        known: many,
+        used: [MemoryId.of('memory_many_59')],
+        elsewhere: [otherStation, ...many.slice(0, 1)],
+        fromOutside: false,
+      });
+
+      expect(shown.active).toHaveLength(50);
+      expect(shown.active[0]?.id.value).toBe('memory_many_59');
+      expect(shown.elsewhere.map((each) => each.id.value)).toEqual([
+        'memory_at_other_station',
+      ]);
     });
   });
 
@@ -333,6 +415,8 @@ describe('DraftEvidence', () => {
           path,
         })),
         known: [],
+        used: [],
+        elsewhere: [],
         fromOutside: false,
       });
 

@@ -69,6 +69,7 @@ describe('memory files', () => {
       ],
       replaced: new Map([[old.id.value, old]]),
       names: new Map([[ADA.value, 'Ada']]),
+      briefed: new Set(),
     });
 
     expect(file?.path).toBe(
@@ -94,11 +95,60 @@ describe('memory files', () => {
       lines: [],
       replaced: new Map(),
       names: new Map(),
+      briefed: new Set(),
     });
 
     expect(file?.path).toBe('.spotlight/memory/team/M-7.md');
     expect(file?.body).toContain('- Applies to: the whole team');
     expect(file?.body).toContain('- Source: written by someone on 2026-09-21');
     expect(file?.body).not.toContain('spotlight trace');
+  });
+
+  it('name the memory, the repository and paths it is about, and whether the briefing lists it', () => {
+    const files = memoryFilesOf([replacing, old], {
+      lines: [],
+      replaced: new Map(),
+      names: new Map(),
+      briefed: new Set([old.id.value]),
+    });
+
+    expect(
+      files.map(({ handle, repository, paths, briefed }) => ({
+        handle,
+        repository,
+        paths,
+        briefed,
+      })),
+    ).toEqual([
+      {
+        handle: 'M-18',
+        repository: { owner: 'acme', name: 'api' },
+        paths: ['src/uploads'],
+        briefed: false,
+      },
+      { handle: 'M-7', repository: null, paths: [], briefed: true },
+    ]);
+  });
+
+  it('lay out what another station learned about the same repository apart, never as briefed', () => {
+    const [file] = memoryFilesOf(
+      [replacing],
+      {
+        lines: [],
+        replaced: new Map(),
+        names: new Map(),
+        briefed: new Set([replacing.id.value]),
+      },
+      true,
+    );
+
+    expect(file?.path).toBe(
+      '.spotlight/memory/elsewhere/acme/api/src/uploads/M-18.md',
+    );
+    expect(file?.elsewhere).toBe(true);
+    expect(file?.briefed).toBe(false);
+    expect(file?.body).toContain(
+      '- Learned at another line or station. Check it still fits this work before you follow it.\n',
+    );
   });
 });

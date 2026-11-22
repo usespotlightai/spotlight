@@ -1,6 +1,7 @@
 import type { MemoryFileDto } from '@memory/application/dto/memory-file.dto';
 import type { LinesPort } from '@memory/application/ports/lines.port';
 import type { PeoplePort } from '@memory/application/ports/people.port';
+import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ReadMemoryFilesQuery } from '@memory/application/queries/read-memory-files.query';
 import { memoryFilesOf } from '@memory/application/rendering/memory-files';
 import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
@@ -22,6 +23,7 @@ export class ReadMemoryFilesHandler implements QueryHandlerPort<
     private readonly memories: MemoryRepository,
     private readonly lines: LinesPort,
     private readonly people: PeoplePort,
+    private readonly work: WorkPort,
   ) {}
 
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
@@ -35,18 +37,21 @@ export class ReadMemoryFilesHandler implements QueryHandlerPort<
         return [];
       }
 
-      const applying = await this.applicable.at(run, run.asOf);
-      const [lines, replaced] = await Promise.all([
+      const [applying, elsewhere] = await Promise.all([
+        this.applicable.at(run, run.asOf),
+        this.applicable.elsewhere(run, run.asOf),
+      ]);
+      const laid = [...applying, ...elsewhere];
+      const [lines, replaced, remembered] = await Promise.all([
         this.lines.ofTeam(run.teamId),
         this.memories.findAll(
-          applying.flatMap((each) =>
-            each.supersedes ? [each.supersedes] : [],
-          ),
+          laid.flatMap((each) => (each.supersedes ? [each.supersedes] : [])),
         ),
+        this.work.run(run.id),
       ]);
       const names = new Map(
         await Promise.all(
-          applying
+          laid
             .filter(
               (each, at, all) =>
                 all.findIndex((one) =>
@@ -63,11 +68,17 @@ export class ReadMemoryFilesHandler implements QueryHandlerPort<
         ),
       );
 
-      return memoryFilesOf(applying, {
+      const context = {
         lines,
         replaced: new Map(replaced.map((each) => [each.id.value, each])),
         names,
-      });
+        briefed: new Set(remembered?.briefed ?? []),
+      };
+
+      return [
+        ...memoryFilesOf(applying, context),
+        ...memoryFilesOf(elsewhere, context, true),
+      ];
     } catch (error) {
       rethrowAsApplicationError(error);
     }

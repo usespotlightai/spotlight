@@ -2,6 +2,7 @@ import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const MEMORIES = Symbol('MEMORIES');
@@ -15,6 +16,8 @@ export interface MemoryRepository {
 
   findAll(ids: readonly MemoryId[]): Promise<readonly Memory[]>;
 
+  findAllLocked(ids: readonly MemoryId[]): Promise<readonly Memory[]>;
+
   ofTeam(teamId: TeamId): Promise<readonly Memory[]>;
 
   withHandle(teamId: TeamId, handle: MemoryHandle): Promise<Memory | null>;
@@ -27,6 +30,12 @@ export interface MemoryRepository {
   successorsOf(ids: readonly MemoryId[]): Promise<readonly Memory[]>;
 
   nextHandle(): Promise<MemoryHandle>;
+
+  ofRepositories(
+    teamId: TeamId,
+    repositories: readonly Repository[],
+    asOf?: Date | null,
+  ): Promise<readonly Memory[]>;
 
   mayApplyAt(
     runContext: RunContext,

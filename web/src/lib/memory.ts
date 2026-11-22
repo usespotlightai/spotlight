@@ -134,6 +134,10 @@ export const proposalTitleOf = (memory: ProposedMemory): string => {
     return WAITING_FOR_APPROVAL;
   }
 
+  if (memory.state === 'lapsed') {
+    return 'No longer applies';
+  }
+
   const outcome =
     memory.state === 'approved' ? 'Memory approved' : 'Memory rejected';
   const who = memory.decision?.name;
@@ -145,6 +149,7 @@ const PROPOSAL_STATUSES: Record<ProposedMemory['state'], ApprovalStatus> = {
   proposed: 'pending',
   approved: 'approved',
   rejected: 'dismissed',
+  lapsed: 'dismissed',
 };
 
 export const proposalStatusOf = (memory: ProposedMemory): ApprovalStatus =>
@@ -234,6 +239,10 @@ export const memoryCounts = (memories: RunMemoriesData): MemoryCount[] =>
 export const proposalStateOf = (proposal: RunProposal): string => {
   if (proposal.state === 'rejected') {
     return 'Rejected';
+  }
+
+  if (proposal.state === 'lapsed') {
+    return 'No longer applies';
   }
 
   if (proposal.state === 'approved') {
@@ -366,7 +375,13 @@ export const decidedMemories = <Review extends { memories: ProposedMemory[] }>(
     const decision = decided.find((each) => each.id === memory.id);
 
     return decision
-      ? { ...memory, state, body: decision.body ?? memory.body }
+      ? {
+          ...memory,
+          state,
+          body: decision.body ?? memory.body,
+          editable: false,
+          inactiveMemories: [],
+        }
       : memory;
   }),
 });

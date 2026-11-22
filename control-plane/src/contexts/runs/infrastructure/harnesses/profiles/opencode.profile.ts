@@ -28,6 +28,8 @@ export const opencodeProfile: ProfileTranslator = {
   native: 'json',
   lays: [],
 
+  bare: () => [],
+
   translate(profile: HarnessSettings): TranslatedProfile {
     const permission: Record<
       string,

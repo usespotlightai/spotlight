@@ -7,12 +7,14 @@ import type { WorkPort } from '@memory/application/ports/work.port';
 import { lookUpOnce } from '@memory/application/services/people-lookup';
 import { provenanceNotes } from '@memory/application/services/provenance-notes';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class MemoryReviews {
   constructor(
     private readonly work: WorkPort,
     private readonly people: PeoplePort,
+    private readonly memories: MemoryRepository,
   ) {}
 
   async of(draft: MemoryDraft, runId: RunId): Promise<MemoryReviewDto> {
@@ -25,6 +27,12 @@ export class MemoryReviews {
       this.work.harnessOf(runId),
     ]);
     const person = lookUpOnce(this.people);
+    const current = await this.memories.findAll(
+      proposals.flatMap((each) => (each.retires ? [each.retires.memory] : [])),
+    );
+    const retired = new Map(
+      current.map((each) => [each.id.value, each.handle.value]),
+    );
 
     const memories = await Promise.all(
       proposals.map(async (proposal): Promise<ProposedMemoryDto> => ({
@@ -38,6 +46,13 @@ export class MemoryReviews {
         repository: proposal.scope.repository?.value ?? null,
         paths: proposal.scope.paths.map((each) => each.value),
         supersedes: proposal.supersedes?.value ?? null,
+        retires: proposal.retires && {
+          memoryId: proposal.retires.memory.value,
+          handle: retired.get(proposal.retires.memory.value) ?? '',
+          reason: proposal.retires.reason,
+        },
+        editable: proposal.editable,
+        inactiveMemories: proposal.proposed ? proposal.inactiveIn(current) : [],
         decision: proposal.decision && {
           by: proposal.decision.by.value,
           name: (await person(proposal.decision.by)).name,

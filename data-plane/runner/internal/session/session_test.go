@@ -59,6 +59,8 @@ type journal struct {
 	sandboxEnv             protocol.SandboxEnv
 	sandboxEnvErr          error
 	sandboxEnvAsked        []int
+	forgotten              []protocol.ForgetRequest
+	delivered              [][]string
 }
 
 type remembered struct {
@@ -164,6 +166,22 @@ func (j *journal) ProposeCandidate(
 	defer j.mu.Unlock()
 	j.proposed = append(j.proposed, proposal)
 	return json.Marshal(protocol.ProposedCandidate{CandidateID: "cand_1", Name: proposal.Name, ReplayID: "replay_1"})
+}
+
+func (j *journal) Forget(
+	_ context.Context, _ string, forgotten protocol.ForgetRequest,
+) (json.RawMessage, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.forgotten = append(j.forgotten, forgotten)
+	return json.Marshal(map[string]string{"retires": forgotten.Handle})
+}
+
+func (j *journal) DeliveredMemories(_ context.Context, _ string, handles []string) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.delivered = append(j.delivered, slices.Clone(handles))
+	return nil
 }
 
 func (j *journal) RecordCause(

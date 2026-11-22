@@ -130,3 +130,59 @@ func TestSaysWhenTheRunCannotRemember(t *testing.T) {
 		t.Fatalf("status = %d, want 501", status)
 	}
 }
+
+func TestCarriesAProposalToForgetToSpotlight(t *testing.T) {
+	server := serve(t)
+	var forgotten []protocol.ForgetRequest
+	server.Forgetting(func(_ context.Context, received protocol.ForgetRequest) (json.RawMessage, error) {
+		forgotten = append(forgotten, received)
+		return json.RawMessage(`{"kind":"rationale"}`), nil
+	})
+
+	status, body := postTo(t, server, protocol.AgentAPIForgetPath, server.Token(), `{"handle":"M-12","because":"Gone."}`)
+
+	if status != http.StatusOK || body != `{"kind":"rationale"}` {
+		t.Fatalf("status = %d: %s", status, body)
+	}
+	if len(forgotten) != 1 || forgotten[0].Handle != "M-12" || forgotten[0].Because != "Gone." {
+		t.Errorf("forgot %+v", forgotten)
+	}
+}
+
+func TestRejectsAProposalToForgetWithoutAReason(t *testing.T) {
+	server := serve(t)
+	called := false
+	server.Forgetting(func(context.Context, protocol.ForgetRequest) (json.RawMessage, error) {
+		called = true
+		return nil, nil
+	})
+
+	status, _ := postTo(t, server, protocol.AgentAPIForgetPath, server.Token(), `{"handle":"M-12","because":" "}`)
+
+	if status != http.StatusUnprocessableEntity || called {
+		t.Fatalf("status = %d, called %v", status, called)
+	}
+}
+
+func TestAnswersWhatTheTeamRemembersAboutPathsAToolUsed(t *testing.T) {
+	server := serve(t)
+	server.Touches(func(_ context.Context, paths []string) string {
+		return "about " + strings.Join(paths, ",")
+	})
+
+	status, body := postTo(t, server, protocol.AgentAPITouchedPath, server.Token(), `{"paths":["/work/api/a.ts"]}`)
+
+	if status != http.StatusOK || body != `{"context":"about /work/api/a.ts"}` {
+		t.Fatalf("status = %d: %s", status, body)
+	}
+}
+
+func TestAnswersNothingAboutPathsInARunThatShowsNoMemories(t *testing.T) {
+	server := serve(t)
+
+	status, body := postTo(t, server, protocol.AgentAPITouchedPath, server.Token(), `{"paths":["/work/api/a.ts"]}`)
+
+	if status != http.StatusOK || body != `{"context":""}` {
+		t.Fatalf("status = %d: %s", status, body)
+	}
+}

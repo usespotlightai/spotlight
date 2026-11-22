@@ -25,6 +25,8 @@ type channel struct {
 	history  func(received protocol.HistoryRequest) (json.RawMessage, error)
 	recall   func(received protocol.RecallRequest) (json.RawMessage, error)
 	remember func(received protocol.RememberRequest) (json.RawMessage, error)
+	forget   func(received protocol.ForgetRequest) (json.RawMessage, error)
+	touched  func(received protocol.TouchedRequest) string
 	propose  func(received protocol.CandidateProposal) (int, string)
 	cause    func(received protocol.CauseRecord) (int, string)
 
@@ -77,6 +79,14 @@ func (h *channel) Memories(
 ) {
 	h.recall = recall
 	h.remember = remember
+}
+
+func (h *channel) Forgetting(forget func(received protocol.ForgetRequest) (json.RawMessage, error)) {
+	h.forget = forget
+}
+
+func (h *channel) Touches(touched func(received protocol.TouchedRequest) string) {
+	h.touched = touched
 }
 
 func (h *channel) Candidates(propose func(received protocol.CandidateProposal) (int, string)) {
@@ -138,6 +148,20 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		answered(w)(h.remember(received))
+	case r.URL.Path == protocol.AgentAPIForgetPath:
+		var received protocol.ForgetRequest
+		if h.forget == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusBadRequest, "unreadable request to forget")
+			return
+		}
+		answered(w)(h.forget(received))
+	case r.URL.Path == protocol.AgentAPITouchedPath:
+		var received protocol.TouchedRequest
+		if h.touched == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusBadRequest, "unreadable paths")
+			return
+		}
+		answered(w)(json.Marshal(protocol.TouchedAnswer{Context: h.touched(received)}))
 	case r.URL.Path == protocol.AgentAPICandidatePath:
 		if h.propose == nil {
 			fail(w, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")

@@ -536,7 +536,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes the memories a run was briefed with, and never those the cap omitted', () => {
+  it('publishes the memories a run was briefed with apart from those the cap omitted', () => {
     expect(
       published(
         new DispatchBriefed(
@@ -557,6 +557,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         taskId: 'task_1',
         memories: ['memory_1'],
+        omitted: ['memory_2'],
         driver: 'line',
       },
     ]);

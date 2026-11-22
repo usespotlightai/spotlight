@@ -5,7 +5,8 @@ import {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
-import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
+import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
@@ -95,6 +96,7 @@ export class DraftEvidence {
     readonly changed: readonly ChangedPath[],
     private readonly changedKeys: ReadonlySet<string>,
     readonly active: readonly Memory[],
+    readonly elsewhere: readonly Memory[],
     private readonly fromOutside: boolean,
   ) {}
 
@@ -107,6 +109,8 @@ export class DraftEvidence {
     notesRead: number;
     changed: readonly ChangedPath[];
     known: readonly Memory[];
+    used: readonly MemoryId[];
+    elsewhere: readonly Memory[];
     fromOutside: boolean;
   }): DraftEvidence {
     const steps = within(
@@ -134,11 +138,24 @@ export class DraftEvidence {
         : [];
     });
 
-    const active = input.known
-      .filter((each) => each.appliesAt(input.runContext, null))
-      .sort(
-        (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
-      )
+    const usedInRun = (memory: Memory): boolean =>
+      input.used.some((each) => each.equals(memory.id));
+    const applying = input.known.filter((each) =>
+      each.appliesAt(input.runContext, null),
+    );
+    const newestFirst = (one: Memory, other: Memory): number =>
+      other.approval.at.getTime() - one.approval.at.getTime();
+    const used = applying.filter(usedInRun).sort(newestFirst);
+    const active = [
+      ...used,
+      ...applying
+        .filter((each) => !usedInRun(each))
+        .sort(newestFirst)
+        .slice(0, Math.max(0, MAX_PROMPT_ACTIVE - used.length)),
+    ];
+    const elsewhere = input.elsewhere
+      .filter((each) => !each.appliesAt(input.runContext, null))
+      .sort(newestFirst)
       .slice(0, MAX_PROMPT_ACTIVE);
 
     return new DraftEvidence(
@@ -151,6 +168,7 @@ export class DraftEvidence {
       changed.map(({ each }) => each),
       new Set(changed.map(({ key }) => key)),
       active,
+      elsewhere,
       input.fromOutside,
     );
   }
@@ -195,13 +213,21 @@ export class DraftEvidence {
       throw new InvalidMemoryError('cites only notes its drafter read');
     }
 
-    const supersedes = proposed.supersedes?.trim()
-      ? MemoryId.of(proposed.supersedes.trim())
-      : null;
+    const retired = this.activeNamed(proposed.retires);
 
-    if (supersedes && !this.active.some((each) => each.id.equals(supersedes))) {
-      throw new InvalidMemoryError('supersedes only an active memory in scope');
+    if (retired) {
+      return MemoryProposal.retiring({
+        id,
+        retired,
+        reason: proposed.body,
+        provenance,
+        source: this.sourceOf(provenance),
+        proposedBy: 'drafter',
+        recordedAt: now,
+      });
     }
+
+    const supersedes = this.activeNamed(proposed.supersedes)?.id ?? null;
 
     return MemoryProposal.of({
       id,
@@ -214,6 +240,23 @@ export class DraftEvidence {
       supersedes,
       recordedAt: now,
     });
+  }
+
+  private activeNamed(raw: string | null): Memory | null {
+    if (!raw?.trim()) {
+      return null;
+    }
+
+    const handle = MemoryHandle.parse(raw.trim());
+    const found = this.active.find((each) => each.handle.equals(handle));
+
+    if (!found) {
+      throw new InvalidMemoryError(
+        'supersedes or retires only an active memory in scope',
+      );
+    }
+
+    return found;
   }
 
   private authorOf(position: number): AuthorKind | null {

@@ -16,6 +16,7 @@ import type {
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { taskOfRun, world } from '@/mocks/world';
+import { memoryUpkeeps } from '@/mocks/world/memory-upkeeps';
 import { SAM } from '@/mocks/world/people';
 import { SETUP_CI, settingsWorld } from '@/mocks/world/settings';
 import {
@@ -326,6 +327,9 @@ const memoryHandlers = [
       repository: null,
       paths: input.paths ?? [],
       supersedes,
+      retires: null,
+      editable: true,
+      inactiveMemories: [],
       decision: null,
       harness: run.harness,
       steps: [
@@ -669,7 +673,46 @@ const chatHandlers = [
   }),
 ];
 
+const upkeepHandlers: RequestHandler[] = [
+  api.get('/teams/:teamId/memory-upkeep/:upkeepId', ({ params }) => {
+    const upkeep = memoryUpkeeps()[String(params.upkeepId)];
+
+    return upkeep && upkeep.teamId === params.teamId
+      ? json(upkeep)
+      : notFound();
+  }),
+
+  ...(['approve', 'reject'] as const).map((verb) =>
+    api.post(
+      `/teams/:teamId/memory-upkeep/:upkeepId/proposals/:proposalId/${verb}`,
+      async ({ params }) => {
+        await delay();
+        const upkeep = memoryUpkeeps()[String(params.upkeepId)];
+        const proposal = upkeep?.proposals.find(
+          (each) => each.id === params.proposalId,
+        );
+        if (!upkeep || upkeep.teamId !== params.teamId || !proposal) {
+          return notFound();
+        }
+        if (proposal.state !== 'pending') {
+          return problem(
+            409,
+            'Sorry, someone has already decided this change.',
+          );
+        }
+
+        proposal.state = verb === 'approve' ? 'approved' : 'rejected';
+        proposal.decidedBy = { id: SAM.id, name: SAM.name };
+        proposal.decidedAt = now();
+
+        return json(upkeep);
+      },
+    ),
+  ),
+];
+
 export const teamHandlers: RequestHandler[] = [
   ...memoryHandlers,
+  ...upkeepHandlers,
   ...chatHandlers,
 ];

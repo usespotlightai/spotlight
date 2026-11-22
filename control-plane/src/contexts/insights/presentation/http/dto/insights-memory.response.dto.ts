@@ -1,4 +1,5 @@
 import type {
+  CutMemoryDto,
   FlaggedMemoryDto,
   InsightsMemoryDto,
 } from '@insights/application/dto/insights-memory.dto';
@@ -45,6 +46,30 @@ export class FlaggedMemoryResponseDto {
   }
 }
 
+export class CutMemoryResponseDto {
+  @ApiProperty({ example: 'mem_1' })
+  readonly memoryId: string;
+
+  @ApiProperty({ example: 'M-12' })
+  readonly handle: string;
+
+  @ApiProperty({ example: 'Run the migrations before the tests.' })
+  readonly body: string;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Runs that the cap cut it from and that then read it',
+  })
+  readonly runs: number;
+
+  constructor(cut: CutMemoryDto) {
+    this.memoryId = cut.memoryId;
+    this.handle = cut.handle;
+    this.body = cut.body;
+    this.runs = cut.runs;
+  }
+}
+
 export class InsightsMemoryResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
@@ -63,15 +88,65 @@ export class InsightsMemoryResponseDto {
 
   @ApiProperty({
     example: 4,
-    description: 'Memories a run read for itself in the period',
+    description: 'Memories a run read from the memory folder in the period',
+  })
+  readonly memoriesRead: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Memories a run looked up with spotlight recall in the period',
   })
   readonly memoriesRecalled: number;
+
+  @ApiProperty({
+    example: 3,
+    description:
+      'Memories given to a run when it touched a path they are about, in the period',
+  })
+  readonly memoriesDelivered: number;
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'Memories the cap cut from a run that the run then read, recalled or was given',
+  })
+  readonly memoriesCutThenRead: number;
 
   @ApiProperty({ example: 30, description: 'Runs briefed any memory' })
   readonly runsBriefed: number;
 
-  @ApiProperty({ example: 8, description: 'Runs that read any memory' })
+  @ApiProperty({
+    example: 8,
+    description: 'Runs that read any memory from the folder',
+  })
+  readonly runsRead: number;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Runs that looked up any memory with spotlight recall',
+  })
   readonly runsRecalled: number;
+
+  @ApiProperty({
+    example: 5,
+    description: 'Runs given any memory when they touched its path',
+  })
+  readonly runsDelivered: number;
+
+  @ApiProperty({
+    example: 2,
+    description:
+      'Runs that read, recalled or were given a memory the cap cut from their briefing',
+  })
+  readonly runsCutThenRead: number;
+
+  @ApiProperty({
+    type: CutMemoryResponseDto,
+    isArray: true,
+    description:
+      'The five memories the cap cut most often from runs that then read them, the most runs first',
+  })
+  readonly cutThenRead: readonly CutMemoryResponseDto[];
 
   @ApiProperty({
     type: FlaggedMemoryResponseDto,
@@ -105,9 +180,18 @@ export class InsightsMemoryResponseDto {
     this.period = new InsightsPeriodResponseDto(memory.period);
     this.activeCount = memory.activeCount;
     this.memoriesBriefed = memory.memoriesBriefed;
+    this.memoriesRead = memory.memoriesRead;
     this.memoriesRecalled = memory.memoriesRecalled;
+    this.memoriesDelivered = memory.memoriesDelivered;
+    this.memoriesCutThenRead = memory.memoriesCutThenRead;
     this.runsBriefed = memory.runsBriefed;
+    this.runsRead = memory.runsRead;
     this.runsRecalled = memory.runsRecalled;
+    this.runsDelivered = memory.runsDelivered;
+    this.runsCutThenRead = memory.runsCutThenRead;
+    this.cutThenRead = memory.cutThenRead.map(
+      (each) => new CutMemoryResponseDto(each),
+    );
     this.flagged = memory.flagged.map(
       (each) => new FlaggedMemoryResponseDto(each),
     );

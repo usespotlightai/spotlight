@@ -62,7 +62,12 @@ export interface StoredTools {
 
 export interface StoredMemories {
   readonly briefed: readonly string[];
+  readonly cut: readonly string[];
+  readonly read: readonly string[];
   readonly recalled: readonly string[];
+  readonly delivered: readonly string[];
+  readonly cutThenRead: readonly string[];
+  readonly used: boolean;
 }
 
 export interface StoredRepositoryShape {
@@ -202,7 +207,15 @@ export const runRecord = pgTable(
     memories: jsonb('memories')
       .$type<StoredMemories>()
       .notNull()
-      .default({ briefed: [], recalled: [] }),
+      .default({
+        briefed: [],
+        cut: [],
+        read: [],
+        recalled: [],
+        delivered: [],
+        cutThenRead: [],
+        used: false,
+      }),
     version: integer('version').notNull().default(0),
   },
   (table) => [

@@ -11,6 +11,8 @@ const (
 	AgentAPITracePath              = "/trace"
 	AgentAPIRecallPath             = "/recall"
 	AgentAPIRememberPath           = "/remember"
+	AgentAPIForgetPath             = "/forget"
+	AgentAPITouchedPath            = "/touched"
 	AgentAPIHistoryPath            = "/history"
 	AgentAPICandidatePath          = "/candidates"
 	AgentAPICausePath              = "/causes"

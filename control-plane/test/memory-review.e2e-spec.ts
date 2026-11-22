@@ -62,6 +62,7 @@ const remembered = (body: string): ProposedMemory => ({
   steps: [5],
   notes: [],
   supersedes: null,
+  retires: null,
 });
 
 let app: INestApplication;
@@ -117,6 +118,8 @@ const proposing = async (
       notesRead: 0,
       changed: [],
       known: [],
+      used: [],
+      elsewhere: [],
       fromOutside,
     }),
     newId: () => randomUUID(),

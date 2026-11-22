@@ -55,7 +55,15 @@ export class Notices implements NoticesPort {
       ? await this.access.seesTeam(input.teamId, input.addressee)
       : false;
 
-    if (!Notice.deliverable(input.addressee, addresseeSeesTeam)) {
+    const teamExists = (await this.access.membersOf(input.teamId)) !== null;
+
+    if (
+      !Notice.deliverable({
+        teamExists,
+        addressee: input.addressee,
+        addresseeSeesTeam,
+      })
+    ) {
       return;
     }
 
@@ -69,6 +77,25 @@ export class Notices implements NoticesPort {
         ))
       ) {
         await this.notices.add(created);
+      }
+    });
+  }
+
+  resolve(input: {
+    teamId: TeamId;
+    form: NoticeFormName;
+    subject: string;
+  }): Promise<void> {
+    return this.transaction.inTransaction(async () => {
+      const notice = await this.notices.about(
+        input.teamId,
+        null,
+        FORMS[input.form],
+        NoticeSubject.of(input.subject),
+      );
+
+      if (notice) {
+        await this.notices.save(notice.resolve(this.clock.now()));
       }
     });
   }

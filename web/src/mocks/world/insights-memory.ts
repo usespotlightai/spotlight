@@ -82,13 +82,30 @@ export const memoryOf = (
       ),
   );
 
+  const cutThenRead = memories
+    .filter((memory) => recalledIds.has(memory.id))
+    .slice(0, 2)
+    .map((memory, index) => ({
+      memoryId: memory.id,
+      handle: memory.handle,
+      body: memory.body,
+      runs: 2 - index,
+    }));
+
   return {
     period: span.period,
     activeCount: memories.filter((memory) => memory.status === 'active').length,
     memoriesBriefed: briefedIds.size,
-    memoriesRecalled: recalledIds.size,
+    memoriesRead: recalledIds.size,
+    memoriesRecalled: Math.min(recalledIds.size, 1),
+    memoriesDelivered: Math.ceil(recalledIds.size / 2),
+    memoriesCutThenRead: cutThenRead.length,
     runsBriefed: withMemories.length,
-    runsRecalled: withMemories.filter(recalled).length,
+    runsRead: withMemories.filter(recalled).length,
+    runsRecalled: Math.min(withMemories.filter(recalled).length, 1),
+    runsDelivered: Math.ceil(withMemories.filter(recalled).length / 2),
+    runsCutThenRead: cutThenRead.reduce((sum, each) => sum + each.runs, 0),
+    cutThenRead,
     flagged: memories
       .flatMap((memory) => {
         const flagged = flaggedOf(memory);

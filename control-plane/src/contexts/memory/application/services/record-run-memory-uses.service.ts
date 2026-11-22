@@ -2,7 +2,7 @@ import type { WorkPort } from '@memory/application/ports/work.port';
 import type { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import type { UsingRun } from '@memory/domain/entities/memory-uses.entity';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
-import { handlesRead } from '@memory/domain/services/memory-folder';
+import { handlesRead, laidOutFor } from '@memory/domain/services/memory-folder';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 
 export class RecordRunMemoryUses {
@@ -43,11 +43,11 @@ export class RecordRunMemoryUses {
 
     const read = (
       await this.memories.withHandles(runContext.teamId, handles)
-    ).filter((each) => each.appliesAt(runContext, null));
+    ).filter((each) => laidOutFor(each, runContext));
 
     await this.recording.recorded(
       run,
-      'recalled',
+      'read',
       read.map((each) => each.id),
     );
   }

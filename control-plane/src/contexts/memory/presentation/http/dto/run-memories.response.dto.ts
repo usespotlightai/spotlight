@@ -51,7 +51,7 @@ export class RunMemoriesResponseDto {
     type: TeamMemoryResponseDto,
     isArray: true,
     description:
-      'What the run looked up with spotlight recall, or read from the memory folder in its working copy',
+      'What the run looked up with spotlight recall, read from the memory folder in its working copy, or was given when it touched a path a memory is about',
   })
   readonly recalled: readonly TeamMemoryResponseDto[];
 

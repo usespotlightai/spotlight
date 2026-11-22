@@ -59,6 +59,7 @@ import {
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHANGE_STACK_READY } from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import { DISPATCH_BRIEFED } from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
 import { DISPATCH_ENDED } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import { DISPATCH_SUPERSEDED } from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
@@ -639,6 +640,31 @@ describe('insightsSubscribers', () => {
     expect((await subscriber.record())?.memories).toMatchObject({
       briefed: ['mem_1'],
       recalled: ['mem_2'],
+    });
+  });
+
+  it('keeps the memories the cap cut from a run the line drove, and none from one a person drove', async () => {
+    const subscriber = subscribed();
+    const briefed = (driver: 'line' | 'person') =>
+      subscriber.deliver('insights.record-cut-memories', {
+        kind: DISPATCH_BRIEFED,
+        runId: 'run_1',
+        workspaceId: 'ws_1',
+        taskId: 'task_1',
+        memories: ['mem_1'],
+        omitted: ['mem_2'],
+        driver,
+      });
+
+    await briefed('person');
+
+    expect(await subscriber.record()).toBeNull();
+
+    await briefed('line');
+
+    expect((await subscriber.record())?.memories).toMatchObject({
+      briefed: [],
+      cut: ['mem_2'],
     });
   });
 

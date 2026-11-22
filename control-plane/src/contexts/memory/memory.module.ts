@@ -1,3 +1,4 @@
+import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
 import { InferenceModule } from '@inference/inference.module';
 import { LinesModule } from '@lines/lines.module';
@@ -12,7 +13,13 @@ import { WorkModule } from '@work/work.module';
 const BINDINGS = contextBindings([TEAM_MEMORIES, MEMORIES_BRIEFED_BEFORE]);
 
 @Module({
-  imports: [IdentityModule, InferenceModule, LinesModule, WorkModule],
+  imports: [
+    GitHubModule,
+    IdentityModule,
+    InferenceModule,
+    LinesModule,
+    WorkModule,
+  ],
   controllers: [...MEMORY_CONTROLLERS],
   providers: [...MEMORY_PROVIDERS, ...BINDINGS.exposed],
   exports: [TEAM_MEMORY_USE, ...BINDINGS.exposedTokens],

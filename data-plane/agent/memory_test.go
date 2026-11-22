@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -179,5 +180,139 @@ func TestRememberRequiresAKindAndABody(t *testing.T) {
 			!strings.Contains(err.Error(), "spotlight remember --kind") {
 			t.Errorf("%v: got %v", args, err)
 		}
+	}
+}
+
+func forgetting(t *testing.T) *[]protocol.ForgetRequest {
+	t.Helper()
+
+	server, err := serveHandover([]string{"spec"}, nil)
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	seen := []protocol.ForgetRequest{}
+	server.Forgetting(func(received protocol.ForgetRequest) (json.RawMessage, error) {
+		seen = append(seen, received)
+		return json.Marshal(protocol.ProposedMemory{Kind: "rationale", Body: "Uploads retry from a queue.", Scope: "line"})
+	})
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
+
+	return &seen
+}
+
+func TestForgetProposesToRetireAMemoryWithAReason(t *testing.T) {
+	seen := forgetting(t)
+	out := new(bytes.Buffer)
+
+	err := run([]string{"forget", "m-12", "--because", "The queue was removed."}, strings.NewReader(""), out)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if len(*seen) != 1 || (*seen)[0] != (protocol.ForgetRequest{Handle: "M-12", Because: "The queue was removed."}) {
+		t.Errorf("forgot %+v", *seen)
+	}
+	if !strings.Contains(out.String(), "Proposed to retire M-12: Uploads retry from a queue.") {
+		t.Errorf("output %q", out.String())
+	}
+}
+
+func TestForgetRequiresAHandleAndAReason(t *testing.T) {
+	forgetting(t)
+
+	for _, args := range [][]string{
+		{"forget", "--because", "Gone."},
+		{"forget", "memory_1", "--because", "Gone."},
+		{"forget", "M-12"},
+		{"forget", "M-12", "M-13", "--because", "Gone."},
+	} {
+		if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err == nil ||
+			!strings.Contains(err.Error(), "spotlight forget <handle>") {
+			t.Errorf("%v: got %v", args, err)
+		}
+	}
+}
+
+func hooked(t *testing.T, answer string) *[]protocol.TouchedRequest {
+	t.Helper()
+
+	server, err := serveHandover([]string{"spec"}, nil)
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Close() })
+
+	seen := []protocol.TouchedRequest{}
+	server.Touches(func(received protocol.TouchedRequest) string {
+		seen = append(seen, received)
+		return answer
+	})
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
+
+	return &seen
+}
+
+func TestTheHookShowsTheAgentWhatTheTeamRemembersAboutAPathItUsed(t *testing.T) {
+	seen := hooked(t, "The team remembers this about `api/src/uploads.ts`, which you just used:")
+	out := new(bytes.Buffer)
+
+	err := run([]string{"hook", "post-tool-use"}, strings.NewReader(
+		`{"cwd":"/work","tool_name":"Read","tool_input":{"file_path":"/work/api/src/uploads.ts"}}`,
+	), out)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if len(*seen) != 1 || !slices.Equal((*seen)[0].Paths, []string{"/work/api/src/uploads.ts"}) {
+		t.Errorf("touched %+v", *seen)
+	}
+	var answered struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &answered); err != nil ||
+		answered.HookSpecificOutput.HookEventName != "PostToolUse" ||
+		!strings.Contains(answered.HookSpecificOutput.AdditionalContext, "api/src/uploads.ts") {
+		t.Errorf("output %q", out.String())
+	}
+}
+
+func TestTheHookReadsThePathsAPatchChanges(t *testing.T) {
+	seen := hooked(t, "")
+
+	err := run([]string{"hook", "post-tool-use"}, strings.NewReader(
+		`{"cwd":"/work","tool_name":"apply_patch","tool_input":{"command":["apply_patch","*** Begin Patch\n*** Update File: api/src/uploads.ts\n@@\n*** Add File: web/new.ts\n*** End Patch"]}}`,
+	), new(bytes.Buffer))
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if len(*seen) != 1 || !slices.Equal((*seen)[0].Paths, []string{"/work/api/src/uploads.ts", "/work/web/new.ts"}) {
+		t.Errorf("touched %+v", *seen)
+	}
+}
+
+func TestTheHookSaysNothingWhereThereIsNothingToShow(t *testing.T) {
+	hooked(t, "")
+	out := new(bytes.Buffer)
+
+	for _, input := range []string{
+		`{"cwd":"/work","tool_name":"Read","tool_input":{"file_path":"/work/api/src/uploads.ts"}}`,
+		`{"tool_name":"Bash","tool_input":{"command":"ls"}}`,
+		`not json`,
+	} {
+		if err := run([]string{"hook", "post-tool-use"}, strings.NewReader(input), out); err != nil {
+			t.Errorf("%s: got %v", input, err)
+		}
+	}
+
+	if out.Len() != 0 {
+		t.Errorf("output %q", out.String())
 	}
 }

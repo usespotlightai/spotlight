@@ -1,12 +1,15 @@
+import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type {
   MemoryProposal,
   ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
+import { MemoryRetirementApproved } from '@memory/domain/events/memory-retirement-approved.event';
 import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { MemoryRetirementLapsedError } from '@memory/domain/exceptions/memory-retirement-lapsed.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import type { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -315,10 +318,18 @@ export class MemoryDraft
     );
   }
 
+  retiredBy(runId: RunId, ids: readonly MemoryId[]): readonly MemoryId[] {
+    return ids.flatMap((id) => {
+      const retires = this.proposalNamed(id, runId).retires;
+      return retires ? [retires.memory] : [];
+    });
+  }
+
   approve(input: {
     runId: RunId;
     approving: readonly { id: MemoryId; body?: string }[];
     decision: MemoryDecision;
+    current: readonly Memory[];
   }): MemoryDraft {
     const ids = input.approving.map((each) => each.id.value);
 
@@ -340,12 +351,35 @@ export class MemoryDraft
       );
     }
 
+    const lapsed = approving.flatMap(({ proposal }) =>
+      proposal.inactiveIn(input.current),
+    );
+
+    if (lapsed.length > 0) {
+      throw new MemoryRetirementLapsedError(lapsed);
+    }
+
     const decided = approving.map(({ proposal, body }) =>
       proposal.approve(input.decision, body),
     );
     const next = this.decided(decided);
 
     for (const each of decided) {
+      if (each.retires) {
+        next.record(
+          new MemoryRetirementApproved(
+            this.id,
+            this.taskId,
+            each.scope.teamId,
+            each.id,
+            each.retires.memory,
+            each.retires.reason,
+            input.decision,
+          ),
+        );
+        continue;
+      }
+
       next.record(
         new MemoryApproved(
           this.id,
@@ -364,6 +398,16 @@ export class MemoryDraft
     }
 
     return next.resolveDecidedReviews(decided);
+  }
+
+  lapse(proposalId: MemoryId): MemoryDraft {
+    const found = this.proposals.find((each) => each.id.equals(proposalId));
+
+    if (!found) {
+      throw new UnknownMemoryError(proposalId.value);
+    }
+
+    return this.decided([found.lapse()]);
   }
 
   reject(input: {
