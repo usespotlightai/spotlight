@@ -7,13 +7,19 @@ export interface NumberedPullRequest {
   readonly number: number;
 }
 
-export interface PullRequestWithStatus extends NumberedPullRequest {
+export interface StoredPullRequestSummary extends NumberedPullRequest {
   readonly status: PullRequestStatus;
+  readonly title: string;
+  readonly author: string | null;
+  readonly additions: number | null;
+  readonly deletions: number | null;
+  readonly changedFiles: number | null;
+  readonly updatedAt: Date;
 }
 
-export interface PullRequestStatusReaderPort {
-  statusesOf(
+export interface PullRequestSummaryReaderPort {
+  summariesOf(
     workspaceId: WorkspaceId,
     pullRequests: readonly NumberedPullRequest[],
-  ): Promise<readonly PullRequestWithStatus[]>;
+  ): Promise<readonly StoredPullRequestSummary[]>;
 }

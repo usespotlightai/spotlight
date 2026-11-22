@@ -3,7 +3,7 @@ import { pageOf } from '@/mocks/paging';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import { avatars, WORKSPACE_AVATAR } from '@/mocks/world/avatars';
-import { pullRequestStateOf } from '@/mocks/world/pull-request-states';
+import { pullRequestSummaryOf } from '@/mocks/world/pull-request-summaries';
 import { runsOfAnyTask } from '@/mocks/world/run-stories';
 import { settingsWorld } from '@/mocks/world/settings';
 
@@ -92,12 +92,7 @@ export const shellHandlers = [
       (each) => each.id === String(params.taskId),
     );
     return task
-      ? json(
-          task.pullRequests.map((url) => ({
-            url,
-            state: pullRequestStateOf(url, task.finished),
-          })),
-        )
+      ? json(task.pullRequests.map((url) => pullRequestSummaryOf(url, task)))
       : notFound();
   }),
 ];

@@ -1664,7 +1664,7 @@ export const sendMessage = <ThrowOnError extends boolean = false>(options: Optio
 export const stopRun = <ThrowOnError extends boolean = false>(options: Options<StopRunData, ThrowOnError>): RequestResult<StopRunResponses, StopRunErrors, ThrowOnError> => (options.client ?? client).post<StopRunResponses, StopRunErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/stop', ...options });
 
 /**
- * List the pull requests of a task, each with its state
+ * List the pull requests of a task, each with its state and summary
  */
 export const listTaskPullRequests = <ThrowOnError extends boolean = false>(options: Options<ListTaskPullRequestsData, ThrowOnError>): RequestResult<ListTaskPullRequestsResponses, ListTaskPullRequestsErrors, ThrowOnError> => (options.client ?? client).get<ListTaskPullRequestsResponses, ListTaskPullRequestsErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/pull-requests', ...options });
 

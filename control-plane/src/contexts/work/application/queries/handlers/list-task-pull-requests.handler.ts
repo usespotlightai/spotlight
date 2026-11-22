@@ -5,7 +5,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskPullRequestDto } from '@work/application/dto/task-pull-request.dto';
-import type { TaskPullRequestStatesPort } from '@work/application/ports/task-pull-request-states.port';
+import type { TaskPullRequestSummariesPort } from '@work/application/ports/task-pull-request-summaries.port';
 import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
 import type { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
 import type { WorkAccess } from '@work/application/services/work-access.service';
@@ -16,7 +16,7 @@ export class ListTaskPullRequestsHandler implements QueryHandlerPort<
 > {
   constructor(
     private readonly tasks: TaskReaderPort,
-    private readonly states: TaskPullRequestStatesPort,
+    private readonly summaries: TaskPullRequestSummariesPort,
     private readonly access: WorkAccess,
   ) {}
 
@@ -36,14 +36,14 @@ export class ListTaskPullRequestsHandler implements QueryHandlerPort<
         return null;
       }
 
-      const known = await this.states.of(
+      const known = await this.summaries.of(
         team.workspaceId,
         task.pullRequests.map((url) => PullRequestUrl.of(url)),
       );
 
       return task.pullRequests.map((url) => ({
         url,
-        state: known.get(url) ?? null,
+        summary: known.get(url) ?? null,
       }));
     } catch (error) {
       rethrowAsApplicationError(error);

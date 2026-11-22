@@ -1,9 +1,9 @@
 import type {
   NumberedPullRequest,
-  PullRequestStatusReaderPort,
-  PullRequestWithStatus,
-} from '@github/application/ports/pull-request-status-reader.port';
-import { StoredPullRequestStates } from '@github/application/services/stored-pull-request-states.service';
+  PullRequestSummaryReaderPort,
+  StoredPullRequestSummary,
+} from '@github/application/ports/pull-request-summary-reader.port';
+import { StoredPullRequestSummaries } from '@github/application/services/stored-pull-request-summaries.service';
 import type { PullRequestStatus } from '@github/domain/value-objects/pull-request-state.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -11,6 +11,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
+const UPDATED_AT = new Date('2026-11-21T10:00:00.000Z');
 
 const urlOf = (number: number, repository = 'acme/api') =>
   PullRequestUrl.of(`https://github.com/${repository}/pull/${number}`);
@@ -19,16 +20,33 @@ const stored = (
   number: number,
   status: PullRequestStatus,
   repository = 'acme/api',
-): PullRequestWithStatus => ({
+): StoredPullRequestSummary => ({
   repository: Repository.of(repository),
   number,
   status,
+  title: `Change ${number}`,
+  author: 'octocat',
+  additions: 12,
+  deletions: 3,
+  changedFiles: 2,
+  updatedAt: UPDATED_AT,
 });
 
-const holding = (...stored: readonly PullRequestWithStatus[]) => {
+const summaryOf = (number: number, state: PullRequestStatus) => ({
+  url: urlOf(number).value,
+  state,
+  title: `Change ${number}`,
+  author: 'octocat',
+  additions: 12,
+  deletions: 3,
+  changedFiles: 2,
+  updatedAt: UPDATED_AT,
+});
+
+const holding = (...stored: readonly StoredPullRequestSummary[]) => {
   const asked: NumberedPullRequest[][] = [];
-  const reader: PullRequestStatusReaderPort = {
-    statusesOf: async (_, pullRequests) => {
+  const reader: PullRequestSummaryReaderPort = {
+    summariesOf: async (_, pullRequests) => {
       asked.push([...pullRequests]);
       return stored;
     },
@@ -37,8 +55,8 @@ const holding = (...stored: readonly PullRequestWithStatus[]) => {
   return { reader, asked };
 };
 
-describe('StoredPullRequestStates', () => {
-  it('gives each pull request the status it has stored', async () => {
+describe('StoredPullRequestSummaries', () => {
+  it('gives each pull request the summary it has stored', async () => {
     const { reader } = holding(
       stored(1, 'draft'),
       stored(2, 'open'),
@@ -47,24 +65,24 @@ describe('StoredPullRequestStates', () => {
     );
 
     await expect(
-      new StoredPullRequestStates(reader).of(WORKSPACE, [
+      new StoredPullRequestSummaries(reader).of(WORKSPACE, [
         urlOf(1),
         urlOf(2),
         urlOf(3),
         urlOf(4),
       ]),
     ).resolves.toEqual([
-      { url: urlOf(1).value, state: 'draft' },
-      { url: urlOf(2).value, state: 'open' },
-      { url: urlOf(3).value, state: 'merged' },
-      { url: urlOf(4).value, state: 'closed' },
+      summaryOf(1, 'draft'),
+      summaryOf(2, 'open'),
+      summaryOf(3, 'merged'),
+      summaryOf(4, 'closed'),
     ]);
   });
 
   it('reads all pull requests at once and asks only for links to pull requests', async () => {
     const { reader, asked } = holding();
 
-    await new StoredPullRequestStates(reader).of(WORKSPACE, [
+    await new StoredPullRequestSummaries(reader).of(WORKSPACE, [
       urlOf(1),
       PullRequestUrl.of('https://github.com/acme/api/issues/2'),
       urlOf(3, 'acme/web'),
@@ -83,19 +101,19 @@ describe('StoredPullRequestStates', () => {
     );
 
     await expect(
-      new StoredPullRequestStates(reader).of(WORKSPACE, [
+      new StoredPullRequestSummaries(reader).of(WORKSPACE, [
         urlOf(1),
         urlOf(2),
         urlOf(9),
       ]),
-    ).resolves.toEqual([{ url: urlOf(1).value, state: 'open' }]);
+    ).resolves.toEqual([summaryOf(1, 'open')]);
   });
 
   it('matches the repository whatever its case', async () => {
     const { reader } = holding(stored(1, 'open', 'Acme/API'));
 
     await expect(
-      new StoredPullRequestStates(reader).of(WORKSPACE, [urlOf(1)]),
-    ).resolves.toEqual([{ url: urlOf(1).value, state: 'open' }]);
+      new StoredPullRequestSummaries(reader).of(WORKSPACE, [urlOf(1)]),
+    ).resolves.toEqual([summaryOf(1, 'open')]);
   });
 });

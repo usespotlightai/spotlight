@@ -11,9 +11,9 @@ import {
   type InstallationRepositoriesPort,
 } from '@github/application/ports/installation-repositories.port';
 import {
-  PULL_REQUEST_STATES,
-  type PullRequestStatesPort,
-} from '@github/application/ports/pull-request-states.port';
+  PULL_REQUEST_SUMMARIES,
+  type PullRequestSummariesPort,
+} from '@github/application/ports/pull-request-summaries.port';
 import {
   PULL_REQUESTS,
   type PullRequestPort,
@@ -398,7 +398,7 @@ import {
   TASK_PLACEMENTS,
   type TaskPlacementsPort,
 } from '@work/application/ports/task-placements.port';
-import { TASK_PULL_REQUEST_STATES } from '@work/application/ports/task-pull-request-states.port';
+import { TASK_PULL_REQUEST_SUMMARIES } from '@work/application/ports/task-pull-request-summaries.port';
 import { TASK_READER } from '@work/application/ports/task-reader.port';
 import {
   TASK_VIEWS,
@@ -630,7 +630,7 @@ import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus
 import { WORK_PAYLOAD_TYPES } from '@work/infrastructure/events/work-payload-types';
 import { GitReceivePack } from '@work/infrastructure/git/receive-pack';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
-import { GitHubTaskPullRequestStates } from '@work/infrastructure/github/github-task-pull-request-states';
+import { GitHubTaskPullRequestSummaries } from '@work/infrastructure/github/github-task-pull-request-summaries';
 import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
 import { DrizzleTeamWelcomes } from '@work/infrastructure/persistence/drizzle/ledgers/team-welcomes.ledger';
@@ -1221,10 +1221,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: TASK_PULL_REQUEST_STATES,
-    inject: [PULL_REQUEST_STATES],
-    useFactory: (states: PullRequestStatesPort) =>
-      new GitHubTaskPullRequestStates(states),
+    provide: TASK_PULL_REQUEST_SUMMARIES,
+    inject: [PULL_REQUEST_SUMMARIES],
+    useFactory: (summaries: PullRequestSummariesPort) =>
+      new GitHubTaskPullRequestSummaries(summaries),
   },
 
   {
@@ -2048,7 +2048,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ListTaskPullRequestsQuery, ListTaskPullRequestsHandler, [
     TASK_READER,
-    TASK_PULL_REQUEST_STATES,
+    TASK_PULL_REQUEST_SUMMARIES,
     WorkAccess,
   ]),
 

@@ -3797,6 +3797,21 @@ export type TaskPullRequestResponseDto = {
    * Draft, open, merged or closed; null when Spotlight holds no state for it: not seen on GitHub yet, or removed after the retention period
    */
   state: 'draft' | 'open' | 'merged' | 'closed' | null;
+  /**
+   * Null when Spotlight holds no state for it
+   */
+  title: string | null;
+  /**
+   * GitHub login of the author; null when not known
+   */
+  author: string | null;
+  additions: number | null;
+  deletions: number | null;
+  changedFiles: number | null;
+  /**
+   * When the pull request last changed on GitHub
+   */
+  updatedAt: string | null;
 };
 
 export type TaskRunResponseDto = {
