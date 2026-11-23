@@ -14,6 +14,11 @@ export type ChatRefusal =
   | { readonly kind: 'push-to-default-branch'; readonly branch: Branch }
   | { readonly kind: 'branch-of-another-task'; readonly branch: Branch }
   | {
+      readonly kind: 'base-differs-from-task';
+      readonly branch: Branch;
+      readonly base: Branch | null;
+    }
+  | {
       readonly kind: 'branch-of-released-task';
       readonly branch: Branch;
       readonly completed: boolean;

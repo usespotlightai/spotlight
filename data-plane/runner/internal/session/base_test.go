@@ -102,3 +102,67 @@ func TestToolNamesAreTheManifestsOwn(t *testing.T) {
 		t.Fatalf("tool names %v", got)
 	}
 }
+
+func TestMarkBasesRecordsWhereTheBranchLeftItsBaseBranch(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+
+	dir := t.TempDir()
+	origin := filepath.Join(dir, "origin")
+	repository := filepath.Join(dir, "widgets")
+
+	if err := os.MkdirAll(origin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git(t, origin, "init", "--quiet", "--initial-branch", "develop")
+	git(t, origin, "commit", "--quiet", "--allow-empty", "--message", "start")
+	git(t, origin, "switch", "--quiet", "-c", "release/1.x")
+	git(t, origin, "commit", "--quiet", "--allow-empty", "--message", "release")
+	released := git(t, origin, "rev-parse", "HEAD")
+	git(t, origin, "switch", "--quiet", "develop")
+	git(t, origin, "commit", "--quiet", "--allow-empty", "--message", "later on develop")
+
+	git(t, dir, "clone", "--quiet", origin, repository)
+	git(t, repository, "switch", "--quiet", "-c", "fix/hotfix", "origin/release/1.x")
+	git(t, repository, "commit", "--quiet", "--allow-empty", "--message", "fix")
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	marked := markBases(context.Background(), dir, []protocol.Checkout{{Path: "widgets", Base: "release/1.x"}}, logger)
+
+	if marked["widgets"] != released {
+		t.Fatalf("base is %q, want where the branch left release/1.x, %s", marked["widgets"], released)
+	}
+}
+
+func TestCheckBranchesNotesACheckoutThatEndsOffTheTasksBranch(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+
+	dir := t.TempDir()
+	for _, name := range []string{"on", "off"} {
+		repository := filepath.Join(dir, name)
+		if err := os.MkdirAll(repository, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		git(t, repository, "init", "--quiet", "--initial-branch", "feat/task")
+		git(t, repository, "commit", "--quiet", "--allow-empty", "--message", "start")
+	}
+	git(t, filepath.Join(dir, "off"), "switch", "--quiet", "-c", "elsewhere")
+
+	journal := &journalWriter{}
+	checkBranches(context.Background(), dir, []protocol.Checkout{
+		{Path: "on", Branch: "feat/task"},
+		{Path: "off", Branch: "feat/task"},
+		{Path: "reviewed"},
+	}, journal)
+
+	if len(journal.pending) != 1 {
+		t.Fatalf("noted %d events, want 1: %+v", len(journal.pending), journal.pending)
+	}
+	noted := journal.pending[0]
+	if noted.Message != branchStep || !strings.Contains(string(noted.Data), "off on the branch elsewhere, not on feat/task") {
+		t.Errorf("noted %s %s", noted.Message, noted.Data)
+	}
+}

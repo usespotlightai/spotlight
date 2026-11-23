@@ -17,6 +17,7 @@ const opening: PullRequestOpening = {
   workspaceId: WorkspaceId.of('ws_1'),
   repository: Repository.of('acme/api'),
   branch: 'spotlight/task_1',
+  base: null,
   title: 'Fix the queue',
   body: 'why',
 };
@@ -325,6 +326,7 @@ describe('GitHubPullRequests', () => {
         WorkspaceId.of('ws_1'),
         Repository.of('acme/api'),
         'spotlight/task_1',
+        null,
       );
 
       expect(changed).toHaveLength(120);
@@ -346,6 +348,7 @@ describe('GitHubPullRequests', () => {
         WorkspaceId.of('ws_1'),
         Repository.of('acme/api'),
         'spotlight/task_1',
+        null,
       );
 
       expect(changed).toHaveLength(3_000);
@@ -359,6 +362,7 @@ describe('GitHubPullRequests', () => {
         WorkspaceId.of('ws_1'),
         Repository.of('acme/api'),
         'spotlight/task_1',
+        null,
       );
 
       expect(changed).toHaveLength(100);
@@ -398,6 +402,7 @@ describe('GitHubPullRequests', () => {
           WorkspaceId.of('ws_1'),
           Repository.of('acme/api'),
           'spotlight/task_1',
+          null,
         ),
       ).rejects.toThrow(/Not Found/);
     });

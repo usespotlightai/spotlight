@@ -11,6 +11,7 @@ import type { FilesLoader } from '@work/application/services/files-loader.servic
 import type { LineLoader } from '@work/application/services/line-loader.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
@@ -64,6 +65,7 @@ export class AddTaskHandler implements CommandHandlerPort<
         placed.map((each) => each.rank),
       ),
       createdBy,
+      base: command.base?.trim() ? Branch.of(command.base.trim()) : null,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
     });

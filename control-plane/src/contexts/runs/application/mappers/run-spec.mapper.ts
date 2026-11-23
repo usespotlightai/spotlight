@@ -74,6 +74,10 @@ export const checkoutOf = (raw: unknown): RunCheckout => {
   const input = objectAt(raw, 'its checkouts');
   const path = optionalStringAt(input.path, 'where a checkout goes');
   const branch = optionalStringAt(input.branch, 'which branch to check out');
+  const base = optionalStringAt(
+    input.base,
+    'which branch a new branch starts from',
+  );
   const ref = optionalStringAt(input.ref, 'which ref to check out');
   const diffOf = optionalStringAt(input.diffOf, 'what its change stack diffs');
   const setup = optionalStringAt(input.setup, 'how its checkout is made ready');
@@ -88,6 +92,7 @@ export const checkoutOf = (raw: unknown): RunCheckout => {
     remote: stringAt(input.remote, 'where a checkout comes from'),
     ...(path !== undefined ? { path } : {}),
     ...(branch !== undefined ? { branch } : {}),
+    ...(base !== undefined ? { base } : {}),
     ...(ref !== undefined ? { ref } : {}),
     ...(diffOf !== undefined ? { diffOf } : {}),
     ...(setup !== undefined ? { setup } : {}),

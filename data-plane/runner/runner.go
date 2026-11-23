@@ -399,7 +399,7 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 		return
 	}
 
-	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.StackID, true, r.transport)
+	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.StackID, "", true, r.transport)
 	if err != nil {
 		log.Warn("could not serve git for a check", "error", err)
 		return
@@ -424,7 +424,7 @@ func (r runner) diff(ctx context.Context, client *control.Client, claimed protoc
 	log := r.log.With("diff", claimed.DiffID)
 	log.Info("diffing a push")
 
-	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.DiffID, true, r.transport)
+	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.DiffID, "", true, r.transport)
 	if err != nil {
 		log.Warn("could not serve git for a push diff", "error", err)
 		return

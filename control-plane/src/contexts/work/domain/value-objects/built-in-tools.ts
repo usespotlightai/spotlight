@@ -297,6 +297,15 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           stdin: false,
         },
         {
+          name: 'base',
+          schema: InputSchema.ofType('string'),
+          description:
+            'The branch the change goes into, as in release/1.x. Leave it out for the default branch.',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
+        {
           name: 'title',
           schema: InputSchema.ofType('string'),
           description: 'What the change does',

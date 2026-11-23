@@ -103,6 +103,7 @@ describe('trialPlanFor', () => {
       {
         repository: FORK_API,
         branch: null,
+        base: null,
         ref: COMMIT,
         diffOf: 'worktree',
         setup: null,

@@ -226,6 +226,7 @@ describe('OpenPullRequest', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         repository: Repository.of('acme/widgets'),
         branch: 'fix/fix-the-queue-task_1',
+        base: null,
         title: 'Fix the queue',
         body: 'why',
       },
@@ -483,6 +484,7 @@ describe('OpenPullRequest', () => {
           WorkspaceId.of('ws_1'),
           Repository.of('acme/widgets'),
           'fix/fix-the-queue-task_1',
+          null,
         ],
       ]);
       expect(hookCalls).toEqual([

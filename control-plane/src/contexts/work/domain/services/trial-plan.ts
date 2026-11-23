@@ -75,6 +75,7 @@ const checkoutsAt = (
     return {
       repository,
       branch: null,
+      base: null,
       ref: each.commit,
       diffOf: briefed.reviewing ? 'commits' : 'worktree',
       setup: candidate.repositories.setupOf(repository),

@@ -89,6 +89,7 @@ describe('the repositories a task works on', () => {
       {
         repository: API,
         branch: task.branch,
+        base: null,
         ref: null,
         diffOf: 'worktree',
         setup: 'npm ci',
@@ -96,6 +97,7 @@ describe('the repositories a task works on', () => {
       {
         repository: WEB,
         branch: task.branch,
+        base: null,
         ref: null,
         diffOf: 'worktree',
         setup: null,
@@ -111,6 +113,7 @@ describe('the repositories a task works on', () => {
       {
         repository: API,
         branch: null,
+        base: null,
         ref: 'refs/pull/42/head',
         diffOf: 'commits',
         setup: 'npm ci',
@@ -132,6 +135,7 @@ describe('the repositories a task works on', () => {
       {
         repository: API,
         branch: task.branch,
+        base: null,
         ref: null,
         diffOf: 'worktree',
         setup: 'npm ci',
@@ -139,6 +143,7 @@ describe('the repositories a task works on', () => {
       {
         repository: WEB,
         branch: task.branch,
+        base: null,
         ref: null,
         diffOf: 'worktree',
         setup: null,
@@ -148,6 +153,7 @@ describe('the repositories a task works on', () => {
       {
         repository: API,
         branch: null,
+        base: null,
         ref: 'refs/pull/42/head',
         diffOf: 'commits',
         setup: 'npm ci',

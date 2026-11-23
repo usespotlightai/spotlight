@@ -1,4 +1,5 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -38,11 +39,18 @@ import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 const NEXT =
   'The pull request is open. When a check fails or someone reviews it, you hear about it here: fix it and push to the same branch. The person can hand the task to the line at any time.';
 
+const baseOf = (named: string | null | undefined): Branch | null => {
+  const trimmed = named?.trim();
+
+  return trimmed ? Branch.of(trimmed) : null;
+};
+
 interface Opening {
   readonly chat: Chat;
   readonly runId: RunId;
   readonly repository: Repository;
   readonly branch: Branch;
+  readonly base: Branch | null;
   readonly title: PullRequestTitle;
   readonly body: string;
 }
@@ -60,6 +68,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     private readonly pullRequests: PullRequestPort,
     private readonly openingHook: PullRequestOpeningHook,
     private readonly transaction: TransactionPort,
+    private readonly settings: RepositorySettingsPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -69,11 +78,20 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     inputs: ToolInputs,
   ): Promise<unknown> {
     const chat = await this.found(chatId);
+    const repository = chat.mayOpenPullRequestFrom(
+      runId,
+      inputs.text('repository'),
+    );
+    const defaultBranch = Branch.of(
+      await this.settings.defaultBranchNameOf(chat.workspaceId, repository),
+    );
+    const base = baseOf(inputs.text('base'));
     const opening: Opening = {
       chat,
       runId,
-      repository: chat.mayOpenPullRequestFrom(runId, inputs.text('repository')),
+      repository,
       branch: Branch.of(inputs.requiredText(this.tool, 'branch')),
+      base: base && !base.equals(defaultBranch) ? base : null,
       title: PullRequestTitle.of(inputs.requiredText(this.tool, 'title')),
       body: inputs.text('body')?.trim() ?? '',
     };
@@ -84,7 +102,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     );
     const { task, url } = onBranch
       ? await this.onTaskOf(opening, lines, onBranch)
-      : await this.withNewTask(opening, lines, inputs);
+      : await this.withNewTask(opening, lines, inputs, defaultBranch);
 
     await this.transaction.inTransaction(async () => {
       await this.chats.save(
@@ -110,6 +128,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       opening.chat.id,
       opening.repository,
       lines.find((each) => each.stationAt(task.stationId)) ?? null,
+      opening.base,
     );
 
     if (step.kind === 'refused') {
@@ -127,7 +146,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       title: opening.title.value,
     });
 
-    const url = await this.opened(opening);
+    const url = await this.opened({ ...opening, base: task.base });
 
     await this.transaction.inTransaction(async () => {
       await this.tasks.save(
@@ -147,6 +166,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     opening: Opening,
     lines: readonly LineMap[],
     inputs: ToolInputs,
+    defaultBranch: Branch,
   ): Promise<{ task: Task; url: PullRequestUrl }> {
     const { chat, branch, repository } = opening;
     const { line, station } = chatPullRequestPlacement(
@@ -158,11 +178,12 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       chat.workspaceId,
       repository,
       branch.value,
+      opening.base?.value ?? null,
     );
 
     if (changed.length === 0) {
       throw new InvalidChatTransitionError(
-        `Branch ${branch.value} has no changes from the default branch of ${repository.value}. Commit the change on its own branch, push it, then open the pull request.`,
+        `Branch ${branch.value} has no changes from ${opening.base ? `branch ${opening.base.value}` : 'the default branch'} of ${repository.value}. Commit the change on its own branch, push it, then open the pull request.`,
       );
     }
 
@@ -172,6 +193,8 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       title: TaskTitle.of(opening.title.value),
       description: opening.body ? TaskDescription.of(opening.body) : null,
       branch,
+      base: opening.base,
+      defaultBranch,
       rank: Placement.entering(
         'opened',
         (await this.placements.placementsAt(station.id)).map(
@@ -224,6 +247,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       workspaceId: opening.chat.workspaceId,
       repository: opening.repository,
       branch: opening.branch.value,
+      base: opening.base?.value ?? null,
       title: opening.title.value,
       body: opening.body,
     });

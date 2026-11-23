@@ -6,11 +6,31 @@ const NO_OBJECT = /^0+$/;
 export class RefUpdate {
   private constructor(
     readonly ref: string,
-    readonly deletes: boolean,
+    readonly from: string,
+    readonly to: string,
+    readonly rewrites: boolean,
   ) {}
 
-  static of(input: { ref: string; to: string }): RefUpdate {
-    return new RefUpdate(input.ref, NO_OBJECT.test(input.to));
+  static of(input: {
+    ref: string;
+    from: string;
+    to: string;
+    rewrites?: boolean;
+  }): RefUpdate {
+    return new RefUpdate(
+      input.ref,
+      input.from,
+      input.to,
+      input.rewrites ?? true,
+    );
+  }
+
+  get deletes(): boolean {
+    return NO_OBJECT.test(this.to);
+  }
+
+  get creates(): boolean {
+    return NO_OBJECT.test(this.from);
   }
 
   get branch(): Branch | null {

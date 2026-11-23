@@ -9,6 +9,7 @@ import {
 export interface ProxiedCheckout {
   readonly path: string;
   readonly branch: string | null;
+  readonly base?: string | null;
   readonly ref: string | null;
   readonly diffOf: 'commits' | null;
   readonly setup: string | null;
@@ -20,6 +21,7 @@ export const RunSpecPartsMapper = {
       remote: REMOTE_VIA_GIT_PROXY,
       path: checkout.path,
       ...(checkout.branch ? { branch: checkout.branch } : {}),
+      ...(checkout.base ? { base: checkout.base } : {}),
       ...(checkout.ref ? { ref: checkout.ref } : {}),
       ...(checkout.diffOf ? { diffOf: checkout.diffOf } : {}),
       ...(checkout.setup ? { setup: checkout.setup } : {}),

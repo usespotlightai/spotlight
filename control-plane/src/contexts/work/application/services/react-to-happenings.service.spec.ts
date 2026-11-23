@@ -1118,6 +1118,7 @@ describe('ReactToHappenings', () => {
         await receive(
           MERGED,
           Task.openedInChat({
+            defaultBranch: Branch.of('main'),
             line: line(),
             at: StationId.of('station_2'),
             title: TaskTitle.of('Fix the queue'),

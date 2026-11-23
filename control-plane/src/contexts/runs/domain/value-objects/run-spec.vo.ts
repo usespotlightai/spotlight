@@ -12,6 +12,7 @@ export interface RunCheckout {
   readonly remote: string;
   readonly path?: string;
   readonly branch?: string;
+  readonly base?: string;
   readonly ref?: string;
   readonly diffOf?: 'commits';
   readonly setup?: string;
@@ -204,6 +205,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
           remote: each.remote,
           ...(each.path !== undefined ? { path: each.path } : {}),
           ...(each.branch !== undefined ? { branch: each.branch } : {}),
+          ...(each.base !== undefined ? { base: each.base } : {}),
           ...(each.ref !== undefined ? { ref: each.ref } : {}),
           ...(each.diffOf !== undefined ? { diffOf: each.diffOf } : {}),
           ...(each.setup !== undefined ? { setup: each.setup } : {}),

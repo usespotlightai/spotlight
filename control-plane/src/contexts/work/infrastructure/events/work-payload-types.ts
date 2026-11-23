@@ -120,6 +120,7 @@ import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
+import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
@@ -197,6 +198,7 @@ export const WORK_PAYLOAD_TYPES = [
   DeferredMove,
   ReviewedPullRequest,
   OwnedPullRequest,
+  PushedHead,
   PullRequestTitle,
   CiSetup,
   ConfigFolder,

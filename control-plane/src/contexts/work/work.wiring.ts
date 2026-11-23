@@ -1477,6 +1477,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUNNER_LEASES,
       RECEIVE_PACK,
       CLOCK,
+      LOGGER,
     ],
     useFactory: (
       works: RunWorks,
@@ -1486,6 +1487,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       leases: RunnerLeasesPort,
       receivePack: ReceivePackPort,
       clock: ClockPort,
+      logger: LoggerPort,
     ) =>
       new CarryGitCall(
         works,
@@ -1495,6 +1497,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         leases,
         receivePack,
         clock,
+        logger,
       ),
   },
 
@@ -2369,6 +2372,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       TASK_REPOSITORY,
       PullRequestOpeningHook,
+      REPOSITORY_SETTINGS,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2388,6 +2392,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       taskRepository: TaskRepository,
       openingHook: PullRequestOpeningHook,
+      settings: RepositorySettingsPort,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ChecksToolUse(tasks, checkRuns),
@@ -2404,6 +2409,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         pullRequests,
         openingHook,
         transaction,
+        settings,
         ids,
         clock,
       ),

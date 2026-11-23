@@ -41,6 +41,7 @@ export interface RunWork {
     repository: Repository,
     updates: readonly RefUpdate[],
   ): Promise<string | null>;
+  pushed(repository: Repository, updates: readonly RefUpdate[]): Promise<void>;
   toolContext(tool: Tool): Promise<ToolContext>;
   clearFor(
     declared: DeclaredTool,

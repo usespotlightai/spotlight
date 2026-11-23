@@ -33,6 +33,7 @@ type Checkout struct {
 	Remote string `json:"remote"`
 	Path   string `json:"path"`
 	Branch string `json:"branch"`
+	Base   string `json:"base,omitempty"`
 	Ref    string `json:"ref,omitempty"`
 	DiffOf string `json:"diffOf,omitempty"`
 	Setup  string `json:"setup,omitempty"`

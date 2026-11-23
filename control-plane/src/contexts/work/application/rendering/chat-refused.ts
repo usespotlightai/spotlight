@@ -15,6 +15,8 @@ export const ChatRefused = {
         return `${refusal.branch.value} is the default branch. Push the change to a new branch and open a pull request.`;
       case 'branch-of-another-task':
         return `Branch ${refusal.branch.value} belongs to another task. Push the change to a new branch.`;
+      case 'base-differs-from-task':
+        return `The task of branch ${refusal.branch.value} starts from ${refusal.base ? `branch ${refusal.base.value}` : 'the default branch'}, and its pull request goes there. Open the pull request without a base, or push the change to a new branch.`;
       case 'branch-of-released-task':
         return `The task of branch ${refusal.branch.value} ${refusal.completed ? 'is completed' : 'was handed to the line'}. Push the change to a new branch.`;
       case 'branch-off-the-line':

@@ -97,7 +97,7 @@ export class GitHubPullRequests implements PullRequestPort {
     return this.pullRequest(
       opening,
       token,
-      await this.defaultBranch(opening.repository, token),
+      opening.base ?? (await this.defaultBranch(opening.repository, token)),
     );
   }
 
@@ -177,19 +177,20 @@ export class GitHubPullRequests implements PullRequestPort {
     workspaceId: WorkspaceId,
     repository: Repository,
     branch: string,
+    base: string | null,
   ): Promise<readonly string[]> {
     const token = await this.tokenFor(workspaceId);
-    const base = await this.defaultBranch(repository, token);
+    const into = base ?? (await this.defaultBranch(repository, token));
 
     return this.paged(
       (page) =>
-        `${this.at(repository)}/compare/${encodeURI(base)}...${encodeURI(branch)}?per_page=${FILES_PER_PAGE}&page=${page}`,
+        `${this.at(repository)}/compare/${encodeURI(into)}...${encodeURI(branch)}?per_page=${FILES_PER_PAGE}&page=${page}`,
       token,
       async (response) =>
         (
           await answered<Compared>(
             response,
-            `GitHub would not compare ${branch} with ${base}`,
+            `GitHub would not compare ${branch} with ${into}`,
           )
         ).files ?? [],
     );

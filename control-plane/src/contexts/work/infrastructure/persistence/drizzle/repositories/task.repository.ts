@@ -34,7 +34,9 @@ import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
@@ -74,6 +76,7 @@ import {
   taskMark,
   taskNote,
   taskPullRequest,
+  taskPushedHead,
   taskHold,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -225,6 +228,7 @@ const toTask = (
   marks: MarkRow[],
   ownedPullRequests: OwnedPullRequestRow[],
   holds: HoldRow[],
+  pushedHeads: PushedHeadRow[],
 ): Task =>
   Task.rehydrate({
     attachments: toAttachments(attachments, null),
@@ -233,6 +237,7 @@ const toTask = (
     stationId: StationId.of(row.stationId),
     title: TaskTitle.of(row.title),
     branch: Branch.of(row.branch),
+    base: row.base ? Branch.of(row.base) : null,
     description: row.description ? TaskDescription.of(row.description) : null,
     rank: TaskRank.of(row.rank),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
@@ -287,7 +292,17 @@ const toTask = (
         each.closeRouted,
       ),
     ),
+    pushedHeads: pushedHeads.map((each) =>
+      PushedHead.of(Repository.of(each.repository), each.commit, each.pushedAt),
+    ),
   });
+
+interface PushedHeadRow {
+  readonly taskId: string;
+  readonly repository: string;
+  readonly commit: string;
+  readonly pushedAt: Date;
+}
 
 interface OwnedPullRequestRow {
   readonly taskId: string;
@@ -310,11 +325,12 @@ interface Parts {
   readonly marks: Map<string, MarkRow[]>;
   readonly owned: Map<string, OwnedPullRequestRow[]>;
   readonly holds: Map<string, HoldRow[]>;
+  readonly pushed: Map<string, PushedHeadRow[]>;
 }
 
 const assembled = (
   rows: readonly Row[],
-  { notes, attachments, marks, owned, holds }: Parts,
+  { notes, attachments, marks, owned, holds, pushed }: Parts,
 ): Task[] =>
   rows.map((each) =>
     toTask(
@@ -324,6 +340,7 @@ const assembled = (
       marks.get(each.id) ?? [],
       owned.get(each.id) ?? [],
       holds.get(each.id) ?? [],
+      pushed.get(each.id) ?? [],
     ),
   );
 
@@ -350,6 +367,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         stationId: added.stationId.value,
         title: added.title.value,
         branch: added.branch.value,
+        base: added.base?.value ?? null,
         description: added.description?.value ?? null,
         rank: added.rank.value,
         currentRunId: added.currentRunId?.value ?? null,
@@ -382,6 +400,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeMarks(added);
     await this.writeOwnedPullRequests(added);
     await this.writeHolds(added);
+    await this.writePushedHeads(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -464,6 +483,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeMarks(saved);
     await this.writeOwnedPullRequests(saved);
     await this.writeHolds(saved);
+    await this.writePushedHeads(saved);
   }
 
   private async writeMarks(written: Task): Promise<void> {
@@ -526,6 +546,54 @@ export class DrizzleTaskRepository implements TaskRepository {
           closeRouted: sql`excluded.close_routed`,
         },
       });
+  }
+
+  private async writePushedHeads(written: Task): Promise<void> {
+    if (written.pushedHeads.length === 0) {
+      return;
+    }
+
+    await this.context.db
+      .insert(taskPushedHead)
+      .values(
+        written.pushedHeads.map((each) => ({
+          workspaceId: written.workspaceId.value,
+          taskId: written.id.value,
+          repository: each.repository.value,
+          commit: each.commit,
+          pushedAt: each.pushedAt,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [taskPushedHead.taskId, taskPushedHead.repository],
+        set: {
+          commit: sql`excluded.commit`,
+          pushedAt: sql`excluded.pushed_at`,
+        },
+      });
+  }
+
+  private async pushedHeadsFor(
+    taskIds: string[],
+  ): Promise<Map<string, PushedHeadRow[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select({
+        taskId: taskPushedHead.taskId,
+        repository: taskPushedHead.repository,
+        commit: taskPushedHead.commit,
+        pushedAt: taskPushedHead.pushedAt,
+      })
+      .from(taskPushedHead)
+      .where(inArray(taskPushedHead.taskId, taskIds));
+
+    return rows.reduce((pushed, row) => {
+      pushed.set(row.taskId, [...(pushed.get(row.taskId) ?? []), row]);
+      return pushed;
+    }, new Map<string, PushedHeadRow[]>());
   }
 
   private async ownedPullRequestsFor(
@@ -639,16 +707,17 @@ export class DrizzleTaskRepository implements TaskRepository {
 
   // The row comes first: a part written after it changes the version, so a save from a mixed read conflicts.
   private async partsFor(ids: string[]): Promise<Parts> {
-    const [notes, attachments, marks, owned, holds] =
+    const [notes, attachments, marks, owned, holds, pushed] =
       await this.context.concurrently(
         () => this.notesFor(ids),
         () => this.attachmentsFor(ids),
         () => this.marksFor(ids),
         () => this.ownedPullRequestsFor(ids),
         () => this.holdsFor(ids),
+        () => this.pushedHeadsFor(ids),
       );
 
-    return { notes, attachments, marks, owned, holds };
+    return { notes, attachments, marks, owned, holds, pushed };
   }
 
   async find(id: TaskId): Promise<Task | null> {

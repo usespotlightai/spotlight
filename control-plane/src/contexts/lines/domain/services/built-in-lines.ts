@@ -225,7 +225,7 @@ const CODE_REVIEW = `## Code review
 
 Review the change against what the task requested, not against how you would have
 written it. The workspace is on this task's branch, and the change is
-everything since it forked from the default branch:
+everything since it forked from the branch it started from:
 
     git diff refs/spotlight/base
 

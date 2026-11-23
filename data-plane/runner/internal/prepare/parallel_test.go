@@ -9,8 +9,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"usespotlight.ai/data-plane/runner/internal/prepare"
 )
 
 func TestPreparesAtMostFourCheckoutsAtATime(t *testing.T) {
@@ -40,7 +38,7 @@ func TestPreparesAtMostFourCheckoutsAtATime(t *testing.T) {
 	remote := server.URL + "/" + filepath.Base(f.origin)
 	checkouts := f.many(8, func(int) string { return remote })
 
-	output, err := prepare.Checkouts(context.Background(), checkouts, f.options())
+	output, err := prepared(context.Background(), checkouts, f.options())
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
