@@ -1,17 +1,17 @@
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 
-export interface ChangedHook {
+interface ChangedHook {
   readonly key: string;
   readonly lines: readonly string[];
   readonly stations: readonly string[];
 }
 
-export interface ChangedIntegration {
+interface ChangedIntegration {
   readonly key: string;
   readonly definition: Readonly<Record<string, unknown>> | null;
 }
 
-export interface ChangedResources {
+interface ChangedResources {
   readonly secrets?: readonly string[];
   readonly skills?: readonly string[];
   readonly harnessProfiles?: readonly string[];

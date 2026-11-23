@@ -8,7 +8,7 @@ export interface CarriedSecret {
   readonly key: string;
 }
 
-export interface HookAtStation {
+interface HookAtStation {
   readonly key: string;
   readonly integrations: readonly string[];
 }

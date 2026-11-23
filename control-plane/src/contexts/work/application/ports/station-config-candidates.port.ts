@@ -8,7 +8,7 @@ interface StationConfigJudge {
   readonly passThreshold: number;
 }
 
-export interface StationDependsOn {
+interface StationDependsOn {
   readonly harnessProfile: string | null;
   readonly skills: readonly string[];
   readonly tools: readonly string[];

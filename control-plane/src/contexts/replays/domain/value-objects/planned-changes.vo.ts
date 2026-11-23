@@ -1,7 +1,7 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-export type DependencyKind =
+type DependencyKind =
   | 'secret'
   | 'skill'
   | 'harness-profile'
