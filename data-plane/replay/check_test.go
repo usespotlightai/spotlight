@@ -481,6 +481,13 @@ func TestCheckExitsByTheWorstResult(t *testing.T) {
 			},
 			want: undecidedExit, contains: "The plan changes LINEAR_KEY",
 		},
+		"planned changes too large to send": {
+			post: func(w http.ResponseWriter) bool {
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				return true
+			},
+			want: undecidedExit, contains: "too large to send to Spotlight",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := &checkServer{t: t, result: tc.results, post: tc.post}
@@ -899,6 +906,49 @@ func TestReadPlanSendsTheIntegrationsAndHooksOfTheStationsTeamAndLeavesUndecided
 				return integration
 			}(),
 			undecided: "build,review", contains: "integration spotlight_integration.core_later",
+		},
+		"an integration the plan renames": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "linear"})
+				integration["change"].(map[string]any)["actions"] = []any{"delete", "create"}
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "tracker", "definition": map[string]any{"integration": "tracker"}}
+				return integration
+			}(),
+			changed: plannedChanges{Integrations: []plannedIntegration{{Key: "linear"}, {Key: "tracker", Definition: map[string]any{"integration": "tracker"}}}},
+		},
+		"an integration whose planned definition holds sensitive values": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_secret", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "secret"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "secret", "definition": map[string]any{"token": "value"}}
+				integration["change"].(map[string]any)["after_sensitive"] = map[string]any{"definition": map[string]any{"token": true}}
+				return integration
+			}(),
+			undecided: "build,review", contains: "integration spotlight_integration.core_secret, which the CLI does not send to Spotlight since its planned definition holds sensitive values",
+		},
+		"an integration whose planned definition is sensitive as a whole": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_whole", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "whole"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "whole", "definition": map[string]any{"token": "value"}}
+				integration["change"].(map[string]any)["after_sensitive"] = map[string]any{"definition": true}
+				return integration
+			}(),
+			undecided: "build,review", contains: "spotlight_integration.core_whole, which the CLI does not send to Spotlight since its planned definition holds sensitive values",
+		},
+		"an integration whose planned definition is just under the limit with escaped characters": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_cel", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "cel"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "cel", "definition": map[string]any{"when": strings.Repeat("&", maxDefinitionBytes-20)}}
+				return integration
+			}(),
+			changed: plannedChanges{Integrations: []plannedIntegration{{Key: "cel", Definition: map[string]any{"when": strings.Repeat("&", maxDefinitionBytes-20)}}}},
+		},
+		"an integration whose planned definition is too large to send": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_large", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "large"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "large", "definition": map[string]any{"text": strings.Repeat("x", maxDefinitionBytes)}}
+				return integration
+			}(),
+			undecided: "build,review", contains: "integration spotlight_integration.core_large, which the CLI does not send to Spotlight since its planned definition is larger than 16 KiB",
 		},
 		"a hook whose match is known only after apply": {
 			resource: func() map[string]any {

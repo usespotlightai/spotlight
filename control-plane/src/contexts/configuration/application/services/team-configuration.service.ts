@@ -24,7 +24,7 @@ export class TeamConfiguration implements TeamConfigurationPort {
     const enabling = await Promise.all(
       planned.map(async ({ key, definition }) => {
         const tools = definition
-          ? await this.integrations.toolsOnAnyMarkAsPlanned(key, definition)
+          ? await this.integrations.toolsOnAnyMarkAsPlanned(definition)
           : [];
 
         return tools === null || tools.length > 0 ? [key] : [];

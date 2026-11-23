@@ -55,10 +55,11 @@ type resourceChange struct {
 	Type         string `json:"type"`
 	ProviderName string `json:"provider_name"`
 	Change       struct {
-		Actions      []string       `json:"actions"`
-		Before       map[string]any `json:"before"`
-		After        map[string]any `json:"after"`
-		AfterUnknown any            `json:"after_unknown"`
+		Actions        []string       `json:"actions"`
+		Before         map[string]any `json:"before"`
+		After          map[string]any `json:"after"`
+		AfterUnknown   any            `json:"after_unknown"`
+		AfterSensitive any            `json:"after_sensitive"`
 	} `json:"change"`
 }
 
@@ -69,7 +70,10 @@ type catalogChange struct {
 	keys         []string
 	hooks        []plannedHook
 	integrations []plannedIntegration
+	withheld     string
 }
+
+const maxDefinitionBytes = 16 << 10
 
 type plannedIntegration struct {
 	Key        string         `json:"key"`
@@ -147,7 +151,7 @@ func readPlan(in io.Reader) (planned, error) {
 	}
 
 	var lines []resourceChange
-	var unnamed []catalogChange
+	var unnamed, withheld []catalogChange
 	var secrets []string
 	teams := map[string]*plannedChanges{}
 	for _, each := range shown.ResourceChanges {
@@ -164,6 +168,8 @@ func readPlan(in io.Reader) (planned, error) {
 		case changed == nil:
 		case len(changed.keys) == 0 || changed.kind != "secret" && changed.teamID == "":
 			unnamed = append(unnamed, *changed)
+		case changed.withheld != "":
+			withheld = append(withheld, *changed)
 		case changed.kind == "secret":
 			secrets = append(secrets, changed.keys...)
 		default:
@@ -181,7 +187,7 @@ func readPlan(in io.Reader) (planned, error) {
 		if team := teams[teamID]; team != nil {
 			changes.Skills, changes.HarnessProfiles, changes.Integrations, changes.Hooks = team.Skills, team.HarnessProfiles, team.Integrations, team.Hooks
 		}
-		plan.add(each, unnamed, changes.sorted())
+		plan.add(each, unnamed, withheld, changes.sorted())
 	}
 
 	return plan, nil
@@ -228,6 +234,7 @@ func catalogChangeOf(change resourceChange) *catalogChange {
 			var definition map[string]any
 			if after, _ := change.Change.After[named.key].(string); after == key {
 				definition, _ = change.Change.After["definition"].(map[string]any)
+				changed.withheld = withheldReason(definition, objectAt(change.Change.AfterSensitive)["definition"])
 			}
 			changed.integrations = append(changed.integrations, plannedIntegration{Key: key, Definition: definition})
 		}
@@ -237,6 +244,20 @@ func catalogChangeOf(change resourceChange) *catalogChange {
 	}
 
 	return changed
+}
+
+func withheldReason(definition map[string]any, sensitive any) string {
+	if isUnknown(sensitive) {
+		return "holds sensitive values"
+	}
+	var encoded bytes.Buffer
+	encoder := json.NewEncoder(&encoded)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(definition); err != nil || len(bytes.TrimSuffix(encoded.Bytes(), []byte("\n"))) > maxDefinitionBytes {
+		return fmt.Sprintf("is larger than %d KiB", maxDefinitionBytes>>10)
+	}
+
+	return ""
 }
 
 func textsAt(node any) []string {
@@ -283,7 +304,7 @@ func (c plannedChanges) empty() bool {
 	return len(c.Secrets)+len(c.Skills)+len(c.HarnessProfiles)+len(c.Integrations)+len(c.Hooks) == 0
 }
 
-func (p *planned) add(change resourceChange, unnamed []catalogChange, changes plannedChanges) {
+func (p *planned) add(change resourceChange, unnamed, withheld []catalogChange, changes plannedChanges) {
 	actions := strings.Join(change.Change.Actions, ",")
 
 	switch actions {
@@ -359,9 +380,15 @@ func (p *planned) add(change resourceChange, unnamed []catalogChange, changes pl
 				unknownChanges = append(unknownChanges, entry)
 			}
 		}
+		var withheldChanges []string
+		for _, each := range withheld {
+			if each.reaches(teamID) {
+				withheldChanges = append(withheldChanges, fmt.Sprintf("%s %s, which the CLI does not send to Spotlight since its planned definition %s", each.kind, each.address, each.withheld))
+			}
+		}
 
 		lineChanged := repositoriesChanged || repositoriesUnknown
-		if !changed && !lineChanged && len(unknownParts) == 0 && len(unknownChanges) == 0 && changes.empty() {
+		if !changed && !lineChanged && len(unknownParts) == 0 && len(unknownChanges) == 0 && len(withheldChanges) == 0 && changes.empty() {
 			continue
 		}
 
@@ -396,6 +423,9 @@ func (p *planned) add(change resourceChange, unnamed []catalogChange, changes pl
 		case len(unknownChanges) > 0:
 			station.Undecided = true
 			station.Because = fmt.Sprintf("not checked, since the plan also changes the %s, which Terraform names only after apply, so Spotlight cannot tell whether its runs depend on it", strings.Join(unknownChanges, ", "))
+		case len(withheldChanges) > 0:
+			station.Undecided = true
+			station.Because = fmt.Sprintf("not checked, since the plan also changes the %s, so Spotlight cannot tell whether its runs depend on it", strings.Join(withheldChanges, "; "))
 		}
 
 		p.Stations = append(p.Stations, station)

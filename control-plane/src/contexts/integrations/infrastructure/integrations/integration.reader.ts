@@ -159,6 +159,17 @@ export class IntegrationReader implements ToolDeclarationsPort {
     return this.offered(definitions).flatMap((each) => each.enabledOnAnyMark);
   }
 
+  enabledOnAnyMarkAsPlanned(
+    definition: Readonly<Record<string, unknown>>,
+  ): readonly ToolName[] | null {
+    const compiled = compileIntegration(definition, this.expressions);
+
+    return compiled.ok
+      ? OfferedTools.generatedFor(compiled.readable.integration, [])
+          .enabledOnAnyMark
+      : null;
+  }
+
   async providedTool(
     definitions: readonly DefinedIntegration[],
     tool: string,

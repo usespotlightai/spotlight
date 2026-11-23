@@ -3,7 +3,6 @@ import type {
   IntegrationConfigsPort,
 } from '@configuration/application/ports/integration-configs.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type {
   IntegrationRecord,
   IntegrationResourcesPort,
@@ -55,21 +54,12 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
   }
 
   async toolsOnAnyMarkAsPlanned(
-    integration: string,
     definition: Readonly<Record<string, unknown>>,
   ): Promise<readonly string[] | null> {
-    const planned: DefinedIntegration = {
-      id: `planned-${integration}`,
-      version: 0,
-      integration,
-      definition,
-      tools: [],
-      generatedFrom: null,
-      reading: null,
-    };
-
-    return this.reader.offered([planned]).length === 0
-      ? null
-      : this.reader.enabledOnAnyMark([planned]).map((each) => each.value);
+    return (
+      this.reader
+        .enabledOnAnyMarkAsPlanned(definition)
+        ?.map((each) => each.value) ?? null
+    );
   }
 }

@@ -10,16 +10,20 @@ describe('TeamConfiguration.enablingToolsOnMarks', () => {
       {} as TeamSkillReading,
       {} as HookConfigsPort,
       {
-        toolsOnAnyMarkAsPlanned: async (key: string) =>
-          key === 'posthog' ? ['posthog.query'] : key === 'broken' ? null : [],
+        toolsOnAnyMarkAsPlanned: async ({ tools }: { tools?: unknown }) =>
+          tools === 'marked'
+            ? ['posthog.query']
+            : tools === 'broken'
+              ? null
+              : [],
       } as unknown as IntegrationConfigsPort,
     );
 
     expect(
       await configuration.enablingToolsOnMarks([
-        { key: 'posthog', definition: {} },
+        { key: 'posthog', definition: { tools: 'marked' } },
         { key: 'linear', definition: {} },
-        { key: 'broken', definition: {} },
+        { key: 'broken', definition: { tools: 'broken' } },
         { key: 'deleted', definition: null },
       ]),
     ).toEqual(['posthog', 'broken']);

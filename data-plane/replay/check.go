@@ -339,6 +339,9 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 	case errors.As(err, &answer) && answer.errorBody.Type == dependencyChanged:
 		checked.Status = checkUndecided
 		checked.Message = answer.errorBody.Detail
+	case errors.As(err, &answer) && answer.status == http.StatusRequestEntityTooLarge:
+		checked.Status = checkUndecided
+		checked.Message = "not checked, since the planned changes are too large to send to Spotlight"
 	case err != nil:
 		checked.Status = checkErrored
 		checked.Message = err.Error()

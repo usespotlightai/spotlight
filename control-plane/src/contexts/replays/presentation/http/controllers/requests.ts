@@ -112,16 +112,27 @@ const integrationAt = (
       typeof fields.key === 'string'
         ? fields.key
         : rejectAt([...at, 'key'], 'Must be the key of the integration.'),
-    definition:
-      definition === undefined || definition === null
-        ? null
-        : typeof definition === 'object' && !Array.isArray(definition)
-          ? (definition as Record<string, unknown>)
-          : rejectAt(
-              [...at, 'definition'],
-              'Must be the integration’s definition as planned.',
-            ),
+    definition: definitionAt(definition, [...at, 'definition']),
   };
+};
+
+const MAX_DEFINITION_BYTES = 16 * 1024;
+
+const definitionAt = (
+  definition: unknown,
+  at: readonly string[],
+): Record<string, unknown> | null => {
+  if (definition === undefined || definition === null) {
+    return null;
+  }
+
+  if (typeof definition !== 'object' || Array.isArray(definition)) {
+    return rejectAt(at, 'Must be the integration’s definition as planned.');
+  }
+
+  return Buffer.byteLength(JSON.stringify(definition)) > MAX_DEFINITION_BYTES
+    ? rejectAt(at, 'Must be at most 16 KiB as JSON.')
+    : (definition as Record<string, unknown>);
 };
 
 const listAt = <T>(
