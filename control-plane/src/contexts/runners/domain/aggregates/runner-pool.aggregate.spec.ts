@@ -423,6 +423,57 @@ describe('RunnerPool for the platform', () => {
     ]);
   });
 
+  it('takes no runs that inject secrets and no review work until the operator allows them, while a pool of the workspace takes both', () => {
+    const pool = aPlatformPool();
+
+    expect(pool.allowsSecrets).toBe(false);
+    expect(pool.allowsReviewWork).toBe(false);
+    expect(aPushPool().allowsSecrets).toBe(true);
+    expect(aPushPool().allowsReviewWork).toBe(true);
+
+    const allowed = pool.configure({ allowsReviewWork: true }, BY);
+
+    expect(allowed.allowsSecrets).toBe(false);
+    expect(allowed.allowsReviewWork).toBe(true);
+    expect(
+      allowed.reconcile({ labels: RunnerLabels.of(['gpu']), egress: null }, BY)
+        .allowsReviewWork,
+    ).toBe(true);
+    expect(allowed.disable(BY).enable(BY).allowsReviewWork).toBe(true);
+  });
+
+  it('records one change when the operator disables the pool and allows it work in one step', () => {
+    const pool = aPlatformPool();
+    pool.pullEvents();
+    const configured = pool.configure(
+      { enabled: false, allowsSecrets: true },
+      BY,
+    );
+
+    expect(recordedOf(configured)).toEqual([
+      { mode: 'push', disabled: true, allowsSecrets: true },
+    ]);
+    expect(configured.isDisabled).toBe(true);
+    expect(configured.allowsSecrets).toBe(true);
+  });
+
+  it('records each change to the work it allows, and nothing when it is already so', () => {
+    const pool = aPlatformPool();
+    pool.pullEvents();
+    const allowed = pool.configure(
+      { allowsSecrets: true, allowsReviewWork: false },
+      BY,
+    );
+
+    expect(recordedOf(allowed)).toEqual([
+      { mode: 'push', allowsSecrets: true },
+    ]);
+    expect(allowed.configure({ allowsSecrets: true }, BY)).toBe(allowed);
+    expect(() => aPushPool().configure({ allowsSecrets: true }, BY)).toThrow(
+      InconsistentStateError,
+    );
+  });
+
   it('refuses the changes of a workspace pool, and a workspace pool refuses the changes of the platform pool', () => {
     expect(() =>
       aPlatformPool().update(

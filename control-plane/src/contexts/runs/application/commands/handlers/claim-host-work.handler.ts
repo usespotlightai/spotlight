@@ -1,6 +1,6 @@
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type {
-  RunnerClaimant,
+  RegisteredClaimant,
   RunnerClaimantsPort,
 } from '@runners/application/ports/runner-claimants.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
@@ -34,6 +34,7 @@ import type {
   Claimant,
   SandboxRouting,
 } from '@runs/domain/value-objects/claimant';
+import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -59,7 +60,7 @@ const sandboxForRun = (run: Run, host: string): SandboxForRun => ({
 
 const claimantOf = (
   runner: RunnerId,
-  registered: RunnerClaimant,
+  registered: RegisteredClaimant,
   sandbox: SandboxRouting,
 ): Claimant => ({
   runner,
@@ -67,6 +68,7 @@ const claimantOf = (
   harnesses: registered.harnesses,
   offer: registered.offer,
   claims: 'any',
+  source: registered.source && RunnerSource.of(registered.source),
   sandbox,
 });
 
@@ -202,7 +204,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     host: string,
     until: Date,
   ): Promise<Claimed | null> {
-    const registered = await this.claimants.claimantOf(
+    const registered = await this.claimants.registeredClaimantOf(
       runner,
       this.clock.now(),
     );
@@ -306,7 +308,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
 
   private async claimedForRequested(
     runner: RunnerId,
-    registered: RunnerClaimant,
+    registered: RegisteredClaimant,
     host: string,
     until: Date,
   ): Promise<Claimed | 'requeued' | null> {
@@ -415,7 +417,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
   }
 
   private async startedWarm(
-    registered: RunnerClaimant,
+    registered: RegisteredClaimant,
     host: string,
   ): Promise<Claimed | null> {
     const requested = await this.sandboxes.requestedWarmIn(
@@ -439,7 +441,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
 
   private async firstStartedWarm(
     requested: readonly string[],
-    registered: RunnerClaimant,
+    registered: RegisteredClaimant,
     host: string,
   ): Promise<StartedWarmSandbox | null> {
     for (const each of requested) {
@@ -464,7 +466,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     into: SandboxTakingRuns,
     until: Date,
   ): Promise<Claimed | null> {
-    const registered = await this.claimants.claimantOf(
+    const registered = await this.claimants.registeredClaimantOf(
       runner,
       this.clock.now(),
     );
@@ -511,7 +513,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
 
   private async claimedIntoWarm(
     runner: RunnerId,
-    registered: RunnerClaimant,
+    registered: RegisteredClaimant,
     host: string,
     into: {
       readonly id: string;
@@ -560,7 +562,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
 
   private async drainedForWaitingRuns(
     runner: RunnerId,
-    registered: RunnerClaimant,
+    registered: RegisteredClaimant,
     host: string,
   ): Promise<void> {
     await this.warmSlots.drainWarmOn(host, this.clock.now(), async () =>

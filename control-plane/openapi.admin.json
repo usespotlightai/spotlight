@@ -210,7 +210,7 @@
     },
     "/admin/workspaces/{workspaceId}/platform-pool": {
       "put": {
-        "description": "The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. The workspace’s configuration changes record the change, made by Spotlight.",
+        "description": "The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. It takes runs that inject secrets, and checks and diffs, only when this call allows them. A field that the body does not give stays as it is. The workspace’s configuration changes record the change, made by Spotlight.",
         "operationId": "setWorkspacePlatformPool",
         "parameters": [
           {
@@ -245,7 +245,7 @@
             }
           },
           "400": {
-            "description": "A body without enabled as true or false"
+            "description": "A body that sets none of enabled, allowsSecrets and allowsReviewWork to true or false"
           },
           "401": {
             "description": "The request does not have the admin token (SPOTLIGHT_ADMIN_TOKEN) as its bearer token"
@@ -262,7 +262,7 @@
             "bearer": []
           }
         ],
-        "summary": "Enable or disable the platform pool of a workspace",
+        "summary": "Enable or disable the platform pool of a workspace, and set the work it takes",
         "tags": [
           "admin"
         ]
@@ -428,11 +428,18 @@
             "type": "boolean",
             "example": false,
             "description": "True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace"
+          },
+          "allowsSecrets": {
+            "type": "boolean",
+            "example": true,
+            "description": "True to let the platform pool take runs that inject secrets or a Spotlight token. Their traffic goes through the egress of the deployment. False by default"
+          },
+          "allowsReviewWork": {
+            "type": "boolean",
+            "example": true,
+            "description": "True to let the platform pool take checks and diffs, which pushes start with no person asking. False by default"
           }
-        },
-        "required": [
-          "enabled"
-        ]
+        }
       },
       "WorkspacePlatformPoolResponseDto": {
         "type": "object",
@@ -441,10 +448,22 @@
             "type": "boolean",
             "example": false,
             "description": "The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight"
+          },
+          "allowsSecrets": {
+            "type": "boolean",
+            "example": false,
+            "description": "The platform pool takes runs that inject secrets or a Spotlight token"
+          },
+          "allowsReviewWork": {
+            "type": "boolean",
+            "example": false,
+            "description": "The platform pool takes checks and diffs"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "allowsSecrets",
+          "allowsReviewWork"
         ]
       }
     }

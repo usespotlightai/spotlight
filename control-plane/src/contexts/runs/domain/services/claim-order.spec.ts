@@ -26,6 +26,7 @@ const BY: Claimant = {
   harnesses: [DEV],
   offer: RunnerOffer.of(['runner-1', 'laptop']),
   claims: 'any',
+  source: null,
 };
 const POOLED: Claimant = {
   ...BY,

@@ -15,6 +15,7 @@ import type {
   WaitingReviewWork,
 } from '@runs/application/ports/review-work-provisioning.port';
 import type { ReviewWork } from '@runs/application/ports/review-work.port';
+import type { RunWaitsPort } from '@runs/application/ports/run-waits.port';
 import { ProvisionFailures } from '@runs/application/services/provision-failures.service';
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
@@ -95,6 +96,8 @@ const aPool = (
   labels: string[] = [],
   egress = false,
   platform = false,
+  allows = { allowsSecrets: true, allowsReviewWork: true },
+  images: readonly RunnerImage[] | null = null,
 ): BoundedPool => ({
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
@@ -102,16 +105,29 @@ const aPool = (
   labels: RunnerOffer.of(labels),
   egress,
   platform,
+  ...allows,
+  images,
   maxRuns: null,
 });
 
-const aPlatformPool = (labels: string[] = [], egress = false): BoundedPool =>
-  aPool('spotlight', labels, egress, true);
+// A platform pool with egress here is one the operator allows secrets.
+const aPlatformPool = (
+  labels: string[] = [],
+  egress = false,
+  allowsReviewWork = false,
+): BoundedPool =>
+  aPool('spotlight', labels, egress, true, {
+    allowsSecrets: egress,
+    allowsReviewWork,
+  });
 
 const hostsServing = (labels: string[] = []): HostOfferAtWork => ({
   workspaceId: WorkspaceId.of('ws_1'),
   labels: RunnerOffer.of(labels),
   egress: true,
+  images: null,
+  allowsSecrets: true,
+  allowsReviewWork: true,
 });
 
 const provisioning = (
@@ -163,6 +179,9 @@ const provisioning = (
     },
   );
   const recorded: DomainEvent[] = [];
+  const waits = {
+    note: vi.fn<RunWaitsPort['note']>(async () => {}),
+  } satisfies RunWaitsPort;
   const runs = {
     findById: async (id: RunId) => stored.get(id.value) ?? null,
     save: async (run: Run) => {
@@ -253,8 +272,10 @@ const provisioning = (
       },
       { now: () => now } as ClockPort,
       logger,
+      waits,
     ),
     logger,
+    waits,
   };
 };
 
@@ -273,6 +294,91 @@ describe('ProvisionWork', () => {
       expect.objectContaining({ runId: 'run_1', reason: 'no-pool-matches' }),
       'Did not provision a runner',
     );
+  });
+
+  it('notes on the run why it waits at each tick, in one write, with the queueing it belongs to', async () => {
+    const queued = waiting('run_1', ['gpu']);
+    const { provisioner, waits, logger } = provisioning(
+      [queued],
+      [aPool('burst', ['arm'])],
+    );
+
+    await provisioner.due();
+    await provisioner.due();
+
+    const noted = [
+      [
+        {
+          runId: RunId.of('run_1'),
+          reason: 'no-pool-matches',
+          queuedAt: queued.queuedAt,
+        },
+      ],
+      NOON,
+    ];
+
+    expect(waits.note.mock.calls).toEqual([noted, noted]);
+    expect(logger.info).toHaveBeenCalledOnce();
+  });
+
+  it('says a run with secrets waits for the operator when only the platform pool could take it', async () => {
+    const { provisioner, waits } = provisioning(
+      [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
+      [
+        aPool('spotlight', [], true, true, {
+          allowsSecrets: false,
+          allowsReviewWork: false,
+        }),
+      ],
+    );
+
+    await provisioner.due();
+
+    expect(
+      waits.note.mock.calls.flatMap(([noted]) =>
+        noted.map((each) => each.reason),
+      ),
+    ).toEqual(['platform-pool-not-allowed']);
+  });
+
+  it('keeps why a run waits for a full pool or for hosts', async () => {
+    const { provisioner, waits } = provisioning(
+      [waiting('run_1', ['gpu']), waiting('run_2', ['on-premises'])],
+      [{ ...aPool('burst', ['gpu']), maxRuns: 1 }, aPlatformPool(['gpu'])],
+      {},
+      NOON,
+      1,
+      {},
+      [],
+      [hostsServing(['on-premises'])],
+    );
+
+    await provisioner.due();
+
+    expect(
+      waits.note.mock.calls.flatMap(([noted]) =>
+        noted.map((each) => [each.runId.value, each.reason]),
+      ),
+    ).toEqual([
+      ['run_1', 'no-pool-has-room'],
+      ['run_2', 'hosts-pull'],
+    ]);
+  });
+
+  it('keeps no reason for a check that waits', async () => {
+    const { provisioner, waits, logger } = provisioning(
+      [],
+      [aPlatformPool(['arm'])],
+      {},
+      NOON,
+      0,
+      { awaiting: [aWaitingCheck('stack_1', ['arm'])] },
+    );
+
+    await provisioner.due();
+
+    expect(logger.info).toHaveBeenCalledOnce();
+    expect(waits.note.mock.calls.flatMap(([noted]) => noted)).toEqual([]);
   });
 
   it('releases what it reserved when provisioning throws, still provisions the rest, and says why', async () => {
@@ -714,6 +820,27 @@ describe('ProvisionWork', () => {
     ]);
   });
 
+  it('keeps a check off the platform pool until the operator allows it review work', async () => {
+    const check = { awaiting: [aWaitingCheck('stack_1', ['arm'])] };
+    const kept = provisioning([], [aPlatformPool(['arm'])], {}, NOON, 0, check);
+    const allowed = provisioning(
+      [],
+      [aPlatformPool(['arm'], false, true)],
+      {},
+      NOON,
+      0,
+      check,
+    );
+
+    await kept.provisioner.due();
+    await allowed.provisioner.due();
+
+    expect(kept.provision).not.toHaveBeenCalled();
+    expect(
+      allowed.provision.mock.calls.map(([request]) => request.work.id),
+    ).toEqual(['stack_1']);
+  });
+
   it('keeps a run off the platform pool while a full pool of the workspace fits it', async () => {
     const { provisioner, provision, run } = provisioning(
       [waiting('run_1', ['gpu'])],
@@ -928,7 +1055,7 @@ describe('ProvisionWork', () => {
     it('reads the checks behind a full head page from the cursor of the head, and goes on from the cursor of that page in the next tick', async () => {
       const { provisioner, provision, checks } = provisioning(
         [],
-        [aPlatformPool(['arm'])],
+        [aPlatformPool(['arm'], false, true)],
         {},
         NOON,
         0,

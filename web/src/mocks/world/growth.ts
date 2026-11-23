@@ -7,7 +7,7 @@ import type {
 import { hoursAgo } from '@/mocks/clock';
 import { PRIYA } from '@/mocks/world/people';
 import { onGitHub } from '@/mocks/world/repositories';
-import { progressOfState } from '@/mocks/world/run-progress';
+import { OWN_POOL, progressOfState } from '@/mocks/world/run-progress';
 import { LINE_SEARCH, runStationOf, station } from '@/mocks/world/stations';
 
 export const GROWTH_ID = 'team_growth';
@@ -156,6 +156,8 @@ const run = (
     updatedAt: hoursAgo(startedHoursAgo - durationHours),
     harness: 'claude-code',
     image: null,
+    ranOn: (rest.state ?? 'completed') === 'queued' ? null : OWN_POOL,
+    waiting: null,
     station: runStationOf(STATIONS, stationId),
     review: null,
     ...rest,

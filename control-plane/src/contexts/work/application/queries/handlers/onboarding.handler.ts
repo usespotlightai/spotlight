@@ -58,7 +58,7 @@ export class OnboardingHandler implements QueryHandlerPort<
 
       return {
         provisioning: PROVISIONING_NAME[provisioning],
-        steps: shownFor(setup.state),
+        steps: shownFor(setup.state, setup.runners),
         canSetUp: SetupAdmission.readyIn({
           codeReachable: setup.state.connectedToGitHub,
           egressAvailable: setup.hasEgressCapableRunner,

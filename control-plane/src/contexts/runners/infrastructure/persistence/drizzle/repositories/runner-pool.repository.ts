@@ -58,6 +58,8 @@ const written = (pool: RunnerPool) => {
         : null,
     platform: access.kind === 'platform',
     disabled: access.kind === 'platform' && access.disabled,
+    allowsSecrets: access.kind === 'platform' && access.allowsSecrets,
+    allowsReviewWork: access.kind === 'platform' && access.allowsReviewWork,
   };
 };
 
@@ -66,7 +68,10 @@ const egressOf = (row: Row): EgressReference | null =>
 
 const accessOf = (row: Row): PoolAccess => {
   if (row.platform) {
-    return PlatformAccess.of(egressOf(row), row.disabled);
+    return PlatformAccess.of(egressOf(row), row.disabled, {
+      allowsSecrets: row.allowsSecrets,
+      allowsReviewWork: row.allowsReviewWork,
+    });
   }
 
   if (row.tokenHash) {

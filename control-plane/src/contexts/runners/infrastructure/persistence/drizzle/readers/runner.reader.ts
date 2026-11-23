@@ -45,6 +45,8 @@ export class DrizzleRunnerReader
 {
   private readonly platform: boolean;
 
+  private readonly platformPoolSet: boolean;
+
   // As RunnerPool.canProvision: a pool with a provision URL pushes, and so does the platform pool while the deployment sets its provisioner and the operator did not disable it.
   private readonly pushes: SQL;
 
@@ -54,6 +56,7 @@ export class DrizzleRunnerReader
     setup: PlatformSetup,
   ) {
     this.platform = setup.platformEgressSet;
+    this.platformPoolSet = setup.platformPoolSet;
     this.pushes = setup.platformPoolSet
       ? (or(
           isNotNull(runnerPool.provisionUrl),
@@ -96,6 +99,26 @@ export class DrizzleRunnerReader
     return this.hasEgressCapableRunner(workspaceId);
   }
 
+  async hasPlatformRunners(workspaceId: WorkspaceId): Promise<boolean> {
+    if (!this.platformPoolSet) {
+      return false;
+    }
+
+    const [disabled] = await this.db
+      .select({ id: runnerPool.id })
+      .from(runnerPool)
+      .where(
+        and(
+          eq(runnerPool.workspaceId, workspaceId.value),
+          eq(runnerPool.platform, true),
+          eq(runnerPool.disabled, true),
+        ),
+      )
+      .limit(1);
+
+    return !disabled;
+  }
+
   async hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean> {
     const egressPools = await this.db
       .select({ egress: runnerPool.provisionEgress })
@@ -105,6 +128,8 @@ export class DrizzleRunnerReader
           eq(runnerPool.workspaceId, workspaceId.value),
           this.pushes,
           isNotNull(runnerPool.provisionEgress),
+          // As RunnerPool.allowsSecrets: the platform pool takes runs that need egress only when the operator allows it.
+          or(eq(runnerPool.platform, false), eq(runnerPool.allowsSecrets, true)),
         ),
       );
 

@@ -17,10 +17,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { AdminController } from '@platform/http/decorators/admin-controller.decorator';
-import {
-  DisablePlatformPoolCommand,
-  EnablePlatformPoolCommand,
-} from '@runners/application/commands/platform-pool.commands';
+import { SetPlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
 import type { PlatformPoolChangeDto } from '@runners/application/dto/platform-pool.dto';
 import { SetWorkspacePlatformPoolRequestDto } from '@runners/presentation/http/dto/platform-pool.request.dto';
 import { WorkspacePlatformPoolResponseDto } from '@runners/presentation/http/dto/platform-pool.response.dto';
@@ -31,14 +28,33 @@ const UNSET =
 const KEY_TAKEN =
   'Sorry, this workspace has its own runner pool with the key spotlight, so it has no platform pool.';
 
-const enabledOf = (raw: unknown): boolean => {
-  if (typeof raw !== 'boolean') {
+const FIELDS = ['enabled', 'allowsSecrets', 'allowsReviewWork'] as const;
+
+interface PlatformPoolChange {
+  readonly enabled?: boolean;
+  readonly allowsSecrets?: boolean;
+  readonly allowsReviewWork?: boolean;
+}
+
+const changeOf = (raw: unknown): PlatformPoolChange => {
+  const body = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  const given = FIELDS.filter((field) => body[field] !== undefined);
+
+  if (
+    given.length === 0 ||
+    given.some((field) => typeof body[field] !== 'boolean')
+  ) {
     throw new BadRequestException(
-      'Sorry, the body must say whether the platform pool is enabled, as in {"enabled": false}.',
+      'Sorry, the body must set at least one of enabled, allowsSecrets and allowsReviewWork to true or false, as in {"enabled": false}.',
     );
   }
 
-  return raw;
+  return Object.fromEntries(
+    given.map((field) => [field, body[field]]),
+  ) as PlatformPoolChange;
 };
 
 // The admin token is the authorisation. A change shows as made by Spotlight.
@@ -49,9 +65,10 @@ export class AdminPlatformPoolController {
   @Put(':workspaceId/platform-pool')
   @ApiOperation({
     operationId: 'setWorkspacePlatformPool',
-    summary: 'Enable or disable the platform pool of a workspace',
+    summary:
+      'Enable or disable the platform pool of a workspace, and set the work it takes',
     description:
-      'The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. The workspace’s configuration changes record the change, made by Spotlight.',
+      'The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. It takes runs that inject secrets, and checks and diffs, only when this call allows them. A field that the body does not give stays as it is. The workspace’s configuration changes record the change, made by Spotlight.',
   })
   @ApiParam({
     name: 'workspaceId',
@@ -60,7 +77,8 @@ export class AdminPlatformPoolController {
   @ApiBody({ type: SetWorkspacePlatformPoolRequestDto })
   @ApiOkResponse({ type: WorkspacePlatformPoolResponseDto })
   @ApiBadRequestResponse({
-    description: 'A body without enabled as true or false',
+    description:
+      'A body that sets none of enabled, allowsSecrets and allowsReviewWork to true or false',
   })
   @ApiConflictResponse({
     description:
@@ -73,15 +91,10 @@ export class AdminPlatformPoolController {
     @Param('workspaceId') workspaceId: string,
     @Body() body: SetWorkspacePlatformPoolRequestDto | undefined,
   ): Promise<WorkspacePlatformPoolResponseDto> {
-    const enabled = enabledOf(body?.enabled);
     const changed = await this.commandBus.execute<
-      DisablePlatformPoolCommand | EnablePlatformPoolCommand,
+      SetPlatformPoolCommand,
       PlatformPoolChangeDto | null
-    >(
-      enabled
-        ? new EnablePlatformPoolCommand(workspaceId)
-        : new DisablePlatformPoolCommand(workspaceId),
-    );
+    >(new SetPlatformPoolCommand(workspaceId, changeOf(body)));
 
     switch (changed?.outcome) {
       case undefined:
@@ -94,6 +107,8 @@ export class AdminPlatformPoolController {
       case 'disabled':
         return new WorkspacePlatformPoolResponseDto(
           changed.outcome === 'enabled',
+          changed.allowsSecrets,
+          changed.allowsReviewWork,
         );
     }
   }

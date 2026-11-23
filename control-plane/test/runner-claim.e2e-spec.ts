@@ -17,6 +17,7 @@ import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persi
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunClaims } from '@runs/application/services/run-claims.service';
+import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
@@ -104,6 +105,7 @@ const claimant = (
   harnesses: [HarnessId.of('dev')],
   offer: RunnerOffer.of(labels),
   claims,
+  source: null,
 });
 
 const reserve = async (runId: string, runner: RunnerId, until: Date) => {
@@ -231,6 +233,19 @@ describe('claiming a run', () => {
     const claimed = await claims.next(claimant('ws_own'), NOW);
 
     expect(claimed?.id.value).toBe(mine);
+  });
+
+  it('keeps the pool its runner came in through, after the claim and when read again', async () => {
+    const mine = await queue('ws_source');
+    const platform = RunnerSource.of({
+      kind: 'pool',
+      key: 'spotlight',
+      platform: true,
+    });
+
+    await claims.next({ ...claimant('ws_source'), source: platform }, NOW);
+
+    expect((await runs.findById(RunId.of(mine)))?.ranOn).toEqual(platform);
   });
 
   it('measures how long the run waited, by its kind and without its id', async () => {

@@ -27,6 +27,7 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -144,11 +145,13 @@ const pulling = (
     ),
   };
   const heartbeats = {
-    claimantOf: vi.fn(async () => ({
+    claimantOf: async () => null,
+    registeredClaimantOf: vi.fn(async () => ({
       workspaceId: WorkspaceId.of('ws_1'),
       harnesses: [HarnessId.of('claude-code')],
       offer: RunnerOffer.of(['linux']),
       claims: 'reserved' as const,
+      source: { kind: 'trust' as const, key: 'ci', platform: false },
     })),
   };
   const saved: Run[] = [];
@@ -422,6 +425,19 @@ describe('ClaimHostWorkHandler', () => {
     expect(runners.claim).toHaveBeenCalledWith(
       POOLED,
       { kind: 'run', id: 'run_1' },
+      NOW,
+    );
+  });
+
+  it('claims a run as the trust or pull pool its host came in through', async () => {
+    const { handler, claimNext } = pulling({ run: taken() });
+
+    await handler.execute(pull());
+
+    expect(claimNext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: RunnerSource.of({ kind: 'trust', key: 'ci', platform: false }),
+      }),
       NOW,
     );
   });

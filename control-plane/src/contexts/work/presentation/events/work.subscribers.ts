@@ -98,6 +98,7 @@ import type { NoticedTaskEvent } from '@work/domain/services/outside-notices';
 
 const newTeam = (event: TeamCreatedIntegrationEvent): NewTeam => ({
   teamId: TeamId.of(event.teamId),
+  workspaceId: WorkspaceId.of(event.workspaceId),
   owner: UserId.of(event.ownerId),
   origin: event.origin,
 });

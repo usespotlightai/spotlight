@@ -13,7 +13,10 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
-import { PushAccess } from '@runners/domain/value-objects/pool-access.vo';
+import {
+  type PlatformPoolAllowances,
+  PushAccess,
+} from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
@@ -110,6 +113,7 @@ export const aPlatformPool = (
     egress?: EgressReference | null;
     disabled?: boolean;
     workspaceId?: WorkspaceId;
+    allows?: PlatformPoolAllowances;
   } = {},
 ): RunnerPool => {
   const created = RunnerPool.createPlatform({
@@ -120,7 +124,12 @@ export const aPlatformPool = (
     by: changeActorIn(),
   });
 
-  return input.disabled ? created.disable(changeActorIn()) : created;
+  return input.disabled || input.allows
+    ? created.configure(
+        { ...input.allows, ...(input.disabled ? { enabled: false } : {}) },
+        changeActorIn(),
+      )
+    : created;
 };
 
 // A pool of the workspace that took the platform key before Spotlight kept that key for the platform pool.

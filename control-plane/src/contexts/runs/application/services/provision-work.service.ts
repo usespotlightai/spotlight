@@ -14,6 +14,10 @@ import type {
   ReviewWorkProvisioningPort,
   WaitingReviewWork,
 } from '@runs/application/ports/review-work-provisioning.port';
+import type {
+  RunWaitsPort,
+  WaitingRun,
+} from '@runs/application/ports/run-waits.port';
 import type { ProvisionFailures } from '@runs/application/services/provision-failures.service';
 import { Sweeps } from '@runs/application/services/sweeps';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
@@ -28,9 +32,11 @@ import {
   type PoolOnOffer,
   PoolRoom,
   poolChoiceFor,
+  waitReasonFor,
 } from '@runs/domain/services/pool-choice';
-import { poolFits } from '@runs/domain/services/pool-fit';
+import type { WorkNeeds } from '@runs/domain/services/pool-fit';
 import { ProvisionPlan } from '@runs/domain/services/provision-plan';
+import type { WaitReason } from '@runs/domain/value-objects/run-waiting';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -38,8 +44,8 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -64,8 +70,10 @@ interface Provisionable {
   readonly key: string;
   readonly ids: Readonly<Record<string, string | undefined>>;
   readonly placement: RunnerPlacement;
-  readonly needsEgress: boolean;
+  readonly needs: WorkNeeds;
   readonly on: (pool: OfferedPool, last: boolean) => Promise<Provisioned>;
+  // A run keeps why it waits, so that the person who ordered it can see it. Review work does not.
+  readonly run: { readonly id: RunId; readonly queuedAt: Date } | null;
 }
 
 interface Read<Cursor> {
@@ -140,6 +148,7 @@ export class ProvisionWork {
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
+    private readonly waits: RunWaitsPort,
   ) {}
 
   async due(): Promise<void> {
@@ -208,6 +217,7 @@ export class ProvisionWork {
       fitting: readonly OfferedPool[];
     }[] = [];
     const seen = new Set<string>();
+    const waiting: WaitingRun[] = [];
     const place = (provisionable: Provisionable): void => {
       if (seen.has(provisionable.key)) {
         return;
@@ -220,12 +230,28 @@ export class ProvisionWork {
         pools,
         hostOffers,
         room,
-        provisionable.needsEgress,
+        provisionable.needs,
       );
       const [chosen] = fitting;
 
       if (!chosen) {
-        this.unplaced(provisionable, pools, hostOffers);
+        const reason = waitReasonFor(
+          provisionable.placement,
+          pools,
+          hostOffers,
+          provisionable.needs,
+        );
+
+        this.unplaced(provisionable, reason);
+
+        if (provisionable.run) {
+          waiting.push({
+            runId: provisionable.run.id,
+            reason,
+            queuedAt: provisionable.run.queuedAt,
+          });
+        }
+
         return;
       }
 
@@ -307,6 +333,7 @@ export class ProvisionWork {
         rethrown(thrown);
       }),
     );
+    await this.waits.note(waiting, this.clock.now());
   }
 
   // Reads the head page, then one page past it from where the last tick stopped. The platform pool has no run limit, so room alone does not end the reading.
@@ -370,28 +397,18 @@ export class ProvisionWork {
     }
   }
 
-  private unplaced(
-    provisionable: Provisionable,
-    pools: readonly OfferedPool[],
-    hostOffers: readonly HostOfferAtWork[],
-  ): void {
+  // The log is throttled for each piece of work. The wait itself is noted at each tick.
+  private unplaced(provisionable: Provisionable, reason: WaitReason): void {
     if (!this.#noted.due(provisionable.key, this.clock.now())) {
       return;
     }
-
-    const fits = (offer: { labels: RunnerOffer; egress: boolean }) =>
-      poolFits(provisionable.placement, offer, provisionable.needsEgress);
 
     this.logger.info(
       {
         ...provisionable.ids,
         labels: provisionable.placement.requiredLabels,
-        needsEgress: provisionable.needsEgress,
-        reason: hostOffers.some(fits)
-          ? 'hosts-pull'
-          : pools.some(fits)
-            ? 'no-pool-has-room'
-            : 'no-pool-matches',
+        needs: provisionable.needs,
+        reason,
       },
       'Did not provision a runner',
     );
@@ -406,8 +423,9 @@ export class ProvisionWork {
         runId: queued.id.value,
       },
       placement: queued.placement,
-      needsEgress: queued.injectsSecrets,
+      needs: { secrets: queued.injectsSecrets, reviewWork: false },
       on: (pool, last) => this.runOn(queued, pool, last),
+      run: { id: queued.id, queuedAt: queued.queuedAt },
     };
   }
 
@@ -420,8 +438,9 @@ export class ProvisionWork {
         workId: waiting.work.id.value,
       },
       placement: waiting.placement,
-      needsEgress: false,
+      needs: { secrets: false, reviewWork: true },
       on: (pool, last) => this.reviewWorkOn(waiting, pool, last),
+      run: null,
     };
   }
 

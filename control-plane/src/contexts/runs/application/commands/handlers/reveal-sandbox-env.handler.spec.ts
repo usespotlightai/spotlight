@@ -33,6 +33,7 @@ const setUp = (
     reveal: new RevealSandboxEnvHandler(
       runs,
       {
+        registeredClaimantOf: async () => null,
         claimantOf: async () =>
           over.claimant === false
             ? null
@@ -41,6 +42,7 @@ const setUp = (
                 harnesses: [],
                 offer: RunnerOffer.none(),
                 claims: 'nothing' as const,
+                source: null,
               },
       },
       {

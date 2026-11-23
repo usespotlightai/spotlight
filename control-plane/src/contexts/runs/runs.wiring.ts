@@ -181,6 +181,10 @@ import {
   type RunUsageWriterPort,
 } from '@runs/application/ports/run-usage-writer.port';
 import { RUN_VIEWERS } from '@runs/application/ports/run-viewers.port';
+import {
+  RUN_WAITS,
+  type RunWaitsPort,
+} from '@runs/application/ports/run-waits.port';
 import { RUNNER_ACTIVITY_READER } from '@runs/application/ports/runner-activity-reader.port';
 import { RUNS } from '@runs/application/ports/runs.port';
 import {
@@ -295,6 +299,7 @@ import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/dri
 import { DrizzleRunConnections } from '@runs/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunUsages } from '@runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
+import { DrizzleRunWaits } from '@runs/infrastructure/persistence/drizzle/ledgers/run-waits.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleQueuedPlacements } from '@runs/infrastructure/persistence/drizzle/readers/queued-placements.reader';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
@@ -608,6 +613,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_USAGES, useClass: DrizzleRunUsagesReader },
 
   { provide: RUN_USAGE_WRITER, useExisting: DrizzleRunUsages },
+
+  { provide: RUN_WAITS, useClass: DrizzleRunWaits },
 
   {
     provide: RUNS_EVENTS,
@@ -978,6 +985,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       CLOCK,
       LOGGER,
+      RUN_WAITS,
     ],
     useFactory: (
       runs: RunRepository,
@@ -989,6 +997,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       clock: ClockPort,
       logger: LoggerPort,
+      waits: RunWaitsPort,
     ) =>
       new ProvisionWork(
         runs,
@@ -1000,6 +1009,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
         ids,
         clock,
         logger,
+        waits,
       ),
   },
 

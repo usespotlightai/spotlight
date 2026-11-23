@@ -25,6 +25,31 @@ const RUN_PROGRESS_FACTS = ['queued', 'in-progress', 'stopping'] as const;
 
 export type RunProgressFact = (typeof RUN_PROGRESS_FACTS)[number];
 
+export const RUN_WAIT_REASON_FACTS = [
+  'hosts-pull',
+  'no-pool-has-room',
+  'platform-pool-not-allowed',
+  'no-pool-matches',
+] as const;
+
+export type RunWaitReasonFact = (typeof RUN_WAIT_REASON_FACTS)[number];
+
+export const RUNNER_SOURCE_KIND_FACTS = ['pool', 'trust'] as const;
+
+// The pool or trust of the runner that claimed the run last, as it was then.
+export interface RunnerSourceFact {
+  readonly kind: (typeof RUNNER_SOURCE_KIND_FACTS)[number];
+  readonly key: string;
+  // The platform pool that Spotlight adds to each workspace.
+  readonly platform: boolean;
+}
+
+// Why Spotlight provisions no runner for the queued run, and since when.
+export interface RunWaitFact {
+  readonly reason: RunWaitReasonFact;
+  readonly since: Date;
+}
+
 export interface RunFacts {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
@@ -55,6 +80,8 @@ export interface RunFacts {
   readonly failed: boolean;
   readonly exitCode: number | null;
   readonly image: string | null;
+  readonly ranOn: RunnerSourceFact | null;
+  readonly waiting: RunWaitFact | null;
   readonly startedFrom: RunStartedFromFact | null;
   readonly endHeads: readonly {
     readonly path: string;

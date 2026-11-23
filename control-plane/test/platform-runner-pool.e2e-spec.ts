@@ -6,7 +6,7 @@ import type { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { DisablePlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
+import { SetPlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
 import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -317,8 +317,14 @@ describe('platform runner pool (e2e)', () => {
 
   it('provisions nothing through the platform pool of a workspace whose operator disabled it, also after a restart', async () => {
     await expect(
-      app.get(CommandBus).execute(new DisablePlatformPoolCommand(workspaceId)),
-    ).resolves.toEqual({ outcome: 'disabled' });
+      app
+        .get(CommandBus)
+        .execute(new SetPlatformPoolCommand(workspaceId, { enabled: false })),
+    ).resolves.toEqual({
+      outcome: 'disabled',
+      allowsSecrets: false,
+      allowsReviewWork: false,
+    });
     await platformPools().reconcile();
     const runId = await queue();
 
@@ -348,14 +354,22 @@ describe('platform runner pool (e2e)', () => {
     });
 
     it('disables and enables the platform pool, which takes work only while enabled, and records each change as made by Spotlight', async () => {
-      await setPlatformPool(app, false).expect(200).expect({ enabled: false });
+      await setPlatformPool(app, false).expect(200).expect({
+        enabled: false,
+        allowsSecrets: false,
+        allowsReviewWork: false,
+      });
       const waitingRun = await queue();
 
       await app.get(ProvisionWork).due();
 
       expect(platformEndpoint.calls.map(runIdOf)).not.toContain(waitingRun);
 
-      await setPlatformPool(app, true).expect(200).expect({ enabled: true });
+      await setPlatformPool(app, true).expect(200).expect({
+        enabled: true,
+        allowsSecrets: false,
+        allowsReviewWork: false,
+      });
 
       await eventually(async () =>
         platformEndpoint.calls.some((each) => runIdOf(each) === waitingRun),
@@ -390,6 +404,21 @@ describe('platform runner pool (e2e)', () => {
           }),
         ]),
       );
+    });
+
+    it('allows the platform pool secrets and review work, leaving enabled as it is, and records the change', async () => {
+      await served(app)
+        .put(`/api/admin/workspaces/${workspaceId}/platform-pool`)
+        .set('Authorization', `Bearer ${ADMIN_TOKEN}`)
+        .send({ allowsSecrets: true, allowsReviewWork: true })
+        .expect(200)
+        .expect({ enabled: true, allowsSecrets: true, allowsReviewWork: true });
+
+      expect(await platformRow()).toMatchObject({
+        disabled: false,
+        allowsSecrets: true,
+        allowsReviewWork: true,
+      });
     });
 
     it('refuses a body without enabled, and finds no workspace that names none', async () => {

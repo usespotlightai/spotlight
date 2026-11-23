@@ -1,7 +1,9 @@
+import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { LinesNotOpenYetError } from '@work/application/errors/lines-not-open-yet.error';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
@@ -16,6 +18,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
 export interface NewTeam {
   readonly teamId: TeamId;
+  readonly workspaceId: WorkspaceId;
   readonly owner: UserId;
   readonly origin: TeamOrigin;
 }
@@ -25,6 +28,7 @@ export class WelcomeTeam {
     private readonly lines: LineMapsPort,
     private readonly tasks: TaskRepository,
     private readonly welcomes: TeamWelcomesPort,
+    private readonly runners: RunnerReaderPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -45,7 +49,11 @@ export class WelcomeTeam {
     await this.tasks.add(
       welcomeTask({
         line: delivery,
-        noteBody: TaskNoteBody.of(listed()),
+        noteBody: TaskNoteBody.of(
+          listed({
+            platform: await this.runners.hasPlatformRunners(team.workspaceId),
+          }),
+        ),
         owner: team.owner,
         now: this.clock.now(),
         newId: () => this.ids.generate(),

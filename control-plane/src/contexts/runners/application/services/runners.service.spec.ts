@@ -89,6 +89,8 @@ const PROVISIONER: PlatformPoolSettings = {
   secret: secretOf('m'),
   labels: RunnerLabels.none(),
   egress: EgressReference.platform(),
+  images: null,
+  allows: {},
 };
 
 const running = (

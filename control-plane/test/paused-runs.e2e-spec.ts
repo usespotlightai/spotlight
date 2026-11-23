@@ -860,6 +860,7 @@ describe('a run queued while an earlier run of its task is still leased', () => 
           harnesses: [HarnessId.of('dev')],
           offer: RunnerOffer.of(['linux']),
           claims: 'any',
+          source: null,
         },
         new Date(),
       );

@@ -21,6 +21,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -39,6 +40,7 @@ const pooling = (
     trusts?: readonly RunnerTrust[];
     platform?: boolean;
     platformPool?: boolean;
+    platformImages?: readonly RunnerImage[] | null;
   } = {},
 ) => {
   const authenticate = vi.fn(async () => authenticated);
@@ -63,6 +65,7 @@ const pooling = (
     {
       platformEgressSet: stored.platform ?? true,
       platformPoolSet: stored.platformPool ?? true,
+      platformImages: stored.platformImages ?? null,
     },
   );
 
@@ -88,6 +91,9 @@ describe('RunnerPools', () => {
         labels: expect.objectContaining({ values: ['linux'] }) as unknown,
         egress: false,
         platform: false,
+        images: null,
+        allowsSecrets: true,
+        allowsReviewWork: true,
       });
       expect(authenticate).toHaveBeenCalledWith({
         bearer: 'pool-token',
@@ -173,15 +179,55 @@ describe('RunnerPools', () => {
 
     it('marks the platform pool, which has no run limit', async () => {
       const { pools } = pooling(null, {
-        provisioning: [aPushPool(), aPlatformPool({ egress: PLATFORM })],
+        provisioning: [
+          aPushPool(),
+          aPlatformPool({
+            egress: PLATFORM,
+            allows: { allowsSecrets: true, allowsReviewWork: true },
+          }),
+        ],
       });
 
       expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
-        expect.objectContaining({ key: 'sandboxes', platform: false }),
+        expect.objectContaining({
+          key: 'sandboxes',
+          platform: false,
+          allowsSecrets: true,
+          allowsReviewWork: true,
+        }),
         expect.objectContaining({
           key: 'spotlight',
           platform: true,
           egress: true,
+          allowsSecrets: true,
+          allowsReviewWork: true,
+        }),
+      ]);
+    });
+
+    it('offers the platform pool with the images the deployment names, and a pool of the workspace with any image', async () => {
+      const images = [RunnerImage.of('ghcr.io/acme/runner:main')];
+      const { pools } = pooling(null, {
+        provisioning: [aPushPool(), aPlatformPool()],
+        platformImages: images,
+      });
+
+      expect(
+        (await pools.offersIn([WORKSPACE])).pools.map((each) => each.images),
+      ).toEqual([null, images]);
+    });
+
+    it('offers the platform pool with its egress, yet refusing secrets and review work until the operator allows them for the workspace', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [aPlatformPool({ egress: PLATFORM })],
+      });
+
+      expect((await pools.offersIn([WORKSPACE])).pools).toEqual([
+        expect.objectContaining({
+          key: 'spotlight',
+          egress: true,
+          allowsSecrets: false,
+          allowsReviewWork: false,
         }),
       ]);
     });

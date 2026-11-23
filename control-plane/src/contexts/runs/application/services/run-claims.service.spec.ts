@@ -37,6 +37,7 @@ const avoiding = (keys: readonly WorkingCopyKey[]): Claimant => ({
   harnesses: [HarnessId.of('claude-code')],
   offer: RunnerOffer.of(['linux']),
   claims: 'any',
+  source: null,
   sandbox: { avoiding: keys },
 });
 

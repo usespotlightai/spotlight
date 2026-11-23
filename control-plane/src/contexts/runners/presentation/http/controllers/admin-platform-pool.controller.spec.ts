@@ -4,13 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { CommandBus } from '@nestjs/cqrs';
-import {
-  DisablePlatformPoolCommand,
-  EnablePlatformPoolCommand,
-} from '@runners/application/commands/platform-pool.commands';
+import { SetPlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
 import type { PlatformPoolChangeDto } from '@runners/application/dto/platform-pool.dto';
 import { AdminPlatformPoolController } from '@runners/presentation/http/controllers/admin-platform-pool.controller';
 import { describe, expect, it } from 'vitest';
+
+const NONE = { allowsSecrets: false, allowsReviewWork: false } as const;
 
 const answering = (answer: PlatformPoolChangeDto | null) => {
   const sent: unknown[] = [];
@@ -25,27 +24,48 @@ const answering = (answer: PlatformPoolChangeDto | null) => {
 };
 
 describe('AdminPlatformPoolController', () => {
-  it('disables the platform pool, and says it is disabled', async () => {
-    const { controller, sent } = answering({ outcome: 'disabled' });
+  it('disables the platform pool, and says how it stands', async () => {
+    const { controller, sent } = answering({ outcome: 'disabled', ...NONE });
 
     await expect(
       controller.setPlatformPool('ws_1', { enabled: false }),
-    ).resolves.toEqual({ enabled: false });
-    expect(sent[0]).toBeInstanceOf(DisablePlatformPoolCommand);
-    expect(sent[0]).toEqual(new DisablePlatformPoolCommand('ws_1'));
+    ).resolves.toEqual({
+      enabled: false,
+      allowsSecrets: false,
+      allowsReviewWork: false,
+    });
+    expect(sent).toEqual([
+      new SetPlatformPoolCommand('ws_1', { enabled: false }),
+    ]);
   });
 
-  it('enables the platform pool, and says it is enabled', async () => {
-    const { controller, sent } = answering({ outcome: 'enabled' });
+  it('sends one command for a body that enables the pool and allows it work, with only the fields it gives', async () => {
+    const { controller, sent } = answering({
+      outcome: 'enabled',
+      allowsSecrets: false,
+      allowsReviewWork: true,
+    });
 
     await expect(
-      controller.setPlatformPool('ws_1', { enabled: true }),
-    ).resolves.toEqual({ enabled: true });
-    expect(sent[0]).toBeInstanceOf(EnablePlatformPoolCommand);
+      controller.setPlatformPool('ws_1', {
+        enabled: true,
+        allowsReviewWork: true,
+      }),
+    ).resolves.toEqual({
+      enabled: true,
+      allowsSecrets: false,
+      allowsReviewWork: true,
+    });
+    expect(sent).toEqual([
+      new SetPlatformPoolCommand('ws_1', {
+        enabled: true,
+        allowsReviewWork: true,
+      }),
+    ]);
   });
 
-  it('refuses a body without enabled as true or false, sending nothing', async () => {
-    const { controller, sent } = answering({ outcome: 'enabled' });
+  it('refuses a body that sets no field to true or false, sending nothing', async () => {
+    const { controller, sent } = answering({ outcome: 'enabled', ...NONE });
 
     await expect(
       controller.setPlatformPool('ws_1', {
@@ -54,6 +74,11 @@ describe('AdminPlatformPoolController', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       controller.setPlatformPool('ws_1', undefined),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.setPlatformPool('ws_1', {
+        allowsSecrets: 1,
+      } as unknown as { allowsSecrets: boolean }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(sent).toEqual([]);
   });

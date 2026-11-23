@@ -44,6 +44,8 @@ const waiting = (
   endedAt: null,
   harness: 'claude-code',
   image: null,
+  ranOn: null,
+  waiting: null,
   station: null,
   review: null,
   audience: audienceOf({

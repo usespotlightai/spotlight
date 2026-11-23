@@ -1,3 +1,4 @@
+import type { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import type { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -23,5 +24,7 @@ export interface Claimant {
   readonly harnesses: readonly HarnessId[];
   readonly offer: RunnerOffer;
   readonly claims: Claims;
+  // Null when the pool or trust of the runner is gone.
+  readonly source: RunnerSource | null;
   readonly sandbox?: SandboxRouting;
 }

@@ -1932,6 +1932,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ResumeTaskRun,
       SANDBOX_RETIREMENT,
       PULL_REQUESTS,
+      RUNNER_READER,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1967,6 +1968,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       resuming: ResumeTaskRun,
       retirement: SandboxRetirementPort,
       pullRequests: PullRequestPort,
+      runnerReader: RunnerReaderPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1989,7 +1991,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             journals,
             readings,
           ),
-          welcoming: new WelcomeTeam(lines, tasks, welcomes, ids, clock),
+          welcoming: new WelcomeTeam(
+            lines,
+            tasks,
+            welcomes,
+            runnerReader,
+            ids,
+            clock,
+          ),
           acceptances,
           outsideTools: new NotifyOutsideTools(
             tasks,

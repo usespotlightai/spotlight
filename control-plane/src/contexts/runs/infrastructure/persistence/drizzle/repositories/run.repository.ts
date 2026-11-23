@@ -34,6 +34,7 @@ import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
+import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { TimeSpent } from '@runs/domain/value-objects/time-spent.vo';
@@ -168,6 +169,7 @@ export class DrizzleRunRepository implements RunRepository {
           traceparent: activeTraceparent(),
           ...startOf(added),
           ...reservationOf(added),
+          ...ranOnOf(added),
         }),
       )
       .catch((error: unknown) => {
@@ -374,6 +376,7 @@ export class DrizzleRunRepository implements RunRepository {
         queuedAt: saved.queuedAt,
         ...startOf(saved),
         ...reservationOf(saved),
+        ...ranOnOf(saved),
       })
       .where(and(eq(run.id, saved.id.value), eq(run.version, saved.version)))
       .returning({ id: run.id });
@@ -577,6 +580,33 @@ const reservationFrom = (row: Row): RunnerReservation | null =>
       )
     : null;
 
+const ranOnOf = (saving: Run) => ({
+  ranOnKind: saving.ranOn?.kind ?? null,
+  ranOnKey: saving.ranOn?.key ?? null,
+  ranOnPlatform: saving.ranOn?.platform ?? null,
+});
+
+const ranOnFrom = (row: Row): RunnerSource | null => {
+  const { ranOnKind, ranOnKey, ranOnPlatform } = row;
+
+  if (ranOnKind === null && ranOnKey === null && ranOnPlatform === null) {
+    return null;
+  }
+
+  if (ranOnKind === null || ranOnKey === null || ranOnPlatform === null) {
+    throw new InconsistentStateError(
+      'run',
+      `records only part of where it ran (${row.id})`,
+    );
+  }
+
+  return RunnerSource.of({
+    kind: ranOnKind,
+    key: ranOnKey,
+    platform: ranOnPlatform,
+  });
+};
+
 const turnOf = (saved: Run) => {
   const turn = saved.turn;
 
@@ -731,4 +761,5 @@ export const toRun = ({ run: row }: Selected): Run =>
       runningMs: row.runningMs,
       firstStartedAt: row.firstStartedAt,
     }),
+    ranOn: ranOnFrom(row),
   });

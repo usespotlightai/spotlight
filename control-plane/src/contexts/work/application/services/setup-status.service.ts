@@ -6,12 +6,14 @@ import type {
   ChatReaderPort,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
+import type { SetupRunners } from '@work/application/rendering/setup-steps';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { SetupState } from '@work/domain/services/setup-list';
 import { configuredBy, setupChatOf } from '@work/domain/services/setup-list';
 
 export interface TeamSetup {
   readonly state: SetupState;
+  readonly runners: SetupRunners;
   readonly hasEgressCapableRunner: boolean;
   readonly chat: SetupChatView | null;
 }
@@ -29,6 +31,7 @@ export class SetupStatus {
     const hasHarness = await this.runners.readyToRun(workspaceId);
     const hasEgressCapableRunner =
       await this.runners.hasEgressCapableRunner(workspaceId);
+    const platform = await this.runners.hasPlatformRunners(workspaceId);
     const chat = setupChatOf(await this.chats.setupChatsOf(teamId));
 
     return {
@@ -37,6 +40,7 @@ export class SetupStatus {
         hasHarness,
         configured: configuredBy(chat),
       },
+      runners: { platform },
       hasEgressCapableRunner,
       chat,
     };

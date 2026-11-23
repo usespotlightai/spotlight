@@ -238,6 +238,8 @@ export const leasedRun = (
   failed: false,
   exitCode: null,
   image: null,
+  ranOn: null,
+  waiting: null,
   startedFrom: null,
   endHeads: [],
   manifest: [],

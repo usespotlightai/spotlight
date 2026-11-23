@@ -1,4 +1,5 @@
 import type { HostBecameReady } from '@runners/domain/events/host-became-ready.event';
+import type { RunnerEnded } from '@runners/domain/events/runner-ended.event';
 import type { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
 import type { RunnerTrustCreated } from '@runners/domain/events/runner-trust-created.event';
 import {
@@ -9,6 +10,10 @@ import {
   RUNNER_ACCESS_CREATED,
   type RunnerAccessCreatedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/runner-access-created.integration-event';
+import {
+  RUNNER_ENDED,
+  type RunnerEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/runner-ended.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const RUNNERS_EVENT_MAPPERS = [
@@ -31,6 +36,22 @@ export const RUNNERS_EVENT_MAPPERS = [
     (event): HostBecameReadyIntegrationEvent => ({
       kind: HOST_BECAME_READY,
       workspaceId: event.workspaceId.value,
+    }),
+  ),
+  mapping<RunnerEnded>(
+    'runner.ended',
+    (event): RunnerEndedIntegrationEvent => ({
+      kind: RUNNER_ENDED,
+      runnerId: event.runnerId.value,
+      workspaceId: event.workspaceId.value,
+      poolId: event.source.poolId?.value ?? null,
+      trustId: event.source.trustId?.value ?? null,
+      platform: event.platform,
+      work: event.work && { kind: event.work.kind, id: event.work.id },
+      startedAt: event.startedAt.toISOString(),
+      claimedAt: event.claimedAt?.toISOString() ?? null,
+      endedAt: event.endedAt.toISOString(),
+      ending: event.ending,
     }),
   ),
 ] as const;

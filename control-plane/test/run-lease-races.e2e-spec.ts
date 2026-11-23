@@ -107,11 +107,13 @@ const clockAt = (at: number): ClockPort => ({
 });
 
 const claimants: RunnerClaimantsPort = {
+  registeredClaimantOf: async () => null,
   claimantOf: async () => ({
     workspaceId: null as never,
     harnesses: [],
     offer: null as never,
     claims: 'nothing',
+    source: null,
   }),
 };
 

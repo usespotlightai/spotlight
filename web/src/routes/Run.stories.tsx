@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { hoursAgo } from '@/mocks/clock';
+import { world } from '@/mocks/world';
 import { onHoldBy } from '@/mocks/world/holds';
 import { MAYA, SAM } from '@/mocks/world/people';
+import { waitingFor } from '@/mocks/world/run-progress';
 import {
   choice,
   type PageArgs,
@@ -19,6 +22,11 @@ type RunArgs = {
     | 'run_postgres_3';
   readonly memories: boolean;
   readonly hold: 'none' | 'yours' | 'resuming' | 'taken';
+  readonly waiting:
+    | 'none'
+    | 'hosts-pull'
+    | 'no-pool-has-room'
+    | 'no-pool-matches';
 };
 
 const meta = {
@@ -26,7 +34,12 @@ const meta = {
   ...pageStory<RunArgs>({
     states: ['data', 'loading', 'error'],
     at: ({ run }) => `/w/acme/team/team_platform/runs/${run}`,
-    args: { run: 'run_retries_2', memories: false, hold: 'none' },
+    args: {
+      run: 'run_retries_2',
+      memories: false,
+      hold: 'none',
+      waiting: 'none',
+    },
     argTypes: {
       run: choice('Run', {
         run_retries_1: 'At a station the task has left',
@@ -42,8 +55,21 @@ const meta = {
         resuming: 'Resume dialog',
         taken: 'On hold by someone else',
       }),
+      waiting: choice('Why the working run waits', {
+        none: 'It does not wait',
+        'hosts-pull': 'For the hosts of a pull pool',
+        'no-pool-has-room': 'For a full pool',
+        'no-pool-matches': 'For a pool that fits',
+      }),
     },
-    world: ({ hold }) => {
+    world: ({ hold, waiting }) => {
+      if (waiting !== 'none') {
+        world().runs.task_retries = waitingFor(
+          world().runs.task_retries ?? [],
+          waiting,
+          hoursAgo(0.1),
+        );
+      }
       if (hold === 'yours' || hold === 'resuming') {
         onHoldBy('team_platform', 'task_retries', SAM);
       }
@@ -85,4 +111,9 @@ export const Resuming: StoryObj<typeof meta> = {
 
 export const Held: StoryObj<typeof meta> = {
   args: { run: 'run_retries_3', hold: 'taken' },
+};
+
+export const Waiting: StoryObj<typeof meta> = {
+  name: 'Waiting for a pool',
+  args: { run: 'run_retries_3', waiting: 'no-pool-has-room' },
 };

@@ -117,6 +117,8 @@ const queueRunAt = (
       updatedAt: now,
       harness: placedAt.station.harness ?? 'claude-code',
       image: null,
+      ranOn: null,
+      waiting: null,
       station: runStationIn(teamId, stationId),
       review: null,
       waitingForYou: false,

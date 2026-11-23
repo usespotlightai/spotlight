@@ -29,6 +29,10 @@ import {
   resumable,
   progressOf as runProgressOf,
 } from '@runs/domain/value-objects/run-state';
+import {
+  currentWait,
+  type QueuedRunWait,
+} from '@runs/domain/value-objects/run-waiting';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -38,6 +42,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 const factsOf = (
   run: Run,
   archiveStored: (archive: WorkingCopyArchiveId) => boolean,
+  wait: QueuedRunWait | null,
 ): RunFactsDto => {
   const startedFrom = run.startedFrom;
 
@@ -73,6 +78,15 @@ const factsOf = (
     failed: run.outcome?.failed ?? false,
     exitCode: run.outcome?.exitCode.value ?? null,
     image: run.ranIn?.value ?? null,
+    ranOn: run.ranOn?.parts ?? null,
+    waiting: currentWait(
+      {
+        state: run.state,
+        queuedAt: queuedAtOf(run),
+        reserved: run.reservation !== null,
+      },
+      wait,
+    ),
     startedFrom: startedFrom && {
       archiveId: startedFrom.archive?.value ?? null,
       archiveStored: startedFrom.archive
@@ -128,7 +142,7 @@ const leasedOf = (
   const { manifest, catalog } = run.spec.value;
 
   return {
-    ...factsOf(run, (archive) => stored.has(archive.value)),
+    ...factsOf(run, (archive) => stored.has(archive.value), null),
     claimedBy: runner,
     manifest: (manifest ?? []).map((each) => each.name),
     pins: catalog ?? [],
@@ -182,10 +196,35 @@ export class RunReadModel
 
   async of(runIds: readonly RunId[]): Promise<readonly RunFactsDto[]> {
     const found = await this.found(runIds);
-    const stored = await this.storedArchives(found);
+    const [stored, waits] = await Promise.all([
+      this.storedArchives(found),
+      this.waitsOf(found),
+    ]);
 
     return found.map((run) =>
-      factsOf(run, (archive) => stored.has(archive.value)),
+      factsOf(
+        run,
+        (archive) => stored.has(archive.value),
+        waits.get(run.id.value) ?? null,
+      ),
+    );
+  }
+
+  // Only a queued run waits, so the others need no read.
+  private async waitsOf(
+    runs: readonly Run[],
+  ): Promise<ReadonlyMap<string, QueuedRunWait>> {
+    const queued = runs.filter((run) => run.state === 'queued');
+
+    if (queued.length === 0) {
+      return new Map();
+    }
+
+    return new Map(
+      (await this.reader.waits(queued.map((run) => run.id))).map((each) => [
+        each.runId.value,
+        each,
+      ]),
     );
   }
 

@@ -11499,6 +11499,60 @@
           "next"
         ]
       },
+      "RunRanOnResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pool",
+              "trust"
+            ],
+            "example": "pool",
+            "description": "Whether its runner came in through a pool or a trust"
+          },
+          "key": {
+            "type": "string",
+            "example": "ephemeral",
+            "description": "The key of the pool or trust when its runner claimed the run. It stays after the pool or trust is deleted."
+          },
+          "platform": {
+            "type": "boolean",
+            "example": false,
+            "description": "The platform pool that Spotlight adds to each workspace"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "platform"
+        ]
+      },
+      "RunWaitingResponseDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "hosts-pull",
+              "no-pool-has-room",
+              "platform-pool-not-allowed",
+              "no-pool-matches"
+            ],
+            "example": "no-pool-has-room",
+            "description": "Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), the pools that fit it run all the runs they can (no-pool-has-room), or no pool fits it (no-pool-matches)"
+          },
+          "since": {
+            "type": "string",
+            "example": "2026-08-28T16:32:47.877Z",
+            "description": "When Spotlight first saw this reason since the run was last queued"
+          }
+        },
+        "required": [
+          "reason",
+          "since"
+        ]
+      },
       "RunStationResponseDto": {
         "type": "object",
         "properties": {
@@ -11601,6 +11655,26 @@
             "example": "ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a4b3c8e6f1a2d5c7b9e0f3a4d6c8b1e2f5a7c9d0b3e6f8a1c4d7e",
             "description": "The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it"
           },
+          "ranOn": {
+            "nullable": true,
+            "description": "The pool or trust of the runner that claimed it last; null before a runner claimed it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunRanOnResponseDto"
+              }
+            ]
+          },
+          "waiting": {
+            "nullable": true,
+            "description": "Why it is still queued, as Spotlight last saw it; null once a runner is on its way or has it, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
+          },
           "station": {
             "nullable": true,
             "description": "Where it ran, which the task may since have left",
@@ -11691,6 +11765,8 @@
           "updatedAt",
           "harness",
           "image",
+          "ranOn",
+          "waiting",
           "station",
           "review",
           "progress",
@@ -12218,6 +12294,26 @@
             "example": "ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a4b3c8e6f1a2d5c7b9e0f3a4d6c8b1e2f5a7c9d0b3e6f8a1c4d7e",
             "description": "The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it"
           },
+          "ranOn": {
+            "nullable": true,
+            "description": "The pool or trust of the runner that claimed it last; null before a runner claimed it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunRanOnResponseDto"
+              }
+            ]
+          },
+          "waiting": {
+            "nullable": true,
+            "description": "Why it is still queued, as Spotlight last saw it; null once a runner is on its way or has it, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
+          },
           "station": {
             "nullable": true,
             "description": "Where it ran, which the task may since have left",
@@ -12294,6 +12390,8 @@
           "updatedAt",
           "harness",
           "image",
+          "ranOn",
+          "waiting",
           "station",
           "review",
           "progress",

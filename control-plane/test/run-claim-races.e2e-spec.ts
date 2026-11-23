@@ -128,6 +128,7 @@ const claimant = (workspaceId: string) => ({
   harnesses: [HarnessId.of('dev')],
   offer: RunnerOffer.of([]),
   claims: 'any' as const,
+  source: null,
 });
 
 interface Raced {

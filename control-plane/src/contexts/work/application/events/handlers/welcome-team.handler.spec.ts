@@ -1,3 +1,4 @@
+import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -24,6 +25,7 @@ const ids = (): IdGeneratorPort => {
 
 const created: NewTeam = {
   teamId: TeamId.of('team_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
   owner: UserId.of('user_1'),
   origin: 'sign-up',
 };
@@ -42,7 +44,11 @@ const LINES = [
 ];
 
 const welcoming = (
-  over: { lines?: readonly LineMap[]; welcomed?: boolean } = {},
+  over: {
+    lines?: readonly LineMap[];
+    welcomed?: boolean;
+    platform?: boolean;
+  } = {},
 ) => {
   const added: Task[] = [];
   const welcomed: TeamId[] = [];
@@ -58,6 +64,9 @@ const welcoming = (
       record: vi.fn(async (teamId: TeamId) => void welcomed.push(teamId)),
       forget: vi.fn(),
     },
+    {
+      hasPlatformRunners: vi.fn(async () => over.platform ?? false),
+    } as unknown as RunnerReaderPort,
     ids(),
     { now: () => new Date('2026-09-03T09:00:00.000Z'), sleep: async () => {} },
   );
@@ -66,6 +75,16 @@ const welcoming = (
 };
 
 describe('WelcomeTeam', () => {
+  it('lists the platform runners step for a workspace that the deployment gives platform runners', async () => {
+    const { welcomer, added } = welcoming({ platform: true });
+
+    await welcomer.welcome(created);
+
+    expect(
+      JSON.stringify(added[0]?.notes.map((each) => each.body.value)),
+    ).toContain('Run agents on the platform runners');
+  });
+
   it('welcomes whoever opened it in the backlog of the delivery line, waiting on them', async () => {
     const { welcomer, added } = welcoming();
 

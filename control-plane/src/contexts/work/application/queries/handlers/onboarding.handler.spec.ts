@@ -49,6 +49,7 @@ const handler = (options: Options = {}) => {
   const setup = {
     of: vi.fn().mockResolvedValue({
       state: { ...nothing, ...options.state },
+      runners: { platform: false },
       hasEgressCapableRunner: options.hasEgressCapableRunner ?? false,
       chat: options.chat ?? null,
     }),

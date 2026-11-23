@@ -13,7 +13,7 @@ import {
 import { pullRequestUrlOf } from '@/mocks/world/insights-pull-requests';
 import { PEOPLE, SAM } from '@/mocks/world/people';
 import { PLATFORM_LINES, PLATFORM_TASKS } from '@/mocks/world/platform';
-import { progressOfState } from '@/mocks/world/run-progress';
+import { OWN_POOL, progressOfState } from '@/mocks/world/run-progress';
 import { runStationOf } from '@/mocks/world/stations';
 import { seenByTheViewer, stationsAmong } from '@/mocks/world/waiting-for-you';
 
@@ -105,6 +105,8 @@ const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   updatedAt: run.endedAt ?? new Date(run.at).toISOString(),
   harness: run.harness ?? 'claude-code',
   image: null,
+  ranOn: OWN_POOL,
+  waiting: null,
   station: runStationOf(
     lineOfStation(run.stationId)?.stations ?? [],
     run.stationId,

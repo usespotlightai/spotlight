@@ -122,6 +122,7 @@ const listing = (
       hostsIn,
       idleSandboxesOn,
       readyToRun: vi.fn(),
+      hasPlatformRunners: vi.fn(),
       hasEgressCapableRunner: vi.fn(),
       supportedModels: vi.fn(),
     },

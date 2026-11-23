@@ -2384,7 +2384,15 @@ export type SetWorkspacePlatformPoolRequestDto = {
   /**
    * True to let the platform pool take the work of the workspace that no other pool or host fits, false to disable it for this workspace
    */
-  enabled: boolean;
+  enabled?: boolean;
+  /**
+   * True to let the platform pool take runs that inject secrets or a Spotlight token. Their traffic goes through the egress of the deployment. False by default
+   */
+  allowsSecrets?: boolean;
+  /**
+   * True to let the platform pool take checks and diffs, which pushes start with no person asking. False by default
+   */
+  allowsReviewWork?: boolean;
 };
 
 export type WorkspacePlatformPoolResponseDto = {
@@ -2392,6 +2400,14 @@ export type WorkspacePlatformPoolResponseDto = {
    * The platform pool takes work of the workspace that no other pool or host of the workspace fits. It stays so across restarts of Spotlight
    */
   enabled: boolean;
+  /**
+   * The platform pool takes runs that inject secrets or a Spotlight token
+   */
+  allowsSecrets: boolean;
+  /**
+   * The platform pool takes checks and diffs
+   */
+  allowsReviewWork: boolean;
 };
 
 export type RunAttachmentResponseDto = {
@@ -3584,6 +3600,32 @@ export type TaskPageResponseDto = {
   next: string | null;
 };
 
+export type RunRanOnResponseDto = {
+  /**
+   * Whether its runner came in through a pool or a trust
+   */
+  kind: 'pool' | 'trust';
+  /**
+   * The key of the pool or trust when its runner claimed the run. It stays after the pool or trust is deleted.
+   */
+  key: string;
+  /**
+   * The platform pool that Spotlight adds to each workspace
+   */
+  platform: boolean;
+};
+
+export type RunWaitingResponseDto = {
+  /**
+   * Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), the pools that fit it run all the runs they can (no-pool-has-room), or no pool fits it (no-pool-matches)
+   */
+  reason: 'hosts-pull' | 'no-pool-has-room' | 'platform-pool-not-allowed' | 'no-pool-matches';
+  /**
+   * When Spotlight first saw this reason since the run was last queued
+   */
+  since: string;
+};
+
 export type RunStationResponseDto = {
   id: string;
   name: string;
@@ -3618,6 +3660,14 @@ export type TeamRunResponseDto = {
    * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
    */
   image: string | null;
+  /**
+   * The pool or trust of the runner that claimed it last; null before a runner claimed it
+   */
+  ranOn: RunRanOnResponseDto | null;
+  /**
+   * Why it is still queued, as Spotlight last saw it; null once a runner is on its way or has it, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
   /**
    * Where it ran, which the task may since have left
    */
@@ -3833,6 +3883,14 @@ export type TaskRunResponseDto = {
    * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
    */
   image: string | null;
+  /**
+   * The pool or trust of the runner that claimed it last; null before a runner claimed it
+   */
+  ranOn: RunRanOnResponseDto | null;
+  /**
+   * Why it is still queued, as Spotlight last saw it; null once a runner is on its way or has it, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
   /**
    * Where it ran, which the task may since have left
    */
@@ -15929,7 +15987,7 @@ export type SetWorkspacePlatformPoolData = {
 
 export type SetWorkspacePlatformPoolErrors = {
   /**
-   * A body without enabled as true or false
+   * A body that sets none of enabled, allowsSecrets and allowsReviewWork to true or false
    */
   400: unknown;
   /**

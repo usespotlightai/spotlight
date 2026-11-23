@@ -11,6 +11,11 @@ interface Wording {
   readonly description: string;
 }
 
+// Whether the deployment gives the workspace platform runners, so the team has nothing to connect.
+export interface SetupRunners {
+  readonly platform: boolean;
+}
+
 const WORDING: Record<SetupStepKey, Wording> = {
   github: {
     title: 'Install the GitHub App',
@@ -29,17 +34,28 @@ const WORDING: Record<SetupStepKey, Wording> = {
   },
 };
 
-export const listed = (): string =>
+const PLATFORM_RUNNERS: Wording = {
+  title: 'Run agents on the platform runners',
+  description:
+    'This deployment gives your workspace runners, so you have nothing to connect. Each run uses their default image. To use your own image, give a repository a prebuilt image in the team’s configuration. To run agents on your own computers or cloud, connect a host or a pool on the Runners page.',
+};
+
+const wordingOf = (key: SetupStepKey, runners: SetupRunners): Wording =>
+  key === 'harness' && runners.platform ? PLATFORM_RUNNERS : WORDING[key];
+
+export const listed = (runners: SetupRunners): string =>
   SETUP_STEPS.map((key, index) => {
-    const { title, description } = WORDING[key];
+    const { title, description } = wordingOf(key, runners);
 
     return `${index + 1}. ${title}. ${description}`;
   }).join('\n');
 
-export const shownFor = (state: SetupState): readonly SetupStepDto[] =>
+export const shownFor = (
+  state: SetupState,
+  runners: SetupRunners,
+): readonly SetupStepDto[] =>
   SETUP_STEPS.map((key) => ({
     key,
-    title: WORDING[key].title,
-    description: WORDING[key].description,
+    ...wordingOf(key, runners),
     done: TAKEN[key](state),
   }));

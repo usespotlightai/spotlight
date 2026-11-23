@@ -3,6 +3,7 @@ import { EgressDeleted } from '@runners/domain/events/egress-deleted.event';
 import { EgressUpdated } from '@runners/domain/events/egress-updated.event';
 import { HostBecameReady } from '@runners/domain/events/host-became-ready.event';
 import { HostStoppedReportingSandbox } from '@runners/domain/events/host-stopped-reporting-sandbox.event';
+import { RunnerEnded } from '@runners/domain/events/runner-ended.event';
 import { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
 import { RunnerPoolDeleted } from '@runners/domain/events/runner-pool-deleted.event';
 import { RunnerPoolUpdated } from '@runners/domain/events/runner-pool-updated.event';
@@ -97,6 +98,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   EgressDeleted,
   HostBecameReady,
   HostStoppedReportingSandbox,
+  RunnerEnded,
   RunnerPoolCreated,
   RunnerPoolUpdated,
   RunnerPoolDeleted,

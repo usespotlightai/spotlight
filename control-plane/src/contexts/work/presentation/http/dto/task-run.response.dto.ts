@@ -3,7 +3,9 @@ import {
   MESSAGE_OUTCOME_NAMES,
   REVIEW_STATE_NAMES,
   RUN_DRIVER_NAMES,
+  RUNNER_SOURCE_KIND_NAMES,
   RUN_STATE_NAMES,
+  RUN_WAIT_REASON_NAMES,
 } from '@work/application/dto/task-run.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
@@ -57,6 +59,56 @@ export class RunReviewResponseDto {
   constructor(state: string, conversationId: string) {
     this.state = state;
     this.conversationId = conversationId;
+  }
+}
+
+export class RunRanOnResponseDto {
+  @ApiProperty({
+    enum: RUNNER_SOURCE_KIND_NAMES,
+    example: 'pool',
+    description: 'Whether its runner came in through a pool or a trust',
+  })
+  readonly kind: string;
+
+  @ApiProperty({
+    example: 'ephemeral',
+    description:
+      'The key of the pool or trust when its runner claimed the run. It stays after the pool or trust is deleted.',
+  })
+  readonly key: string;
+
+  @ApiProperty({
+    example: false,
+    description: 'The platform pool that Spotlight adds to each workspace',
+  })
+  readonly platform: boolean;
+
+  constructor(kind: string, key: string, platform: boolean) {
+    this.kind = kind;
+    this.key = key;
+    this.platform = platform;
+  }
+}
+
+export class RunWaitingResponseDto {
+  @ApiProperty({
+    enum: RUN_WAIT_REASON_NAMES,
+    example: 'no-pool-has-room',
+    description:
+      'Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), the pools that fit it run all the runs they can (no-pool-has-room), or no pool fits it (no-pool-matches)',
+  })
+  readonly reason: string;
+
+  @ApiProperty({
+    example: '2026-08-28T16:32:47.877Z',
+    description:
+      'When Spotlight first saw this reason since the run was last queued',
+  })
+  readonly since: string;
+
+  constructor(reason: string, since: string) {
+    this.reason = reason;
+    this.since = since;
   }
 }
 
@@ -305,6 +357,22 @@ export class TaskRunResponseDto {
   readonly image: string | null;
 
   @ApiProperty({
+    type: RunRanOnResponseDto,
+    nullable: true,
+    description:
+      'The pool or trust of the runner that claimed it last; null before a runner claimed it',
+  })
+  readonly ranOn: RunRanOnResponseDto | null;
+
+  @ApiProperty({
+    type: RunWaitingResponseDto,
+    nullable: true,
+    description:
+      'Why it is still queued, as Spotlight last saw it; null once a runner is on its way or has it, and where Spotlight has no reason yet',
+  })
+  readonly waiting: RunWaitingResponseDto | null;
+
+  @ApiProperty({
     type: RunStationResponseDto,
     nullable: true,
     description: 'Where it ran, which the task may since have left',
@@ -365,6 +433,8 @@ export class TaskRunResponseDto {
     updatedAt: string,
     harness: string,
     image: string | null,
+    ranOn: RunRanOnResponseDto | null,
+    waiting: RunWaitingResponseDto | null,
     station: RunStationResponseDto | null,
     review: RunReviewResponseDto | null,
     progress: string | null,
@@ -381,6 +451,8 @@ export class TaskRunResponseDto {
     this.updatedAt = updatedAt;
     this.harness = harness;
     this.image = image;
+    this.ranOn = ranOn;
+    this.waiting = waiting;
     this.station = station;
     this.review = review;
     this.progress = progress;
@@ -420,6 +492,8 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
       run.updatedAt,
       run.harness,
       run.image,
+      run.ranOn,
+      run.waiting,
       run.station,
       run.review,
       run.progress,
