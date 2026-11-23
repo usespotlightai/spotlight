@@ -6,6 +6,7 @@ export class OwnedPullRequest {
     readonly openedAt: Date,
     readonly closedAt: Date | null,
     readonly closeRouted: boolean,
+    readonly merged: boolean,
   ) {}
 
   static of(
@@ -13,8 +14,9 @@ export class OwnedPullRequest {
     openedAt: Date,
     closedAt: Date | null = null,
     closeRouted = false,
+    merged = false,
   ): OwnedPullRequest {
-    return new OwnedPullRequest(url, openedAt, closedAt, closeRouted);
+    return new OwnedPullRequest(url, openedAt, closedAt, closeRouted, merged);
   }
 
   get open(): boolean {
@@ -27,19 +29,31 @@ export class OwnedPullRequest {
 
   reopened(): OwnedPullRequest {
     return this.closedAt || this.closeRouted
-      ? new OwnedPullRequest(this.url, this.openedAt, null, false)
+      ? new OwnedPullRequest(this.url, this.openedAt, null, false, false)
       : this;
   }
 
-  closed(at: Date): OwnedPullRequest {
+  closed(at: Date, merged: boolean): OwnedPullRequest {
     return this.closedAt
       ? this
-      : new OwnedPullRequest(this.url, this.openedAt, at, this.closeRouted);
+      : new OwnedPullRequest(
+          this.url,
+          this.openedAt,
+          at,
+          this.closeRouted,
+          merged,
+        );
   }
 
   routedClose(): OwnedPullRequest {
     return this.closeRouted
       ? this
-      : new OwnedPullRequest(this.url, this.openedAt, this.closedAt, true);
+      : new OwnedPullRequest(
+          this.url,
+          this.openedAt,
+          this.closedAt,
+          true,
+          this.merged,
+        );
   }
 }

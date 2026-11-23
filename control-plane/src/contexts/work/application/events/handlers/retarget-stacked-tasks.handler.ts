@@ -4,7 +4,11 @@ import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-re
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { stackedTaskMoves } from '@work/domain/services/stacked-task-moves';
+
+const SAVE_ATTEMPTS = 3;
 
 export class RetargetStackedTasks {
   constructor(
@@ -13,10 +17,11 @@ export class RetargetStackedTasks {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async merged(
+  async closed(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
     repository: Repository,
+    merged: boolean,
   ): Promise<void> {
     const parent = await this.tasks.owningPullRequest(workspaceId, pullRequest);
 
@@ -24,38 +29,63 @@ export class RetargetStackedTasks {
       return;
     }
 
-    const into = parent.base;
-    const settled = parent.ownedPullRequests.every(
-      (each) => !each.open || each.url.equals(pullRequest),
+    const moves = stackedTaskMoves(
+      parent,
+      { url: pullRequest, merged },
+      await this.tasks.startingFrom(workspaceId, parent.branch),
     );
+    const failed = new Set<string>();
+    const errors: unknown[] = [];
 
-    for (const stacked of await this.tasks.startingFrom(
-      workspaceId,
-      parent.branch,
-    )) {
-      for (const each of stacked.openPullRequestsIn(repository)) {
-        if (each.url.number !== null) {
-          await this.pullRequests.retarget(
-            { workspaceId, repository, number: each.url.number },
-            into?.value ?? null,
-          );
-        }
-      }
+    for (const each of moves.retargets) {
+      await this.pullRequests
+        .retarget(
+          { workspaceId, repository, number: each.number },
+          moves.into?.value ?? null,
+        )
+        .catch((error: unknown) => {
+          failed.add(each.task.id.value);
+          errors.push(error);
+        });
+    }
 
-      if (settled) {
-        await this.moved(stacked, parent);
+    for (const stacked of moves.moved) {
+      if (!failed.has(stacked.id.value)) {
+        await this.moved(stacked, parent).catch((error: unknown) => {
+          errors.push(error);
+        });
       }
+    }
+
+    if (errors.length > 0) {
+      throw new AggregateError(
+        errors,
+        `Could not move ${errors.length} pull requests or tasks stacked on ${parent.branch.value}`,
+      );
     }
   }
 
   private async moved(stacked: Task, parent: Task): Promise<void> {
-    await this.transaction.inTransaction(async () => {
-      const current = await this.tasks.find(stacked.id);
-      const next = current?.baseMerged(parent.branch, parent.base);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        await this.transaction.inTransaction(async () => {
+          const current = await this.tasks.find(stacked.id);
+          const next = current?.baseMerged(parent.branch, parent.base);
 
-      if (next && next !== current) {
-        await this.tasks.save(next);
+          if (next && next !== current) {
+            await this.tasks.save(next);
+          }
+        });
+
+        return;
+      } catch (error) {
+        if (
+          !(error instanceof TaskVersionConflictError) ||
+          attempt >= SAVE_ATTEMPTS
+        ) {
+          throw error;
+        }
       }
-    });
+    }
   }
 }

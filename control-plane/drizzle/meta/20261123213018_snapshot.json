@@ -1,5 +1,5 @@
 {
-  "id": "52b22941-5537-45cd-a708-33a4a45c76e3",
+  "id": "8607872e-0887-48a1-8379-36984932ecbc",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -20553,6 +20553,13 @@
         },
         "close_routed": {
           "name": "close_routed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "merged": {
+          "name": "merged",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

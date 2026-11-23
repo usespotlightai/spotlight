@@ -89,7 +89,6 @@ import {
   gt,
   inArray,
   isNotNull,
-  isNull,
   lt,
   not,
   or,
@@ -292,6 +291,7 @@ const toTask = (
         each.openedAt,
         each.closedAt,
         each.closeRouted,
+        each.merged,
       ),
     ),
     pushedHeads: pushedHeads.map((each) =>
@@ -318,6 +318,7 @@ interface OwnedPullRequestRow {
   readonly openedAt: Date;
   readonly closedAt: Date | null;
   readonly closeRouted: boolean;
+  readonly merged: boolean;
 }
 
 interface MarkRow {
@@ -545,6 +546,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           openedAt: each.openedAt,
           closedAt: each.closedAt,
           closeRouted: each.closeRouted,
+          merged: each.merged,
         })),
       )
       .onConflictDoUpdate({
@@ -552,6 +554,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         set: {
           closedAt: sql`excluded.closed_at`,
           closeRouted: sql`excluded.close_routed`,
+          merged: sql`excluded.merged`,
         },
       });
   }
@@ -621,6 +624,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         openedAt: taskPullRequest.openedAt,
         closedAt: taskPullRequest.closedAt,
         closeRouted: taskPullRequest.closeRouted,
+        merged: taskPullRequest.merged,
       })
       .from(taskPullRequest)
       .where(inArray(taskPullRequest.taskId, taskIds))
@@ -800,7 +804,6 @@ export class DrizzleTaskRepository implements TaskRepository {
         and(
           eq(task.workspaceId, workspaceId.value),
           eq(task.base, base.value),
-          isNull(task.finishedAt),
         ),
       );
 

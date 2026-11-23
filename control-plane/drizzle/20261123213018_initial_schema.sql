@@ -2511,6 +2511,7 @@ CREATE TABLE "task_pull_request" (
 	"opened_at" timestamp (3) with time zone NOT NULL,
 	"closed_at" timestamp (3) with time zone,
 	"close_routed" boolean DEFAULT false NOT NULL,
+	"merged" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "task_pull_request_task_id_url_pk" PRIMARY KEY("task_id","url")
 );
 --> statement-breakpoint

@@ -24,6 +24,7 @@ export class TrackTaskPullRequests {
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
     at: Date | null,
+    merged: boolean,
   ): Promise<void> {
     await this.transaction.inTransaction(async () => {
       const task = await this.tasks.owningPullRequest(workspaceId, pullRequest);
@@ -46,6 +47,7 @@ export class TrackTaskPullRequests {
               )
             : [],
         },
+        merged,
       );
 
       if (closed !== task) {

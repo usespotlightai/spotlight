@@ -325,20 +325,19 @@ export const workSubscribers = (reactions: {
         WorkspaceId.of(event.workspaceId),
         PullRequestUrl.of(event.pullRequest),
         event.closedAt ? new Date(event.closedAt) : null,
+        event.merged,
       ),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'work.retarget-stacked-tasks',
     [PULL_REQUEST_CLOSED],
-    async (event) => {
-      if (event.merged) {
-        await reactions.stackedTasks.merged(
-          WorkspaceId.of(event.workspaceId),
-          PullRequestUrl.of(event.pullRequest),
-          Repository.of(event.repository),
-        );
-      }
-    },
+    (event) =>
+      reactions.stackedTasks.closed(
+        WorkspaceId.of(event.workspaceId),
+        PullRequestUrl.of(event.pullRequest),
+        Repository.of(event.repository),
+        event.merged,
+      ),
     { callsOut: true },
   ),
   subscribing<PullRequestReopenedIntegrationEvent>(

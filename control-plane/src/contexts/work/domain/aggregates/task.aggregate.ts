@@ -1279,6 +1279,7 @@ export class Task extends EventRecorder {
     url: PullRequestUrl,
     at: Date,
     heldMoveOn: HeldMoveOn,
+    merged = false,
   ): Task {
     const owned = this.ownedPullRequests.find((each) => each.url.equals(url));
 
@@ -1286,7 +1287,7 @@ export class Task extends EventRecorder {
       return this;
     }
 
-    const closed = this.withOwned(owned.closed(at));
+    const closed = this.withOwned(owned.closed(at, merged));
     closed.record(new TaskPullRequestClosed(this.id, this.workspaceId, url));
 
     return closed.pullRequestsSettled
@@ -3402,6 +3403,17 @@ export class Task extends EventRecorder {
 
   baseMerged(merged: Branch, into: Branch | null): Task {
     return this.base?.equals(merged) ? this.with({ base: into }) : this;
+  }
+
+  leavesItsBranchWhenClosed(url: PullRequestUrl, merged: boolean): boolean {
+    const others = this.ownedPullRequests.filter(
+      (each) => !each.url.equals(url),
+    );
+
+    return (
+      others.every((each) => !each.open) &&
+      (merged || others.some((each) => each.merged))
+    );
   }
 
   openPullRequestsIn(repository: Repository): readonly OwnedPullRequest[] {

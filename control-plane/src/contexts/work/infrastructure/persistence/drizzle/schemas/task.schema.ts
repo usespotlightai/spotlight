@@ -263,6 +263,7 @@ export const taskPullRequest = pgTable(
     openedAt: timestamptz('opened_at').notNull(),
     closedAt: timestamptz('closed_at'),
     closeRouted: boolean('close_routed').notNull().default(false),
+    merged: boolean('merged').notNull().default(false),
   },
   (table) => [
     foreignKey({
