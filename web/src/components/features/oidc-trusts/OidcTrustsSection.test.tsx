@@ -159,16 +159,12 @@ describe('OidcTrustsSection', () => {
 
     const issued = screen.getByText('Issued just now').closest('span');
     expect(issued).toHaveAccessibleDescription(
-      expect.stringMatching(
-        /^Created by Ada Lovelace\. Its tokens act for this person\. Created: .+\. Last issued: .+\. Issuer: https:\/\/token\.actions\.githubusercontent\.com\. Subject: repo:acme\/infra:ref:refs\/heads\/main\. Claim workflow: apply\. Token lifetime: 60 minutes\.$/,
-      ),
+      /^Created by Ada Lovelace\. Its tokens act for this person\. Created: .+\. Last issued: .+\. Issuer: https:\/\/token\.actions\.githubusercontent\.com\. Subject: repo:acme\/infra:ref:refs\/heads\/main\. Claim workflow: apply\. Token lifetime: 60 minutes\.$/,
     );
     expect(
       screen.getByText('Never issued a token'),
     ).toHaveAccessibleDescription(
-      expect.stringMatching(
-        /^Created by a deleted account\. Its tokens act for that account\. Created: .+\. Issuer: https:\/\/token\.actions\.githubusercontent\.com\. Subject: repo:acme\/infra:ref:refs\/heads\/main\. Token lifetime: 60 minutes\.$/,
-      ),
+      /^Created by a deleted account\. Its tokens act for that account\. Created: .+\. Issuer: https:\/\/token\.actions\.githubusercontent\.com\. Subject: repo:acme\/infra:ref:refs\/heads\/main\. Token lifetime: 60 minutes\.$/,
     );
   });
 });
