@@ -3,6 +3,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import type { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
@@ -66,6 +67,7 @@ export class ChatMessage {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
+    base: Branch | null;
     attachments?: readonly Attachment[];
     at: Date;
   }): ChatMessage {

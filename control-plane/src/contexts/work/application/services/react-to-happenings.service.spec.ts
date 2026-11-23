@@ -189,6 +189,7 @@ const tasks = (found: Task | null) =>
     settingUp: vi.fn(async () => []),
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1118,6 +1119,7 @@ describe('ReactToHappenings', () => {
         await receive(
           MERGED,
           Task.openedInChat({
+            defaultBranch: Branch.of('main'),
             line: line(),
             at: StationId.of('station_2'),
             title: TaskTitle.of('Fix the queue'),
@@ -1213,6 +1215,7 @@ describe('ReactToHappenings', () => {
       settingUp: vi.fn(async () => []),
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1298,6 +1301,7 @@ describe('ReactToHappenings', () => {
       settingUp: vi.fn(async () => []),
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1382,6 +1386,7 @@ describe('ReactToHappenings', () => {
       settingUp: vi.fn(async () => []),
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1466,6 +1471,7 @@ describe('ReactToHappenings', () => {
       settingUp: vi.fn(async () => []),
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1551,6 +1557,7 @@ describe('ReactToHappenings', () => {
       settingUp: vi.fn(async () => []),
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1639,6 +1646,7 @@ describe('ReactToHappenings assigning a task it opens', () => {
       settingUp: vi.fn(async () => []),
       withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 

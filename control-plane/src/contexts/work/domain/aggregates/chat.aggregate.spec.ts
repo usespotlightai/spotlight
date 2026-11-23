@@ -42,6 +42,7 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
@@ -118,6 +119,7 @@ const proposing = () => {
     }),
     title: TaskTitle.of('Back off exponentially'),
     description: null,
+    base: null,
     at: LATER,
   });
   chat.pullEvents();
@@ -723,6 +725,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off exponentially'),
         description: null,
+        base: null,
         at: LATER,
       }),
     ).toThrow(InvalidChatTransitionError);
@@ -737,6 +740,7 @@ describe('Chat', () => {
       }),
       title: TaskTitle.of('Back off exponentially'),
       description: null,
+      base: null,
       at: LATER,
     });
 
@@ -772,6 +776,7 @@ describe('Chat', () => {
       }),
       title: TaskTitle.of('Match the mockup'),
       description: null,
+      base: null,
       attachments: [mockup],
       at: LATER,
     });
@@ -785,6 +790,26 @@ describe('Chat', () => {
     expect(() => chat.attachmentsOf([AttachmentId.of('att_copy')])).toThrow(
       InvalidAttachmentError,
     );
+  });
+
+  it('carries the base branch a proposal names to the task it accepts', () => {
+    const chat = working().propose({
+      runId: RunId.of('run_1'),
+      placement: ProposalPlacement.of({
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_1'),
+      }),
+      title: TaskTitle.of('Fix the release'),
+      description: null,
+      base: Branch.of('release/1.x'),
+      at: LATER,
+    });
+    chat.pullEvents();
+
+    const [event] = chat.accept(SECOND, LEON, LATER).pullEvents();
+
+    expect((event as ProposalAccepted).base?.value).toBe('release/1.x');
+    expect(chat.proposalAt(SECOND).base?.value).toBe('release/1.x');
   });
 
   it('finds only files attached to the chat', () => {
@@ -887,6 +912,7 @@ describe('Chat', () => {
       }),
       title: TaskTitle.of('Back off with jitter'),
       description: null,
+      base: null,
       replaces: [1],
       at: LATER,
     });
@@ -919,6 +945,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off with jitter'),
         description: null,
+        base: null,
         replaces: [1],
         at: LATER,
       });
@@ -939,6 +966,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off with jitter'),
         description: null,
+        base: null,
         replaces: [4],
         at: LATER,
       }),
@@ -990,6 +1018,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off exponentially'),
         description: null,
+        base: null,
         at: LATER,
       });
 
@@ -1050,6 +1079,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Cap the delay'),
         description: null,
+        base: null,
         at: LATER,
       });
 
@@ -1076,6 +1106,7 @@ describe('Chat', () => {
             }),
             title: TaskTitle.of('Back off exponentially'),
             description: null,
+            base: null,
             at: LATER,
           }).resolvedAt,
       ).toBeNull();
@@ -1102,6 +1133,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Cap the delay'),
         description: null,
+        base: null,
         at: LATER,
       });
 
@@ -1363,6 +1395,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off exponentially'),
         description: null,
+        base: null,
         at: LATER,
       });
 

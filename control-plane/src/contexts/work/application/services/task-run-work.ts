@@ -13,6 +13,7 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { ConnectionAsked as ConnectionAskedText } from '@work/application/rendering/connection-asked';
 import { PermissionAsked } from '@work/application/rendering/permission-asked';
+import { TaskPushRefused } from '@work/application/rendering/task-push-refused';
 import type {
   Cleared,
   ConnectionAsked,
@@ -37,6 +38,7 @@ import type { HarnessPermission } from '@work/domain/value-objects/harness-permi
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import type { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
@@ -231,10 +233,60 @@ export class TaskRunWork implements RunWork {
     }
   }
 
-  readonly limitsPushes = false;
+  readonly limitsPushes = true;
 
-  async pushRefusal(): Promise<string | null> {
+  async pushRefusal(
+    repository: Repository,
+    updates: readonly RefUpdate[],
+  ): Promise<string | null> {
+    if (updates.length === 0) {
+      return null;
+    }
+
+    const task = await this.tasks.find(this.task.id);
+
+    if (!task) {
+      return 'The task of this run is gone, so Spotlight carries no push for it.';
+    }
+
+    for (const update of updates) {
+      const refusal = task.pushRefusal(repository, update);
+
+      if (refusal) {
+        return TaskPushRefused.text(refusal);
+      }
+    }
+
     return null;
+  }
+
+  async pushed(
+    repository: Repository,
+    updates: readonly RefUpdate[],
+  ): Promise<void> {
+    let current: Task | null = await this.tasks.find(this.task.id);
+
+    for (let attempt = 1; current; attempt++) {
+      const next = current.pushedTo(repository, updates, this.clock.now());
+
+      if (next === current) {
+        return;
+      }
+
+      try {
+        await this.tasks.save(next);
+        return;
+      } catch (error) {
+        if (
+          !(error instanceof TaskVersionConflictError) ||
+          attempt >= RETURN_ATTEMPTS
+        ) {
+          throw error;
+        }
+      }
+
+      current = await this.tasks.find(this.task.id);
+    }
   }
 
   async toolContext(): Promise<TaskToolContext> {

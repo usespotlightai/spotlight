@@ -19,4 +19,13 @@ export class AddTaskRequestDto {
     description: 'Uploads to attach, by the id each was granted',
   })
   readonly attachments?: string[];
+
+  @ApiPropertyOptional({
+    example: 'release/1.x',
+    nullable: true,
+    type: String,
+    description:
+      'The branch the task starts from and opens its pull request into. Left out or blank for the default branch of each repository.',
+  })
+  readonly base?: string | null;
 }

@@ -11,6 +11,7 @@ export const RunCheckoutsMapper = {
       RunSpecPartsMapper.proxiedCheckout({
         path: checkoutPathOf(checkout.repository),
         branch: checkout.branch?.value ?? null,
+        base: checkout.base?.value ?? null,
         ref: checkout.ref,
         diffOf: checkout.diffOf === 'commits' ? 'commits' : null,
         setup: checkout.setup,

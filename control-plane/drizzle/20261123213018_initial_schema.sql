@@ -2401,6 +2401,7 @@ CREATE TABLE "task" (
 	"station_id" text NOT NULL,
 	"title" text NOT NULL,
 	"branch" text NOT NULL,
+	"base" text,
 	"description" text,
 	"rank" text DEFAULT 'i' NOT NULL,
 	"origin_station_id" text,
@@ -2510,7 +2511,18 @@ CREATE TABLE "task_pull_request" (
 	"opened_at" timestamp (3) with time zone NOT NULL,
 	"closed_at" timestamp (3) with time zone,
 	"close_routed" boolean DEFAULT false NOT NULL,
+	"merged" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "task_pull_request_task_id_url_pk" PRIMARY KEY("task_id","url")
+);
+--> statement-breakpoint
+CREATE TABLE "task_pushed_head" (
+	"workspace_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"repository" text NOT NULL,
+	"commit" text NOT NULL,
+	"pushed_at" timestamp (3) with time zone NOT NULL,
+	"holds_others_commits" boolean NOT NULL,
+	CONSTRAINT "task_pushed_head_task_id_repository_pk" PRIMARY KEY("task_id","repository")
 );
 --> statement-breakpoint
 CREATE TABLE "team_welcome" (
@@ -2636,6 +2648,7 @@ ALTER TABLE "task_hold" ADD CONSTRAINT "task_hold_task_fk" FOREIGN KEY ("workspa
 ALTER TABLE "task_mark" ADD CONSTRAINT "task_mark_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_note" ADD CONSTRAINT "task_note_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_pull_request" ADD CONSTRAINT "task_pull_request_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task_pushed_head" ADD CONSTRAINT "task_pushed_head_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "event_delivery_due_idx" ON "event_delivery" USING btree ("due_at");--> statement-breakpoint
 CREATE INDEX "event_delivery_pending_idx" ON "event_delivery" USING btree ("subscriber") WHERE "event_delivery"."delivered_at" is null;--> statement-breakpoint
 CREATE INDEX "event_outbox_recorded_at_idx" ON "event_outbox" USING btree ("recorded_at");--> statement-breakpoint

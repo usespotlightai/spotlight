@@ -25,6 +25,7 @@ import { TaskApprovalClaimed } from '@work/domain/events/task-approval-claimed.e
 import { TaskApprovalReturned } from '@work/domain/events/task-approval-returned.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
 import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -126,6 +127,9 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import type { PullRequestStep } from '@work/domain/value-objects/pull-request-step';
+import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
+import type { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
+import { RequestedBase } from '@work/domain/value-objects/requested-base.vo';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { Resumption } from '@work/domain/value-objects/resumption.vo';
@@ -140,6 +144,7 @@ import type { TaskDescription } from '@work/domain/value-objects/task-descriptio
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
+import type { TaskPushRefusal } from '@work/domain/value-objects/task-push-refusal';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -243,6 +248,8 @@ export class Task extends EventRecorder {
     readonly moveHeldTo: StationId | null = null,
     readonly holds: readonly Hold[] = [],
     readonly runNotStarted: RunNotStarted | null = null,
+    readonly base: Branch | null = null,
+    readonly pushedHeads: readonly PushedHead[] = [],
   ) {
     super();
   }
@@ -258,10 +265,20 @@ export class Task extends EventRecorder {
     receivedFrom?: Happening | null;
     proposedIn?: ProposalOrigin | null;
     branch?: Branch | null;
+    base?: RequestedBase | null;
     now: Date;
     newId: () => string;
   }): Task {
     const station = Task.stationOn(input.line, input.at);
+    const id = TaskId.of(input.newId());
+    const branch = input.branch ?? Branch.for(id, input.title);
+    const base = input.base?.taskBase ?? null;
+
+    if (base?.equals(branch)) {
+      throw new InvalidTaskTransitionError(
+        `A task cannot start from its own branch ${branch.value}. Give it another base branch.`,
+      );
+    }
 
     if (station.isCompleted) {
       throw new InvalidTaskTransitionError(
@@ -272,13 +289,12 @@ export class Task extends EventRecorder {
     const createdBy = input.createdBy ?? null;
     const receivedFrom = input.receivedFrom ?? null;
 
-    const id = TaskId.of(input.newId());
     const task = new Task(
       id,
       input.line.workspaceId,
       station.id,
       input.title,
-      input.branch ?? Branch.for(id, input.title),
+      branch,
       input.description ?? null,
       input.rank,
       null,
@@ -297,6 +313,16 @@ export class Task extends EventRecorder {
       createdBy,
       input.attachments ?? [],
       input.proposedIn ?? null,
+      DraftGeneration.first(),
+      TaskRevision.first(),
+      0,
+      null,
+      null,
+      [],
+      null,
+      [],
+      null,
+      base,
     );
 
     task.record(
@@ -322,6 +348,8 @@ export class Task extends EventRecorder {
     title: TaskTitle;
     description: TaskDescription | null;
     branch: Branch;
+    base?: Branch | null;
+    defaultBranch: Branch;
     rank: TaskRank;
     by: UserId;
     members: TeamMembers;
@@ -330,6 +358,12 @@ export class Task extends EventRecorder {
     now: Date;
     newId: () => string;
   }): Task {
+    if (input.branch.equals(input.defaultBranch)) {
+      throw new InvalidTaskTransitionError(
+        `${input.branch.value} is the default branch. A task works on a branch of its own: push the change to a new branch and open a pull request.`,
+      );
+    }
+
     const added = Task.add({
       line: input.line,
       at: input.at,
@@ -338,6 +372,9 @@ export class Task extends EventRecorder {
       rank: input.rank,
       createdBy: input.by,
       branch: input.branch,
+      base: input.base
+        ? RequestedBase.of(input.base, [input.defaultBranch])
+        : null,
       now: input.now,
       newId: input.newId,
     });
@@ -403,6 +440,8 @@ export class Task extends EventRecorder {
     moveHeldTo?: StationId | null;
     holds?: readonly Hold[];
     runNotStarted?: RunNotStarted | null;
+    base?: Branch | null;
+    pushedHeads?: readonly PushedHead[];
   }): Task {
     if (input.version < 0) {
       throw new InconsistentStateError('task', 'has a negative version');
@@ -535,6 +574,8 @@ export class Task extends EventRecorder {
       input.moveHeldTo ?? null,
       holds,
       input.runNotStarted ?? null,
+      input.base ?? null,
+      input.pushedHeads ?? [],
     );
 
     if (
@@ -1053,6 +1094,7 @@ export class Task extends EventRecorder {
     chat: ChatId,
     repository: Repository,
     line: LineMap | null,
+    named: { base: Branch | null; defaultBranch: Branch } | null = null,
   ): ChatPullRequestStep {
     const branch = this.branch;
 
@@ -1071,6 +1113,13 @@ export class Task extends EventRecorder {
           branch,
           completed: this.finished,
         },
+      };
+    }
+
+    if (named?.base && !this.startsFrom(named.base, named.defaultBranch)) {
+      return {
+        kind: 'refused',
+        refusal: { kind: 'base-differs-from-task', branch, base: this.base },
       };
     }
 
@@ -1231,6 +1280,7 @@ export class Task extends EventRecorder {
     url: PullRequestUrl,
     at: Date,
     heldMoveOn: HeldMoveOn,
+    merged = false,
   ): Task {
     const owned = this.ownedPullRequests.find((each) => each.url.equals(url));
 
@@ -1238,7 +1288,7 @@ export class Task extends EventRecorder {
       return this;
     }
 
-    const closed = this.withOwned(owned.closed(at));
+    const closed = this.withOwned(owned.closed(at, merged));
     closed.record(new TaskPullRequestClosed(this.id, this.workspaceId, url));
 
     return closed.pullRequestsSettled
@@ -3262,6 +3312,8 @@ export class Task extends EventRecorder {
     moveHeldTo?: StationId | null;
     holds?: readonly Hold[];
     runNotStarted?: RunNotStarted | null;
+    pushedHeads?: readonly PushedHead[];
+    base?: Branch | null;
   }): Task {
     const next = new Task(
       this.id,
@@ -3300,6 +3352,8 @@ export class Task extends EventRecorder {
       part.runNotStarted !== undefined
         ? part.runNotStarted
         : this.runNotStarted,
+      part.base !== undefined ? part.base : this.base,
+      part.pushedHeads ?? this.pushedHeads,
     );
 
     next.inheritEvents(this);
@@ -3310,6 +3364,100 @@ export class Task extends EventRecorder {
       !(next.hasCurrentRun(awaited.runId) && next.awaitingReview)
       ? next.with({ awaitedTurn: null })
       : next;
+  }
+
+  private startsFrom(base: Branch, defaultBranch: Branch): boolean {
+    const own =
+      this.base && !this.base.equals(defaultBranch) ? this.base : null;
+
+    return base.equals(defaultBranch)
+      ? own === null
+      : own !== null && base.equals(own);
+  }
+
+  pushRefusal(
+    repository: Repository,
+    update: RefUpdate,
+  ): TaskPushRefusal | null {
+    const target = update.target;
+
+    if (target.kind !== 'branch') {
+      return target;
+    }
+
+    const { branch } = target;
+
+    if (!branch.equals(this.branch)) {
+      return {
+        kind: 'push-to-another-branch',
+        branch,
+        taskBranch: this.branch,
+      };
+    }
+
+    const pushed = this.pushedHeads.find((each) => each.isIn(repository));
+
+    return update.rewrites &&
+      !update.creates &&
+      !(pushed?.mayBeReplacedFrom(update.from) ?? false)
+      ? { kind: 'push-rewrites-commits-of-others', branch }
+      : null;
+  }
+
+  baseMerged(merged: Branch, into: Branch | null): Task {
+    if (!this.base?.equals(merged)) {
+      return this;
+    }
+
+    const moved = this.with({ base: into });
+    moved.record(new TaskBaseMoved(this.id, this.workspaceId, merged, into));
+
+    return moved;
+  }
+
+  leavesItsBranchWhenClosed(url: PullRequestUrl, merged: boolean): boolean {
+    const others = this.ownedPullRequests.filter(
+      (each) => !each.url.equals(url),
+    );
+
+    return (
+      others.every((each) => !each.open) &&
+      (merged || others.some((each) => each.merged))
+    );
+  }
+
+  openPullRequestsIn(repository: Repository): readonly OwnedPullRequest[] {
+    return this.ownedPullRequests.filter(
+      (each) => each.open && (each.url.repository?.equals(repository) ?? false),
+    );
+  }
+
+  pushedTo(
+    repository: Repository,
+    updates: readonly RefUpdate[],
+    at: Date,
+  ): Task {
+    const own = [...updates]
+      .reverse()
+      .find(
+        (each) => !each.deletes && (each.branch?.equals(this.branch) ?? false),
+      );
+
+    if (!own) {
+      return this;
+    }
+
+    const last = this.pushedHeads.find((each) => each.isIn(repository));
+    const holdsOthersCommits = own.creates
+      ? false
+      : !last || !own.from.equals(last.commit) || last.holdsOthersCommits;
+
+    return this.with({
+      pushedHeads: [
+        ...this.pushedHeads.filter((each) => !each.isIn(repository)),
+        PushedHead.of(repository, own.to, at, holdsOthersCommits),
+      ],
+    });
   }
 
   deleted(): Task {

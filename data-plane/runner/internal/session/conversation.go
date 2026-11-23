@@ -19,6 +19,7 @@ type conversation struct {
 	harness      Harness
 	sessionID    string
 	joined       []string
+	checkouts    []string
 	unready      []setupFailure
 	touches      *pathMemories
 	journal      *journalWriter
@@ -69,7 +70,7 @@ type lostRun interface {
 }
 
 func (c *conversation) opening(ctx context.Context) string {
-	return unreadyNote(c.unready) + lostNote(c.lost) + c.request(ctx)
+	return unreadyNote(c.unready) + lostNote(c.lost) + checkoutsNote(c.checkouts) + c.request(ctx)
 }
 
 func lostNote(tasks []workspace.LostTask) string {
@@ -108,6 +109,13 @@ func (c *conversation) request(ctx context.Context) string {
 	default:
 		return strings.TrimSuffix(briefing+"\n\n"+changedToolsNote(c.run.Spec.ChangedTools), "\n\n")
 	}
+}
+
+func checkoutsNote(notes []string) string {
+	if len(notes) == 0 {
+		return ""
+	}
+	return strings.Join(notes, "\n\n") + "\n\n"
 }
 
 func newRepositoriesNote(folders []string) string {

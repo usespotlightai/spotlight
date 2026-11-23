@@ -1,9 +1,11 @@
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
+import { requestedBase } from '@work/application/services/requested-base';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
@@ -27,6 +29,10 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
     private readonly copies: AttachmentCopies,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
+    private readonly settings: Pick<
+      RepositorySettingsPort,
+      'defaultBranchNameOf'
+    >,
   ) {}
 
   async onProposalAccepted(event: ProposalAccepted): Promise<void> {
@@ -51,6 +57,8 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
       (place) => `${event.chatId.value}-${event.position.value}-task-${place}`,
     );
 
+    const base = await requestedBase(this.settings, line, event.base);
+
     try {
       await this.createTask.create({
         task: Task.add({
@@ -58,6 +66,7 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
           at: station.id,
           title: event.title,
           description: event.description,
+          base,
           attachments,
           rank: Placement.entering(
             'opened',

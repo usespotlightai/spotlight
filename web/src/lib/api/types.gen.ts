@@ -3971,6 +3971,10 @@ export type AddTaskRequestDto = {
    * Uploads to attach, by the id each was granted
    */
   attachments?: Array<string>;
+  /**
+   * The branch the task starts from and opens its pull request into. Left out or blank for the default branch of each repository.
+   */
+  base?: string | null;
 };
 
 export type MoveTaskRequestDto = {

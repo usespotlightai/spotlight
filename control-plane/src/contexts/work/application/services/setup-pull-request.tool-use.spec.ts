@@ -85,6 +85,7 @@ describe('SetupPullRequestToolUse', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       repository: expect.objectContaining({ value: 'acme/infra' }) as unknown,
       branch: 'spotlight-configuration',
+      base: null,
       title: 'Set up Spotlight as code',
       body: 'Triage reads the bug, feature and chore labels.',
     });

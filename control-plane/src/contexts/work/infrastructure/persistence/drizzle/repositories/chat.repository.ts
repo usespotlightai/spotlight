@@ -45,6 +45,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attachment-claims';
@@ -79,6 +80,7 @@ const toProposal = (
         description: row.description
           ? TaskDescription.of(row.description)
           : null,
+        base: row.base ? Branch.of(row.base) : null,
         state: row.state,
         taskId: row.taskId ? TaskId.of(row.taskId) : null,
         decidedAt: row.decidedAt ? new Date(row.decidedAt) : null,
@@ -92,6 +94,7 @@ const fromProposal = (proposal: TaskProposal | null): ProposalRow | null =>
         stationId: proposal.placement.stationId.value,
         title: proposal.title.value,
         description: proposal.description?.value ?? null,
+        base: proposal.base?.value ?? null,
         state: proposal.state,
         taskId: proposal.taskId?.value ?? null,
         decidedAt: proposal.decidedAt?.toISOString() ?? null,

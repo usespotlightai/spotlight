@@ -43,6 +43,7 @@ const chatOf = () =>
       }),
       title: TaskTitle.of('Back off exponentially'),
       description: null,
+      base: null,
       at: new Date('2026-10-11T08:30:00.000Z'),
     });
 

@@ -183,6 +183,7 @@ describe('ChatOutcomes', () => {
           }),
           title: TaskTitle.of('Back off exponentially'),
           description: null,
+          base: null,
           at: NOW,
         })
         .accept(position, UserId.of('user_1'), LATER)

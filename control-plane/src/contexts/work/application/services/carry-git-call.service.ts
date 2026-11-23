@@ -3,6 +3,7 @@ import type { WorkspaceConnectionsPort } from '@github/application/ports/workspa
 import type { RunnerLeasesPort } from '@runners/application/ports/runner-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type {
@@ -10,7 +11,10 @@ import type {
   GitCallDto,
   GitService,
 } from '@work/application/dto/git-call.dto';
-import type { ReceivePackPort } from '@work/application/ports/receive-pack.port';
+import type {
+  Push,
+  ReceivePackPort,
+} from '@work/application/ports/receive-pack.port';
 import type {
   ReviewWorkAccessPort,
   LeasedReviewWork,
@@ -24,6 +28,7 @@ import { WorkNotLeasedError } from '@work/domain/exceptions/work-not-leased.erro
 import { ReviewGitAccess } from '@work/domain/services/review-git-access';
 
 const PUSH = 'git-receive-pack';
+const OK = 200;
 
 interface AllowedRepository extends CheckedRepository {
   readonly work: RunWork | null;
@@ -38,6 +43,7 @@ export class CarryGitCall {
     private readonly leases: RunnerLeasesPort,
     private readonly receivePack: ReceivePackPort,
     private readonly clock: ClockPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async carry(
@@ -65,13 +71,14 @@ export class CarryGitCall {
     const checked =
       service === PUSH && call.method === 'POST' && allowed.work?.limitsPushes
         ? await this.checkedPush(allowed.work, allowed.repository, call)
-        : { kind: 'carry' as const, call };
+        : { kind: 'carry' as const, call, push: null };
 
     if (checked.kind === 'answer') {
       return checked.answer;
     }
 
-    const answer = await this.git.call(
+    const { push } = checked;
+    const answered = await this.git.call(
       allowed.workspaceId,
       allowed.repository,
       {
@@ -82,6 +89,23 @@ export class CarryGitCall {
         body: checked.call.body,
       },
     );
+
+    const work = allowed.work;
+    const answer =
+      answered && push && work && answered.status === OK
+        ? push.reported(answered, (updates) =>
+            work.pushed(allowed.repository, updates).catch((error: unknown) => {
+              this.logger.error(
+                {
+                  err: error,
+                  workspaceId: allowed.workspaceId.value,
+                  repository: allowed.repository.value,
+                },
+                'Could not keep the commit a task run pushed',
+              );
+            }),
+          )
+        : answered;
 
     return (
       answer && {
@@ -97,7 +121,11 @@ export class CarryGitCall {
     repository: Repository,
     call: GitCallDto,
   ): Promise<
-    | { readonly kind: 'carry'; readonly call: GitCallDto }
+    | {
+        readonly kind: 'carry';
+        readonly call: GitCallDto;
+        readonly push: Push;
+      }
     | { readonly kind: 'answer'; readonly answer: GitAnswerDto }
   > {
     const read = await this.receivePack.read(call);
@@ -110,7 +138,7 @@ export class CarryGitCall {
 
     return refusal
       ? { kind: 'answer', answer: await read.push.refused(refusal) }
-      : { kind: 'carry', call: read.push.call };
+      : { kind: 'carry', call: read.push.call, push: read.push };
   }
 
   private async allowedRepository(

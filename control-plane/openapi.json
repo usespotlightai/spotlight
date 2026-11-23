@@ -33380,6 +33380,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "base": {
+            "type": "string",
+            "example": "release/1.x",
+            "nullable": true,
+            "description": "The branch the task starts from and opens its pull request into. Left out or blank for the default branch of each repository."
           }
         },
         "required": [

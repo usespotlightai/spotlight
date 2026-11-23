@@ -121,6 +121,9 @@ const runCheckoutOf = (value: JsonValue): RunCheckoutShape => {
     ...present('branch', checkout.branch, (each) =>
       textAt(each, 'spec checkout branch'),
     ),
+    ...present('base', checkout.base, (each) =>
+      textAt(each, 'spec checkout base'),
+    ),
     ...present('ref', checkout.ref, (each) =>
       textAt(each, 'spec checkout ref'),
     ),

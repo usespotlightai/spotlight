@@ -17,6 +17,7 @@ const stored = (state: 'open' | 'created', taskId: TaskId | null) =>
     }),
     title: TaskTitle.of('Back off exponentially'),
     description: null,
+    base: null,
     state,
     taskId,
     decidedAt: null,

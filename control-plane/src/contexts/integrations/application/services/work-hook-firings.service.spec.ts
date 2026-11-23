@@ -141,6 +141,7 @@ const setUp = (
         edit: vi.fn(),
         statusOf: vi.fn(),
         close: vi.fn(),
+        retarget: vi.fn(),
         comment: vi.fn(),
         changedOn: vi.fn(),
         changedIn,

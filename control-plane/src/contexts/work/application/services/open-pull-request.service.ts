@@ -75,6 +75,7 @@ export class OpenPullRequest {
       workspaceId: task.workspaceId,
       repository,
       branch: task.branch.value,
+      base: task.base?.value ?? null,
       title: input.title.value,
       body: input.body ?? '',
     });

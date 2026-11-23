@@ -1,6 +1,7 @@
 package gitproxy
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -19,7 +20,7 @@ type Serving struct {
 	server   *http.Server
 }
 
-func Serve(controlPlane, token, subject string, fetchOnly bool, transport http.RoundTripper) (*Serving, error) {
+func Serve(controlPlane, token, subject, workspace string, fetchOnly bool, transport http.RoundTripper) (*Serving, error) {
 	base, err := url.Parse(controlPlane)
 	if err != nil || !base.IsAbs() {
 		return nil, fmt.Errorf("control plane url %q is not absolute", controlPlane)
@@ -36,7 +37,7 @@ func Serve(controlPlane, token, subject string, fetchOnly bool, transport http.R
 		Remote:   fmt.Sprintf("http://%s/%s", listener.Addr().String(), subject),
 		listener: listener,
 		server: &http.Server{
-			Handler:           forwarding(base, token, prefix, fetchOnly, transport),
+			Handler:           forwarding(base, token, prefix, workspace, fetchOnly, transport),
 			ReadHeaderTimeout: 30 * time.Second,
 		},
 	}
@@ -69,7 +70,7 @@ func pushes(r *http.Request) bool {
 	return strings.HasSuffix(r.URL.Path, "/"+receivePack) || r.URL.Query().Get("service") == receivePack
 }
 
-func forwarding(base *url.URL, token, prefix string, fetchOnly bool, transport http.RoundTripper) http.Handler {
+func forwarding(base *url.URL, token, prefix, workspace string, fetchOnly bool, transport http.RoundTripper) http.Handler {
 	client := &http.Client{Transport: transport}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -83,12 +84,24 @@ func forwarding(base *url.URL, token, prefix string, fetchOnly bool, transport h
 			return
 		}
 
+		body := io.Reader(r.Body)
+		var verified []string
+		if pushes(r) && r.Method == http.MethodPost && r.Header.Get("Content-Encoding") == "" {
+			if repository, ok := checkoutOf(workspace, r.URL.Path, prefix); ok {
+				updates, read, err := readCommands(r.Body)
+				body = io.MultiReader(bytes.NewReader(read), r.Body)
+				if err == nil {
+					verified = fastForwards(r.Context(), repository, updates)
+				}
+			}
+		}
+
 		upstream := *base
 		upstream.Path = strings.TrimSuffix(base.Path, "/") + "/api/git" + r.URL.Path
 		upstream.RawQuery = r.URL.RawQuery
 
 		forwarded, err := http.NewRequestWithContext(
-			r.Context(), r.Method, upstream.String(), r.Body,
+			r.Context(), r.Method, upstream.String(), body,
 		)
 		if err != nil {
 			http.Error(w, "cannot reach the control plane", http.StatusBadGateway)
@@ -99,6 +112,10 @@ func forwarding(base *url.URL, token, prefix string, fetchOnly bool, transport h
 			if value := r.Header.Get(name); value != "" {
 				forwarded.Header.Set(name, value)
 			}
+		}
+		forwarded.Header.Del(FastForwardsHeader)
+		if len(verified) > 0 {
+			forwarded.Header.Set(FastForwardsHeader, strings.Join(verified, ","))
 		}
 		forwarded.Header.Set("Authorization", "Bearer "+token)
 

@@ -543,6 +543,7 @@ export class TaskController {
         body.description ?? null,
         user.id,
         idsInput(body.attachments),
+        body.base ?? null,
       ),
     );
 

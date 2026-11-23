@@ -42,6 +42,7 @@ export class SetupPullRequestToolUse implements BuiltInToolUse<ChatToolContext> 
       workspaceId,
       repository: setup.repository,
       branch: branch.value,
+      base: null,
       title: title.value,
       body: inputs.text('body') ?? '',
     });

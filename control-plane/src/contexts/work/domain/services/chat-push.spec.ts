@@ -71,6 +71,7 @@ const line = lineMapOf({
 
 const heldBy = (chat: ChatId) =>
   Task.openedInChat({
+    defaultBranch: Branch.of('main'),
     line,
     at: REVIEW,
     title: TaskTitle.of('Show video icons'),
@@ -115,7 +116,7 @@ const completed = () =>
 const refusal = (ref: string, owner: Task | null = null, to: string = PUSHED) =>
   ChatPush.refusal({
     chat: CHAT,
-    update: RefUpdate.of({ ref, to }),
+    update: RefUpdate.of({ ref, from: 'a'.repeat(40), to }),
     defaultBranch: MAIN,
     owner,
   });

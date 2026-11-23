@@ -9,6 +9,7 @@ type CheckoutDiff = 'worktree' | 'commits';
 export interface TaskCheckout {
   readonly repository: Repository;
   readonly branch: Branch | null;
+  readonly base: Branch | null;
   readonly ref: string | null;
   readonly diffOf: CheckoutDiff;
   readonly setup: string | null;
@@ -46,6 +47,7 @@ export const checkoutsOf = (
   return repositoriesForTask(task, line).map((repository) => ({
     repository,
     branch: head ? null : task.branch,
+    base: head ? null : task.base,
     ref: head?.ref ?? null,
     diffOf: head ? 'commits' : 'worktree',
     setup: line.repositories.setupOf(repository),
