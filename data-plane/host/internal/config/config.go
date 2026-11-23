@@ -33,6 +33,7 @@ type Config struct {
 	Workload      trust.Workload
 	Capacity      int
 	SandboxMemory int64
+	Runtime       string
 	Images        images.Allowed
 	Registry      string
 	RunTimeout    time.Duration
@@ -59,7 +60,8 @@ type Egress struct {
 }
 
 const (
-	EnvConfig = "SPOTLIGHT_HOST_CONFIG"
+	EnvConfig  = "SPOTLIGHT_HOST_CONFIG"
+	EnvRuntime = "SPOTLIGHT_SANDBOX_RUNTIME"
 
 	envURL        = "SPOTLIGHT_URL"
 	envPoolToken  = "SPOTLIGHT_POOL_TOKEN"
@@ -156,6 +158,7 @@ func parse(version string, saved map[string]string, fromEnv bool) (Config, error
 		URL:        strings.TrimSuffix(get(envURL), "/"),
 		PoolToken:  get(envPoolToken),
 		Workload:   trust.Workload{Trust: get(envTrust), TokenFile: get(envTokenFile)},
+		Runtime:    get(EnvRuntime),
 		Network:    get(envNetwork),
 		ExtraHosts: list(get(envHosts)),
 		State:      get(envState),

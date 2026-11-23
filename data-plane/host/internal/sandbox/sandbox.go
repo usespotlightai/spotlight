@@ -38,6 +38,7 @@ type Spec struct {
 	Network    string
 	Joins      []Join
 	ExtraHosts []string
+	Runtime    string
 	Limits     Limits
 }
 
@@ -79,6 +80,7 @@ type Network struct {
 
 type Engine interface {
 	Describe(ctx context.Context) (string, error)
+	Runtimes(ctx context.Context) ([]string, error)
 	Inspect(ctx context.Context, image string) (Image, error)
 	Pull(ctx context.Context, image, auth string) error
 	Images(ctx context.Context) ([]Image, error)

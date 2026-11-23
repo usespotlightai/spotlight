@@ -3,6 +3,7 @@ package serve_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,6 +92,57 @@ func TestAReloadedMemoryLimitAppliesToTheNextSandboxAndNeverToEgress(t *testing.
 	}
 	if _, egress, ok := engine.egressOf("runner_1"); !ok || egress.Limits != (sandbox.Limits{}) {
 		t.Errorf("egress started %v, with limits %+v", ok, egress.Limits)
+	}
+}
+
+func TestRunsTheProbeAndSandboxesUnderTheHostsRuntimeButNeverEgress(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.runtimes = []string{"runc", "sysbox-runc"}
+	opts := options(t)
+	opts.Runtime = "sysbox-runc"
+	live(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "one sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	for id, spec := range engine.started {
+		if spec.Runtime != "sysbox-runc" {
+			t.Errorf("%s %v runs under %q", id, spec.Args, spec.Runtime)
+		}
+	}
+	if len(engine.egresses) == 0 {
+		t.Fatal("no egress started")
+	}
+	for id, spec := range engine.egresses {
+		if spec.Runtime != "" {
+			t.Errorf("egress %s runs under %q", id, spec.Runtime)
+		}
+	}
+}
+
+func TestRefusesToServeUnderARuntimeTheContainerRuntimeDoesNotHave(t *testing.T) {
+	for _, each := range []struct {
+		runtimes []string
+		says     string
+	}{
+		{[]string{"runc"}, `SPOTLIGHT_SANDBOX_RUNTIME: the container runtime has no runtime "sysbox-runc", only runc.`},
+		{nil, `SPOTLIGHT_SANDBOX_RUNTIME: the container runtime has no runtime "sysbox-runc", none.`},
+	} {
+		engine, pool := harnessed(), newPool()
+		engine.runtimes = each.runtimes
+		opts := options(t)
+		opts.Runtime = "sysbox-runc"
+		_, stopped := live(t, opts, engine, pool)
+
+		err := stopped()
+		if err == nil || !strings.Contains(err.Error(), each.says) {
+			t.Fatalf("%v: served with %v", each.runtimes, err)
+		}
+		if got := engine.workSandboxes(); len(got) != 0 {
+			t.Errorf("%v: started %v", each.runtimes, got)
+		}
 	}
 }
 

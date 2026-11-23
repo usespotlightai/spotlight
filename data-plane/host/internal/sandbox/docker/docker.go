@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -107,6 +108,15 @@ func (e *Engine) Describe(ctx context.Context) (string, error) {
 	}
 
 	return fmt.Sprintf("%s %s (%s/%s)", name, version.Version, version.Os, version.Arch), nil
+}
+
+func (e *Engine) Runtimes(ctx context.Context) ([]string, error) {
+	var info struct{ Runtimes map[string]json.RawMessage }
+	if _, err := e.call(ctx, http.MethodGet, "/info", nil, &info); err != nil {
+		return nil, fmt.Errorf("read the container runtime's runtimes: %w", err)
+	}
+
+	return slices.Sorted(maps.Keys(info.Runtimes)), nil
 }
 
 func (e *Engine) Memory(ctx context.Context) (int64, error) {
@@ -298,6 +308,7 @@ type hostConfig struct {
 	Memory      int64    `json:",omitempty"`
 	MemorySwap  int64    `json:",omitempty"`
 	OomScoreAdj int      `json:",omitempty"`
+	Runtime     string   `json:",omitempty"`
 }
 
 type created struct {
@@ -323,6 +334,7 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 			Memory:      spec.Limits.Memory,
 			MemorySwap:  spec.Limits.Memory,
 			OomScoreAdj: spec.Limits.OOMScoreAdj,
+			Runtime:     spec.Runtime,
 		},
 	}
 	for _, each := range spec.Mounts {
