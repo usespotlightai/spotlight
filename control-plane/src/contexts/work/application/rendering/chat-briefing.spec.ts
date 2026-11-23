@@ -589,6 +589,7 @@ describe('ChatBriefing', () => {
         placement,
         title: TaskTitle.of('Keep the draft'),
         description: null,
+        base: null,
         at: NOW,
       })
       .propose({
@@ -596,6 +597,7 @@ describe('ChatBriefing', () => {
         placement,
         title: TaskTitle.of('Keep the draft and its files'),
         description: null,
+        base: null,
         replaces: [1],
         at: NOW,
       });

@@ -67,7 +67,7 @@ export class ChatMessage {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
-    base?: Branch | null;
+    base: Branch | null;
     attachments?: readonly Attachment[];
     at: Date;
   }): ChatMessage {

@@ -9,6 +9,7 @@ import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import type { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import {
@@ -16,6 +17,7 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
+import { RequestedBase } from '@work/domain/value-objects/requested-base.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -67,7 +69,7 @@ const added = (base: Branch | null = null) =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.between(null, null),
-    base,
+    base: base && RequestedBase.of(base, []),
     now: NOW,
     newId: () => 'task_1',
   });
@@ -224,5 +226,22 @@ describe('a task stacked on another', () => {
     ).toBe('release/1.x');
     expect(stacked.baseMerged(Branch.of('feat/uploads'), null).base).toBeNull();
     expect(stacked.baseMerged(Branch.of('feat/other'), null)).toBe(stacked);
+  });
+
+  it('records where its base moved from and to', () => {
+    const moved = added(Branch.of('feat/uploads')).baseMerged(
+      Branch.of('feat/uploads'),
+      Branch.of('release/1.x'),
+    );
+
+    expect(
+      moved
+        .pullEvents()
+        .filter((each) => each.kind === 'task.base-moved')
+        .map((each) => [
+          (each as TaskBaseMoved).from.value,
+          (each as TaskBaseMoved).to?.value,
+        ]),
+    ).toEqual([['feat/uploads', 'release/1.x']]);
   });
 });

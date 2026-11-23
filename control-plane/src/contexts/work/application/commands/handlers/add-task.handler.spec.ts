@@ -177,6 +177,7 @@ const addTask = (
     clock,
     new CreateTask(tasks(), dispatch(), transaction, files),
     files,
+    { defaultBranchNameOf: async () => 'main' },
   ).execute(command);
 
 beforeEach(() => {

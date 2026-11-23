@@ -1583,6 +1583,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       AttachmentCopies,
       ID_GENERATOR,
       CLOCK,
+      REPOSITORY_SETTINGS,
     ],
     useFactory: (
       chats: ChatRepository,
@@ -1592,6 +1593,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       copies: AttachmentCopies,
       ids: IdGeneratorPort,
       clock: ClockPort,
+      settings: RepositorySettingsPort,
     ) =>
       new CreateTaskFromProposal(
         chats,
@@ -1601,6 +1603,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         copies,
         ids,
         clock,
+        settings,
       ),
   },
 
@@ -2212,6 +2215,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CLOCK,
     CreateTask,
     FilesLoader,
+    REPOSITORY_SETTINGS,
   ]),
 
   ...bindCommandHandler(

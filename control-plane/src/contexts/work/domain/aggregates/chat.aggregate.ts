@@ -807,7 +807,7 @@ export class Chat extends EventRecorder {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
-    base?: Branch | null;
+    base: Branch | null;
     attachments?: readonly Attachment[];
     replaces?: readonly number[];
     at: Date;

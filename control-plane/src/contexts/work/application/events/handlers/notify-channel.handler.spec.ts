@@ -72,6 +72,7 @@ const proposing = () =>
       }),
       title: TaskTitle.of('Back off exponentially'),
       description: null,
+      base: null,
       at: NOW,
     });
 

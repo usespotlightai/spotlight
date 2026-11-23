@@ -7,6 +7,7 @@ import { stackedTaskMoves } from '@work/domain/services/stacked-task-moves';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
+import { RequestedBase } from '@work/domain/value-objects/requested-base.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -42,7 +43,7 @@ const taskOf = (
       title: TaskTitle.of('Retry uploads'),
       rank: TaskRank.of('i'),
       branch: Branch.of(branch),
-      base,
+      base: base && RequestedBase.of(base, []),
       now: NOW,
       newId: fresh,
     }),

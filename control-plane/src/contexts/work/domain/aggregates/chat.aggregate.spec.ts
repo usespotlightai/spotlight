@@ -119,6 +119,7 @@ const proposing = () => {
     }),
     title: TaskTitle.of('Back off exponentially'),
     description: null,
+    base: null,
     at: LATER,
   });
   chat.pullEvents();
@@ -724,6 +725,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off exponentially'),
         description: null,
+        base: null,
         at: LATER,
       }),
     ).toThrow(InvalidChatTransitionError);
@@ -738,6 +740,7 @@ describe('Chat', () => {
       }),
       title: TaskTitle.of('Back off exponentially'),
       description: null,
+      base: null,
       at: LATER,
     });
 
@@ -773,6 +776,7 @@ describe('Chat', () => {
       }),
       title: TaskTitle.of('Match the mockup'),
       description: null,
+      base: null,
       attachments: [mockup],
       at: LATER,
     });
@@ -908,6 +912,7 @@ describe('Chat', () => {
       }),
       title: TaskTitle.of('Back off with jitter'),
       description: null,
+      base: null,
       replaces: [1],
       at: LATER,
     });
@@ -940,6 +945,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off with jitter'),
         description: null,
+        base: null,
         replaces: [1],
         at: LATER,
       });
@@ -960,6 +966,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off with jitter'),
         description: null,
+        base: null,
         replaces: [4],
         at: LATER,
       }),
@@ -1011,6 +1018,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off exponentially'),
         description: null,
+        base: null,
         at: LATER,
       });
 
@@ -1071,6 +1079,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Cap the delay'),
         description: null,
+        base: null,
         at: LATER,
       });
 
@@ -1097,6 +1106,7 @@ describe('Chat', () => {
             }),
             title: TaskTitle.of('Back off exponentially'),
             description: null,
+            base: null,
             at: LATER,
           }).resolvedAt,
       ).toBeNull();
@@ -1123,6 +1133,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Cap the delay'),
         description: null,
+        base: null,
         at: LATER,
       });
 
@@ -1384,6 +1395,7 @@ describe('Chat', () => {
         }),
         title: TaskTitle.of('Back off exponentially'),
         description: null,
+        base: null,
         at: LATER,
       });
 

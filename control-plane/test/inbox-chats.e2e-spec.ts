@@ -103,6 +103,7 @@ const proposedBy = (chat: Chat) => {
     }),
     title: TaskTitle.of('Back off exponentially'),
     description: null,
+    base: null,
     at: new Date('2026-10-20T09:05:00.000Z'),
   });
 };
@@ -313,6 +314,7 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
         }),
         title: TaskTitle.of('Back off with jitter'),
         description: null,
+        base: null,
         replaces: [1],
         at: AFTER,
       }),

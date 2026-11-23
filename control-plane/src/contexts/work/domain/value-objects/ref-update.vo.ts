@@ -4,6 +4,10 @@ import { CommitSha } from '@work/domain/value-objects/commit-sha.vo';
 
 const HEADS = 'refs/heads/';
 
+export type PushTarget =
+  | { readonly kind: 'branch'; readonly branch: Branch }
+  | BranchPushRefusal;
+
 export class RefUpdate {
   private constructor(
     readonly ref: string,
@@ -34,14 +38,16 @@ export class RefUpdate {
     return this.from.isNone;
   }
 
-  get target(): Branch | BranchPushRefusal {
+  get target(): PushTarget {
     const branch = this.branch;
 
     if (!branch) {
       return { kind: 'push-not-to-a-branch', ref: this.ref };
     }
 
-    return this.deletes ? { kind: 'push-deletes-a-branch', branch } : branch;
+    return this.deletes
+      ? { kind: 'push-deletes-a-branch', branch }
+      : { kind: 'branch', branch };
   }
 
   get branch(): Branch | null {

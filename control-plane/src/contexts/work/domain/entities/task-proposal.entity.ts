@@ -34,14 +34,14 @@ export class TaskProposal {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
-    base?: Branch | null;
+    base: Branch | null;
   }): TaskProposal {
     return new TaskProposal(
       input.position,
       input.placement,
       input.title,
       input.description,
-      input.base ?? null,
+      input.base,
       'open',
       null,
       null,

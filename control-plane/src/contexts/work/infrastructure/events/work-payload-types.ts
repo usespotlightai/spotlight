@@ -36,6 +36,7 @@ import { TaskApprovalClaimed } from '@work/domain/events/task-approval-claimed.e
 import { TaskApprovalReturned } from '@work/domain/events/task-approval-returned.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
 import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -125,6 +126,7 @@ import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
+import { RequestedBase } from '@work/domain/value-objects/requested-base.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { Resumption } from '@work/domain/value-objects/resumption.vo';
 import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
@@ -176,6 +178,7 @@ export const WORK_PAYLOAD_TYPES = [
   AttachmentId,
   Attachment,
   Branch,
+  RequestedBase,
   CommitSha,
   ChatId,
   ChatPullRequest,
@@ -286,6 +289,7 @@ export const WORK_PAYLOAD_TYPES = [
   TaskNoted,
   TaskReordered,
   TaskPullRequestClosed,
+  TaskBaseMoved,
   TaskPullRequestReopened,
   TaskConversationRead,
   TaskNotesAcknowledged,

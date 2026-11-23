@@ -1,5 +1,5 @@
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { Branch } from '@work/domain/value-objects/branch.vo';
+import type { Branch } from '@work/domain/value-objects/branch.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal';
 import type { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
@@ -12,11 +12,13 @@ export const ChatPush = {
     owner: Task | null;
   }): ChatRefusal | null {
     const { chat, update, defaultBranch, owner } = input;
-    const branch = update.target;
+    const target = update.target;
 
-    if (!(branch instanceof Branch)) {
-      return branch;
+    if (target.kind !== 'branch') {
+      return target;
     }
+
+    const { branch } = target;
 
     if (branch.equals(defaultBranch)) {
       return { kind: 'push-to-default-branch', branch };

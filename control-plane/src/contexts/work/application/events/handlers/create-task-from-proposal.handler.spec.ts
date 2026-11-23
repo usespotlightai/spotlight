@@ -3,6 +3,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -26,6 +27,7 @@ import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import {
+  repositoryOf,
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
@@ -74,6 +76,7 @@ const LINE = lineMapOf({
       kind: 'completed',
     }),
   ],
+  repositories: [repositoryOf(Repository.of('acme/api'))],
 });
 
 const accepted = () =>
@@ -93,6 +96,7 @@ const accepted = () =>
       placement: PLACED,
       title: TaskTitle.of('Back off exponentially'),
       description: null,
+      base: null,
       at: NOW,
     })
     .accept(SECOND, LEON, NOW);
@@ -127,6 +131,7 @@ const creating = (line: LineMap | null) => {
     new AttachmentCopies({ copy } as unknown as AttachmentStorePort),
     { generate: () => 'task_9' },
     { now: () => NOW } as ClockPort,
+    { defaultBranchNameOf: async () => 'main' },
   );
 
   return { handler, save, create, copy };
@@ -160,6 +165,14 @@ describe('CreateTaskFromProposal', () => {
     );
 
     expect(create.mock.calls[0]?.[0].task.base?.value).toBe('release/1.x');
+  });
+
+  it('starts the task from no base when the proposal names the default branch', async () => {
+    const { handler, create } = creating(LINE);
+
+    await handler.onProposalAccepted(acceptedWith([], Branch.of('main')));
+
+    expect(create.mock.calls[0]?.[0].task.base).toBeNull();
   });
 
   it('gives the task its own copy of each file on the proposal', async () => {

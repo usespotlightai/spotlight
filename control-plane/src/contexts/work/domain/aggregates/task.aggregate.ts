@@ -25,6 +25,7 @@ import { TaskApprovalClaimed } from '@work/domain/events/task-approval-claimed.e
 import { TaskApprovalReturned } from '@work/domain/events/task-approval-returned.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
 import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -128,6 +129,7 @@ import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.
 import type { PullRequestStep } from '@work/domain/value-objects/pull-request-step';
 import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import type { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
+import { RequestedBase } from '@work/domain/value-objects/requested-base.vo';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { Resumption } from '@work/domain/value-objects/resumption.vo';
@@ -263,14 +265,14 @@ export class Task extends EventRecorder {
     receivedFrom?: Happening | null;
     proposedIn?: ProposalOrigin | null;
     branch?: Branch | null;
-    base?: Branch | null;
+    base?: RequestedBase | null;
     now: Date;
     newId: () => string;
   }): Task {
     const station = Task.stationOn(input.line, input.at);
     const id = TaskId.of(input.newId());
     const branch = input.branch ?? Branch.for(id, input.title);
-    const base = input.base ?? null;
+    const base = input.base?.taskBase ?? null;
 
     if (base?.equals(branch)) {
       throw new InvalidTaskTransitionError(
@@ -370,10 +372,9 @@ export class Task extends EventRecorder {
       rank: input.rank,
       createdBy: input.by,
       branch: input.branch,
-      base:
-        input.base && !input.base.equals(input.defaultBranch)
-          ? input.base
-          : null,
+      base: input.base
+        ? RequestedBase.of(input.base, [input.defaultBranch])
+        : null,
       now: input.now,
       newId: input.newId,
     });
@@ -3378,11 +3379,13 @@ export class Task extends EventRecorder {
     repository: Repository,
     update: RefUpdate,
   ): TaskPushRefusal | null {
-    const branch = update.target;
+    const target = update.target;
 
-    if (!(branch instanceof Branch)) {
-      return branch;
+    if (target.kind !== 'branch') {
+      return target;
     }
+
+    const { branch } = target;
 
     if (!branch.equals(this.branch)) {
       return {
@@ -3402,7 +3405,14 @@ export class Task extends EventRecorder {
   }
 
   baseMerged(merged: Branch, into: Branch | null): Task {
-    return this.base?.equals(merged) ? this.with({ base: into }) : this;
+    if (!this.base?.equals(merged)) {
+      return this;
+    }
+
+    const moved = this.with({ base: into });
+    moved.record(new TaskBaseMoved(this.id, this.workspaceId, merged, into));
+
+    return moved;
   }
 
   leavesItsBranchWhenClosed(url: PullRequestUrl, merged: boolean): boolean {
