@@ -21,6 +21,7 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/config"
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
 	"usespotlight.ai/data-plane/runner/internal/harness"
+	"usespotlight.ai/data-plane/runner/internal/hostsocket"
 	"usespotlight.ai/data-plane/runner/internal/localproxy"
 	"usespotlight.ai/data-plane/runner/internal/session"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
@@ -234,11 +235,27 @@ func (r runner) sandboxOptions(archives *control.Sandbox, log *slog.Logger) sess
 	}
 
 	return session.SandboxOptions{
-		Workspace: r.cfg.Workspace,
-		Archives:  archives,
-		Transport: transport,
-		AgentUser: r.agentUser,
-		Log:       log,
+		Workspace:   r.cfg.Workspace,
+		Archives:    archives,
+		Transport:   transport,
+		AgentUser:   r.agentUser,
+		Log:         log,
+		WorkingCopy: r.workingCopy(),
+	}
+}
+
+// workingCopy is the store that the host keeps the workspace in, or nil when the runner archives tars.
+func (r runner) workingCopy() *session.HostWorkingCopy {
+	if !r.cfg.WorkingCopy.InStore() {
+		return nil
+	}
+
+	return &session.HostWorkingCopy{
+		Store:    r.cfg.WorkingCopy.Store,
+		Restored: r.cfg.WorkingCopy.Restored,
+		Rebase:   r.cfg.WorkingCopy.Rebase,
+		Base:     r.cfg.WorkingCopy.Base,
+		Host:     hostsocket.New(protocol.SandboxHostSocket),
 	}
 }
 
@@ -352,6 +369,7 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 		BackgroundWait: r.cfg.BackgroundWait,
 		Sandbox:        sandbox,
 		HarnessFrames:  r.cfg.HarnessFrames,
+		WorkingCopy:    r.workingCopy(),
 	})
 	if err == nil {
 		return

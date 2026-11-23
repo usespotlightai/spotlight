@@ -320,6 +320,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       subject: 'system:serviceaccount:spotlight:runner',
       audience: 'spotlight',
       labels: ['gpu'],
+      workingCopies: null,
     },
     {
       kind: 'runner-pool',
@@ -331,6 +332,10 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       maxRuns: 4,
       tokenVersion: 2,
       provision: null,
+      workingCopies: {
+        store: 's3://acme/working-copies',
+        base: 'base-v1',
+      },
     },
     {
       kind: 'runner-pool',
@@ -347,6 +352,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
         egress: 'egress_shared',
         egressTraffic: 'all',
       },
+      workingCopies: null,
     },
     {
       kind: 'egress',

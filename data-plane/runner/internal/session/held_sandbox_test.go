@@ -47,7 +47,7 @@ func (s *heldSandbox) AppendEvents(_ context.Context, _ string, events []protoco
 	return nil
 }
 
-func (s *heldSandbox) GrantArchive(_ context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
+func (s *heldSandbox) GrantArchive(_ context.Context, request protocol.ArchiveRequest) (protocol.ArchiveGrant, error) {
 	s.called("sandbox archive")
 	if s.onGrant != nil {
 		s.onGrant()
@@ -55,7 +55,7 @@ func (s *heldSandbox) GrantArchive(_ context.Context, size int64, sha256 string)
 	if s.archives == nil {
 		return protocol.ArchiveGrant{}, errors.New("422 Unprocessable Entity: nowhere to store one")
 	}
-	return s.archives.grant(size, sha256), nil
+	return s.archives.grant(request), nil
 }
 
 func (s *heldSandbox) CompleteArchive(_ context.Context, archiveID string) error {

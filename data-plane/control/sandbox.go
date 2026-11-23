@@ -51,10 +51,9 @@ func (s *Sandbox) WorkingCopyArchive(ctx context.Context) (*protocol.StoredArchi
 	return &stored, nil
 }
 
-func (s *Sandbox) GrantArchive(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
+func (s *Sandbox) GrantArchive(ctx context.Context, request protocol.ArchiveRequest) (protocol.ArchiveGrant, error) {
 	var granted protocol.ArchiveGrant
-	body := protocol.ArchiveRequest{Size: size, SHA256: sha256}
-	if err := s.client.do(ctx, http.MethodPost, s.archivePath(), body, &granted); err != nil {
+	if err := s.client.do(ctx, http.MethodPost, s.archivePath(), request, &granted); err != nil {
 		return protocol.ArchiveGrant{}, fmt.Errorf("request a sandbox archive: %w", err)
 	}
 

@@ -17,10 +17,15 @@ import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-
 import { WorkingCopyArchiveNotUploadedError } from '@runs/domain/exceptions/working-copy-archive-not-uploaded.error';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
+import {
+  StoreSnapshot,
+  SpotlightStorage,
+} from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { WorkingCopyStoreName } from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -80,8 +85,10 @@ describe('WorkingCopyArchive', () => {
         workingCopyKey: WorkingCopyKey.of('requester', 'conversation-chat_1'),
         held: true,
         grantee: ArchiveGrantee.run(RunId.of('run_1')),
-        size: ArchiveSize.of(1_024),
-        digest: ArchiveDigest.of(SHA256),
+        location: SpotlightStorage.of(
+          ArchiveSize.of(1_024),
+          ArchiveDigest.of(SHA256),
+        ),
         at: later(0),
         ...part,
       });
@@ -360,6 +367,65 @@ describe('WorkingCopyArchive', () => {
   });
 
   it('carries the SHA-256 it was granted for', () => {
-    expect(anArchive().digest.sha256).toBe(SHA256);
+    expect(anArchive().location).toMatchObject({
+      kind: 'spotlight',
+      digest: { sha256: SHA256 },
+    });
+  });
+});
+
+describe('WorkingCopyArchive as a snapshot', () => {
+  const inStore = () =>
+    WorkingCopyArchive.grant({
+      id: WorkingCopyArchiveId.of('archive_9'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      workingCopyKey: WorkingCopyKey.of('requester', 'subject-task_1'),
+      held: true,
+      grantee: ArchiveGrantee.run(RunId.of('run_1')),
+      location: StoreSnapshot.of(WorkingCopyStoreName.of('s3://team-a')),
+      at: later(0),
+    });
+  const removable = {
+    holder: null,
+    supersededAt: null,
+    lastStartedFromAt: null,
+    pinned: false,
+  };
+
+  it('is the snapshot named after it, which the host makes', () => {
+    expect(inStore().snapshot?.value).toBe('spotlight-archive_9');
+    expect(anArchive().snapshot).toBeNull();
+  });
+
+  it('is complete once the host says so, with nothing in Spotlight’s storage to check', () => {
+    const completed = inStore().complete(null, later(1_000));
+
+    expect(completed.isCompleted).toBe(true);
+    expect(completed.restored.id.value).toBe('archive_9');
+  });
+
+  it('leaves its snapshot to a host of its store once it is removed', () => {
+    const completed = inStore().complete(null, later(1_000));
+    const removed = completed.remove(later(DAY), removable);
+
+    expect(completed.snapshotRemoval).toBeNull();
+    expect(removed.snapshotRemoval).toMatchObject({
+      archiveId: WorkingCopyArchiveId.of('archive_9'),
+      queuedAt: later(DAY),
+    });
+    expect(removed.snapshotRemoval?.store.value).toBe('s3://team-a');
+    expect(removed.snapshotRemoval?.snapshot.value).toBe('spotlight-archive_9');
+  });
+
+  it('leaves no snapshot behind when a tar is removed, which Spotlight’s storage deletes', () => {
+    expect(
+      aCompletedArchive().remove(later(DAY), removable).snapshotRemoval,
+    ).toBeNull();
+  });
+
+  it('keeps the size and SHA-256 of a tar apart from a snapshot', () => {
+    expect(
+      SpotlightStorage.of(ArchiveSize.of(1), ArchiveDigest.of(SHA256)).kind,
+    ).toBe('spotlight');
   });
 });

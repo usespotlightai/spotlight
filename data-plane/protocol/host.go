@@ -13,6 +13,25 @@ type HostRequirements struct {
 	Harnesses   []HarnessProbe    `json:"harnesses"`
 	Images      []string          `json:"images"`
 	HarnessKeys []string          `json:"harnessKeys,omitempty"`
+	// Where the hosts of the pool or trust keep working copies; nil while Spotlight keeps them as archives.
+	WorkingCopies *WorkingCopyStore `json:"workingCopies,omitempty"`
+}
+
+// WorkingCopyStore is the store that the host's working copy hook keeps working copies in, and the base snapshot
+// that a new working copy starts from. The hook holds whatever the store needs to be reached.
+type WorkingCopyStore struct {
+	Store string  `json:"store"`
+	Base  *string `json:"base"`
+}
+
+type SnapshotRemovals struct {
+	Store    *string           `json:"store"`
+	Removals []SnapshotRemoval `json:"removals"`
+}
+
+type SnapshotRemoval struct {
+	ArchiveID string `json:"archiveId"`
+	Snapshot  string `json:"snapshot"`
 }
 
 type HostRequirement struct {

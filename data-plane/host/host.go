@@ -144,6 +144,7 @@ func run(version string) error {
 		Network:       live.Network,
 		ExtraHosts:    live.ExtraHosts,
 		Tunnel:        editors,
+		WorkingCopies: workingCopiesOf(cfg),
 	}, claims, engine, mirrors, log.With("host", id))
 
 	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {

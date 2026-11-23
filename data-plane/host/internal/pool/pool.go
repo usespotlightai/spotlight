@@ -107,6 +107,44 @@ func (c *Client) Deregister(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) WorkingCopyArchive(ctx context.Context, assignment protocol.Assignment) (*protocol.StoredArchive, error) {
+	if assignment.SandboxID != "" {
+		sandbox, err := control.ForSandbox(c.base, assignment.SandboxID, assignment.SandboxToken)
+		if err != nil {
+			return nil, err
+		}
+		return sandbox.WorkingCopyArchive(ctx)
+	}
+
+	if assignment.Work.Run == nil {
+		return nil, nil
+	}
+
+	run, err := control.ForRun(c.base, assignment)
+	if err != nil {
+		return nil, err
+	}
+	return run.WorkingCopyArchive(ctx, assignment.Work.Run.ID)
+}
+
+func (c *Client) SnapshotRemovals(ctx context.Context) (protocol.SnapshotRemovals, error) {
+	var out protocol.SnapshotRemovals
+	if _, err := c.control.Request(ctx, http.MethodGet, "/api/hosts/snapshot-removals", nil, &out); err != nil {
+		return protocol.SnapshotRemovals{}, fmt.Errorf("read the snapshots to remove: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) ForgetSnapshotRemoval(ctx context.Context, archiveID string) error {
+	path := "/api/hosts/snapshot-removals/" + url.PathEscape(archiveID)
+	if _, err := c.control.Request(ctx, http.MethodDelete, path, nil, nil); err != nil {
+		return fmt.Errorf("say the snapshot is removed: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) path() string {
 	return "/api/hosts/" + url.PathEscape(c.host)
 }

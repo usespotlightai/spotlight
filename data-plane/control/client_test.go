@@ -604,7 +604,7 @@ func TestRequestsAWorkingCopyArchiveThenCompletesIt(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	grant, err := client.GrantArchive(context.Background(), "run_1", 42, "ab")
+	grant, err := client.GrantArchive(context.Background(), "run_1", protocol.ArchiveRequest{Size: 42, SHA256: "ab"})
 	if err != nil || grant.ID != "archive_1" || grant.Headers["content-type"] != "application/gzip" {
 		t.Fatalf("grant %+v, %v", grant, err)
 	}
@@ -659,7 +659,7 @@ func TestSaysWhyTheWorkspaceCannotBeArchived(t *testing.T) {
 		http.Error(w, `{"message":"A working copy archive cannot be stored, because this deployment has nowhere to store one"}`, http.StatusUnprocessableEntity)
 	})
 
-	_, err := client.GrantArchive(context.Background(), "run_1", 42, "ab")
+	_, err := client.GrantArchive(context.Background(), "run_1", protocol.ArchiveRequest{Size: 42, SHA256: "ab"})
 	if err == nil || !strings.Contains(err.Error(), "nowhere to store one") {
 		t.Errorf("err %v", err)
 	}

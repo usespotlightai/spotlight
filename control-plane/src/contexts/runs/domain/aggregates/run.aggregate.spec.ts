@@ -11,6 +11,13 @@ import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
+import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
+import {
+  type KeptStore,
+  SpotlightStorage,
+  StoreSnapshot,
+} from '@runs/domain/value-objects/archive-location.vo';
+import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
@@ -34,6 +41,10 @@ import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import {
+  SnapshotName,
+  WorkingCopyStoreName,
+} from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -477,6 +488,76 @@ describe('Run', () => {
 
     it('restores nothing for work without a working copy', () => {
       expect(working(orderedFor.spec(), {}).restoresFrom).toBeNull();
+    });
+
+    describe('when the store of its hosts has another base', () => {
+      const kept = (base: string | null, store = 's3://team-a'): KeptStore => ({
+        store: WorkingCopyStoreName.of(store),
+        base: base === null ? null : SnapshotName.of(base),
+      });
+      const inStore = (base: string | null, store = 's3://team-a') => ({
+        location: StoreSnapshot.of(
+          WorkingCopyStoreName.of(store),
+          base === null ? null : SnapshotName.of(base),
+        ),
+      });
+
+      it('rebases onto the current base when it starts no session of its own', () => {
+        const fresh = working(orderedFor.holdingTurn('task_1'), {});
+
+        expect(fresh.rebases(inStore('base-v1'), kept('base-v2'))).toBe(true);
+        expect(fresh.rebases(inStore(null), kept('base-v2'))).toBe(true);
+      });
+
+      it('keeps the working copy of the session it carries on', () => {
+        const carrying = working(orderedFor.holdingTurn('task_1'), {
+          sessionId: 'session_1',
+        });
+
+        expect(carrying.rebases(inStore('base-v1'), kept('base-v2'))).toBe(
+          false,
+        );
+      });
+
+      it('keeps a working copy of the current base, any when the store has no base, and one of another store', () => {
+        const fresh = working(orderedFor.holdingTurn('task_1'), {});
+
+        expect(fresh.rebases(inStore('base-v2'), kept('base-v2'))).toBe(false);
+        expect(fresh.rebases(inStore('base-v1'), kept(null))).toBe(false);
+        expect(fresh.rebases(inStore('base-v1'), null)).toBe(false);
+        expect(
+          fresh.rebases(inStore('base-v1', 's3://team-b'), kept('base-v2')),
+        ).toBe(false);
+      });
+
+      it('keeps the exact archive it was ordered to, as a replay or an assist session restores it', () => {
+        const exact = Run.enqueue({
+          id: RunId.of('run_1'),
+          workspaceId: WorkspaceId.of('ws_1'),
+          harness: HarnessId.of('dev'),
+          ...orderedFor.isolated(),
+          restore: WorkingCopyArchiveId.of('archive_1'),
+          spec: aSpec(),
+        });
+
+        expect(exact.rebases(inStore('base-v1'), kept('base-v2'))).toBe(false);
+      });
+
+      it('keeps a tar from Spotlight’s storage, which the runner restores into the working copy', () => {
+        const fresh = working(orderedFor.holdingTurn('task_1'), {});
+
+        expect(
+          fresh.rebases(
+            {
+              location: SpotlightStorage.of(
+                ArchiveSize.of(1),
+                ArchiveDigest.of('a'.repeat(64)),
+              ),
+            },
+            kept('base-v2'),
+          ),
+        ).toBe(false);
+      });
     });
 
     it('restores exactly the archive it was ordered to, before any of its key', () => {

@@ -37,6 +37,10 @@ import {
   ArchiveGrantResponseDto,
   StoredArchiveResponseDto,
 } from '@runs/presentation/http/dto/working-copy-archive.response.dto';
+import {
+  archiveGrantResponseOf,
+  archiveGrantRequestOf,
+} from '@runs/presentation/http/mappers/archive-grant.http.mapper';
 
 interface Answerable {
   status(code: number): unknown;
@@ -84,9 +88,7 @@ export class WorkingCopyArchiveController {
       return undefined;
     }
 
-    const { id, url, size, sha256 } = answer.archive;
-
-    return new StoredArchiveResponseDto(id, url, size, sha256);
+    return new StoredArchiveResponseDto(answer.archive);
   }
 
   @Post()
@@ -113,8 +115,7 @@ export class WorkingCopyArchiveController {
       new GrantWorkingCopyArchiveCommand(
         runId,
         runnerId,
-        body.size,
-        body.sha256,
+        archiveGrantRequestOf(body),
       ),
     );
 
@@ -122,11 +123,7 @@ export class WorkingCopyArchiveController {
       throw new NotFoundException();
     }
 
-    return new ArchiveGrantResponseDto(
-      granted.id,
-      granted.url,
-      granted.headers,
-    );
+    return archiveGrantResponseOf(granted);
   }
 
   @Post(':archiveId/complete')

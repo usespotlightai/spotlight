@@ -1,10 +1,9 @@
+import type { WorkingCopyStoresPort } from '@runners/application/ports/working-copy-stores.port';
 import type { WorkingCopyArchiveAnswer } from '@runs/application/dto/working-copy-archive.dto';
-import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
+import { keptStoreOf } from '@runs/application/mappers/kept-store.mapper';
 import type { StoredWorkingCopyArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
-import type { Run } from '@runs/domain/aggregates/run.aggregate';
-import type { WorkingCopyArchive } from '@runs/domain/aggregates/working-copy-archive.aggregate';
+import type { RestoredArchives } from '@runs/application/services/restored-archives.service';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
-import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -16,52 +15,38 @@ export class StoredWorkingCopyArchiveHandler implements QueryHandlerPort<
 > {
   constructor(
     private readonly runs: RunRepository,
-    private readonly archives: WorkingCopyArchiveRepository,
-    private readonly store: WorkingCopyArchiveStorePort,
+    private readonly restored: RestoredArchives,
+    private readonly stores: WorkingCopyStoresPort,
   ) {}
 
   async execute(
     query: StoredWorkingCopyArchiveQuery,
   ): Promise<WorkingCopyArchiveAnswer> {
     try {
+      const runner = RunnerId.of(query.runnerId);
       const run = await this.runs.findById(RunId.of(query.runId));
 
-      if (!run?.isLeasedBy(RunnerId.of(query.runnerId))) {
+      if (!run?.isLeasedBy(runner)) {
         return { leased: false };
       }
 
-      const archive = await this.restoredBy(run);
+      const archive = await this.restored.of(run);
 
       if (!archive) {
         return { leased: true, archive: null };
       }
 
+      const kept = keptStoreOf(await this.stores.ofRunner(runner));
+
       return {
         leased: true,
-        archive: {
-          id: archive.id.value,
-          url: await this.store.grantDownload(archive),
-          size: archive.size.bytes,
-          sha256: archive.digest.sha256,
-        },
+        archive: await this.restored.answer(
+          archive,
+          run.rebases(archive, kept),
+        ),
       };
     } catch (error) {
       rethrowAsApplicationError(error);
     }
-  }
-
-  private async restoredBy(run: Run): Promise<WorkingCopyArchive | null> {
-    const source = run.restoresFrom;
-
-    if (!source) {
-      return null;
-    }
-
-    const candidate =
-      'archive' in source
-        ? await this.archives.find(source.archive)
-        : await this.archives.newestCompleted(run.workspaceId, source.newestOf);
-
-    return run.archiveToRestore(candidate ? [candidate] : []);
   }
 }

@@ -15,6 +15,13 @@
       "when": 1795469418171,
       "tag": "20261123213018_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795474790070,
+      "tag": "20261123225950_working_copy_stores",
+      "breakpoints": true
     }
   ]
 }
