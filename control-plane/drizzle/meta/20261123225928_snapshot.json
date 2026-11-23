@@ -1,5 +1,5 @@
 {
-  "id": "8607872e-0887-48a1-8379-36984932ecbc",
+  "id": "782a02b8-1408-46d0-9994-e00aeacbe91b",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -15139,6 +15139,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "platform": {
+          "name": "platform",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "host_id": {
           "name": "host_id",
           "type": "text",
@@ -15234,6 +15241,12 @@
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "last_heartbeat_at": {
           "name": "last_heartbeat_at",
@@ -15361,6 +15374,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "runner_claimed_with_work": {
+          "name": "runner_claimed_with_work",
+          "value": "(\"runner\".\"work_kind\" is null) = (\"runner\".\"claimed_at\" is null)"
+        },
         "runner_whole_work": {
           "name": "runner_whole_work",
           "value": "(\"runner\".\"work_kind\" is null) = (\"runner\".\"work_id\" is null)"
@@ -15653,6 +15670,20 @@
           "notNull": true,
           "default": false
         },
+        "allows_secrets": {
+          "name": "allows_secrets",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "allows_review_work": {
+          "name": "allows_review_work",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -15730,6 +15761,10 @@
         "runner_pool_disabled_platform": {
           "name": "runner_pool_disabled_platform",
           "value": "not \"runner_pool\".\"disabled\" or \"runner_pool\".\"platform\""
+        },
+        "runner_pool_allows_platform": {
+          "name": "runner_pool_allows_platform",
+          "value": "(not \"runner_pool\".\"allows_secrets\" and not \"runner_pool\".\"allows_review_work\") or \"runner_pool\".\"platform\""
         }
       },
       "isRLSEnabled": false
@@ -16809,6 +16844,25 @@
           "primaryKey": false,
           "notNull": false
         },
+        "ran_on_kind": {
+          "name": "ran_on_kind",
+          "type": "runner_source_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ran_on_key": {
+          "name": "ran_on_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ran_on_platform": {
+          "name": "ran_on_platform",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
         "claimed_by": {
           "name": "claimed_by",
           "type": "text",
@@ -17300,6 +17354,10 @@
         "run_working_copy_check": {
           "name": "run_working_copy_check",
           "value": "(\"run\".\"working_copy_key\" is null) = (\"run\".\"working_copy_rejoinable\" is null) and (\"run\".\"working_copy_key\" is null) = (\"run\".\"working_copy_restores\" is null)"
+        },
+        "run_ran_on_check": {
+          "name": "run_ran_on_check",
+          "value": "(\"run\".\"ran_on_kind\" is null) = (\"run\".\"ran_on_key\" is null) and (\"run\".\"ran_on_kind\" is null) = (\"run\".\"ran_on_platform\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -17500,6 +17558,58 @@
           "value": "\"run_usage\".\"currency\" ~ '^[A-Z]{3}$'"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.run_wait": {
+      "name": "run_wait",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "run_wait_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "queued_at": {
+          "name": "queued_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "since": {
+          "name": "since",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "run_wait_run_id_run_id_fk": {
+          "name": "run_wait_run_id_run_id_fk",
+          "tableFrom": "run_wait",
+          "tableTo": "run",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.starting_point_hold": {
@@ -21847,6 +21957,24 @@
       "values": [
         "pending",
         "kept"
+      ]
+    },
+    "public.run_wait_reason": {
+      "name": "run_wait_reason",
+      "schema": "public",
+      "values": [
+        "hosts-pull",
+        "no-pool-has-room",
+        "platform-pool-not-allowed",
+        "no-pool-matches"
+      ]
+    },
+    "public.runner_source_kind": {
+      "name": "runner_source_kind",
+      "schema": "public",
+      "values": [
+        "pool",
+        "trust"
       ]
     },
     "public.working_copy_restores": {
