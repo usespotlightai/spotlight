@@ -1,3 +1,4 @@
+import type { WorkingCopyStoreContract } from '@runners/application/contracts/working-copy-store.contract';
 import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
@@ -15,6 +16,7 @@ export interface RunnerTrustResourceDto extends ResourceDto {
   readonly subject: string;
   readonly audience: string;
   readonly labels: readonly string[];
+  readonly workingCopies: WorkingCopyStoreContract | null;
 }
 
 export interface RunnerPoolResourceDto extends ResourceDto {
@@ -29,6 +31,7 @@ export interface RunnerPoolResourceDto extends ResourceDto {
     readonly egress: string | null;
     readonly egressTraffic: 'all' | 'bound';
   } | null;
+  readonly workingCopies: WorkingCopyStoreContract | null;
 }
 
 export interface EgressResourceDto extends ResourceDto {

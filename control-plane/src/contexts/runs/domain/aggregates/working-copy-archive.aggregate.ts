@@ -4,14 +4,20 @@ import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-
 import { WorkingCopyArchiveNotUploadedError } from '@runs/domain/exceptions/working-copy-archive-not-uploaded.error';
 import type { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import type { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
+import {
+  type ArchiveLocation,
+  StoreSnapshot,
+} from '@runs/domain/value-objects/archive-location.vo';
 import type { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
+import { SnapshotRemoval } from '@runs/domain/value-objects/snapshot-removal.vo';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
+import type { SnapshotName } from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const RETENTION_AFTER_RELEASE_MS = 7 * 24 * 60 * 60_000;
@@ -48,8 +54,7 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly workingCopyKey: WorkingCopyKey;
   readonly grantedTo: ArchiveGrantee;
-  readonly size: ArchiveSize;
-  readonly digest: ArchiveDigest;
+  readonly location: ArchiveLocation;
   readonly grantedAt: Date;
   readonly completedAt: Date | null;
   readonly version: number;
@@ -61,6 +66,7 @@ export class WorkingCopyArchive extends EventRecorder {
   private constructor(
     private readonly state: State,
     readonly isDiscarded: boolean,
+    private readonly removedAt: Date | null = null,
   ) {
     super();
   }
@@ -71,8 +77,7 @@ export class WorkingCopyArchive extends EventRecorder {
     workingCopyKey: WorkingCopyKey | null;
     held: boolean;
     grantee: ArchiveGrantee;
-    size: ArchiveSize;
-    digest: ArchiveDigest;
+    location: ArchiveLocation;
     at: Date;
   }): WorkingCopyArchive {
     const { workingCopyKey, held } = input;
@@ -89,8 +94,7 @@ export class WorkingCopyArchive extends EventRecorder {
         workspaceId: input.workspaceId,
         workingCopyKey,
         grantedTo: input.grantee,
-        size: input.size,
-        digest: input.digest,
+        location: input.location,
         grantedAt: input.at,
         completedAt: null,
         version: 0,
@@ -144,12 +148,15 @@ export class WorkingCopyArchive extends EventRecorder {
     return this.state.grantedTo;
   }
 
-  get size(): ArchiveSize {
-    return this.state.size;
+  get location(): ArchiveLocation {
+    return this.state.location;
   }
 
-  get digest(): ArchiveDigest {
-    return this.state.digest;
+  // The snapshot that holds the archive in a store of the hosts; null for an archive in Spotlight's storage.
+  get snapshot(): SnapshotName | null {
+    return this.state.location.kind === 'snapshot'
+      ? StoreSnapshot.nameOf(this.state.id)
+      : null;
   }
 
   get grantedAt(): Date {
@@ -198,9 +205,16 @@ export class WorkingCopyArchive extends EventRecorder {
     return this.state.grantedTo.isSandbox(sandboxId);
   }
 
+  // A snapshot is complete once the host has made it; Spotlight cannot reach the store to check it.
   complete(stored: StoredArchive | null, at: Date): WorkingCopyArchive {
     if (this.isCompleted) {
       return this;
+    }
+
+    const { location } = this.state;
+
+    if (location.kind === 'snapshot') {
+      return this.with({ completedAt: at });
     }
 
     if (!stored) {
@@ -211,8 +225,8 @@ export class WorkingCopyArchive extends EventRecorder {
     }
 
     if (
-      !stored.size.equals(this.state.size) ||
-      !stored.digest.equals(this.state.digest)
+      !stored.size.equals(location.size) ||
+      !stored.digest.equals(location.digest)
     ) {
       throw new WorkingCopyArchiveNotUploadedError(
         this.state.id.value,
@@ -272,10 +286,25 @@ export class WorkingCopyArchive extends EventRecorder {
       );
     }
 
-    const discarded = new WorkingCopyArchive(this.state, true);
+    const discarded = new WorkingCopyArchive(this.state, true, now);
     discarded.inheritEvents(this);
 
     return discarded;
+  }
+
+  // The snapshot that a host of the store deletes once this archive is removed; null for a tar, which Spotlight's
+  // storage deletes, and for an archive not removed.
+  get snapshotRemoval(): SnapshotRemoval | null {
+    const { location } = this.state;
+
+    return this.removedAt && location.kind === 'snapshot'
+      ? SnapshotRemoval.of({
+          archiveId: this.state.id,
+          workspaceId: this.state.workspaceId,
+          store: location.store,
+          queuedAt: this.removedAt,
+        })
+      : null;
   }
 
   private with(part: Partial<State>): WorkingCopyArchive {

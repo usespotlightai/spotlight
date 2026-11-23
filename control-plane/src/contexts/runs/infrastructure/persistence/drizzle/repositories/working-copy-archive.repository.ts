@@ -5,6 +5,11 @@ import { WorkingCopyArchiveVersionConflictError } from '@runs/domain/exceptions/
 import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
+import {
+  type ArchiveLocation,
+  StoreSnapshot,
+  SpotlightStorage,
+} from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
@@ -16,6 +21,10 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
+import {
+  SnapshotName,
+  WorkingCopyStoreName,
+} from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
@@ -36,14 +45,49 @@ const granteeOf = (row: Row): ArchiveGrantee => {
   );
 };
 
+const locationOf = (row: Row): ArchiveLocation => {
+  if (row.snapshotStore !== null) {
+    return StoreSnapshot.of(
+      WorkingCopyStoreName.of(row.snapshotStore),
+      row.snapshotBase === null ? null : SnapshotName.of(row.snapshotBase),
+    );
+  }
+
+  if (row.size === null || row.sha256 === null) {
+    throw new InconsistentStateError(
+      'working copy archive',
+      `is kept neither in Spotlight's storage nor in a store of the hosts (${row.id})`,
+    );
+  }
+
+  return SpotlightStorage.of(
+    ArchiveSize.of(row.size),
+    ArchiveDigest.of(row.sha256),
+  );
+};
+
+const locationColumns = (location: ArchiveLocation) =>
+  location.kind === 'snapshot'
+    ? {
+        size: null,
+        sha256: null,
+        snapshotStore: location.store.value,
+        snapshotBase: location.base?.value ?? null,
+      }
+    : {
+        size: location.size.bytes,
+        sha256: location.digest.sha256,
+        snapshotStore: null,
+        snapshotBase: null,
+      };
+
 export const toArchive = (row: Row): WorkingCopyArchive =>
   WorkingCopyArchive.rehydrate({
     id: WorkingCopyArchiveId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     workingCopyKey: WorkingCopyKey.parse(row.workingCopyKey),
     grantedTo: granteeOf(row),
-    size: ArchiveSize.of(row.size),
-    digest: ArchiveDigest.of(row.sha256),
+    location: locationOf(row),
     grantedAt: row.grantedAt,
     completedAt: row.completedAt,
     version: row.version,
@@ -67,8 +111,7 @@ export class DrizzleWorkingCopyArchiveRepository
         workingCopyKey: added.workingCopyKey.value,
         grantedToRunId: added.grantedTo.runId?.value ?? null,
         grantedToSandboxId: added.grantedTo.sandboxId?.value ?? null,
-        size: added.size.bytes,
-        sha256: added.digest.sha256,
+        ...locationColumns(added.location),
         grantedAt: added.grantedAt,
         completedAt: added.completedAt,
         version: added.version,

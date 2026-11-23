@@ -16,6 +16,7 @@ const authenticator: RunnerAuthenticatorPort = {
       ? {
           source: { kind: 'pool', id: 'pool_1' },
           workspaceId: WorkspaceId.of('ws_1'),
+          workingCopies: null,
         }
       : null,
 };

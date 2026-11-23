@@ -18,6 +18,10 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import {
+  workingCopyStoreColumns,
+  workingCopyStoreOf,
+} from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
 import { and, eq, inArray } from 'drizzle-orm';
 
 type Row = typeof runnerTrust.$inferSelect;
@@ -33,6 +37,7 @@ const toTrust = (row: Row): RunnerTrust =>
       audience: row.audience,
     }),
     labels: RunnerLabels.of(row.labels),
+    workingCopies: workingCopyStoreOf(row),
     version: row.version,
   });
 
@@ -42,6 +47,7 @@ const definitionOf = (trust: RunnerTrust) => ({
   subject: trust.workload.subject,
   audience: trust.workload.audience,
   labels: [...trust.labels.values],
+  ...workingCopyStoreColumns(trust.workingCopies),
 });
 
 @Injectable()

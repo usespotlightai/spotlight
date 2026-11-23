@@ -32,7 +32,7 @@ func isolated(t *testing.T) string {
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
 		"SPOTLIGHT_EGRESS_CA_BUNDLE", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
-		"SPOTLIGHT_HEALTH_ADDR", "LOG_LEVEL",
+		"SPOTLIGHT_HEALTH_ADDR", "LOG_LEVEL", "SPOTLIGHT_WORKING_COPY_HOOK",
 	} {
 		t.Setenv(name, "")
 	}
@@ -451,5 +451,32 @@ func TestSuggestsTheRuntimesMemoryLessTheHostsSharedBetweenTheSandboxesInWholeMe
 		if got := config.SuggestedSandboxMemory(each.memory, each.sandboxes); got != each.want {
 			t.Errorf("%s for %d sandboxes: got %q, want %q", config.FormatSize(each.memory), each.sandboxes, got, each.want)
 		}
+	}
+}
+
+func TestRunsAWorkingCopyHook(t *testing.T) {
+	dir := isolated(t)
+	write(t, filepath.Join(dir, "host.env"),
+		"SPOTLIGHT_URL=https://spotlight.test\nSPOTLIGHT_POOL_TOKEN=pool-token\nSPOTLIGHT_WORKING_COPY_HOOK=/usr/local/bin/working-copy-hook\n")
+
+	cfg, err := config.Load("dev")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.WorkingCopyHook != "/usr/local/bin/working-copy-hook" {
+		t.Errorf("working copy hook %q", cfg.WorkingCopyHook)
+	}
+}
+
+func TestRefusesAWorkingCopyHookThatIsNoAbsolutePath(t *testing.T) {
+	dir := isolated(t)
+	write(t, filepath.Join(dir, "host.env"),
+		"SPOTLIGHT_URL=https://spotlight.test\nSPOTLIGHT_POOL_TOKEN=pool-token\nSPOTLIGHT_WORKING_COPY_HOOK=working-copy-hook\n")
+
+	_, err := config.Load("dev")
+
+	if err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_WORKING_COPY_HOOK") || !strings.Contains(err.Error(), "not an absolute path") {
+		t.Errorf("error %v", err)
 	}
 }

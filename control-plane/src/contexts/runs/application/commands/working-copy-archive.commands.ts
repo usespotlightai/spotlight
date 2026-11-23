@@ -1,11 +1,16 @@
 import type { AppendedJournalEntry } from '@runs/application/commands/runner.commands';
 
+// A tar the runner uploads to Spotlight's storage, or a snapshot its host makes, which descends from base. Where it is
+// kept follows from the runner's pool or trust, not from the request.
+export type ArchiveGrantRequest =
+  | { readonly kind: 'tar'; readonly size: number; readonly sha256: string }
+  | { readonly kind: 'snapshot'; readonly base: string | null };
+
 export class GrantWorkingCopyArchiveCommand {
   constructor(
     readonly runId: string,
     readonly runnerId: string,
-    readonly size: number,
-    readonly sha256: string,
+    readonly archive: ArchiveGrantRequest,
   ) {}
 }
 
@@ -21,8 +26,7 @@ export class GrantSandboxArchiveCommand {
   constructor(
     readonly sandboxId: string,
     readonly token: string | undefined,
-    readonly size: number,
-    readonly sha256: string,
+    readonly archive: ArchiveGrantRequest,
   ) {}
 }
 

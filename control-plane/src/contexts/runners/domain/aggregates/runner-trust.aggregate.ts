@@ -8,6 +8,7 @@ import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.v
 import type { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import type { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -20,6 +21,8 @@ interface TrustDefinition {
   readonly key: TrustKey;
   readonly workload: TrustedWorkload;
   readonly labels: RunnerLabels;
+  // Where its hosts keep the working copies of runs. With none, Spotlight keeps them as archives.
+  readonly workingCopies?: WorkingCopyStore | null;
 }
 
 export class RunnerTrust extends EventRecorder {
@@ -31,6 +34,7 @@ export class RunnerTrust extends EventRecorder {
     readonly labels: RunnerLabels,
     readonly version: number,
     readonly isDeleted: boolean,
+    readonly workingCopies: WorkingCopyStore | null = null,
   ) {
     super();
   }
@@ -50,6 +54,7 @@ export class RunnerTrust extends EventRecorder {
       input.labels,
       0,
       false,
+      input.workingCopies ?? null,
     );
 
     created.record(
@@ -86,6 +91,7 @@ export class RunnerTrust extends EventRecorder {
       input.labels,
       input.version,
       false,
+      input.workingCopies ?? null,
     );
   }
 
@@ -119,6 +125,7 @@ export class RunnerTrust extends EventRecorder {
     const updated = this.with({
       workload: definition.workload,
       labels: definition.labels,
+      workingCopies: definition.workingCopies ?? null,
     });
 
     updated.record(
@@ -171,6 +178,7 @@ export class RunnerTrust extends EventRecorder {
     workload?: TrustedWorkload;
     labels?: RunnerLabels;
     deleted?: boolean;
+    workingCopies?: WorkingCopyStore | null;
   }): RunnerTrust {
     const next = new RunnerTrust(
       this.id,
@@ -180,6 +188,9 @@ export class RunnerTrust extends EventRecorder {
       part.labels ?? this.labels,
       this.version,
       part.deleted ?? this.isDeleted,
+      part.workingCopies !== undefined
+        ? part.workingCopies
+        : this.workingCopies,
     );
 
     next.inheritEvents(this);

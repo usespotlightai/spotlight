@@ -4,6 +4,7 @@ import type {
   ArchiveDue,
   ArchiveReferencesPort,
 } from '@runs/application/ports/archive-references.port';
+import type { SnapshotRemovalsPort } from '@runs/application/ports/snapshot-removals.port';
 import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
 import type { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import {
@@ -39,6 +40,7 @@ export class RemoveReleasedArchives {
     private readonly holders: ArchiveHolders,
     private readonly archives: WorkingCopyArchiveRepository,
     private readonly store: WorkingCopyArchiveStorePort,
+    private readonly snapshots: SnapshotRemovalsPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -93,13 +95,26 @@ export class RemoveReleasedArchives {
         return null;
       }
 
-      await this.archives.save(archive.remove(now, facts));
+      const removed = archive.remove(now, facts);
+      const { snapshotRemoval } = removed;
+
+      // The removal is queued before the archive goes, in the same transaction, so a snapshot is never left with no
+      // archive and no removal.
+      if (snapshotRemoval) {
+        await this.snapshots.queue(snapshotRemoval);
+      }
+
+      await this.archives.save(removed);
 
       return archive;
     });
   }
 
   private async removeStored(archive: WorkingCopyArchive): Promise<void> {
+    if (archive.location.kind !== 'spotlight') {
+      return;
+    }
+
     try {
       await this.store.remove(archive);
     } catch (error) {

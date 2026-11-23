@@ -50,6 +50,8 @@ type Config struct {
 	LogLevel      string
 	Sampler       string
 	SamplerArg    string
+	// WorkingCopyHook is the program that keeps working copies in the store of the host's pool or trust.
+	WorkingCopyHook string
 }
 
 type Egress struct {
@@ -87,6 +89,7 @@ const (
 	envDocker     = "DOCKER_HOST"
 	envAutoUpdate = "SPOTLIGHT_AUTO_UPDATE"
 	envReleases   = "SPOTLIGHT_RELEASES_URL"
+	envHook       = "SPOTLIGHT_WORKING_COPY_HOOK"
 )
 
 const (
@@ -255,6 +258,10 @@ func parse(version string, saved map[string]string, fromEnv bool) (Config, error
 		if err != nil {
 			note(fmt.Errorf("%s: %q is not true or false", envAutoUpdate, raw))
 		}
+	}
+
+	if cfg.WorkingCopyHook = get(envHook); cfg.WorkingCopyHook != "" && !filepath.IsAbs(cfg.WorkingCopyHook) {
+		note(fmt.Errorf("%s: %q is not an absolute path, such as /usr/local/bin/working-copy-hook", envHook, cfg.WorkingCopyHook))
 	}
 
 	cfg.Releases = strings.TrimSuffix(get(envReleases), "/")

@@ -1018,6 +1018,91 @@
         ]
       }
     },
+    "/hosts/snapshot-removals": {
+      "get": {
+        "description": "Spotlight cannot reach the store of the hosts’ working copy hook, so a host of the store deletes the snapshot of each removed archive, then forgets the removal. Lists only the removals of the host’s workspace and store, oldest first, at most 100 at a time.",
+        "operationId": "listSnapshotRemovals",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotRemovalsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token, or a workload the trust does not match"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The snapshots of removed archives that a host of this pool or trust deletes from its store",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/hosts/snapshot-removals/{archiveId}": {
+      "delete": {
+        "operationId": "forgetSnapshotRemoval",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archiveId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token, or a workload the trust does not match"
+          },
+          "404": {
+            "description": "No such removal in the workspace and store of the host’s pool or trust"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Say the snapshot of a removed archive is deleted from the store",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/hosts/claim": {
       "post": {
         "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs. A warm sandbox (`work.warm`) has no key: the host clones the line’s repositories from its mirrors and runs their setup, then claims with `sandbox` like any live sandbox, and a task’s first run on that line is claimed into it.",
@@ -3574,6 +3659,38 @@
           "failed"
         ]
       },
+      "StoredSnapshotResponseDto": {
+        "type": "object",
+        "properties": {
+          "store": {
+            "type": "string",
+            "example": "s3://team-a",
+            "description": "The store that keeps the snapshot"
+          },
+          "name": {
+            "type": "string",
+            "example": "spotlight-0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31",
+            "description": "The snapshot a host of that store opens the working copy from"
+          },
+          "base": {
+            "type": "string",
+            "nullable": true,
+            "example": "base-v1",
+            "description": "The base snapshot the working copy descends from; null for one that started without a base"
+          },
+          "rebase": {
+            "type": "boolean",
+            "example": false,
+            "description": "true when the run starts from the current base of the host’s store instead: it starts no session of its own, and the working copy descends from another base"
+          }
+        },
+        "required": [
+          "store",
+          "name",
+          "base",
+          "rebase"
+        ]
+      },
       "StoredArchiveResponseDto": {
         "type": "object",
         "properties": {
@@ -3583,15 +3700,26 @@
           },
           "url": {
             "type": "string",
-            "description": "Where to GET the archive, for a quarter of an hour"
+            "nullable": true,
+            "description": "Where to GET the archive, for a quarter of an hour. null for a snapshot"
           },
           "size": {
-            "type": "number",
+            "type": "integer",
+            "nullable": true,
             "example": 48213551
           },
           "sha256": {
             "type": "string",
+            "nullable": true,
             "example": "9f2c1d0e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f10"
+          },
+          "snapshot": {
+            "description": "For a snapshot: only a host whose working copy hook reaches the store restores it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoredSnapshotResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -3601,23 +3729,51 @@
           "sha256"
         ]
       },
+      "SnapshotArchiveRequestDto": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "nullable": true,
+            "example": "base-v1",
+            "description": "The base snapshot the working copy descends from: the store’s current base, or the base of the working copy the run restored. Null or left out for one that started without a base. Spotlight takes the store from the runner’s pool or trust"
+          }
+        }
+      },
       "GrantWorkingCopyArchiveRequestDto": {
         "type": "object",
         "properties": {
           "size": {
             "type": "number",
             "example": 48213551,
-            "description": "The archive’s size in bytes, as it will be uploaded"
+            "description": "The archive’s size in bytes, as it will be uploaded. Not with snapshot"
           },
           "sha256": {
             "type": "string",
             "example": "9f2c1d0e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f10",
-            "description": "The archive’s SHA-256, as 64 hexadecimal digits"
+            "description": "The archive’s SHA-256, as 64 hexadecimal digits. Not with snapshot"
+          },
+          "snapshot": {
+            "description": "The archive is a snapshot that the host makes in the store of the runner’s pool or trust, not a tar. Only for a runner whose pool or trust keeps working copies in a store; any other runner uploads a tar",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotArchiveRequestDto"
+              }
+            ]
+          }
+        }
+      },
+      "SnapshotGrantResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "spotlight-0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31",
+            "description": "The snapshot the host makes of the working copy; then the runner completes the archive"
           }
         },
         "required": [
-          "size",
-          "sha256"
+          "name"
         ]
       },
       "ArchiveGrantResponseDto": {
@@ -3629,7 +3785,8 @@
           },
           "url": {
             "type": "string",
-            "description": "Where to PUT the archive, for a quarter of an hour; the upload must carry every header given"
+            "nullable": true,
+            "description": "Where to PUT the archive, for a quarter of an hour; the upload must carry every header given. null for a snapshot"
           },
           "headers": {
             "type": "object",
@@ -3640,6 +3797,14 @@
               "content-type": "application/gzip",
               "x-amz-checksum-sha256": "nywdDot6b15NPCsaD56NfG5Kp9PS0bmo9+bWxLOqLxA="
             }
+          },
+          "snapshot": {
+            "description": "For a snapshot: the snapshot to make",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotGrantResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -3732,6 +3897,26 @@
           "minimum"
         ]
       },
+      "HostWorkingCopiesResponseDto": {
+        "type": "object",
+        "properties": {
+          "store": {
+            "type": "string",
+            "example": "s3://team-a",
+            "description": "The store the host’s working copy hook keeps working copies in; the host passes it to the hook"
+          },
+          "base": {
+            "type": "string",
+            "nullable": true,
+            "example": "base-v1",
+            "description": "The snapshot a new working copy starts from; with null, the hook starts one as it sees fit"
+          }
+        },
+        "required": [
+          "store",
+          "base"
+        ]
+      },
       "HostRequirementsResponseDto": {
         "type": "object",
         "properties": {
@@ -3768,6 +3953,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "workingCopies": {
+            "nullable": true,
+            "description": "Where the hosts of this pool or trust keep the working copies of runs: the store of their working copy hook. A host claims only once its hook says it can serve the store. With null, the runner restores and stores archives in Spotlight",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HostWorkingCopiesResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -3775,7 +3970,8 @@
           "runner",
           "harnesses",
           "images",
-          "harnessKeys"
+          "harnessKeys",
+          "workingCopies"
         ]
       },
       "HarnessKeysRequestDto": {
@@ -3876,6 +4072,46 @@
           "bound",
           "secrets",
           "denied"
+        ]
+      },
+      "SnapshotRemovalResponseDto": {
+        "type": "object",
+        "properties": {
+          "archiveId": {
+            "type": "string",
+            "example": "0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31",
+            "description": "The removed archive; DELETE /api/hosts/snapshot-removals/{archiveId} once the snapshot is deleted"
+          },
+          "snapshot": {
+            "type": "string",
+            "example": "spotlight-0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31",
+            "description": "The snapshot to delete from the store"
+          }
+        },
+        "required": [
+          "archiveId",
+          "snapshot"
+        ]
+      },
+      "SnapshotRemovalsResponseDto": {
+        "type": "object",
+        "properties": {
+          "store": {
+            "type": "string",
+            "nullable": true,
+            "example": "s3://team-a",
+            "description": "The store of the host’s pool or trust; null when it keeps no working copies in a store of its hosts"
+          },
+          "removals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SnapshotRemovalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "store",
+          "removals"
         ]
       },
       "ClaimHostWorkRequestDto": {

@@ -2,6 +2,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -33,6 +34,7 @@ import {
   RecordHostCallResponseCommand,
 } from '@runs/application/commands/host-call.commands';
 import { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
+import { ForgetSnapshotRemovalCommand } from '@runs/application/commands/snapshot-removal.commands';
 import type { HarnessKeysDto } from '@runs/application/dto/harness-keys.dto';
 import type {
   HostCallClaimDto,
@@ -40,7 +42,12 @@ import type {
 } from '@runs/application/dto/host-call.dto';
 import type { HostRequirementsDto } from '@runs/application/dto/host-requirements.dto';
 import type { HostClaimDto } from '@runs/application/dto/host.dto';
+import type {
+  SnapshotRemovalsDto,
+  ForgottenSnapshotRemovalDto,
+} from '@runs/application/dto/snapshot-removal.dto';
 import {
+  SnapshotRemovalsQuery,
   HarnessKeysQuery,
   HostRequirementsQuery,
 } from '@runs/application/queries/host.queries';
@@ -58,12 +65,14 @@ import {
   HostRequirementsResponseDto,
   RunnerReleaseResponseDto,
 } from '@runs/presentation/http/dto/host-requirements.response.dto';
+import { HostWorkingCopiesResponseDto } from '@runs/presentation/http/dto/host-working-copies.response.dto';
 import { HostClaimResponseDto } from '@runs/presentation/http/dto/host.response.dto';
 import {
   ClaimedWorkResponseDto,
   WarmCheckoutResponseDto,
   WarmSandboxResponseDto,
 } from '@runs/presentation/http/dto/runner.response.dto';
+import { SnapshotRemovalsResponseDto } from '@runs/presentation/http/dto/snapshot-removal.response.dto';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 import { EgressSecretsHttpMapper } from '@runs/presentation/http/mappers/egress-secrets.http.mapper';
 import { HostCallResponseHttpMapper } from '@runs/presentation/http/mappers/host-call-response.http.mapper';
@@ -127,6 +136,7 @@ export class HostWorkController {
       ),
       required.images,
       required.harnessKeys,
+      HostWorkingCopiesResponseDto.of(required.workingCopies),
     );
   }
 
@@ -163,6 +173,66 @@ export class HostWorkController {
     }
 
     return EgressSecretsHttpMapper.toHarnessKeysResponse(fetched);
+  }
+
+  @Get('snapshot-removals')
+  @ApiOperation({
+    operationId: 'listSnapshotRemovals',
+    summary:
+      'The snapshots of removed archives that a host of this pool or trust deletes from its store',
+    description:
+      'Spotlight cannot reach the store of the hosts’ working copy hook, so a host of the store deletes the snapshot of each removed archive, then forgets the removal. Lists only the removals of the host’s workspace and store, oldest first, at most 100 at a time.',
+  })
+  @ApiOkResponse({ type: SnapshotRemovalsResponseDto })
+  async snapshotRemovals(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers(TRUST_HEADER) trust: string | undefined,
+  ): Promise<SnapshotRemovalsResponseDto> {
+    const listed = await this.queryBus.execute<
+      SnapshotRemovalsQuery,
+      SnapshotRemovalsDto
+    >(new SnapshotRemovalsQuery({ bearer: bearerIn(authorization), trust }));
+
+    if (listed.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
+    }
+
+    return new SnapshotRemovalsResponseDto(listed.store, listed.removals);
+  }
+
+  @Delete('snapshot-removals/:archiveId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'forgetSnapshotRemoval',
+    summary: 'Say the snapshot of a removed archive is deleted from the store',
+  })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({
+    description:
+      'No such removal in the workspace and store of the host’s pool or trust',
+  })
+  async forgetSnapshotRemoval(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers(TRUST_HEADER) trust: string | undefined,
+    @Param('archiveId') archiveId: string,
+  ): Promise<void> {
+    const forgotten = await this.commandBus.execute<
+      ForgetSnapshotRemovalCommand,
+      ForgottenSnapshotRemovalDto
+    >(
+      new ForgetSnapshotRemovalCommand(
+        { bearer: bearerIn(authorization), trust },
+        archiveId,
+      ),
+    );
+
+    if (forgotten.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
+    }
+
+    if (forgotten.outcome === 'unknown') {
+      throw new NotFoundException();
+    }
   }
 
   @Post('claim')

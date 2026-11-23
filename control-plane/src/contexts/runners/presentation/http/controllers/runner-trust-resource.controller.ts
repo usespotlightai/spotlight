@@ -26,6 +26,7 @@ import {
   ReadRunnerTrustQuery,
 } from '@runners/application/queries/runner-resource.queries';
 import { RunnerTrustResourceResponseDto } from '@runners/presentation/http/dto/runner-resource.response.dto';
+import { WORKING_COPIES_SCHEMA } from '@runners/presentation/http/dto/working-copies.request-schema';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -64,6 +65,7 @@ const DEFINITION = ApiBody({
         items: { type: 'string' },
         example: ['vpc-internal'],
       },
+      workingCopies: WORKING_COPIES_SCHEMA,
     },
   },
 });

@@ -141,7 +141,12 @@ export class InMemoryArchiveStore implements WorkingCopyArchiveStorePort {
   async grantUpload(archive: WorkingCopyArchive): Promise<ArchiveUpload> {
     return {
       url: `https://storage.test/put/${archive.id.value}`,
-      headers: { 'x-amz-checksum-sha256': archive.digest.sha256 },
+      headers: {
+        'x-amz-checksum-sha256':
+          archive.location.kind === 'spotlight'
+            ? archive.location.digest.sha256
+            : '',
+      },
     };
   }
 

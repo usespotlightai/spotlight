@@ -83,6 +83,7 @@ describe('RunnerConfiguration', () => {
           subject: 'runner',
           audience: 'spotlight',
           labels: ['gpu'],
+          workingCopies: null,
         },
       ],
       pools: [
@@ -95,6 +96,7 @@ describe('RunnerConfiguration', () => {
           maxRuns: 4,
           tokenVersion: 2,
           provision: null,
+          workingCopies: null,
         },
       ],
       egresses: [

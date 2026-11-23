@@ -78,6 +78,7 @@ export class CreateRunnerTrustHandler implements CommandHandlerPort<
               key: compiled.key,
               workload: compiled.workload,
               labels: compiled.labels,
+              workingCopies: compiled.workingCopies,
             });
 
             await this.trusts.add(trust);

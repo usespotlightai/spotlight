@@ -79,6 +79,7 @@ const TRUST = {
   subject: 'runner',
   audience: 'spotlight',
   labels: [],
+  workingCopies: null,
 };
 
 const OIDC_TRUST = {
@@ -104,6 +105,10 @@ const POOL = {
   maxRuns: 4,
   tokenVersion: 1,
   provision: null,
+  workingCopies: {
+    store: 's3://team-a',
+    base: 'base-v1',
+  },
 };
 
 const DECLARED = {
@@ -442,7 +447,7 @@ describe('ResourceConfigurationHandler', () => {
     },
   );
 
-  it('contains a pool with its labels, its limit and the token version it pulls with', async () => {
+  it('contains a pool with its labels, its limit, the token version it pulls with and where its hosts keep working copies', async () => {
     expect((await one('runner-pool', 'pool_1'))?.resource).toEqual({
       kind: 'runner-pool',
       ownedBy: 'workspace',
@@ -453,6 +458,10 @@ describe('ResourceConfigurationHandler', () => {
       maxRuns: 4,
       tokenVersion: 1,
       provision: null,
+      workingCopies: {
+        store: 's3://team-a',
+        base: 'base-v1',
+      },
     });
   });
 

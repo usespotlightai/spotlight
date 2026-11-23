@@ -1,3 +1,4 @@
+import type { WorkingCopyStoreContract } from '@runners/application/contracts/working-copy-store.contract';
 import type { CredentialSourceKeys } from '@runners/domain/services/dangling-keys';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -12,6 +13,7 @@ export interface RunnerTrustRecord {
   readonly subject: string;
   readonly audience: string;
   readonly labels: readonly string[];
+  readonly workingCopies: WorkingCopyStoreContract | null;
 }
 
 export interface WorkspaceRunnersRecord {
@@ -36,6 +38,7 @@ export interface RunnerPoolRecord {
     readonly egress: string | null;
     readonly egressTraffic: 'all' | 'bound';
   } | null;
+  readonly workingCopies: WorkingCopyStoreContract | null;
 }
 
 export interface EgressRecord {

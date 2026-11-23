@@ -285,7 +285,7 @@ func (j *journal) WorkingCopyArchive(_ context.Context, _ string) (*protocol.Sto
 }
 
 func (j *journal) GrantArchive(
-	_ context.Context, _ string, size int64, sha256 string,
+	_ context.Context, _ string, request protocol.ArchiveRequest,
 ) (protocol.ArchiveGrant, error) {
 	j.mu.Lock()
 	j.calls = append(j.calls, "archive")
@@ -293,7 +293,7 @@ func (j *journal) GrantArchive(
 	if j.archives == nil {
 		return protocol.ArchiveGrant{}, errors.New("422 Unprocessable Entity: nowhere to store one")
 	}
-	return j.archives.grant(size, sha256), nil
+	return j.archives.grant(request), nil
 }
 
 func (j *journal) GrantAttachment(
@@ -477,6 +477,7 @@ type runOptions struct {
 	fetchErr      error
 	wantErr       bool
 	controlPlane  string
+	workingCopy   *session.HostWorkingCopy
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -554,6 +555,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		Sandbox:        held,
 		HarnessFrames:  settings.frames,
 		ControlPlane:   settings.controlPlane,
+		WorkingCopy:    settings.workingCopy,
 	})
 	if err != nil && settings.stopOnce == "" && settings.completeErr == nil && !settings.wantErr {
 		t.Fatalf("execute: %v", err)

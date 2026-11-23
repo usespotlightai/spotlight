@@ -400,6 +400,7 @@ const pool = (
   mode: 'pull',
   tokenVersion: 1,
   provision: null,
+  workingCopies: null,
   ...over,
 });
 

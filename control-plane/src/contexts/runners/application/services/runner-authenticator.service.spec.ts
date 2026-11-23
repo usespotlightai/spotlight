@@ -94,6 +94,7 @@ describe('RunnerAuthenticator', () => {
           id: POOL_ID.value,
         }) as unknown,
         workspaceId: WorkspaceId.of('ws_1'),
+        workingCopies: null,
       });
     });
 
@@ -141,6 +142,7 @@ describe('RunnerAuthenticator', () => {
           id: TRUST_ID.value,
         }) as unknown,
         workspaceId: WorkspaceId.of('ws_1'),
+        workingCopies: null,
       });
       expect(verify).toHaveBeenCalledWith(WORKLOAD_TOKEN, {
         issuer: 'https://oidc.example.com/cluster',

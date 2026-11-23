@@ -1415,36 +1415,81 @@ export type RunNetworkResponseDto = {
   connections: Array<RunConnectionResponseDto>;
 };
 
+export type StoredSnapshotResponseDto = {
+  /**
+   * The store that keeps the snapshot
+   */
+  store: string;
+  /**
+   * The snapshot a host of that store opens the working copy from
+   */
+  name: string;
+  /**
+   * The base snapshot the working copy descends from; null for one that started without a base
+   */
+  base: string | null;
+  /**
+   * true when the run starts from the current base of the host’s store instead: it starts no session of its own, and the working copy descends from another base
+   */
+  rebase: boolean;
+};
+
 export type StoredArchiveResponseDto = {
   id: string;
   /**
-   * Where to GET the archive, for a quarter of an hour
+   * Where to GET the archive, for a quarter of an hour. null for a snapshot
    */
-  url: string;
-  size: number;
-  sha256: string;
+  url: string | null;
+  size: number | null;
+  sha256: string | null;
+  /**
+   * For a snapshot: only a host whose working copy hook reaches the store restores it
+   */
+  snapshot?: StoredSnapshotResponseDto;
+};
+
+export type SnapshotArchiveRequestDto = {
+  /**
+   * The base snapshot the working copy descends from: the store’s current base, or the base of the working copy the run restored. Null or left out for one that started without a base. Spotlight takes the store from the runner’s pool or trust
+   */
+  base?: string | null;
 };
 
 export type GrantWorkingCopyArchiveRequestDto = {
   /**
-   * The archive’s size in bytes, as it will be uploaded
+   * The archive’s size in bytes, as it will be uploaded. Not with snapshot
    */
-  size: number;
+  size?: number;
   /**
-   * The archive’s SHA-256, as 64 hexadecimal digits
+   * The archive’s SHA-256, as 64 hexadecimal digits. Not with snapshot
    */
-  sha256: string;
+  sha256?: string;
+  /**
+   * The archive is a snapshot that the host makes in the store of the runner’s pool or trust, not a tar. Only for a runner whose pool or trust keeps working copies in a store; any other runner uploads a tar
+   */
+  snapshot?: SnapshotArchiveRequestDto;
+};
+
+export type SnapshotGrantResponseDto = {
+  /**
+   * The snapshot the host makes of the working copy; then the runner completes the archive
+   */
+  name: string;
 };
 
 export type ArchiveGrantResponseDto = {
   id: string;
   /**
-   * Where to PUT the archive, for a quarter of an hour; the upload must carry every header given
+   * Where to PUT the archive, for a quarter of an hour; the upload must carry every header given. null for a snapshot
    */
-  url: string;
+  url: string | null;
   headers: {
     [key: string]: string;
   };
+  /**
+   * For a snapshot: the snapshot to make
+   */
+  snapshot?: SnapshotGrantResponseDto;
 };
 
 export type HoldSandboxArchiveLeaseRequestDto = {
@@ -1493,6 +1538,17 @@ export type RunnerReleaseResponseDto = {
   minimum: string;
 };
 
+export type HostWorkingCopiesResponseDto = {
+  /**
+   * The store the host’s working copy hook keeps working copies in; the host passes it to the hook
+   */
+  store: string;
+  /**
+   * The snapshot a new working copy starts from; with null, the hook starts one as it sees fit
+   */
+  base: string | null;
+};
+
 export type HostRequirementsResponseDto = {
   host: HostReleaseResponseDto;
   runner: RunnerReleaseResponseDto;
@@ -1508,6 +1564,10 @@ export type HostRequirementsResponseDto = {
    * The harness keys this workspace holds as secrets, sorted. Egress injects them for each run of a harness that uses them, and the host gets them for its image probe from POST /api/hosts/harness-keys
    */
   harnessKeys: Array<string>;
+  /**
+   * Where the hosts of this pool or trust keep the working copies of runs: the store of their working copy hook. A host claims only once its hook says it can serve the store. With null, the runner restores and stores archives in Spotlight
+   */
+  workingCopies: HostWorkingCopiesResponseDto | null;
 };
 
 export type HarnessKeysRequestDto = {
@@ -1555,6 +1615,25 @@ export type HarnessKeysResponseDto = {
    * The harness keys that egress does not get, and why
    */
   denied: Array<DeniedSecretResponseDto>;
+};
+
+export type SnapshotRemovalResponseDto = {
+  /**
+   * The removed archive; DELETE /api/hosts/snapshot-removals/{archiveId} once the snapshot is deleted
+   */
+  archiveId: string;
+  /**
+   * The snapshot to delete from the store
+   */
+  snapshot: string;
+};
+
+export type SnapshotRemovalsResponseDto = {
+  /**
+   * The store of the host’s pool or trust; null when it keeps no working copies in a store of its hosts
+   */
+  store: string | null;
+  removals: Array<SnapshotRemovalResponseDto>;
 };
 
 export type ClaimHostWorkRequestDto = {
@@ -2177,6 +2256,17 @@ export type RegisteredRunnerResponseDto = {
   runnerId: string;
 };
 
+export type WorkingCopiesResponseDto = {
+  /**
+   * The store that the working copy hook of each host keeps working copies in. Spotlight does not read it: any pool or trust with the same store restores the working copies that another one saved. The hook holds what the store needs to be reached; Spotlight never does
+   */
+  store: string;
+  /**
+   * The snapshot that a new working copy starts from, such as a workspace with its repositories cloned and set up. With null, the hook starts a new working copy as it sees fit, such as an empty disk
+   */
+  base: string | null;
+};
+
 export type RunnerTrustResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -2218,6 +2308,10 @@ export type RunnerTrustResourceResponseDto = {
    * What a line or station may name in runners to place its work here
    */
   labels: Array<string>;
+  /**
+   * Where the hosts keep the working copies of runs: a store that the working copy hook of each host reaches, which saves each archive as a snapshot. With null, Spotlight keeps them as archives in its own storage
+   */
+  workingCopies: WorkingCopiesResponseDto | null;
 };
 
 export type RunnerTrustResourceListResponseDto = {
@@ -2291,6 +2385,10 @@ export type RunnerPoolResourceResponseDto = {
    * How Spotlight starts a runner for each run, for a push pool
    */
   provision: PoolProvisionResponseDto | null;
+  /**
+   * Where the hosts keep the working copies of runs: a store that the working copy hook of each host reaches, which saves each archive as a snapshot. With null, Spotlight keeps them as archives in its own storage
+   */
+  workingCopies: WorkingCopiesResponseDto | null;
 };
 
 export type RunnerPoolResourceListResponseDto = {
@@ -13608,6 +13706,64 @@ export type FetchHarnessKeysResponses = {
 
 export type FetchHarnessKeysResponse = FetchHarnessKeysResponses[keyof FetchHarnessKeysResponses];
 
+export type ListSnapshotRemovalsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/snapshot-removals';
+};
+
+export type ListSnapshotRemovalsErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
+   */
+  401: unknown;
+};
+
+export type ListSnapshotRemovalsResponses = {
+  200: SnapshotRemovalsResponseDto;
+};
+
+export type ListSnapshotRemovalsResponse = ListSnapshotRemovalsResponses[keyof ListSnapshotRemovalsResponses];
+
+export type ForgetSnapshotRemovalData = {
+  body?: never;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path: {
+    archiveId: string;
+  };
+  query?: never;
+  url: '/hosts/snapshot-removals/{archiveId}';
+};
+
+export type ForgetSnapshotRemovalErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
+   */
+  401: unknown;
+  /**
+   * No such removal in the workspace and store of the host’s pool or trust
+   */
+  404: unknown;
+};
+
+export type ForgetSnapshotRemovalResponses = {
+  204: void;
+};
+
+export type ForgetSnapshotRemovalResponse = ForgetSnapshotRemovalResponses[keyof ForgetSnapshotRemovalResponses];
+
 export type ClaimHostWorkData = {
   body: ClaimHostWorkRequestDto;
   headers?: {
@@ -14536,6 +14692,19 @@ export type CreateRunnerTrustData = {
     subject: string;
     audience?: string;
     labels?: Array<string>;
+    /**
+     * Where the hosts keep the working copies of runs. Left out, Spotlight keeps them as archives in its own storage. Each host runs a working copy hook, the program that its working-copy-hook setting names, which opens each sandbox’s workspace from the store and saves each archive as a snapshot. Give every pool or trust that a line’s runs can go to the same store: a run on a host that reaches another store starts afresh
+     */
+    workingCopies?: {
+      /**
+       * The name of the store, which Spotlight does not read: any host whose pool or trust names the same store restores its working copies
+       */
+      store: string;
+      /**
+       * The snapshot a new working copy starts from. A run that starts no session of its own also starts from it when the last working copy descends from another base
+       */
+      base?: string | null;
+    } | null;
   };
   headers: {
     /**
@@ -14709,6 +14878,19 @@ export type UpdateRunnerTrustData = {
     subject: string;
     audience?: string;
     labels?: Array<string>;
+    /**
+     * Where the hosts keep the working copies of runs. Left out, Spotlight keeps them as archives in its own storage. Each host runs a working copy hook, the program that its working-copy-hook setting names, which opens each sandbox’s workspace from the store and saves each archive as a snapshot. Give every pool or trust that a line’s runs can go to the same store: a run on a host that reaches another store starts afresh
+     */
+    workingCopies?: {
+      /**
+       * The name of the store, which Spotlight does not read: any host whose pool or trust names the same store restores its working copies
+       */
+      store: string;
+      /**
+       * The snapshot a new working copy starts from. A run that starts no session of its own also starts from it when the last working copy descends from another base
+       */
+      base?: string | null;
+    } | null;
   };
   headers: {
     /**
@@ -14905,6 +15087,19 @@ export type CreateRunnerPoolData = {
        * Which traffic of a run goes through the egress. all: every connection, so egress records every host and its allow-list applies to all of them. bound: only the traffic to hosts that a secret of the run is bound to; other traffic goes directly. Only with egress
        */
       egressTraffic?: 'all' | 'bound';
+    } | null;
+    /**
+     * Where the hosts keep the working copies of runs. Left out, Spotlight keeps them as archives in its own storage. Each host runs a working copy hook, the program that its working-copy-hook setting names, which opens each sandbox’s workspace from the store and saves each archive as a snapshot. Give every pool or trust that a line’s runs can go to the same store: a run on a host that reaches another store starts afresh. Only for a pool without provision
+     */
+    workingCopies?: {
+      /**
+       * The name of the store, which Spotlight does not read: any host whose pool or trust names the same store restores its working copies
+       */
+      store: string;
+      /**
+       * The snapshot a new working copy starts from. A run that starts no session of its own also starts from it when the last working copy descends from another base
+       */
+      base?: string | null;
     } | null;
   };
   headers: {
@@ -15111,6 +15306,19 @@ export type UpdateRunnerPoolData = {
        * Which traffic of a run goes through the egress. all: every connection, so egress records every host and its allow-list applies to all of them. bound: only the traffic to hosts that a secret of the run is bound to; other traffic goes directly. Only with egress
        */
       egressTraffic?: 'all' | 'bound';
+    } | null;
+    /**
+     * Where the hosts keep the working copies of runs. Left out, Spotlight keeps them as archives in its own storage. Each host runs a working copy hook, the program that its working-copy-hook setting names, which opens each sandbox’s workspace from the store and saves each archive as a snapshot. Give every pool or trust that a line’s runs can go to the same store: a run on a host that reaches another store starts afresh. Only for a pool without provision
+     */
+    workingCopies?: {
+      /**
+       * The name of the store, which Spotlight does not read: any host whose pool or trust names the same store restores its working copies
+       */
+      store: string;
+      /**
+       * The snapshot a new working copy starts from. A run that starts no session of its own also starts from it when the last working copy descends from another base
+       */
+      base?: string | null;
     } | null;
   };
   headers: {

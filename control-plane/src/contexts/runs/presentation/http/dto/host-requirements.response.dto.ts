@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { HarnessProbeResponseDto } from '@runs/presentation/http/dto/harness-probe.response.dto';
+import { HostWorkingCopiesResponseDto } from '@runs/presentation/http/dto/host-working-copies.response.dto';
 
 export class HostReleaseResponseDto {
   @ApiProperty({
@@ -68,17 +69,27 @@ export class HostRequirementsResponseDto {
   })
   readonly harnessKeys: readonly string[];
 
+  @ApiProperty({
+    type: HostWorkingCopiesResponseDto,
+    nullable: true,
+    description:
+      'Where the hosts of this pool or trust keep the working copies of runs: the store of their working copy hook. A host claims only once its hook says it can serve the store. With null, the runner restores and stores archives in Spotlight',
+  })
+  readonly workingCopies: HostWorkingCopiesResponseDto | null;
+
   constructor(
     host: HostReleaseResponseDto,
     runner: RunnerReleaseResponseDto,
     harnesses: readonly HarnessProbeResponseDto[],
     images: readonly string[],
     harnessKeys: readonly string[],
+    workingCopies: HostWorkingCopiesResponseDto | null,
   ) {
     this.host = host;
     this.runner = runner;
     this.harnesses = harnesses;
     this.images = images;
     this.harnessKeys = harnessKeys;
+    this.workingCopies = workingCopies;
   }
 }

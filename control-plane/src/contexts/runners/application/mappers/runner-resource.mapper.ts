@@ -4,6 +4,7 @@ import type {
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
+import { workingCopyStoreContract } from '@runners/application/mappers/working-copy-store.mapper';
 import type {
   EgressView,
   RunnerPoolView,
@@ -40,6 +41,7 @@ export const RunnerResourceMapper = {
       subject: trust.subject,
       audience: trust.audience,
       labels: trust.labels,
+      workingCopies: trust.workingCopies,
       warnings: [],
     };
   },
@@ -56,6 +58,7 @@ export const RunnerResourceMapper = {
       mode: pool.provision ? 'push' : 'pull',
       tokenVersion: pool.tokenVersion,
       provision: pool.provision,
+      workingCopies: pool.workingCopies,
       warnings:
         pool.provision && !ProvisionUrl.of(pool.provision.url).isSecure
           ? [RunnerProblems.provisionNotHttps()]
@@ -82,6 +85,7 @@ export const RunnerResourceMapper = {
             egressTraffic: provision.egressTraffic.value,
           }
         : null,
+      workingCopies: workingCopyStoreContract(pool.workingCopies),
     };
   },
 
@@ -121,6 +125,7 @@ export const RunnerResourceMapper = {
       subject: trust.workload.subject,
       audience: trust.workload.audience,
       labels: trust.labels.values,
+      workingCopies: workingCopyStoreContract(trust.workingCopies),
     };
   },
 

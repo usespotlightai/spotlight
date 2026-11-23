@@ -48,6 +48,7 @@ export class HostRequirementsHandler implements QueryHandlerPort<
         harnessKeys: (
           await this.harnessKeys.inWorkspace(authenticated.workspaceId)
         ).map((each) => each.value),
+        workingCopies: authenticated.workingCopies ?? null,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

@@ -558,7 +558,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes a pool that pulls with its token read from an optional sensitive variable', () => {
+  it('writes a pool that pulls with its token read from an optional sensitive variable, and where its hosts keep working copies', () => {
     expect(mainOf(CONFIGURATION)).toContain(
       [
         'resource "spotlight_runner_pool" "burst" {',
@@ -568,6 +568,10 @@ describe('workspaceTerraform', () => {
         '  max_runs      = 4',
         '  token         = var.runner_pool_burst_token',
         '  token_version = 2',
+        '  working_copies = {',
+        '    store = "s3://acme/working-copies"',
+        '    base  = "base-v1"',
+        '  }',
         '}',
       ].join('\n'),
     );

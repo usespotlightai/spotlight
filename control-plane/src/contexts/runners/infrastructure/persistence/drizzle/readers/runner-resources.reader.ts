@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type { WorkingCopyStoreContract } from '@runners/application/contracts/working-copy-store.contract';
 import type {
   EgressRecord,
   RunnerPoolRecord,
@@ -24,6 +25,13 @@ type WorkspaceRunnersRow = typeof workspaceRunners.$inferSelect;
 type PoolRow = typeof runnerPool.$inferSelect;
 type EgressRow = typeof egress.$inferSelect;
 
+const workingCopiesOf = (
+  row: PoolRow | TrustRow,
+): WorkingCopyStoreContract | null =>
+  row.workingCopyStore === null
+    ? null
+    : { store: row.workingCopyStore, base: row.workingCopyBase };
+
 const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
   id: row.id,
   version: row.version,
@@ -40,6 +48,7 @@ const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
         egressTraffic: row.provisionEgressTraffic === 'bound' ? 'bound' : 'all',
       }
     : null,
+  workingCopies: workingCopiesOf(row),
 });
 
 const egressRecord = (row: EgressRow): EgressRecord => ({
@@ -60,6 +69,7 @@ const trustRecord = (row: TrustRow): RunnerTrustRecord => ({
   subject: row.subject,
   audience: row.audience,
   labels: row.labels,
+  workingCopies: workingCopiesOf(row),
 });
 
 const workspaceRunnersRecord = (
