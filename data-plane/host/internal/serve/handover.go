@@ -192,11 +192,15 @@ func (h *Host) superviseTaken(claiming, serving context.Context, taken []taken) 
 			log = log.With("sandboxId", each.live.sandboxID)
 		}
 
+		workingCopy := h.adoptWorkingCopy(each.live, log)
 		h.sandboxes.Go(func() {
 			defer h.slots.give()
 			if kept := h.supervise(serving, claiming, each.live, each.draining, since, log); !kept {
 				each.live.sidecar.close()
+				workingCopy.close(serving, log)
 				h.release(each.live.sandboxID)
+			} else {
+				workingCopy.stop()
 			}
 		})
 	}

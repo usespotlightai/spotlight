@@ -56,7 +56,7 @@ type Journal interface {
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionRequest) (protocol.PermissionResponse, error)
 	WorkingCopyArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
-	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
+	GrantArchive(ctx context.Context, runID string, request protocol.ArchiveRequest) (protocol.ArchiveGrant, error)
 	GrantAttachment(ctx context.Context, runID string, request protocol.AttachmentRequest) (protocol.AttachmentGrant, error)
 	CompleteArchive(ctx context.Context, runID, archiveID string) error
 	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
@@ -92,6 +92,7 @@ type Options struct {
 	HarnessFrames  bool
 	SettleQuiet    time.Duration
 	Sandbox        ArchivingSandbox
+	WorkingCopy    *HostWorkingCopy
 }
 
 type Sandbox struct {
@@ -151,7 +152,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 	}
 	space := s.space
 
-	archiver := newArchiver(run, space, journal, opts.Journal, opts.Transport, log)
+	archiver := newArchiver(run, space, journal, opts.Journal, opts.Transport, log, opts.WorkingCopy)
 	// The host renews the lease only until the handover, and prepare and setup can outlast it.
 	stopLeasing := leasing(ctx, opts.Journal, run.ID, opts.heartbeat(), log)
 	defer stopLeasing()

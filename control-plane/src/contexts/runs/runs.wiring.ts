@@ -64,6 +64,7 @@ import { CompleteWorkingCopyArchiveHandler } from '@runs/application/commands/ha
 import { EnqueueRunHandler } from '@runs/application/commands/handlers/enqueue-run.handler';
 import { FetchRunSecretsHandler } from '@runs/application/commands/handlers/fetch-run-secrets.handler';
 import { FetchSharedRunSecretsHandler } from '@runs/application/commands/handlers/fetch-shared-run-secrets.handler';
+import { ForgetSnapshotRemovalHandler } from '@runs/application/commands/handlers/forget-snapshot-removal.handler';
 import { GrantSandboxArchiveHandler } from '@runs/application/commands/handlers/grant-sandbox-archive.handler';
 import { GrantWorkingCopyArchiveHandler } from '@runs/application/commands/handlers/grant-working-copy-archive.handler';
 import { HoldSandboxArchiveHandler } from '@runs/application/commands/handlers/hold-sandbox-archive.handler';
@@ -93,6 +94,7 @@ import {
   RenewLeaseCommand,
   RevealSandboxEnvCommand,
 } from '@runs/application/commands/runner.commands';
+import { ForgetSnapshotRemovalCommand } from '@runs/application/commands/snapshot-removal.commands';
 import {
   AppendSandboxArchiveJournalCommand,
   CompleteSandboxArchiveCommand,
@@ -187,6 +189,10 @@ import {
   SANDBOX_HOSTS,
   type SandboxHostsPort,
 } from '@runs/application/ports/sandbox-hosts.port';
+import {
+  SNAPSHOT_REMOVALS,
+  type SnapshotRemovalsPort,
+} from '@runs/application/ports/snapshot-removals.port';
 import { STARTING_POINT_HOLDS } from '@runs/application/ports/starting-point-holds.port';
 import { TEAM_RUNS } from '@runs/application/ports/team-runs.port';
 import {
@@ -217,9 +223,11 @@ import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/li
 import { PoolQueueHandler } from '@runs/application/queries/handlers/pool-queue.handler';
 import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-run-network.handler';
 import { RunStopRequestedHandler } from '@runs/application/queries/handlers/run-stop-requested.handler';
+import { SnapshotRemovalsHandler } from '@runs/application/queries/handlers/snapshot-removals.handler';
 import { StoredSandboxArchiveHandler } from '@runs/application/queries/handlers/stored-sandbox-archive.handler';
 import { StoredWorkingCopyArchiveHandler } from '@runs/application/queries/handlers/stored-working-copy-archive.handler';
 import {
+  SnapshotRemovalsQuery,
   HarnessKeysQuery,
   HostRequirementsQuery,
 } from '@runs/application/queries/host.queries';
@@ -295,6 +303,7 @@ import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/dri
 import { DrizzleRunConnections } from '@runs/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunUsages } from '@runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
+import { DrizzleSnapshotRemovals } from '@runs/infrastructure/persistence/drizzle/ledgers/snapshot-removals.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleQueuedPlacements } from '@runs/infrastructure/persistence/drizzle/readers/queued-placements.reader';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
@@ -876,6 +885,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       ArchiveHolders,
       WORKING_COPY_ARCHIVE_REPOSITORY,
       WORKING_COPY_ARCHIVE_STORE,
+      SNAPSHOT_REMOVALS,
       CLOCK,
       LOGGER,
     ],
@@ -885,6 +895,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       holders: ArchiveHolders,
       archives: WorkingCopyArchiveRepository,
       store: WorkingCopyArchiveStorePort,
+      snapshots: SnapshotRemovalsPort,
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
@@ -894,6 +905,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
         holders,
         archives,
         store,
+        snapshots,
         clock,
         logger,
       ),
@@ -927,6 +939,17 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     CONTROL_PLANE_RELEASE,
     HeldHarnessKeys,
   ]),
+
+  ...bindQueryHandler(SnapshotRemovalsQuery, SnapshotRemovalsHandler, [
+    RUNNER_AUTHENTICATOR,
+    SNAPSHOT_REMOVALS,
+  ]),
+
+  ...bindCommandHandler(
+    ForgetSnapshotRemovalCommand,
+    ForgetSnapshotRemovalHandler,
+    [RUNNER_AUTHENTICATOR, SNAPSHOT_REMOVALS],
+  ),
 
   ...bindQueryHandler(HarnessKeysQuery, HarnessKeysHandler, [
     RUNNER_AUTHENTICATOR,
@@ -1119,6 +1142,10 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   },
 
   DrizzleRunConnections,
+
+  DrizzleSnapshotRemovals,
+
+  { provide: SNAPSHOT_REMOVALS, useExisting: DrizzleSnapshotRemovals },
 
   { provide: RUN_CONNECTIONS, useExisting: DrizzleRunConnections },
 

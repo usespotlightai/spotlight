@@ -31,6 +31,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { z } from 'zod';
 
@@ -56,6 +57,17 @@ const writeOnlyVersion = z
   .int('is a whole number that changes to rotate the value')
   .min(0, 'is a whole number that changes to rotate the value')
   .nullish();
+
+const workingCopies = z
+  .object({
+    store: madeBy(WorkingCopyStore.storeOf),
+    base: madeBy(WorkingCopyStore.baseOf).nullish(),
+  })
+  .nullish();
+
+const workingCopiesOf = (
+  read: z.infer<typeof workingCopies>,
+): WorkingCopyStore | null => (read ? WorkingCopyStore.of(read) : null);
 
 const PULL_ONLY =
   'is only for a pool that is pulled from. A pool that provisions has no token. Spotlight calls it instead';
@@ -83,10 +95,20 @@ const poolSchema = z
           .nullish(),
       })
       .nullish(),
+    workingCopies,
   })
   .superRefine((pool, context) => {
     if (!pool.provision) {
       return;
+    }
+
+    if (pool.workingCopies) {
+      context.addIssue({
+        code: 'custom',
+        path: ['workingCopies'],
+        message:
+          'is only for a pool that is pulled from. The provisioner of a pool that provisions keeps its own working copies',
+      });
     }
 
     if (pool.provision.egressTraffic && !pool.provision.egress) {
@@ -117,6 +139,7 @@ const trustSchema = z.object({
   subject: madeBy(TrustedWorkload.subjectOf),
   audience: madeBy(TrustedWorkload.audienceOf).default('spotlight'),
   labels,
+  workingCopies,
 });
 
 const workspaceRunnersSchema = z.object({
@@ -134,6 +157,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
           key: TrustKey.of(read.data.key),
           workload: TrustedWorkload.of(read.data),
           labels: RunnerLabels.of(read.data.labels),
+          workingCopies: workingCopiesOf(read.data.workingCopies),
         }
       : { ok: false, problems: problemsIn(RUNNER_TRUST, read.error) };
   }
@@ -155,6 +179,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
         read.data.maxRuns === null || read.data.maxRuns === undefined
           ? null
           : MaxRuns.of(read.data.maxRuns),
+      workingCopies: workingCopiesOf(read.data.workingCopies),
       access: provision
         ? {
             mode: 'push',

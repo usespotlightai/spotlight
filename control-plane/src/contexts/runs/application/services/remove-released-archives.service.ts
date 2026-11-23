@@ -4,6 +4,7 @@ import type {
   ArchiveDue,
   ArchiveReferencesPort,
 } from '@runs/application/ports/archive-references.port';
+import type { SnapshotRemovalsPort } from '@runs/application/ports/snapshot-removals.port';
 import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
 import type { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import {
@@ -39,6 +40,7 @@ export class RemoveReleasedArchives {
     private readonly holders: ArchiveHolders,
     private readonly archives: WorkingCopyArchiveRepository,
     private readonly store: WorkingCopyArchiveStorePort,
+    private readonly snapshots: SnapshotRemovalsPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -95,11 +97,26 @@ export class RemoveReleasedArchives {
 
       await this.archives.save(archive.remove(now, facts));
 
+      // Spotlight cannot reach the store of a snapshot, so a host of the store deletes it later.
+      if (archive.snapshot && archive.location.kind === 'snapshot') {
+        await this.snapshots.queue({
+          archiveId: archive.id.value,
+          workspaceId: archive.workspaceId,
+          store: archive.location.store,
+          snapshot: archive.snapshot,
+          queuedAt: now,
+        });
+      }
+
       return archive;
     });
   }
 
   private async removeStored(archive: WorkingCopyArchive): Promise<void> {
+    if (archive.location.kind !== 'spotlight') {
+      return;
+    }
+
     try {
       await this.store.remove(archive);
     } catch (error) {

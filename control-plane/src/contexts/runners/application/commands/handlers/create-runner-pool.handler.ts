@@ -1,6 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { CreateRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerPoolCreatedDto } from '@runners/application/dto/runner-resource.dto';
+import { workingCopiesDto } from '@runners/application/mappers/working-copy-store.mapper';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
@@ -99,6 +100,9 @@ export class CreateRunnerPoolHandler implements CommandHandlerPort<
           key: compiled.key.value,
           labels: compiled.labels.values,
           maxRuns: compiled.maxRuns?.value ?? null,
+          ...(compiled.workingCopies
+            ? { workingCopies: workingCopiesDto(compiled.workingCopies) }
+            : {}),
           token:
             supplied.mode === 'pull' && supplied.token
               ? this.tokens.hash(supplied.token.revealed())
@@ -145,6 +149,7 @@ export class CreateRunnerPoolHandler implements CommandHandlerPort<
               key: compiled.key,
               labels: compiled.labels,
               maxRuns: compiled.maxRuns,
+              workingCopies: compiled.workingCopies,
               access: issued ? issuedTo(accessInput, issued) : accessInput,
             });
 

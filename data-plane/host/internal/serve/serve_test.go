@@ -710,6 +710,13 @@ type pool struct {
 	calls       chan protocol.HostCall
 	revokeCalls chan struct{}
 	responses   map[string]protocol.HostCallResponse
+
+	workingCopies *protocol.WorkingCopyStore
+	restores      *protocol.StoredArchive
+	asked         []protocol.Assignment
+	askedOnto     []string
+	removals      protocol.SnapshotRemovals
+	forgotten     []string
 }
 
 func newPool() *pool {
@@ -740,12 +747,41 @@ func (p *pool) Requirements(context.Context) (protocol.HostRequirements, error) 
 	defer p.mu.Unlock()
 
 	return protocol.HostRequirements{
-		Host:        protocol.HostRequirement{Release: p.release},
-		Runner:      protocol.RunnerRequirement{Minimum: p.minimumOr()},
-		Harnesses:   []protocol.HarnessProbe{{ID: "claude-code", Executable: "claude"}},
-		Images:      slices.Clone(p.named),
-		HarnessKeys: slices.Clone(p.harnessKeys),
+		Host:          protocol.HostRequirement{Release: p.release},
+		Runner:        protocol.RunnerRequirement{Minimum: p.minimumOr()},
+		Harnesses:     []protocol.HarnessProbe{{ID: "claude-code", Executable: "claude"}},
+		Images:        slices.Clone(p.named),
+		HarnessKeys:   slices.Clone(p.harnessKeys),
+		WorkingCopies: p.workingCopies,
 	}, nil
+}
+
+func (p *pool) WorkingCopyArchive(_ context.Context, assignment protocol.Assignment, base string) (*protocol.StoredArchive, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.asked = append(p.asked, assignment)
+	p.askedOnto = append(p.askedOnto, base)
+	return p.restores, nil
+}
+
+func (p *pool) SnapshotRemovals(context.Context) (protocol.SnapshotRemovals, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.removals, nil
+}
+
+func (p *pool) ForgetSnapshotRemoval(_ context.Context, archiveID string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.forgotten = append(p.forgotten, archiveID)
+	kept := p.removals.Removals[:0]
+	for _, each := range p.removals.Removals {
+		if each.ArchiveID != archiveID {
+			kept = append(kept, each)
+		}
+	}
+	p.removals.Removals = kept
+	return nil
 }
 
 func (p *pool) minimumOr() string {

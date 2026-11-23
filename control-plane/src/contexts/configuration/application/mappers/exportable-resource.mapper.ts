@@ -1,4 +1,7 @@
-import type { ExportableResourceDto } from '@configuration/application/dto/exportable-configuration.dto';
+import type {
+  ExportableResourceDto,
+  ExportableWorkingCopies,
+} from '@configuration/application/dto/exportable-configuration.dto';
 import type { HarnessProfileResourceDto } from '@configuration/application/dto/harness-profile-resource.dto';
 import type { HookConfig } from '@configuration/application/ports/hook-configs.port';
 import type { IntegrationConfig } from '@configuration/application/ports/integration-configs.port';
@@ -15,6 +18,10 @@ import type {
 } from '@runners/application/ports/runner-configuration.port';
 import type { SecretView } from '@secrets/application/ports/secret-configuration.port';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
+
+const workingCopiesOf = (
+  store: RunnerPoolView['workingCopies'],
+): ExportableWorkingCopies | null => (store ? { ...store } : null);
 
 export const ExportableResourceMapper = {
   workspace(workspace: WorkspaceProfile): ExportableResourceDto {
@@ -80,6 +87,7 @@ export const ExportableResourceMapper = {
       subject: trust.subject,
       audience: trust.audience,
       labels: [...trust.labels],
+      workingCopies: workingCopiesOf(trust.workingCopies),
     };
   },
 
@@ -94,6 +102,7 @@ export const ExportableResourceMapper = {
       maxRuns: pool.maxRuns,
       tokenVersion: pool.tokenVersion,
       provision: pool.provision ? { ...pool.provision } : null,
+      workingCopies: workingCopiesOf(pool.workingCopies),
     };
   },
 

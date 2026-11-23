@@ -1,4 +1,5 @@
 import type { SandboxArchiveAnswer } from '@runs/application/dto/working-copy-archive.dto';
+import { storedArchiveOf } from '@runs/application/mappers/stored-archive.mapper';
 import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
 import type { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
 import type { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
@@ -39,12 +40,7 @@ export class StoredSandboxArchiveHandler implements QueryHandlerPort<
 
       return {
         known: true,
-        archive: {
-          id: archive.id.value,
-          url: await this.store.grantDownload(archive),
-          size: archive.size.bytes,
-          sha256: archive.digest.sha256,
-        },
+        archive: await storedArchiveOf(archive, this.store),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

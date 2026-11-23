@@ -93,7 +93,16 @@ describe('listing harnesses for a workspace', () => {
               source: { kind: 'pool', id: 'pool_1' },
               workspaceId: WorkspaceId.of('ws_1'),
             }
-          : null,
+          : credential.bearer === 'store-pool-token'
+            ? {
+                source: { kind: 'pool', id: 'pool_2' },
+                workspaceId: WorkspaceId.of('ws_1'),
+                workingCopies: {
+                  store: 's3://team-a',
+                  base: 'base-v1',
+                },
+              }
+            : null,
     };
 
     const requirements = (release: string | null = 'v0.7.0') => {
@@ -125,11 +134,30 @@ describe('listing harnesses for a workspace', () => {
         hostRelease: 'v0.7.0',
         hostMinimum: MIN_HOST_RELEASE,
         runnerMinimum: MIN_RUNNER_RELEASE,
+        workingCopies: null,
         harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
         images: ['ghcr.io/acme/widgets:1'],
         harnessKeys: ['ANTHROPIC_API_KEY'],
       });
       expect(namedIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+    });
+
+    it('tells the host of a pool that keeps working copies in a store of its hosts where they are, so it claims only once its hook can serve the store', async () => {
+      const { subject } = requirements();
+
+      expect(
+        await subject.execute(
+          new HostRequirementsQuery({
+            bearer: 'store-pool-token',
+            trust: undefined,
+          }),
+        ),
+      ).toMatchObject({
+        workingCopies: {
+          store: 's3://team-a',
+          base: 'base-v1',
+        },
+      });
     });
 
     it('names no release for hosts to follow when the control plane runs a staging build, or does not know its release', async () => {

@@ -75,7 +75,10 @@ describe('archiving a sandbox’s working copy with its own token', () => {
 
     await expect(
       grant.execute(
-        new GrantSandboxArchiveCommand('sandbox_1', TOKEN, 1_024, SHA256),
+        new GrantSandboxArchiveCommand('sandbox_1', TOKEN, {
+          size: 1_024,
+          sha256: SHA256,
+        }),
       ),
     ).resolves.toMatchObject({ id: 'archive_1' });
 
@@ -89,17 +92,26 @@ describe('archiving a sandbox’s working copy with its own token', () => {
 
     await expect(
       grant.execute(
-        new GrantSandboxArchiveCommand('sandbox_1', 'stolen', 1_024, SHA256),
+        new GrantSandboxArchiveCommand('sandbox_1', 'stolen', {
+          size: 1_024,
+          sha256: SHA256,
+        }),
       ),
     ).resolves.toBeNull();
     await expect(
       grant.execute(
-        new GrantSandboxArchiveCommand('sandbox_2', TOKEN, 1_024, SHA256),
+        new GrantSandboxArchiveCommand('sandbox_2', TOKEN, {
+          size: 1_024,
+          sha256: SHA256,
+        }),
       ),
     ).resolves.toBeNull();
     await expect(
       grant.execute(
-        new GrantSandboxArchiveCommand('sandbox_1', undefined, 1_024, SHA256),
+        new GrantSandboxArchiveCommand('sandbox_1', undefined, {
+          size: 1_024,
+          sha256: SHA256,
+        }),
       ),
     ).resolves.toBeNull();
   });
@@ -114,7 +126,10 @@ describe('archiving a sandbox’s working copy with its own token', () => {
 
       await expect(
         grant.execute(
-          new GrantSandboxArchiveCommand('sandbox_1', TOKEN, 1_024, SHA256),
+          new GrantSandboxArchiveCommand('sandbox_1', TOKEN, {
+            size: 1_024,
+            sha256: SHA256,
+          }),
         ),
       ).rejects.toThrow(ApplicationError);
       expect(archives.stored.size).toBe(0);
@@ -125,7 +140,10 @@ describe('archiving a sandbox’s working copy with its own token', () => {
     const { grant, complete, read, store } = setUp();
 
     await grant.execute(
-      new GrantSandboxArchiveCommand('sandbox_1', TOKEN, 1_024, SHA256),
+      new GrantSandboxArchiveCommand('sandbox_1', TOKEN, {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
     store.uploaded.set('archive_1', storedAs(1_024));
 
@@ -151,7 +169,10 @@ describe('archiving a sandbox’s working copy with its own token', () => {
     const { grantForRun, read, archives, store } = setUp();
 
     await grantForRun.execute(
-      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
     store.uploaded.set('archive_1', storedAs(1_024));
     const granted = archives.stored.get('archive_1');
@@ -171,7 +192,10 @@ describe('archiving a sandbox’s working copy with its own token', () => {
     const { grantForRun, complete } = setUp();
 
     await grantForRun.execute(
-      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
 
     await expect(

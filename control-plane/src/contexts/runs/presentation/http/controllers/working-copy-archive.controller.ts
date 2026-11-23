@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -17,6 +18,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
@@ -37,6 +39,10 @@ import {
   ArchiveGrantResponseDto,
   StoredArchiveResponseDto,
 } from '@runs/presentation/http/dto/working-copy-archive.response.dto';
+import {
+  archiveGrantResponseOf,
+  archiveGrantStorageOf,
+} from '@runs/presentation/http/mappers/archive-grant.http.mapper';
 
 interface Answerable {
   status(code: number): unknown;
@@ -65,15 +71,29 @@ export class WorkingCopyArchiveController {
     description: 'Nothing to restore: the run starts its work afresh',
   })
   @ApiNotFoundResponse({ description: 'Not this runner’s run' })
+  @ApiQuery({
+    name: 'base',
+    required: false,
+    example: 'base-v2',
+    description:
+      'The base of the store the host’s working copy hook keeps working copies in. A run that starts no session of its own then starts from it, and snapshot.rebase says so, when its working copy descends from another base',
+  })
   async storedArchive(
     @Param('runId') runId: string,
     @CurrentMachine() runnerId: string,
     @Res({ passthrough: true }) response: Answerable,
+    @Query('base') base?: string,
   ): Promise<StoredArchiveResponseDto | undefined> {
     const answer = await this.queryBus.execute<
       StoredWorkingCopyArchiveQuery,
       WorkingCopyArchiveAnswer
-    >(new StoredWorkingCopyArchiveQuery(runId, runnerId));
+    >(
+      new StoredWorkingCopyArchiveQuery(
+        runId,
+        runnerId,
+        typeof base === 'string' && base.trim() !== '' ? base.trim() : null,
+      ),
+    );
 
     if (!answer.leased) {
       throw new NotFoundException();
@@ -84,9 +104,7 @@ export class WorkingCopyArchiveController {
       return undefined;
     }
 
-    const { id, url, size, sha256 } = answer.archive;
-
-    return new StoredArchiveResponseDto(id, url, size, sha256);
+    return new StoredArchiveResponseDto(answer.archive);
   }
 
   @Post()
@@ -113,8 +131,7 @@ export class WorkingCopyArchiveController {
       new GrantWorkingCopyArchiveCommand(
         runId,
         runnerId,
-        body.size,
-        body.sha256,
+        archiveGrantStorageOf(body),
       ),
     );
 
@@ -122,11 +139,7 @@ export class WorkingCopyArchiveController {
       throw new NotFoundException();
     }
 
-    return new ArchiveGrantResponseDto(
-      granted.id,
-      granted.url,
-      granted.headers,
-    );
+    return archiveGrantResponseOf(granted);
   }
 
   @Post(':archiveId/complete')

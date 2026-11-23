@@ -30,6 +30,7 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/insights/infrastructure/persistence/drizzle/ledgers/chats.ledger.ts',
     ],
   },
+
   configuration_change: {
     why: 'Identity audit projection of shared-kernel ConfigurationChange events (owner decision)',
     writers: [
@@ -171,6 +172,12 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
     childOf: 'workspace',
     writers: [
       'contexts/identity/infrastructure/persistence/drizzle/signup-surveys.ts',
+    ],
+  },
+  snapshot_removal: {
+    why: 'Runs queue of the snapshots of removed archives, which a host of the store deletes',
+    writers: [
+      'contexts/runs/infrastructure/persistence/drizzle/ledgers/snapshot-removals.ledger.ts',
     ],
   },
   task_draft_state: {

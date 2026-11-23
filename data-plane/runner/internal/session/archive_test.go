@@ -91,14 +91,17 @@ func (a *archives) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *archives) grant(size int64, sha string) protocol.ArchiveGrant {
+func (a *archives) grant(request protocol.ArchiveRequest) protocol.ArchiveGrant {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	a.issued++
 	id := fmt.Sprintf("archive_%d", a.issued)
-	a.granted[id] = protocol.ArchiveRequest{Size: size, SHA256: sha}
+	a.granted[id] = request
 
+	if request.Snapshot != nil {
+		return protocol.ArchiveGrant{ID: id, Snapshot: &protocol.SnapshotGrant{Name: "spotlight-" + id}}
+	}
 	return protocol.ArchiveGrant{ID: id, URL: a.server.URL + "/objects/" + id}
 }
 
@@ -109,6 +112,11 @@ func (a *archives) complete(id string) error {
 	body, found := a.objects[id]
 	granted := a.granted[id]
 	sum := sha256.Sum256(body)
+
+	if granted.Snapshot != nil {
+		a.completed = append(a.completed, id)
+		return nil
+	}
 
 	if !found || int64(len(body)) != granted.Size || hex.EncodeToString(sum[:]) != granted.SHA256 {
 		return errors.New("409 Conflict: not uploaded as granted")
@@ -128,6 +136,13 @@ func (a *archives) newest() *protocol.StoredArchive {
 
 	id := a.completed[len(a.completed)-1]
 	granted := a.granted[id]
+
+	if granted.Snapshot != nil {
+		return &protocol.StoredArchive{
+			ID:       id,
+			Snapshot: &protocol.StoredSnapshot{Store: granted.Snapshot.Store, Name: "spotlight-" + id, Base: granted.Snapshot.Base},
+		}
+	}
 
 	return &protocol.StoredArchive{
 		ID:     id,

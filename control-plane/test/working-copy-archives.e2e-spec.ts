@@ -13,10 +13,12 @@ import {
 import { WorkingCopyArchiveVersionConflictError } from '@runs/domain/exceptions/working-copy-archive-version-conflict.error';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
+import { SpotlightStorage } from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/drizzle/archive-reference-locks';
+import { DrizzleSnapshotRemovals } from '@runs/infrastructure/persistence/drizzle/ledgers/snapshot-removals.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -159,8 +161,7 @@ const archived = async (
     workingCopyKey: key,
     held: true,
     grantee: ArchiveGrantee.run(RunId.of(grantee)),
-    size: STORED.size,
-    digest: STORED.digest,
+    location: SpotlightStorage.of(STORED.size, STORED.digest),
     at: times.grantedAt,
   });
 
@@ -469,6 +470,7 @@ describe('storing working copy archives', () => {
       holders,
       archives,
       store,
+      new DrizzleSnapshotRemovals(new DrizzleContext(db)),
       { now: () => NOW, sleep: async () => {} },
       {
         debug: () => {},

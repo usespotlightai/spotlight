@@ -1,11 +1,11 @@
 import type { AppendedJournalEntry } from '@runs/application/commands/runner.commands';
+import type { ArchiveGrantStorage } from '@runs/application/services/archive-grants.service';
 
 export class GrantWorkingCopyArchiveCommand {
   constructor(
     readonly runId: string,
     readonly runnerId: string,
-    readonly size: number,
-    readonly sha256: string,
+    readonly storage: ArchiveGrantStorage,
   ) {}
 }
 
@@ -21,8 +21,7 @@ export class GrantSandboxArchiveCommand {
   constructor(
     readonly sandboxId: string,
     readonly token: string | undefined,
-    readonly size: number,
-    readonly sha256: string,
+    readonly storage: ArchiveGrantStorage,
   ) {}
 }
 

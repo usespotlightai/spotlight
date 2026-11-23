@@ -1,4 +1,5 @@
 import type { WorkingCopyArchiveAnswer } from '@runs/application/dto/working-copy-archive.dto';
+import { storedArchiveOf } from '@runs/application/mappers/stored-archive.mapper';
 import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
 import type { StoredWorkingCopyArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
@@ -38,12 +39,11 @@ export class StoredWorkingCopyArchiveHandler implements QueryHandlerPort<
 
       return {
         leased: true,
-        archive: {
-          id: archive.id.value,
-          url: await this.store.grantDownload(archive),
-          size: archive.size.bytes,
-          sha256: archive.digest.sha256,
-        },
+        archive: await storedArchiveOf(
+          archive,
+          this.store,
+          run.startsFromBase(archive, query.base),
+        ),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

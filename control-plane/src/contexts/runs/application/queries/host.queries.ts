@@ -10,3 +10,7 @@ export class HarnessKeysQuery {
     readonly recipient: string,
   ) {}
 }
+
+export class SnapshotRemovalsQuery {
+  constructor(readonly credential: HostCredentials) {}
+}

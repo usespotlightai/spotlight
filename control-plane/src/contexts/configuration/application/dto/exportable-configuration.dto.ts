@@ -5,6 +5,11 @@ import type {
   HookConfigStep,
 } from '@configuration/application/ports/hook-configs.port';
 import type { LineDefinition } from '@lines/application/contracts/line-definition.contract';
+export interface ExportableWorkingCopies {
+  readonly store: string;
+  readonly base: string | null;
+}
+
 export const EXPORTABLE_KINDS = [
   'workspace',
   'team',
@@ -79,6 +84,7 @@ export type ExportableResourceDto =
       readonly subject: string;
       readonly audience: string;
       readonly labels: readonly string[];
+      readonly workingCopies: ExportableWorkingCopies | null;
     })
   | (WorkspaceOwned & {
       readonly kind: 'runner-pool';
@@ -92,6 +98,7 @@ export type ExportableResourceDto =
         readonly egress: string | null;
         readonly egressTraffic: 'all' | 'bound';
       } | null;
+      readonly workingCopies: ExportableWorkingCopies | null;
     })
   | (WorkspaceOwned & {
       readonly kind: 'egress';

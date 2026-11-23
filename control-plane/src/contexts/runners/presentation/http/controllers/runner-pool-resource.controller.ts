@@ -33,6 +33,7 @@ import {
   ReadRunnerPoolQuery,
 } from '@runners/application/queries/runner-resource.queries';
 import { RunnerPoolResourceResponseDto } from '@runners/presentation/http/dto/runner-resource.response.dto';
+import { WORKING_COPIES_SCHEMA } from '@runners/presentation/http/dto/working-copies.request-schema';
 import type {
   ResourceDeleted,
   ResourceUpdated,
@@ -126,6 +127,10 @@ const DEFINITION = ApiBody({
               'Which traffic of a run goes through the egress. all: every connection, so egress records every host and its allow-list applies to all of them. bound: only the traffic to hosts that a secret of the run is bound to; other traffic goes directly. Only with egress',
           },
         },
+      },
+      workingCopies: {
+        ...WORKING_COPIES_SCHEMA,
+        description: `${WORKING_COPIES_SCHEMA.description}. Only for a pool without provision`,
       },
     },
   },

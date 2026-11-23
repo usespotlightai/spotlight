@@ -1,6 +1,7 @@
 import type {
   ExportableConfigurationDto,
   ExportableResourceDto,
+  ExportableWorkingCopies,
 } from '@configuration/application/dto/exportable-configuration.dto';
 import type { SecretReferenceAt } from '@configuration/application/dto/secret-reference-at.dto';
 import type {
@@ -907,6 +908,18 @@ const secret = (
   );
 };
 
+const workingCopiesAttribute = (
+  store: ExportableWorkingCopies | null,
+): ReturnType<typeof attribute>[] =>
+  store
+    ? [
+        attribute('working_copies', {
+          store: store.store,
+          ...(store.base === null ? {} : { base: store.base }),
+        }),
+      ]
+    : [];
+
 const pool = (
   resource: ResourceOf<'runner-pool'>,
   importedAs: string,
@@ -949,6 +962,7 @@ const pool = (
               ? []
               : [attribute('token_version', resource.tokenVersion)]),
           ]),
+      ...workingCopiesAttribute(resource.workingCopies),
     ],
     {
       variables: [
@@ -1048,6 +1062,7 @@ const rendered = (
         attribute('subject', resource.subject),
         attribute('audience', resource.audience),
         attribute('labels', [...resource.labels]),
+        ...workingCopiesAttribute(resource.workingCopies),
       ]);
     case 'workspace-runners':
       return withImportBlock(resource, nameOf(resource.address), importedAs, [

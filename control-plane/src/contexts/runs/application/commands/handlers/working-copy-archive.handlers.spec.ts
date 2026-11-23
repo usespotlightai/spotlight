@@ -61,7 +61,10 @@ describe('archiving a working copy between runs', () => {
     const { grant, archives } = setUp();
 
     const granted = await grant.execute(
-      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
 
     expect(granted).toEqual({
@@ -77,7 +80,10 @@ describe('archiving a working copy between runs', () => {
 
     await expect(
       grant.execute(
-        new GrantWorkingCopyArchiveCommand('run_1', 'runner_2', 1_024, SHA256),
+        new GrantWorkingCopyArchiveCommand('run_1', 'runner_2', {
+          size: 1_024,
+          sha256: SHA256,
+        }),
       ),
     ).resolves.toBeNull();
   });
@@ -90,17 +96,18 @@ describe('archiving a working copy between runs', () => {
 
     await expect(
       grant.execute(
-        new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+        new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+          size: 1_024,
+          sha256: SHA256,
+        }),
       ),
     ).rejects.toThrow(ApplicationError);
     await expect(
       grant.execute(
-        new GrantWorkingCopyArchiveCommand(
-          'run_2',
-          'runner_2',
-          3 * 1024 ** 3,
-          SHA256,
-        ),
+        new GrantWorkingCopyArchiveCommand('run_2', 'runner_2', {
+          size: 3 * 1024 ** 3,
+          sha256: SHA256,
+        }),
       ),
     ).rejects.toThrow(ApplicationError);
     expect(archives.stored.size).toBe(0);
@@ -114,7 +121,10 @@ describe('archiving a working copy between runs', () => {
 
     await expect(
       grant.execute(
-        new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+        new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+          size: 1_024,
+          sha256: SHA256,
+        }),
       ),
     ).rejects.toThrow(ApplicationError);
     expect(archives.stored.size).toBe(0);
@@ -124,7 +134,10 @@ describe('archiving a working copy between runs', () => {
     const { grant, complete, read, store } = setUp();
 
     await grant.execute(
-      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
     store.uploaded.set('archive_1', storedAs(1_024));
 
@@ -151,7 +164,10 @@ describe('archiving a working copy between runs', () => {
     const { grant, complete, store } = setUp();
 
     await grant.execute(
-      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
 
     await expect(
@@ -173,7 +189,10 @@ describe('archiving a working copy between runs', () => {
     const { grant, complete, store } = setUp();
 
     await grant.execute(
-      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
     store.uploaded.set('archive_1', storedAs(1_024));
 
@@ -196,7 +215,10 @@ describe('archiving a working copy between runs', () => {
     );
 
     await grant.execute(
-      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        size: 1_024,
+        sha256: SHA256,
+      }),
     );
     store.uploaded.set('archive_1', storedAs(1_024));
     await complete.execute(

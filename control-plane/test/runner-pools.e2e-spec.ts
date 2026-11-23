@@ -322,6 +322,7 @@ describe('runner pools (e2e)', () => {
         ]) as unknown,
         images: [WIDGETS],
         harnessKeys: [],
+        workingCopies: null,
       });
       await http()
         .get('/api/hosts/requirements')

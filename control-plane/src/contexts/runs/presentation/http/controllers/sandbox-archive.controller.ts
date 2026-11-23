@@ -39,6 +39,10 @@ import {
   ArchiveGrantResponseDto,
   StoredArchiveResponseDto,
 } from '@runs/presentation/http/dto/working-copy-archive.response.dto';
+import {
+  archiveGrantResponseOf,
+  archiveGrantStorageOf,
+} from '@runs/presentation/http/mappers/archive-grant.http.mapper';
 
 interface Answerable {
   status(code: number): unknown;
@@ -91,9 +95,7 @@ export class SandboxArchiveController {
       return undefined;
     }
 
-    const { id, url, size, sha256 } = answer.archive;
-
-    return new StoredArchiveResponseDto(id, url, size, sha256);
+    return new StoredArchiveResponseDto(answer.archive);
   }
 
   @Post()
@@ -121,8 +123,7 @@ export class SandboxArchiveController {
       new GrantSandboxArchiveCommand(
         sandboxId,
         bearerIn(authorization),
-        body.size,
-        body.sha256,
+        archiveGrantStorageOf(body),
       ),
     );
 
@@ -130,11 +131,7 @@ export class SandboxArchiveController {
       throw new NotFoundException(UNKNOWN);
     }
 
-    return new ArchiveGrantResponseDto(
-      granted.id,
-      granted.url,
-      granted.headers,
-    );
+    return archiveGrantResponseOf(granted);
   }
 
   @Post(':archiveId/complete')

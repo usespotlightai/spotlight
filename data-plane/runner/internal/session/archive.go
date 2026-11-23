@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -28,7 +29,7 @@ type ArchivingSandbox interface {
 	HoldArchiveLease(ctx context.Context, runID string, attempt int) error
 	ReleaseArchiveLease(ctx context.Context, runID string, attempt int) error
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
-	GrantArchive(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error)
+	GrantArchive(ctx context.Context, request protocol.ArchiveRequest) (protocol.ArchiveGrant, error)
 	CompleteArchive(ctx context.Context, archiveID string) error
 }
 
@@ -40,12 +41,15 @@ type archiver struct {
 	scratch string
 	through http.RoundTripper
 	log     *slog.Logger
+	host    *HostWorkingCopy
 
 	restoredFrom string
 	baseline     string
 	leftOut      []string
 	current      string
 	inherits     bool
+	// moving is set while a tar restored into the host's working copy has no snapshot yet, so the next archive makes one.
+	moving bool
 }
 
 type kept struct {
@@ -53,10 +57,12 @@ type kept struct {
 	baseline string
 	leftOut  []string
 	archives bool
+	moving   bool
 }
 
 func newArchiver(
 	run protocol.Run, space *workspace.Workspace, journal *journalWriter, control Journal, through http.RoundTripper, log *slog.Logger,
+	host *HostWorkingCopy,
 ) *archiver {
 	return &archiver{
 		run:     run,
@@ -66,16 +72,18 @@ func newArchiver(
 		scratch: os.TempDir(),
 		through: through,
 		log:     log,
+		host:    host,
 	}
 }
 
 func (a *archiver) keep() kept {
-	return kept{archive: a.current, baseline: a.baseline, leftOut: a.leftOut, archives: a.restoresWorkspace()}
+	return kept{archive: a.current, baseline: a.baseline, leftOut: a.leftOut, archives: a.restoresWorkspace(), moving: a.moving}
 }
 
 func (a *archiver) carry(from kept) {
 	a.restoredFrom, a.current = from.archive, from.archive
 	a.baseline, a.leftOut = from.baseline, from.leftOut
+	a.moving = from.moving
 	a.inherits = true
 	if from.archive != "" {
 		a.noted(restoreStep, false, "Kept the workspace this sandbox restored or the last run left in it")
@@ -112,6 +120,11 @@ func (a *archiver) restored(ctx context.Context) {
 		return
 	}
 
+	if stored.Snapshot != nil {
+		a.restoredByHost(*stored)
+		return
+	}
+
 	restoring := a.journal.begin(ctx, restoreStep)
 	if err := a.unpacked(ctx, *stored); err != nil {
 		a.ended(ctx, restoring, true, "Started afresh: %v", err)
@@ -139,6 +152,15 @@ func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
 		return fmt.Errorf("the archive the replay starts from, %s, is no longer stored", wanted)
 	}
 
+	if stored.Snapshot != nil {
+		if restored, err := a.host.restoredBy(*stored); !restored {
+			return fmt.Errorf("restore the archive the replay starts from: %w", err)
+		}
+		a.restoredFromHost(stored.ID)
+		a.noted(restoreStep, false, "Restored the workspace the replayed run started from, from snapshot %s", stored.Snapshot.Name)
+		return nil
+	}
+
 	restoring := a.journal.begin(ctx, restoreStep)
 	if err := a.unpacked(ctx, *stored); err != nil {
 		err = fmt.Errorf("restore the archive the replay starts from: %w", err)
@@ -150,6 +172,27 @@ func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
 	return nil
 }
 
+func (a *archiver) restoredByHost(stored protocol.StoredArchive) {
+	restored, err := a.host.restoredBy(stored)
+	var fresh rebased
+	switch {
+	case errors.As(err, &fresh):
+		a.noted(restoreStep, false, "%v", fresh)
+		return
+	case !restored:
+		a.noted(restoreStep, true, "Started afresh: %v", err)
+		return
+	}
+
+	a.restoredFromHost(stored.ID)
+	a.noted(restoreStep, false, "Restored the workspace the last run left, from snapshot %s", stored.Snapshot.Name)
+}
+
+func (a *archiver) restoredFromHost(archiveID string) {
+	a.restoredFrom, a.current = archiveID, archiveID
+	a.inherits = true
+}
+
 func (a *archiver) unpacked(ctx context.Context, stored protocol.StoredArchive) error {
 	if err := unpackInto(ctx, a.space, a.through, stored, a.rebuilt(ctx), a.scratch, a.log); err != nil {
 		return err
@@ -157,6 +200,7 @@ func (a *archiver) unpacked(ctx context.Context, stored protocol.StoredArchive) 
 
 	a.restoredFrom, a.current = stored.ID, stored.ID
 	a.inherits = true
+	a.moving = a.host != nil
 	return nil
 }
 
@@ -215,8 +259,8 @@ func (a *archiver) archive(ctx context.Context) bool {
 		archiving := a.journal.begin(ctx, archiveStep)
 		var summary string
 		summary, completed = a.archived(ctx, storeCalls{
-			grant: func(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
-				return a.control.GrantArchive(ctx, a.run.ID, size, sha256)
+			grant: func(ctx context.Context, request protocol.ArchiveRequest) (protocol.ArchiveGrant, error) {
+				return a.control.GrantArchive(ctx, a.run.ID, request)
 			},
 			complete: func(ctx context.Context, archiveID string) error {
 				return a.control.CompleteArchive(ctx, a.run.ID, archiveID)
@@ -307,27 +351,47 @@ func (a *archiver) archived(ctx context.Context, calls storeCalls) (string, bool
 	if err != nil {
 		a.log.Warn("could not take the workspace's fingerprint", "error", err)
 	}
-	if now != "" && now == a.baseline {
+	if now != "" && now == a.baseline && !a.moving {
 		return "Coalesced: nothing changed since the workspace was last restored or archived", true
 	}
 
-	stored, err := packAndStore(ctx, a.space, a.through, leaveOut, a.scratch, calls, a.log)
+	stored, err := store(ctx, a.host, a.space, a.through, leaveOut, a.scratch, calls, a.log)
 	if err != nil {
 		return "Skipped: " + err.Error(), false
 	}
 	a.baseline, a.leftOut, a.current = now, leaveOut, stored.id
+	a.moving = false
 
-	return fmt.Sprintf("Captured the workspace for the next run (%s)", sized(stored.size)), true
+	return "Captured the workspace for the next run " + stored.described(), true
 }
 
 type storeCalls struct {
-	grant    func(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error)
+	grant    func(ctx context.Context, request protocol.ArchiveRequest) (protocol.ArchiveGrant, error)
 	complete func(ctx context.Context, archiveID string) error
 }
 
 type storedArchive struct {
-	id   string
-	size int64
+	id       string
+	size     int64
+	snapshot string
+}
+
+func (s storedArchive) described() string {
+	if s.snapshot != "" {
+		return "(snapshot " + s.snapshot + ")"
+	}
+	return "(" + sized(s.size) + ")"
+}
+
+// store keeps the archive as a snapshot when the host keeps the workspace in a store, else as a tar in Spotlight.
+func store(
+	ctx context.Context, host *HostWorkingCopy, space *workspace.Workspace, through http.RoundTripper, leaveOut []string,
+	scratch string, calls storeCalls, log *slog.Logger,
+) (storedArchive, error) {
+	if host != nil {
+		return snapshotAndStore(ctx, host, calls)
+	}
+	return packAndStore(ctx, space, through, leaveOut, scratch, calls, log)
 }
 
 func packAndStore(
@@ -344,7 +408,7 @@ func packAndStore(
 		}
 	}()
 
-	grant, err := calls.grant(ctx, packed.Size, packed.SHA256)
+	grant, err := calls.grant(ctx, protocol.ArchiveRequest{Size: packed.Size, SHA256: packed.SHA256})
 	if err != nil {
 		return storedArchive{}, err
 	}
@@ -422,7 +486,12 @@ func emptied(space *workspace.Workspace, log *slog.Logger) {
 	}
 }
 
+// rebuilt names what an archive leaves out, as each checkout's setup builds it again. A store of the host keeps everything.
 func (a *archiver) rebuilt(ctx context.Context) []string {
+	if a.host != nil {
+		return nil
+	}
+
 	var setUp []string
 	for _, checkout := range a.run.Spec.Checkouts {
 		if checkout.Setup != "" {

@@ -11,6 +11,12 @@ import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
+import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
+import {
+  StoreSnapshot,
+  SpotlightStorage,
+} from '@runs/domain/value-objects/archive-location.vo';
+import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
@@ -477,6 +483,65 @@ describe('Run', () => {
 
     it('restores nothing for work without a working copy', () => {
       expect(working(orderedFor.spec(), {}).restoresFrom).toBeNull();
+    });
+
+    describe('when the store of its hosts has another base', () => {
+      const inStore = (base: string | null) => ({
+        location: StoreSnapshot.of('s3://team-a', base),
+      });
+
+      it('branches from the current base when it starts no session of its own', () => {
+        const fresh = working(orderedFor.holdingTurn('task_1'), {});
+
+        expect(fresh.startsFromBase(inStore('base-v1'), 'base-v2')).toBe(true);
+        expect(fresh.startsFromBase(inStore(null), 'base-v2')).toBe(true);
+      });
+
+      it('keeps the working copy of the session it carries on', () => {
+        const carrying = working(orderedFor.holdingTurn('task_1'), {
+          sessionId: 'session_1',
+        });
+
+        expect(carrying.startsFromBase(inStore('base-v1'), 'base-v2')).toBe(
+          false,
+        );
+      });
+
+      it('keeps a working copy of the current base, and any when the store has no base', () => {
+        const fresh = working(orderedFor.holdingTurn('task_1'), {});
+
+        expect(fresh.startsFromBase(inStore('base-v2'), 'base-v2')).toBe(false);
+        expect(fresh.startsFromBase(inStore('base-v1'), null)).toBe(false);
+      });
+
+      it('keeps the exact archive it was ordered to, as a replay or an assist session restores it', () => {
+        const exact = Run.enqueue({
+          id: RunId.of('run_1'),
+          workspaceId: WorkspaceId.of('ws_1'),
+          harness: HarnessId.of('dev'),
+          ...orderedFor.isolated(),
+          restore: WorkingCopyArchiveId.of('archive_1'),
+          spec: aSpec(),
+        });
+
+        expect(exact.startsFromBase(inStore('base-v1'), 'base-v2')).toBe(false);
+      });
+
+      it('keeps a tar from Spotlight’s storage, which the runner restores into the branch', () => {
+        const fresh = working(orderedFor.holdingTurn('task_1'), {});
+
+        expect(
+          fresh.startsFromBase(
+            {
+              location: SpotlightStorage.of(
+                ArchiveSize.of(1),
+                ArchiveDigest.of('a'.repeat(64)),
+              ),
+            },
+            'base-v2',
+          ),
+        ).toBe(false);
+      });
     });
 
     it('restores exactly the archive it was ordered to, before any of its key', () => {

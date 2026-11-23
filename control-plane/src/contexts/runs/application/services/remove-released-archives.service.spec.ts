@@ -3,6 +3,10 @@ import type {
   ArchiveDue,
   ArchiveReferencesPort,
 } from '@runs/application/ports/archive-references.port';
+import type {
+  SnapshotRemoval,
+  SnapshotRemovalsPort,
+} from '@runs/application/ports/snapshot-removals.port';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import { RemoveReleasedArchives } from '@runs/application/services/remove-released-archives.service';
 import {
@@ -12,6 +16,7 @@ import {
 import { WorkingCopyArchive } from '@runs/domain/aggregates/working-copy-archive.aggregate';
 import {
   aCompletedArchive,
+  aCompletedSnapshotArchive,
   anArchive,
   GRANTED_AT,
   later,
@@ -54,6 +59,14 @@ const setUp = async (
   const archives = new InMemoryArchives();
   const store = new InMemoryArchiveStore();
   const logger = { error: vi.fn() };
+  const queued: SnapshotRemoval[] = [];
+  const snapshots: SnapshotRemovalsPort = {
+    queue: async (removal) => {
+      queued.push(removal);
+    },
+    due: async () => queued,
+    forget: async () => true,
+  };
 
   await archives.add(aCompletedArchive({ id: 'gone' }));
   await archives.add(aCompletedArchive({ id: 'owned' }));
@@ -77,11 +90,12 @@ const setUp = async (
     holders,
     archives,
     store,
+    snapshots,
     { now: () => later(DAY), sleep: async () => {} },
     logger as never,
   );
 
-  return { archives, store, logger, service };
+  return { archives, store, logger, service, queued };
 };
 
 const completedMeanwhile = (
@@ -92,8 +106,7 @@ const completedMeanwhile = (
     workspaceId: incomplete.workspaceId,
     workingCopyKey: incomplete.workingCopyKey,
     grantedTo: incomplete.grantedTo,
-    size: incomplete.size,
-    digest: incomplete.digest,
+    location: incomplete.location,
     grantedAt: incomplete.grantedAt,
     completedAt: later(DAY - 1),
     version: incomplete.version + 1,
@@ -156,6 +169,27 @@ describe('RemoveReleasedArchives', () => {
 
     expect(store.removed).toEqual(['gone']);
     expect([...archives.stored.keys()]).toEqual(['owned']);
+  });
+
+  it('leaves the snapshot of a removed archive to a host of its store, as Spotlight cannot reach the store', async () => {
+    const { archives, store, service, queued } = await setUp(async () => ({
+      due: [dueAs('branched', 'task-task_9')],
+      next: null,
+    }));
+    await archives.add(aCompletedSnapshotArchive({ id: 'branched' }));
+
+    await service.processDue();
+
+    expect([...archives.stored.keys()]).toEqual(['gone', 'owned']);
+    expect(store.removed).toEqual([]);
+    expect(queued).toHaveLength(1);
+    expect(queued[0]?.workspaceId.value).toBe('ws_1');
+    expect(queued[0]).toMatchObject({
+      archiveId: 'branched',
+      store: 's3://team-a',
+      snapshot: 'spotlight-branched',
+      queuedAt: later(DAY),
+    });
   });
 
   it('treats a working copy of an owner that holds nothing as held by nobody', async () => {

@@ -32,8 +32,7 @@ export class GrantSandboxArchiveHandler implements CommandHandlerPort<
         workspaceId: sandbox.workspaceId,
         workingCopyKey: sandbox.key,
         grantee: ArchiveGrantee.sandbox(sandbox.id),
-        size: command.size,
-        sha256: command.sha256,
+        ...command.storage,
       });
     } catch (error) {
       rethrowAsApplicationError(error);

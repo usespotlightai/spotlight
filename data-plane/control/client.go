@@ -606,7 +606,16 @@ func (c *Client) Attachment(
 }
 
 func (c *Client) WorkingCopyArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error) {
+	return c.WorkingCopyArchiveOnto(ctx, runID, "")
+}
+
+// WorkingCopyArchiveOnto reads the archive to restore for a host whose working copy store has base, so the control plane
+// says whether the run branches from that base instead.
+func (c *Client) WorkingCopyArchiveOnto(ctx context.Context, runID, base string) (*protocol.StoredArchive, error) {
 	path := fmt.Sprintf("/api/runs/%s/working-copy-archive", url.PathEscape(runID))
+	if base != "" {
+		path += "?base=" + url.QueryEscape(base)
+	}
 
 	var stored protocol.StoredArchive
 	status, err := c.request(ctx, http.MethodGet, path, nil, &stored)
@@ -621,13 +630,12 @@ func (c *Client) WorkingCopyArchive(ctx context.Context, runID string) (*protoco
 }
 
 func (c *Client) GrantArchive(
-	ctx context.Context, runID string, size int64, sha256 string,
+	ctx context.Context, runID string, request protocol.ArchiveRequest,
 ) (protocol.ArchiveGrant, error) {
 	path := fmt.Sprintf("/api/runs/%s/working-copy-archive", url.PathEscape(runID))
 
 	var granted protocol.ArchiveGrant
-	body := protocol.ArchiveRequest{Size: size, SHA256: sha256}
-	if err := c.do(ctx, http.MethodPost, path, body, &granted); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, request, &granted); err != nil {
 		return protocol.ArchiveGrant{}, fmt.Errorf("request a working copy archive: %w", err)
 	}
 

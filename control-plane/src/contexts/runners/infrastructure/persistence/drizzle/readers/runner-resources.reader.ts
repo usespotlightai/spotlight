@@ -15,6 +15,8 @@ import {
   runnerTrust,
   workspaceRunners,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import { workingCopiesDto } from '@runners/application/mappers/working-copy-store.mapper';
+import { workingCopyStoreOf } from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
 import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
@@ -40,6 +42,7 @@ const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
         egressTraffic: row.provisionEgressTraffic === 'bound' ? 'bound' : 'all',
       }
     : null,
+  workingCopies: workingCopiesDto(workingCopyStoreOf(row)),
 });
 
 const egressRecord = (row: EgressRow): EgressRecord => ({
@@ -60,6 +63,7 @@ const trustRecord = (row: TrustRow): RunnerTrustRecord => ({
   subject: row.subject,
   audience: row.audience,
   labels: row.labels,
+  workingCopies: workingCopiesDto(workingCopyStoreOf(row)),
 });
 
 const workspaceRunnersRecord = (

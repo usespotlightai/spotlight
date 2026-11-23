@@ -25,7 +25,18 @@ type Config struct {
 	BackgroundWait time.Duration
 	HarnessFrames  bool
 	Egress         Egress
+	WorkingCopy    WorkingCopy
 }
+
+// WorkingCopy is set when the host keeps the workspace in a store of its working copy hook.
+type WorkingCopy struct {
+	Store    string
+	Restored string
+	Rebased  string
+	Base     string
+}
+
+func (w WorkingCopy) InStore() bool { return w.Store != "" }
 
 type Egress struct {
 	URL        string
@@ -38,7 +49,7 @@ func (e Egress) Configured() bool { return e.URL != "" }
 func (c Config) HasAssignmentFile() bool { return c.AssignmentFile != "" }
 
 const (
-	DefaultWorkspace      = "/workspace"
+	DefaultWorkspace      = protocol.SandboxWorkspace
 	defaultAuthorName     = "Spotlight"
 	defaultAuthorEmail    = "noreply@usespotlight.ai"
 	defaultBackgroundWait = 30 * time.Minute
@@ -135,6 +146,13 @@ func Load(args []string) (Config, error) {
 		} else {
 			cfg.BackgroundWait = wait
 		}
+	}
+
+	cfg.WorkingCopy = WorkingCopy{
+		Store:    get(protocol.WorkingCopyStoreVar),
+		Restored: get(protocol.WorkingCopyRestoredVar),
+		Rebased:  get(protocol.WorkingCopyRebasedVar),
+		Base:     get(protocol.WorkingCopyBaseVar),
 	}
 
 	if raw := get(envHarnessFrames); raw != "" {

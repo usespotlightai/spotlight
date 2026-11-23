@@ -33,8 +33,7 @@ export class GrantWorkingCopyArchiveHandler implements CommandHandlerPort<
         workspaceId: run.workspaceId,
         workingCopyKey: run.workingCopyKey,
         grantee: ArchiveGrantee.run(run.id),
-        size: command.size,
-        sha256: command.sha256,
+        ...command.storage,
       });
     } catch (error) {
       rethrowAsApplicationError(error);

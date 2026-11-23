@@ -81,6 +81,10 @@ type Pool interface {
 	Heartbeat(ctx context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error)
 	Deregister(ctx context.Context) error
 	ForRun(assignment protocol.Assignment) (RunClient, error)
+	// WorkingCopyArchive is the archive the sandbox of the assignment restores, for a store whose base is base.
+	WorkingCopyArchive(ctx context.Context, assignment protocol.Assignment, base string) (*protocol.StoredArchive, error)
+	SnapshotRemovals(ctx context.Context) (protocol.SnapshotRemovals, error)
+	ForgetSnapshotRemoval(ctx context.Context, archiveID string) error
 }
 
 type RunClient interface {
@@ -137,6 +141,8 @@ type Options struct {
 	Network        string
 	ExtraHosts     []string
 	Tunnel         Tunnel
+	// WorkingCopies is nil unless the host has a working copy hook.
+	WorkingCopies WorkingCopies
 }
 
 type Egress struct {
@@ -190,6 +196,8 @@ type Host struct {
 	restarting   bool
 	drainingAll  bool
 	stopClaiming context.CancelFunc
+	checkedStore string
+	unfitBy      string
 }
 
 func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
@@ -262,6 +270,7 @@ func (h *Host) Serve(ctx context.Context) error {
 	}
 
 	h.reap(ctx, left)
+	h.releaseLeftWorkingCopies(ctx, left.taken)
 
 	tunneling, stopTunneling := context.WithCancel(ctx)
 	var tunnel sync.WaitGroup
@@ -299,6 +308,7 @@ func (h *Host) Serve(ctx context.Context) error {
 
 		reporting.Go(func() { h.watch(claiming, ctx, stop) })
 		reporting.Go(func() { h.sweep(claiming) })
+		reporting.Go(func() { h.removeSnapshots(claiming) })
 		h.loops.Go(func() {
 			if err := h.calls(claiming, ctx, stop); err != nil {
 				stop(err)
@@ -568,6 +578,14 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 			continue
 		}
 
+		if err := h.workingCopiesFit(ctx); err != nil {
+			h.unfit(err)
+			if !sleep(ctx, jitter(retryCeiling)) {
+				return nil
+			}
+			continue
+		}
+
 		if wait := h.claimBackoffFor(image); wait > 0 {
 			if !sleep(ctx, wait) {
 				return nil
@@ -736,7 +754,22 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		return
 	}
 
-	mounts := h.mountMirrors(ctx, assignment, log)
+	workingCopy, err := h.openWorkingCopy(ctx, assignment, log)
+	if err != nil {
+		log.Warn("failed the work: its working copy did not open", "error", err)
+		h.reported(err, assignment)
+		h.failWork(ctx, assignment, client, fmt.Sprintf("The sandbox's working copy didn't open. Error: %v", err), log)
+		return
+	}
+	defer func() {
+		if kept {
+			workingCopy.stop()
+		} else {
+			workingCopy.close(ctx, log)
+		}
+	}()
+
+	mounts := append(h.mountMirrors(ctx, assignment, log), workingCopy.mounts()...)
 	if volume, ok := h.editorServers(); ok && assignment.SandboxID != "" {
 		mounts = append(mounts, sandbox.Mount{Source: volume, Target: protocol.SandboxEditorServers, Volume: true})
 	}
@@ -769,6 +802,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	env := append(sandboxEnv, sidecar.env()...)
+	env = append(env, workingCopy.env()...)
 	env = append(env,
 		"SPOTLIGHT_URL="+h.now().SandboxURL,
 		"SPOTLIGHT_ASSIGNMENT_FILE="+AssignmentPath,
