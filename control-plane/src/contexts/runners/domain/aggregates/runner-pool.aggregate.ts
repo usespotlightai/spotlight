@@ -24,6 +24,7 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
+import type { RunnerWorkKind } from '@runners/domain/value-objects/runner-work.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -153,7 +154,10 @@ export class RunnerPool extends EventRecorder {
         ConfigurationChange.created(
           created.whatChanged,
           input.by,
-          RunnerPoolChangeDetail.created(created.mode),
+          RunnerPoolChangeDetail.created(created.mode, {
+            allowsSecrets: created.allowsSecrets,
+            allowsReviewWork: created.allowsReviewWork,
+          }),
         ),
       ),
     );
@@ -291,6 +295,17 @@ export class RunnerPool extends EventRecorder {
 
   servesEgressNeed(needsEgress: boolean): boolean {
     return !needsEgress || this.egress !== null;
+  }
+
+  // The pool takes the work only if the operator allows it this kind of work now: runs that inject secrets, or checks and diffs.
+  takes(work: {
+    readonly kind: RunnerWorkKind;
+    readonly needsEgress: boolean;
+  }): boolean {
+    return (
+      (this.allowsSecrets || !work.needsEgress) &&
+      (this.allowsReviewWork || work.kind === 'run')
+    );
   }
 
   usesEgress(egress: EgressReference): boolean {

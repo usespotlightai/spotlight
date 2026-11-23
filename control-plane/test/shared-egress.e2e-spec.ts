@@ -450,6 +450,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       .update(schema.runner)
       .set({
         startedAt: new Date(Date.now() - 600_000),
+        claimedAt: new Date(Date.now() - 590_000),
         endedAt: new Date(Date.now() - 121_000),
       })
       .where(eq(schema.runner.id, ended?.id ?? ''));

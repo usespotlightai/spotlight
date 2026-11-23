@@ -13,11 +13,9 @@ export class RunnerLeases {
     return this.runners.release(runner, at);
   }
 
-  runEnded(runId: RunId): Promise<void> {
-    return this.runners.workEnded(
-      { kind: 'run', id: runId.value },
-      this.clock.now(),
-    );
+  // The time the run ended, from its event, so that a late delivery does not move the end of its runner.
+  runEnded(runId: RunId, at: Date): Promise<void> {
+    return this.runners.workEnded({ kind: 'run', id: runId.value }, at);
   }
 
   reservationDropped(runnerId: string): Promise<void> {

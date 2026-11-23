@@ -5,7 +5,8 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 export const REVIEW_WORK_RUNNERS = Symbol('REVIEW_WORK_RUNNERS');
 
 export interface ReviewWorkRunnersPort {
-  checkReleased(stackId: ChangeStackId): Promise<void>;
+  // At: when the check ended, where its event says. Without it, the runner ends now.
+  checkReleased(stackId: ChangeStackId, at?: Date): Promise<void>;
 
   diffReleased(diffId: PushDiffId): Promise<void>;
 

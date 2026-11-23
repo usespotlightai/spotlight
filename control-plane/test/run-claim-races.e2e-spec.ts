@@ -8,6 +8,7 @@ import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/dri
 import { DrizzleRunWaits } from '@runs/infrastructure/persistence/drizzle/ledgers/run-waits.ledger';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -43,6 +44,12 @@ beforeAll(async () => {
     new DrizzleExclusiveClaimLocks(context),
     new DrizzleWorkingCopyArchiveRepository(context, events),
     new DrizzleRunWaits(context),
+    {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    },
   );
 }, 60_000);
 

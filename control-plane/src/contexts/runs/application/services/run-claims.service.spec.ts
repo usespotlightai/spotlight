@@ -7,6 +7,7 @@ import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/wor
 import type { Claimant } from '@runs/domain/value-objects/claimant';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -47,6 +48,7 @@ const claimsOver = (waiting: readonly Run[]) => {
     note: vi.fn(async () => {}),
     clear: vi.fn(async () => {}),
   };
+  const logger = { warn: vi.fn() };
   const runs = {
     claimCandidates: vi.fn(async () => ({ waiting, leasedRequesters: [] })),
     save: vi.fn(async () => {}),
@@ -65,9 +67,10 @@ const claimsOver = (waiting: readonly Run[]) => {
       completedKeysAmong: vi.fn(async () => []),
     } as unknown as WorkingCopyArchiveRepository,
     waits,
+    logger as unknown as LoggerPort,
   );
 
-  return { claims, runs, waits };
+  return { claims, runs, waits, logger };
 };
 
 describe('RunClaims', () => {
@@ -78,6 +81,14 @@ describe('RunClaims', () => {
 
     expect(claimed).not.toBeNull();
     expect(waits.clear).toHaveBeenCalledExactlyOnceWith(claimed?.id);
+  });
+
+  it('keeps the claim when forgetting the wait fails, and says so', async () => {
+    const { claims, waits, logger } = claimsOver([queued('task_1')]);
+    waits.clear.mockRejectedValue(new Error('database went away'));
+
+    await expect(claims.next(avoiding([]), NOW)).resolves.not.toBeNull();
+    expect(logger.warn).toHaveBeenCalledOnce();
   });
 
   it('sees a queued run the claimant would take, and claims nothing', async () => {

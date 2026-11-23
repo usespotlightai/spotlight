@@ -119,6 +119,10 @@ export const runnerPool = pgTable(
       'runner_pool_disabled_platform',
       sql`not ${table.disabled} or ${table.platform}`,
     ),
+    check(
+      'runner_pool_allows_platform',
+      sql`(not ${table.allowsSecrets} and not ${table.allowsReviewWork}) or ${table.platform}`,
+    ),
   ],
 );
 

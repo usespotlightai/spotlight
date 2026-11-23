@@ -442,6 +442,38 @@ describe('RunnerPool for the platform', () => {
     expect(allowed.disable(BY).enable(BY).allowsReviewWork).toBe(true);
   });
 
+  it('takes runs that inject secrets, and checks and diffs, only while the operator allows them', () => {
+    const refusing = aPlatformPool();
+    const allowing = aPlatformPool({
+      allows: { allowsSecrets: true, allowsReviewWork: true },
+    });
+
+    expect(refusing.takes({ kind: 'run', needsEgress: false })).toBe(true);
+    expect(refusing.takes({ kind: 'run', needsEgress: true })).toBe(false);
+    expect(refusing.takes({ kind: 'check', needsEgress: false })).toBe(false);
+    expect(allowing.takes({ kind: 'diff', needsEgress: false })).toBe(true);
+    expect(aPushPool().takes({ kind: 'check', needsEgress: true })).toBe(true);
+  });
+
+  it('records the work a new platform pool takes from the start', () => {
+    const created = RunnerPool.createPlatform({
+      id: PoolId.of('pool_new'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      labels: RunnerLabels.none(),
+      egress: null,
+      allows: { allowsSecrets: true },
+      by: BY,
+    });
+
+    expect(
+      created
+        .pullEvents()
+        .flatMap((each) =>
+          each instanceof RunnerPoolCreated ? [each.change.recordedDetail] : [],
+        ),
+    ).toEqual([{ mode: 'push', allowsSecrets: true, allowsReviewWork: false }]);
+  });
+
   it('records one change when the operator disables the pool and allows it work in one step', () => {
     const pool = aPlatformPool();
     pool.pullEvents();

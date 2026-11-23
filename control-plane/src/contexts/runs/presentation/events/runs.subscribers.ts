@@ -52,7 +52,7 @@ export const runsSubscribers = (reactions: {
     { callsOut: true },
   ),
   subscribing<Ended>('runs.end-runner-of-ended-run', ENDED, (event) =>
-    reactions.runners.runEnded(event.runId),
+    reactions.runners.runEnded(event.runId, event.endedAt),
   ),
   subscribing<Ended>('runs.release-sandbox-of-ended-run', ENDED, (event) =>
     reactions.sandboxes.runEnded(event.runId),

@@ -26,8 +26,8 @@ describe('listed', () => {
     const runners = listed(PLATFORM).split('\n')[1];
 
     expect(runners).toMatch(/^2\. Run agents on the platform runners\./);
-    expect(runners).toContain('you have nothing to connect');
-    expect(runners).toContain('prebuilt image');
+    expect(runners).toContain('without connecting anything');
+    expect(runners).toContain('To run a repository in another image');
   });
 });
 

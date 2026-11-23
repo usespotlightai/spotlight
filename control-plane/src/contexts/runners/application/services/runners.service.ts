@@ -270,8 +270,19 @@ export class Runners implements RunnersPort {
         });
       },
       null,
-      (pool) =>
-        pool.servesEgressNeed(request.needsEgress) ? null : NO_EGRESS_NAMED,
+      (pool) => {
+        if (!pool.servesEgressNeed(request.needsEgress)) {
+          return NO_EGRESS_NAMED;
+        }
+
+        // The operator withdrew the allowance after the pool was chosen. Another pool can still take the work.
+        return pool.takes({
+          kind: request.work.kind,
+          needsEgress: request.needsEgress,
+        })
+          ? null
+          : ({ outcome: 'gone' } as const);
+      },
     );
 
     if (began.outcome !== 'began') {

@@ -37,7 +37,7 @@ const WORDING: Record<SetupStepKey, Wording> = {
 const PLATFORM_RUNNERS: Wording = {
   title: 'Run agents on the platform runners',
   description:
-    'This deployment gives your workspace runners, so you have nothing to connect. Each run uses their default image. To use your own image, give a repository a prebuilt image in the team’s configuration. To run agents on your own computers or cloud, connect a host or a pool on the Runners page.',
+    'This deployment gives your workspace runners, so your team can start without connecting anything. Runs on them use their default image. To run a repository in another image, or to run agents on your own computers or cloud, connect a host or a pool on the Runners page.',
 };
 
 const wordingOf = (key: SetupStepKey, runners: SetupRunners): Wording =>

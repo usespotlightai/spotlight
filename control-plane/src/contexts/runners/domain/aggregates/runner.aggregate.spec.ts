@@ -193,6 +193,40 @@ describe('Runner', () => {
     });
   });
 
+  it('does not read back a runner that claimed before it started, or ended before it claimed', () => {
+    const working = aRunner().claim(RUN, later(1_000)).ended(later(2_000));
+    const state = (over: object) => ({
+      id: working.id,
+      workspaceId: working.workspaceId,
+      source: working.source,
+      platform: false,
+      hostId: working.hostId,
+      enters: null,
+      labels: working.labels,
+      tokenHash: working.tokenHash,
+      egressTokenHash: working.egressTokenHash,
+      proxyCredentialHash: null,
+      installed: [],
+      running: null,
+      work: RUN,
+      claimBy: working.claimBy,
+      startedAt: STARTED_AT,
+      claimedAt: later(1_000),
+      lastHeartbeatAt: later(1_000),
+      endedAt: later(2_000),
+      version: 1,
+      ...over,
+    });
+
+    expect(() => Runner.rehydrate(state({}))).not.toThrow();
+    expect(() => Runner.rehydrate(state({ claimedAt: later(-1_000) }))).toThrow(
+      InconsistentStateError,
+    );
+    expect(() => Runner.rehydrate(state({ endedAt: later(500) }))).toThrow(
+      InconsistentStateError,
+    );
+  });
+
   it('records its end with no work when it is released before it claimed anything', () => {
     const released = aRunner().release(later(1));
 

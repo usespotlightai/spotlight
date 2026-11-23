@@ -11,10 +11,10 @@ export class ReviewWorkRunners implements ReviewWorkRunnersPort {
     private readonly clock: ClockPort,
   ) {}
 
-  checkReleased(stackId: ChangeStackId): Promise<void> {
+  checkReleased(stackId: ChangeStackId, at?: Date): Promise<void> {
     return this.runners.workEnded(
       { kind: 'check', id: stackId.value },
-      this.clock.now(),
+      at ?? this.clock.now(),
     );
   }
 

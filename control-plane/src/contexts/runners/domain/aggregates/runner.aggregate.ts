@@ -152,6 +152,20 @@ export class Runner extends EventRecorder {
       throw new InconsistentStateError('runner', 'ended before it started');
     }
 
+    if (state.claimedAt && state.claimedAt < state.startedAt) {
+      throw new InconsistentStateError(
+        'runner',
+        'claimed work before it started',
+      );
+    }
+
+    if (state.endedAt && state.claimedAt && state.endedAt < state.claimedAt) {
+      throw new InconsistentStateError(
+        'runner',
+        'ended before it claimed work',
+      );
+    }
+
     if ((state.work === null) !== (state.claimedAt === null)) {
       throw new InconsistentStateError(
         'runner',

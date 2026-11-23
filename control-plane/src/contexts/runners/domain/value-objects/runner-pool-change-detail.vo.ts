@@ -15,8 +15,20 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
     readonly allowsReviewWork: boolean | null = null,
   ) {}
 
-  static created(mode: PoolMode): RunnerPoolChangeDetail {
-    return new RunnerPoolChangeDetail(mode, false, false, false);
+  // A platform pool records the work it takes from the start.
+  static created(
+    mode: PoolMode,
+    allows: { allowsSecrets: boolean; allowsReviewWork: boolean } | null = null,
+  ): RunnerPoolChangeDetail {
+    return new RunnerPoolChangeDetail(
+      mode,
+      false,
+      false,
+      false,
+      null,
+      allows?.allowsSecrets ?? null,
+      allows?.allowsReviewWork ?? null,
+    );
   }
 
   static updated(
