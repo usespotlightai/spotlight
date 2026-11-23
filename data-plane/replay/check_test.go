@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -884,10 +885,6 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 			resource: catalogResource("spotlight_hook.core_audit", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "audit", "match": map[string]any{}}),
 			want:     "build,review",
 		},
-		"a secret, which any station may use": {
-			resource: catalogResource("spotlight_secret.linear_key", "spotlight_secret", map[string]any{"workspace_id": "ws", "name": "LINEAR_KEY"}),
-			want:     "build,review", contains: "secret spotlight_secret.linear_key",
-		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			plan := mutated(t, withoutUnknowns(t, planFixture(t)), func(changes []any) []any {
@@ -900,6 +897,96 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 			}
 			for _, each := range stations {
 				if each.Undecided && tc.contains != "" && !strings.Contains(each.Because, tc.contains) {
+					t.Fatalf("%s: %s", each.Key, each.Because)
+				}
+			}
+		})
+	}
+}
+
+func withActions(resource map[string]any, actions ...any) map[string]any {
+	change := resource["change"].(map[string]any)
+	change["actions"] = actions
+	if slices.Contains(actions, any("delete")) && !slices.Contains(actions, any("create")) {
+		change["after"] = nil
+	}
+	return resource
+}
+
+func TestReadPlanLeavesUndecidedOnlyTheStationsAChangedSecretReaches(t *testing.T) {
+	secret := func(name string) map[string]any {
+		return catalogResource("spotlight_secret.key", "spotlight_secret", map[string]any{"workspace_id": "ws", "name": name})
+	}
+	linear := func(reference string) map[string]any {
+		return withActions(catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{
+			"team_id": coreTeam, "integration": "linear",
+			"definition": map[string]any{"webhook": map[string]any{"verify": map[string]any{"hmac": map[string]any{"secret": reference}}}},
+		}), "no-op")
+	}
+	profile := withActions(catalogResource("spotlight_harness_profile.core_default", "spotlight_harness_profile", map[string]any{
+		"team_id": coreTeam, "key": "default", "env": map[string]any{"LINEAR_API_KEY": "LINEAR_KEY"},
+	}), "no-op")
+	withStations := func(changes []any) []any {
+		delivery := lineChange(changes, "spotlight_line.delivery")
+		for _, side := range []string{"before", "after"} {
+			stationIn(delivery[side].(map[string]any), "review")["tools"] = []any{"linear.comment"}
+			stationIn(delivery[side].(map[string]any), "build")["profile"] = "default"
+		}
+		return changes
+	}
+
+	for name, tc := range map[string]struct {
+		resources []map[string]any
+		want      string
+	}{
+		"a deleted secret, which no run can use after apply": {
+			resources: []map[string]any{withActions(secret("LINEAR_KEY"), "delete"), linear("secret.LINEAR_KEY"), profile},
+			want:      "",
+		},
+		"a secret an integration references, at the station using its tools": {
+			resources: []map[string]any{secret("SIGNING"), linear("secret.SIGNING")},
+			want:      "review",
+		},
+		"a secret a harness profile maps to a variable, at the station using the profile": {
+			resources: []map[string]any{secret("LINEAR_KEY"), profile},
+			want:      "build",
+		},
+		"a secret both name, once at each station": {
+			resources: []map[string]any{secret("LINEAR_KEY"), linear("secret.LINEAR_KEY"), profile},
+			want:      "build,review",
+		},
+		"a secret nothing names": {
+			resources: []map[string]any{secret("UNUSED"), linear("secret.SIGNING"), profile},
+			want:      "",
+		},
+		"a secret whose name only starts another name": {
+			resources: []map[string]any{secret("SIGNING"), linear("secret.SIGNING_OLD")},
+			want:      "",
+		},
+		"a replaced secret": {
+			resources: []map[string]any{withActions(secret("SIGNING"), "delete", "create"), linear("secret.SIGNING")},
+			want:      "review",
+		},
+		"a secret whose name is known only after apply": {
+			resources: []map[string]any{catalogResource("spotlight_secret.key", "spotlight_secret", map[string]any{"workspace_id": "ws"})},
+			want:      "build,review",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			plan := mutated(t, withoutUnknowns(t, planFixture(t)), func(changes []any) []any {
+				changes = withStations(changes)
+				for _, each := range tc.resources {
+					changes = append(changes, each)
+				}
+				return changes
+			})
+
+			stations := parsedFixture(t, plan).Stations
+			if got := undecidedKeys(stations); got != tc.want {
+				t.Fatalf("undecided = %q, want %q: %+v", got, tc.want, stations)
+			}
+			for _, each := range stations {
+				if each.Undecided && (!strings.Contains(each.Because, "secret spotlight_secret.key") || strings.Count(each.Because, "secret spotlight_secret.key") != 1) {
 					t.Fatalf("%s: %s", each.Key, each.Because)
 				}
 			}

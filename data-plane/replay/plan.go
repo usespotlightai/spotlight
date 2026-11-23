@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -48,21 +49,24 @@ type planShown struct {
 }
 
 type resourceChange struct {
-	Address      string `json:"address"`
-	Mode         string `json:"mode"`
-	Type         string `json:"type"`
-	ProviderName string `json:"provider_name"`
-	Change       struct {
-		Actions      []string       `json:"actions"`
-		Before       map[string]any `json:"before"`
-		After        map[string]any `json:"after"`
-		AfterUnknown any            `json:"after_unknown"`
-	} `json:"change"`
+	Address      string        `json:"address"`
+	Mode         string        `json:"mode"`
+	Type         string        `json:"type"`
+	ProviderName string        `json:"provider_name"`
+	Change       plannedChange `json:"change"`
+}
+
+type plannedChange struct {
+	Actions      []string       `json:"actions"`
+	Before       map[string]any `json:"before"`
+	After        map[string]any `json:"after"`
+	AfterUnknown any            `json:"after_unknown"`
 }
 
 type catalogChange struct {
 	address  string
 	kind     string
+	reach    string
 	teamID   string
 	key      string
 	stations []string
@@ -125,7 +129,7 @@ func readPlan(in io.Reader) (planned, error) {
 		return planned{}, fmt.Errorf("this is not a saved plan shown as JSON; pass this the output of `%s`", showCommand)
 	}
 
-	var lines []resourceChange
+	var lines, secrets, carriers []resourceChange
 	var catalog []catalogChange
 	for _, each := range shown.ResourceChanges {
 		if each.Mode != "managed" || !fromSpotlight(each.ProviderName) {
@@ -135,11 +139,19 @@ func readPlan(in io.Reader) (planned, error) {
 		switch each.Type {
 		case lineType:
 			lines = append(lines, each)
-		case skillType, profileType, integrationType, hookType, secretType:
+		case secretType:
+			secrets = append(secrets, each)
+		case profileType, integrationType, hookType:
+			carriers = append(carriers, each)
+			fallthrough
+		case skillType:
 			if changed := catalogChangeOf(each); changed != nil {
 				catalog = append(catalog, *changed)
 			}
 		}
+	}
+	for _, each := range secrets {
+		catalog = append(catalog, secretReach(each, carriers)...)
 	}
 
 	var plan planned
@@ -183,12 +195,90 @@ func catalogChangeOf(change resourceChange) *catalogChange {
 				}
 			}
 		}
-	case secretType:
-		changed.kind = "secret"
-		changed.anyTeam = true
 	}
+	changed.reach = changed.kind
 
 	return changed
+}
+
+func secretReach(change resourceChange, carriers []resourceChange) []catalogChange {
+	actions := strings.Join(change.Change.Actions, ",")
+	switch actions {
+	case "no-op", "read", "", "delete":
+		return nil
+	}
+
+	var names []string
+	for _, side := range []map[string]any{change.Change.Before, change.Change.After} {
+		if name, _ := side["name"].(string); name != "" && !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return []catalogChange{{address: change.Address, kind: "secret", anyTeam: true}}
+	}
+
+	var reached []catalogChange
+	for _, carrier := range carriers {
+		if !namesSecret(carrier.Change.Before, names) && !namesSecret(carrier.Change.After, names) {
+			continue
+		}
+		values := carrier.Change.Before
+		if values == nil {
+			values = carrier.Change.After
+		}
+		via := catalogChangeOf(resourceChange{Address: carrier.Address, Type: carrier.Type, Change: plannedChange{Actions: []string{"update"}, Before: values}})
+		via.address, via.kind = change.Address, "secret"
+		reached = append(reached, *via)
+	}
+
+	return reached
+}
+
+func namesSecret(value any, names []string) bool {
+	switch typed := value.(type) {
+	case string:
+		for _, name := range names {
+			if typed == name || referencesSecret(typed, name) {
+				return true
+			}
+		}
+	case map[string]any:
+		for _, each := range typed {
+			if namesSecret(each, names) {
+				return true
+			}
+		}
+	case []any:
+		for _, each := range typed {
+			if namesSecret(each, names) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func referencesSecret(text, name string) bool {
+	reference := "secret." + name
+	for at := strings.Index(text, reference); at >= 0; {
+		end := at + len(reference)
+		if end == len(text) || !isNameByte(text[end]) {
+			return true
+		}
+		next := strings.Index(text[end:], reference)
+		if next < 0 {
+			return false
+		}
+		at = end + next
+	}
+
+	return false
+}
+
+func isNameByte(b byte) bool {
+	return b == '_' || b == '-' || '0' <= b && b <= '9' || 'a' <= b && b <= 'z' || 'A' <= b && b <= 'Z'
 }
 
 func (c catalogChange) feeds(teamID, stationKey string, station map[string]any) bool {
@@ -202,7 +292,7 @@ func (c catalogChange) feeds(teamID, stationKey string, station map[string]any) 
 		return true
 	}
 
-	switch c.kind {
+	switch c.reach {
 	case "skill":
 		for _, each := range listAt(station["skills"]) {
 			if each == c.key {
@@ -304,8 +394,9 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 		changed, unknownParts := current.changedFrom(old.values)
 		var feeding []string
 		for _, each := range catalog {
-			if each.feeds(teamID, key, old.values) || each.feeds(teamID, key, current.values) {
-				feeding = append(feeding, fmt.Sprintf("%s %s", each.kind, each.address))
+			entry := fmt.Sprintf("%s %s", each.kind, each.address)
+			if (each.feeds(teamID, key, old.values) || each.feeds(teamID, key, current.values)) && !slices.Contains(feeding, entry) {
+				feeding = append(feeding, entry)
 			}
 		}
 
