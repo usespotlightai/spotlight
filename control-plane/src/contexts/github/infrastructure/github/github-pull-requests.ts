@@ -162,6 +162,19 @@ export class GitHubPullRequests implements PullRequestPort {
     );
   }
 
+  async retarget(at: PullRequestAt, base: string | null): Promise<void> {
+    const token = await this.tokenFor(at.workspaceId);
+    const into = base ?? (await this.defaultBranch(at.repository, token));
+
+    await answered(
+      await call(`${this.at(at.repository)}/pulls/${at.number}`, token, {
+        ...sending({ base: into }),
+        method: 'PATCH',
+      }),
+      `GitHub would not move ${at.repository.value}#${at.number} into ${into}`,
+    );
+  }
+
   async comment(at: PullRequestAt, body: string): Promise<void> {
     await answered(
       await call(

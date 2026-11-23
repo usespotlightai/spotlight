@@ -136,6 +136,30 @@ describe('a task’s pushes', () => {
     expect(task.pushRefusal(API, update(own, THEIRS, SECOND))).toBeNull();
   });
 
+  it('never rewrite a person’s commit that the branch took in an earlier push', () => {
+    const mine = task.pushedTo(API, [update(own, NONE, FIRST)], NOW);
+    const onTheirs = mine.pushedTo(API, [update(own, THEIRS, SECOND)], LATER);
+
+    expect(onTheirs.pushRefusal(API, update(own, SECOND, FIRST, true))).toEqual(
+      { kind: 'push-rewrites-commits-of-others', branch: task.branch },
+    );
+    expect(onTheirs.pushRefusal(API, update(own, SECOND, FIRST))).toBeNull();
+    expect(
+      onTheirs
+        .pushedTo(API, [update(own, SECOND, FIRST)], LATER)
+        .pushRefusal(API, update(own, FIRST, THEIRS, true)),
+    ).toEqual({ kind: 'push-rewrites-commits-of-others', branch: task.branch });
+  });
+
+  it('rewrite again over a branch that holds only commits Spotlight pushed', () => {
+    const mine = task
+      .pushedTo(API, [update(own, NONE, FIRST)], NOW)
+      .pushedTo(API, [update(own, FIRST, SECOND)], LATER)
+      .pushedTo(API, [update(own, SECOND, THEIRS, true)], LATER);
+
+    expect(mine.pushRefusal(API, update(own, THEIRS, FIRST, true))).toBeNull();
+  });
+
   it('keep the last commit pushed per repository, and ignore other refs and deletes', () => {
     const pushed = task
       .pushedTo(API, [update(own, NONE, FIRST)], NOW)
@@ -152,7 +176,7 @@ describe('a task’s pushes', () => {
     expect(
       pushed.pushedHeads.map((each) => [
         each.repository.value,
-        each.commit,
+        each.commit.value,
         each.pushedAt,
       ]),
     ).toEqual([
@@ -187,5 +211,18 @@ describe('a task’s base branch', () => {
         NOW,
       ).base,
     ).toEqual(Branch.of('release/1.x'));
+  });
+});
+
+describe('a task stacked on another', () => {
+  it('takes the base of the task it was stacked on once that one merges', () => {
+    const stacked = added(Branch.of('feat/uploads'));
+
+    expect(
+      stacked.baseMerged(Branch.of('feat/uploads'), Branch.of('release/1.x'))
+        .base?.value,
+    ).toBe('release/1.x');
+    expect(stacked.baseMerged(Branch.of('feat/uploads'), null).base).toBeNull();
+    expect(stacked.baseMerged(Branch.of('feat/other'), null)).toBe(stacked);
   });
 });

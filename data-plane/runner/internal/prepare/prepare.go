@@ -334,8 +334,16 @@ func finishInterrupted(repo repository) error {
 		if each.command == "am" && !exists(filepath.Join(repo.tree, ".git", each.marker, "applying")) {
 			each.command, each.what = "rebase", "a rebase"
 		}
-		if err := repo.git(each.command, "--abort"); err != nil {
-			return err
+		if aborted := repo.git(each.command, "--abort"); aborted != nil {
+			if err := clearInterrupted(repo); err != nil {
+				return fmt.Errorf("%w, and clearing it failed: %v", aborted, err)
+			}
+			repo.out.add("cleared %s that the last run left unfinished in %s, after git %s --abort failed; HEAD before is at %s", each.what, repo.path, each.command, kept)
+			repo.out.tell(
+				"The last run left %s unfinished in %s, and git %s --abort failed. Spotlight cleared it and reset the files to HEAD as the last run left it, which is at %s. Do the %s again if it is still necessary.",
+				each.what, repo.path, each.command, kept, strings.TrimPrefix(each.what, "a "),
+			)
+			return nil
 		}
 		repo.out.add("stopped %s that the last run left unfinished in %s; HEAD before the stop is at %s", each.what, repo.path, kept)
 		repo.out.tell(
@@ -345,6 +353,15 @@ func finishInterrupted(repo repository) error {
 		return nil
 	}
 	return nil
+}
+
+func clearInterrupted(repo repository) error {
+	for _, each := range interruptions {
+		if err := os.RemoveAll(filepath.Join(repo.tree, ".git", each.marker)); err != nil {
+			return err
+		}
+	}
+	return repo.git("reset", "--quiet", "--hard")
 }
 
 func (o Options) setAsideIfUnusable(repo repository, checkout protocol.Checkout) error {

@@ -34,6 +34,11 @@ export interface TaskRepository {
 
   onBranch(workspaceId: WorkspaceId, branch: Branch): Promise<Task | null>;
 
+  startingFrom(
+    workspaceId: WorkspaceId,
+    base: Branch,
+  ): Promise<readonly Task[]>;
+
   reviewingPullRequest(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,

@@ -43,6 +43,7 @@ import { chatPlacement } from '@work/domain/services/chat-placement';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -806,6 +807,7 @@ export class Chat extends EventRecorder {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
+    base?: Branch | null;
     attachments?: readonly Attachment[];
     replaces?: readonly number[];
     at: Date;
@@ -907,6 +909,7 @@ export class Chat extends EventRecorder {
         proposal.placement,
         proposal.title,
         proposal.description,
+        proposal.base,
         this.messages[position.value]?.attachments ?? [],
         by,
       ),

@@ -1,6 +1,7 @@
 import type { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import type { BranchPushRefusal } from '@work/domain/value-objects/branch-push-refusal';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 
 export type ChatRefusal =
@@ -9,8 +10,7 @@ export type ChatRefusal =
       readonly kind: 'connection-needs-a-task';
       readonly providedBy: string;
     }
-  | { readonly kind: 'push-not-to-a-branch'; readonly ref: string }
-  | { readonly kind: 'push-deletes-a-branch'; readonly branch: Branch }
+  | BranchPushRefusal
   | { readonly kind: 'push-to-default-branch'; readonly branch: Branch }
   | { readonly kind: 'branch-of-another-task'; readonly branch: Branch }
   | {

@@ -1,8 +1,8 @@
+import type { BranchPushRefusal } from '@work/domain/value-objects/branch-push-refusal';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 
 export type TaskPushRefusal =
-  | { readonly kind: 'push-not-to-a-branch'; readonly ref: string }
-  | { readonly kind: 'push-deletes-a-branch'; readonly branch: Branch }
+  | BranchPushRefusal
   | {
       readonly kind: 'push-to-another-branch';
       readonly branch: Branch;

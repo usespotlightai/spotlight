@@ -2520,6 +2520,7 @@ CREATE TABLE "task_pushed_head" (
 	"repository" text NOT NULL,
 	"commit" text NOT NULL,
 	"pushed_at" timestamp (3) with time zone NOT NULL,
+	"holds_others_commits" boolean NOT NULL,
 	CONSTRAINT "task_pushed_head_task_id_repository_pk" PRIMARY KEY("task_id","repository")
 );
 --> statement-breakpoint

@@ -451,7 +451,9 @@ describe('a task a chat opens a pull request for', () => {
 
   it('opens a pull request only into the base the task started from', () => {
     const web = Repository.of('acme/web');
+    const main = Branch.of('main');
     const release = Branch.of('release/1.x');
+    const naming = (base: Branch | null) => ({ base, defaultBranch: main });
     const differs = (base: Branch | null) => ({
       kind: 'refused',
       refusal: {
@@ -460,24 +462,43 @@ describe('a task a chat opens a pull request for', () => {
         base,
       },
     });
+    const notRefusedForItsBase = {
+      refusal: { kind: 'base-differs-from-task' },
+    };
 
-    expect(opened().chatPullRequestStep(CHAT, web, line, release)).toEqual(
-      differs(null),
-    );
+    expect(
+      opened().chatPullRequestStep(CHAT, web, line, naming(release)),
+    ).toEqual(differs(null));
     expect(
       opened(REVIEW, release).chatPullRequestStep(
         CHAT,
         web,
         line,
-        Branch.of('release/2.x'),
+        naming(Branch.of('release/2.x')),
       ),
     ).toEqual(differs(release));
     expect(
-      opened(REVIEW, release).chatPullRequestStep(CHAT, web, line, release),
-    ).not.toMatchObject({ refusal: { kind: 'base-differs-from-task' } });
-    expect(
-      opened(REVIEW, release).chatPullRequestStep(CHAT, web, line, null),
-    ).not.toMatchObject({ refusal: { kind: 'base-differs-from-task' } });
+      opened(REVIEW, release).chatPullRequestStep(
+        CHAT,
+        web,
+        line,
+        naming(main),
+      ),
+    ).toEqual(differs(release));
+    for (const [task, base] of [
+      [opened(REVIEW, release), release],
+      [opened(REVIEW, release), null],
+      [opened(), main],
+      [opened(), null],
+    ] as const) {
+      expect(
+        task.chatPullRequestStep(CHAT, web, line, naming(base)),
+      ).not.toMatchObject(notRefusedForItsBase);
+    }
+  });
+
+  it('keeps no base when a chat names the default branch as its base', () => {
+    expect(opened(REVIEW, Branch.of('main')).base).toBeNull();
   });
 
   it('takes no turns of its own while the chat holds it', () => {

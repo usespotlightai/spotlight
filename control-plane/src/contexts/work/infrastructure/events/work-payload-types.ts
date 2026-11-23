@@ -81,6 +81,7 @@ import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { CoAuthors } from '@work/domain/value-objects/co-authors.vo';
+import { CommitSha } from '@work/domain/value-objects/commit-sha.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
@@ -175,6 +176,7 @@ export const WORK_PAYLOAD_TYPES = [
   AttachmentId,
   Attachment,
   Branch,
+  CommitSha,
   ChatId,
   ChatPullRequest,
   ChatMessageBody,

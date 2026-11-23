@@ -1,5 +1,5 @@
 {
-  "id": "4971a68c-b13d-4df5-8520-cc5f3dce8154",
+  "id": "52b22941-5537-45cd-a708-33a4a45c76e3",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -20644,6 +20644,12 @@
         "pushed_at": {
           "name": "pushed_at",
           "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "holds_others_commits": {
+          "name": "holds_others_commits",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true
         }

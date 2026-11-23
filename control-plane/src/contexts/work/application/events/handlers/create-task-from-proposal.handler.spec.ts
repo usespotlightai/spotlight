@@ -22,6 +22,7 @@ import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import {
@@ -96,7 +97,10 @@ const accepted = () =>
     })
     .accept(SECOND, LEON, NOW);
 
-const acceptedWith = (attachments: readonly Attachment[]) =>
+const acceptedWith = (
+  attachments: readonly Attachment[],
+  base: Branch | null = null,
+) =>
   new ProposalAccepted(
     accepted().id,
     WorkspaceId.of('ws_1'),
@@ -104,6 +108,7 @@ const acceptedWith = (attachments: readonly Attachment[]) =>
     PLACED,
     TaskTitle.of('Back off exponentially'),
     null,
+    base,
     attachments,
     LEON,
   );
@@ -145,6 +150,16 @@ describe('CreateTaskFromProposal', () => {
         ProposalOrigin.of({ chatId: ChatId.of('chat_1'), position: SECOND }),
       ),
     ).toBe(true);
+  });
+
+  it('starts the task from the base branch the proposal names', async () => {
+    const { handler, create } = creating(LINE);
+
+    await handler.onProposalAccepted(
+      acceptedWith([], Branch.of('release/1.x')),
+    );
+
+    expect(create.mock.calls[0]?.[0].task.base?.value).toBe('release/1.x');
   });
 
   it('gives the task its own copy of each file on the proposal', async () => {

@@ -370,7 +370,10 @@ export class Task extends EventRecorder {
       rank: input.rank,
       createdBy: input.by,
       branch: input.branch,
-      base: input.base ?? null,
+      base:
+        input.base && !input.base.equals(input.defaultBranch)
+          ? input.base
+          : null,
       now: input.now,
       newId: input.newId,
     });
@@ -1090,7 +1093,7 @@ export class Task extends EventRecorder {
     chat: ChatId,
     repository: Repository,
     line: LineMap | null,
-    base: Branch | null = null,
+    named: { base: Branch | null; defaultBranch: Branch } | null = null,
   ): ChatPullRequestStep {
     const branch = this.branch;
 
@@ -1112,7 +1115,7 @@ export class Task extends EventRecorder {
       };
     }
 
-    if (base && !(this.base && base.equals(this.base))) {
+    if (named?.base && !this.startsFrom(named.base, named.defaultBranch)) {
       return {
         kind: 'refused',
         refusal: { kind: 'base-differs-from-task', branch, base: this.base },
@@ -3308,6 +3311,7 @@ export class Task extends EventRecorder {
     holds?: readonly Hold[];
     runNotStarted?: RunNotStarted | null;
     pushedHeads?: readonly PushedHead[];
+    base?: Branch | null;
   }): Task {
     const next = new Task(
       this.id,
@@ -3346,7 +3350,7 @@ export class Task extends EventRecorder {
       part.runNotStarted !== undefined
         ? part.runNotStarted
         : this.runNotStarted,
-      this.base,
+      part.base !== undefined ? part.base : this.base,
       part.pushedHeads ?? this.pushedHeads,
     );
 
@@ -3360,18 +3364,23 @@ export class Task extends EventRecorder {
       : next;
   }
 
+  private startsFrom(base: Branch, defaultBranch: Branch): boolean {
+    const own =
+      this.base && !this.base.equals(defaultBranch) ? this.base : null;
+
+    return base.equals(defaultBranch)
+      ? own === null
+      : own !== null && base.equals(own);
+  }
+
   pushRefusal(
     repository: Repository,
     update: RefUpdate,
   ): TaskPushRefusal | null {
-    const branch = update.branch;
+    const branch = update.target;
 
-    if (!branch) {
-      return { kind: 'push-not-to-a-branch', ref: update.ref };
-    }
-
-    if (update.deletes) {
-      return { kind: 'push-deletes-a-branch', branch };
+    if (!(branch instanceof Branch)) {
+      return branch;
     }
 
     if (!branch.equals(this.branch)) {
@@ -3384,9 +3393,21 @@ export class Task extends EventRecorder {
 
     const pushed = this.pushedHeads.find((each) => each.isIn(repository));
 
-    return update.rewrites && !update.creates && pushed?.commit !== update.from
+    return update.rewrites &&
+      !update.creates &&
+      !(pushed?.mayBeReplacedFrom(update.from) ?? false)
       ? { kind: 'push-rewrites-commits-of-others', branch }
       : null;
+  }
+
+  baseMerged(merged: Branch, into: Branch | null): Task {
+    return this.base?.equals(merged) ? this.with({ base: into }) : this;
+  }
+
+  openPullRequestsIn(repository: Repository): readonly OwnedPullRequest[] {
+    return this.ownedPullRequests.filter(
+      (each) => each.open && (each.url.repository?.equals(repository) ?? false),
+    );
   }
 
   pushedTo(
@@ -3404,10 +3425,15 @@ export class Task extends EventRecorder {
       return this;
     }
 
+    const last = this.pushedHeads.find((each) => each.isIn(repository));
+    const holdsOthersCommits = own.creates
+      ? false
+      : !last || !own.from.equals(last.commit) || last.holdsOthersCommits;
+
     return this.with({
       pushedHeads: [
         ...this.pushedHeads.filter((each) => !each.isIn(repository)),
-        PushedHead.of(repository, own.to, at),
+        PushedHead.of(repository, own.to, at, holdsOthersCommits),
       ],
     });
   }

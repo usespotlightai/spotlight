@@ -54,6 +54,8 @@ export interface PullRequestPort {
 
   close(at: PullRequestAt): Promise<void>;
 
+  retarget(at: PullRequestAt, base: string | null): Promise<void>;
+
   comment(at: PullRequestAt, body: string): Promise<void>;
 
   changedOn(

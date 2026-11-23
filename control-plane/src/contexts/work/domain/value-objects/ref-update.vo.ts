@@ -1,13 +1,14 @@
+import type { BranchPushRefusal } from '@work/domain/value-objects/branch-push-refusal';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { CommitSha } from '@work/domain/value-objects/commit-sha.vo';
 
 const HEADS = 'refs/heads/';
-const NO_OBJECT = /^0+$/;
 
 export class RefUpdate {
   private constructor(
     readonly ref: string,
-    readonly from: string,
-    readonly to: string,
+    readonly from: CommitSha,
+    readonly to: CommitSha,
     readonly rewrites: boolean,
   ) {}
 
@@ -19,18 +20,28 @@ export class RefUpdate {
   }): RefUpdate {
     return new RefUpdate(
       input.ref,
-      input.from,
-      input.to,
+      CommitSha.of(input.from),
+      CommitSha.of(input.to),
       input.rewrites ?? true,
     );
   }
 
   get deletes(): boolean {
-    return NO_OBJECT.test(this.to);
+    return this.to.isNone;
   }
 
   get creates(): boolean {
-    return NO_OBJECT.test(this.from);
+    return this.from.isNone;
+  }
+
+  get target(): Branch | BranchPushRefusal {
+    const branch = this.branch;
+
+    if (!branch) {
+      return { kind: 'push-not-to-a-branch', ref: this.ref };
+    }
+
+    return this.deletes ? { kind: 'push-deletes-a-branch', branch } : branch;
   }
 
   get branch(): Branch | null {

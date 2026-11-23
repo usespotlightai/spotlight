@@ -248,6 +248,7 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
@@ -1927,6 +1928,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_NOTICES,
       ResumeTaskRun,
       SANDBOX_RETIREMENT,
+      PULL_REQUESTS,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1961,6 +1963,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       raisedNotices: TeamNoticesPort,
       resuming: ResumeTaskRun,
       retirement: SandboxRetirementPort,
+      pullRequests: PullRequestPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -2031,6 +2034,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             clock,
           ),
           chatsOfTasks: new TellChatOfTask(chats, chatDispatch, transaction),
+          stackedTasks: new RetargetStackedTasks(
+            tasks,
+            pullRequests,
+            transaction,
+          ),
         }),
       ]);
       return true;

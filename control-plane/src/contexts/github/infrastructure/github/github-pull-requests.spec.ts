@@ -260,6 +260,32 @@ describe('GitHubPullRequests', () => {
       ]);
     });
 
+    it('moves it into another base branch', async () => {
+      repository();
+
+      await new GitHubPullRequests(access).retarget(at(), 'release/1.x');
+
+      expect(sent).toEqual([
+        {
+          url: 'https://api.github.com/repos/acme/api/pulls/3',
+          method: 'PATCH',
+          body: { base: 'release/1.x' },
+        },
+      ]);
+    });
+
+    it('moves it into the default branch when no base is named', async () => {
+      repository();
+
+      await new GitHubPullRequests(access).retarget(at(), null);
+
+      expect(sent[sent.length - 1]).toEqual({
+        url: 'https://api.github.com/repos/acme/api/pulls/3',
+        method: 'PATCH',
+        body: { base: 'trunk' },
+      });
+    });
+
     it('carries GitHub’s error when it would not close it', async () => {
       repository();
 

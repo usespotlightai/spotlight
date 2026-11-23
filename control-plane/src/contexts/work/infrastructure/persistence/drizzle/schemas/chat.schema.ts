@@ -22,6 +22,7 @@ export interface ProposalRow {
   readonly stationId: string;
   readonly title: string;
   readonly description: string | null;
+  readonly base?: string | null;
   readonly state: ProposalState;
   readonly taskId: string | null;
   readonly decidedAt: string | null;

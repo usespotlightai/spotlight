@@ -283,6 +283,7 @@ export const taskPushedHead = pgTable(
     repository: text('repository').notNull(),
     commit: text('commit').notNull(),
     pushedAt: timestamptz('pushed_at').notNull(),
+    holdsOthersCommits: boolean('holds_others_commits').notNull(),
   },
   (table) => [
     foreignKey({

@@ -58,6 +58,7 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
           at: station.id,
           title: event.title,
           description: event.description,
+          base: event.base,
           attachments,
           rank: Placement.entering(
             'opened',

@@ -117,7 +117,12 @@ describe('GitReceivePack, reading the commands of a push', () => {
     );
 
     expect(
-      push.updates.map((each) => [each.ref, each.from, each.to, each.rewrites]),
+      push.updates.map((each) => [
+        each.ref,
+        each.from.value,
+        each.to.value,
+        each.rewrites,
+      ]),
     ).toEqual([
       ['refs/heads/main', OLD, NEW, false],
       ['refs/heads/fix', OLD, NEW, true],

@@ -1,6 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
+import type { Branch } from '@work/domain/value-objects/branch.vo';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -22,6 +23,7 @@ export class TaskProposal {
     readonly placement: ProposalPlacement,
     readonly title: TaskTitle,
     readonly description: TaskDescription | null,
+    readonly base: Branch | null,
     readonly state: ProposalState,
     readonly taskId: TaskId | null,
     readonly decidedAt: Date | null,
@@ -32,12 +34,14 @@ export class TaskProposal {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
+    base?: Branch | null;
   }): TaskProposal {
     return new TaskProposal(
       input.position,
       input.placement,
       input.title,
       input.description,
+      input.base ?? null,
       'open',
       null,
       null,
@@ -49,6 +53,7 @@ export class TaskProposal {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
+    base: Branch | null;
     state: ProposalState;
     taskId: TaskId | null;
     decidedAt: Date | null;
@@ -65,6 +70,7 @@ export class TaskProposal {
       input.placement,
       input.title,
       input.description,
+      input.base,
       input.state,
       input.taskId,
       input.decidedAt,
@@ -141,6 +147,7 @@ export class TaskProposal {
       this.placement,
       this.title,
       this.description,
+      this.base,
       part.state,
       part.taskId !== undefined ? part.taskId : this.taskId,
       part.decidedAt,

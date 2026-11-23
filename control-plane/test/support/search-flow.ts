@@ -222,6 +222,7 @@ const pullRequests: PullRequestPort = {
 
     return github.statuses.get(at.number) ?? { state: 'open', closedAt: null };
   },
+  retarget: async () => {},
   close: async (at) => {
     if (github.failing) {
       throw github.failing;

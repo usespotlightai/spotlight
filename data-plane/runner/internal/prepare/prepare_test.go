@@ -414,6 +414,34 @@ func TestStopsARebaseTheLastRunLeftUnfinishedAndKeepsWhereItStood(t *testing.T) 
 	}
 }
 
+func TestClearsAnUnfinishedRebaseThatGitCannotAbort(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	head := git(t, f.tree(), "rev-parse", "HEAD")
+	if err := os.MkdirAll(filepath.Join(f.tree(), ".git", "rebase-merge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(f.tree(), "README.md"), "half done\n")
+
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
+	}
+
+	if fileExists(filepath.Join(f.tree(), ".git", "rebase-merge"), f.tree()) {
+		t.Errorf("the rebase is still in progress")
+	}
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != head {
+		t.Errorf("HEAD is %s, want %s", got, head)
+	}
+	if got := git(t, f.tree(), "status", "--porcelain"); got != "" {
+		t.Errorf("the tree is not clean: %q", got)
+	}
+	if len(done.Notes) != 1 || !strings.Contains(done.Notes[0], "--abort failed") {
+		t.Errorf("notes %q", done.Notes)
+	}
+}
+
 func fileExists(path, dir string) bool {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(dir, path)

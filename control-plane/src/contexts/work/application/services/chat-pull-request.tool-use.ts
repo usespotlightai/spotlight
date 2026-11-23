@@ -51,6 +51,7 @@ interface Opening {
   readonly repository: Repository;
   readonly branch: Branch;
   readonly base: Branch | null;
+  readonly defaultBranch: Branch;
   readonly title: PullRequestTitle;
   readonly body: string;
 }
@@ -91,7 +92,8 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       runId,
       repository,
       branch: Branch.of(inputs.requiredText(this.tool, 'branch')),
-      base: base && !base.equals(defaultBranch) ? base : null,
+      base,
+      defaultBranch,
       title: PullRequestTitle.of(inputs.requiredText(this.tool, 'title')),
       body: inputs.text('body')?.trim() ?? '',
     };
@@ -102,7 +104,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     );
     const { task, url } = onBranch
       ? await this.onTaskOf(opening, lines, onBranch)
-      : await this.withNewTask(opening, lines, inputs, defaultBranch);
+      : await this.withNewTask(opening, lines, inputs);
 
     await this.transaction.inTransaction(async () => {
       await this.chats.save(
@@ -128,7 +130,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       opening.chat.id,
       opening.repository,
       lines.find((each) => each.stationAt(task.stationId)) ?? null,
-      opening.base,
+      { base: opening.base, defaultBranch: opening.defaultBranch },
     );
 
     if (step.kind === 'refused') {
@@ -166,7 +168,6 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
     opening: Opening,
     lines: readonly LineMap[],
     inputs: ToolInputs,
-    defaultBranch: Branch,
   ): Promise<{ task: Task; url: PullRequestUrl }> {
     const { chat, branch, repository } = opening;
     const { line, station } = chatPullRequestPlacement(
@@ -194,7 +195,7 @@ export class ChatPullRequestToolUse implements BuiltInToolUse<ChatToolContext> {
       description: opening.body ? TaskDescription.of(opening.body) : null,
       branch,
       base: opening.base,
-      defaultBranch,
+      defaultBranch: opening.defaultBranch,
       rank: Placement.entering(
         'opened',
         (await this.placements.placementsAt(station.id)).map(

@@ -264,6 +264,7 @@ const carrying = (
   const leases = { leaseOf: vi.fn(async () => held) };
   const tasks = {
     find: vi.fn(async () => existing),
+    startingFrom: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
     save: vi.fn(async () => {}),
   };
@@ -460,7 +461,10 @@ describe('CarryGitCall', () => {
     }
     const [saved] = tasks.save.mock.calls[0] as unknown as [Task];
     expect(
-      saved.pushedHeads.map((each) => [each.repository.value, each.commit]),
+      saved.pushedHeads.map((each) => [
+        each.repository.value,
+        each.commit.value,
+      ]),
     ).toEqual([['acme/widgets', PUSHED]]);
   });
 

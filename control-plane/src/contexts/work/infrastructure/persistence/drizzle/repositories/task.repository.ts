@@ -36,6 +36,7 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { CommitSha } from '@work/domain/value-objects/commit-sha.vo';
 import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
@@ -88,6 +89,7 @@ import {
   gt,
   inArray,
   isNotNull,
+  isNull,
   lt,
   not,
   or,
@@ -293,7 +295,12 @@ const toTask = (
       ),
     ),
     pushedHeads: pushedHeads.map((each) =>
-      PushedHead.of(Repository.of(each.repository), each.commit, each.pushedAt),
+      PushedHead.of(
+        Repository.of(each.repository),
+        CommitSha.of(each.commit),
+        each.pushedAt,
+        each.holdsOthersCommits,
+      ),
     ),
   });
 
@@ -302,6 +309,7 @@ interface PushedHeadRow {
   readonly repository: string;
   readonly commit: string;
   readonly pushedAt: Date;
+  readonly holdsOthersCommits: boolean;
 }
 
 interface OwnedPullRequestRow {
@@ -560,8 +568,9 @@ export class DrizzleTaskRepository implements TaskRepository {
           workspaceId: written.workspaceId.value,
           taskId: written.id.value,
           repository: each.repository.value,
-          commit: each.commit,
+          commit: each.commit.value,
           pushedAt: each.pushedAt,
+          holdsOthersCommits: each.holdsOthersCommits,
         })),
       )
       .onConflictDoUpdate({
@@ -569,6 +578,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         set: {
           commit: sql`excluded.commit`,
           pushedAt: sql`excluded.pushed_at`,
+          holdsOthersCommits: sql`excluded.holds_others_commits`,
         },
       });
   }
@@ -586,6 +596,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         repository: taskPushedHead.repository,
         commit: taskPushedHead.commit,
         pushedAt: taskPushedHead.pushedAt,
+        holdsOthersCommits: taskPushedHead.holdsOthersCommits,
       })
       .from(taskPushedHead)
       .where(inArray(taskPushedHead.taskId, taskIds));
@@ -776,6 +787,24 @@ export class DrizzleTaskRepository implements TaskRepository {
       .limit(1);
 
     return (await this.whole(found))[0] ?? null;
+  }
+
+  async startingFrom(
+    workspaceId: WorkspaceId,
+    base: Branch,
+  ): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        and(
+          eq(task.workspaceId, workspaceId.value),
+          eq(task.base, base.value),
+          isNull(task.finishedAt),
+        ),
+      );
+
+    return this.whole(found);
   }
 
   async owningPullRequest(

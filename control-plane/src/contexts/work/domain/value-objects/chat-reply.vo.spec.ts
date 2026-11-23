@@ -20,6 +20,7 @@ const proposal = (
     }),
     title: TaskTitle.of(title),
     description: null,
+    base: null,
     state,
     taskId: null,
     decidedAt: null,
