@@ -248,6 +248,7 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
@@ -1477,6 +1478,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUNNER_LEASES,
       RECEIVE_PACK,
       CLOCK,
+      LOGGER,
     ],
     useFactory: (
       works: RunWorks,
@@ -1486,6 +1488,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       leases: RunnerLeasesPort,
       receivePack: ReceivePackPort,
       clock: ClockPort,
+      logger: LoggerPort,
     ) =>
       new CarryGitCall(
         works,
@@ -1495,6 +1498,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         leases,
         receivePack,
         clock,
+        logger,
       ),
   },
 
@@ -1579,6 +1583,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       AttachmentCopies,
       ID_GENERATOR,
       CLOCK,
+      REPOSITORY_SETTINGS,
     ],
     useFactory: (
       chats: ChatRepository,
@@ -1588,6 +1593,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       copies: AttachmentCopies,
       ids: IdGeneratorPort,
       clock: ClockPort,
+      settings: RepositorySettingsPort,
     ) =>
       new CreateTaskFromProposal(
         chats,
@@ -1597,6 +1603,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         copies,
         ids,
         clock,
+        settings,
       ),
   },
 
@@ -1924,6 +1931,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_NOTICES,
       ResumeTaskRun,
       SANDBOX_RETIREMENT,
+      PULL_REQUESTS,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1958,6 +1966,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       raisedNotices: TeamNoticesPort,
       resuming: ResumeTaskRun,
       retirement: SandboxRetirementPort,
+      pullRequests: PullRequestPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -2028,6 +2037,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             clock,
           ),
           chatsOfTasks: new TellChatOfTask(chats, chatDispatch, transaction),
+          stackedTasks: new RetargetStackedTasks(
+            tasks,
+            pullRequests,
+            transaction,
+          ),
         }),
       ]);
       return true;
@@ -2201,6 +2215,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CLOCK,
     CreateTask,
     FilesLoader,
+    REPOSITORY_SETTINGS,
   ]),
 
   ...bindCommandHandler(
@@ -2369,6 +2384,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       TASK_REPOSITORY,
       PullRequestOpeningHook,
+      REPOSITORY_SETTINGS,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2388,6 +2404,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       taskRepository: TaskRepository,
       openingHook: PullRequestOpeningHook,
+      settings: RepositorySettingsPort,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ChecksToolUse(tasks, checkRuns),
@@ -2404,6 +2421,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         pullRequests,
         openingHook,
         transaction,
+        settings,
         ids,
         clock,
       ),

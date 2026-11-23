@@ -214,6 +214,15 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           stdin: true,
         },
         {
+          name: 'base',
+          schema: InputSchema.ofType('string'),
+          description:
+            'The branch the task starts from and opens its pull request into, as in release/1.x or the branch of the task it builds on. Leave it out for the default branch.',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
+        {
           name: 'attach',
           schema: InputSchema.of({ type: 'array', items: { type: 'string' } }),
           description:
@@ -293,6 +302,15 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           schema: InputSchema.ofType('string'),
           description: 'The branch you pushed, as in fix/video-icons',
           required: true,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'base',
+          schema: InputSchema.ofType('string'),
+          description:
+            'The branch the change goes into, as in release/1.x. Leave it out for the default branch.',
+          required: false,
           defaulted: false,
           stdin: false,
         },

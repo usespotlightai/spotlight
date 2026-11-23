@@ -77,6 +77,7 @@ const proposedBy = (chat: Chat) => {
     }),
     title: TaskTitle.of('Back off exponentially'),
     description: null,
+    base: null,
     at: new Date('2026-10-20T09:05:00.000Z'),
   });
 };

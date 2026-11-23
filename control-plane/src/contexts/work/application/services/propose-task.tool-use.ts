@@ -10,6 +10,7 @@ import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-inpu
 import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { proposalPlacementWithin } from '@work/domain/services/proposal-placement-within';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { PROPOSE_TASK } from '@work/domain/value-objects/built-in-tools';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -39,11 +40,13 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
       station: inputs.requiredText(this.tool, 'station').trim(),
     };
     const description = inputs.text('description')?.trim();
+    const base = inputs.text('base')?.trim();
     const proposal = {
       runId,
       placement: proposalPlacementWithin(lines, named),
       title: TaskTitle.of(inputs.requiredText(this.tool, 'title')),
       description: description ? TaskDescription.of(description) : null,
+      base: base ? Branch.of(base) : null,
       replaces: this.replacedIn(inputs),
     };
     const position = chat.proposalPositionFor(runId).value;

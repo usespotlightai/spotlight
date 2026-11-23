@@ -1,4 +1,5 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -117,6 +118,7 @@ const using = (
   const changedOn = vi.fn(async (): Promise<readonly string[]> => [
     'web/src/icons.ts',
   ]);
+  const defaultBranchNameOf = vi.fn(async () => 'main');
   const allows = vi.fn(async () => {});
   const allowsNew = vi.fn(async () => {});
   const tool = new ChatPullRequestToolUse(
@@ -159,6 +161,7 @@ const using = (
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
+    { defaultBranchNameOf } as unknown as RepositorySettingsPort,
     { generate: () => `id_${++next}` },
     { now: () => NOW } as ClockPort,
   );
@@ -205,6 +208,7 @@ describe('ChatPullRequestToolUse', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       repository: expect.objectContaining({ value: 'acme/web' }) as unknown,
       branch: 'feat/video-icons',
+      base: null,
       title: 'Show video icons',
       body: 'Videos show the Film icon.',
     });
@@ -295,15 +299,45 @@ describe('ChatPullRequestToolUse', () => {
     });
   });
 
-  it('creates no task from a branch with no changes, such as the default branch', async () => {
+  it('creates no task from a branch with no changes', async () => {
     const { tool, context, changedOn, open, created } = using();
     changedOn.mockResolvedValueOnce([]);
 
     await expect(
-      tool.call(context, ToolInputs.of({ branch: 'main', title: 'Fix' })),
+      tool.call(context, ToolInputs.of({ branch: 'fix/empty', title: 'Fix' })),
     ).rejects.toThrow(/has no changes from the default branch of acme\/web/);
     expect(created).toEqual([]);
     expect(open).not.toHaveBeenCalled();
+  });
+
+  it('creates no task on the default branch, even with a base it differs from', async () => {
+    const { tool, context, open, created } = using();
+
+    await expect(
+      tool.call(
+        context,
+        ToolInputs.of({ branch: 'main', base: 'release/1.x', title: 'Fix' }),
+      ),
+    ).rejects.toThrow(/main is the default branch/);
+    expect(created).toEqual([]);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('opens nothing more on a task when the base named is not the base of the task', async () => {
+    const { tool, context, open } = using();
+
+    await tool.call(context, INPUTS);
+    await expect(
+      tool.call(
+        context,
+        ToolInputs.of({
+          branch: 'feat/video-icons',
+          base: 'release/1.x',
+          title: 'Show video icons',
+        }),
+      ),
+    ).rejects.toThrow(/starts from the default branch/);
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the chat’s pull request when GitHub names the repository in other letter case', async () => {
@@ -468,6 +502,7 @@ describe('ChatPullRequestToolUse', () => {
   it('opens the pull request on the task of a call that created it at the same time', async () => {
     const { tool, context, raceWith, created, stored } = using();
     const first = Task.openedInChat({
+      defaultBranch: Branch.of('main'),
       line: DELIVERY,
       at: SHIP,
       title: TaskTitle.of('Show video icons'),
@@ -518,6 +553,7 @@ describe('ChatPullRequestToolUse', () => {
 
   it('opens nothing from a branch that belongs to another task', async () => {
     const theirs = Task.openedInChat({
+      defaultBranch: Branch.of('main'),
       line: DELIVERY,
       at: SHIP,
       title: TaskTitle.of('Someone else’s'),

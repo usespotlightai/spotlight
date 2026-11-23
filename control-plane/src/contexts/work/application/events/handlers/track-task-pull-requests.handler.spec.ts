@@ -91,39 +91,40 @@ describe('TrackTaskPullRequests', () => {
     const owner = holding('code-review', API, DOCS);
     const { handler, saved } = tracking([owner]);
 
-    await handler.closed(WORKSPACE, API, CLOSED_AT);
+    await handler.closed(WORKSPACE, API, CLOSED_AT, false);
 
     expect(saved[0]?.stationId.equals(owner.stationId)).toBe(true);
     expect(saved[0]?.moveHeldTo).toEqual(owner.moveHeldTo);
 
     const { handler: last, saved: moved } = tracking(saved);
 
-    await last.closed(WORKSPACE, DOCS, CLOSED_AT);
+    await last.closed(WORKSPACE, DOCS, CLOSED_AT, false);
 
     expect(moved[0]?.stationId).toEqual(owner.moveHeldTo);
     expect(moved[0]?.moveHeldTo).toBeNull();
     expect(moved[0]?.currentRunId?.value).toBe('run_9');
   });
 
-  it('records the close on the task that owns the pull request, at the time GitHub closed it', async () => {
+  it('records the close on the task that owns the pull request, at the time GitHub closed it, and whether it merged', async () => {
     const owner = owning(API, DOCS);
     const { handler, saved } = tracking([owner]);
 
-    await handler.closed(WORKSPACE, API, CLOSED_AT);
+    await handler.closed(WORKSPACE, API, CLOSED_AT, true);
 
     expect(saved).toHaveLength(1);
     expect(saved[0]?.openPullRequests).toEqual([DOCS]);
     expect(
-      saved[0]?.ownedPullRequests.find((each) => each.url.equals(API))
-        ?.closedAt,
-    ).toEqual(CLOSED_AT);
+      saved[0]?.ownedPullRequests
+        .filter((each) => each.url.equals(API))
+        .map((each) => [each.closedAt, each.merged]),
+    ).toEqual([[CLOSED_AT, true]]);
   });
 
   it('records the close on the owner after the mark of the pull request moved to another task', async () => {
     const owner = owning(API).releaseMark(Mark.pullRequest(API));
     const { handler, saved } = tracking([owner]);
 
-    await handler.closed(WORKSPACE, API, null);
+    await handler.closed(WORKSPACE, API, null, false);
 
     expect(saved[0]?.id.equals(owner.id)).toBe(true);
     expect(saved[0]?.openPullRequests).toEqual([]);
@@ -142,8 +143,8 @@ describe('TrackTaskPullRequests', () => {
     const closed = owning(API).pullRequestClosed(API, NOW, NOTHING_HELD);
     const { handler, saved } = tracking([closed]);
 
-    await handler.closed(WORKSPACE, API, NOW);
-    await handler.closed(WORKSPACE, DOCS, NOW);
+    await handler.closed(WORKSPACE, API, NOW, false);
+    await handler.closed(WORKSPACE, DOCS, NOW, false);
 
     expect(saved).toEqual([]);
   });

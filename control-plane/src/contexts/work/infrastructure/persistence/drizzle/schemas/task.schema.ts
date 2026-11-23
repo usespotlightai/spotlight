@@ -104,6 +104,7 @@ export const task = pgTable(
     stationId: text('station_id').notNull(),
     title: text('title').notNull(),
     branch: text('branch').notNull(),
+    base: text('base'),
     description: text('description'),
     rank: text('rank').notNull().default('i'),
     originStationId: text('origin_station_id'),
@@ -262,6 +263,7 @@ export const taskPullRequest = pgTable(
     openedAt: timestamptz('opened_at').notNull(),
     closedAt: timestamptz('closed_at'),
     closeRouted: boolean('close_routed').notNull().default(false),
+    merged: boolean('merged').notNull().default(false),
   },
   (table) => [
     foreignKey({
@@ -271,6 +273,26 @@ export const taskPullRequest = pgTable(
     }).onDelete('cascade'),
     primaryKey({ columns: [table.taskId, table.url] }),
     index('task_pull_request_url_idx').on(table.workspaceId, table.url),
+  ],
+);
+
+export const taskPushedHead = pgTable(
+  'task_pushed_head',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    taskId: text('task_id').notNull(),
+    repository: text('repository').notNull(),
+    commit: text('commit').notNull(),
+    pushedAt: timestamptz('pushed_at').notNull(),
+    holdsOthersCommits: boolean('holds_others_commits').notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'task_pushed_head_task_fk',
+      columns: [table.workspaceId, table.taskId],
+      foreignColumns: [task.workspaceId, task.id],
+    }).onDelete('cascade'),
+    primaryKey({ columns: [table.taskId, table.repository] }),
   ],
 );
 

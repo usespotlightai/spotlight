@@ -76,7 +76,7 @@ func TestClonesAgainWhenTheServerAnswersBadGateway(t *testing.T) {
 	flaky, remote := f.served(t, "/info/refs", http.StatusBadGateway, 2)
 
 	checkout := protocol.Checkout{Remote: remote, Path: "acme/api"}
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
 		t.Fatalf("expected the clone to succeed on a later attempt: %v\n%s", err, output)
 	}
@@ -99,7 +99,7 @@ func TestFetchesAgainWhenThePackRequestAnswersBadGateway(t *testing.T) {
 	_, remote := f.served(t, "/git-upload-pack", http.StatusBadGateway, 0)
 
 	checkout := protocol.Checkout{Remote: remote, Path: "acme/api"}
-	if output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+	if output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
 		t.Fatalf("first clone: %v\n%s", err, output)
 	}
 
@@ -107,7 +107,7 @@ func TestFetchesAgainWhenThePackRequestAnswersBadGateway(t *testing.T) {
 	flaky, remote := f.served(t, "/git-upload-pack", http.StatusBadGateway, 1)
 	checkout.Remote = remote
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
 		t.Fatalf("expected the fetch to succeed on a later attempt: %v\n%s", err, output)
 	}
@@ -130,7 +130,7 @@ func TestStopsRetryingWhenTheServerKeepsFailing(t *testing.T) {
 	flaky, remote := f.served(t, "/info/refs", http.StatusServiceUnavailable, 100)
 
 	checkout := protocol.Checkout{Remote: remote, Path: "acme/api"}
-	_, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	_, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err == nil {
 		t.Fatal("expected the clone to fail")
 	}
@@ -153,7 +153,7 @@ func TestDoesNotRetryWhatTheServerRefuses(t *testing.T) {
 			flaky, remote := f.served(t, "/info/refs", status, 100)
 
 			checkout := protocol.Checkout{Remote: remote, Path: "acme/api"}
-			if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err == nil {
+			if _, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err == nil {
 				t.Fatal("expected the clone to fail")
 			}
 

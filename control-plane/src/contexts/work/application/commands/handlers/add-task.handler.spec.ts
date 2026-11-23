@@ -124,6 +124,7 @@ const tasks = () =>
     settingUp: vi.fn(async () => []),
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -176,6 +177,7 @@ const addTask = (
     clock,
     new CreateTask(tasks(), dispatch(), transaction, files),
     files,
+    { defaultBranchNameOf: async () => 'main' },
   ).execute(command);
 
 beforeEach(() => {

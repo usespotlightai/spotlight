@@ -57,6 +57,7 @@ export class PullRequestOpeningHook {
           input.task.workspaceId,
           input.repository,
           input.task.branch.value,
+          input.task.base?.value ?? null,
         )),
     });
 

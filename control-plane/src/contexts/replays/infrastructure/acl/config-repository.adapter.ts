@@ -103,6 +103,7 @@ export class ConfigRepository implements ConfigRepositoryPort {
         workspaceId,
         repository,
         branch: opening.branch,
+        base: null,
         title: opening.title,
         body: opening.body,
       }),

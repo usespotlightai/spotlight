@@ -18,6 +18,7 @@ export interface RunCheckoutShape {
   readonly remote: string;
   readonly path?: string;
   readonly branch?: string;
+  readonly base?: string;
   readonly ref?: string;
   readonly diffOf?: 'commits';
   readonly setup?: string;

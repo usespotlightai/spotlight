@@ -10,6 +10,7 @@ describe('RunCheckoutsMapper', () => {
         {
           repository: Repository.of('acme/api'),
           branch: Branch.of('feat/retries-12345678'),
+          base: Branch.of('release/1.x'),
           ref: null,
           diffOf: 'worktree',
           setup: 'npm ci',
@@ -17,6 +18,7 @@ describe('RunCheckoutsMapper', () => {
         {
           repository: Repository.of('acme/web'),
           branch: null,
+          base: null,
           ref: 'refs/pull/42/head',
           diffOf: 'commits',
           setup: null,
@@ -27,6 +29,7 @@ describe('RunCheckoutsMapper', () => {
         remote: 'spotlight:repository',
         path: 'api',
         branch: 'feat/retries-12345678',
+        base: 'release/1.x',
         setup: 'npm ci',
       },
       {

@@ -150,6 +150,7 @@ describe('pull requests an agent chat opened, stored in the database (e2e)', () 
       newId: () => chatId,
     }).assignRun(run, NOW);
     const task = Task.openedInChat({
+      defaultBranch: Branch.of('main'),
       line: team.line,
       at: team.shipId,
       title: TaskTitle.of('Show video icons'),

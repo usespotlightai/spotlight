@@ -10,6 +10,10 @@ export interface Push {
   readonly updates: readonly RefUpdate[];
   readonly call: GitCallDto;
   refused(reason: string): Promise<GitAnswerDto>;
+  reported(
+    answer: GitAnswerDto,
+    accepted: (updates: readonly RefUpdate[]) => Promise<void>,
+  ): GitAnswerDto;
 }
 
 export type PushRead =

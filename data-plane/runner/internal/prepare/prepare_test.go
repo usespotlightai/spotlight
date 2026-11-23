@@ -92,7 +92,7 @@ func setUp(t *testing.T) fixture {
 func TestClonesAFreshCheckoutOntoTheRunsBranchAsTheRunsAuthor(t *testing.T) {
 	f := setUp(t)
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{f.checkout("spotlight/task-1")}, f.options())
+	output, err := prepared(context.Background(), []protocol.Checkout{f.checkout("spotlight/task-1")}, f.options())
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -119,7 +119,7 @@ func TestStartsANewBranchFromWhereTheRemoteIsNowNotWhereTheImageBakedIt(t *testi
 	elsewhere := f.checkout("spotlight/task-1")
 	elsewhere.Remote = f.origin + "/."
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{elsewhere}, f.options())
+	output, err := prepared(context.Background(), []protocol.Checkout{elsewhere}, f.options())
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -142,14 +142,14 @@ func TestReturnsToTheBranchARestoredCheckoutWasLeftOn(t *testing.T) {
 	f := setUp(t)
 	checkout := f.checkout("spotlight/task-1")
 
-	if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+	if _, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
 		t.Fatal(err)
 	}
 	write(t, filepath.Join(f.tree(), "halfway.md"), "not committed\n")
 	git(t, f.tree(), "switch", "--quiet", "main")
 	f.commit(t, "CHANGELOG.md", "moved on\n")
 
-	if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+	if _, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -175,7 +175,7 @@ func (f fixture) restored(t *testing.T, branch string) protocol.Checkout {
 
 	git(t, f.origin, "branch", branch)
 	checkout := f.checkout(branch)
-	if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+	if _, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
 		t.Fatal(err)
 	}
 	return checkout
@@ -188,7 +188,7 @@ func TestCatchesARestoredCheckoutUpWithWhatWasPushedToItsBranch(t *testing.T) {
 
 	pushed := f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -204,7 +204,7 @@ func TestCatchesARestoredCheckoutUpWithWhatWasPushedToItsBranch(t *testing.T) {
 	}
 }
 
-func TestLeavesARestoredCheckoutAloneWhenItsBranchMovedOnBothHereAndOnTheRemote(t *testing.T) {
+func TestRebasesTheLastRunsCommitsOntoWhatWasPushedWhenTheBranchMovedOnBothSides(t *testing.T) {
 	f := setUp(t)
 	checkout := f.restored(t, "spotlight/task-1")
 	write(t, filepath.Join(f.tree(), "local.md"), "the last run's\n")
@@ -212,18 +212,287 @@ func TestLeavesARestoredCheckoutAloneWhenItsBranchMovedOnBothHereAndOnTheRemote(
 	git(t, f.tree(), "commit", "--quiet", "--message", "local")
 	local := git(t, f.tree(), "rev-parse", "HEAD")
 
+	pushed := f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
+
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD~1"); got != pushed {
+		t.Errorf("the last run's commit sits on %s, want it on what was pushed, %s", got, pushed)
+	}
+	if got := git(t, f.tree(), "show", "--quiet", "--format=%s", "HEAD"); got != "local" {
+		t.Errorf("HEAD is %q, want the last run's commit", got)
+	}
+	if got := git(t, f.tree(), "for-each-ref", "--format=%(objectname)", "refs/spotlight/diverged/spotlight/task-1/"); got != local {
+		t.Errorf("the commits before the rebase are kept at %s, want %s", got, local)
+	}
+	if len(done.Notes) != 1 || !strings.Contains(done.Notes[0], "rebased the commits of the last run") {
+		t.Errorf("notes %q", done.Notes)
+	}
+}
+
+func TestResetsToWhatWasPushedAndKeepsTheLastRunsCommitsWhenTheyDoNotRebase(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "README.md"), "the last run's rewrite\n")
+	git(t, f.tree(), "commit", "--quiet", "--all", "--message", "local")
+	local := git(t, f.tree(), "rev-parse", "HEAD")
+
+	pushed := f.push(t, "spotlight/task-1", "README.md", "a person's rewrite\n")
+
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != pushed {
+		t.Errorf("the branch is at %s, want what was pushed, %s", got, pushed)
+	}
+	if got := git(t, f.tree(), "status", "--porcelain"); got != "" {
+		t.Errorf("the tree is not clean after the reset: %q", got)
+	}
+	if got := git(t, f.tree(), "for-each-ref", "--format=%(objectname)", "refs/spotlight/diverged/spotlight/task-1/"); got != local {
+		t.Errorf("the last run's commits are kept at %s, want %s", got, local)
+	}
+	if !strings.Contains(done.Output, "did not rebase onto it cleanly") {
+		t.Errorf("output %q", done.Output)
+	}
+}
+
+func TestLeavesADivergedCheckoutAloneWhenUncommittedWorkBlocksARebase(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "local.md"), "the last run's\n")
+	git(t, f.tree(), "add", "--all")
+	git(t, f.tree(), "commit", "--quiet", "--message", "local")
+	local := git(t, f.tree(), "rev-parse", "HEAD")
+	write(t, filepath.Join(f.tree(), "halfway.md"), "not committed\n")
+
 	f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, output)
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != local {
 		t.Errorf("the branch moved to %s, want it left at %s", got, local)
 	}
-	if !strings.Contains(output, "moved on both here and on the remote") {
-		t.Errorf("output %q", output)
+	if _, err := os.Stat(filepath.Join(f.tree(), "halfway.md")); err != nil {
+		t.Errorf("the work left halfway is gone: %v", err)
+	}
+	if len(done.Notes) != 1 || !strings.Contains(done.Notes[0], "git rebase origin/spotlight/task-1") {
+		t.Errorf("notes %q", done.Notes)
+	}
+}
+
+func TestSwitchesBackToTheTasksBranchAndSaysWhereTheLastRunLeftIt(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	git(t, f.tree(), "switch", "--quiet", "-c", "elsewhere")
+
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
+	}
+
+	if got := git(t, f.tree(), "branch", "--show-current"); got != "spotlight/task-1" {
+		t.Errorf("on %q", got)
+	}
+	if len(done.Notes) != 1 || !strings.Contains(done.Notes[0], "left acme/api on the branch elsewhere") {
+		t.Errorf("notes %q", done.Notes)
+	}
+}
+
+func TestReportsWhyASwitchFailsInsteadOfTryingToMakeTheBranchAgain(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	git(t, f.tree(), "switch", "--quiet", "-c", "elsewhere")
+	write(t, filepath.Join(f.tree(), "README.md"), "elsewhere\n")
+	git(t, f.tree(), "commit", "--quiet", "--all", "--message", "elsewhere")
+	write(t, filepath.Join(f.tree(), "README.md"), "halfway\n")
+
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err == nil {
+		t.Fatalf("prepare passed, want a refused switch\n%s", output)
+	}
+	if strings.Contains(err.Error(), "already exists") || !strings.Contains(err.Error(), "git switch") {
+		t.Errorf("error %v", err)
+	}
+}
+
+func TestTracksTheRemoteBranchWhenOnlyTheRemoteHasIt(t *testing.T) {
+	f := setUp(t)
+	git(t, f.origin, "branch", "spotlight/task-1")
+	pushed := f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
+
+	if output, err := prepared(context.Background(), []protocol.Checkout{f.checkout("spotlight/task-1")}, f.options()); err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != pushed {
+		t.Errorf("the branch is at %s, want what was pushed, %s", got, pushed)
+	}
+}
+
+func TestStartsANewBranchFromItsBaseBranch(t *testing.T) {
+	f := setUp(t)
+	git(t, f.origin, "branch", "release/1.x")
+	released := f.push(t, "release/1.x", "RELEASE.md", "1.x\n")
+	f.commit(t, "MAIN.md", "only on main\n")
+
+	checkout := f.checkout("fix/hotfix-1")
+	checkout.Base = "release/1.x"
+	if output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != released {
+		t.Errorf("the branch starts at %s, want the base, %s", got, released)
+	}
+
+	checkout.Branch = "fix/hotfix-2"
+	if output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+		t.Fatalf("prepare a restored checkout: %v\n%s", err, output)
+	}
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != released {
+		t.Errorf("a restored checkout starts the branch at %s, want the base, %s", got, released)
+	}
+}
+
+func TestKeepsWorkingOnAnExistingBranchWhenItsBaseIsGoneFromTheRemote(t *testing.T) {
+	f := setUp(t)
+	git(t, f.origin, "branch", "release/1.x")
+	checkout := f.checkout("fix/hotfix-1")
+	checkout.Base = "release/1.x"
+	if output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
+	}
+	git(t, f.origin, "branch", "--delete", "release/1.x")
+
+	if output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+		t.Fatalf("prepare after the base is gone: %v\n%s", err, output)
+	}
+	if got := git(t, f.tree(), "branch", "--show-current"); got != "fix/hotfix-1" {
+		t.Errorf("on %q, want the task's branch", got)
+	}
+}
+
+func TestStopsARebaseTheLastRunLeftUnfinishedAndKeepsWhereItStood(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "README.md"), "the last run's\n")
+	git(t, f.tree(), "commit", "--quiet", "--all", "--message", "local")
+	git(t, f.tree(), "branch", "other", "HEAD~1")
+	git(t, f.tree(), "switch", "--quiet", "other")
+	write(t, filepath.Join(f.tree(), "README.md"), "another\n")
+	git(t, f.tree(), "commit", "--quiet", "--all", "--message", "other")
+	git(t, f.tree(), "switch", "--quiet", "spotlight/task-1")
+	local := git(t, f.tree(), "rev-parse", "HEAD")
+	if err := exec.Command("git", "-C", f.tree(), "-c", "user.name=x", "-c", "user.email=x@example.com", "rebase", "--quiet", "other").Run(); err == nil {
+		t.Fatal("the rebase applied cleanly, want a conflict")
+	}
+
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
+	}
+
+	if exists := git(t, f.tree(), "rev-parse", "--git-path", "rebase-merge"); fileExists(exists, f.tree()) {
+		t.Errorf("the rebase is still in progress")
+	}
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != local {
+		t.Errorf("HEAD is %s, want where the branch stood before the rebase, %s", got, local)
+	}
+	if got := git(t, f.tree(), "status", "--porcelain"); got != "" {
+		t.Errorf("the tree is not clean: %q", got)
+	}
+	if len(done.Notes) != 1 || !strings.Contains(done.Notes[0], "left a rebase unfinished") {
+		t.Errorf("notes %q", done.Notes)
+	}
+}
+
+func TestClearsAnUnfinishedRebaseThatGitCannotAbort(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	head := git(t, f.tree(), "rev-parse", "HEAD")
+	if err := os.MkdirAll(filepath.Join(f.tree(), ".git", "rebase-merge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(f.tree(), "README.md"), "half done\n")
+
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
+	}
+
+	if fileExists(filepath.Join(f.tree(), ".git", "rebase-merge"), f.tree()) {
+		t.Errorf("the rebase is still in progress")
+	}
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != head {
+		t.Errorf("HEAD is %s, want %s", got, head)
+	}
+	if got := git(t, f.tree(), "status", "--porcelain"); got != "" {
+		t.Errorf("the tree is not clean: %q", got)
+	}
+	if len(done.Notes) != 1 || !strings.Contains(done.Notes[0], "--abort failed") {
+		t.Errorf("notes %q", done.Notes)
+	}
+}
+
+func fileExists(path, dir string) bool {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dir, path)
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func TestFailsClearlyWhenTheBaseBranchIsNotOnTheRemote(t *testing.T) {
+	f := setUp(t)
+	checkout := f.checkout("fix/hotfix-1")
+	checkout.Base = "release/9.x"
+
+	_, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err == nil || !strings.Contains(err.Error(), "the base branch release/9.x of acme/api is not on the remote") {
+		t.Errorf("error %v", err)
+	}
+}
+
+func TestRefusesABaseThatIsNotABranchName(t *testing.T) {
+	f := setUp(t)
+	checkout := f.checkout("fix/hotfix-1")
+	checkout.Base = "--upload-pack=touch /tmp/owned"
+
+	_, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err == nil || !strings.Contains(err.Error(), "is not a branch name") {
+		t.Errorf("error %v", err)
+	}
+}
+
+func TestClonesAgainWhenARestoredCheckoutIsNotAWorkingRepository(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "notes.md"), "kept\n")
+	if err := os.RemoveAll(filepath.Join(f.tree(), ".git", "objects")); err != nil {
+		t.Fatal(err)
+	}
+
+	done, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, done.Output)
+	}
+
+	if got := git(t, f.tree(), "branch", "--show-current"); got != "spotlight/task-1" {
+		t.Errorf("on %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(f.workspace, "acme", "api.unusable", "notes.md")); err != nil {
+		t.Errorf("the unusable folder was not kept aside: %v", err)
+	}
+	if len(done.Notes) != 1 || !strings.Contains(done.Notes[0], "moved that folder to acme/api.unusable") {
+		t.Errorf("notes %q", done.Notes)
 	}
 }
 
@@ -235,7 +504,7 @@ func TestLeavesARestoredCheckoutBehindWhenUncommittedWorkBlocksIt(t *testing.T) 
 
 	f.push(t, "spotlight/task-1", "README.md", "a person's rewrite\n")
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -258,7 +527,7 @@ func TestSaysNothingOfCatchingUpWhereTheLastRunIsAheadOfWhatWasPushed(t *testing
 	git(t, f.tree(), "add", "--all")
 	git(t, f.tree(), "commit", "--quiet", "--message", "local")
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -279,7 +548,7 @@ func TestChecksOutARefTheCloneDoesNotHave(t *testing.T) {
 	reviewed := f.checkout("spotlight/review-7")
 	reviewed.Ref = "refs/pull/7/head"
 
-	if output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{reviewed}, f.options()); err != nil {
+	if output, err := prepared(context.Background(), []protocol.Checkout{reviewed}, f.options()); err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
@@ -300,7 +569,7 @@ func TestChecksOutACommitOnlyTheRestoredCheckoutHas(t *testing.T) {
 	replayed := f.checkout("")
 	replayed.Ref = local
 
-	if output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{replayed}, f.options()); err != nil {
+	if output, err := prepared(context.Background(), []protocol.Checkout{replayed}, f.options()); err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
@@ -317,7 +586,7 @@ func TestClonesFromTheHostsMirrorWithoutDependingOnIt(t *testing.T) {
 	options := f.options()
 	options.Mirrors = mirrors
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{f.checkout("")}, options)
+	output, err := prepared(context.Background(), []protocol.Checkout{f.checkout("")}, options)
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -335,7 +604,7 @@ func TestFailsOnARemoteItCannotReach(t *testing.T) {
 	gone := f.checkout("")
 	gone.Remote = filepath.Join(f.origin, "missing")
 
-	if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{gone}, f.options()); err == nil {
+	if _, err := prepared(context.Background(), []protocol.Checkout{gone}, f.options()); err == nil {
 		t.Fatal("expected the clone to fail")
 	}
 }
@@ -394,7 +663,7 @@ func TestFetchesAReusedCheckoutFromTheHostsMirrorFirst(t *testing.T) {
 	git(t, mirror, "fetch", "--quiet", f.origin, "feature:feature")
 	git(t, f.origin, "branch", "--quiet", "-D", "feature")
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, options)
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, options)
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -416,7 +685,7 @@ func TestFetchesFromOriginWhatTheHostsMirrorDoesNotHaveYet(t *testing.T) {
 	git(t, f.origin, "branch", "--quiet", "spotlight/task-2", pushed)
 	latest := f.commit(t, "CHANGELOG.md", "moved on\n")
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, options)
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, options)
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -445,7 +714,7 @@ func TestFetchesFromOriginAloneWhenTheHostsMirrorIsBroken(t *testing.T) {
 
 	latest := f.commit(t, "CHANGELOG.md", "moved on\n")
 
-	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, options)
+	output, err := prepared(context.Background(), []protocol.Checkout{checkout}, options)
 	if err != nil {
 		t.Fatalf("prepare: %v\n%s", err, output)
 	}
@@ -475,7 +744,7 @@ func TestKeepsEachCheckoutsOutputInOrderAndPreparesTheRestWhenOneFails(t *testin
 		return f.origin
 	})
 
-	output, err := prepare.Checkouts(context.Background(), checkouts, f.options())
+	output, err := prepared(context.Background(), checkouts, f.options())
 	if err == nil {
 		t.Fatalf("expected two checkouts to fail\n%s", output)
 	}
@@ -496,4 +765,9 @@ func TestKeepsEachCheckoutsOutputInOrderAndPreparesTheRestWhenOneFails(t *testin
 			t.Errorf("%s cloned: %t, want %t", checkout.Path, statErr == nil, !failed)
 		}
 	}
+}
+
+func prepared(ctx context.Context, checkouts []protocol.Checkout, opts prepare.Options) (string, error) {
+	done, err := prepare.Checkouts(ctx, checkouts, opts)
+	return done.Output, err
 }

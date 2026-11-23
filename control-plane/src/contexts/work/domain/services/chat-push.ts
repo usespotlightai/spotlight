@@ -12,18 +12,16 @@ export const ChatPush = {
     owner: Task | null;
   }): ChatRefusal | null {
     const { chat, update, defaultBranch, owner } = input;
-    const branch = update.branch;
+    const target = update.target;
 
-    if (!branch) {
-      return { kind: 'push-not-to-a-branch', ref: update.ref };
+    if (target.kind !== 'branch') {
+      return target;
     }
+
+    const { branch } = target;
 
     if (branch.equals(defaultBranch)) {
       return { kind: 'push-to-default-branch', branch };
-    }
-
-    if (update.deletes) {
-      return { kind: 'push-deletes-a-branch', branch };
     }
 
     if (!owner || owner.heldFor(chat)) {

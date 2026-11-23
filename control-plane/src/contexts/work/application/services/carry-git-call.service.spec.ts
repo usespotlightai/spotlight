@@ -74,19 +74,34 @@ const forwarded: GitCall = { ...push, path: '/forwarded' };
 
 const REFUSED = { status: 200, headers: {}, body: null };
 
-const pushing = (...refs: readonly string[]): ReceivePackPort => ({
-  read: vi.fn(async (): Promise<PushRead> => ({
-    kind: 'read',
-    push: {
-      updates: refs.map((ref) => RefUpdate.of({ ref, to: PUSHED })),
-      call: forwarded,
-      refused: vi.fn(async (reason: string) => ({
-        ...REFUSED,
-        headers: { reason },
-      })),
-    },
-  })),
-});
+const pushing = (...refs: readonly string[]): ReceivePackPort => {
+  const updates = refs.map((ref) =>
+    RefUpdate.of({ ref, from: 'a'.repeat(40), to: PUSHED, rewrites: false }),
+  );
+
+  return {
+    read: vi.fn(async (): Promise<PushRead> => ({
+      kind: 'read',
+      push: {
+        updates,
+        call: forwarded,
+        reported: (answer, accepted) => ({
+          ...answer,
+          body: {
+            async *[Symbol.asyncIterator]() {
+              yield new Uint8Array();
+              await accepted(updates);
+            },
+          },
+        }),
+        refused: vi.fn(async (reason: string) => ({
+          ...REFUSED,
+          headers: { reason },
+        })),
+      },
+    })),
+  };
+};
 
 const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   lineMapOf({
@@ -247,14 +262,17 @@ const carrying = (
   };
   const checks = { leasedWork: vi.fn(async () => checking) };
   const leases = { leaseOf: vi.fn(async () => held) };
+  const tasks = {
+    find: vi.fn(async () => existing),
+    startingFrom: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
+    save: vi.fn(async () => {}),
+  };
 
   const service = new CarryGitCall(
     runWorksOver(
       runLeasesOver(() => claimed?.run ?? null),
-      {
-        find: vi.fn(async () => existing),
-        onBranch: vi.fn(async () => null),
-      } as unknown as TaskRepository,
+      tasks as unknown as TaskRepository,
       { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
       {
         findByStation: vi.fn(async () => lineWorking(repositories)),
@@ -274,9 +292,10 @@ const carrying = (
     leases,
     receivePack,
     { now: () => NOW, sleep: async () => {} },
+    { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   );
 
-  return { service, git, checks, leases };
+  return { service, git, checks, leases, tasks };
 };
 
 describe('CarryGitCall', () => {
@@ -391,18 +410,39 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('carries a task run’s push as it came, without reading it, since only a chat’s pushes are limited', async () => {
-    const receivePack = pushing('refs/heads/main');
-    const { service, git } = carrying(
+  it('refuses a task run’s push to the default branch without asking GitHub, and carries nothing', async () => {
+    const { service, git, tasks } = carrying(
       claimedBy('runner_1'),
       task(),
       undefined,
       null,
       null,
-      receivePack,
+      pushing('refs/heads/main'),
     );
 
-    await service.carry(
+    await expect(
+      service.carry('run_1', 'runner_1', 'widgets', 'git-receive-pack', push),
+    ).resolves.toEqual({
+      ...REFUSED,
+      headers: {
+        reason: `This task pushes only its own branch, ${task().branch.value}, not main. Push the change to ${task().branch.value}.`,
+      },
+    });
+    expect(git.call).not.toHaveBeenCalled();
+    expect(tasks.save).not.toHaveBeenCalled();
+  });
+
+  it('carries a task run’s push to its own branch, and keeps the commit it pushed once GitHub reports it', async () => {
+    const { service, git, tasks } = carrying(
+      claimedBy('runner_1'),
+      task(),
+      undefined,
+      null,
+      null,
+      pushing(`refs/heads/${task().branch.value}`),
+    );
+
+    const answer = await service.carry(
       'run_1',
       'runner_1',
       'widgets',
@@ -410,12 +450,22 @@ describe('CarryGitCall', () => {
       push,
     );
 
-    expect(receivePack.read).not.toHaveBeenCalled();
     expect(git.call).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       Repository.of('acme/widgets'),
-      push,
+      forwarded,
     );
+    expect(tasks.save).not.toHaveBeenCalled();
+    for await (const _ of answer?.body ?? []) {
+      continue;
+    }
+    const [saved] = tasks.save.mock.calls[0] as unknown as [Task];
+    expect(
+      saved.pushedHeads.map((each) => [
+        each.repository.value,
+        each.commit.value,
+      ]),
+    ).toEqual([['acme/widgets', PUSHED]]);
   });
 
   it('carries no push from a chat to a repository it did not check out', async () => {

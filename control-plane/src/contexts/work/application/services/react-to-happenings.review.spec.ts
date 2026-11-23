@@ -187,6 +187,7 @@ const world = (input: {
     settingUp: vi.fn(async () => []),
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   } satisfies TaskRepository & TaskPlacementsPort;
 

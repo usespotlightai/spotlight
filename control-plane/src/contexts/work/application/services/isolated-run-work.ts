@@ -47,6 +47,8 @@ export class IsolatedRunWork implements RunWork {
     return null;
   }
 
+  async pushed(): Promise<void> {}
+
   async toolContext(tool: Tool): Promise<ToolContext> {
     throw new ToolNotEnabledError(tool.value);
   }

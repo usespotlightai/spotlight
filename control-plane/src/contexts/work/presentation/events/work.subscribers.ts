@@ -39,6 +39,7 @@ import {
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -57,6 +58,7 @@ import type { NotifyOutsideTools } from '@work/application/events/handlers/notif
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import type { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
 import type { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import type { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
@@ -141,6 +143,7 @@ export const workSubscribers = (reactions: {
   notices: Notices;
   takenMarks: ReleaseTakenMarks;
   taskPullRequests: TrackTaskPullRequests;
+  stackedTasks: RetargetStackedTasks;
   chatsOfTasks: TellChatOfTask;
 }): readonly DomainEventSubscriber[] => [
   subscribing<ToolUsed>(
@@ -322,7 +325,20 @@ export const workSubscribers = (reactions: {
         WorkspaceId.of(event.workspaceId),
         PullRequestUrl.of(event.pullRequest),
         event.closedAt ? new Date(event.closedAt) : null,
+        event.merged,
       ),
+  ),
+  subscribing<PullRequestClosedIntegrationEvent>(
+    'work.retarget-stacked-tasks',
+    [PULL_REQUEST_CLOSED],
+    (event) =>
+      reactions.stackedTasks.closed(
+        WorkspaceId.of(event.workspaceId),
+        PullRequestUrl.of(event.pullRequest),
+        Repository.of(event.repository),
+        event.merged,
+      ),
+    { callsOut: true },
   ),
   subscribing<PullRequestReopenedIntegrationEvent>(
     'work.reopen-task-pull-request',

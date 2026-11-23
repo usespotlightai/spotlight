@@ -41,7 +41,8 @@ const work = new ChatRunWork(
   defaultBranchIs('main'),
 );
 
-const pushed = (ref: string) => RefUpdate.of({ ref, to: 'c'.repeat(40) });
+const pushed = (ref: string) =>
+  RefUpdate.of({ ref, from: 'a'.repeat(40), to: 'c'.repeat(40) });
 
 const tool = (approval: ApprovalNeeded | null) =>
   DeclaredTool.of({

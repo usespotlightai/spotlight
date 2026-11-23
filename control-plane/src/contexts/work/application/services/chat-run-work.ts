@@ -101,6 +101,8 @@ export class ChatRunWork implements RunWork {
     return null;
   }
 
+  async pushed(): Promise<void> {}
+
   async clearFor(declared: DeclaredTool): Promise<Cleared> {
     const refusal = this.chat.toolRefusal(declared);
 

@@ -1,3 +1,4 @@
+import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -9,8 +10,10 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import type { CreateTask } from '@work/application/services/create-task';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { LineLoader } from '@work/application/services/line-loader.service';
+import { requestedBase } from '@work/application/services/requested-base';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
@@ -25,6 +28,10 @@ export class AddTaskHandler implements CommandHandlerPort<
     private readonly clock: ClockPort,
     private readonly createTask: CreateTask,
     private readonly files: FilesLoader,
+    private readonly settings: Pick<
+      RepositorySettingsPort,
+      'defaultBranchNameOf'
+    >,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<string> {
@@ -64,6 +71,11 @@ export class AddTaskHandler implements CommandHandlerPort<
         placed.map((each) => each.rank),
       ),
       createdBy,
+      base: await requestedBase(
+        this.settings,
+        line,
+        command.base?.trim() ? Branch.of(command.base.trim()) : null,
+      ),
       now: this.clock.now(),
       newId: () => this.ids.generate(),
     });

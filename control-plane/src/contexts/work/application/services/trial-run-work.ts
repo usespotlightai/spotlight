@@ -73,6 +73,8 @@ export class TrialRunWork implements RunWork {
     return null;
   }
 
+  async pushed(): Promise<void> {}
+
   async toolContext(): Promise<TaskToolContext> {
     return {
       kind: 'task',

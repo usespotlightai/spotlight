@@ -31,6 +31,7 @@ export interface PullRequestOpening {
   readonly workspaceId: WorkspaceId;
   readonly repository: Repository;
   readonly branch: string;
+  readonly base: string | null;
   readonly title: string;
   readonly body: string;
 }
@@ -53,12 +54,15 @@ export interface PullRequestPort {
 
   close(at: PullRequestAt): Promise<void>;
 
+  retarget(at: PullRequestAt, base: string | null): Promise<void>;
+
   comment(at: PullRequestAt, body: string): Promise<void>;
 
   changedOn(
     workspaceId: WorkspaceId,
     repository: Repository,
     branch: string,
+    base: string | null,
   ): Promise<readonly string[]>;
 
   changedIn(

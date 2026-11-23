@@ -109,6 +109,26 @@ describe('GitReceivePack, reading the commands of a push', () => {
     expect(push.updates.map((each) => each.deletes)).toEqual([false, false]);
   });
 
+  it('reads the commit each ref moves from, and takes every update the runner did not verify as a fast-forward as a rewrite', async () => {
+    const push = await read(
+      call(request('report-status', 'refs/heads/main', 'refs/heads/fix'), {
+        'spotlight-fast-forwards': 'refs%2Fheads%2Fmain,%E0%A4%A',
+      }),
+    );
+
+    expect(
+      push.updates.map((each) => [
+        each.ref,
+        each.from.value,
+        each.to.value,
+        each.rewrites,
+      ]),
+    ).toEqual([
+      ['refs/heads/main', OLD, NEW, false],
+      ['refs/heads/fix', OLD, NEW, true],
+    ]);
+  });
+
   it('reads a delete as a delete', async () => {
     const push = await read(
       call(
@@ -251,5 +271,62 @@ describe('GitReceivePack, reading the commands of a push', () => {
     expect(
       (await unreadable(call(pkt(`${OLD} ${NEW} refs/heads/main\n`)))).status,
     ).toBe(400);
+  });
+});
+
+describe('GitReceivePack, reading what GitHub took from a push', () => {
+  const reported = async (
+    report: string,
+    capabilities = 'report-status',
+  ): Promise<readonly string[]> => {
+    const push = await read(
+      call(request(capabilities, 'refs/heads/fix', 'refs/heads/other')),
+    );
+    const taken: string[] = [];
+    const answer = push.reported(
+      { status: 200, headers: {}, body: chunked(report, 5) },
+      async (updates) => {
+        taken.push(...updates.map((each) => each.ref));
+      },
+    );
+
+    expect(await text(answer.body)).toBe(report);
+    return taken;
+  };
+
+  it('reads no push that names one ref twice', async () => {
+    const answer = await unreadable(
+      call(request('report-status', 'refs/heads/fix', 'refs/heads/fix')),
+    );
+
+    expect(answer.status).toBe(400);
+    expect(await text(answer.body)).toContain('one command for each ref');
+  });
+
+  it('takes only the refs GitHub reports as ok', async () => {
+    expect(
+      await reported(
+        `${pkt('unpack ok\n')}${pkt('ok refs/heads/fix\n')}${pkt('ng refs/heads/other stale info\n')}0000`,
+      ),
+    ).toEqual(['refs/heads/fix']);
+  });
+
+  it('takes the refs GitHub reports as ok inside the side band', async () => {
+    const status = `${pkt('unpack ok\n')}${pkt('ok refs/heads/fix\n')}${pkt('ok refs/heads/other\n')}0000`;
+
+    expect(
+      await reported(
+        `${pkt(`\u0001${status}`)}${pkt('\u0002remote: done\n')}0000`,
+        'report-status side-band-64k',
+      ),
+    ).toEqual(['refs/heads/fix', 'refs/heads/other']);
+  });
+
+  it('takes nothing when GitHub could not unpack the push', async () => {
+    expect(
+      await reported(
+        `${pkt('unpack index-pack failed\n')}${pkt('ng refs/heads/fix unpacker error\n')}0000`,
+      ),
+    ).toEqual([]);
   });
 });

@@ -66,6 +66,7 @@ type Journal interface {
 const (
 	prepareStep = "prepare"
 	setupStep   = "setup"
+	branchStep  = "branch"
 )
 
 const (
@@ -170,7 +171,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 	}
 
 	if len(run.Spec.Checkouts) > 0 {
-		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID, replays(run), opts.Transport)
+		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID, space.Dir, replays(run), opts.Transport)
 		if err != nil {
 			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
@@ -189,7 +190,8 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 	}
 
 	// Prepare as the runner, before the handover, so the agent finds nothing that prepare keeps.
-	if err := opts.prepare(ctx, space.Dir, run, journal); err != nil {
+	checkoutNotes, err := opts.prepare(ctx, space.Dir, run, journal)
+	if err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
@@ -478,6 +480,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 		harness:   harness,
 		sessionID: sessionID,
 		joined:    joined,
+		checkouts: checkoutNotes,
 		unready:   unready,
 		touches:   touches,
 		journal:   journal,
@@ -495,7 +498,10 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
 		},
 		escalated: &escalated,
-		handOver:  func(ctx context.Context) { opts.generateStacks(ctx, run, space.Dir, bases, log) },
+		handOver: func(ctx context.Context) {
+			checkBranches(ctx, space.Dir, run.Spec.Checkouts, journal)
+			opts.generateStacks(ctx, run, space.Dir, bases, log)
+		},
 		heartbeat: opts.heartbeat(),
 		waitLimit: opts.BackgroundWait,
 		keepLost: func(tasks []workspace.LostTask) {
@@ -973,26 +979,27 @@ func (p *progress) note(trigger Trigger, log *slog.Logger) {
 	}
 }
 
-func (o Options) prepare(ctx context.Context, dir string, run protocol.Run, journal *journalWriter) error {
+func (o Options) prepare(ctx context.Context, dir string, run protocol.Run, journal *journalWriter) ([]string, error) {
 	if len(run.Spec.Checkouts) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	preparing := journal.begin(ctx, prepareStep)
-	output, err := prepare.Checkouts(ctx, run.Spec.Checkouts, prepare.Options{
+	prepared, err := prepare.Checkouts(ctx, run.Spec.Checkouts, prepare.Options{
 		Dir:     dir,
 		Mirrors: o.Mirrors,
 		Author:  o.Author,
 	})
+	output := prepared.Output
 	if err != nil {
 		output = strings.TrimSpace(fmt.Sprintf("%s\n\nPrepare failed. Error: %v", output, err))
 	}
 	preparing.end(ctx, err != nil, output)
 	if err != nil {
-		return fmt.Errorf("prepare: %w", err)
+		return nil, fmt.Errorf("prepare: %w", err)
 	}
 
-	return nil
+	return prepared.Notes, nil
 }
 
 func (o Options) checkEgress(ctx context.Context, journal *journalWriter) {

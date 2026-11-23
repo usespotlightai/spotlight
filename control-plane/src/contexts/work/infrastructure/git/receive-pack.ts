@@ -14,6 +14,7 @@ const MOST_COMMAND_BYTES = 1024 * 1024;
 const FIRST_BUFFER_BYTES = 64 * 1024;
 const MOST_DRAIN_MS = 30_000;
 const BAND_DATA = 1;
+const MOST_REPORT_BYTES = 1024 * 1024;
 const BAND_BYTES: Readonly<Record<string, number>> = {
   'side-band-64k': 65515,
   'side-band': 995,
@@ -62,6 +63,26 @@ const textAnswer = (status: number, text: string): GitAnswerDto => ({
   headers: { 'content-type': 'text/plain; charset=utf-8' },
   body: once(encoder.encode(`${text}\n`)),
 });
+
+const FAST_FORWARDS_HEADER = 'spotlight-fast-forwards';
+
+const decoded = (ref: string): string | null => {
+  try {
+    return decodeURIComponent(ref);
+  } catch {
+    return null;
+  }
+};
+
+const fastForwardsNamedIn = (
+  headers: GitCallDto['headers'],
+): ReadonlySet<string> =>
+  new Set(
+    (headerOf(headers, FAST_FORWARDS_HEADER) ?? '')
+      .split(',')
+      .map((each) => decoded(each.trim()))
+      .filter((each): each is string => Boolean(each)),
+  );
 
 const headerOf = (
   headers: GitCallDto['headers'],
@@ -157,6 +178,60 @@ const drained = async (rest: AsyncIterator<Uint8Array>): Promise<void> => {
   }
 };
 
+const packetsIn = (bytes: Uint8Array): readonly Uint8Array[] | null => {
+  const packets: Uint8Array[] = [];
+
+  for (let at = 0; at + LENGTH <= bytes.length;) {
+    const size = Number.parseInt(
+      decoder.decode(bytes.subarray(at, at + LENGTH)),
+      16,
+    );
+
+    if (Number.isNaN(size) || (size !== FLUSH && size < LENGTH)) {
+      return null;
+    }
+
+    if (size === FLUSH) {
+      at += LENGTH;
+      continue;
+    }
+
+    if (at + size > bytes.length) {
+      return null;
+    }
+
+    packets.push(bytes.subarray(at + LENGTH, at + size));
+    at += size;
+  }
+
+  return packets;
+};
+
+const acceptedRefsIn = (report: Uint8Array): ReadonlySet<string> => {
+  const outer = packetsIn(report) ?? [];
+  const banded = outer.length > 0 && outer.every((each) => (each[0] ?? 0) <= 3);
+  const status = banded
+    ? (packetsIn(
+        joined(
+          outer
+            .filter((each) => each[0] === BAND_DATA)
+            .map((each) => each.subarray(1)),
+        ),
+      ) ?? [])
+    : outer;
+  const lines = status.map((each) => decoder.decode(each).trimEnd());
+
+  if (lines[0] !== 'unpack ok') {
+    return new Set();
+  }
+
+  return new Set(
+    lines
+      .filter((each) => each.startsWith('ok '))
+      .map((each) => each.slice('ok '.length)),
+  );
+};
+
 const reportOf = (
   capabilities: readonly string[],
   updates: readonly RefUpdate[],
@@ -201,7 +276,9 @@ export class GitReceivePack implements ReceivePackPort {
     }
 
     const commands = await commandsIn(call.body);
-    const parsed = commands && this.parsed(commands.lines);
+    const parsed =
+      commands &&
+      this.parsed(commands.lines, fastForwardsNamedIn(call.headers));
 
     if (!commands || !parsed) {
       return {
@@ -212,6 +289,16 @@ export class GitReceivePack implements ReceivePackPort {
 
     const { read, rest } = commands;
     const { updates, capabilities } = parsed;
+
+    if (new Set(updates.map((each) => each.ref)).size !== updates.length) {
+      return {
+        kind: 'unreadable',
+        answer: textAnswer(
+          400,
+          'Spotlight takes one command for each ref in a push. Push each ref once.',
+        ),
+      };
+    }
 
     return {
       kind: 'read',
@@ -231,6 +318,41 @@ export class GitReceivePack implements ReceivePackPort {
               }
             },
           },
+        },
+        reported(answer, accepted): GitAnswerDto {
+          const body = answer.body;
+
+          if (!body) {
+            return answer;
+          }
+
+          return {
+            ...answer,
+            body: {
+              async *[Symbol.asyncIterator]() {
+                const parts: Uint8Array[] = [];
+                let size = 0;
+
+                for await (const part of body) {
+                  if (size <= MOST_REPORT_BYTES) {
+                    parts.push(part);
+                    size += part.length;
+                  }
+                  yield part;
+                }
+
+                const refs =
+                  size <= MOST_REPORT_BYTES
+                    ? acceptedRefsIn(joined(parts))
+                    : new Set<string>();
+                const done = updates.filter((each) => refs.has(each.ref));
+
+                if (done.length > 0) {
+                  await accepted(done);
+                }
+              },
+            },
+          };
         },
         async refused(reason: string): Promise<GitAnswerDto> {
           await drained(rest);
@@ -257,6 +379,7 @@ export class GitReceivePack implements ReceivePackPort {
 
   private parsed(
     lines: readonly string[],
+    fastForwards: ReadonlySet<string>,
   ): { updates: readonly RefUpdate[]; capabilities: readonly string[] } | null {
     const commands = lines.filter((each) => !each.startsWith('shallow '));
     const [first = ''] = commands;
@@ -271,9 +394,11 @@ export class GitReceivePack implements ReceivePackPort {
         return null;
       }
 
-      const [, , to = '', ref = ''] = matched;
+      const [, from = '', to = '', ref = ''] = matched;
 
-      updates.push(RefUpdate.of({ ref, to }));
+      updates.push(
+        RefUpdate.of({ ref, from, to, rewrites: !fastForwards.has(ref) }),
+      );
     }
 
     return {

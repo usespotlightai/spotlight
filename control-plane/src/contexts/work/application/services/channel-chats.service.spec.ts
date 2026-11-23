@@ -86,6 +86,7 @@ const proposingChat = () =>
       }),
       title: TaskTitle.of('Back off exponentially'),
       description: null,
+      base: null,
       at: NOW,
     })
     .runEnded(RunId.of('run_1'), {
