@@ -1,4 +1,5 @@
 import { PlannedChanges } from '@replays/domain/value-objects/planned-changes.vo';
+import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { describe, expect, it } from 'vitest';
 
 describe('PlannedChanges', () => {
@@ -45,6 +46,8 @@ describe('PlannedChanges', () => {
     expect(() =>
       PlannedChanges.of({ hooks: [{ key: ' ', lines: [], stations: [] }] }),
     ).toThrow('must name each changed hook');
-    expect(() => PlannedChanges.of({ secrets: ['lower'] })).toThrow();
+    expect(() => PlannedChanges.of({ secrets: ['lower'] })).toThrow(
+      InvalidIdentifierError,
+    );
   });
 });

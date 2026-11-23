@@ -81,10 +81,7 @@ import {
   CONFIG_REPOSITORY,
   type ConfigRepositoryPort,
 } from '@replays/application/ports/config-repository.port';
-import {
-  DEPENDENCY_FACTS,
-  type DependencyFactsPort,
-} from '@replays/application/ports/dependency-facts.port';
+import { DEPENDENCY_FACTS } from '@replays/application/ports/dependency-facts.port';
 import { HASH, type HashPort } from '@replays/application/ports/hash.port';
 import {
   INSIGHTS,
