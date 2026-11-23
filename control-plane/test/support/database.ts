@@ -12,6 +12,7 @@ import {
   E2E_POOLER,
   E2E_TEMPLATE,
 } from './e2e-database-url';
+import { eventually } from './eventually';
 
 export interface TestDatabase {
   readonly db: DrizzleDatabase;
@@ -55,10 +56,37 @@ export const clonedDatabase = async (about: string): Promise<string> => {
   return databaseNamed(E2E_POOLER ?? process.env.DATABASE_URL ?? '', database);
 };
 
-export const droppedDatabase = (url: string): Promise<void> =>
-  asAdmin(
-    `DROP DATABASE IF EXISTS "${new URL(url).pathname.slice(1)}" WITH (FORCE)`,
-  );
+const IDLE_BEFORE_DROP_MS = 5_000;
+
+const dropOnceIdle = async (database: string): Promise<void> => {
+  const admin = new Client({ connectionString: process.env.DATABASE_URL });
+
+  await admin.connect();
+  try {
+    // Waits for the closed app's connections to leave, so the forced drop does not cut one that is still ending.
+    await eventually(async () => {
+      const { rows } = await admin.query<{ connected: number }>(
+        'SELECT count(*)::int AS connected FROM pg_stat_activity WHERE datname = $1',
+        [database],
+      );
+
+      return rows[0]?.connected === 0;
+    }, IDLE_BEFORE_DROP_MS).catch(() => undefined);
+    await admin.query(`DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`);
+  } finally {
+    await admin.end();
+  }
+};
+
+let dropping = Promise.resolve();
+
+// Each DROP DATABASE forces a checkpoint, which takes seconds while other files write, so closing does not wait for it.
+// The global teardown drops whatever is still left.
+export const dropDatabaseLater = (url: string): void => {
+  const database = new URL(url).pathname.slice(1);
+
+  dropping = dropping.then(() => dropOnceIdle(database)).catch(() => undefined);
+};
 
 export const openDatabase = async (about: string): Promise<TestDatabase> => {
   const url = await clonedDatabase(about);
@@ -69,7 +97,7 @@ export const openDatabase = async (about: string): Promise<TestDatabase> => {
     url,
     close: async () => {
       await pool.end();
-      await droppedDatabase(url);
+      dropDatabaseLater(url);
     },
   };
 };

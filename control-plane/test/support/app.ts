@@ -16,7 +16,7 @@ import request, { type Response } from 'supertest';
 import { AppModule } from '@/app.module';
 import { APP_OPTIONS, configureApp } from '@/app.setup';
 
-import { clonedDatabase, droppedDatabase } from './database';
+import { clonedDatabase, dropDatabaseLater } from './database';
 
 export const TEST_USER_HEADER = 'x-test-user';
 
@@ -104,7 +104,7 @@ export const openApp = async (
     await closed();
 
     if (!shared) {
-      await droppedDatabase(env.DATABASE_URL);
+      dropDatabaseLater(env.DATABASE_URL);
     }
   };
 

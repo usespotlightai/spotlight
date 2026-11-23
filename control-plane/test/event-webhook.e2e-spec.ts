@@ -184,7 +184,8 @@ describe('deployment event webhook (e2e)', () => {
       timestamp: event?.recordedAt.toISOString(),
       data: { workspaceId, userId: member, role: 'admin' },
     });
-    expect((await deliveryOf(id))?.deliveredAt).not.toBeNull();
+    // The receiver sees the call before Spotlight reads its answer and marks the delivery, so the mark can come a moment later.
+    await eventually(async () => (await deliveryOf(id))?.deliveredAt);
   });
 
   it('sends integration events of every context, and no domain event', async () => {

@@ -750,7 +750,8 @@ describe('the turn a run hands over, raced by people (R3, R4, R5)', () => {
     const view = await app.get<TaskViewsPort>(TASK_VIEWS).of(taskId, runId);
 
     expect(view?.stationKey).toBe('build');
-    expect((await runRow(runId))?.state).toBe('completed');
+    // The turn moves the task before it finishes the run, so wait for the run to complete too.
+    await runIn(runId, 'completed');
   });
 });
 
@@ -794,6 +795,8 @@ describe('a message in a run chat', () => {
     await eventually(async () =>
       (await taskRow(taskId))?.finishedAt ? true : null,
     );
+    // The turn finishes the task before it finishes the run; message the run only once it has completed.
+    await runIn(runId, 'completed');
 
     await sendMessage(runId, 'Deploy the docs with it too.');
 
