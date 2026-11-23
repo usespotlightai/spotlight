@@ -1,6 +1,6 @@
 {
-  "id": "f57d7f3a-0e14-4d7e-ab0e-49823a7e73b8",
-  "prevId": "3180818c-6e47-4abf-a463-67beb8a6ac71",
+  "id": "0dce0d7e-111b-40d4-b46c-64b5238101f7",
+  "prevId": "8607872e-0887-48a1-8379-36984932ecbc",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -19641,6 +19641,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "base": {
+          "name": "base",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "description": {
           "name": "description",
           "type": "text",
@@ -20669,6 +20675,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "merged": {
+          "name": "merged",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {
@@ -20717,6 +20730,79 @@
           "columns": [
             "task_id",
             "url"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.task_pushed_head": {
+      "name": "task_pushed_head",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "commit": {
+          "name": "commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pushed_at": {
+          "name": "pushed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "holds_others_commits": {
+          "name": "holds_others_commits",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "task_pushed_head_task_fk": {
+          "name": "task_pushed_head_task_fk",
+          "tableFrom": "task_pushed_head",
+          "tableTo": "task",
+          "columnsFrom": [
+            "workspace_id",
+            "task_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "task_pushed_head_task_id_repository_pk": {
+          "name": "task_pushed_head_task_id_repository_pk",
+          "columns": [
+            "task_id",
+            "repository"
           ]
         }
       },
