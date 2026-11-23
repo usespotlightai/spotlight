@@ -288,8 +288,16 @@ func TestMakesTheSnapshotTheSandboxAsksForOnItsSocket(t *testing.T) {
 	if status := ask("spotlight-archive_2"); status != http.StatusNoContent {
 		t.Errorf("the host answered %d", status)
 	}
-	if status := ask("base-v1"); status != http.StatusBadRequest {
-		t.Errorf("the host answered %d to a snapshot Spotlight did not grant", status)
+	for _, name := range []string{
+		"base-v1", "spotlight-", "spotlight-../base-v1", "spotlight-a/b", "spotlight-..", "spotlight-a b",
+		"spotlight-" + strings.Repeat("a", 65),
+	} {
+		if status := ask(name); status != http.StatusBadRequest {
+			t.Errorf("the host answered %d to %q, which Spotlight never grants", status, name)
+		}
+	}
+	if status := ask("spotlight-archive_2"); status != http.StatusConflict {
+		t.Errorf("the host answered %d to a snapshot this sandbox had made already", status)
 	}
 	if !slices.Equal(copies.made, []string{"spotlight-archive_2"}) {
 		t.Errorf("made the snapshots %q", copies.made)
@@ -362,6 +370,7 @@ func TestRemovesTheSnapshotsOfRemovedArchives(t *testing.T) {
 	pool.removals = protocol.SnapshotRemovals{Store: &remote, Removals: []protocol.SnapshotRemoval{
 		{ArchiveID: "archive_1", Snapshot: "spotlight-archive_1"},
 		{ArchiveID: "archive_2", Snapshot: "base-v1"},
+		{ArchiveID: "archive_3", Snapshot: "spotlight-../base-v1"},
 	}}
 	opts := options(t)
 	opts.WorkingCopies = copies

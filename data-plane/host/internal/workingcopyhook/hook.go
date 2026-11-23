@@ -10,7 +10,8 @@
 //	open     {store, base, name, from}     open the working copy of sandbox name from snapshot from, else from the
 //	                                       snapshot base, else as the hook sees fit. Answers {"dir": "<absolute
 //	                                       directory>", "restored": true when it opened from from}.
-//	snapshot {store, name, snapshot}       freeze everything written to the working copy as snapshot. Answers {}.
+//	snapshot {store, name, snapshot}       freeze everything written to the working copy as snapshot. A snapshot
+//	                                       never changes: refuse a name the store already holds. Answers {}.
 //	close    {store, name}                 release the working copy; its snapshots stay. Answers {}.
 //	remove   {store, snapshot}             delete a snapshot of a removed archive. Answers {}.
 //
@@ -92,6 +93,13 @@ func (h *Hook) Check(ctx context.Context, store protocol.WorkingCopyStore) error
 // Open has the hook open the working copy of sandbox name from snapshot from, or from the store's base when from is
 // empty or the hook cannot open it. It says whether the hook opened it from from.
 func (h *Hook) Open(ctx context.Context, store protocol.WorkingCopyStore, name, from string) (*WorkingCopy, bool, error) {
+	if !isEntry(name) {
+		return nil, false, fmt.Errorf("the working copy name %q is not one path element", name)
+	}
+	if from != "" && !protocol.IsSpotlightSnapshot(from) {
+		return nil, false, fmt.Errorf("the snapshot %q is not one Spotlight grants", from)
+	}
+
 	if err := os.MkdirAll(filepath.Join(h.root, name, socketDir), 0o755); err != nil {
 		return nil, false, err
 	}
@@ -127,13 +135,17 @@ func (h *Hook) Open(ctx context.Context, store protocol.WorkingCopyStore, name, 
 
 // Adopt takes over the working copy of sandbox name that an earlier host process left open.
 func (h *Hook) Adopt(name string) (*WorkingCopy, bool) {
+	if !isEntry(name) {
+		return nil, false
+	}
+
 	body, err := os.ReadFile(filepath.Join(h.root, name, stateFile))
 	if err != nil {
 		return nil, false
 	}
 
 	var kept state
-	if err := json.Unmarshal(body, &kept); err != nil || kept.Dir == "" || kept.Store == "" {
+	if err := json.Unmarshal(body, &kept); err != nil || kept.Dir == "" || kept.Store == "" || kept.Name != name {
 		return nil, false
 	}
 	return &WorkingCopy{hook: h, state: kept}, true
@@ -157,6 +169,9 @@ func (h *Hook) Left() []string {
 
 // RemoveSnapshot has the hook delete a snapshot of a removed archive.
 func (h *Hook) RemoveSnapshot(ctx context.Context, store protocol.WorkingCopyStore, snapshot string) error {
+	if !protocol.IsSpotlightSnapshot(snapshot) {
+		return fmt.Errorf("the snapshot %q is not one Spotlight grants", snapshot)
+	}
 	if _, err := h.call(ctx, quickWait, "remove", request{Store: store.Store, Snapshot: snapshot}); err != nil {
 		return fmt.Errorf("remove snapshot %s: %w", snapshot, err)
 	}
@@ -171,6 +186,9 @@ func (w *WorkingCopy) Sockets() string { return filepath.Join(w.hook.root, w.sta
 
 // Snapshot has the hook freeze everything the sandbox wrote so far as snapshot name.
 func (w *WorkingCopy) Snapshot(ctx context.Context, name string) error {
+	if !protocol.IsSpotlightSnapshot(name) {
+		return fmt.Errorf("the snapshot %q is not one Spotlight grants", name)
+	}
 	if _, err := w.hook.call(ctx, longWait, "snapshot", request{Store: w.state.Store, Name: w.state.Name, Snapshot: name}); err != nil {
 		return fmt.Errorf("make snapshot %s: %w", name, err)
 	}
@@ -234,6 +252,11 @@ func (h *Hook) call(ctx context.Context, wait time.Duration, event string, asked
 		return answer{}, fmt.Errorf("%s %s: %w: %s", h.path, event, ran, tail(stderr.String()))
 	}
 	return answered, nil
+}
+
+// isEntry says whether name is one entry of the root directory, so it can never reach outside the root.
+func isEntry(name string) bool {
+	return name != "" && name != "." && name != ".." && name == filepath.Base(name) && !strings.ContainsRune(name, filepath.Separator)
 }
 
 func environment() []string {

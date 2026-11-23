@@ -235,3 +235,64 @@ exit 4
 		t.Errorf("remove said %v", err)
 	}
 }
+
+func TestOpensOnlyAWorkingCopyNamedByOnePathElement(t *testing.T) {
+	f := setUp(t, standIn)
+	outside := filepath.Join(f.dir, "outside")
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"", ".", "..", "../outside", "a/b", "/etc"} {
+		if _, _, err := f.hook.Open(context.Background(), store, name, ""); err == nil || !strings.Contains(err.Error(), "not one path element") {
+			t.Errorf("opened %q: %v", name, err)
+		}
+		if _, ok := f.hook.Adopt(name); ok {
+			t.Errorf("adopted %q", name)
+		}
+	}
+	if _, err := os.Stat(outside); err != nil {
+		t.Errorf("a working copy name reached outside the root: %v", err)
+	}
+	if _, err := os.Stat(f.log); err == nil {
+		t.Error("the hook ran for a name that is no path element")
+	}
+}
+
+func TestAdoptsNoWorkingCopyWhoseStateNamesAnother(t *testing.T) {
+	f := setUp(t, standIn)
+	state := filepath.Join(f.dir, "state", "runner_1")
+	if err := os.MkdirAll(state, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(state, "state.json"), []byte(`{"name":"..","store":"s3://team-a","dir":"/tmp"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := f.hook.Adopt("runner_1"); ok {
+		t.Error("adopted a working copy whose state names another")
+	}
+}
+
+func TestAsksTheHookOnlyForSnapshotsSpotlightGrants(t *testing.T) {
+	f := setUp(t, standIn)
+	opened, _, err := f.hook.Open(context.Background(), store, "runner_1", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"base-v1", "spotlight-../x"} {
+		if err := opened.Snapshot(context.Background(), name); err == nil {
+			t.Errorf("made snapshot %q", name)
+		}
+		if err := f.hook.RemoveSnapshot(context.Background(), store, name); err == nil {
+			t.Errorf("removed snapshot %q", name)
+		}
+	}
+	if _, _, err := f.hook.Open(context.Background(), store, "runner_2", "../base"); err == nil {
+		t.Error("opened a working copy from a snapshot Spotlight does not grant")
+	}
+	if events := f.events(t); len(events) != 1 {
+		t.Errorf("the hook got %d events, want only the first open", len(events))
+	}
+}

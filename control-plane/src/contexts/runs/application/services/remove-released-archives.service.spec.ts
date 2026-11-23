@@ -60,8 +60,12 @@ const setUp = async (
   const store = new InMemoryArchiveStore();
   const logger = { error: vi.fn() };
   const queued: SnapshotRemoval[] = [];
+  let queueFails = false;
   const snapshots: SnapshotRemovalsPort = {
     queue: async (removal) => {
+      if (queueFails) {
+        throw new Error('the database is gone');
+      }
       queued.push(removal);
     },
     due: async () => queued,
@@ -95,7 +99,11 @@ const setUp = async (
     logger as never,
   );
 
-  return { archives, store, logger, service, queued };
+  const failQueue = () => {
+    queueFails = true;
+  };
+
+  return { archives, store, logger, service, queued, failQueue };
 };
 
 const completedMeanwhile = (
@@ -169,6 +177,20 @@ describe('RemoveReleasedArchives', () => {
 
     expect(store.removed).toEqual(['gone']);
     expect([...archives.stored.keys()]).toEqual(['owned']);
+  });
+
+  it('keeps a snapshot archive when its removal cannot be queued, so the snapshot is never left behind', async () => {
+    const { archives, service, logger, failQueue } = await setUp(async () => ({
+      due: [dueAs('branched', 'task-task_9')],
+      next: null,
+    }));
+    await archives.add(aCompletedSnapshotArchive({ id: 'branched' }));
+    failQueue();
+
+    await service.processDue();
+
+    expect([...archives.stored.keys()]).toContain('branched');
+    expect(logger.error).toHaveBeenCalledOnce();
   });
 
   it('leaves the snapshot of a removed archive to a host of its store, as Spotlight cannot reach the store', async () => {

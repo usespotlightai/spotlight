@@ -1,5 +1,7 @@
 package protocol
 
+import "regexp"
+
 // When its pool or trust keeps working copies in a store of its hosts, the host opens the sandbox's workspace from
 // that store with its working copy hook, and the runner saves each archive as a snapshot that the host makes,
 // instead of uploading a tar.
@@ -28,4 +30,13 @@ const HostSnapshotPath = "/working-copy/snapshots"
 
 type HostSnapshotRequest struct {
 	Snapshot string `json:"snapshot"`
+}
+
+// spotlightSnapshot is the name of a snapshot Spotlight grants: spotlight- and the archive's id, as the control plane
+// shapes archive ids (WorkingCopyArchiveId). No such name holds a slash, a dot or a space.
+var spotlightSnapshot = regexp.MustCompile(`^spotlight-[A-Za-z0-9_-]{1,64}$`)
+
+// IsSpotlightSnapshot says whether name is the name of a snapshot of an archive that Spotlight grants.
+func IsSpotlightSnapshot(name string) bool {
+	return spotlightSnapshot.MatchString(name)
 }

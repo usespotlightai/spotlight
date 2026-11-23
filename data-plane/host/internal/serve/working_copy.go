@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 const (
 	workingCopyWait    = 10 * time.Minute
 	snapshotRemoveEach = 5 * time.Minute
-	snapshotPrefix     = "spotlight-"
 	socketStopBudget   = 5 * time.Second
 )
 
@@ -63,6 +61,8 @@ type sandboxCopy struct {
 	server   *http.Server
 	serving  sync.WaitGroup
 	saving   sync.Mutex
+	// made is every snapshot this sandbox had made, so it cannot have one made again under the same name.
+	made map[string]bool
 }
 
 func (h *Host) workingCopyStore() *protocol.WorkingCopyStore {
@@ -259,7 +259,7 @@ func (h *Host) removeDueSnapshots(ctx context.Context) {
 	}
 
 	for _, removal := range due.Removals {
-		if !strings.HasPrefix(removal.Snapshot, snapshotPrefix) {
+		if !protocol.IsSpotlightSnapshot(removal.Snapshot) {
 			h.log.Warn("left a snapshot Spotlight did not make", "snapshot", removal.Snapshot)
 			continue
 		}
@@ -343,14 +343,22 @@ func (c *sandboxCopy) serve(log *slog.Logger) error {
 
 func (c *sandboxCopy) snapshot(w http.ResponseWriter, r *http.Request, log *slog.Logger) {
 	var asked protocol.HostSnapshotRequest
+	// The sandbox is not trusted: it names only a snapshot as Spotlight names one, which holds no path, and never one
+	// it had made before. The hook refuses a name its store already holds, and archive ids are random, so the sandbox
+	// cannot reach the snapshot of another archive.
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&asked); err != nil ||
-		!strings.HasPrefix(asked.Snapshot, snapshotPrefix) {
-		http.Error(w, "name a snapshot that Spotlight granted, spotlight-<archive>", http.StatusBadRequest)
+		!protocol.IsSpotlightSnapshot(asked.Snapshot) {
+		http.Error(w, "name a snapshot that Spotlight granted, spotlight-<archive id>", http.StatusBadRequest)
 		return
 	}
 
 	c.saving.Lock()
 	defer c.saving.Unlock()
+
+	if c.made[asked.Snapshot] {
+		http.Error(w, "this sandbox had snapshot "+asked.Snapshot+" made already; a snapshot never changes", http.StatusConflict)
+		return
+	}
 
 	started := time.Now()
 	if err := c.copy.Snapshot(r.Context(), asked.Snapshot); err != nil {
@@ -359,6 +367,10 @@ func (c *sandboxCopy) snapshot(w http.ResponseWriter, r *http.Request, log *slog
 		return
 	}
 
+	if c.made == nil {
+		c.made = map[string]bool{}
+	}
+	c.made[asked.Snapshot] = true
 	log.Info("made the snapshot of the working copy", "snapshot", asked.Snapshot, "took", time.Since(started).Round(time.Millisecond))
 	w.WriteHeader(http.StatusNoContent)
 }
