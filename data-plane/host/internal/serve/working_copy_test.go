@@ -148,9 +148,6 @@ func TestMountsTheWorkingCopyItRestoresAsTheWorkspace(t *testing.T) {
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	started := engine.sandbox(engine.workSandboxes()[0])
 
-	if !slices.Equal(pool.askedOnto, []string{"base-v1"}) {
-		t.Errorf("asked for the archive to restore onto bases %q", pool.askedOnto)
-	}
 	if !slices.Equal(copies.from, []string{"spotlight-archive_1"}) {
 		t.Errorf("opened the working copies from %q", copies.from)
 	}
@@ -410,7 +407,7 @@ func TestOpensFromTheCurrentBaseWhenTheRunStartsAfresh(t *testing.T) {
 	if !slices.Equal(copies.from, []string{""}) {
 		t.Errorf("opened the working copy from %q", copies.from)
 	}
-	for _, variable := range []string{"SPOTLIGHT_WORKING_COPY_REBASED=archive_1", "SPOTLIGHT_WORKING_COPY_BASE=base-v1"} {
+	for _, variable := range []string{"SPOTLIGHT_WORKING_COPY_REBASE=archive_1", "SPOTLIGHT_WORKING_COPY_BASE=base-v1"} {
 		if !slices.Contains(env, variable) {
 			t.Errorf("the sandbox lacks %s: %v", variable, env)
 		}

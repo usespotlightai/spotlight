@@ -714,7 +714,6 @@ type pool struct {
 	workingCopies *protocol.WorkingCopyStore
 	restores      *protocol.StoredArchive
 	asked         []protocol.Assignment
-	askedOnto     []string
 	removals      protocol.SnapshotRemovals
 	forgotten     []string
 }
@@ -756,11 +755,10 @@ func (p *pool) Requirements(context.Context) (protocol.HostRequirements, error) 
 	}, nil
 }
 
-func (p *pool) WorkingCopyArchive(_ context.Context, assignment protocol.Assignment, base string) (*protocol.StoredArchive, error) {
+func (p *pool) WorkingCopyArchive(_ context.Context, assignment protocol.Assignment) (*protocol.StoredArchive, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.asked = append(p.asked, assignment)
-	p.askedOnto = append(p.askedOnto, base)
 	return p.restores, nil
 }
 

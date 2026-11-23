@@ -130,6 +130,7 @@ import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
 import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
 import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
+import { WORKING_COPY_STORES } from '@runners/application/ports/working-copy-stores.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
@@ -175,6 +176,7 @@ import { Runners } from '@runners/application/services/runners.service';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
+import { WorkingCopyStores } from '@runners/application/services/working-copy-stores.service';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -587,6 +589,21 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     inject: [DrizzleRunnerRepository],
     useFactory: (runners: DrizzleRunnerRepository) =>
       new RunnerHeartbeats(runners),
+  },
+  {
+    provide: WORKING_COPY_STORES,
+    inject: [
+      DrizzleRunnerRepository,
+      DrizzleSandboxRepository,
+      DrizzleRunnerPoolRepository,
+      DrizzleRunnerTrustRepository,
+    ],
+    useFactory: (
+      runners: DrizzleRunnerRepository,
+      sandboxes: DrizzleSandboxRepository,
+      pools: DrizzleRunnerPoolRepository,
+      trusts: DrizzleRunnerTrustRepository,
+    ) => new WorkingCopyStores(runners, sandboxes, pools, trusts),
   },
   {
     provide: RUNNER_CLAIMANTS,

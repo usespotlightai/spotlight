@@ -65,6 +65,7 @@ const authenticatedThrough = (
 ): AuthenticatedHost => ({
   source: CredentialSource.ofId(holder.id),
   workspaceId: holder.workspaceId,
+  workingCopies: null,
 });
 
 const reporting = (

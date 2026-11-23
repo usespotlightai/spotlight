@@ -56,7 +56,7 @@ type sandboxCopy struct {
 	name     string
 	store    string
 	restored string
-	rebased  string
+	rebase   string
 	base     *string
 	server   *http.Server
 	serving  sync.WaitGroup
@@ -141,15 +141,15 @@ func (h *Host) openWorkingCopy(ctx context.Context, assignment protocol.Assignme
 	opening, cancel := context.WithTimeout(context.WithoutCancel(ctx), workingCopyWait)
 	defer cancel()
 
-	stored, err := h.pool.WorkingCopyArchive(opening, assignment, valueOf(store.Base))
+	stored, err := h.pool.WorkingCopyArchive(opening, assignment)
 	if err != nil {
 		log.Warn("could not read the working copy to restore, so it starts from the store's base", "error", err)
 	}
 
-	from, rebased := "", ""
+	from, rebase := "", ""
 	if stored != nil && stored.Snapshot != nil && stored.Snapshot.Store == store.Store {
 		if stored.Snapshot.Rebase {
-			rebased = stored.ID
+			rebase = stored.ID
 		} else {
 			from = stored.Snapshot.Name
 		}
@@ -161,14 +161,14 @@ func (h *Host) openWorkingCopy(ctx context.Context, assignment protocol.Assignme
 		return nil, fmt.Errorf("open the working copy: %w", err)
 	}
 
-	copy := &sandboxCopy{copy: opened, name: name, store: store.Store, rebased: rebased, base: store.Base}
+	copy := &sandboxCopy{copy: opened, name: name, store: store.Store, rebase: rebase, base: store.Base}
 	switch {
 	case fromSnapshot && stored != nil:
 		copy.restored, copy.base = stored.ID, stored.Snapshot.Base
 		log.Info("opened the working copy from its snapshot", "archive", stored.ID, "snapshot", from)
-	case rebased != "":
+	case rebase != "":
 		log.Info("opened the working copy from the store's current base, as the run starts afresh",
-			"base", valueOf(store.Base), "archive", rebased)
+			"base", valueOf(store.Base), "archive", rebase)
 	case from != "":
 		log.Warn("could not open the working copy from its snapshot, so it starts from the store's base", "snapshot", from)
 	}
@@ -295,8 +295,8 @@ func (c *sandboxCopy) env() []string {
 	if c.restored != "" {
 		env = append(env, protocol.WorkingCopyRestoredVar+"="+c.restored)
 	}
-	if c.rebased != "" {
-		env = append(env, protocol.WorkingCopyRebasedVar+"="+c.rebased)
+	if c.rebase != "" {
+		env = append(env, protocol.WorkingCopyRebaseVar+"="+c.rebase)
 	}
 	if c.base != nil && *c.base != "" {
 		env = append(env, protocol.WorkingCopyBaseVar+"="+*c.base)

@@ -18,17 +18,17 @@ type HostSnapshots interface {
 type HostWorkingCopy struct {
 	Store    string
 	Restored string
-	// Rebased is the archive the host did not open from, as the run starts from the store's current base.
-	Rebased string
+	// Rebase is the archive the run rebases from: the host opened the workspace from the store's current base instead.
+	Rebase string
 	// Base is the base snapshot the working copy descends from, empty for one that started without a base.
 	Base string
 	Host HostSnapshots
 }
 
-// rebased is why the run starts from the store's current base: no failure, but no restore either.
-type rebased struct{ base, from string }
+// rebase is why the run starts from the store's current base: no failure, but no restore either.
+type rebase struct{ base, from string }
 
-func (r rebased) Error() string {
+func (r rebase) Error() string {
 	from := "no base"
 	if r.from != "" {
 		from = "base " + r.from
@@ -42,12 +42,12 @@ func (w *HostWorkingCopy) restoredBy(stored protocol.StoredArchive) (bool, error
 	switch {
 	case w != nil && w.Restored != "" && w.Restored == stored.ID:
 		return true, nil
-	case w != nil && w.Rebased != "" && w.Rebased == stored.ID:
+	case w != nil && w.Rebase != "" && w.Rebase == stored.ID:
 		from := ""
 		if snapshot.Base != nil {
 			from = *snapshot.Base
 		}
-		return false, rebased{base: w.Base, from: from}
+		return false, rebase{base: w.Base, from: from}
 	case w != nil && w.Store == snapshot.Store:
 		return false, fmt.Errorf("the host could not open the working copy from snapshot %s", snapshot.Name)
 	default:
@@ -58,7 +58,7 @@ func (w *HostWorkingCopy) restoredBy(stored protocol.StoredArchive) (bool, error
 }
 
 func snapshotAndStore(ctx context.Context, w *HostWorkingCopy, calls storeCalls) (storedArchive, error) {
-	archive := &protocol.SnapshotArchive{Store: w.Store}
+	archive := &protocol.SnapshotArchive{}
 	if w.Base != "" {
 		archive.Base = &w.Base
 	}

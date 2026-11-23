@@ -1450,11 +1450,7 @@ export type StoredArchiveResponseDto = {
 
 export type SnapshotArchiveRequestDto = {
   /**
-   * The store that the host makes the snapshot in
-   */
-  store: string;
-  /**
-   * The base snapshot the working copy descends from; null or left out for one that started without a base
+   * The base snapshot the working copy descends from: the store’s current base, or the base of the working copy the run restored. Null or left out for one that started without a base. Spotlight takes the store from the runner’s pool or trust
    */
   base?: string | null;
 };
@@ -1469,7 +1465,7 @@ export type GrantWorkingCopyArchiveRequestDto = {
    */
   sha256?: string;
   /**
-   * Keeps the archive as a snapshot that the host makes in the store of its working copy hook, instead of a tar in Spotlight’s storage
+   * The archive is a snapshot that the host makes in the store of the runner’s pool or trust, not a tar. Only for a runner whose pool or trust keeps working copies in a store; any other runner uploads a tar
    */
   snapshot?: SnapshotArchiveRequestDto;
 };
@@ -13381,12 +13377,7 @@ export type ReadWorkingCopyArchiveData = {
   path: {
     runId: string;
   };
-  query?: {
-    /**
-     * The base of the store the host’s working copy hook keeps working copies in. A run that starts no session of its own then starts from it, and snapshot.rebase says so, when its working copy descends from another base
-     */
-    base?: string;
-  };
+  query?: never;
   url: '/runs/{runId}/working-copy-archive';
 };
 

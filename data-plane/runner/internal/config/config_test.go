@@ -193,7 +193,7 @@ func TestLoadTakesTheStoreTheHostKeepsTheWorkspaceIn(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_WORKING_COPY_STORE", "s3://team-a")
 	t.Setenv("SPOTLIGHT_WORKING_COPY_RESTORED", "archive_1")
-	t.Setenv("SPOTLIGHT_WORKING_COPY_REBASED", "archive_0")
+	t.Setenv("SPOTLIGHT_WORKING_COPY_REBASE", "archive_0")
 	t.Setenv("SPOTLIGHT_WORKING_COPY_BASE", "base-v2")
 
 	cfg, err := config.Load(nil)
@@ -202,7 +202,7 @@ func TestLoadTakesTheStoreTheHostKeepsTheWorkspaceIn(t *testing.T) {
 	}
 
 	if !cfg.WorkingCopy.InStore() || cfg.WorkingCopy.Store != "s3://team-a" || cfg.WorkingCopy.Restored != "archive_1" ||
-		cfg.WorkingCopy.Rebased != "archive_0" || cfg.WorkingCopy.Base != "base-v2" {
+		cfg.WorkingCopy.Rebase != "archive_0" || cfg.WorkingCopy.Base != "base-v2" {
 		t.Errorf("working copy %+v", cfg.WorkingCopy)
 	}
 }

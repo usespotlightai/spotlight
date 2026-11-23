@@ -1,5 +1,5 @@
 {
-  "id": "9abfe955-9015-4a59-8811-f90a585bedfa",
+  "id": "f57d7f3a-0e14-4d7e-ab0e-49823a7e73b8",
   "prevId": "3180818c-6e47-4abf-a463-67beb8a6ac71",
   "version": "7",
   "dialect": "postgresql",
@@ -17553,12 +17553,6 @@
         },
         "store": {
           "name": "store",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "snapshot": {
-          "name": "snapshot",
           "type": "text",
           "primaryKey": false,
           "notNull": true

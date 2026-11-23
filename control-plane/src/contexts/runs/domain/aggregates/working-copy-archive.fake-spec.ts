@@ -12,6 +12,7 @@ import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { WorkingCopyStoreName } from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const GRANTED_AT = new Date('2026-09-25T10:00:00.000Z');
@@ -55,7 +56,9 @@ export const aCompletedSnapshotArchive = (
     workingCopyKey: WorkingCopyKey.of('requester', 'subject-task_1'),
     held: true,
     grantee: ArchiveGrantee.run(RunId.of(overrides.run ?? 'run_1')),
-    location: StoreSnapshot.of(overrides.store ?? 's3://team-a'),
+    location: StoreSnapshot.of(
+      WorkingCopyStoreName.of(overrides.store ?? 's3://team-a'),
+    ),
     at: GRANTED_AT,
   }).complete(null, later(0));
 

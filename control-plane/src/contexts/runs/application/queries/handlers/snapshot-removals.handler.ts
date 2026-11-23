@@ -4,6 +4,7 @@ import type { SnapshotRemovalsPort } from '@runs/application/ports/snapshot-remo
 import type { SnapshotRemovalsQuery } from '@runs/application/queries/host.queries';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { WorkingCopyStoreName } from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 
 const AT_ONCE = 100;
 
@@ -29,13 +30,13 @@ export class SnapshotRemovalsHandler implements QueryHandlerPort<
 
       const store = authenticated.workingCopies?.store ?? null;
 
-      if (!store) {
+      if (store === null) {
         return { outcome: 'listed', store: null, removals: [] };
       }
 
       const due = await this.removals.due(
         authenticated.workspaceId,
-        store,
+        WorkingCopyStoreName.of(store),
         AT_ONCE,
       );
 
@@ -43,8 +44,8 @@ export class SnapshotRemovalsHandler implements QueryHandlerPort<
         outcome: 'listed',
         store,
         removals: due.map((each) => ({
-          archiveId: each.archiveId,
-          snapshot: each.snapshot,
+          archiveId: each.archiveId.value,
+          snapshot: each.snapshot.value,
         })),
       };
     } catch (error) {

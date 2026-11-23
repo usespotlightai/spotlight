@@ -235,7 +235,7 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
     const granted = (
       await runner(firstToken)
         .post(`/api/runs/${first}/working-copy-archive`, {
-          snapshot: { store: STORE },
+          snapshot: { base: 'base-v1' },
         })
         .expect(201)
     ).body as { id: string; url: string | null; snapshot: { name: string } };
@@ -262,7 +262,7 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
       snapshot: {
         store: STORE,
         name: `spotlight-${granted.id}`,
-        base: null,
+        base: 'base-v1',
         rebase: false,
       },
     });
@@ -286,7 +286,7 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
     const granted = (
       await runner(firstToken)
         .post(`/api/runs/${first}/working-copy-archive`, {
-          snapshot: { store: STORE, base: 'base-v1' },
+          snapshot: { base: 'base-v1' },
         })
         .expect(201)
     ).body as { id: string };
@@ -294,44 +294,76 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
       .post(`/api/runs/${first}/working-copy-archive/${granted.id}/complete`)
       .expect(204);
     await finished(first);
+    await db
+      .update(schema.runnerPool)
+      .set({ workingCopyBase: 'base-v2' })
+      .where(eq(schema.runnerPool.id, poolId));
 
     const fresh = await queue(taskId);
     const freshToken = await claimed(fresh);
     const onNewBase = await runner(freshToken)
-      .get(`/api/runs/${fresh}/working-copy-archive?base=base-v2`)
+      .get(`/api/runs/${fresh}/working-copy-archive`)
       .expect(200);
-    const onSameBase = await runner(freshToken)
-      .get(`/api/runs/${fresh}/working-copy-archive?base=base-v1`)
-      .expect(200);
+    const rebased = (
+      await runner(freshToken)
+        .post(`/api/runs/${fresh}/working-copy-archive`, {
+          snapshot: { base: 'base-v2' },
+        })
+        .expect(201)
+    ).body as { id: string };
+    await runner(freshToken)
+      .post(`/api/runs/${fresh}/working-copy-archive/${rebased.id}/complete`)
+      .expect(204);
     await finished(fresh);
 
     const carrying = await queue(taskId, { sessionId: 'session_1' });
     const carryingToken = await claimed(carrying);
     const carried = await runner(carryingToken)
-      .get(`/api/runs/${carrying}/working-copy-archive?base=base-v2`)
+      .get(`/api/runs/${carrying}/working-copy-archive`)
       .expect(200);
 
     expect(onNewBase.body).toMatchObject({
       id: granted.id,
       snapshot: { base: 'base-v1', rebase: true },
     });
-    expect(onSameBase.body).toMatchObject({ snapshot: { rebase: false } });
     expect(carried.body).toMatchObject({
-      id: granted.id,
-      snapshot: { base: 'base-v1', rebase: false },
+      id: rebased.id,
+      snapshot: { base: 'base-v2', rebase: false },
     });
   });
 
-  it('refuses a snapshot that also names a size, as nothing is uploaded', async () => {
+  it('refuses a request that names both a tar and a snapshot, or neither', async () => {
     const run = await queue(randomUUID());
     const runToken = await claimed(run);
 
-    const refused = await runner(runToken).post(
+    for (const body of [{ snapshot: {}, size: 1_024 }, {}]) {
+      await runner(runToken)
+        .post(`/api/runs/${run}/working-copy-archive`, body)
+        .expect(400);
+    }
+  });
+
+  it('refuses a tar from a runner whose pool keeps a store, and a base that is not the store’s', async () => {
+    const run = await queue(randomUUID());
+    const runToken = await claimed(run);
+
+    const tar = await runner(runToken).post(
       `/api/runs/${run}/working-copy-archive`,
-      { snapshot: { store: STORE }, size: 1_024 },
+      { size: 1_024, sha256: 'c'.repeat(64) },
+    );
+    const elsewhere = await runner(runToken).post(
+      `/api/runs/${run}/working-copy-archive`,
+      { snapshot: { base: 'base-of-another-team' } },
     );
 
-    expect(refused.status).toBe(422);
+    expect(tar.status).toBe(422);
+    expect(elsewhere.status).toBe(422);
+    expect(
+      await db
+        .select()
+        .from(schema.workingCopyArchive)
+        .where(eq(schema.workingCopyArchive.workspaceId, workspaceId)),
+    ).toEqual([]);
   });
 
   it('lists the snapshots of removed archives only to hosts of the same workspace and store, until a host forgets each one', async () => {
@@ -347,21 +379,18 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
         archiveId: 'archive_2',
         workspaceId,
         store: STORE,
-        snapshot: 'spotlight-archive_2',
         queuedAt: new Date('2026-11-20T10:00:00.000Z'),
       },
       {
         archiveId: 'archive_1',
         workspaceId,
         store: STORE,
-        snapshot: 'spotlight-archive_1',
         queuedAt: new Date('2026-11-20T09:00:00.000Z'),
       },
       {
         archiveId: 'archive_3',
         workspaceId,
         store: 's3://acme-e2e/other',
-        snapshot: 'spotlight-archive_3',
         queuedAt: new Date('2026-11-20T09:00:00.000Z'),
       },
     ]);

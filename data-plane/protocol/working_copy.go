@@ -12,8 +12,9 @@ const (
 	WorkingCopyRestoredVar = "SPOTLIGHT_WORKING_COPY_RESTORED"
 	// WorkingCopyBaseVar is the base snapshot the workspace descends from, unset for one that started without a base.
 	WorkingCopyBaseVar = "SPOTLIGHT_WORKING_COPY_BASE"
-	// WorkingCopyRebasedVar is the archive the host did not open from, as the run starts from the current base instead.
-	WorkingCopyRebasedVar = "SPOTLIGHT_WORKING_COPY_REBASED"
+	// WorkingCopyRebaseVar is the archive the run rebases from: the host opened the workspace from the store's current
+	// base instead, as the control plane said.
+	WorkingCopyRebaseVar = "SPOTLIGHT_WORKING_COPY_REBASE"
 )
 
 // SandboxWorkspace is the workspace of a sandbox, where the host mounts the working copy.

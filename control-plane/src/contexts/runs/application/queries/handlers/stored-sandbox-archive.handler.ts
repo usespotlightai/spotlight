@@ -1,9 +1,7 @@
 import type { SandboxArchiveAnswer } from '@runs/application/dto/working-copy-archive.dto';
-import { storedArchiveOf } from '@runs/application/mappers/stored-archive.mapper';
-import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
 import type { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
+import type { RestoredArchives } from '@runs/application/services/restored-archives.service';
 import type { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
-import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -13,8 +11,7 @@ export class StoredSandboxArchiveHandler implements QueryHandlerPort<
 > {
   constructor(
     private readonly sandboxes: SandboxArchives,
-    private readonly archives: WorkingCopyArchiveRepository,
-    private readonly store: WorkingCopyArchiveStorePort,
+    private readonly restored: RestoredArchives,
   ) {}
 
   async execute(
@@ -30,9 +27,10 @@ export class StoredSandboxArchiveHandler implements QueryHandlerPort<
         return { known: false };
       }
 
-      const archive = sandbox.key
-        ? await this.archives.newestCompleted(sandbox.workspaceId, sandbox.key)
-        : null;
+      const archive = await this.restored.newestOf(
+        sandbox.workspaceId,
+        sandbox.key,
+      );
 
       if (!archive) {
         return { known: true, archive: null };
@@ -40,7 +38,7 @@ export class StoredSandboxArchiveHandler implements QueryHandlerPort<
 
       return {
         known: true,
-        archive: await storedArchiveOf(archive, this.store),
+        archive: await this.restored.answer(archive, false),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

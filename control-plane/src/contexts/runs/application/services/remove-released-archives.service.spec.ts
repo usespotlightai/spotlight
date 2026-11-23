@@ -3,10 +3,7 @@ import type {
   ArchiveDue,
   ArchiveReferencesPort,
 } from '@runs/application/ports/archive-references.port';
-import type {
-  SnapshotRemoval,
-  SnapshotRemovalsPort,
-} from '@runs/application/ports/snapshot-removals.port';
+import type { SnapshotRemovalsPort } from '@runs/application/ports/snapshot-removals.port';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import { RemoveReleasedArchives } from '@runs/application/services/remove-released-archives.service';
 import {
@@ -21,6 +18,7 @@ import {
   GRANTED_AT,
   later,
 } from '@runs/domain/aggregates/working-copy-archive.fake-spec';
+import type { SnapshotRemoval } from '@runs/domain/value-objects/snapshot-removal.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -206,12 +204,10 @@ describe('RemoveReleasedArchives', () => {
     expect(store.removed).toEqual([]);
     expect(queued).toHaveLength(1);
     expect(queued[0]?.workspaceId.value).toBe('ws_1');
-    expect(queued[0]).toMatchObject({
-      archiveId: 'branched',
-      store: 's3://team-a',
-      snapshot: 'spotlight-branched',
-      queuedAt: later(DAY),
-    });
+    expect(queued[0]?.archiveId.value).toBe('branched');
+    expect(queued[0]?.store.value).toBe('s3://team-a');
+    expect(queued[0]?.snapshot.value).toBe('spotlight-branched');
+    expect(queued[0]?.queuedAt).toEqual(later(DAY));
   });
 
   it('treats a working copy of an owner that holds nothing as held by nobody', async () => {

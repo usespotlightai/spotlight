@@ -96,17 +96,12 @@ export class RemoveReleasedArchives {
       }
 
       const removed = archive.remove(now, facts);
+      const { snapshotRemoval } = removed;
 
-      // Spotlight cannot reach the store of a snapshot, so a host of the store deletes it later. The removal is queued
-      // before the archive goes, in the same transaction, so a snapshot is never left with no archive and no removal.
-      if (archive.snapshot && archive.location.kind === 'snapshot') {
-        await this.snapshots.queue({
-          archiveId: archive.id.value,
-          workspaceId: archive.workspaceId,
-          store: archive.location.store,
-          snapshot: archive.snapshot,
-          queuedAt: now,
-        });
+      // The removal is queued before the archive goes, in the same transaction, so a snapshot is never left with no
+      // archive and no removal.
+      if (snapshotRemoval) {
+        await this.snapshots.queue(snapshotRemoval);
       }
 
       await this.archives.save(removed);

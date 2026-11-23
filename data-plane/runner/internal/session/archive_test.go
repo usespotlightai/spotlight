@@ -139,8 +139,9 @@ func (a *archives) newest() *protocol.StoredArchive {
 
 	if granted.Snapshot != nil {
 		return &protocol.StoredArchive{
-			ID:       id,
-			Snapshot: &protocol.StoredSnapshot{Store: granted.Snapshot.Store, Name: "spotlight-" + id, Base: granted.Snapshot.Base},
+			ID: id,
+			// The control plane takes the store from the runner's pool; these tests keep one store.
+			Snapshot: &protocol.StoredSnapshot{Store: store, Name: "spotlight-" + id, Base: granted.Snapshot.Base},
 		}
 	}
 

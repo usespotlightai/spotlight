@@ -41,7 +41,7 @@ import {
 } from '@runs/presentation/http/dto/working-copy-archive.response.dto';
 import {
   archiveGrantResponseOf,
-  archiveGrantStorageOf,
+  archiveGrantRequestOf,
 } from '@runs/presentation/http/mappers/archive-grant.http.mapper';
 
 interface Answerable {
@@ -123,7 +123,7 @@ export class SandboxArchiveController {
       new GrantSandboxArchiveCommand(
         sandboxId,
         bearerIn(authorization),
-        archiveGrantStorageOf(body),
+        archiveGrantRequestOf(body),
       ),
     );
 

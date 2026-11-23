@@ -2,8 +2,10 @@ import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-
 import type { ForgetSnapshotRemovalCommand } from '@runs/application/commands/snapshot-removal.commands';
 import type { ForgottenSnapshotRemovalDto } from '@runs/application/dto/snapshot-removal.dto';
 import type { SnapshotRemovalsPort } from '@runs/application/ports/snapshot-removals.port';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { WorkingCopyStoreName } from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 
 export class ForgetSnapshotRemovalHandler implements CommandHandlerPort<
   ForgetSnapshotRemovalCommand,
@@ -26,13 +28,14 @@ export class ForgetSnapshotRemovalHandler implements CommandHandlerPort<
         return { outcome: 'unauthorized' };
       }
 
-      const store = authenticated.workingCopies?.store;
+      const store = authenticated.workingCopies?.store ?? null;
       const forgotten =
-        store !== undefined &&
+        store !== null &&
+        WorkingCopyArchiveId.isWellFormed(command.archiveId) &&
         (await this.removals.forget(
           authenticated.workspaceId,
-          store,
-          command.archiveId,
+          WorkingCopyStoreName.of(store),
+          WorkingCopyArchiveId.of(command.archiveId),
         ));
 
       return { outcome: forgotten ? 'forgotten' : 'unknown' };

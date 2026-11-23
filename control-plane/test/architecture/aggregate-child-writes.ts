@@ -30,7 +30,6 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/insights/infrastructure/persistence/drizzle/ledgers/chats.ledger.ts',
     ],
   },
-
   configuration_change: {
     why: 'Identity audit projection of shared-kernel ConfigurationChange events (owner decision)',
     writers: [

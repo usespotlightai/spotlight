@@ -7,7 +7,6 @@ import {
   NotFoundException,
   Param,
   Post,
-  Query,
   Res,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -18,7 +17,6 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
@@ -41,7 +39,7 @@ import {
 } from '@runs/presentation/http/dto/working-copy-archive.response.dto';
 import {
   archiveGrantResponseOf,
-  archiveGrantStorageOf,
+  archiveGrantRequestOf,
 } from '@runs/presentation/http/mappers/archive-grant.http.mapper';
 
 interface Answerable {
@@ -71,29 +69,15 @@ export class WorkingCopyArchiveController {
     description: 'Nothing to restore: the run starts its work afresh',
   })
   @ApiNotFoundResponse({ description: 'Not this runner’s run' })
-  @ApiQuery({
-    name: 'base',
-    required: false,
-    example: 'base-v2',
-    description:
-      'The base of the store the host’s working copy hook keeps working copies in. A run that starts no session of its own then starts from it, and snapshot.rebase says so, when its working copy descends from another base',
-  })
   async storedArchive(
     @Param('runId') runId: string,
     @CurrentMachine() runnerId: string,
     @Res({ passthrough: true }) response: Answerable,
-    @Query('base') base?: string,
   ): Promise<StoredArchiveResponseDto | undefined> {
     const answer = await this.queryBus.execute<
       StoredWorkingCopyArchiveQuery,
       WorkingCopyArchiveAnswer
-    >(
-      new StoredWorkingCopyArchiveQuery(
-        runId,
-        runnerId,
-        typeof base === 'string' && base.trim() !== '' ? base.trim() : null,
-      ),
-    );
+    >(new StoredWorkingCopyArchiveQuery(runId, runnerId));
 
     if (!answer.leased) {
       throw new NotFoundException();
@@ -131,7 +115,7 @@ export class WorkingCopyArchiveController {
       new GrantWorkingCopyArchiveCommand(
         runId,
         runnerId,
-        archiveGrantStorageOf(body),
+        archiveGrantRequestOf(body),
       ),
     );
 

@@ -19,7 +19,7 @@ export interface AuthenticatedHost {
   readonly source: CredentialSourceRef;
   readonly workspaceId: WorkspaceId;
   // Where the hosts of the pool or trust keep the working copies of runs; null when Spotlight keeps them as archives.
-  readonly workingCopies?: WorkingCopyStoreContract | null;
+  readonly workingCopies: WorkingCopyStoreContract | null;
 }
 
 export interface RunnerAuthenticatorPort {

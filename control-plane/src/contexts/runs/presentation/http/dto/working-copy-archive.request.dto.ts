@@ -2,18 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class SnapshotArchiveRequestDto {
   @ApiProperty({
-    example: 's3://team-a',
-    description: 'The store that the host makes the snapshot in',
-  })
-  readonly store!: string;
-
-  @ApiProperty({
     type: String,
     nullable: true,
     required: false,
     example: 'base-v1',
     description:
-      'The base snapshot the working copy descends from; null or left out for one that started without a base',
+      'The base snapshot the working copy descends from: the store’s current base, or the base of the working copy the run restored. Null or left out for one that started without a base. Spotlight takes the store from the runner’s pool or trust',
   })
   readonly base?: string | null;
 }
@@ -39,7 +33,7 @@ export class GrantWorkingCopyArchiveRequestDto {
     type: SnapshotArchiveRequestDto,
     required: false,
     description:
-      'Keeps the archive as a snapshot that the host makes in the store of its working copy hook, instead of a tar in Spotlight’s storage',
+      'The archive is a snapshot that the host makes in the store of the runner’s pool or trust, not a tar. Only for a runner whose pool or trust keeps working copies in a store; any other runner uploads a tar',
   })
   readonly snapshot?: SnapshotArchiveRequestDto;
 }

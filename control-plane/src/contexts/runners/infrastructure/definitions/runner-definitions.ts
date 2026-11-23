@@ -33,6 +33,10 @@ import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
+import {
+  SnapshotName,
+  WorkingCopyStoreName,
+} from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { z } from 'zod';
 
 const once = (all: readonly string[], context: z.RefinementCtx) => {
@@ -60,8 +64,8 @@ const writeOnlyVersion = z
 
 const workingCopies = z
   .object({
-    store: madeBy(WorkingCopyStore.storeOf),
-    base: madeBy(WorkingCopyStore.baseOf).nullish(),
+    store: madeBy(WorkingCopyStoreName.of),
+    base: madeBy(SnapshotName.of).nullish(),
   })
   .nullish();
 

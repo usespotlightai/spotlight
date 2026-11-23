@@ -413,9 +413,10 @@ type ArchiveRequest struct {
 	Snapshot *SnapshotArchive `json:"snapshot,omitempty"`
 }
 
+// The control plane takes the store from the runner's pool or trust. Base is the store's current base, or the base of
+// the working copy the run restored; nil for one that started without a base.
 type SnapshotArchive struct {
-	Store string  `json:"store"`
-	Base  *string `json:"base"`
+	Base *string `json:"base"`
 }
 
 type AttachmentRequest struct {

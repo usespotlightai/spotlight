@@ -1,6 +1,9 @@
+import type { WorkingCopyStoresPort } from '@runners/application/ports/working-copy-stores.port';
 import type { GrantWorkingCopyArchiveCommand } from '@runs/application/commands/working-copy-archive.commands';
 import type { ArchiveGrantDto } from '@runs/application/dto/working-copy-archive.dto';
+import { keptStoreOf } from '@runs/application/mappers/kept-store.mapper';
 import type { ArchiveGrants } from '@runs/application/services/archive-grants.service';
+import type { RestoredArchives } from '@runs/application/services/restored-archives.service';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -15,25 +18,32 @@ export class GrantWorkingCopyArchiveHandler implements CommandHandlerPort<
   constructor(
     private readonly runs: RunRepository,
     private readonly grants: ArchiveGrants,
+    private readonly restored: RestoredArchives,
+    private readonly stores: WorkingCopyStoresPort,
   ) {}
 
   async execute(
     command: GrantWorkingCopyArchiveCommand,
   ): Promise<ArchiveGrantDto | null> {
     try {
+      const runner = RunnerId.of(command.runnerId);
       const run = await this.runs.findById(RunId.of(command.runId));
 
-      if (!run?.isLeasedBy(RunnerId.of(command.runnerId))) {
+      if (!run?.isLeasedBy(runner)) {
         return null;
       }
 
       run.mayActBeyondItself('archive a working copy for a later run');
 
+      const restoring = await this.restored.of(run);
+
       return await this.grants.grant({
         workspaceId: run.workspaceId,
         workingCopyKey: run.workingCopyKey,
         grantee: ArchiveGrantee.run(run.id),
-        ...command.storage,
+        requested: command.archive,
+        kept: keptStoreOf(await this.stores.ofRunner(runner)),
+        restoring: restoring?.location ?? null,
       });
     } catch (error) {
       rethrowAsApplicationError(error);

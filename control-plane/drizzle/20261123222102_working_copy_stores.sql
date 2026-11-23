@@ -2,7 +2,6 @@ CREATE TABLE "snapshot_removal" (
 	"archive_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"store" text NOT NULL,
-	"snapshot" text NOT NULL,
 	"queued_at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint

@@ -13,8 +13,9 @@ import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import {
-  StoreSnapshot,
+  type KeptStore,
   SpotlightStorage,
+  StoreSnapshot,
 } from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
@@ -40,6 +41,10 @@ import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import {
+  SnapshotName,
+  WorkingCopyStoreName,
+} from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -486,15 +491,22 @@ describe('Run', () => {
     });
 
     describe('when the store of its hosts has another base', () => {
-      const inStore = (base: string | null) => ({
-        location: StoreSnapshot.of('s3://team-a', base),
+      const kept = (base: string | null, store = 's3://team-a'): KeptStore => ({
+        store: WorkingCopyStoreName.of(store),
+        base: base === null ? null : SnapshotName.of(base),
+      });
+      const inStore = (base: string | null, store = 's3://team-a') => ({
+        location: StoreSnapshot.of(
+          WorkingCopyStoreName.of(store),
+          base === null ? null : SnapshotName.of(base),
+        ),
       });
 
-      it('branches from the current base when it starts no session of its own', () => {
+      it('rebases onto the current base when it starts no session of its own', () => {
         const fresh = working(orderedFor.holdingTurn('task_1'), {});
 
-        expect(fresh.startsFromBase(inStore('base-v1'), 'base-v2')).toBe(true);
-        expect(fresh.startsFromBase(inStore(null), 'base-v2')).toBe(true);
+        expect(fresh.rebases(inStore('base-v1'), kept('base-v2'))).toBe(true);
+        expect(fresh.rebases(inStore(null), kept('base-v2'))).toBe(true);
       });
 
       it('keeps the working copy of the session it carries on', () => {
@@ -502,16 +514,20 @@ describe('Run', () => {
           sessionId: 'session_1',
         });
 
-        expect(carrying.startsFromBase(inStore('base-v1'), 'base-v2')).toBe(
+        expect(carrying.rebases(inStore('base-v1'), kept('base-v2'))).toBe(
           false,
         );
       });
 
-      it('keeps a working copy of the current base, and any when the store has no base', () => {
+      it('keeps a working copy of the current base, any when the store has no base, and one of another store', () => {
         const fresh = working(orderedFor.holdingTurn('task_1'), {});
 
-        expect(fresh.startsFromBase(inStore('base-v2'), 'base-v2')).toBe(false);
-        expect(fresh.startsFromBase(inStore('base-v1'), null)).toBe(false);
+        expect(fresh.rebases(inStore('base-v2'), kept('base-v2'))).toBe(false);
+        expect(fresh.rebases(inStore('base-v1'), kept(null))).toBe(false);
+        expect(fresh.rebases(inStore('base-v1'), null)).toBe(false);
+        expect(
+          fresh.rebases(inStore('base-v1', 's3://team-b'), kept('base-v2')),
+        ).toBe(false);
       });
 
       it('keeps the exact archive it was ordered to, as a replay or an assist session restores it', () => {
@@ -524,21 +540,21 @@ describe('Run', () => {
           spec: aSpec(),
         });
 
-        expect(exact.startsFromBase(inStore('base-v1'), 'base-v2')).toBe(false);
+        expect(exact.rebases(inStore('base-v1'), kept('base-v2'))).toBe(false);
       });
 
-      it('keeps a tar from Spotlight’s storage, which the runner restores into the branch', () => {
+      it('keeps a tar from Spotlight’s storage, which the runner restores into the working copy', () => {
         const fresh = working(orderedFor.holdingTurn('task_1'), {});
 
         expect(
-          fresh.startsFromBase(
+          fresh.rebases(
             {
               location: SpotlightStorage.of(
                 ArchiveSize.of(1),
                 ArchiveDigest.of('a'.repeat(64)),
               ),
             },
-            'base-v2',
+            kept('base-v2'),
           ),
         ).toBe(false);
       });

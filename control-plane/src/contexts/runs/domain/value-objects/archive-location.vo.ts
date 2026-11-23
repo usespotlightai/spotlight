@@ -1,10 +1,10 @@
 import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
-import type { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
-import type { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
+import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
+import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import {
   SnapshotName,
-  WorkingCopyStoreName,
+  type WorkingCopyStoreName,
 } from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 
 const SNAPSHOT_PREFIX = 'spotlight-';
@@ -29,35 +29,86 @@ export class StoreSnapshot {
   readonly kind = 'snapshot' as const;
 
   private constructor(
-    readonly store: string,
-    readonly base: string | null,
+    readonly store: WorkingCopyStoreName,
+    readonly base: SnapshotName | null,
   ) {}
 
-  static of(store: string, base: string | null = null): StoreSnapshot {
-    if (!WorkingCopyStoreName.isWellFormed(store)) {
-      throw new InvalidWorkingCopyArchiveError(
-        `store must name the store of the hosts' working copy hook, such as s3://team-a, in at most ${WorkingCopyStoreName.MOST} characters`,
-      );
-    }
-
-    if (base !== null && !SnapshotName.isWellFormed(base)) {
-      throw new InvalidWorkingCopyArchiveError(
-        'base must be the name of a snapshot: 1 to 128 letters, digits, dots, dashes or underscores',
-      );
-    }
-
+  static of(
+    store: WorkingCopyStoreName,
+    base: SnapshotName | null = null,
+  ): StoreSnapshot {
     return new StoreSnapshot(store, base);
   }
 
   // The archive id names the snapshot, so the archive and the snapshot are one.
-  static nameOf(id: WorkingCopyArchiveId): string {
-    return `${SNAPSHOT_PREFIX}${id.value}`;
+  static nameOf(id: WorkingCopyArchiveId): SnapshotName {
+    return SnapshotName.of(`${SNAPSHOT_PREFIX}${id.value}`);
+  }
+
+  isIn(store: WorkingCopyStoreName): boolean {
+    return this.store.equals(store);
   }
 
   // A later base of the store replaces this one when the working copy descends from another base.
-  descendsFrom(base: string | null): boolean {
-    return this.base === base;
+  descendsFrom(base: SnapshotName | null): boolean {
+    return SnapshotName.same(this.base, base);
   }
 }
 
 export type ArchiveLocation = SpotlightStorage | StoreSnapshot;
+
+// The store the pool or trust of a runner keeps working copies in, as Spotlight knows it.
+export interface KeptStore {
+  readonly store: WorkingCopyStoreName;
+  readonly base: SnapshotName | null;
+}
+
+// What a runner asks to archive: a tar it uploads, or a snapshot its host makes, which descends from base.
+export type RequestedArchive =
+  | { readonly kind: 'tar'; readonly size: number; readonly sha256: string }
+  | { readonly kind: 'snapshot'; readonly base: string | null };
+
+const baseOf = (raw: string | null): SnapshotName | null =>
+  raw === null ? null : SnapshotName.of(raw);
+
+// Where an archive is kept follows from the runner's pool or trust, never from what the runner names. A runner whose
+// pool keeps a store makes snapshots in it; another uploads tars. The base of a snapshot is the store's current base,
+// or the base of the working copy the run restored: nothing else.
+export const archiveLocationOf = (
+  requested: RequestedArchive,
+  kept: KeptStore | null,
+  restoring: ArchiveLocation | null,
+): ArchiveLocation => {
+  if (requested.kind === 'tar') {
+    if (kept) {
+      throw new InvalidWorkingCopyArchiveError(
+        `of a runner whose pool or trust keeps working copies in store ${kept.store.value} is a snapshot its host makes, not a tar`,
+      );
+    }
+
+    return SpotlightStorage.of(
+      ArchiveSize.of(requested.size),
+      ArchiveDigest.of(requested.sha256),
+    );
+  }
+
+  if (!kept) {
+    throw new InvalidWorkingCopyArchiveError(
+      'of a runner whose pool or trust keeps no working copy store is a tar it uploads, not a snapshot',
+    );
+  }
+
+  const base = baseOf(requested.base);
+  const restored =
+    restoring?.kind === 'snapshot' && restoring.isIn(kept.store)
+      ? restoring
+      : null;
+
+  if (!SnapshotName.same(base, kept.base) && !restored?.descendsFrom(base)) {
+    throw new InvalidWorkingCopyArchiveError(
+      `descends from ${base ? `base ${base.value}` : 'no base'}, which is neither the base of store ${kept.store.value} nor the base of the working copy the run restored`,
+    );
+  }
+
+  return StoreSnapshot.of(kept.store, base);
+};

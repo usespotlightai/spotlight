@@ -182,14 +182,14 @@ func TestOpensASandboxOnTheWorkingCopyTheHostRestored(t *testing.T) {
 	}
 }
 
-func TestStartsFromTheCurrentBaseWhenTheHostReopenedARunThatStartsAfresh(t *testing.T) {
+func TestStartsFromTheCurrentBaseWhenTheRunRebases(t *testing.T) {
 	archives := newArchives(t)
 	host := &hostSnapshots{}
 
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		inStore(archives, t.TempDir(), &session.HostWorkingCopy{Store: store, Base: "base-v1", Host: host}))
 	fresh := run(t, harness(t, `output = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
-		inStore(archives, t.TempDir(), &session.HostWorkingCopy{Store: store, Rebased: "archive_1", Base: "base-v2", Host: host}))
+		inStore(archives, t.TempDir(), &session.HostWorkingCopy{Store: store, Rebase: "archive_1", Base: "base-v2", Host: host}))
 
 	if got := step(t, fresh, "restore"); got != "Started from base base-v2 of the store: this run starts no session, and the last working copy descends from base base-v1" {
 		t.Errorf("the run said %q about restoring", got)

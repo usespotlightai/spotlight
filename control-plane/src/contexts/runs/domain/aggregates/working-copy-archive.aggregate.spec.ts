@@ -25,6 +25,7 @@ import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { WorkingCopyStoreName } from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -381,12 +382,18 @@ describe('WorkingCopyArchive as a snapshot', () => {
       workingCopyKey: WorkingCopyKey.of('requester', 'subject-task_1'),
       held: true,
       grantee: ArchiveGrantee.run(RunId.of('run_1')),
-      location: StoreSnapshot.of('s3://team-a'),
+      location: StoreSnapshot.of(WorkingCopyStoreName.of('s3://team-a')),
       at: later(0),
     });
+  const removable = {
+    holder: null,
+    supersededAt: null,
+    lastStartedFromAt: null,
+    pinned: false,
+  };
 
   it('is the snapshot named after it, which the host makes', () => {
-    expect(inStore().snapshot).toBe('spotlight-archive_9');
+    expect(inStore().snapshot?.value).toBe('spotlight-archive_9');
     expect(anArchive().snapshot).toBeNull();
   });
 
@@ -397,10 +404,23 @@ describe('WorkingCopyArchive as a snapshot', () => {
     expect(completed.restored.id.value).toBe('archive_9');
   });
 
-  it('names its store as the hook names it, without spaces', () => {
-    expect(() => StoreSnapshot.of('team a')).toThrow(
-      InvalidWorkingCopyArchiveError,
-    );
+  it('leaves its snapshot to a host of its store once it is removed', () => {
+    const completed = inStore().complete(null, later(1_000));
+    const removed = completed.remove(later(DAY), removable);
+
+    expect(completed.snapshotRemoval).toBeNull();
+    expect(removed.snapshotRemoval).toMatchObject({
+      archiveId: WorkingCopyArchiveId.of('archive_9'),
+      queuedAt: later(DAY),
+    });
+    expect(removed.snapshotRemoval?.store.value).toBe('s3://team-a');
+    expect(removed.snapshotRemoval?.snapshot.value).toBe('spotlight-archive_9');
+  });
+
+  it('leaves no snapshot behind when a tar is removed, which Spotlight’s storage deletes', () => {
+    expect(
+      aCompletedArchive().remove(later(DAY), removable).snapshotRemoval,
+    ).toBeNull();
   });
 
   it('keeps the size and SHA-256 of a tar apart from a snapshot', () => {

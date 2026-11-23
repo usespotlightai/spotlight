@@ -2,6 +2,7 @@ import type {
   AuthenticatedSandbox,
   SandboxesPort,
 } from '@runners/application/ports/sandboxes.port';
+import type { WorkingCopyStoresPort } from '@runners/application/ports/working-copy-stores.port';
 import { CompleteSandboxArchiveHandler } from '@runs/application/commands/handlers/complete-sandbox-archive.handler';
 import { GrantSandboxArchiveHandler } from '@runs/application/commands/handlers/grant-sandbox-archive.handler';
 import { GrantWorkingCopyArchiveHandler } from '@runs/application/commands/handlers/grant-working-copy-archive.handler';
@@ -13,6 +14,7 @@ import {
 import { StoredSandboxArchiveHandler } from '@runs/application/queries/handlers/stored-sandbox-archive.handler';
 import { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
 import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
+import { RestoredArchives } from '@runs/application/services/restored-archives.service';
 import { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import {
   aLeasedRun,
@@ -55,16 +57,23 @@ const setUp = (
     ids,
     clock,
   );
+  const restored = new RestoredArchives(archives, store);
+  const stores: WorkingCopyStoresPort = {
+    ofRunner: async () => null,
+    ofSandbox: async () => null,
+  };
 
   return {
     archives,
     store,
-    grant: new GrantSandboxArchiveHandler(sandboxes, grants),
+    grant: new GrantSandboxArchiveHandler(sandboxes, grants, restored, stores),
     complete: new CompleteSandboxArchiveHandler(sandboxes, archives, grants),
-    read: new StoredSandboxArchiveHandler(sandboxes, archives, store),
+    read: new StoredSandboxArchiveHandler(sandboxes, restored),
     grantForRun: new GrantWorkingCopyArchiveHandler(
       runsOf(aLeasedRun()),
       grants,
+      restored,
+      stores,
     ),
   };
 };
@@ -76,6 +85,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
     await expect(
       grant.execute(
         new GrantSandboxArchiveCommand('sandbox_1', TOKEN, {
+          kind: 'tar',
           size: 1_024,
           sha256: SHA256,
         }),
@@ -93,6 +103,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
     await expect(
       grant.execute(
         new GrantSandboxArchiveCommand('sandbox_1', 'stolen', {
+          kind: 'tar',
           size: 1_024,
           sha256: SHA256,
         }),
@@ -101,6 +112,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
     await expect(
       grant.execute(
         new GrantSandboxArchiveCommand('sandbox_2', TOKEN, {
+          kind: 'tar',
           size: 1_024,
           sha256: SHA256,
         }),
@@ -109,6 +121,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
     await expect(
       grant.execute(
         new GrantSandboxArchiveCommand('sandbox_1', undefined, {
+          kind: 'tar',
           size: 1_024,
           sha256: SHA256,
         }),
@@ -127,6 +140,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
       await expect(
         grant.execute(
           new GrantSandboxArchiveCommand('sandbox_1', TOKEN, {
+            kind: 'tar',
             size: 1_024,
             sha256: SHA256,
           }),
@@ -141,6 +155,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
 
     await grant.execute(
       new GrantSandboxArchiveCommand('sandbox_1', TOKEN, {
+        kind: 'tar',
         size: 1_024,
         sha256: SHA256,
       }),
@@ -170,6 +185,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
 
     await grantForRun.execute(
       new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        kind: 'tar',
         size: 1_024,
         sha256: SHA256,
       }),
@@ -193,6 +209,7 @@ describe('archiving a sandbox’s working copy with its own token', () => {
 
     await grantForRun.execute(
       new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', {
+        kind: 'tar',
         size: 1_024,
         sha256: SHA256,
       }),

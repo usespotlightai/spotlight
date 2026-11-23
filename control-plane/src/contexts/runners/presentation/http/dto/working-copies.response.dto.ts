@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { WorkingCopyStoreDto } from '@runners/application/mappers/working-copy-store.mapper';
+import type { WorkingCopyStoreContract } from '@runners/application/contracts/working-copy-store.contract';
 
 export class WorkingCopiesResponseDto {
   @ApiProperty({
@@ -18,13 +18,13 @@ export class WorkingCopiesResponseDto {
   })
   readonly base: string | null;
 
-  constructor(store: WorkingCopyStoreDto) {
+  constructor(store: WorkingCopyStoreContract) {
     this.store = store.store;
     this.base = store.base;
   }
 
   static of(
-    store: WorkingCopyStoreDto | null,
+    store: WorkingCopyStoreContract | null,
   ): WorkingCopiesResponseDto | null {
     return store ? new WorkingCopiesResponseDto(store) : null;
   }

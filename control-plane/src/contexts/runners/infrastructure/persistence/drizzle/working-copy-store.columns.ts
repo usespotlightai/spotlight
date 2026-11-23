@@ -8,8 +8,8 @@ interface WorkingCopyColumns {
 export const workingCopyStoreColumns = (
   store: WorkingCopyStore | null,
 ): WorkingCopyColumns => ({
-  workingCopyStore: store?.store ?? null,
-  workingCopyBase: store?.base ?? null,
+  workingCopyStore: store?.store.value ?? null,
+  workingCopyBase: store?.base?.value ?? null,
 });
 
 export const workingCopyStoreOf = (

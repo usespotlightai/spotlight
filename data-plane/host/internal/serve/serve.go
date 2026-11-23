@@ -81,8 +81,8 @@ type Pool interface {
 	Heartbeat(ctx context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error)
 	Deregister(ctx context.Context) error
 	ForRun(assignment protocol.Assignment) (RunClient, error)
-	// WorkingCopyArchive is the archive the sandbox of the assignment restores, for a store whose base is base.
-	WorkingCopyArchive(ctx context.Context, assignment protocol.Assignment, base string) (*protocol.StoredArchive, error)
+	// WorkingCopyArchive is the archive the sandbox of the assignment restores, as the runner in it reads it.
+	WorkingCopyArchive(ctx context.Context, assignment protocol.Assignment) (*protocol.StoredArchive, error)
 	SnapshotRemovals(ctx context.Context) (protocol.SnapshotRemovals, error)
 	ForgetSnapshotRemoval(ctx context.Context, archiveID string) error
 }

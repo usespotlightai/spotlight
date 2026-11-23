@@ -32,7 +32,7 @@ type Config struct {
 type WorkingCopy struct {
 	Store    string
 	Restored string
-	Rebased  string
+	Rebase   string
 	Base     string
 }
 
@@ -151,7 +151,7 @@ func Load(args []string) (Config, error) {
 	cfg.WorkingCopy = WorkingCopy{
 		Store:    get(protocol.WorkingCopyStoreVar),
 		Restored: get(protocol.WorkingCopyRestoredVar),
-		Rebased:  get(protocol.WorkingCopyRebasedVar),
+		Rebase:   get(protocol.WorkingCopyRebaseVar),
 		Base:     get(protocol.WorkingCopyBaseVar),
 	}
 

@@ -48,6 +48,7 @@ import {
 } from '@runners/application/ports/warm-sandboxes.port';
 import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
 import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
+import { WORKING_COPY_STORES } from '@runners/application/ports/working-copy-stores.port';
 import {
   FetchRunSecretsCommand,
   FetchSharedRunSecretsCommand,
@@ -260,6 +261,7 @@ import { ProvisionFailures } from '@runs/application/services/provision-failures
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
 import { PurgeRunConnections } from '@runs/application/services/purge-run-connections.service';
 import { RemoveReleasedArchives } from '@runs/application/services/remove-released-archives.service';
+import { RestoredArchives } from '@runs/application/services/restored-archives.service';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunCredentials } from '@runs/application/services/run-credentials.service';
 import { RunFileSources } from '@runs/application/services/run-file-sources.service';
@@ -772,17 +774,13 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(
     StoredWorkingCopyArchiveQuery,
     StoredWorkingCopyArchiveHandler,
-    [
-      RUN_REPOSITORY,
-      WORKING_COPY_ARCHIVE_REPOSITORY,
-      WORKING_COPY_ARCHIVE_STORE,
-    ],
+    [RUN_REPOSITORY, RestoredArchives, WORKING_COPY_STORES],
   ),
 
   ...bindCommandHandler(
     GrantWorkingCopyArchiveCommand,
     GrantWorkingCopyArchiveHandler,
-    [RUN_REPOSITORY, ArchiveGrants],
+    [RUN_REPOSITORY, ArchiveGrants, RestoredArchives, WORKING_COPY_STORES],
   ),
 
   ...bindCommandHandler(RevealSandboxEnvCommand, RevealSandboxEnvHandler, [
@@ -818,14 +816,13 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(StoredSandboxArchiveQuery, StoredSandboxArchiveHandler, [
     SandboxArchives,
-    WORKING_COPY_ARCHIVE_REPOSITORY,
-    WORKING_COPY_ARCHIVE_STORE,
+    RestoredArchives,
   ]),
 
   ...bindCommandHandler(
     GrantSandboxArchiveCommand,
     GrantSandboxArchiveHandler,
-    [SandboxArchives, ArchiveGrants],
+    [SandboxArchives, ArchiveGrants, RestoredArchives, WORKING_COPY_STORES],
   ),
 
   ...bindCommandHandler(
@@ -857,6 +854,15 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     inject: [RUN_JOURNAL, RUN_STREAM],
     useFactory: (journal: RunJournalPort, stream: RunStreamPort) =>
       new RunJournalAppends(journal, stream),
+  },
+
+  {
+    provide: RestoredArchives,
+    inject: [WORKING_COPY_ARCHIVE_REPOSITORY, WORKING_COPY_ARCHIVE_STORE],
+    useFactory: (
+      archives: WorkingCopyArchiveRepository,
+      store: WorkingCopyArchiveStorePort,
+    ) => new RestoredArchives(archives, store),
   },
 
   {

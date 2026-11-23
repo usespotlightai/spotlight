@@ -253,7 +253,7 @@ func (r runner) workingCopy() *session.HostWorkingCopy {
 	return &session.HostWorkingCopy{
 		Store:    r.cfg.WorkingCopy.Store,
 		Restored: r.cfg.WorkingCopy.Restored,
-		Rebased:  r.cfg.WorkingCopy.Rebased,
+		Rebase:   r.cfg.WorkingCopy.Rebase,
 		Base:     r.cfg.WorkingCopy.Base,
 		Host:     hostsocket.New(protocol.SandboxHostSocket),
 	}

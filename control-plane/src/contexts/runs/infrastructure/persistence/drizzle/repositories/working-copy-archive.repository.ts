@@ -21,6 +21,10 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
+import {
+  SnapshotName,
+  WorkingCopyStoreName,
+} from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
@@ -43,7 +47,10 @@ const granteeOf = (row: Row): ArchiveGrantee => {
 
 const locationOf = (row: Row): ArchiveLocation => {
   if (row.snapshotStore !== null) {
-    return StoreSnapshot.of(row.snapshotStore, row.snapshotBase);
+    return StoreSnapshot.of(
+      WorkingCopyStoreName.of(row.snapshotStore),
+      row.snapshotBase === null ? null : SnapshotName.of(row.snapshotBase),
+    );
   }
 
   if (row.size === null || row.sha256 === null) {
@@ -64,8 +71,8 @@ const locationColumns = (location: ArchiveLocation) =>
     ? {
         size: null,
         sha256: null,
-        snapshotStore: location.store,
-        snapshotBase: location.base,
+        snapshotStore: location.store.value,
+        snapshotBase: location.base?.value ?? null,
       }
     : {
         size: location.size.bytes,

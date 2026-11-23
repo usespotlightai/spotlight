@@ -92,6 +92,7 @@ describe('listing harnesses for a workspace', () => {
           ? {
               source: { kind: 'pool', id: 'pool_1' },
               workspaceId: WorkspaceId.of('ws_1'),
+              workingCopies: null,
             }
           : credential.bearer === 'store-pool-token'
             ? {

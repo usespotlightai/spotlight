@@ -174,7 +174,7 @@ func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
 
 func (a *archiver) restoredByHost(stored protocol.StoredArchive) {
 	restored, err := a.host.restoredBy(stored)
-	var fresh rebased
+	var fresh rebase
 	switch {
 	case errors.As(err, &fresh):
 		a.noted(restoreStep, false, "%v", fresh)

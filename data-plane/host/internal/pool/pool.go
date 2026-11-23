@@ -107,7 +107,7 @@ func (c *Client) Deregister(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) WorkingCopyArchive(ctx context.Context, assignment protocol.Assignment, base string) (*protocol.StoredArchive, error) {
+func (c *Client) WorkingCopyArchive(ctx context.Context, assignment protocol.Assignment) (*protocol.StoredArchive, error) {
 	if assignment.SandboxID != "" {
 		sandbox, err := control.ForSandbox(c.base, assignment.SandboxID, assignment.SandboxToken)
 		if err != nil {
@@ -124,7 +124,7 @@ func (c *Client) WorkingCopyArchive(ctx context.Context, assignment protocol.Ass
 	if err != nil {
 		return nil, err
 	}
-	return run.WorkingCopyArchiveOnto(ctx, assignment.Work.Run.ID, base)
+	return run.WorkingCopyArchive(ctx, assignment.Work.Run.ID)
 }
 
 func (c *Client) SnapshotRemovals(ctx context.Context) (protocol.SnapshotRemovals, error) {

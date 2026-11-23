@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type { WorkingCopyStoreContract } from '@runners/application/contracts/working-copy-store.contract';
 import type {
   EgressRecord,
   RunnerPoolRecord,
@@ -15,8 +16,6 @@ import {
   runnerTrust,
   workspaceRunners,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
-import { workingCopiesDto } from '@runners/application/mappers/working-copy-store.mapper';
-import { workingCopyStoreOf } from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
 import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
@@ -25,6 +24,13 @@ type TrustRow = typeof runnerTrust.$inferSelect;
 type WorkspaceRunnersRow = typeof workspaceRunners.$inferSelect;
 type PoolRow = typeof runnerPool.$inferSelect;
 type EgressRow = typeof egress.$inferSelect;
+
+const workingCopiesOf = (
+  row: PoolRow | TrustRow,
+): WorkingCopyStoreContract | null =>
+  row.workingCopyStore === null
+    ? null
+    : { store: row.workingCopyStore, base: row.workingCopyBase };
 
 const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
   id: row.id,
@@ -42,7 +48,7 @@ const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
         egressTraffic: row.provisionEgressTraffic === 'bound' ? 'bound' : 'all',
       }
     : null,
-  workingCopies: workingCopiesDto(workingCopyStoreOf(row)),
+  workingCopies: workingCopiesOf(row),
 });
 
 const egressRecord = (row: EgressRow): EgressRecord => ({
@@ -63,7 +69,7 @@ const trustRecord = (row: TrustRow): RunnerTrustRecord => ({
   subject: row.subject,
   audience: row.audience,
   labels: row.labels,
-  workingCopies: workingCopiesDto(workingCopyStoreOf(row)),
+  workingCopies: workingCopiesOf(row),
 });
 
 const workspaceRunnersRecord = (

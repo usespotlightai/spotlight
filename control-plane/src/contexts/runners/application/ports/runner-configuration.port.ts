@@ -1,4 +1,4 @@
-import type { WorkingCopyStoreDto } from '@runners/application/mappers/working-copy-store.mapper';
+import type { WorkingCopyStoreContract } from '@runners/application/contracts/working-copy-store.contract';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -15,7 +15,7 @@ export interface RunnerTrustView {
   readonly subject: string;
   readonly audience: string;
   readonly labels: readonly string[];
-  readonly workingCopies: WorkingCopyStoreDto | null;
+  readonly workingCopies: WorkingCopyStoreContract | null;
 }
 
 export interface RunnerPoolView {
@@ -32,7 +32,7 @@ export interface RunnerPoolView {
     readonly egress: string | null;
     readonly egressTraffic: 'all' | 'bound';
   } | null;
-  readonly workingCopies: WorkingCopyStoreDto | null;
+  readonly workingCopies: WorkingCopyStoreContract | null;
 }
 
 export interface EgressView {

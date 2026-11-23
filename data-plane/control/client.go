@@ -606,16 +606,7 @@ func (c *Client) Attachment(
 }
 
 func (c *Client) WorkingCopyArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error) {
-	return c.WorkingCopyArchiveOnto(ctx, runID, "")
-}
-
-// WorkingCopyArchiveOnto reads the archive to restore for a host whose working copy store has base, so the control plane
-// says whether the run branches from that base instead.
-func (c *Client) WorkingCopyArchiveOnto(ctx context.Context, runID, base string) (*protocol.StoredArchive, error) {
 	path := fmt.Sprintf("/api/runs/%s/working-copy-archive", url.PathEscape(runID))
-	if base != "" {
-		path += "?base=" + url.QueryEscape(base)
-	}
 
 	var stored protocol.StoredArchive
 	status, err := c.request(ctx, http.MethodGet, path, nil, &stored)

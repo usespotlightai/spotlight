@@ -26,6 +26,10 @@ import { DrizzleSnapshotRemovals } from '@runs/infrastructure/persistence/drizzl
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import {
+  SnapshotName,
+  WorkingCopyStoreName,
+} from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleWorkArchiveHolders } from '@work/infrastructure/persistence/drizzle/readers/work-archive-holders.reader';
 import { eq } from 'drizzle-orm';
@@ -167,7 +171,10 @@ const archived = async (
     held: true,
     grantee: ArchiveGrantee.run(RunId.of(grantee)),
     location: times.store
-      ? StoreSnapshot.of(times.store, 'base-v1')
+      ? StoreSnapshot.of(
+          WorkingCopyStoreName.of(times.store),
+          SnapshotName.of('base-v1'),
+        )
       : SpotlightStorage.of(STORED.size, STORED.digest),
     at: times.grantedAt,
   });
@@ -569,10 +576,7 @@ describe('storing working copy archives', () => {
 
       expect(await archives.find(finished.id)).toBeNull();
       expect(await queuedFor(finished)).toEqual([
-        expect.objectContaining({
-          store: 's3://team-a',
-          snapshot: `spotlight-${finished.id.value}`,
-        }),
+        expect.objectContaining({ store: 's3://team-a' }),
       ]);
     });
 

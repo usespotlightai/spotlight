@@ -15,6 +15,7 @@ import { SANDBOX_RETIREMENT } from '@runners/application/ports/sandbox-retiremen
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
 import { WARM_SLOTS } from '@runners/application/ports/warm-slots.port';
+import { WORKING_COPY_STORES } from '@runners/application/ports/working-copy-stores.port';
 import { RUNNERS_STARTUP } from '@runners/runners.startup';
 import {
   RUNNERS_CONTROLLERS,
@@ -28,6 +29,7 @@ import { SecretsModule } from '@secrets/secrets.module';
   providers: [...RUNNERS_PROVIDERS, RUNNERS_STARTUP],
   exports: [
     RUNNER_CLAIMANTS,
+    WORKING_COPY_STORES,
     RUNNER_READER,
     IDLE_WORKING_COPIES,
     INSTALLER_ASSETS,

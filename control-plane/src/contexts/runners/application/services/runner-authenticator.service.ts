@@ -1,6 +1,6 @@
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import { workingCopiesDto } from '@runners/application/mappers/working-copy-store.mapper';
+import { workingCopyStoreContract } from '@runners/application/mappers/working-copy-store.mapper';
 import type {
   AuthenticatedHost,
   HostCredentials,
@@ -40,7 +40,7 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
     return {
       source: { kind, id },
       workspaceId: holder.workspaceId,
-      workingCopies: workingCopiesDto(holder.workingCopies),
+      workingCopies: workingCopyStoreContract(holder.workingCopies),
     };
   }
 
