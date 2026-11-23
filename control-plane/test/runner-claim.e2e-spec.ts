@@ -19,6 +19,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
+import { DrizzleRunWaits } from '@runs/infrastructure/persistence/drizzle/ledgers/run-waits.ledger';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
@@ -63,6 +64,7 @@ beforeAll(async () => {
     new DrizzleWorkingCopyArchiveRepository(new DrizzleContext(db), {
       dispatch: async () => {},
     }),
+    new DrizzleRunWaits(new DrizzleContext(db)),
   );
   checks = new DrizzleStackCheckRepository(new DrizzleContext(db), {
     dispatch: async () => {},

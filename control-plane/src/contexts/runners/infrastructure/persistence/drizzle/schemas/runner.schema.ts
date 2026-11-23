@@ -201,6 +201,10 @@ export const runner = pgTable(
       .on(table.workspaceId)
       .where(sql`${table.endedAt} is null`),
     check(
+      'runner_claimed_with_work',
+      sql`(${table.workKind} is null) = (${table.claimedAt} is null)`,
+    ),
+    check(
       'runner_whole_work',
       sql`(${table.workKind} is null) = (${table.workId} is null)`,
     ),

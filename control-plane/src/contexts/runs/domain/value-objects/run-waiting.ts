@@ -52,17 +52,3 @@ export const currentWait = (
   wait.queuedAt.getTime() === run.queuedAt.getTime()
     ? { reason: wait.reason, since: wait.since }
     : null;
-
-// A run waits for the same reason since it was first noted, until the reason changes or the run is queued again.
-// The run waits ledger applies this in one conditional write; keep the two in step.
-export const waitSince = (
-  previous: QueuedRunWait | null,
-  reason: WaitReason,
-  queuedAt: Date,
-  now: Date,
-): Date =>
-  previous &&
-  previous.reason === reason &&
-  previous.queuedAt.getTime() === queuedAt.getTime()
-    ? previous.since
-    : now;

@@ -1,7 +1,6 @@
 import {
   claimableAt,
   currentWait,
-  waitSince,
   waitsForAnyRunnerAt,
 } from '@runs/domain/value-objects/run-waiting';
 import { describe, expect, it } from 'vitest';
@@ -57,18 +56,5 @@ describe('a waiting run', () => {
     expect(currentWait({ ...facts, queuedAt: LATER }, wait)).toBeNull();
     expect(currentWait({ ...facts, reserved: true }, wait)).toBeNull();
     expect(currentWait({ ...facts, state: 'claimed' }, wait)).toBeNull();
-  });
-
-  it('waits since the reason was first noted, until the reason changes or the run is queued again', () => {
-    const wait = {
-      reason: 'no-pool-has-room' as const,
-      since: NOW,
-      queuedAt: EARLIER,
-    };
-
-    expect(waitSince(wait, 'no-pool-has-room', EARLIER, LATER)).toEqual(NOW);
-    expect(waitSince(wait, 'hosts-pull', EARLIER, LATER)).toEqual(LATER);
-    expect(waitSince(wait, 'no-pool-has-room', NOW, LATER)).toEqual(LATER);
-    expect(waitSince(null, 'no-pool-matches', EARLIER, LATER)).toEqual(LATER);
   });
 });

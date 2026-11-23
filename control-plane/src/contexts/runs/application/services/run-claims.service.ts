@@ -1,5 +1,6 @@
 import type { ExclusiveClaimLocksPort } from '@runs/application/ports/exclusive-claim-locks.port';
 import type { RunTraceLinksPort } from '@runs/application/ports/run-trace-links.port';
+import type { RunWaitsPort } from '@runs/application/ports/run-waits.port';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -21,6 +22,7 @@ export class RunClaims {
     private readonly traces: RunTraceLinksPort,
     private readonly locks: ExclusiveClaimLocksPort,
     private readonly archives: WorkingCopyArchiveRepository,
+    private readonly waits: RunWaitsPort,
   ) {}
 
   async next(by: Claimant, now: Date): Promise<Run | null> {
@@ -88,6 +90,7 @@ export class RunClaims {
       const claimed = run.claim(by, now);
 
       if (await this.saved(claimed)) {
+        await this.waits.clear(claimed.id);
         await this.traces.linkActiveSpanTo(claimed.id);
         this.telemetry.measure(
           'spotlight.runs.claim_wait_seconds',

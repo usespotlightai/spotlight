@@ -181,6 +181,7 @@ const provisioning = (
   const recorded: DomainEvent[] = [];
   const waits = {
     note: vi.fn<RunWaitsPort['note']>(async () => {}),
+    clear: vi.fn<RunWaitsPort['clear']>(async () => {}),
   } satisfies RunWaitsPort;
   const runs = {
     findById: async (id: RunId) => stored.get(id.value) ?? null,

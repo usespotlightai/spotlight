@@ -213,6 +213,15 @@ describe('Run', () => {
     expect(reclaimed.ranOn).toEqual(platform);
   });
 
+  it('keeps where it ran before when a runner whose pool or trust is gone claims it again', () => {
+    const reclaimed = lostAndRequeued(claimed()).claim(
+      claimer(runner('runner_2'), 'ws_1', null),
+      noon,
+    );
+
+    expect(reclaimed.ranOn).toEqual(OWN_POOL);
+  });
+
   it('leaves the run it was claimed from on the queue', () => {
     const waiting = queued();
 

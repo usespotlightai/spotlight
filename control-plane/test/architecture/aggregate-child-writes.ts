@@ -157,6 +157,7 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
   },
   run_wait: {
     why: 'Runs ledger of why a queued run waits, noted without raising the version of the run',
+    childOf: 'run',
     writers: [
       'contexts/runs/infrastructure/persistence/drizzle/ledgers/run-waits.ledger.ts',
     ],

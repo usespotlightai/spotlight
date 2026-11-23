@@ -67,6 +67,7 @@ const runner = (over: Partial<typeof schema.runner.$inferInsert>) => ({
   tokenHash: aTokenHash(),
   claimBy: minutesAgo(-1),
   startedAt: minutesAgo(5),
+  claimedAt: over.workKind ? minutesAgo(4) : null,
   ...over,
 });
 

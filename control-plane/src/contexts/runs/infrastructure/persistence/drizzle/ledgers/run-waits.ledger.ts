@@ -5,13 +5,14 @@ import type {
   WaitingRun,
 } from '@runs/application/ports/run-waits.port';
 import { runWait } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
-import { ne, or, sql } from 'drizzle-orm';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { eq, ne, or, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunWaits implements RunWaitsPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  // One write for every run of a tick. Keep in step with waitSince: the time stays while the reason and the queueing stay.
+  // One write for every run of a tick. The time stays while the reason and the queueing stay.
   async note(waiting: readonly WaitingRun[], at: Date): Promise<void> {
     const latest = new Map(waiting.map((each) => [each.runId.value, each]));
 
@@ -41,5 +42,9 @@ export class DrizzleRunWaits implements RunWaitsPort {
           ne(runWait.queuedAt, sql`excluded.queued_at`),
         ),
       });
+  }
+
+  async clear(runId: RunId): Promise<void> {
+    await this.context.db.delete(runWait).where(eq(runWait.runId, runId.value));
   }
 }

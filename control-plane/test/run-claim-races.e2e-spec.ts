@@ -5,6 +5,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
+import { DrizzleRunWaits } from '@runs/infrastructure/persistence/drizzle/ledgers/run-waits.ledger';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
@@ -41,6 +42,7 @@ beforeAll(async () => {
     { linkActiveSpanTo: async () => {} },
     new DrizzleExclusiveClaimLocks(context),
     new DrizzleWorkingCopyArchiveRepository(context, events),
+    new DrizzleRunWaits(context),
   );
 }, 60_000);
 

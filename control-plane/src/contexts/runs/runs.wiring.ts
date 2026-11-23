@@ -696,6 +696,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       RUN_TRACE_LINKS,
       EXCLUSIVE_CLAIM_LOCKS,
       WORKING_COPY_ARCHIVE_REPOSITORY,
+      RUN_WAITS,
     ],
     useFactory: (
       runs: RunRepository,
@@ -703,7 +704,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       traces: RunTraceLinksPort,
       locks: ExclusiveClaimLocksPort,
       archives: WorkingCopyArchiveRepository,
-    ) => new RunClaims(runs, telemetry, traces, locks, archives),
+      waits: RunWaitsPort,
+    ) => new RunClaims(runs, telemetry, traces, locks, archives, waits),
   },
 
   {

@@ -11,6 +11,9 @@ export interface WaitingRun {
 }
 
 export interface RunWaitsPort {
-  // Notes why each run waits, as of one time. The time a run waits since follows waitSince.
+  // Notes why each run waits, as of one time. A run waits since the reason was first noted, until the reason changes or the run is queued again.
   note(waiting: readonly WaitingRun[], at: Date): Promise<void>;
+
+  // Forgets why the run waited, once a runner claimed it.
+  clear(runId: RunId): Promise<void>;
 }

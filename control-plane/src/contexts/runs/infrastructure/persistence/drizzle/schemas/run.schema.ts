@@ -274,7 +274,9 @@ export const runUsage = pgTable(
 
 // Why Spotlight provisions no runner for a queued run, as it last noted it. It is apart from the run, so that noting it does not raise the run's version.
 export const runWait = pgTable('run_wait', {
-  runId: text('run_id').primaryKey(),
+  runId: text('run_id')
+    .primaryKey()
+    .references(() => run.id, { onDelete: 'cascade' }),
   reason: runWaitReason('reason').notNull(),
   // The queueing of the run that the wait belongs to.
   queuedAt: timestamptz('queued_at').notNull(),

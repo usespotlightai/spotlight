@@ -62,10 +62,6 @@ const credentialSourceOf = (row: Row): CredentialSource => {
   );
 };
 
-// A runner that claimed its work before runners kept the claim time has no claimed_at. Its first heartbeat came with the claim, so that time stands in.
-const claimedAtOf = (row: Row): Date | null =>
-  row.workKind === null ? null : (row.claimedAt ?? row.lastHeartbeatAt ?? row.startedAt);
-
 const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
     id: RunnerId.of(row.id),
@@ -99,7 +95,7 @@ const toRunner = (row: Row): Runner =>
     work: workOf(row),
     claimBy: row.claimBy,
     startedAt: row.startedAt,
-    claimedAt: claimedAtOf(row),
+    claimedAt: row.claimedAt,
     lastHeartbeatAt: row.lastHeartbeatAt,
     endedAt: row.endedAt,
     version: row.version,

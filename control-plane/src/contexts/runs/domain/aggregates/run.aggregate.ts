@@ -663,7 +663,8 @@ export class Run extends EventRecorder {
       claimedBy: by,
       leaseExpiresAt: this.leaseFrom(now),
       reservation: null,
-      ranOn: claimer.source,
+      // A runner whose pool or trust is gone does not erase where the run ran before.
+      ranOn: claimer.source ?? this.ranOn,
     });
 
     if (this.reservation && !this.reservation.isFor(by)) {

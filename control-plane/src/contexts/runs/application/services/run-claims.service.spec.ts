@@ -1,3 +1,4 @@
+import type { ExclusiveClaimLocksPort } from '@runs/application/ports/exclusive-claim-locks.port';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
@@ -42,24 +43,43 @@ const avoiding = (keys: readonly WorkingCopyKey[]): Claimant => ({
 });
 
 const claimsOver = (waiting: readonly Run[]) => {
+  const waits = {
+    note: vi.fn(async () => {}),
+    clear: vi.fn(async () => {}),
+  };
   const runs = {
     claimCandidates: vi.fn(async () => ({ waiting, leasedRequesters: [] })),
     save: vi.fn(async () => {}),
+    leasedAmong: vi.fn(async () => []),
   };
   const claims = new RunClaims(
     runs as unknown as RunRepository,
     { measure: vi.fn() } as unknown as TelemetryPort,
     { linkActiveSpanTo: vi.fn() },
-    { claimingFor: vi.fn() },
+    {
+      claimingFor: vi.fn(
+        async (_requester: unknown, claim: () => Promise<boolean>) => claim(),
+      ),
+    } as unknown as ExclusiveClaimLocksPort,
     {
       completedKeysAmong: vi.fn(async () => []),
     } as unknown as WorkingCopyArchiveRepository,
+    waits,
   );
 
-  return { claims, runs };
+  return { claims, runs, waits };
 };
 
 describe('RunClaims', () => {
+  it('forgets why a run waited once it claims the run', async () => {
+    const { claims, waits } = claimsOver([queued('task_1')]);
+
+    const claimed = await claims.next(avoiding([]), NOW);
+
+    expect(claimed).not.toBeNull();
+    expect(waits.clear).toHaveBeenCalledExactlyOnceWith(claimed?.id);
+  });
+
   it('sees a queued run the claimant would take, and claims nothing', async () => {
     const { claims, runs } = claimsOver([queued('task_1')]);
 

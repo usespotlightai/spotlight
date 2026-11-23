@@ -133,4 +133,31 @@ describe('why a queued run waits', () => {
 
     expect(await waitingOf(runId)).toBeNull();
   });
+
+  it('forgets why a run waited once it is cleared, and once the run is deleted', async () => {
+    const cleared = await queued();
+    const deleted = await queued();
+    const rowOf = async (runId: RunId) =>
+      (
+        await database.db
+          .select()
+          .from(schema.runWait)
+          .where(eq(schema.runWait.runId, runId.value))
+      )[0] ?? null;
+
+    await waits.note(
+      [
+        { runId: cleared, reason: 'no-pool-matches', queuedAt: QUEUED_AT },
+        { runId: deleted, reason: 'no-pool-matches', queuedAt: QUEUED_AT },
+      ],
+      NOTED_AT,
+    );
+    await waits.clear(cleared);
+    await database.db
+      .delete(schema.run)
+      .where(eq(schema.run.id, deleted.value));
+
+    expect(await rowOf(cleared)).toBeNull();
+    expect(await rowOf(deleted)).toBeNull();
+  });
 });
