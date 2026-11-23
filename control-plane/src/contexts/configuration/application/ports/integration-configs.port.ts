@@ -16,4 +16,9 @@ export interface IntegrationConfigsPort {
   withId(id: string): Promise<IntegrationConfig | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly IntegrationConfig[]>;
+
+  toolsOnAnyMarkAsPlanned(
+    integration: string,
+    definition: Readonly<Record<string, unknown>>,
+  ): Promise<readonly string[] | null>;
 }

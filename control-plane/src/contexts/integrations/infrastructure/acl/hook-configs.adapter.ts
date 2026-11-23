@@ -1,7 +1,10 @@
 import type {
+  HookAtStation,
   HookConfig,
   HookConfigStep,
   HookConfigsPort,
+  HookStation,
+  PlannedHookMatch,
 } from '@configuration/application/ports/hook-configs.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type {
@@ -12,7 +15,9 @@ import type {
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { mayFireAtStation } from '@integrations/domain/value-objects/hook-match.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 const stepOf = (step: WrittenHookStep): HookConfigStep =>
   'call' in step
@@ -21,6 +26,19 @@ const stepOf = (step: WrittenHookStep): HookConfigStep =>
         name: step.name,
         request: { ...step.request, headers: { ...step.request.headers } },
       };
+
+const integrationsCalledBy = (
+  steps: readonly WrittenHookStep[],
+): readonly string[] => [
+  ...new Set(
+    steps.flatMap((step) => {
+      const integration =
+        'call' in step ? Tool.of(step.call).integration : null;
+
+      return integration ? [integration] : [];
+    }),
+  ),
+];
 
 const configOf = (teamKey: string, record: HookRecord): HookConfig => {
   const { written } = record;
@@ -68,5 +86,33 @@ export class HookConfigs implements HookConfigsPort {
           configOf(team.key, each),
         )
       : [];
+  }
+
+  async mayFireAt(
+    teamId: TeamId,
+    station: HookStation,
+    planned: readonly PlannedHookMatch[],
+  ): Promise<readonly HookAtStation[]> {
+    const fires = (match: PlannedHookMatch | HookRecord['written']['match']) =>
+      mayFireAtStation(match, station.lineKey, station.stationKey);
+    const records = await this.resources.ofTeam(teamId);
+    const live = records
+      .filter(
+        (record) =>
+          fires(record.written.match) ||
+          planned.some((each) => each.key === record.key && fires(each)),
+      )
+      .map((record) => ({
+        key: record.key,
+        integrations: integrationsCalledBy(record.written.steps),
+      }));
+    const added = planned
+      .filter(
+        (each) =>
+          fires(each) && !records.some((record) => record.key === each.key),
+      )
+      .map((each) => ({ key: each.key, integrations: [] }));
+
+    return [...live, ...added];
   }
 }

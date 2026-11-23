@@ -1,5 +1,6 @@
 import type { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
+import type { DependencyFactsPort } from '@replays/application/ports/dependency-facts.port';
 import type { HashPort } from '@replays/application/ports/hash.port';
 import type { StationView } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
@@ -24,6 +25,7 @@ import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import { dependenciesChanged } from '@replays/domain/services/dependency-reach';
 import {
   type ScoredLive,
   type ScoringField,
@@ -32,6 +34,10 @@ import {
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
+import {
+  type Dependency,
+  PlannedChanges,
+} from '@replays/domain/value-objects/planned-changes.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
@@ -85,6 +91,10 @@ type Unprepared =
   | {
       readonly outcome: 'unchanged';
       readonly scoringPinnedToLive: readonly ScoringField[];
+    }
+  | {
+      readonly outcome: 'dependency-changed';
+      readonly changed: readonly Dependency[];
     };
 
 interface Planned {
@@ -92,6 +102,7 @@ interface Planned {
   readonly line: PlannedLine | null;
   readonly reference: PlannedReference;
   readonly repeats: number;
+  readonly changed: PlannedChanges;
 }
 
 export class StartReplayCheckHandler implements CommandHandlerPort<
@@ -116,6 +127,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
     private readonly calibrations: Pick<JudgeCalibrations, 'liveAt'>,
+    private readonly dependencies: DependencyFactsPort,
   ) {}
 
   async execute(
@@ -144,6 +156,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
             : PlannedLine.of(command.change.line),
         reference: PlannedReference.of(command.change.reference),
         repeats: command.repeats,
+        changed: PlannedChanges.of(command.change.changed),
       };
       const create: IdempotentCreate = {
         by: command.actor.principal.toString(),
@@ -160,6 +173,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
             pullRequest: planned.reference.pullRequest,
           },
           repeats: planned.repeats,
+          changed: planned.changed.value,
         },
       };
       const earlier = await lookupIdempotentCreate(this.lookups, create);
@@ -306,6 +320,13 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     if (!validated.ok) {
       return { outcome: 'invalid', problems: validated.problems };
     }
+
+    const changed = await this.changedDependencies(gated, validated, planned);
+
+    if (changed.length > 0) {
+      return { outcome: 'dependency-changed', changed };
+    }
+
     if (validated.hashes.runsAs(validated.liveHashes)) {
       return {
         outcome: 'unchanged',
@@ -314,6 +335,33 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     }
 
     return { scored, validated };
+  }
+
+  private async changedDependencies(
+    { station, address }: Gated,
+    validated: Extract<ValidatedCandidate, { ok: true }>,
+    planned: Planned,
+  ): Promise<readonly Dependency[]> {
+    if (planned.changed.isEmpty) {
+      return [];
+    }
+
+    return dependenciesChanged(
+      [validated.liveDependsOn, validated.dependsOn],
+      planned.changed,
+      await this.dependencies.of(
+        {
+          workspaceId: station.workspaceId,
+          teamId: station.teamId,
+          teamKey: address.teamKey,
+          lineKey: station.lineKey,
+          stationKey: station.key,
+        },
+        planned.changed.secrets,
+        planned.changed.hooks,
+        planned.changed.integrations,
+      ),
+    );
   }
 
   private async reusable(

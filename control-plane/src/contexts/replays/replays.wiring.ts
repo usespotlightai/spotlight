@@ -11,6 +11,10 @@ import {
   type StationSourceEditsPort,
 } from '@configuration/application/ports/station-source-edits.port';
 import {
+  TEAM_CONFIGURATION,
+  type TeamConfigurationPort,
+} from '@configuration/application/ports/team-configuration.port';
+import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
@@ -77,6 +81,10 @@ import {
   CONFIG_REPOSITORY,
   type ConfigRepositoryPort,
 } from '@replays/application/ports/config-repository.port';
+import {
+  DEPENDENCY_FACTS,
+  type DependencyFactsPort,
+} from '@replays/application/ports/dependency-facts.port';
 import { HASH, type HashPort } from '@replays/application/ports/hash.port';
 import {
   INSIGHTS,
@@ -202,6 +210,7 @@ import { ChangeReview } from '@replays/infrastructure/acl/change-review.adapter'
 import { TestStationChangeExtension } from '@replays/infrastructure/acl/chat-tool-extension.adapter';
 import { ConfigRepository } from '@replays/infrastructure/acl/config-repository.adapter';
 import { ConfigurationStationSourceEditor } from '@replays/infrastructure/acl/configuration-station-source.editor';
+import { DependencyFactsReader } from '@replays/infrastructure/acl/dependency-facts.adapter';
 import { InsightsChangeJudge } from '@replays/infrastructure/acl/insights-change-judge.adapter';
 import { InsightsClaimsRevisions } from '@replays/infrastructure/acl/insights-claims-revisions.adapter';
 import { InsightsJudgeClaimsPullRequests } from '@replays/infrastructure/acl/insights-judge-claims-pull-requests.adapter';
@@ -260,6 +269,10 @@ import {
   STARTING_POINT_HOLDS,
   type StartingPointHoldsPort,
 } from '@runs/application/ports/starting-point-holds.port';
+import {
+  SECRET_USES,
+  type SecretUsesPort,
+} from '@secrets/application/ports/secret-uses.port';
 import {
   CLOCK,
   type ClockPort,
@@ -422,6 +435,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       contents: RepositoryContentsPort,
       pullRequests: PullRequestPort,
     ) => new ConfigRepository(contents, pullRequests),
+  },
+  {
+    provide: DEPENDENCY_FACTS,
+    inject: [SECRET_USES, TEAM_CONFIGURATION],
+    useFactory: (uses: SecretUsesPort, configuration: TeamConfigurationPort) =>
+      new DependencyFactsReader(uses, configuration),
   },
   {
     provide: STATION_SOURCE_EDITOR,
@@ -838,6 +857,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     LOGGER,
     JudgeCalibrations,
+    DEPENDENCY_FACTS,
   ]),
   ...bindQueryHandler(ReadReplayCheckQuery, ReadReplayCheckHandler, [
     ReplaysAccess,

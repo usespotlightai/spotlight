@@ -222,6 +222,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
             ]
           : [],
     ),
+    toolsOnAnyMarkAsPlanned: vi.fn(async () => []),
   } satisfies IntegrationConfigsPort;
   const hookOf = (id: string, team: TeamProfile, key: string): HookConfig => ({
     id,
@@ -244,6 +245,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     ofTeam: vi.fn(async (teamId: TeamId) =>
       teamId.equals(CORE.id) ? [hookOf('hook_audit', CORE, 'audit')] : [],
     ),
+    mayFireAt: vi.fn(async () => []),
   } satisfies HookConfigsPort;
   const profileOf = (id: string, key: string): HarnessProfileRecord => ({
     id,

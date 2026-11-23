@@ -58,6 +58,7 @@ import {
   type SkillResourcesPort,
 } from '@configuration/application/ports/skill-resources.port';
 import { STATION_SOURCE_EDITS } from '@configuration/application/ports/station-source-edits.port';
+import { TEAM_CONFIGURATION } from '@configuration/application/ports/team-configuration.port';
 import { TEAM_SKILL_KEYS } from '@configuration/application/ports/team-skill-keys.port';
 import {
   TERRAFORM_STATE_BODIES,
@@ -94,6 +95,7 @@ import { PruneStateBodies } from '@configuration/application/services/prune-stat
 import { ReadySkills } from '@configuration/application/services/ready-skills.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
 import { StationReferences } from '@configuration/application/services/station-references.service';
+import { TeamConfiguration } from '@configuration/application/services/team-configuration.service';
 import { TeamSkillKeys } from '@configuration/application/services/team-skill-keys.service';
 import { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
 import { TerraformStates } from '@configuration/application/services/terraform-states.service';
@@ -546,6 +548,15 @@ const published: Provider[] = [
     inject: [TeamSkillReading, SECRET_NAMES],
     useFactory: (skills: TeamSkillReading, secrets: SecretNamesPort) =>
       new TeamSkills(new ReadySkills(skills, secrets)),
+  },
+  {
+    provide: TEAM_CONFIGURATION,
+    inject: [TeamSkillReading, HOOK_CONFIGS, INTEGRATION_CONFIGS],
+    useFactory: (
+      skills: TeamSkillReading,
+      hooks: HookConfigsPort,
+      integrations: IntegrationConfigsPort,
+    ) => new TeamConfiguration(skills, hooks, integrations),
   },
   {
     provide: TEAM_SKILL_KEYS,

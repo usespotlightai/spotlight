@@ -617,6 +617,8 @@ export class FakeStationConfigCandidates implements StationConfigCandidatesPort 
     liveHashes: LIVE_HASHES,
     scoring: UNSCORED,
     changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+    dependsOn: { harnessProfile: null, skills: [], tools: [] },
+    liveDependsOn: { harnessProfile: null, skills: [], tools: [] },
   });
 }
 

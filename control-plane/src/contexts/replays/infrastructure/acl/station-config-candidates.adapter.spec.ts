@@ -20,6 +20,7 @@ const LIVE: LiveStationConfig = {
     judge: null,
     rubricHash: null,
     trialTools: ['sentry.get-latest-event'],
+    dependsOn: { harnessProfile: null, skills: [], tools: [] },
   },
 };
 

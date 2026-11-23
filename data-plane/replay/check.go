@@ -31,7 +31,8 @@ const (
 	errorExit     = 1
 	undecidedExit = 3
 
-	nothingToReplay = "urn:spotlight:problem:nothing-to-replay"
+	nothingToReplay   = "urn:spotlight:problem:nothing-to-replay"
+	dependencyChanged = "urn:spotlight:problem:dependency-changed"
 )
 
 type checkSide struct {
@@ -315,6 +316,9 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 	if each.Line != nil {
 		body["line"] = each.Line
 	}
+	if !each.Changed.empty() {
+		body["changed"] = each.Changed
+	}
 
 	key := checkKey(each, options)
 	var read checkRead
@@ -331,6 +335,9 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 	switch {
 	case errors.As(err, &answer) && answer.errorBody.Type == nothingToReplay:
 		checked.Status = checkUnchanged
+		checked.Message = answer.errorBody.Detail
+	case errors.As(err, &answer) && answer.errorBody.Type == dependencyChanged:
+		checked.Status = checkUndecided
 		checked.Message = answer.errorBody.Detail
 	case err != nil:
 		checked.Status = checkErrored
@@ -398,7 +405,7 @@ func (r *checkRead) progress() string {
 }
 
 func checkKey(each plannedStation, options checkOptions) string {
-	written, _ := json.Marshal([]any{each.LineID, each.Key, each.Block, each.Line, options.commit, options.pullRequest, options.repeats})
+	written, _ := json.Marshal([]any{each.LineID, each.Key, each.Block, each.Line, each.Changed, options.commit, options.pullRequest, options.repeats})
 	sum := sha256.Sum256(written)
 
 	return "replay-check-" + hex.EncodeToString(sum[:])
