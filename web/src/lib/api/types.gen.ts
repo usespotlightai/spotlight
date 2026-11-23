@@ -9005,6 +9005,51 @@ export type AnswerDisagreementClaimRequestDto = {
   note: string | null;
 };
 
+export type PlannedIntegrationRequestDto = {
+  key: string;
+  /**
+   * The integration’s definition as the plan would apply it, as the integration resource stores it; none when the plan deletes it
+   */
+  definition?: {
+    [key: string]: unknown;
+  } | null;
+};
+
+export type PlannedHookRequestDto = {
+  key: string;
+  /**
+   * The lines the hook matches as planned; none matches every line
+   */
+  lines?: Array<string>;
+  /**
+   * The stations the hook matches as planned; none matches every station
+   */
+  stations?: Array<string>;
+};
+
+export type PlannedChangesRequestDto = {
+  /**
+   * The names of the workspace secrets the plan changes
+   */
+  secrets?: Array<string>;
+  /**
+   * The keys of the team’s skills the plan changes
+   */
+  skills?: Array<string>;
+  /**
+   * The keys of the team’s harness profiles the plan changes
+   */
+  harnessProfiles?: Array<string>;
+  /**
+   * The team’s integrations the plan changes, each with its definition as planned
+   */
+  integrations?: Array<PlannedIntegrationRequestDto>;
+  /**
+   * The team’s hooks the plan changes, each with the lines and stations it matches as planned
+   */
+  hooks?: Array<PlannedHookRequestDto>;
+};
+
 export type PlannedReferenceRequestDto = {
   /**
    * The commit that plans the change
@@ -9031,6 +9076,10 @@ export type StartReplayCheckRequestDto = {
   line?: {
     [key: string]: unknown;
   };
+  /**
+   * What else the plan creates, changes or deletes for the station’s team; when the station depends on one of them, the check answers dependency-changed, since a replay uses only what is live
+   */
+  changed?: PlannedChangesRequestDto;
   reference?: PlannedReferenceRequestDto;
   /**
    * How many times the check replays each run of the set, 1 when left out; the line’s ceiling covers all of them
@@ -22215,7 +22264,7 @@ export type StartReplayCheckErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * The line has no replay_check, the station has no replay set or no runs in it yet, or the plan changes nothing that changes how its runs go (nothing-to-replay)
+   * The line has no replay_check, the station has no replay set or no runs in it yet, the plan changes nothing that changes how its runs go (nothing-to-replay), or the plan also changes a secret, skill, harness profile, integration or hook the station depends on, which a replay cannot use before apply (dependency-changed)
    */
   409: ProblemResponseDto;
   /**

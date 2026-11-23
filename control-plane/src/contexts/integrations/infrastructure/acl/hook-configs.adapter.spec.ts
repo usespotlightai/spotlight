@@ -122,3 +122,57 @@ describe('HookConfigs', () => {
     });
   });
 });
+
+describe('HookConfigs.mayFireAt', () => {
+  const recordOf = (key: string, match: Record<string, unknown>) => ({
+    id: `hook_${key}`,
+    teamId: TEAM,
+    key,
+    version: 1,
+    written: writtenHookDocumentOf(
+      key,
+      storedOf({
+        key,
+        on: 'task.moved',
+        match,
+        signing: HOOK.signing,
+        steps: [
+          { name: 'tell', call: 'linear.comment', with: {} },
+          { name: 'post', request: { url: 'https://dba.example.com/a' } },
+        ],
+      }),
+    ),
+  });
+  const configs = new HookConfigs(
+    {
+      withId: async () => null,
+      at: async () => null,
+      ofTeam: async () => [
+        recordOf('everywhere', {}),
+        recordOf('on-build', { lines: ['delivery'], stations: ['build'] }),
+        recordOf('on-review', { stations: ['code-review'] }),
+        recordOf('other-line', { lines: ['incident'] }),
+      ],
+    } satisfies HookResourcesPort,
+    { find: async () => null } as unknown as TeamDirectoryPort,
+  );
+
+  it('names the live and planned hooks that may fire at a station, with the integrations they call', async () => {
+    expect(
+      await configs.mayFireAt(
+        TEAM,
+        { lineKey: 'delivery', stationKey: 'build' },
+        [
+          { key: 'on-review', lines: [], stations: ['build'] },
+          { key: 'added', lines: [], stations: [] },
+          { key: 'added-elsewhere', lines: ['incident'], stations: [] },
+        ],
+      ),
+    ).toEqual([
+      { key: 'everywhere', integrations: ['linear'] },
+      { key: 'on-build', integrations: ['linear'] },
+      { key: 'on-review', integrations: ['linear'] },
+      { key: 'added', integrations: [] },
+    ]);
+  });
+});

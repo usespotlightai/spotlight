@@ -47,6 +47,69 @@ export class PlannedReferenceRequestDto {
   readonly pullRequest?: number | null;
 }
 
+const KEYS = (description: string, example: string) =>
+  ApiPropertyOptional({ type: [String], example: [example], description });
+
+export class PlannedIntegrationRequestDto {
+  @ApiProperty({ example: 'linear' })
+  readonly key!: string;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    nullable: true,
+    description:
+      'The integration’s definition as the plan would apply it, as the integration resource stores it; none when the plan deletes it',
+  })
+  readonly definition?: Record<string, unknown> | null;
+}
+
+export class PlannedHookRequestDto {
+  @ApiProperty({ example: 'notify' })
+  readonly key!: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['delivery'],
+    description:
+      'The lines the hook matches as planned; none matches every line',
+  })
+  readonly lines?: readonly string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['build'],
+    description:
+      'The stations the hook matches as planned; none matches every station',
+  })
+  readonly stations?: readonly string[];
+}
+
+export class PlannedChangesRequestDto {
+  @KEYS('The names of the workspace secrets the plan changes', 'LINEAR_API_KEY')
+  readonly secrets?: readonly string[];
+
+  @KEYS('The keys of the team’s skills the plan changes', 'tdd')
+  readonly skills?: readonly string[];
+
+  @KEYS('The keys of the team’s harness profiles the plan changes', 'careful')
+  readonly harnessProfiles?: readonly string[];
+
+  @ApiPropertyOptional({
+    type: [PlannedIntegrationRequestDto],
+    description:
+      'The team’s integrations the plan changes, each with its definition as planned',
+  })
+  readonly integrations?: readonly PlannedIntegrationRequestDto[];
+
+  @ApiPropertyOptional({
+    type: [PlannedHookRequestDto],
+    description:
+      'The team’s hooks the plan changes, each with the lines and stations it matches as planned',
+  })
+  readonly hooks?: readonly PlannedHookRequestDto[];
+}
+
 export class StartReplayCheckRequestDto {
   @ApiProperty({ example: '3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03' })
   readonly lineId!: string;
@@ -78,6 +141,13 @@ export class StartReplayCheckRequestDto {
     example: { repositories: [{ name: 'acme/api', setup: 'npm ci' }] },
   })
   readonly line?: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    type: PlannedChangesRequestDto,
+    description:
+      'What else the plan creates, changes or deletes for the station’s team; when the station depends on one of them, the check answers dependency-changed, since a replay uses only what is live',
+  })
+  readonly changed?: PlannedChangesRequestDto;
 
   @ApiProperty({ type: PlannedReferenceRequestDto, required: false })
   readonly reference?: PlannedReferenceRequestDto;

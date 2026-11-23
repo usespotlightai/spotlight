@@ -67,6 +67,8 @@ export class StationConfigCandidates implements StationConfigCandidatesPort {
         StationFingerprint.of(validated.live.fingerprint),
         validated.changes,
       ),
+      dependsOn: validated.candidate.dependsOn,
+      liveDependsOn: validated.live.dependsOn,
     };
   }
 

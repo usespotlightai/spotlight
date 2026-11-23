@@ -13,12 +13,26 @@ export type SearchCandidateProposed =
       readonly problems: readonly ConfigurationProblem[];
     };
 
+export interface ChangedDependency {
+  readonly kind:
+    | 'secret'
+    | 'skill'
+    | 'harness-profile'
+    | 'integration'
+    | 'hook';
+  readonly key: string;
+}
+
 export type ReplayCheckStartedOutcome =
   | ResourceCreated
   | { readonly outcome: 'reused'; readonly id: string }
   | {
       readonly outcome: 'unchanged';
       readonly scoringPinnedToLive: readonly string[];
+    }
+  | {
+      readonly outcome: 'dependency-changed';
+      readonly changed: readonly ChangedDependency[];
     };
 
 export interface FailureCauseRecorded {

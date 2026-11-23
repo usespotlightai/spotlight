@@ -23631,7 +23631,7 @@
             }
           },
           "409": {
-            "description": "The line has no replay_check, the station has no replay set or no runs in it yet, or the plan changes nothing that changes how its runs go (nothing-to-replay)",
+            "description": "The line has no replay_check, the station has no replay set or no runs in it yet, the plan changes nothing that changes how its runs go (nothing-to-replay), or the plan also changes a secret, skill, harness profile, integration or hook the station depends on, which a replay cannot use before apply (dependency-changed)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -45843,6 +45843,105 @@
           "note"
         ]
       },
+      "PlannedIntegrationRequestDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "linear"
+          },
+          "definition": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "The integration’s definition as the plan would apply it, as the integration resource stores it; none when the plan deletes it"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "PlannedHookRequestDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "notify"
+          },
+          "lines": {
+            "example": [
+              "delivery"
+            ],
+            "description": "The lines the hook matches as planned; none matches every line",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stations": {
+            "example": [
+              "build"
+            ],
+            "description": "The stations the hook matches as planned; none matches every station",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "PlannedChangesRequestDto": {
+        "type": "object",
+        "properties": {
+          "secrets": {
+            "example": [
+              "LINEAR_API_KEY"
+            ],
+            "description": "The names of the workspace secrets the plan changes",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skills": {
+            "example": [
+              "tdd"
+            ],
+            "description": "The keys of the team’s skills the plan changes",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "harnessProfiles": {
+            "example": [
+              "careful"
+            ],
+            "description": "The keys of the team’s harness profiles the plan changes",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "integrations": {
+            "description": "The team’s integrations the plan changes, each with its definition as planned",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedIntegrationRequestDto"
+            }
+          },
+          "hooks": {
+            "description": "The team’s hooks the plan changes, each with the lines and stations it matches as planned",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedHookRequestDto"
+            }
+          }
+        }
+      },
       "PlannedReferenceRequestDto": {
         "type": "object",
         "properties": {
@@ -45898,6 +45997,14 @@
                 }
               ]
             }
+          },
+          "changed": {
+            "description": "What else the plan creates, changes or deletes for the station’s team; when the station depends on one of them, the check answers dependency-changed, since a replay uses only what is live",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlannedChangesRequestDto"
+              }
+            ]
           },
           "reference": {
             "$ref": "#/components/schemas/PlannedReferenceRequestDto"

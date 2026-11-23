@@ -29,11 +29,16 @@ const UNSTARTABLE: ValidatedStationConfig = {
   ],
 };
 
+interface ToolsOf {
+  readonly trial: readonly string[];
+  readonly onMarks: readonly Tool[];
+}
+
 const factsOf = (
   line: LineMap,
   station: Station,
   config: StationConfig,
-  trialTools: readonly string[],
+  tools: ToolsOf,
 ): StationConfigFacts => ({
   fingerprint: config.fingerprint,
   handoverWords: line.optionsFrom(station.id).map((each) => each.word),
@@ -45,7 +50,17 @@ const factsOf = (
     passThreshold: station.judge.passThreshold,
   },
   rubricHash: config.parts.judge?.rubricHash ?? null,
-  trialTools,
+  trialTools: tools.trial,
+  dependsOn: {
+    harnessProfile: station.profile?.value ?? null,
+    skills: station.skills.map((each) => each.value),
+    tools: [
+      ...new Set([
+        ...config.parts.tools,
+        ...tools.onMarks.map((each) => each.value),
+      ]),
+    ].sort(),
+  },
 });
 
 export class StationConfigCandidates implements StationConfigCandidatesPort {
@@ -86,13 +101,13 @@ export class StationConfigCandidates implements StationConfigCandidatesPort {
             built.line,
             built.station,
             config,
-            await this.trialToolsOf(built.line, config),
+            await this.toolsOf(built.line, config),
           ),
           live: factsOf(
             current.line,
             current.station,
             live,
-            await this.trialToolsOf(current.line, live),
+            await this.toolsOf(current.line, live),
           ),
           changes: config.changesFrom(live),
         }
@@ -115,25 +130,29 @@ export class StationConfigCandidates implements StationConfigCandidatesPort {
             current.line,
             current.station,
             config,
-            await this.trialToolsOf(current.line, config),
+            await this.toolsOf(current.line, config),
           ),
         }
       : null;
   }
 
-  private async trialToolsOf(
+  private async toolsOf(
     line: LineMap,
     config: StationConfig,
-  ): Promise<readonly string[]> {
+  ): Promise<ToolsOf> {
+    const onMarks = await this.integrations.toolsOnAnyMark(line);
     const tools = distinct([
       ...config.parts.tools.map((each) => Tool.of(each)),
-      ...(await this.integrations.toolsOnAnyMark(line)),
+      ...onMarks,
     ]);
 
-    return toolsForATrial(
-      describedTools(tools, await this.integrations.provided(line, tools)),
-    )
-      .map((each) => each.tool.value)
-      .sort();
+    return {
+      trial: toolsForATrial(
+        describedTools(tools, await this.integrations.provided(line, tools)),
+      )
+        .map((each) => each.tool.value)
+        .sort(),
+      onMarks,
+    };
   }
 }

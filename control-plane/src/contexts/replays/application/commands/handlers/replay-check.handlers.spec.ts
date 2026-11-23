@@ -1,6 +1,7 @@
 import { StartReplayCheckHandler } from '@replays/application/commands/handlers/start-replay-check.handler';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
+import type { DependencyFactsPort } from '@replays/application/ports/dependency-facts.port';
 import { ReadReplayCheckHandler } from '@replays/application/queries/handlers/read-replay-check.handler';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
@@ -51,8 +52,10 @@ import {
   slots,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import type { DependencyFacts } from '@replays/domain/value-objects/dependency-facts';
 import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import type { PlannedChangesInput } from '@replays/domain/value-objects/planned-changes.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
@@ -70,6 +73,7 @@ import type { IdempotentLookupsPort } from '@shared-kernel/application/ports/ide
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -131,6 +135,40 @@ let memory: InMemoryReplays;
 let suppliers: FakeSuppliers;
 let checks: InMemoryChecks;
 let validated: { block: unknown; line: unknown }[];
+let facts: DependencyFacts;
+let asked: { station: string; hooks: readonly unknown[] }[];
+
+const texts = (value: unknown): readonly string[] =>
+  Array.isArray(value) ? value.filter((each) => typeof each === 'string') : [];
+
+const dependingOn = (block: unknown) => {
+  const fields = block as Record<string, unknown>;
+
+  return {
+    dependsOn: {
+      harnessProfile:
+        typeof fields.profile === 'string' ? fields.profile : null,
+      skills: texts(fields.skills),
+      tools: texts(fields.tools),
+    },
+    liveDependsOn: { harnessProfile: null, skills: [], tools: [] },
+  };
+};
+
+const factsOf: DependencyFactsPort = {
+  of: async (station, names, hooks) => {
+    asked.push({
+      station: `${station.teamKey}/${station.lineKey}/${station.stationKey}`,
+      hooks,
+    });
+    return {
+      ...facts,
+      secrets: facts.secrets.filter((each) =>
+        names.some((name) => name.equals(each.secret)),
+      ),
+    };
+  },
+};
 
 const errorOf = async (call: Promise<unknown>) =>
   call.then(
@@ -172,6 +210,7 @@ const start = async (
   mayPlan: boolean | null = true,
   line?: unknown,
   clock: ClockPort = CLOCK,
+  changed: PlannedChangesInput = {},
 ): Promise<ReplayCheckStartedOutcome> => {
   const outcome = await new StartReplayCheckHandler(
     accessFor(memory, suppliers, mayPlan),
@@ -203,6 +242,7 @@ const start = async (
     TRANSACTION,
     QUIET,
     suppliers.calibrations,
+    factsOf,
   ).execute(
     new StartReplayCheckCommand(
       'team_1',
@@ -211,6 +251,7 @@ const start = async (
         stationKey: 'build',
         station,
         line,
+        changed,
         reference: { commit: null, pullRequest: 42 },
       },
       1,
@@ -292,6 +333,8 @@ beforeEach(() => {
   suppliers = new FakeSuppliers();
   checks = new InMemoryChecks(memory.events);
   validated = [];
+  facts = { hooks: [], onMarksAsPlanned: [], secrets: [] };
+  asked = [];
   suppliers.lines.threshold = threshold(1);
   suppliers.configs.live = async () => ({
     lineKey: 'delivery',
@@ -319,6 +362,7 @@ beforeEach(() => {
       liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
       block: StationBlock.of(block),
     };
   };
@@ -447,6 +491,7 @@ describe('StartReplayCheckHandler', () => {
       liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
       block: StationBlock.of(block),
     });
     const two = idOf(await start({ ...PLAN, prompt: 'Build it twice.' }));
@@ -540,6 +585,7 @@ describe('StartReplayCheckHandler', () => {
       liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
       block: StationBlock.of(block),
     });
 
@@ -547,6 +593,75 @@ describe('StartReplayCheckHandler', () => {
       outcome: 'unchanged',
       scoringPinnedToLive: ['check', 'runners'],
     });
+  });
+
+  it('leaves a change undecided, starting nothing, when the plan also changes what the station depends on', async () => {
+    keptAtStation();
+    const notify = { key: 'notify', lines: [], stations: ['build'] };
+    facts = {
+      hooks: [{ key: 'notify', integrations: [] }],
+      onMarksAsPlanned: [],
+      secrets: [
+        { secret: SecretName.of('API_KEY'), carrier: 'skill', key: 'tdd' },
+        { secret: SecretName.of('OTHER_KEY'), carrier: 'skill', key: 'other' },
+      ],
+    };
+
+    expect(
+      await start({ ...PLAN, skills: ['tdd'] }, true, undefined, CLOCK, {
+        secrets: ['OTHER_KEY', 'API_KEY'],
+        skills: ['tdd', 'review'],
+        hooks: [notify],
+      }),
+    ).toEqual({
+      outcome: 'dependency-changed',
+      changed: [
+        { kind: 'skill', key: 'tdd' },
+        { kind: 'hook', key: 'notify' },
+        { kind: 'secret', key: 'API_KEY' },
+      ],
+    });
+    expect(asked).toEqual([
+      { station: 'core/delivery/build', hooks: [notify] },
+    ]);
+    expect(memory.events).toEqual([]);
+  });
+
+  it('leaves a change undecided when the plan changes only what the unchanged station depends on', async () => {
+    keptAtStation();
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: LIVE_FINGERPRINT,
+      hashes: LIVE_HASHES,
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
+      block: StationBlock.of(block),
+    });
+
+    expect(
+      await start({ ...PLAN, profile: 'careful' }, true, undefined, CLOCK, {
+        harnessProfiles: ['careful'],
+      }),
+    ).toEqual({
+      outcome: 'dependency-changed',
+      changed: [{ kind: 'harness-profile', key: 'careful' }],
+    });
+  });
+
+  it('checks a change as usual when nothing else the plan changes reaches the station', async () => {
+    keptAtStation();
+
+    expect(
+      (
+        await start(PLAN, true, undefined, CLOCK, {
+          harnessProfiles: ['careful'],
+          hooks: [],
+        })
+      ).outcome,
+    ).toBe('created');
+    expect(asked).toHaveLength(1);
   });
 
   it('lets only those who may plan start a check', async () => {
@@ -772,6 +887,7 @@ describe('StopSupersededChecks', () => {
       liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
       block: StationBlock.of(block),
     });
   };
