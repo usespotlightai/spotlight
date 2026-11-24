@@ -27,6 +27,47 @@ export type ErrorReportingResponseDto = {
   release: string | null;
 };
 
+/**
+ * The sidebar group of the page
+ */
+export type SettingsPageGroup = 'account' | 'workspace';
+
+/**
+ * The workspace roles that see the page. The page must also check the role itself: this only hides it
+ */
+export type SettingsPageRole = 'owner' | 'admin' | 'member';
+
+export type SettingsPageDto = {
+  /**
+   * The id of the page in its path, /settings/x/{id}
+   */
+  id: string;
+  /**
+   * The text of the page in the sidebar, and its title
+   */
+  label: string;
+  /**
+   * The sidebar group of the page
+   */
+  group: SettingsPageGroup;
+  /**
+   * The workspace roles that see the page. The page must also check the role itself: this only hides it
+   */
+  roles: Array<SettingsPageRole>;
+  /**
+   * The path on this origin of the module script that defines the element
+   */
+  script: string;
+  /**
+   * The name of the custom element that the page shows
+   */
+  element: string;
+};
+
+export type SettingsPagesResponseDto = {
+  pages: Array<SettingsPageDto>;
+};
+
 export type RedeliverEventWebhookRequestDto = {
   /**
    * Send again the dead letters of the events recorded at or after this time, as an ISO 8601 time
@@ -10148,6 +10189,19 @@ export type GetErrorReportingResponses = {
 };
 
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
+
+export type ListSettingsPagesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/settings-pages';
+};
+
+export type ListSettingsPagesResponses = {
+  200: SettingsPagesResponseDto;
+};
+
+export type ListSettingsPagesResponse = ListSettingsPagesResponses[keyof ListSettingsPagesResponses];
 
 export type RedeliverEventWebhookData = {
   body: RedeliverEventWebhookRequestDto;

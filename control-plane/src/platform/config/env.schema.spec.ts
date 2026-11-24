@@ -277,3 +277,50 @@ describe('envSchema event webhook', () => {
     ).toBe(false);
   });
 });
+
+describe('envSchema settings pages', () => {
+  const required = {
+    DATABASE_URL: url,
+    BETTER_AUTH_SECRET: 'b'.repeat(32),
+    BETTER_AUTH_URL: 'http://localhost:3000',
+    GITHUB_CLIENT_ID: 'id',
+    GITHUB_CLIENT_SECRET: 'secret',
+    GITHUB_APP_ID: 'app',
+    GITHUB_APP_PRIVATE_KEY: 'key',
+    SPOTLIGHT_SECRETS_KEY: 'k',
+    S3_BUCKET: 'files',
+  };
+
+  it('adds no settings pages when the value is not set', () => {
+    expect(envSchema.parse(required).SPOTLIGHT_SETTINGS_PAGES).toEqual([]);
+  });
+
+  it('takes the settings pages in JSON', () => {
+    expect(
+      envSchema.parse({
+        ...required,
+        SPOTLIGHT_SETTINGS_PAGES:
+          '[{"id":"billing","label":"Billing","roles":["owner"],"script":"/billing/element.js","element":"x-billing-page"}]',
+      }).SPOTLIGHT_SETTINGS_PAGES,
+    ).toEqual([
+      {
+        id: 'billing',
+        label: 'Billing',
+        group: 'workspace',
+        roles: ['owner'],
+        script: '/billing/element.js',
+        element: 'x-billing-page',
+      },
+    ]);
+  });
+
+  it('refuses a script on another origin', () => {
+    expect(
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_SETTINGS_PAGES:
+          '[{"id":"billing","label":"Billing","script":"https://cdn.example.com/element.js","element":"x-billing-page"}]',
+      }).success,
+    ).toBe(false);
+  });
+});

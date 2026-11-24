@@ -6,7 +6,7 @@ import { useTabTitle } from '@/lib/tab-title';
 
 type SettingsPageProps = {
   title: string;
-  description: ReactNode;
+  description?: ReactNode;
   children: ReactNode;
 };
 
@@ -23,9 +23,11 @@ export function SettingsPage({
         <div className="flex flex-col gap-3">
           <PageTitle>{title}</PageTitle>
 
-          <p className="text-muted-foreground text-sm leading-6">
-            {description}
-          </p>
+          {description && (
+            <p className="text-muted-foreground text-sm leading-6">
+              {description}
+            </p>
+          )}
         </div>
 
         {children}

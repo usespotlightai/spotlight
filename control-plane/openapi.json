@@ -77,6 +77,28 @@
         ]
       }
     },
+    "/settings-pages": {
+      "get": {
+        "operationId": "listSettingsPages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsPagesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The pages that this deployment adds to the settings",
+        "tags": [
+          "settings-pages"
+        ]
+      }
+    },
     "/admin/event-webhook/redeliver": {
       "post": {
         "description": "Spotlight tries to send each event to the event webhook for about 13 hours. Then the delivery is a dead letter. This queues the dead letters of the events recorded at or after since again, and each gets all its attempts again. Only the dead letters of the kinds that SPOTLIGHT_EVENT_WEBHOOK_KINDS still names go again. One request queues at most limit dead letters; while the answer is truncated, send it again.",
@@ -24172,6 +24194,89 @@
           "dsn",
           "environment",
           "release"
+        ]
+      },
+      "SettingsPageGroup": {
+        "type": "string",
+        "enum": [
+          "account",
+          "workspace"
+        ],
+        "description": "The sidebar group of the page"
+      },
+      "SettingsPageRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "admin",
+          "member"
+        ],
+        "description": "The workspace roles that see the page. The page must also check the role itself: this only hides it"
+      },
+      "SettingsPageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "billing",
+            "description": "The id of the page in its path, /settings/x/{id}"
+          },
+          "label": {
+            "type": "string",
+            "example": "Billing",
+            "description": "The text of the page in the sidebar, and its title"
+          },
+          "group": {
+            "example": "workspace",
+            "description": "The sidebar group of the page",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsPageGroup"
+              }
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "example": [
+              "owner"
+            ],
+            "description": "The workspace roles that see the page. The page must also check the role itself: this only hides it",
+            "items": {
+              "$ref": "#/components/schemas/SettingsPageRole"
+            }
+          },
+          "script": {
+            "type": "string",
+            "example": "/billing/element.js",
+            "description": "The path on this origin of the module script that defines the element"
+          },
+          "element": {
+            "type": "string",
+            "example": "x-billing-page",
+            "description": "The name of the custom element that the page shows"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "group",
+          "roles",
+          "script",
+          "element"
+        ]
+      },
+      "SettingsPagesResponseDto": {
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingsPageDto"
+            }
+          }
+        },
+        "required": [
+          "pages"
         ]
       },
       "RedeliverEventWebhookRequestDto": {

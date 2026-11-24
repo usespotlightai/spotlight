@@ -34,6 +34,7 @@ import { ApiConventions } from '@platform/http/api-conventions';
 import { AdminEventWebhookController } from '@platform/http/controllers/admin-event-webhook.controller';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
+import { SettingsPagesController } from '@platform/http/controllers/settings-pages.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
 import { InternalErrorFilter } from '@platform/http/filters/internal-error.filter';
 import { AdminGuard } from '@platform/http/guards/admin.guard';
@@ -102,6 +103,7 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
   controllers: [
     HealthController,
     ErrorReportingController,
+    SettingsPagesController,
     AdminEventWebhookController,
   ],
   providers: [

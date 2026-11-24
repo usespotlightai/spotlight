@@ -1,5 +1,6 @@
 import {
   Bell,
+  Blocks,
   ChevronLeft,
   KeyRound,
   LockKeyhole,
@@ -14,6 +15,7 @@ import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRunners } from '@/hooks/api/useRunners';
+import { useSettingsPages } from '@/hooks/api/useSettingsPages';
 import { emailsPath } from '@/lib/emails';
 import { membersPath } from '@/lib/members';
 import { notificationsPath } from '@/lib/notifications';
@@ -21,6 +23,8 @@ import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
 import {
   apiAccessPath,
+  extraSettingsPagesIn,
+  extraSettingsPath,
   secretsPath,
   TEAM_SETTINGS_PAGES,
   teamSettingsPath,
@@ -43,6 +47,16 @@ export function SettingsSidebar({
   workspace,
 }: SettingsSidebarProps) {
   const { data: fleet } = useRunners(slug);
+  const { data: extra = [] } = useSettingsPages();
+
+  const extraIn = (group: 'account' | 'workspace') =>
+    extraSettingsPagesIn(extra, group, workspace.role).map((page) => (
+      <li key={page.id}>
+        <SidebarLink to={extraSettingsPath(slug, page.id)} icon={Blocks}>
+          {page.label}
+        </SidebarLink>
+      </li>
+    ));
 
   return (
     <>
@@ -75,6 +89,7 @@ export function SettingsSidebar({
                 Notifications
               </SidebarLink>
             </li>
+            {extraIn('account')}
           </SettingsNavGroup>
 
           <SettingsNavGroup heading="Workspace">
@@ -113,6 +128,7 @@ export function SettingsSidebar({
                 </SidebarLink>
               </li>
             )}
+            {extraIn('workspace')}
           </SettingsNavGroup>
 
           {workspace.teams.map((team) => (
