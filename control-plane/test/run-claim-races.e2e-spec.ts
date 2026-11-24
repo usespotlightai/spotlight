@@ -5,6 +5,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
+import { DrizzleRunWaits } from '@runs/infrastructure/persistence/drizzle/ledgers/run-waits.ledger';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
@@ -41,6 +42,13 @@ beforeAll(async () => {
     { linkActiveSpanTo: async () => {} },
     new DrizzleExclusiveClaimLocks(context),
     new DrizzleWorkingCopyArchiveRepository(context, events),
+    new DrizzleRunWaits(context),
+    {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    },
   );
 }, 60_000);
 
@@ -128,6 +136,7 @@ const claimant = (workspaceId: string) => ({
   harnesses: [HarnessId.of('dev')],
   offer: RunnerOffer.of([]),
   claims: 'any' as const,
+  source: null,
 });
 
 interface Raced {

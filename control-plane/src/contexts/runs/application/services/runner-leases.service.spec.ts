@@ -31,12 +31,16 @@ const ending = () => {
 };
 
 describe('RunnerLeases', () => {
-  it('tells the pools a run has ended', async () => {
+  it('tells the pools a run has ended, at the time the run ended', async () => {
     const { endings, workEnded } = ending();
+    const endedAt = new Date(NOW.getTime() - 60_000);
 
-    await endings.runEnded(RunId.of('run_1'));
+    await endings.runEnded(RunId.of('run_1'), endedAt);
 
-    expect(workEnded).toHaveBeenCalledWith({ kind: 'run', id: 'run_1' }, NOW);
+    expect(workEnded).toHaveBeenCalledWith(
+      { kind: 'run', id: 'run_1' },
+      endedAt,
+    );
   });
 
   it('tells the pools a runner’s reservation was dropped', async () => {

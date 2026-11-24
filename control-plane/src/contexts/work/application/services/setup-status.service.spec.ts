@@ -18,6 +18,7 @@ type Options = {
   connected?: boolean;
   harness?: boolean;
   hosted?: boolean;
+  platform?: boolean;
   chats?: readonly SetupChatView[];
 };
 
@@ -29,6 +30,7 @@ const read = (options: Options = {}) => {
   const runners = {
     readyToRun: vi.fn().mockResolvedValue(options.harness ?? false),
     hasEgressCapableRunner: vi.fn().mockResolvedValue(options.hosted ?? false),
+    hasPlatformRunners: vi.fn().mockResolvedValue(options.platform ?? false),
   } as unknown as RunnerReaderPort;
 
   const chats = {
@@ -49,8 +51,15 @@ describe('SetupStatus', () => {
         hasHarness: false,
         configured: false,
       },
+      runners: { platform: false },
       hasEgressCapableRunner: false,
       chat: null,
+    });
+  });
+
+  it('says whether the deployment gives the workspace platform runners', async () => {
+    await expect(read({ platform: true })).resolves.toMatchObject({
+      runners: { platform: true },
     });
   });
 

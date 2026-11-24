@@ -1,4 +1,8 @@
 import {
+  RUNNER_SOURCE_KIND_FACTS,
+  RUN_WAIT_REASON_FACTS,
+} from '@runs/application/ports/run-facts.port';
+import {
   MESSAGE_OUTCOMES,
   type MessageOutcome,
 } from '@work/domain/services/message-effect';
@@ -22,6 +26,21 @@ export const RUN_DRIVER_NAMES = RUN_DRIVERS;
 
 export const MESSAGE_OUTCOME_NAMES = MESSAGE_OUTCOMES;
 
+export const RUNNER_SOURCE_KIND_NAMES = RUNNER_SOURCE_KIND_FACTS;
+
+export const RUN_WAIT_REASON_NAMES = RUN_WAIT_REASON_FACTS;
+
+interface RunRanOnDto {
+  readonly kind: (typeof RUNNER_SOURCE_KIND_NAMES)[number];
+  readonly key: string;
+  readonly platform: boolean;
+}
+
+interface RunWaitingDto {
+  readonly reason: (typeof RUN_WAIT_REASON_NAMES)[number];
+  readonly since: string;
+}
+
 type RunDriverName = RunDriver;
 
 export interface RunStationDto {
@@ -41,6 +60,8 @@ export interface TaskRunDto {
   readonly updatedAt: string;
   readonly harness: string;
   readonly image: string | null;
+  readonly ranOn: RunRanOnDto | null;
+  readonly waiting: RunWaitingDto | null;
   readonly station: RunStationDto | null;
   readonly review: RunReviewDto | null;
   readonly progress: Progress | null;

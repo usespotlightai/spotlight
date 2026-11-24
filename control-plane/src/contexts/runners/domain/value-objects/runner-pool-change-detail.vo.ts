@@ -11,11 +11,25 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
     readonly secretRotated: boolean,
     readonly egressChanged: boolean,
     readonly disabled: boolean | null = null,
+    readonly allowsSecrets: boolean | null = null,
+    readonly allowsReviewWork: boolean | null = null,
     readonly workingCopiesChanged = false,
   ) {}
 
-  static created(mode: PoolMode): RunnerPoolChangeDetail {
-    return new RunnerPoolChangeDetail(mode, false, false, false);
+  // A platform pool records the work it takes from the start.
+  static created(
+    mode: PoolMode,
+    allows: { allowsSecrets: boolean; allowsReviewWork: boolean } | null = null,
+  ): RunnerPoolChangeDetail {
+    return new RunnerPoolChangeDetail(
+      mode,
+      false,
+      false,
+      false,
+      null,
+      allows?.allowsSecrets ?? null,
+      allows?.allowsReviewWork ?? null,
+    );
   }
 
   static updated(
@@ -25,6 +39,8 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       secretRotated: boolean;
       egressChanged?: boolean;
       disabled?: boolean;
+      allowsSecrets?: boolean;
+      allowsReviewWork?: boolean;
       workingCopiesChanged?: boolean;
     },
   ): RunnerPoolChangeDetail {
@@ -34,6 +50,8 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       moved.secretRotated,
       moved.egressChanged ?? false,
       moved.disabled ?? null,
+      moved.allowsSecrets ?? null,
+      moved.allowsReviewWork ?? null,
       moved.workingCopiesChanged ?? false,
     );
   }
@@ -47,6 +65,12 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       ...(this.workingCopiesChanged ? { workingCopiesChanged: true } : {}),
       ...(typeof this.disabled === 'boolean'
         ? { disabled: this.disabled }
+        : {}),
+      ...(typeof this.allowsSecrets === 'boolean'
+        ? { allowsSecrets: this.allowsSecrets }
+        : {}),
+      ...(typeof this.allowsReviewWork === 'boolean'
+        ? { allowsReviewWork: this.allowsReviewWork }
         : {}),
     };
   }

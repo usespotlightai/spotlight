@@ -371,7 +371,10 @@ describe('change review receiving a stack’s check end', () => {
       anOutboxRecord(),
     );
 
-    expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
+    expect(released).toHaveBeenCalledWith(
+      ChangeStackId.of('stack_1'),
+      new Date('2026-10-02T09:30:00.000Z'),
+    );
   });
 
   it('releases the runner of a stack whose layers failed their check', async () => {
@@ -385,7 +388,10 @@ describe('change review receiving a stack’s check end', () => {
       anOutboxRecord(),
     );
 
-    expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
+    expect(released).toHaveBeenCalledWith(
+      ChangeStackId.of('stack_1'),
+      undefined,
+    );
   });
 });
 

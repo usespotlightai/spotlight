@@ -6,6 +6,7 @@ import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { PlatformPoolChange } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { LONGEST_PAGE } from '@shared-kernel/application/dto/page.dto';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -88,19 +89,17 @@ export class PlatformPools {
     }
   }
 
-  // The platform pool of the workspace stays disabled across restarts, until it is enabled again.
-  // The operator of the deployment asks for the change, which shows as made by Spotlight.
-  disable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
-    return this.change(workspaceId, true);
-  }
-
-  enable(workspaceId: WorkspaceId): Promise<PlatformPoolChangeDto | null> {
-    return this.change(workspaceId, false);
+  // The operator of the deployment enables or disables the platform pool of the workspace, and allows it runs that inject secrets, or checks and diffs. A disabled platform pool stays disabled across restarts, until it is enabled again. The change shows as made by Spotlight.
+  set(
+    workspaceId: WorkspaceId,
+    change: PlatformPoolChange,
+  ): Promise<PlatformPoolChangeDto | null> {
+    return this.change(workspaceId, (pool, by) => pool.configure(change, by));
   }
 
   private async change(
     workspaceId: WorkspaceId,
-    disabled: boolean,
+    apply: (pool: RunnerPool, by: ChangeActor) => RunnerPool,
   ): Promise<PlatformPoolChangeDto | null> {
     if (!(await this.workspaces.isOpen(workspaceId))) {
       return null;
@@ -125,15 +124,22 @@ export class PlatformPools {
         workspaceId,
         labels: this.settings.labels,
         egress: this.settings.egress,
+        allows: this.settings.allows,
         by,
       });
-    const changed = disabled ? pool.disable(by) : pool.enable(by);
+    const changed = apply(pool, by);
 
-    await this.transaction.inTransaction(() =>
-      found ? this.pools.save(changed) : this.pools.add(changed),
-    );
+    if (!found || changed !== pool) {
+      await this.transaction.inTransaction(() =>
+        found ? this.pools.save(changed) : this.pools.add(changed),
+      );
+    }
 
-    return { outcome: changed.isDisabled ? 'disabled' : 'enabled' };
+    return {
+      outcome: changed.isDisabled ? 'disabled' : 'enabled',
+      allowsSecrets: changed.allowsSecrets,
+      allowsReviewWork: changed.allowsReviewWork,
+    };
   }
 
   private platformKeyHolder(
@@ -169,6 +175,7 @@ export class PlatformPools {
       workspaceId,
       labels: settings.labels,
       egress: settings.egress,
+      allows: settings.allows,
       by: ChangeActor.spotlight(workspaceId),
     });
 

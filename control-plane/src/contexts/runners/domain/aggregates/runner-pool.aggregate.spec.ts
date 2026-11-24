@@ -424,6 +424,89 @@ describe('RunnerPool for the platform', () => {
     ]);
   });
 
+  it('takes no runs that inject secrets and no review work until the operator allows them, while a pool of the workspace takes both', () => {
+    const pool = aPlatformPool();
+
+    expect(pool.allowsSecrets).toBe(false);
+    expect(pool.allowsReviewWork).toBe(false);
+    expect(aPushPool().allowsSecrets).toBe(true);
+    expect(aPushPool().allowsReviewWork).toBe(true);
+
+    const allowed = pool.configure({ allowsReviewWork: true }, BY);
+
+    expect(allowed.allowsSecrets).toBe(false);
+    expect(allowed.allowsReviewWork).toBe(true);
+    expect(
+      allowed.reconcile({ labels: RunnerLabels.of(['gpu']), egress: null }, BY)
+        .allowsReviewWork,
+    ).toBe(true);
+    expect(allowed.disable(BY).enable(BY).allowsReviewWork).toBe(true);
+  });
+
+  it('takes runs that inject secrets, and checks and diffs, only while the operator allows them', () => {
+    const refusing = aPlatformPool();
+    const allowing = aPlatformPool({
+      allows: { allowsSecrets: true, allowsReviewWork: true },
+    });
+
+    expect(refusing.takes({ kind: 'run', needsEgress: false })).toBe(true);
+    expect(refusing.takes({ kind: 'run', needsEgress: true })).toBe(false);
+    expect(refusing.takes({ kind: 'check', needsEgress: false })).toBe(false);
+    expect(allowing.takes({ kind: 'diff', needsEgress: false })).toBe(true);
+    expect(aPushPool().takes({ kind: 'check', needsEgress: true })).toBe(true);
+  });
+
+  it('records the work a new platform pool takes from the start', () => {
+    const created = RunnerPool.createPlatform({
+      id: PoolId.of('pool_new'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      labels: RunnerLabels.none(),
+      egress: null,
+      allows: { allowsSecrets: true },
+      by: BY,
+    });
+
+    expect(
+      created
+        .pullEvents()
+        .flatMap((each) =>
+          each instanceof RunnerPoolCreated ? [each.change.recordedDetail] : [],
+        ),
+    ).toEqual([{ mode: 'push', allowsSecrets: true, allowsReviewWork: false }]);
+  });
+
+  it('records one change when the operator disables the pool and allows it work in one step', () => {
+    const pool = aPlatformPool();
+    pool.pullEvents();
+    const configured = pool.configure(
+      { enabled: false, allowsSecrets: true },
+      BY,
+    );
+
+    expect(recordedOf(configured)).toEqual([
+      { mode: 'push', disabled: true, allowsSecrets: true },
+    ]);
+    expect(configured.isDisabled).toBe(true);
+    expect(configured.allowsSecrets).toBe(true);
+  });
+
+  it('records each change to the work it allows, and nothing when it is already so', () => {
+    const pool = aPlatformPool();
+    pool.pullEvents();
+    const allowed = pool.configure(
+      { allowsSecrets: true, allowsReviewWork: false },
+      BY,
+    );
+
+    expect(recordedOf(allowed)).toEqual([
+      { mode: 'push', allowsSecrets: true },
+    ]);
+    expect(allowed.configure({ allowsSecrets: true }, BY)).toBe(allowed);
+    expect(() => aPushPool().configure({ allowsSecrets: true }, BY)).toThrow(
+      InconsistentStateError,
+    );
+  });
+
   it('refuses the changes of a workspace pool, and a workspace pool refuses the changes of the platform pool', () => {
     expect(() =>
       aPlatformPool().update(

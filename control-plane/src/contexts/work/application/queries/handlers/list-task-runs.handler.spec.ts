@@ -29,6 +29,8 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
   endedAt: new Date('2026-08-28T16:33:25.712Z'),
   harness: 'claude-code',
   image: null,
+  ranOn: null,
+  waiting: null,
   station: {
     id: 'station_3',
     name: 'Implementation',
@@ -88,6 +90,36 @@ describe('ListTaskRunsHandler', () => {
 
     expect(ran?.image).toBe(pinned);
     expect(unreported?.image).toBeNull();
+  });
+
+  it('carries the pool a run ran on, and why a queued run waits since when', async () => {
+    const { runs } = reading([
+      summary({ ranOn: { kind: 'pool', key: 'spotlight', platform: true } }),
+      summary({
+        state: 'queued',
+        waiting: {
+          reason: 'no-pool-has-room',
+          since: new Date('2026-08-28T16:40:00.000Z'),
+        },
+      }),
+    ]);
+
+    const [ran, queued] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+      linesWhere(),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+
+    expect(ran?.ranOn).toEqual({
+      kind: 'pool',
+      key: 'spotlight',
+      platform: true,
+    });
+    expect(ran?.waiting).toBeNull();
+    expect(queued?.waiting).toEqual({
+      reason: 'no-pool-has-room',
+      since: '2026-08-28T16:40:00.000Z',
+    });
   });
 
   it('says whether the line or a person who took the task over drove each run', async () => {

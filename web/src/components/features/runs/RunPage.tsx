@@ -10,6 +10,7 @@ import { RunConversation } from '@/components/features/runs/RunConversation';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunFooter } from '@/components/features/runs/RunFooter';
 import { RunHeader } from '@/components/features/runs/RunHeader';
+import { RunRunnerNotice } from '@/components/features/runs/RunRunnerNotice';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
@@ -75,14 +76,17 @@ export function RunPage({
   );
 
   const footer = (
-    <RunFooter
-      slug={slug}
-      teamId={teamId}
-      run={run}
-      latest={latest}
-      conversation={conversation}
-      onSent={() => setOpenAt(null)}
-    />
+    <>
+      <RunRunnerNotice run={run} />
+      <RunFooter
+        slug={slug}
+        teamId={teamId}
+        run={run}
+        latest={latest}
+        conversation={conversation}
+        onSent={() => setOpenAt(null)}
+      />
+    </>
   );
 
   const closing = underway(run) ? undefined : (

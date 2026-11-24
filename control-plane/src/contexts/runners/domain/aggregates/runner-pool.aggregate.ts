@@ -10,6 +10,8 @@ import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   modeOf,
   PlatformAccess,
+  type PlatformPoolAllowances,
+  type PlatformPoolChange,
   type PoolAccess,
   type PoolMode,
   PullAccess,
@@ -22,6 +24,7 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
+import type { RunnerWorkKind } from '@runners/domain/value-objects/runner-work.vo';
 import {
   sameWorkingCopyStore,
   type WorkingCopyStore,
@@ -139,6 +142,8 @@ export class RunnerPool extends EventRecorder {
     input: PlatformPoolDefinition & {
       id: PoolId;
       workspaceId: WorkspaceId;
+      // The work the new platform pool takes from the start. None when not given.
+      allows?: PlatformPoolAllowances;
       by: ChangeActor;
     },
   ): RunnerPool {
@@ -148,7 +153,7 @@ export class RunnerPool extends EventRecorder {
       PoolKey.platform(),
       input.labels,
       null,
-      PlatformAccess.of(input.egress),
+      PlatformAccess.of(input.egress, false, input.allows),
       0,
       false,
     );
@@ -161,7 +166,10 @@ export class RunnerPool extends EventRecorder {
         ConfigurationChange.created(
           created.whatChanged,
           input.by,
-          RunnerPoolChangeDetail.created(created.mode),
+          RunnerPoolChangeDetail.created(created.mode, {
+            allowsSecrets: created.allowsSecrets,
+            allowsReviewWork: created.allowsReviewWork,
+          }),
         ),
       ),
     );
@@ -281,6 +289,16 @@ export class RunnerPool extends EventRecorder {
     return this.access.kind === 'platform';
   }
 
+  // A pool of the workspace takes any work it fits. The platform pool takes runs that inject secrets only when the operator allows it.
+  get allowsSecrets(): boolean {
+    return this.access.kind !== 'platform' || this.access.allowsSecrets;
+  }
+
+  // A pool of the workspace takes any work it fits. The platform pool takes checks and diffs only when the operator allows it.
+  get allowsReviewWork(): boolean {
+    return this.access.kind !== 'platform' || this.access.allowsReviewWork;
+  }
+
   // The deployment gives the provisioner of the platform pool. With no provisioner set, the platform pool provisions nothing.
   canProvision(platformPoolSet: boolean): boolean {
     return (
@@ -311,6 +329,17 @@ export class RunnerPool extends EventRecorder {
 
   servesEgressNeed(needsEgress: boolean): boolean {
     return !needsEgress || this.egress !== null;
+  }
+
+  // The pool takes the work only if the operator allows it this kind of work now: runs that inject secrets, or checks and diffs.
+  takes(work: {
+    readonly kind: RunnerWorkKind;
+    readonly needsEgress: boolean;
+  }): boolean {
+    return (
+      (this.allowsSecrets || !work.needsEgress) &&
+      (this.allowsReviewWork || work.kind === 'run')
+    );
   }
 
   usesEgress(egress: EgressReference): boolean {
@@ -426,7 +455,7 @@ export class RunnerPool extends EventRecorder {
     return this.updatePlatform(
       {
         labels: definition.labels,
-        access: PlatformAccess.of(definition.egress, access.disabled),
+        access: access.withEgress(definition.egress),
       },
       by,
       { egressChanged },
@@ -434,11 +463,32 @@ export class RunnerPool extends EventRecorder {
   }
 
   disable(by: ChangeActor): RunnerPool {
-    return this.setDisabled(true, by);
+    return this.configure({ enabled: false }, by);
   }
 
   enable(by: ChangeActor): RunnerPool {
-    return this.setDisabled(false, by);
+    return this.configure({ enabled: true }, by);
+  }
+
+  // The operator of the deployment enables or disables the platform pool of one workspace, and allows it runs that inject secrets, or checks and diffs. One change records one configuration change.
+  configure(change: PlatformPoolChange, by: ChangeActor): RunnerPool {
+    const access = this.assertPlatform();
+    const next = access.changed(change);
+    const moved = {
+      ...(next.disabled === access.disabled ? {} : { disabled: next.disabled }),
+      ...(next.allowsSecrets === access.allowsSecrets
+        ? {}
+        : { allowsSecrets: next.allowsSecrets }),
+      ...(next.allowsReviewWork === access.allowsReviewWork
+        ? {}
+        : { allowsReviewWork: next.allowsReviewWork }),
+    };
+
+    if (Object.keys(moved).length === 0) {
+      return this;
+    }
+
+    return this.updatePlatform({ access: next }, by, moved);
   }
 
   // Only Spotlight deletes the platform pool: when its workspace is deleted, or when the deployment sets no platform provisioner.
@@ -466,22 +516,15 @@ export class RunnerPool extends EventRecorder {
     return deleted;
   }
 
-  private setDisabled(disabled: boolean, by: ChangeActor): RunnerPool {
-    const access = this.assertPlatform();
-
-    if (access.disabled === disabled) {
-      return this;
-    }
-
-    return this.updatePlatform({ access: access.withDisabled(disabled) }, by, {
-      disabled,
-    });
-  }
-
   private updatePlatform(
     part: { labels?: RunnerLabels; access: PlatformAccess },
     by: ChangeActor,
-    moved: { egressChanged?: boolean; disabled?: boolean },
+    moved: {
+      egressChanged?: boolean;
+      disabled?: boolean;
+      allowsSecrets?: boolean;
+      allowsReviewWork?: boolean;
+    },
   ): RunnerPool {
     const updated = this.with(part);
 

@@ -3,7 +3,9 @@ import {
   offerOrder,
   PoolRoom,
   poolChoiceFor,
+  waitReasonFor,
 } from '@runs/domain/services/pool-choice';
+import type { WorkNeeds } from '@runs/domain/services/pool-fit';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -14,25 +16,40 @@ const STEADY = PoolId.of('steady');
 const SPARE = PoolId.of('spare');
 const PLATFORM = PoolId.of('spotlight');
 
+const RUN: WorkNeeds = { secrets: false, reviewWork: false };
+const SECRET_RUN: WorkNeeds = { secrets: true, reviewWork: false };
+const CHECK: WorkNeeds = { secrets: false, reviewWork: true };
+
 const aPool = (
   pool: PoolId,
   labels: string[] = [],
   egress = false,
   platform = false,
+  allows = { allowsSecrets: true, allowsReviewWork: true },
 ) => ({
   pool,
   key: pool.value,
   labels: RunnerOffer.of(labels),
   egress,
   platform,
+  images: null,
+  ...allows,
 });
 
-const aPlatformPool = (labels: string[] = [], egress = false) =>
-  aPool(PLATFORM, labels, egress, true);
+const aPlatformPool = (
+  labels: string[] = [],
+  egress = false,
+  allows = { allowsSecrets: true, allowsReviewWork: true },
+) => aPool(PLATFORM, labels, egress, true, allows);
+
+const REFUSING = { allowsSecrets: false, allowsReviewWork: false };
 
 const hostsServing = (labels: string[]): HostOffer => ({
   labels: RunnerOffer.of(labels),
   egress: true,
+  images: null,
+  allowsSecrets: true,
+  allowsReviewWork: true,
 });
 
 const POOLS = [aPool(BURST, ['gpu']), aPool(STEADY), aPool(SPARE)];
@@ -46,12 +63,12 @@ describe('poolChoiceFor', () => {
     ]);
 
     expect(
-      poolChoiceFor(RunnerPlacement.anywhere(), POOLS, [], room).map(
+      poolChoiceFor(RunnerPlacement.anywhere(), POOLS, [], room, RUN).map(
         (each) => each.pool,
       ),
     ).toEqual([BURST, STEADY]);
     expect(
-      poolChoiceFor(RunnerPlacement.of(['gpu']), POOLS, [], room).map(
+      poolChoiceFor(RunnerPlacement.of(['gpu']), POOLS, [], room, RUN).map(
         (each) => each.pool,
       ),
     ).toEqual([BURST]);
@@ -65,12 +82,16 @@ describe('poolChoiceFor', () => {
     ]);
 
     expect(
-      poolChoiceFor(RunnerPlacement.anywhere(), pools, [], room, true).map(
-        (each) => each.pool,
-      ),
+      poolChoiceFor(
+        RunnerPlacement.anywhere(),
+        pools,
+        [],
+        room,
+        SECRET_RUN,
+      ).map((each) => each.pool),
     ).toEqual([STEADY]);
     expect(
-      poolChoiceFor(RunnerPlacement.anywhere(), pools, [], room).map(
+      poolChoiceFor(RunnerPlacement.anywhere(), pools, [], room, RUN).map(
         (each) => each.pool,
       ),
     ).toEqual([BURST, STEADY]);
@@ -84,12 +105,12 @@ describe('poolChoiceFor', () => {
     ]);
 
     expect(
-      poolChoiceFor(RunnerPlacement.of(['gpu']), pools, [], room).map(
+      poolChoiceFor(RunnerPlacement.of(['gpu']), pools, [], room, RUN).map(
         (each) => each.pool,
       ),
     ).toEqual([BURST]);
     expect(
-      poolChoiceFor(RunnerPlacement.of(['arm']), pools, [], room).map(
+      poolChoiceFor(RunnerPlacement.of(['arm']), pools, [], room, RUN).map(
         (each) => each.pool,
       ),
     ).toEqual([PLATFORM]);
@@ -102,9 +123,9 @@ describe('poolChoiceFor', () => {
       [PLATFORM, null],
     ]);
 
-    expect(poolChoiceFor(RunnerPlacement.of(['gpu']), pools, [], room)).toEqual(
-      [],
-    );
+    expect(
+      poolChoiceFor(RunnerPlacement.of(['gpu']), pools, [], room, RUN),
+    ).toEqual([]);
   });
 
   it('keeps work that the hosts of a pull pool or a trust fit off the platform pool', () => {
@@ -117,6 +138,7 @@ describe('poolChoiceFor', () => {
         pools,
         [hostsServing(['gpu'])],
         room,
+        RUN,
       ),
     ).toEqual([]);
     expect(
@@ -125,7 +147,7 @@ describe('poolChoiceFor', () => {
         pools,
         [hostsServing([])],
         room,
-        true,
+        SECRET_RUN,
       ),
     ).toEqual([]);
     expect(
@@ -134,6 +156,7 @@ describe('poolChoiceFor', () => {
         pools,
         [hostsServing(['arm'])],
         room,
+        RUN,
       ).map((each) => each.pool),
     ).toEqual([PLATFORM]);
   });
@@ -146,7 +169,28 @@ describe('poolChoiceFor', () => {
     ]);
 
     expect(
-      poolChoiceFor(RunnerPlacement.anywhere(), pools, [], room, true).map(
+      poolChoiceFor(
+        RunnerPlacement.anywhere(),
+        pools,
+        [],
+        room,
+        SECRET_RUN,
+      ).map((each) => each.pool),
+    ).toEqual([PLATFORM]);
+  });
+
+  it('keeps secrets and review work off a platform pool that the operator does not allow them', () => {
+    const refusing = [aPlatformPool([], true, REFUSING)];
+    const room = PoolRoom.of([[PLATFORM, null]]);
+
+    expect(
+      poolChoiceFor(RunnerPlacement.anywhere(), refusing, [], room, SECRET_RUN),
+    ).toEqual([]);
+    expect(
+      poolChoiceFor(RunnerPlacement.anywhere(), refusing, [], room, CHECK),
+    ).toEqual([]);
+    expect(
+      poolChoiceFor(RunnerPlacement.anywhere(), refusing, [], room, RUN).map(
         (each) => each.pool,
       ),
     ).toEqual([PLATFORM]);
@@ -154,7 +198,13 @@ describe('poolChoiceFor', () => {
 
   it('offers no pool whose room it was never told', () => {
     expect(
-      poolChoiceFor(RunnerPlacement.anywhere(), POOLS, [], PoolRoom.of([])),
+      poolChoiceFor(
+        RunnerPlacement.anywhere(),
+        POOLS,
+        [],
+        PoolRoom.of([]),
+        RUN,
+      ),
     ).toEqual([]);
   });
 });
@@ -204,5 +254,54 @@ describe('PoolRoom', () => {
       ]).anyLeft,
     ).toBe(true);
     expect(PoolRoom.of([[BURST, 2]]).anyLeft).toBe(true);
+  });
+});
+
+describe('waitReasonFor', () => {
+  it('says the hosts pull work that they fit', () => {
+    expect(
+      waitReasonFor(
+        RunnerPlacement.of(['gpu']),
+        [],
+        [hostsServing(['gpu'])],
+        RUN,
+      ),
+    ).toBe('hosts-pull');
+  });
+
+  it('says the pools are full when a pool fits the work', () => {
+    expect(
+      waitReasonFor(
+        RunnerPlacement.of(['gpu']),
+        [aPool(BURST, ['gpu'])],
+        [],
+        RUN,
+      ),
+    ).toBe('no-pool-has-room');
+  });
+
+  it('says the operator does not allow the platform pool the work when only that keeps it off', () => {
+    const refusing = [aPlatformPool([], true, REFUSING)];
+
+    expect(
+      waitReasonFor(RunnerPlacement.anywhere(), refusing, [], SECRET_RUN),
+    ).toBe('platform-pool-not-allowed');
+    expect(waitReasonFor(RunnerPlacement.anywhere(), refusing, [], CHECK)).toBe(
+      'platform-pool-not-allowed',
+    );
+  });
+
+  it('says no pool matches when no pool or host could take the work at all', () => {
+    expect(
+      waitReasonFor(
+        RunnerPlacement.of(['vpc-internal']),
+        [aPool(BURST, ['gpu']), aPlatformPool([], true, REFUSING)],
+        [hostsServing(['arm'])],
+        RUN,
+      ),
+    ).toBe('no-pool-matches');
+    expect(
+      waitReasonFor(RunnerPlacement.anywhere(), [aPool(BURST)], [], SECRET_RUN),
+    ).toBe('no-pool-matches');
   });
 });

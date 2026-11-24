@@ -62,11 +62,18 @@ const credentialSourceOf = (row: Row): CredentialSource => {
   );
 };
 
+// A runner that claimed its work before runners kept the claim time has no claimed_at. Its first heartbeat came with the claim, so that time stands in.
+const claimedAtOf = (row: Row): Date | null =>
+  row.workKind === null
+    ? null
+    : (row.claimedAt ?? row.lastHeartbeatAt ?? row.startedAt);
+
 const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
     id: RunnerId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     source: credentialSourceOf(row),
+    platform: row.platform,
     hostId: row.hostId === null ? null : HostId.of(row.hostId),
     enters:
       row.entersSandboxId === null ? null : SandboxId.of(row.entersSandboxId),
@@ -94,6 +101,7 @@ const toRunner = (row: Row): Runner =>
     work: workOf(row),
     claimBy: row.claimBy,
     startedAt: row.startedAt,
+    claimedAt: claimedAtOf(row),
     lastHeartbeatAt: row.lastHeartbeatAt,
     endedAt: row.endedAt,
     version: row.version,
@@ -114,6 +122,7 @@ const columnsOf = (runner: Runner) => ({
   ),
   workKind: runner.work?.kind ?? null,
   workId: runner.work?.id ?? null,
+  claimedAt: runner.claimedAt,
   lastHeartbeatAt: runner.lastHeartbeatAt,
   endedAt: runner.endedAt,
 });
@@ -145,6 +154,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         workspaceId: added.workspaceId.value,
         poolId: added.source.poolId?.value ?? null,
         trustId: added.source.trustId?.value ?? null,
+        platform: added.isPlatform,
         hostId: added.hostId?.value ?? null,
         entersSandboxId: added.enters?.value ?? null,
         labels: [...added.labels.values],

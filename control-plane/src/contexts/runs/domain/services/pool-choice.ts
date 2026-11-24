@@ -1,22 +1,22 @@
-import { poolFits } from '@runs/domain/services/pool-fit';
+import {
+  type Offer,
+  offerCouldServe,
+  poolFits,
+  type WorkNeeds,
+} from '@runs/domain/services/pool-fit';
+import type { WaitReason } from '@runs/domain/value-objects/run-waiting';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
-import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 
-export interface PoolOnOffer {
+export interface PoolOnOffer extends Offer {
   readonly pool: PoolId;
   readonly key: string;
-  readonly labels: RunnerOffer;
-  readonly egress: boolean;
   // Spotlight adds the platform pool to each workspace. It takes only work that no other pool or host of the workspace fits.
   readonly platform: boolean;
 }
 
 // What the hosts of a pull pool or a trust can take. Hosts pull their runners, so Spotlight never chooses a host offer.
-export interface HostOffer {
-  readonly labels: RunnerOffer;
-  readonly egress: boolean;
-}
+export type HostOffer = Offer;
 
 // The workspace's own pools come first, by key. The platform pool comes last.
 export const offerOrder = (one: PoolOnOffer, other: PoolOnOffer): number => {
@@ -68,14 +68,14 @@ export const poolChoiceFor = <Pool extends PoolOnOffer>(
   pools: readonly Pool[],
   hostOffers: readonly HostOffer[],
   room: PoolRoom,
-  needsEgress = false,
+  needs: WorkNeeds,
 ): readonly Pool[] => {
   const fitting = pools.filter((offered) =>
-    poolFits(placement, offered, needsEgress),
+    poolFits(placement, offered, needs),
   );
   const owned = fitting.filter((offered) => !offered.platform);
   const hostsFit = hostOffers.some((offer) =>
-    poolFits(placement, offer, needsEgress),
+    poolFits(placement, offer, needs),
   );
   const chosen =
     owned.length > 0 || hostsFit
@@ -83,4 +83,26 @@ export const poolChoiceFor = <Pool extends PoolOnOffer>(
       : fitting.filter((offered) => offered.platform);
 
   return chosen.filter((offered) => room.hasRoomIn(offered.pool));
+};
+
+// Why no pool takes the work now: hosts pull it, the pools that fit it are full, a pool could take it once the operator allows it, or no pool or host could take it at all.
+export const waitReasonFor = (
+  placement: RunnerPlacement,
+  pools: readonly PoolOnOffer[],
+  hostOffers: readonly HostOffer[],
+  needs: WorkNeeds,
+): WaitReason => {
+  const fits = (offer: Offer): boolean => poolFits(placement, offer, needs);
+
+  if (hostOffers.some(fits)) {
+    return 'hosts-pull';
+  }
+
+  if (pools.some(fits)) {
+    return 'no-pool-has-room';
+  }
+
+  return pools.some((offer) => offerCouldServe(placement, offer, needs))
+    ? 'platform-pool-not-allowed'
+    : 'no-pool-matches';
 };

@@ -50,6 +50,8 @@ const run = (
   updatedAt: new Date().toISOString(),
   harness: 'claude-code',
   image: null,
+  ranOn: null,
+  waiting: null,
   station: null,
   review,
   waitingForYou,

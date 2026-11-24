@@ -67,6 +67,7 @@ const runner = (over: Partial<typeof schema.runner.$inferInsert>) => ({
   tokenHash: aTokenHash(),
   claimBy: minutesAgo(-1),
   startedAt: minutesAgo(5),
+  claimedAt: over.workKind ? minutesAgo(4) : null,
   ...over,
 });
 
@@ -76,6 +77,7 @@ beforeAll(async () => {
   reader = new DrizzleRunnerReader(db, { now: () => NOW } as never, {
     platformEgressSet: false,
     platformPoolSet: false,
+    platformImages: null,
   });
   runners = new DrizzleRunnerRepository(new DrizzleContext(db), {
     dispatch: async () => {},

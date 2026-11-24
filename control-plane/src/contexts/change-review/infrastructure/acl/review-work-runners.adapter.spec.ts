@@ -23,6 +23,21 @@ describe('ReviewWorkRunners', () => {
     );
   });
 
+  it('ends the runner of a check at the time the check ended, where it is known', async () => {
+    const workEnded = vi.fn(async () => {});
+    const at = new Date(NOW.getTime() - 60_000);
+
+    await new ReviewWorkRunners(
+      { workEnded } as unknown as RunnersPort,
+      clock,
+    ).checkReleased(ChangeStackId.of('stack_1'), at);
+
+    expect(workEnded).toHaveBeenCalledWith(
+      { kind: 'check', id: 'stack_1' },
+      at,
+    );
+  });
+
   it('tells the pools to release a runner whose reservation was dropped', async () => {
     const reservationDropped = vi.fn(async () => {});
 

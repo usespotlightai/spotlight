@@ -4,6 +4,7 @@ import type {
 } from '@runs/domain/aggregates/run.aggregate';
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import {
   RunWorkingCopy,
   WorkingCopyKey,
@@ -139,7 +140,18 @@ export const orderedFor = {
   },
 };
 
-export const claimer = (runner: RunnerId, workspace = 'ws_1'): RunClaimer => ({
+export const OWN_POOL = RunnerSource.of({
+  kind: 'pool',
+  key: 'burst',
+  platform: false,
+});
+
+export const claimer = (
+  runner: RunnerId,
+  workspace = 'ws_1',
+  source: RunnerSource | null = OWN_POOL,
+): RunClaimer => ({
   runner,
   workspaceId: WorkspaceId.of(workspace),
+  source,
 });

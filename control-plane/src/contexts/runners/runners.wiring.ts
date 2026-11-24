@@ -45,11 +45,10 @@ import { DeleteRunnerPoolHandler } from '@runners/application/commands/handlers/
 import { DeleteRunnerTrustHandler } from '@runners/application/commands/handlers/delete-runner-trust.handler';
 import { DeleteWorkspaceRunnersHandler } from '@runners/application/commands/handlers/delete-workspace-runners.handler';
 import { DeregisterHostHandler } from '@runners/application/commands/handlers/deregister-host.handler';
-import { DisablePlatformPoolHandler } from '@runners/application/commands/handlers/disable-platform-pool.handler';
-import { EnablePlatformPoolHandler } from '@runners/application/commands/handlers/enable-platform-pool.handler';
 import { HostHeartbeatHandler } from '@runners/application/commands/handlers/host-heartbeat.handler';
 import { OpenSandboxHandler } from '@runners/application/commands/handlers/open-sandbox.handler';
 import { RegisterRunnerHandler } from '@runners/application/commands/handlers/register-runner.handler';
+import { SetPlatformPoolHandler } from '@runners/application/commands/handlers/set-platform-pool.handler';
 import { UpdateEgressHandler } from '@runners/application/commands/handlers/update-egress.handler';
 import { UpdateRunnerPoolHandler } from '@runners/application/commands/handlers/update-runner-pool.handler';
 import { UpdateRunnerTrustHandler } from '@runners/application/commands/handlers/update-runner-trust.handler';
@@ -59,10 +58,7 @@ import {
   DeregisterHostCommand,
   HostHeartbeatCommand,
 } from '@runners/application/commands/host.commands';
-import {
-  DisablePlatformPoolCommand,
-  EnablePlatformPoolCommand,
-} from '@runners/application/commands/platform-pool.commands';
+import { SetPlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
 import { RegisterRunnerCommand } from '@runners/application/commands/runner-fleet.commands';
 import {
   CreateEgressCommand,
@@ -243,6 +239,7 @@ import {
   WORKLOAD_TOKENS,
   type WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
@@ -263,6 +260,17 @@ const platformPoolOf = (env: Env): PlatformPoolSettings | null =>
         egress: env.SPOTLIGHT_PLATFORM_POOL_EGRESS
           ? EgressReference.of(env.SPOTLIGHT_PLATFORM_POOL_EGRESS)
           : null,
+        allows: {
+          allowsSecrets: env.SPOTLIGHT_PLATFORM_POOL_ALLOWS.includes('secrets'),
+          allowsReviewWork:
+            env.SPOTLIGHT_PLATFORM_POOL_ALLOWS.includes('review-work'),
+        },
+        images:
+          env.SPOTLIGHT_PLATFORM_POOL_IMAGES.length > 0
+            ? env.SPOTLIGHT_PLATFORM_POOL_IMAGES.map((each) =>
+                RunnerImage.of(each),
+              )
+            : null,
       }
     : null;
 
@@ -607,9 +615,16 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RUNNER_CLAIMANTS,
-    inject: [DrizzleRunnerRepository],
-    useFactory: (runners: DrizzleRunnerRepository) =>
-      new RunnerClaimants(runners),
+    inject: [
+      DrizzleRunnerRepository,
+      DrizzleRunnerPoolRepository,
+      DrizzleRunnerTrustRepository,
+    ],
+    useFactory: (
+      runners: DrizzleRunnerRepository,
+      pools: DrizzleRunnerPoolRepository,
+      trusts: DrizzleRunnerTrustRepository,
+    ) => new RunnerClaimants(runners, pools, trusts),
   },
   {
     provide: RunnerAuthenticator,
@@ -737,6 +752,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       new RunnerPools(pools, trusts, runners, placements, authenticator, {
         platformEgressSet: platformEgress !== null,
         platformPoolSet: platformPool !== null,
+        platformImages: platformPool?.images ?? null,
       }),
   },
   { provide: INSTALLER_ASSETS, useClass: InstallerAssets },
@@ -763,6 +779,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       new DrizzleRunnerReader(db, clock, {
         platformEgressSet: platformEgress !== null,
         platformPoolSet: platformPool !== null,
+        platformImages: platformPool?.images ?? null,
       }),
   },
   { provide: IDLE_WORKING_COPIES, useExisting: RUNNER_READER },
@@ -857,12 +874,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     TOKEN_ISSUER,
     TRANSACTION,
   ]),
-  ...bindCommandHandler(
-    DisablePlatformPoolCommand,
-    DisablePlatformPoolHandler,
-    [PlatformPools],
-  ),
-  ...bindCommandHandler(EnablePlatformPoolCommand, EnablePlatformPoolHandler, [
+  ...bindCommandHandler(SetPlatformPoolCommand, SetPlatformPoolHandler, [
     PlatformPools,
   ]),
   ...bindCommandHandler(UpdateRunnerPoolCommand, UpdateRunnerPoolHandler, [

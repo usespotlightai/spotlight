@@ -42,6 +42,7 @@ const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
           harnesses: [HarnessId.of('claude-code')],
           offer: RunnerOffer.none(),
           claims: 'reserved' as const,
+          source: null,
         },
   );
 
@@ -52,7 +53,10 @@ const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
       ),
       save,
     } as unknown as RunRepository,
-    { claimantOf: seen } satisfies RunnerClaimantsPort,
+    {
+      claimantOf: seen,
+      registeredClaimantOf: async () => null,
+    } satisfies RunnerClaimantsPort,
     { now: () => NOW } as ClockPort,
   );
 

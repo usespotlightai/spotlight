@@ -1,10 +1,12 @@
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import { RunnerEnded } from '@runners/domain/events/runner-ended.event';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
 import { RunnerEndedError } from '@runners/domain/exceptions/runner-ended.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
+import type { RunnerEnding } from '@runners/domain/value-objects/runner-ending';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type {
   RunnerWork,
@@ -40,6 +42,8 @@ interface State {
   readonly id: RunnerId;
   readonly workspaceId: WorkspaceId;
   readonly source: CredentialSource;
+  // The runner came in through the platform pool that Spotlight adds to each workspace.
+  readonly platform: boolean;
   readonly hostId: HostId | null;
   readonly enters: SandboxId | null;
   readonly labels: RunnerLabels;
@@ -51,6 +55,7 @@ interface State {
   readonly work: RunnerWork | null;
   readonly claimBy: Date;
   readonly startedAt: Date;
+  readonly claimedAt: Date | null;
   readonly lastHeartbeatAt: Date | null;
   readonly endedAt: Date | null;
   readonly version: number;
@@ -114,6 +119,7 @@ export class Runner extends EventRecorder {
         id: input.id,
         workspaceId: through.workspaceId,
         source: CredentialSource.ofId(through.id),
+        platform: through instanceof RunnerPool && through.isPlatform,
         hostId: input.host,
         enters: input.enters,
         labels: through.labels,
@@ -125,6 +131,7 @@ export class Runner extends EventRecorder {
         work: null,
         claimBy: input.claimBy,
         startedAt: input.at,
+        claimedAt: null,
         lastHeartbeatAt: null,
         endedAt: null,
         version: 0,
@@ -145,6 +152,34 @@ export class Runner extends EventRecorder {
       throw new InconsistentStateError('runner', 'ended before it started');
     }
 
+    if (state.claimedAt && state.claimedAt < state.startedAt) {
+      throw new InconsistentStateError(
+        'runner',
+        'claimed work before it started',
+      );
+    }
+
+    if (state.endedAt && state.claimedAt && state.endedAt < state.claimedAt) {
+      throw new InconsistentStateError(
+        'runner',
+        'ended before it claimed work',
+      );
+    }
+
+    if ((state.work === null) !== (state.claimedAt === null)) {
+      throw new InconsistentStateError(
+        'runner',
+        'has a claim time without work, or work without a claim time',
+      );
+    }
+
+    if (state.platform && state.source.kind !== 'pool') {
+      throw new InconsistentStateError(
+        'runner',
+        'came in through the platform pool, yet through a trust',
+      );
+    }
+
     return new Runner({ ...state, installed: [...state.installed] }, false);
   }
 
@@ -158,6 +193,10 @@ export class Runner extends EventRecorder {
 
   get source(): CredentialSource {
     return this.state.source;
+  }
+
+  get isPlatform(): boolean {
+    return this.state.platform;
   }
 
   get hostId(): HostId | null {
@@ -202,6 +241,10 @@ export class Runner extends EventRecorder {
 
   get startedAt(): Date {
     return this.state.startedAt;
+  }
+
+  get claimedAt(): Date | null {
+    return this.state.claimedAt;
   }
 
   get lastHeartbeatAt(): Date | null {
@@ -312,7 +355,7 @@ export class Runner extends EventRecorder {
       throw new RunnerEndedError(this.state.id.value);
     }
 
-    return this.with({ work, lastHeartbeatAt: at });
+    return this.with({ work, claimedAt: at, lastHeartbeatAt: at });
   }
 
   ended(at: Date): Runner {
@@ -320,7 +363,12 @@ export class Runner extends EventRecorder {
       return this;
     }
 
-    return this.with({ endedAt: at });
+    const end = this.endAt(at);
+    const ended = this.with({ endedAt: end });
+
+    ended.recordEnded(end, this.isAlive(at) ? 'finished' : 'lost');
+
+    return ended;
   }
 
   release(at: Date): Runner {
@@ -331,11 +379,47 @@ export class Runner extends EventRecorder {
     const discarded = new Runner(this.state, true);
     discarded.inheritEvents(this);
 
+    if (!this.hasEnded) {
+      discarded.recordEnded(this.endAt(at), 'released');
+    }
+
     return discarded;
   }
 
   reservationDropped(at: Date): Runner {
     return this.state.work === null ? this.release(at) : this;
+  }
+
+  // A runner that stopped sending heartbeats, or never claimed in time, ended when Spotlight last heard from it. Its work or its reservation can end much later, on another runner.
+  private endAt(at: Date): Date {
+    if (this.isAlive(at)) {
+      return at;
+    }
+
+    const { lastHeartbeatAt, claimedAt, startedAt } = this.state;
+    const lastHeard = lastHeartbeatAt ?? claimedAt ?? startedAt;
+
+    return lastHeard.getTime() < at.getTime() ? lastHeard : at;
+  }
+
+  // The event says how long the runner ran, for which work, and through which pool or trust.
+  private recordEnded(at: Date, ending: RunnerEnding): void {
+    const { id, workspaceId, source, platform, work, startedAt, claimedAt } =
+      this.state;
+
+    this.record(
+      new RunnerEnded(
+        id,
+        workspaceId,
+        source,
+        platform,
+        work,
+        startedAt,
+        claimedAt,
+        at,
+        ending,
+      ),
+    );
   }
 
   private assertNotEnded(): void {

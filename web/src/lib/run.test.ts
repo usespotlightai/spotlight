@@ -7,10 +7,12 @@ import {
   formatImage,
   inRunFilter,
   type Run,
+  runnerPlace,
   runStatus,
   stoppable,
   shownProgress,
   underway,
+  waitReason,
   waitsOnPerson,
 } from '@/lib/run';
 
@@ -264,5 +266,68 @@ describe('shownProgress', () => {
         journal('run_1', '2026-08-30T12:00:00.000Z'),
       ]),
     ).toBe('stopping');
+  });
+});
+
+describe('runnerPlace', () => {
+  const pool = { kind: 'pool', key: 'burst', platform: false } as const;
+
+  it('names the pool or trust of the workspace by its key', () => {
+    expect(runnerPlace({ state: 'completed', ranOn: pool })).toEqual({
+      label: 'Ran on',
+      place: 'your pool',
+      key: 'burst',
+    });
+    expect(
+      runnerPlace({
+        state: 'failed',
+        ranOn: { kind: 'trust', key: 'ci', platform: false },
+      }),
+    ).toEqual({ label: 'Ran on', place: 'your trust', key: 'ci' });
+  });
+
+  it('names the platform pool of Spotlight', () => {
+    expect(
+      runnerPlace({
+        state: 'claimed',
+        ranOn: { kind: 'pool', key: 'spotlight', platform: true },
+      }),
+    ).toEqual({
+      label: 'Runs on',
+      place: 'Spotlight platform pool',
+      key: null,
+    });
+  });
+
+  it('names no place for a run that no runner claimed, or that waits again', () => {
+    expect(runnerPlace({ state: 'completed', ranOn: null })).toBeNull();
+    expect(runnerPlace({ state: 'queued', ranOn: pool })).toBeNull();
+  });
+});
+
+describe('waitReason', () => {
+  const waiting = {
+    reason: 'no-pool-has-room',
+    since: '2026-08-30T12:00:00.000Z',
+  } as const;
+
+  it('says why a queued run waits', () => {
+    expect(waitReason({ state: 'queued', waiting })).toBe(
+      'The pools that can take this run are full. It starts when one of them has space.',
+    );
+  });
+
+  it('says that the operator keeps the run off the platform pool', () => {
+    expect(
+      waitReason({
+        state: 'queued',
+        waiting: { ...waiting, reason: 'platform-pool-not-allowed' },
+      }),
+    ).toMatch(/operator of this deployment/);
+  });
+
+  it('says nothing once the run is no longer queued, or without a reason', () => {
+    expect(waitReason({ state: 'claimed', waiting })).toBeNull();
+    expect(waitReason({ state: 'queued', waiting: null })).toBeNull();
   });
 });

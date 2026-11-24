@@ -319,6 +319,8 @@ export class DrizzleRunReader implements RunReaderPort {
                 endedAt: run.endedAt,
                 harness: run.harness.value,
                 image: run.image,
+                ranOn: run.ranOn,
+                waiting: state === 'queued' ? run.waiting : null,
                 station: stationSummaryOf(
                   { ...row, stationLineId },
                   stationCounts,

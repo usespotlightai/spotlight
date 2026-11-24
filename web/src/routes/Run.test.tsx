@@ -372,6 +372,30 @@ describe('Run', () => {
     ).toBeInTheDocument();
   });
 
+  it('says which pool of the workspace the run ran on', () => {
+    runs.mockReturnValue([
+      run({ ranOn: { kind: 'pool', key: 'burst', platform: false } }),
+    ]);
+
+    renderRun();
+
+    expect(screen.getByLabelText('Where the run ran')).toHaveTextContent(
+      'Ran on: your pool burst',
+    );
+  });
+
+  it('says when the run ran on the platform pool of Spotlight', () => {
+    runs.mockReturnValue([
+      run({ ranOn: { kind: 'pool', key: 'spotlight', platform: true } }),
+    ]);
+
+    renderRun();
+
+    expect(screen.getByLabelText('Where the run ran')).toHaveTextContent(
+      'Ran on: Spotlight platform pool',
+    );
+  });
+
   it('ends a finished run with a way to copy the whole conversation', () => {
     renderRun();
 
@@ -730,6 +754,30 @@ describe('Run', () => {
       expect(
         screen.queryByText(/before the agent started/),
       ).not.toBeInTheDocument();
+    });
+
+    it('says why a queued run waits, and since when', () => {
+      runs.mockReturnValue([
+        run({
+          state: 'queued',
+          ranOn: { kind: 'pool', key: 'burst', platform: false },
+          waiting: {
+            reason: 'no-pool-has-room',
+            since: new Date(Date.now() - 5 * 60_000).toISOString(),
+          },
+        }),
+      ]);
+      conversation.mockReturnValue(
+        conversationOf({ notes: [], progress: 'queued' }),
+      );
+
+      renderRun();
+
+      const waits = screen.getByRole('status', { name: 'Why the run waits' });
+      expect(waits).toHaveTextContent(
+        'Waiting: The pools that can take this run are full. It starts when one of them has space. (5m ago)',
+      );
+      expect(screen.queryByText(/Ran on/)).not.toBeInTheDocument();
     });
 
     it('says nothing of the kind once the run has done something', async () => {

@@ -127,6 +127,19 @@ describe('envSchema platform pool', () => {
       }).SPOTLIGHT_PLATFORM_POOL_LABELS,
     ).toEqual(['linux', 'gpu']);
     expect(
+      envSchema.parse({
+        ...withUrl,
+        SPOTLIGHT_PLATFORM_POOL_ALLOWS: 'secrets, review-work',
+      }).SPOTLIGHT_PLATFORM_POOL_ALLOWS,
+    ).toEqual(['secrets', 'review-work']);
+    expect(envSchema.parse(withUrl).SPOTLIGHT_PLATFORM_POOL_ALLOWS).toEqual([]);
+    expect(
+      envSchema.safeParse({
+        ...withUrl,
+        SPOTLIGHT_PLATFORM_POOL_ALLOWS: 'everything',
+      }).success,
+    ).toBe(false);
+    expect(
       envSchema.safeParse({
         ...withUrl,
         SPOTLIGHT_PLATFORM_POOL_LABELS: 'Linux',

@@ -1,5 +1,9 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  claimer,
+  OWN_POOL,
+  orderedFor,
+} from '@runs/domain/aggregates/run.fake-spec';
 import { RunClaimed } from '@runs/domain/events/run-claimed.event';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
@@ -28,6 +32,7 @@ import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import type { RunSpecParts } from '@runs/domain/value-objects/run-spec.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { TimeSpent } from '@runs/domain/value-objects/time-spent.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
@@ -187,6 +192,45 @@ describe('Run', () => {
     expect(lostAndRequeued(started).startedAt).toBeNull();
     expect(claimed().unclaimedBy(runner(), noon).startedAt).toBeNull();
     expect(started.requeue(runner(), noon, 'no room').startedAt).toBeNull();
+  });
+
+  it('keeps the pool or trust of the runner that claimed it, also once it ends or goes back on the queue', () => {
+    const run = claimed();
+    const ended = run.complete(
+      runner(),
+      RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
+      HandoverReport.none(),
+      noon,
+    );
+
+    expect(queued().ranOn).toBeNull();
+    expect(run.ranOn).toEqual(OWN_POOL);
+    expect(ended.ranOn).toEqual(OWN_POOL);
+    expect(lostAndRequeued(run).ranOn).toEqual(OWN_POOL);
+  });
+
+  it('keeps the pool or trust of the runner that claimed it last', () => {
+    const platform = RunnerSource.of({
+      kind: 'pool',
+      key: 'spotlight',
+      platform: true,
+    });
+
+    const reclaimed = lostAndRequeued(claimed()).claim(
+      claimer(runner('runner_2'), 'ws_1', platform),
+      noon,
+    );
+
+    expect(reclaimed.ranOn).toEqual(platform);
+  });
+
+  it('keeps where it ran before when a runner whose pool or trust is gone claims it again', () => {
+    const reclaimed = lostAndRequeued(claimed()).claim(
+      claimer(runner('runner_2'), 'ws_1', null),
+      noon,
+    );
+
+    expect(reclaimed.ranOn).toEqual(OWN_POOL);
   });
 
   it('leaves the run it was claimed from on the queue', () => {

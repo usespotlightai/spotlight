@@ -23,6 +23,15 @@ export const TaskRunMapper = {
       updatedAt: summary.updatedAt.toISOString(),
       harness: summary.harness,
       image: summary.image,
+      ranOn: summary.ranOn && {
+        kind: summary.ranOn.kind,
+        key: summary.ranOn.key,
+        platform: summary.ranOn.platform,
+      },
+      waiting: summary.waiting && {
+        reason: summary.waiting.reason,
+        since: summary.waiting.since.toISOString(),
+      },
       station: summary.station,
       review: summary.review && {
         state: summary.review.state,

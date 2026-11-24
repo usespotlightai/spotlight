@@ -1,5 +1,6 @@
 import type { ExclusiveClaimLocksPort } from '@runs/application/ports/exclusive-claim-locks.port';
 import type { RunTraceLinksPort } from '@runs/application/ports/run-trace-links.port';
+import type { RunWaitsPort } from '@runs/application/ports/run-waits.port';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -10,6 +11,7 @@ import {
   type QueuedRuns,
 } from '@runs/domain/services/claim-order';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 
 const CLAIM_WINDOW = 50;
@@ -21,6 +23,8 @@ export class RunClaims {
     private readonly traces: RunTraceLinksPort,
     private readonly locks: ExclusiveClaimLocksPort,
     private readonly archives: WorkingCopyArchiveRepository,
+    private readonly waits: RunWaitsPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async next(by: Claimant, now: Date): Promise<Run | null> {
@@ -88,6 +92,7 @@ export class RunClaims {
       const claimed = run.claim(by, now);
 
       if (await this.saved(claimed)) {
+        await this.forgetWait(claimed);
         await this.traces.linkActiveSpanTo(claimed.id);
         this.telemetry.measure(
           'spotlight.runs.claim_wait_seconds',
@@ -100,6 +105,18 @@ export class RunClaims {
     }
 
     return null;
+  }
+
+  // The run is claimed already, so a failure here must not fail the claim. A wait that stays is hidden once the run leaves the queue.
+  private async forgetWait(claimed: Run): Promise<void> {
+    try {
+      await this.waits.clear(claimed.id);
+    } catch (error) {
+      this.logger.warn(
+        { err: error, runId: claimed.id.value },
+        'Could not forget why a claimed run waited',
+      );
+    }
   }
 
   private async saved(claimed: Run): Promise<boolean> {

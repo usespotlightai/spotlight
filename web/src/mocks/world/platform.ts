@@ -7,7 +7,11 @@ import type {
 import { hoursAgo } from '@/mocks/clock';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
 import { onGitHub } from '@/mocks/world/repositories';
-import { progressOfState } from '@/mocks/world/run-progress';
+import {
+  OWN_POOL,
+  PLATFORM_POOL,
+  progressOfState,
+} from '@/mocks/world/run-progress';
 import { LINE_SEARCH, runStationOf, station } from '@/mocks/world/stations';
 
 export const PLATFORM_ID = 'team_platform';
@@ -355,6 +359,8 @@ const run = (
     updatedAt: hoursAgo(startedHoursAgo - durationHours),
     harness: 'claude-code',
     image: null,
+    ranOn: (rest.state ?? 'completed') === 'queued' ? null : OWN_POOL,
+    waiting: null,
     station: runStationOf(stations, stationId),
     review: null,
     ...rest,
@@ -406,6 +412,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       id: 'run_retries_3',
       stationId: 'station_implementation',
       state: 'claimed',
+      ranOn: PLATFORM_POOL,
       exitCode: null,
       startedHoursAgo: 0.2,
       durationHours: 0.1,
@@ -429,6 +436,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       id: 'run_billing_1',
       stationId: 'station_implementation',
       state: 'failed',
+      ranOn: { kind: 'trust', key: 'build-cluster', platform: false },
       exitCode: 1,
       startedHoursAgo: 20,
       durationHours: 0.6,

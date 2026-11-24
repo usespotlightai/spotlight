@@ -1,4 +1,5 @@
 import {
+  aPlatformPool,
   aPullPool,
   aRunner,
   aTrust,
@@ -7,6 +8,7 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { RunnerEnded } from '@runners/domain/events/runner-ended.event';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
 import { RunnerEndedError } from '@runners/domain/exceptions/runner-ended.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
@@ -129,6 +131,137 @@ describe('Runner', () => {
 
     expect(working.isDiscarded).toBe(false);
     expect(working.hasEnded).toBe(true);
+  });
+
+  it('records its end once, with its pool, its work and the time it claimed the work', () => {
+    const ended = aRunner()
+      .claim(RUN, later(1))
+      .ended(later(2))
+      .ended(later(3));
+
+    expect(ended.pullEvents()).toEqual([
+      new RunnerEnded(
+        ended.id,
+        ended.workspaceId,
+        CredentialSource.ofId(POOL_ID),
+        false,
+        RUN,
+        STARTED_AT,
+        later(1),
+        later(2),
+        'finished',
+      ),
+    ]);
+  });
+
+  it('ends at its last heartbeat once it stopped sending them, however much later its work ends', () => {
+    const silent = aRunner().claim(RUN, later(1_000)).heartbeat(later(60_000));
+    const ended = silent.ended(later(60 * 60_000));
+
+    expect(ended.endedAt).toEqual(later(60_000));
+    expect(ended.pullEvents()[0]).toMatchObject({
+      endedAt: later(60_000),
+      ending: 'lost',
+    });
+  });
+
+  it('is lost when it is released with work after it stopped sending heartbeats', () => {
+    const released = aRunner()
+      .claim(RUN, later(1_000))
+      .release(later(60 * 60_000));
+
+    expect(released.pullEvents()[0]).toMatchObject({ ending: 'lost' });
+  });
+
+  it('ends when its work ends while it still sends heartbeats', () => {
+    const ended = aRunner()
+      .claim(RUN, later(1_000))
+      .heartbeat(later(60_000))
+      .ended(later(90_000));
+
+    expect(ended.endedAt).toEqual(later(90_000));
+  });
+
+  it('records the end of a runner that never claimed in time as when Spotlight last heard from it', () => {
+    const released = aRunner({ claimWithinMs: 60_000 }).release(
+      later(10 * 60_000),
+    );
+
+    expect(released.pullEvents()[0]).toMatchObject({
+      endedAt: STARTED_AT,
+      ending: 'released',
+    });
+  });
+
+  it('does not read back a runner that claimed before it started, or ended before it claimed', () => {
+    const working = aRunner().claim(RUN, later(1_000)).ended(later(2_000));
+    const state = (over: object) => ({
+      id: working.id,
+      workspaceId: working.workspaceId,
+      source: working.source,
+      platform: false,
+      hostId: working.hostId,
+      enters: null,
+      labels: working.labels,
+      tokenHash: working.tokenHash,
+      egressTokenHash: working.egressTokenHash,
+      proxyCredentialHash: null,
+      installed: [],
+      running: null,
+      work: RUN,
+      claimBy: working.claimBy,
+      startedAt: STARTED_AT,
+      claimedAt: later(1_000),
+      lastHeartbeatAt: later(1_000),
+      endedAt: later(2_000),
+      version: 1,
+      ...over,
+    });
+
+    expect(() => Runner.rehydrate(state({}))).not.toThrow();
+    expect(() => Runner.rehydrate(state({ claimedAt: later(-1_000) }))).toThrow(
+      InconsistentStateError,
+    );
+    expect(() => Runner.rehydrate(state({ endedAt: later(500) }))).toThrow(
+      InconsistentStateError,
+    );
+  });
+
+  it('records its end with no work when it is released before it claimed anything', () => {
+    const released = aRunner().release(later(1));
+
+    expect(released.pullEvents()).toEqual([
+      new RunnerEnded(
+        released.id,
+        released.workspaceId,
+        CredentialSource.ofId(POOL_ID),
+        false,
+        null,
+        STARTED_AT,
+        null,
+        later(1),
+        'released',
+      ),
+    ]);
+  });
+
+  it('records no second end when an ended runner is released', () => {
+    const ended = aRunner().claim(RUN, later(1)).ended(later(2));
+
+    ended.pullEvents();
+
+    expect(ended.release(later(3)).pullEvents()).toEqual([]);
+  });
+
+  it('knows that it came in through the platform pool', () => {
+    const platform = aRunner({ through: aPlatformPool(), host: null });
+
+    expect(platform.isPlatform).toBe(true);
+    expect(aRunner().isPlatform).toBe(false);
+    expect(aRunner({ through: aTrust() }).isPlatform).toBe(false);
+    expect(
+      (platform.release(later(1)).pullEvents()[0] as RunnerEnded).platform,
+    ).toBe(true);
   });
 
   it('is discarded when a reservation it never claimed is dropped, but keeps the work it claimed instead', () => {

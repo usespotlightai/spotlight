@@ -8,7 +8,26 @@ export class WorkspacePlatformPoolResponseDto {
   })
   readonly enabled: boolean;
 
-  constructor(enabled: boolean) {
+  @ApiProperty({
+    example: false,
+    description:
+      'The platform pool takes runs that inject secrets or a Spotlight token',
+  })
+  readonly allowsSecrets: boolean;
+
+  @ApiProperty({
+    example: false,
+    description: 'The platform pool takes checks and diffs',
+  })
+  readonly allowsReviewWork: boolean;
+
+  constructor(
+    enabled: boolean,
+    allowsSecrets: boolean,
+    allowsReviewWork: boolean,
+  ) {
     this.enabled = enabled;
+    this.allowsSecrets = allowsSecrets;
+    this.allowsReviewWork = allowsReviewWork;
   }
 }

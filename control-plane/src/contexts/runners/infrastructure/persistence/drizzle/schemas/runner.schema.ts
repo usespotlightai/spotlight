@@ -96,6 +96,9 @@ export const runnerPool = pgTable(
     // Spotlight adds the platform pool to each workspace. The deployment gives its provision URL and secret, so the row keeps neither.
     platform: boolean('platform').notNull().default(false),
     disabled: boolean('disabled').notNull().default(false),
+    // The platform pool takes runs that inject secrets, and checks and diffs, only when the operator allows them for the workspace.
+    allowsSecrets: boolean('allows_secrets').notNull().default(false),
+    allowsReviewWork: boolean('allows_review_work').notNull().default(false),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
@@ -129,6 +132,10 @@ export const runnerPool = pgTable(
     check(
       'runner_pool_disabled_platform',
       sql`not ${table.disabled} or ${table.platform}`,
+    ),
+    check(
+      'runner_pool_allows_platform',
+      sql`(not ${table.allowsSecrets} and not ${table.allowsReviewWork}) or ${table.platform}`,
     ),
   ],
 );
@@ -169,6 +176,7 @@ export const runner = pgTable(
     workspaceId: text('workspace_id').notNull(),
     poolId: text('pool_id'),
     trustId: text('trust_id'),
+    platform: boolean('platform').notNull().default(false),
     hostId: text('host_id'),
     entersSandboxId: text('enters_sandbox_id'),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
@@ -190,6 +198,7 @@ export const runner = pgTable(
     workId: text('work_id'),
     claimBy: timestamptz('claim_by').notNull(),
     startedAt: timestamptz('started_at').notNull(),
+    claimedAt: timestamptz('claimed_at'),
     lastHeartbeatAt: timestamptz('last_heartbeat_at'),
     endedAt: timestamptz('ended_at'),
     version: integer('version').notNull().default(0),

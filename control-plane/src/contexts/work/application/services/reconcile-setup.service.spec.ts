@@ -68,7 +68,7 @@ const DELIVERY = lineMapOf({
 const list = (): Task =>
   welcomeTask({
     line: DELIVERY,
-    noteBody: TaskNoteBody.of(listed()),
+    noteBody: TaskNoteBody.of(listed({ platform: false })),
     owner: OWNER,
     now: new Date('2026-01-01T00:00:00.000Z'),
     newId: nextId,

@@ -26,6 +26,7 @@ const renewing = (
           harnesses: [HarnessId.of('claude-code')],
           offer: RunnerOffer.none(),
           claims: 'nothing' as const,
+          source: null,
         },
   );
   const renewLease = vi.fn(async (): Promise<ReviewWorkLeaseRenewal> => {
@@ -37,7 +38,10 @@ const renewing = (
 
   const handler = new RenewReviewWorkLeaseHandler(
     { renewLease } as unknown as ReviewWorkPort,
-    { claimantOf: seen } satisfies RunnerClaimantsPort,
+    {
+      claimantOf: seen,
+      registeredClaimantOf: async () => null,
+    } satisfies RunnerClaimantsPort,
     { now: () => NOW } as ClockPort,
   );
 

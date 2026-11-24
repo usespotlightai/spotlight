@@ -155,6 +155,13 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger.ts',
     ],
   },
+  run_wait: {
+    why: 'Runs ledger of why a queued run waits, noted without raising the version of the run',
+    childOf: 'run',
+    writers: [
+      'contexts/runs/infrastructure/persistence/drizzle/ledgers/run-waits.ledger.ts',
+    ],
+  },
   secret_data_key: {
     why: 'per-workspace data keys of the secrets envelope encryption',
     writers: ['contexts/secrets/infrastructure/crypto/workspace-keys.ts'],

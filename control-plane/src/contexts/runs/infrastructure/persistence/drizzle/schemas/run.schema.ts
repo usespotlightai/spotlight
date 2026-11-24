@@ -11,6 +11,8 @@ import {
   TERMINAL_RUN_STATES,
 } from '@runs/domain/value-objects/run-state';
 import { RUN_TURN_STATES } from '@runs/domain/value-objects/run-turn.vo';
+import { WAIT_REASONS } from '@runs/domain/value-objects/run-waiting';
+import { RUNNER_SOURCE_KINDS } from '@runs/domain/value-objects/runner-source.vo';
 import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { WORKING_COPY_RESTORES } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
@@ -34,6 +36,13 @@ export const runState = pgEnum('run_state', RUN_STATES);
 export const runTurn = pgEnum('run_turn', RUN_TURN_STATES);
 
 export const runAsks = pgEnum('run_asks', RUN_ASKS);
+
+export const runnerSourceKind = pgEnum(
+  'runner_source_kind',
+  RUNNER_SOURCE_KINDS,
+);
+
+export const runWaitReason = pgEnum('run_wait_reason', WAIT_REASONS);
 
 export const workingCopyRestores = pgEnum(
   'working_copy_restores',
@@ -101,6 +110,10 @@ export const run = pgTable(
       .default([]),
     placementImage: text('placement_image'),
     ranIn: text('ran_in'),
+    // The pool or trust of the runner that claimed the run last, as it was then.
+    ranOnKind: runnerSourceKind('ran_on_kind'),
+    ranOnKey: text('ran_on_key'),
+    ranOnPlatform: boolean('ran_on_platform'),
     claimedBy: text('claimed_by'),
     leaseExpiresAt: timestamptz('lease_expires_at'),
     stopRequestedAt: timestamptz('stop_requested_at'),
@@ -190,6 +203,10 @@ export const run = pgTable(
       'run_working_copy_check',
       sql`(${table.workingCopyKey} is null) = (${table.workingCopyRejoinable} is null) and (${table.workingCopyKey} is null) = (${table.workingCopyRestores} is null)`,
     ),
+    check(
+      'run_ran_on_check',
+      sql`(${table.ranOnKind} is null) = (${table.ranOnKey} is null) and (${table.ranOnKind} is null) = (${table.ranOnPlatform} is null)`,
+    ),
     index('run_reserved_idx').on(table.reservedFor),
     index('run_started_from_idx').on(
       table.startedFromArchiveId,
@@ -254,3 +271,15 @@ export const runUsage = pgTable(
     check('run_usage_currency_code', isCurrencyCode(table.currency)),
   ],
 );
+
+// Why Spotlight provisions no runner for a queued run, as it last noted it. It is apart from the run, so that noting it does not raise the run's version.
+export const runWait = pgTable('run_wait', {
+  runId: text('run_id')
+    .primaryKey()
+    .references(() => run.id, { onDelete: 'cascade' }),
+  reason: runWaitReason('reason').notNull(),
+  // The queueing of the run that the wait belongs to.
+  queuedAt: timestamptz('queued_at').notNull(),
+  // When Spotlight first noted this reason in that queueing.
+  since: timestamptz('since').notNull(),
+});

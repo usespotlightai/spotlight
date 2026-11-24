@@ -1,3 +1,4 @@
+import type { ExclusiveClaimLocksPort } from '@runs/application/ports/exclusive-claim-locks.port';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
@@ -6,6 +7,7 @@ import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/wor
 import type { Claimant } from '@runs/domain/value-objects/claimant';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -37,28 +39,58 @@ const avoiding = (keys: readonly WorkingCopyKey[]): Claimant => ({
   harnesses: [HarnessId.of('claude-code')],
   offer: RunnerOffer.of(['linux']),
   claims: 'any',
+  source: null,
   sandbox: { avoiding: keys },
 });
 
 const claimsOver = (waiting: readonly Run[]) => {
+  const waits = {
+    note: vi.fn(async () => {}),
+    clear: vi.fn(async () => {}),
+  };
+  const logger = { warn: vi.fn() };
   const runs = {
     claimCandidates: vi.fn(async () => ({ waiting, leasedRequesters: [] })),
     save: vi.fn(async () => {}),
+    leasedAmong: vi.fn(async () => []),
   };
   const claims = new RunClaims(
     runs as unknown as RunRepository,
     { measure: vi.fn() } as unknown as TelemetryPort,
     { linkActiveSpanTo: vi.fn() },
-    { claimingFor: vi.fn() },
+    {
+      claimingFor: vi.fn(
+        async (_requester: unknown, claim: () => Promise<boolean>) => claim(),
+      ),
+    } as unknown as ExclusiveClaimLocksPort,
     {
       completedKeysAmong: vi.fn(async () => []),
     } as unknown as WorkingCopyArchiveRepository,
+    waits,
+    logger as unknown as LoggerPort,
   );
 
-  return { claims, runs };
+  return { claims, runs, waits, logger };
 };
 
 describe('RunClaims', () => {
+  it('forgets why a run waited once it claims the run', async () => {
+    const { claims, waits } = claimsOver([queued('task_1')]);
+
+    const claimed = await claims.next(avoiding([]), NOW);
+
+    expect(claimed).not.toBeNull();
+    expect(waits.clear).toHaveBeenCalledExactlyOnceWith(claimed?.id);
+  });
+
+  it('keeps the claim when forgetting the wait fails, and says so', async () => {
+    const { claims, waits, logger } = claimsOver([queued('task_1')]);
+    waits.clear.mockRejectedValue(new Error('database went away'));
+
+    await expect(claims.next(avoiding([]), NOW)).resolves.not.toBeNull();
+    expect(logger.warn).toHaveBeenCalledOnce();
+  });
+
   it('sees a queued run the claimant would take, and claims nothing', async () => {
     const { claims, runs } = claimsOver([queued('task_1')]);
 

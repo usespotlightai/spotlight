@@ -8,26 +8,49 @@ const nothing: SetupState = {
   configured: false,
 };
 
+const OWN = { platform: false };
+const PLATFORM = { platform: true };
+
 describe('listed', () => {
   it('writes the list out in the order it is worked through', () => {
-    const lines = listed().split('\n');
+    const lines = listed(OWN).split('\n');
 
     expect(lines).toHaveLength(SETUP_STEPS.length);
     expect(lines[0]).toBe(
       '1. Install the GitHub App. Connect Spotlight to the repository your team will work with. This lets Spotlight interact with your code through GitHub.',
     );
+    expect(lines[1]).toMatch(/^2\. Connect a host\./);
+  });
+
+  it('tells a team with platform runners that it has nothing to connect, and how to use its own image', () => {
+    const runners = listed(PLATFORM).split('\n')[1];
+
+    expect(runners).toMatch(/^2\. Run agents on the platform runners\./);
+    expect(runners).toContain('without connecting anything');
+    expect(runners).toContain('To run a repository in another image');
   });
 });
 
 describe('shownFor', () => {
   it('shows the list in the order it is worked through', () => {
-    expect(shownFor(nothing).map((each) => each.key)).toEqual([...SETUP_STEPS]);
+    expect(shownFor(nothing, OWN).map((each) => each.key)).toEqual([
+      ...SETUP_STEPS,
+    ]);
   });
 
   it('ticks off what the team has already done', () => {
-    const shown = shownFor({ ...nothing, hasHarness: true });
+    const shown = shownFor({ ...nothing, hasHarness: true }, OWN);
 
     expect(shown.find((each) => each.key === 'harness')?.done).toBe(true);
     expect(shown.filter((each) => each.done)).toHaveLength(1);
+  });
+
+  it('names the runners step for the platform runners, keeping its key', () => {
+    const shown = shownFor(nothing, PLATFORM).find(
+      (each) => each.key === 'harness',
+    );
+
+    expect(shown?.title).toBe('Run agents on the platform runners');
+    expect(shownFor(nothing, OWN)[1]?.title).toBe('Connect a host');
   });
 });

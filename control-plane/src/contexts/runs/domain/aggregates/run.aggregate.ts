@@ -53,6 +53,7 @@ import {
 } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
+import type { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import {
   type ReportedStart,
   StartingPoint,
@@ -100,6 +101,8 @@ const isLeased = (state: RunState): boolean =>
 export interface RunClaimer {
   readonly runner: RunnerId;
   readonly workspaceId: WorkspaceId;
+  // Null when the pool or trust of the runner is gone.
+  readonly source: RunnerSource | null;
 }
 
 type StateWhenCancelled = 'queued' | 'claimed' | 'suspended' | 'ended';
@@ -194,6 +197,8 @@ export class Run extends EventRecorder {
     readonly createdAt: Date,
     readonly endHeads: readonly CheckoutHead[],
     readonly spent: TimeSpent,
+    // The pool or trust of the runner that claimed the run last.
+    readonly ranOn: RunnerSource | null = null,
   ) {
     super();
   }
@@ -351,6 +356,7 @@ export class Run extends EventRecorder {
     createdAt: Date;
     endHeads?: readonly CheckoutHead[];
     spent: TimeSpent;
+    ranOn?: RunnerSource | null;
   }): Run {
     const ordered = Run.orderedFrom(input);
 
@@ -389,6 +395,7 @@ export class Run extends EventRecorder {
       input.createdAt,
       input.endHeads ?? [],
       input.spent,
+      input.ranOn ?? null,
     );
   }
 
@@ -681,6 +688,8 @@ export class Run extends EventRecorder {
       claimedBy: by,
       leaseExpiresAt: this.leaseFrom(now),
       reservation: null,
+      // A runner whose pool or trust is gone does not erase where the run ran before.
+      ranOn: claimer.source ?? this.ranOn,
     });
 
     if (this.reservation && !this.reservation.isFor(by)) {
@@ -1696,6 +1705,7 @@ export class Run extends EventRecorder {
     queuedAt?: Date;
     endHeads?: readonly CheckoutHead[];
     spent?: TimeSpent;
+    ranOn?: RunnerSource | null;
   }): Run {
     const next = new Run(
       this.id,
@@ -1731,6 +1741,7 @@ export class Run extends EventRecorder {
       this.createdAt,
       part.endHeads ?? this.endHeads,
       part.spent ?? this.spent,
+      part.ranOn !== undefined ? part.ranOn : this.ranOn,
     );
 
     next.inheritEvents(this);

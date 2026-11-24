@@ -3,8 +3,10 @@ import type {
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
 import {
+  RunRanOnResponseDto,
   RunReviewResponseDto,
   RunStationResponseDto,
+  RunWaitingResponseDto,
   TaskRunResponseDto,
   TeamRunResponseDto,
 } from '@work/presentation/http/dto/task-run.response.dto';
@@ -20,6 +22,16 @@ export const TaskRunHttpMapper = {
       dto.updatedAt,
       dto.harness,
       dto.image,
+      dto.ranOn
+        ? new RunRanOnResponseDto(
+            dto.ranOn.kind,
+            dto.ranOn.key,
+            dto.ranOn.platform,
+          )
+        : null,
+      dto.waiting
+        ? new RunWaitingResponseDto(dto.waiting.reason, dto.waiting.since)
+        : null,
       dto.station
         ? new RunStationResponseDto(
             dto.station.id,

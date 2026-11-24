@@ -1,5 +1,5 @@
 import type {
-  RunnerClaimant,
+  RegisteredClaimant,
   RunnerClaims,
 } from '@runners/application/ports/runner-claimants.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
@@ -24,6 +24,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -78,18 +79,19 @@ const aCheck: ClaimedCheck = {
 const seenAs = (
   claims: RunnerClaims = 'reserved',
   harnesses = [HarnessId.of('claude-code')],
-): RunnerClaimant => ({
+): RegisteredClaimant => ({
   workspaceId: WorkspaceId.of('ws_1'),
   harnesses,
   offer: RunnerOffer.of(['runner-1']),
   claims,
+  source: { kind: 'pool', key: 'spotlight', platform: true },
 });
 
 const claiming = (
   claimNext = vi.fn(async (): Promise<Run | null> => queued()),
   claimCheck = vi.fn(async (): Promise<ClaimedCheck | null> => null),
   over: {
-    seen?: RunnerClaimant | null;
+    seen?: RegisteredClaimant | null;
     reservedFor?: Run | null;
     reservedCheck?: ClaimedReviewWork | null;
     starts?: RunStart;
@@ -139,7 +141,8 @@ const claiming = (
     runs,
     { next: claimNext } as unknown as RunClaims,
     {
-      claimantOf: vi.fn(async () =>
+      claimantOf: async () => null,
+      registeredClaimantOf: vi.fn(async () =>
         over.seen === undefined ? seenAs() : over.seen,
       ),
     },
@@ -204,6 +207,36 @@ describe('ClaimRunHandler', () => {
 
     expect(claimNext).toHaveBeenCalledWith(
       expect.objectContaining({ offer: RunnerOffer.of(['runner-1']) }),
+      NOW,
+    );
+  });
+
+  it('claims as the pool or trust its runner came in through, so the run keeps it', async () => {
+    const claimNext = vi.fn(async () => queued());
+
+    await claiming(claimNext).execute(new ClaimRunCommand('runner_1'));
+
+    expect(claimNext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: RunnerSource.of({
+          kind: 'pool',
+          key: 'spotlight',
+          platform: true,
+        }),
+      }),
+      NOW,
+    );
+  });
+
+  it('claims as no pool or trust once its pool or trust is gone', async () => {
+    const claimNext = vi.fn(async () => queued());
+
+    await claiming(claimNext, undefined, {
+      seen: { ...seenAs(), source: null },
+    }).execute(new ClaimRunCommand('runner_1'));
+
+    expect(claimNext).toHaveBeenCalledWith(
+      expect.objectContaining({ source: null }),
       NOW,
     );
   });

@@ -108,7 +108,11 @@ export const changeReviewSubscribers = (
   subscribing<StackChecked | StackCheckLayersFailed>(
     'change-review.release-runner-of-checked-stack',
     ['stack-check.checked', 'stack-check.layers-failed'],
-    (event) => runners.checkReleased(event.checkId.stackId),
+    (event) =>
+      runners.checkReleased(
+        event.checkId.stackId,
+        'at' in event ? event.at : undefined,
+      ),
     { callsOut: true },
   ),
   subscribing<LeasedStackCheckDeleted>(

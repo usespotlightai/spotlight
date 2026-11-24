@@ -243,12 +243,20 @@ describe('whether a workspace is ready to run', () => {
         now: () => NOW,
         sleep: async () => {},
       },
-      { platformEgressSet: true, platformPoolSet: platformPool },
+      {
+        platformEgressSet: true,
+        platformPoolSet: platformPool,
+        platformImages: null,
+      },
     );
 
   const platformPooled = (
     workspaceId: WorkspaceId,
-    over: { disabled?: boolean; egress?: string | null } = {},
+    over: {
+      disabled?: boolean;
+      egress?: string | null;
+      allowsSecrets?: boolean;
+    } = {},
   ) =>
     db.insert(schema.runnerPool).values({
       id: randomUUID(),
@@ -257,6 +265,7 @@ describe('whether a workspace is ready to run', () => {
       platform: true,
       disabled: over.disabled ?? false,
       provisionEgress: over.egress ?? null,
+      allowsSecrets: over.allowsSecrets ?? false,
     });
 
   const pooled = async (workspaceId: WorkspaceId, mode: 'pull' | 'push') => {
@@ -383,11 +392,38 @@ describe('whether a workspace is ready to run', () => {
   it('is ready with the platform pool while the deployment sets its provisioner, and goes out through its egress', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
-    await platformPooled(workspace, { egress: 'spotlight' });
+    await platformPooled(workspace, {
+      egress: 'spotlight',
+      allowsSecrets: true,
+    });
 
     await expect(runners(true).readyToRun(workspace)).resolves.toBe(true);
     await expect(runners(true).hasEgressCapableRunner(workspace)).resolves.toBe(
       true,
+    );
+  });
+
+  it('gives a workspace platform runners while the deployment sets the provisioner and the operator did not disable its pool, also before the pool is there', async () => {
+    const fresh = WorkspaceId.of(randomUUID());
+    const disabled = WorkspaceId.of(randomUUID());
+
+    await platformPooled(disabled, { disabled: true });
+
+    await expect(runners(true).hasPlatformRunners(fresh)).resolves.toBe(true);
+    await expect(runners(true).hasPlatformRunners(disabled)).resolves.toBe(
+      false,
+    );
+    await expect(runners(false).hasPlatformRunners(fresh)).resolves.toBe(false);
+  });
+
+  it('is ready with the platform pool, yet has no runner for work that needs egress until the operator allows it secrets', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    await platformPooled(workspace, { egress: 'spotlight' });
+
+    await expect(runners(true).readyToRun(workspace)).resolves.toBe(true);
+    await expect(runners(true).hasEgressCapableRunner(workspace)).resolves.toBe(
+      false,
     );
   });
 

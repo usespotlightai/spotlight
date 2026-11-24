@@ -64,6 +64,9 @@ export class RunnerPools implements RunnerPoolsPort {
         workspaceId: source.workspaceId,
         labels: RunnerOffer.of(source.labels.values),
         egress: true,
+        images: null,
+        allowsSecrets: true,
+        allowsReviewWork: true,
       })),
     };
   }
@@ -91,6 +94,9 @@ export class RunnerPools implements RunnerPoolsPort {
       labels: RunnerOffer.of(pool.labels.values),
       egress: pool.egress?.usableWith(this.setup.platformEgressSet) ?? false,
       platform: pool.isPlatform,
+      images: pool.isPlatform ? this.setup.platformImages : null,
+      allowsSecrets: pool.allowsSecrets,
+      allowsReviewWork: pool.allowsReviewWork,
     };
   }
 }

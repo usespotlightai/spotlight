@@ -20,6 +20,9 @@ const POOL: PoolAtWork = {
   labels: RunnerOffer.of(['linux', 'gpu']),
   egress: false,
   platform: false,
+  images: null,
+  allowsSecrets: true,
+  allowsReviewWork: true,
 };
 
 const queueOf = (

@@ -56,6 +56,7 @@ const setUp = async (
       runs,
       archives,
       {
+        registeredClaimantOf: async () => null,
         claimantOf: async () =>
           known
             ? {
@@ -63,6 +64,7 @@ const setUp = async (
                 harnesses: [],
                 offer: RunnerOffer.none(),
                 claims: 'nothing' as const,
+                source: null,
               }
             : null,
       },

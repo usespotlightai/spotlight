@@ -89,6 +89,8 @@ const PROVISIONER: PlatformPoolSettings = {
   secret: secretOf('m'),
   labels: RunnerLabels.none(),
   egress: EgressReference.platform(),
+  images: null,
+  allows: {},
 };
 
 const running = (
@@ -871,6 +873,25 @@ describe('Runners', () => {
         egress: { url: 'https://egress.usespotlight.ai', traffic: 'all' },
       });
       expect(called[0]?.secret.equals(PROVISIONER.secret)).toBe(true);
+    });
+
+    it('answers gone, calling nobody, for work the operator no longer allows the platform pool', async () => {
+      const { service, called, added } = running(
+        aPlatformPool({ egress: EgressReference.platform() }),
+        { platformPool: PROVISIONER, platform: PLATFORM },
+      );
+
+      await expect(
+        service.provision({ ...request, needsEgress: true }, STARTED_AT),
+      ).resolves.toEqual({ outcome: 'gone' });
+      await expect(
+        service.provision(
+          { ...request, work: { kind: 'diff', id: 'diff_1' } },
+          STARTED_AT,
+        ),
+      ).resolves.toEqual({ outcome: 'gone' });
+      expect(called).toEqual([]);
+      expect(added).toEqual([]);
     });
 
     it('calls a workspace pool’s provisioner under the workspace’s allow-list', async () => {

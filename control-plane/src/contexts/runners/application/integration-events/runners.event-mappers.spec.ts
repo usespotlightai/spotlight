@@ -1,14 +1,17 @@
 import { RUNNERS_EVENT_MAPPERS } from '@runners/application/integration-events/runners.event-mappers';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import {
+  aPlatformPool,
   aPullPool,
   aPushPool,
+  aRunner,
   aTrust,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
@@ -81,5 +84,43 @@ describe('RUNNERS_EVENT_MAPPERS', () => {
       'runner-trust.deleted',
     ]);
     expect(published(ended)).toEqual([]);
+  });
+  it('publishes a runner that ended, with its pool, whether it is the platform pool, its work and its times', () => {
+    const ended = aRunner({ through: aPlatformPool(), host: null })
+      .claim(RunnerWork.check('stack_1'), new Date('2026-09-24T10:00:30.000Z'))
+      .ended(new Date('2026-09-24T10:05:00.000Z'));
+
+    expect(published(ended.pullEvents())).toEqual([
+      {
+        kind: 'runners.runner-ended.v1',
+        runnerId: 'pooled_1',
+        workspaceId: 'ws_1',
+        poolId: 'pool_platform',
+        trustId: null,
+        platform: true,
+        work: { kind: 'check', id: 'stack_1' },
+        startedAt: '2026-09-24T10:00:00.000Z',
+        claimedAt: '2026-09-24T10:00:30.000Z',
+        endedAt: '2026-09-24T10:05:00.000Z',
+        ending: 'finished',
+      },
+    ]);
+  });
+
+  it('publishes a runner released before it claimed work with no work and no claim time', () => {
+    const released = aRunner({ through: aTrust() }).release(
+      new Date('2026-09-24T10:01:00.000Z'),
+    );
+
+    expect(published(released.pullEvents())).toEqual([
+      expect.objectContaining({
+        poolId: null,
+        trustId: 'trust_1',
+        platform: false,
+        work: null,
+        claimedAt: null,
+        ending: 'released',
+      }),
+    ]);
   });
 });

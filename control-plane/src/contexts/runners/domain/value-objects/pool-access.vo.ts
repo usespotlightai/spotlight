@@ -62,23 +62,61 @@ export class PushAccess {
 }
 
 // Spotlight adds the platform pool to each workspace. The deployment gives its provision URL and secret, so the access keeps neither.
+// The work that the operator allows the platform pool of one workspace.
+export interface PlatformPoolAllowances {
+  readonly allowsSecrets?: boolean;
+  readonly allowsReviewWork?: boolean;
+}
+
+// What the operator changes on the platform pool of one workspace, in one step.
+export interface PlatformPoolChange extends PlatformPoolAllowances {
+  readonly enabled?: boolean;
+}
+
 export class PlatformAccess {
   readonly kind = 'platform' as const;
 
   readonly egressTraffic = EgressTraffic.all();
 
   // The operator of the deployment can disable the platform pool of one workspace. No other pool can be disabled.
+  // The platform pool takes runs that inject secrets, and checks and diffs, only after the operator allows them for the workspace. The secrets of such runs go through the egress of the deployment, and pushes start checks and diffs with no person asking, so each is a choice for the workspace.
   private constructor(
     readonly egress: EgressReference | null,
     readonly disabled: boolean,
+    readonly allowsSecrets: boolean,
+    readonly allowsReviewWork: boolean,
   ) {}
 
-  static of(egress: EgressReference | null, disabled = false): PlatformAccess {
-    return new PlatformAccess(egress, disabled);
+  static of(
+    egress: EgressReference | null,
+    disabled = false,
+    allows: PlatformPoolAllowances = {},
+  ): PlatformAccess {
+    return new PlatformAccess(
+      egress,
+      disabled,
+      allows.allowsSecrets ?? false,
+      allows.allowsReviewWork ?? false,
+    );
   }
 
-  withDisabled(disabled: boolean): PlatformAccess {
-    return new PlatformAccess(this.egress, disabled);
+  withEgress(egress: EgressReference | null): PlatformAccess {
+    return new PlatformAccess(
+      egress,
+      this.disabled,
+      this.allowsSecrets,
+      this.allowsReviewWork,
+    );
+  }
+
+  // A field that the change does not give stays as it is.
+  changed(change: PlatformPoolChange): PlatformAccess {
+    return new PlatformAccess(
+      this.egress,
+      change.enabled === undefined ? this.disabled : !change.enabled,
+      change.allowsSecrets ?? this.allowsSecrets,
+      change.allowsReviewWork ?? this.allowsReviewWork,
+    );
   }
 
   usesEgress(egress: EgressReference): boolean {

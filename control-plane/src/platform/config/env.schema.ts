@@ -6,6 +6,7 @@ import {
   MAX_SLUG_LENGTH,
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import {
   SIGNING_SECRET_RULE,
   SigningSecret,
@@ -121,6 +122,45 @@ export const envSchema = databaseSchema
           }),
       ),
     SPOTLIGHT_PLATFORM_POOL_EGRESS: unsetWhenEmpty(z.literal('spotlight')),
+    // The work that the platform pool of a new workspace takes from the start, separated by commas: secrets (runs that inject secrets or a Spotlight token) and review-work (checks and diffs). With no value, it takes neither until the operator allows it through the admin API. It never changes an existing platform pool.
+    SPOTLIGHT_PLATFORM_POOL_ALLOWS: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((each) => each.trim())
+          .filter((each) => each !== ''),
+      )
+      .pipe(
+        z
+          .array(
+            z.enum(['secrets', 'review-work'], {
+              message: 'names secrets or review-work',
+            }),
+          )
+          .refine((allows) => new Set(allows).size === allows.length, {
+            message: 'names a kind of work twice',
+          }),
+      ),
+    // The images that the platform pool runs, separated by commas. With no value, Spotlight gives it work that asks for any image.
+    SPOTLIGHT_PLATFORM_POOL_IMAGES: z
+      .string()
+      .default('')
+      .transform((raw) =>
+        raw
+          .split(',')
+          .map((each) => each.trim())
+          .filter((each) => each !== ''),
+      )
+      .pipe(
+        z.array(
+          z.string().refine(RunnerImage.isWellFormed, {
+            message:
+              'is a lowercase image reference with an optional tag or digest, as in ghcr.io/acme/runner:main',
+          }),
+        ),
+      ),
     // The deployment event webhook: Spotlight sends the integration events of every workspace to this URL, signed per Standard Webhooks. With no value, it sends none.
     SPOTLIGHT_EVENT_WEBHOOK_URL: unsetWhenEmpty(z.url({ protocol: /^https$/ })),
     SPOTLIGHT_EVENT_WEBHOOK_SECRET: unsetWhenEmpty(
@@ -224,11 +264,13 @@ export const envSchema = databaseSchema
     (env) =>
       env.SPOTLIGHT_PLATFORM_POOL_URL !== undefined ||
       (env.SPOTLIGHT_PLATFORM_POOL_LABELS.length === 0 &&
+        env.SPOTLIGHT_PLATFORM_POOL_IMAGES.length === 0 &&
+        env.SPOTLIGHT_PLATFORM_POOL_ALLOWS.length === 0 &&
         env.SPOTLIGHT_PLATFORM_POOL_EGRESS === undefined),
     {
       path: ['SPOTLIGHT_PLATFORM_POOL_URL'],
       message:
-        'is not set, so Spotlight adds no platform pool. Please set it, or leave SPOTLIGHT_PLATFORM_POOL_LABELS and SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
+        'is not set, so Spotlight adds no platform pool. Please set it, or leave SPOTLIGHT_PLATFORM_POOL_LABELS, SPOTLIGHT_PLATFORM_POOL_IMAGES, SPOTLIGHT_PLATFORM_POOL_ALLOWS and SPOTLIGHT_PLATFORM_POOL_EGRESS empty',
     },
   )
   .refine(

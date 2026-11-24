@@ -93,7 +93,7 @@ export const listSetUp = async (
 
   const list = welcomeTask({
     line,
-    noteBody: TaskNoteBody.of(listed()),
+    noteBody: TaskNoteBody.of(listed({ platform: false })),
     owner: UserId.of(owner),
     now: NOW,
     newId: () => randomUUID(),

@@ -1,3 +1,7 @@
+import type {
+  RunnerSourceFact,
+  RunWaitFact,
+} from '@runs/application/ports/run-facts.port';
 import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -53,6 +57,8 @@ export interface TaskRunSummary {
   readonly endedAt: Date | null;
   readonly harness: string;
   readonly image: string | null;
+  readonly ranOn: RunnerSourceFact | null;
+  readonly waiting: RunWaitFact | null;
   readonly station: RunStationSummary | null;
   readonly review: RunReview | null;
   readonly audience: RunAudience;

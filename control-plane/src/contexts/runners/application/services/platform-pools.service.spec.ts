@@ -27,6 +27,8 @@ const SETTINGS: PlatformPoolSettings = {
   secret: secretOf('m'),
   labels: RunnerLabels.of(['linux']),
   egress: EgressReference.platform(),
+  images: null,
+  allows: {},
 };
 
 const settled = (pool: RunnerPool): RunnerPool => {
@@ -129,6 +131,28 @@ describe('PlatformPools', () => {
       expect(added).toEqual([]);
       expect(saved[0]?.labels.values).toEqual(['linux']);
       expect(saved[0]?.isDisabled).toBe(true);
+    });
+
+    it('starts a new platform pool with the work the deployment allows it, and leaves an existing one as the operator set it', async () => {
+      const allowing = {
+        ...SETTINGS,
+        allows: { allowsSecrets: true, allowsReviewWork: true },
+      };
+      const fresh = platformPools({ settings: allowing });
+
+      await fresh.platform.reconcile();
+
+      expect(fresh.added[0]?.allowsSecrets).toBe(true);
+      expect(fresh.added[0]?.allowsReviewWork).toBe(true);
+
+      const kept = platformPools({
+        settings: allowing,
+        stored: [settled(aPlatformPool({ labels: ['linux'] }))],
+      });
+
+      await kept.platform.reconcile();
+
+      expect(kept.saved.every((each) => !each.allowsSecrets)).toBe(true);
     });
 
     it('saves nothing for a platform pool that is already as the deployment sets it', async () => {
@@ -276,8 +300,10 @@ describe('PlatformPools', () => {
       const pool = settled(aPlatformPool());
       const { platform, saved } = platformPools({ stored: [pool] });
 
-      await expect(platform.disable(WS_1)).resolves.toEqual({
+      await expect(platform.set(WS_1, { enabled: false })).resolves.toEqual({
         outcome: 'disabled',
+        allowsSecrets: false,
+        allowsReviewWork: false,
       });
       expect(saved[0]?.isDisabled).toBe(true);
     });
@@ -287,8 +313,10 @@ describe('PlatformPools', () => {
         stored: [settled(aPlatformPool({ disabled: true }))],
       });
 
-      await expect(platform.enable(WS_1)).resolves.toEqual({
+      await expect(platform.set(WS_1, { enabled: true })).resolves.toEqual({
         outcome: 'enabled',
+        allowsSecrets: false,
+        allowsReviewWork: false,
       });
       expect(saved[0]?.isDisabled).toBe(false);
     });
@@ -296,8 +324,10 @@ describe('PlatformPools', () => {
     it('adds the platform pool disabled where it is missing', async () => {
       const { platform, added } = platformPools();
 
-      await expect(platform.disable(WS_1)).resolves.toEqual({
+      await expect(platform.set(WS_1, { enabled: false })).resolves.toEqual({
         outcome: 'disabled',
+        allowsSecrets: false,
+        allowsReviewWork: false,
       });
       expect(added[0]?.isDisabled).toBe(true);
     });
@@ -307,7 +337,7 @@ describe('PlatformPools', () => {
         stored: [settled(anOwnPoolWithThePlatformKey())],
       });
 
-      await expect(platform.disable(WS_1)).resolves.toEqual({
+      await expect(platform.set(WS_1, { enabled: false })).resolves.toEqual({
         outcome: 'key-taken',
       });
       expect(added).toEqual([]);
@@ -317,7 +347,7 @@ describe('PlatformPools', () => {
     it('says so while the deployment sets no platform provisioner', async () => {
       const { platform } = platformPools({ settings: null });
 
-      await expect(platform.enable(WS_1)).resolves.toEqual({
+      await expect(platform.set(WS_1, { enabled: true })).resolves.toEqual({
         outcome: 'unset',
       });
     });
@@ -325,14 +355,14 @@ describe('PlatformPools', () => {
     it('answers nothing for a workspace that is not open, also while the deployment sets no platform provisioner', async () => {
       const { platform } = platformPools({ workspaces: [], settings: null });
 
-      await expect(platform.enable(WS_1)).resolves.toBeNull();
+      await expect(platform.set(WS_1, { enabled: true })).resolves.toBeNull();
     });
 
     it('records the change as made by Spotlight', async () => {
       const pool = settled(aPlatformPool());
       const { platform, saved } = platformPools({ stored: [pool] });
 
-      await platform.disable(WS_1);
+      await platform.set(WS_1, { enabled: false });
 
       const [updated] = saved[0]?.pullEvents() ?? [];
 
@@ -344,7 +374,55 @@ describe('PlatformPools', () => {
     it('answers nothing for a workspace that is not open', async () => {
       const { platform } = platformPools({ workspaces: [] });
 
-      await expect(platform.disable(WS_1)).resolves.toBeNull();
+      await expect(platform.set(WS_1, { enabled: false })).resolves.toBeNull();
+    });
+  });
+
+  describe('allowing the platform pool of a workspace work', () => {
+    it('allows secrets, keeps review work as it is, and records the change as made by Spotlight', async () => {
+      const { platform, saved } = platformPools({
+        stored: [
+          settled(aPlatformPool({ allows: { allowsReviewWork: true } })),
+        ],
+      });
+
+      await expect(
+        platform.set(WS_1, { allowsSecrets: true }),
+      ).resolves.toEqual({
+        outcome: 'enabled',
+        allowsSecrets: true,
+        allowsReviewWork: true,
+      });
+      const events = saved[0]?.pullEvents() ?? [];
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        change: { by: { actor: null, workspaceId: WS_1 } },
+      });
+    });
+
+    it('writes nothing when the pool already allows that work', async () => {
+      const { platform, saved } = platformPools({
+        stored: [settled(aPlatformPool({ allows: { allowsSecrets: true } }))],
+      });
+
+      await platform.set(WS_1, { allowsSecrets: true });
+
+      expect(saved).toEqual([]);
+    });
+
+    it('keeps what it allows when the deployment changes the platform pool', async () => {
+      const pool = settled(
+        aPlatformPool({
+          allows: { allowsSecrets: true, allowsReviewWork: true },
+        }),
+      );
+      const { platform, saved } = platformPools({ stored: [pool] });
+
+      await platform.set(WS_1, { enabled: false });
+
+      expect(saved[0]?.allowsSecrets).toBe(true);
+      expect(saved[0]?.allowsReviewWork).toBe(true);
     });
   });
 });

@@ -1418,9 +1418,9 @@ export const importWorkspaceRunners = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
- * Enable or disable the platform pool of a workspace
+ * Enable or disable the platform pool of a workspace, and set the work it takes
  *
- * The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. The workspace’s configuration changes record the change, made by Spotlight.
+ * The platform pool is the pool that Spotlight adds to each workspace with the provisioner of this deployment. A disabled platform pool takes no work, and it stays disabled across restarts. It takes runs that inject secrets, and checks and diffs, only when this call allows them. A field that the body does not give stays as it is. The workspace’s configuration changes record the change, made by Spotlight.
  */
 export const setWorkspacePlatformPool = <ThrowOnError extends boolean = false>(options: Options<SetWorkspacePlatformPoolData, ThrowOnError>): RequestResult<SetWorkspacePlatformPoolResponses, SetWorkspacePlatformPoolErrors, ThrowOnError> => (options.client ?? client).put<SetWorkspacePlatformPoolResponses, SetWorkspacePlatformPoolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
