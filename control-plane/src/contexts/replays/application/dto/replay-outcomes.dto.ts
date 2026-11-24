@@ -33,7 +33,14 @@ export type ReplayCheckStartedOutcome =
   | {
       readonly outcome: 'dependency-changed';
       readonly changed: readonly ChangedDependency[];
-    };
+    }
+  | NoRunsToReplay;
+
+export interface NoRunsToReplay {
+  readonly outcome: 'no-runs-to-replay';
+  readonly stationKey: string;
+  readonly set: 'none' | 'empty';
+}
 
 export interface FailureCauseRecorded {
   readonly taskId: string;

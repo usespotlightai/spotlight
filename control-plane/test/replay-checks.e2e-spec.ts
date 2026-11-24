@@ -494,7 +494,7 @@ afterAll(async () => {
 });
 
 describe('a replay check', () => {
-  it('fails, saying why, when the station has no replay set yet', async () => {
+  it('answers no-runs-to-replay, saying why, when the station has no replay set yet', async () => {
     const rejected = (await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(planned()))
       .expect(409)) as Answer<Problem>;
@@ -502,18 +502,20 @@ describe('a replay check', () => {
     expect(rejected.headers['content-type']).toContain(
       'application/problem+json',
     );
+    expect(rejected.body.type).toBe('urn:spotlight:problem:no-runs-to-replay');
     expect(rejected.body.detail).toContain(
       'Station build has no replay set yet.',
     );
   });
 
-  it('fails, saying why, when the station’s replay set has no runs yet', async () => {
+  it('answers no-runs-to-replay, saying why, when the station’s replay set has no runs yet', async () => {
     await createSet([]);
 
     const rejected = (await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(planned()))
       .expect(409)) as Answer<Problem>;
 
+    expect(rejected.body.type).toBe('urn:spotlight:problem:no-runs-to-replay');
     expect(rejected.body.detail).toBe(
       'Station build has no runs in its replay set yet.',
     );
