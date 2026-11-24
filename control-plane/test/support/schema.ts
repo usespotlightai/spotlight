@@ -26,6 +26,7 @@ export * from '@platform/persistence/drizzle/schemas/live.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
 export * from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+export * from '@runs/infrastructure/persistence/drizzle/schemas/snapshot-removal.schema';
 export * from '@runs/infrastructure/persistence/drizzle/schemas/network-call.schema';
 export * from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 export * from '@runs/infrastructure/persistence/drizzle/schemas/run-connection.schema';

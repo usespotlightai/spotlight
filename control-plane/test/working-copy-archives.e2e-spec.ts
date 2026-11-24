@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { SnapshotRemovalsPort } from '@runs/application/ports/snapshot-removals.port';
 import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import { RemoveReleasedArchives } from '@runs/application/services/remove-released-archives.service';
@@ -13,15 +14,25 @@ import {
 import { WorkingCopyArchiveVersionConflictError } from '@runs/domain/exceptions/working-copy-archive-version-conflict.error';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
+import {
+  SpotlightStorage,
+  StoreSnapshot,
+} from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/drizzle/archive-reference-locks';
+import { DrizzleSnapshotRemovals } from '@runs/infrastructure/persistence/drizzle/ledgers/snapshot-removals.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import {
+  SnapshotName,
+  WorkingCopyStoreName,
+} from '@shared-kernel/domain/value-objects/working-copy-names.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleWorkArchiveHolders } from '@work/infrastructure/persistence/drizzle/readers/work-archive-holders.reader';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
@@ -150,7 +161,7 @@ const forChat = (chatId: string): WorkingCopyKey =>
 
 const archived = async (
   key: WorkingCopyKey,
-  times: { grantedAt: Date; completedAt?: Date },
+  times: { grantedAt: Date; completedAt?: Date; store?: string },
 ): Promise<WorkingCopyArchive> => {
   const grantee = await aRunOf(db, { id: randomUUID(), workspaceId: 'ws_1' });
   const granted = WorkingCopyArchive.grant({
@@ -159,8 +170,12 @@ const archived = async (
     workingCopyKey: key,
     held: true,
     grantee: ArchiveGrantee.run(RunId.of(grantee)),
-    size: STORED.size,
-    digest: STORED.digest,
+    location: times.store
+      ? StoreSnapshot.of(
+          WorkingCopyStoreName.of(times.store),
+          SnapshotName.of('base-v1'),
+        )
+      : SpotlightStorage.of(STORED.size, STORED.digest),
     at: times.grantedAt,
   });
 
@@ -469,6 +484,7 @@ describe('storing working copy archives', () => {
       holders,
       archives,
       store,
+      new DrizzleSnapshotRemovals(new DrizzleContext(db)),
       { now: () => NOW, sleep: async () => {} },
       {
         debug: () => {},
@@ -495,5 +511,105 @@ describe('storing working copy archives', () => {
     expect(removedFromStore).toContain(finished.id.value);
     expect(await archives.find(reopened.id)).not.toBeNull();
     expect(removedFromStore).not.toContain(reopened.id.value);
+  });
+
+  describe('removing the snapshot of an archive kept in a store of the hosts', () => {
+    const storageless: WorkingCopyArchiveStorePort = {
+      grantUpload: async () => {
+        throw new Error('nothing is uploaded here');
+      },
+      stored: async () => null,
+      grantDownload: async () => {
+        throw new Error('nothing is downloaded here');
+      },
+      remove: async () => {
+        throw new Error('a snapshot is not in Spotlight’s storage');
+      },
+    };
+    const quiet = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    };
+    // The app has one DrizzleContext, so the lock's transaction holds every write made under it.
+    const removalWith = (
+      snapshots: (context: DrizzleContext) => SnapshotRemovalsPort,
+      saving = archives,
+    ) => {
+      const context = new DrizzleContext(db);
+
+      return new RemoveReleasedArchives(
+        references,
+        new DrizzleArchiveReferenceLocks(context),
+        holders,
+        saving,
+        storageless,
+        snapshots(context),
+        { now: () => NOW, sleep: async () => {} },
+        quiet,
+      );
+    };
+    const ledger = (shared: DrizzleContext) =>
+      new DrizzleSnapshotRemovals(shared);
+    const queuedFor = (archive: WorkingCopyArchive) =>
+      db
+        .select()
+        .from(schema.snapshotRemoval)
+        .where(eq(schema.snapshotRemoval.archiveId, archive.id.value));
+    const finishedSnapshot = async () =>
+      archived(
+        forTask(
+          await aTask({ finishedAt: ago(9 * DAY), updatedAt: ago(9 * DAY) }),
+        ),
+        {
+          grantedAt: ago(10 * DAY),
+          completedAt: ago(10 * DAY),
+          store: 's3://team-a',
+        },
+      );
+
+    it('queues the snapshot for a host of its store as the archive goes', async () => {
+      const finished = await finishedSnapshot();
+
+      await removalWith(ledger).processDue();
+
+      expect(await archives.find(finished.id)).toBeNull();
+      expect(await queuedFor(finished)).toEqual([
+        expect.objectContaining({ store: 's3://team-a' }),
+      ]);
+    });
+
+    it('keeps the archive when its snapshot cannot be queued, so the snapshot is never left behind', async () => {
+      const finished = await finishedSnapshot();
+      const failing: SnapshotRemovalsPort = {
+        queue: async () => {
+          throw new Error('the queue is gone');
+        },
+        due: async () => [],
+        forget: async () => false,
+      };
+
+      await removalWith(() => failing).processDue();
+
+      expect(await archives.find(finished.id)).not.toBeNull();
+    });
+
+    it('queues nothing when the archive cannot be removed, as both are written in one transaction', async () => {
+      const finished = await finishedSnapshot();
+      const conflicting = Object.assign(
+        Object.create(archives) as typeof archives,
+        {
+          save: async () => {
+            throw new WorkingCopyArchiveVersionConflictError(finished.id.value);
+          },
+        },
+      );
+
+      await removalWith(ledger, conflicting).processDue();
+
+      expect(await archives.find(finished.id)).not.toBeNull();
+      expect(await queuedFor(finished)).toEqual([]);
+    });
   });
 });

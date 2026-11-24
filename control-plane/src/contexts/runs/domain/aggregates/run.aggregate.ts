@@ -21,6 +21,10 @@ import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-start
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
+import type {
+  ArchiveLocation,
+  KeptStore,
+} from '@runs/domain/value-objects/archive-location.vo';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RequeueCount } from '@runs/domain/value-objects/requeue-count.vo';
@@ -619,6 +623,27 @@ export class Run extends EventRecorder {
           (a, b) =>
             (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
         )[0] ?? null
+    );
+  }
+
+  // A run that starts no session of its own rebases: it starts from the store's current base, not from a working copy
+  // that descends from an earlier base. A run that restores one named archive, such as a replay, keeps that archive.
+  rebases(
+    archive: { readonly location: ArchiveLocation },
+    kept: KeptStore | null,
+  ): boolean {
+    const source = this.restoresFrom;
+    const { location } = archive;
+
+    return (
+      source !== null &&
+      'newestOf' in source &&
+      !this.spec.continuesASession &&
+      kept !== null &&
+      kept.base !== null &&
+      location.kind === 'snapshot' &&
+      location.isIn(kept.store) &&
+      !location.descendsFrom(kept.base)
     );
   }
 

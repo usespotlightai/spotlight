@@ -24,11 +24,15 @@ import {
 import { respondCreated } from '@platform/http/resources/resource-responses';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type { ReplayCheckDto } from '@replays/application/dto/replay-checks.dto';
-import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
+import type {
+  ChangedDependency,
+  ReplayCheckStartedOutcome,
+} from '@replays/application/dto/replay-outcomes.dto';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import {
   referenceIn,
   repeatsIn,
+  changedIn,
   textAt,
 } from '@replays/presentation/http/controllers/requests';
 import {
@@ -58,6 +62,23 @@ const nothingToReplay = (scoringPinnedToLive: readonly string[]): never => {
       scoringPinnedToLive.length > 0
         ? `There is nothing to replay. A check pins these changed fields to their live values: ${scoringPinnedToLive.join(', ')}`
         : 'There is nothing to replay. The plan changes nothing that affects how the station’s runs go.',
+  });
+};
+
+const DEPENDENCY_NAMES: Readonly<Record<ChangedDependency['kind'], string>> = {
+  secret: 'secret',
+  skill: 'skill',
+  'harness-profile': 'harness profile',
+  integration: 'integration',
+  hook: 'hook',
+};
+
+const dependencyChanged = (changed: readonly ChangedDependency[]): never => {
+  throw ProblemException.of({
+    slug: 'dependency-changed',
+    title: 'Plan also changes what the station depends on',
+    status: HttpStatus.CONFLICT,
+    detail: `Spotlight cannot decide this change. The plan also changes ${changed.map((each) => `${DEPENDENCY_NAMES[each.kind]} ${each.key}`).join(', ')}, which the station depends on, and a replay uses only the live ones.`,
   });
 };
 
@@ -111,7 +132,7 @@ export class ReplayChecksController {
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'The line has no replay_check, the station has no replay set or no runs in it yet, or the plan changes nothing that changes how its runs go (nothing-to-replay)',
+    'The line has no replay_check, the station has no replay set or no runs in it yet, the plan changes nothing that changes how its runs go (nothing-to-replay), or the plan also changes a secret, skill, harness profile, integration or hook the station depends on, which a replay cannot use before apply (dependency-changed)',
   )
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
@@ -143,6 +164,7 @@ export class ReplayChecksController {
           ),
           station: fieldsOf(body).station,
           line: fieldsOf(body).line,
+          changed: changedIn(body),
           reference: referenceIn(body),
         },
         repeatsIn(body),
@@ -153,6 +175,10 @@ export class ReplayChecksController {
 
     if (started.outcome === 'unchanged') {
       return nothingToReplay(started.scoringPinnedToLive);
+    }
+
+    if (started.outcome === 'dependency-changed') {
+      return dependencyChanged(started.changed);
     }
 
     if (started.outcome === 'reused') {

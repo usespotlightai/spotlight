@@ -52,4 +52,14 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
         )
       : [];
   }
+
+  async toolsOnAnyMarkAsPlanned(
+    definition: Readonly<Record<string, unknown>>,
+  ): Promise<readonly string[] | null> {
+    return (
+      this.reader
+        .enabledOnAnyMarkAsPlanned(definition)
+        ?.map((each) => each.value) ?? null
+    );
+  }
 }

@@ -1,4 +1,5 @@
 import { STATION_SOURCE_EDITS } from '@configuration/application/ports/station-source-edits.port';
+import { TEAM_CONFIGURATION } from '@configuration/application/ports/team-configuration.port';
 import { TEAM_SKILL_KEYS } from '@configuration/application/ports/team-skill-keys.port';
 import {
   CONFIGURATION_CONTROLLERS,
@@ -35,7 +36,12 @@ const BINDINGS = contextBindings([
   ],
   controllers: [...CONFIGURATION_CONTROLLERS],
   providers: [...CONFIGURATION_PROVIDERS, ...BINDINGS.exposed],
-  exports: [STATION_SOURCE_EDITS, TEAM_SKILL_KEYS, ...BINDINGS.exposedTokens],
+  exports: [
+    STATION_SOURCE_EDITS,
+    TEAM_SKILL_KEYS,
+    TEAM_CONFIGURATION,
+    ...BINDINGS.exposedTokens,
+  ],
 })
 export class ConfigurationModule {}
 

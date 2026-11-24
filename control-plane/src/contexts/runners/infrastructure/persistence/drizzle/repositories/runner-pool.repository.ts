@@ -32,6 +32,10 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import {
+  workingCopyStoreColumns,
+  workingCopyStoreOf,
+} from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
 import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { and, eq, inArray, type SQL } from 'drizzle-orm';
 
@@ -60,6 +64,7 @@ const written = (pool: RunnerPool) => {
     disabled: access.kind === 'platform' && access.disabled,
     allowsSecrets: access.kind === 'platform' && access.allowsSecrets,
     allowsReviewWork: access.kind === 'platform' && access.allowsReviewWork,
+    ...workingCopyStoreColumns(pool.workingCopies),
   };
 };
 
@@ -107,6 +112,7 @@ const toPool = (row: Row): RunnerPool =>
     labels: RunnerLabels.of(row.labels),
     maxRuns: row.maxRuns === null ? null : MaxRuns.of(row.maxRuns),
     access: accessOf(row),
+    workingCopies: workingCopyStoreOf(row),
     version: row.version,
   });
 

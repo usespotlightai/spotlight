@@ -377,11 +377,23 @@ type Completion struct {
 	Heads       []CheckoutHead `json:"heads,omitempty"`
 }
 
+// A tar in Spotlight's storage has a URL, a size and a SHA-256. A snapshot in a store of the hosts has Snapshot,
+// and only a host whose working copy hook reaches that store restores it.
 type StoredArchive struct {
-	ID     string `json:"id"`
-	URL    string `json:"url"`
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256"`
+	ID       string          `json:"id"`
+	URL      string          `json:"url"`
+	Size     int64           `json:"size"`
+	SHA256   string          `json:"sha256"`
+	Snapshot *StoredSnapshot `json:"snapshot,omitempty"`
+}
+
+type StoredSnapshot struct {
+	Store string `json:"store"`
+	Name  string `json:"name"`
+	// Base is the base snapshot the working copy descends from; nil for one that started without a base.
+	Base *string `json:"base"`
+	// Rebase says the run starts from the current base of the host's store instead of this snapshot.
+	Rebase bool `json:"rebase,omitempty"`
 }
 
 type CheckoutHead struct {
@@ -395,9 +407,17 @@ type StartingPoint struct {
 	Checkouts []CheckoutHead `json:"checkouts"`
 }
 
+// A tar to upload has a size and a SHA-256; a snapshot the host makes in its store has Snapshot instead.
 type ArchiveRequest struct {
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256"`
+	Size     int64            `json:"size,omitempty"`
+	SHA256   string           `json:"sha256,omitempty"`
+	Snapshot *SnapshotArchive `json:"snapshot,omitempty"`
+}
+
+// The control plane takes the store from the runner's pool or trust. Base is the store's current base, or the base of
+// the working copy the run restored; nil for one that started without a base.
+type SnapshotArchive struct {
+	Base *string `json:"base"`
 }
 
 type AttachmentRequest struct {
@@ -413,9 +433,14 @@ type AttachmentGrant struct {
 }
 
 type ArchiveGrant struct {
-	ID      string            `json:"id"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
+	ID       string            `json:"id"`
+	URL      string            `json:"url"`
+	Headers  map[string]string `json:"headers"`
+	Snapshot *SnapshotGrant    `json:"snapshot,omitempty"`
+}
+
+type SnapshotGrant struct {
+	Name string `json:"name"`
 }
 
 type Message struct {

@@ -38,7 +38,7 @@ func TestASandboxArchivesWithItsOwnToken(t *testing.T) {
 	if err != nil || stored != nil {
 		t.Fatalf("restores %+v, %v", stored, err)
 	}
-	grant, err := sandbox.GrantArchive(ctx, 1024, "abc")
+	grant, err := sandbox.GrantArchive(ctx, protocol.ArchiveRequest{Size: 1024, SHA256: "abc"})
 	if err != nil || grant.ID != "archive_1" {
 		t.Fatalf("granted %+v, %v", grant, err)
 	}

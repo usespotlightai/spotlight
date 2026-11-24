@@ -660,6 +660,9 @@ const bodyOf = (
         subject: resource.subject,
         audience: resource.audience,
         labels: resource.labels,
+        ...(resource.workingCopies
+          ? { workingCopies: resource.workingCopies }
+          : {}),
       };
     case 'runner-pool':
       return {
@@ -685,6 +688,9 @@ const bodyOf = (
               },
             }
           : { token: POOL_TOKEN, tokenVersion: resource.tokenVersion }),
+        ...(resource.workingCopies
+          ? { workingCopies: resource.workingCopies }
+          : {}),
       };
     case 'egress':
       return {

@@ -12,8 +12,22 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1795474768078,
-      "tag": "20261123225928_initial_schema",
+      "when": 1795469418171,
+      "tag": "20261123213018_initial_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795474790070,
+      "tag": "20261123225950_working_copy_stores",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795478384404,
+      "tag": "20261123235944_platform_pool_access_and_run_placement",
       "breakpoints": true
     }
   ]

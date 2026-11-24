@@ -43,6 +43,9 @@ export const runnerTrust = pgTable(
     subject: text('subject').notNull(),
     audience: text('audience').notNull(),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
+    // The store the hosts' working copy hook keeps the working copies of runs in. Without one, Spotlight keeps them as archives.
+    workingCopyStore: text('working_copy_store'),
+    workingCopyBase: text('working_copy_base'),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
@@ -50,6 +53,10 @@ export const runnerTrust = pgTable(
     uniqueIndex('runner_trust_workspace_key_idx').on(
       table.workspaceId,
       table.key,
+    ),
+    check(
+      'runner_trust_working_copy_base',
+      sql`${table.workingCopyBase} is null or ${table.workingCopyStore} is not null`,
     ),
   ],
 );
@@ -83,6 +90,9 @@ export const runnerPool = pgTable(
     provisionSecretVersion: integer('provision_secret_version'),
     provisionEgress: text('provision_egress'),
     provisionEgressTraffic: text('provision_egress_traffic'),
+    // The store the hosts' working copy hook keeps the working copies of runs in. Without one, Spotlight keeps them as archives.
+    workingCopyStore: text('working_copy_store'),
+    workingCopyBase: text('working_copy_base'),
     // Spotlight adds the platform pool to each workspace. The deployment gives its provision URL and secret, so the row keeps neither.
     platform: boolean('platform').notNull().default(false),
     disabled: boolean('disabled').notNull().default(false),
@@ -114,6 +124,10 @@ export const runnerPool = pgTable(
     check(
       'runner_pool_platform_unbounded',
       sql`not ${table.platform} or ${table.maxRuns} is null`,
+    ),
+    check(
+      'runner_pool_working_copies_pull',
+      sql`(${table.workingCopyBase} is null or ${table.workingCopyStore} is not null) and (${table.workingCopyStore} is null or ${table.tokenHash} is not null)`,
     ),
     check(
       'runner_pool_disabled_platform',
@@ -204,10 +218,6 @@ export const runner = pgTable(
     index('runner_workspace_active_idx')
       .on(table.workspaceId)
       .where(sql`${table.endedAt} is null`),
-    check(
-      'runner_claimed_with_work',
-      sql`(${table.workKind} is null) = (${table.claimedAt} is null)`,
-    ),
     check(
       'runner_whole_work',
       sql`(${table.workKind} is null) = (${table.workId} is null)`,

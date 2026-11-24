@@ -6,6 +6,10 @@ import type {
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
+import {
+  WORKING_COPIES,
+  WorkingCopiesResponseDto,
+} from '@runners/presentation/http/dto/working-copies.response.dto';
 
 const WORKSPACE_ID = {
   example: '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57',
@@ -52,6 +56,9 @@ export class RunnerTrustResourceResponseDto extends ResourceResponseDto {
   @ApiProperty(LABELS)
   readonly labels: readonly string[];
 
+  @ApiProperty(WORKING_COPIES)
+  readonly workingCopies: WorkingCopiesResponseDto | null;
+
   constructor(trust: RunnerTrustResourceDto) {
     super(trust);
     this.workspaceId = trust.workspaceId;
@@ -60,6 +67,7 @@ export class RunnerTrustResourceResponseDto extends ResourceResponseDto {
     this.subject = trust.subject;
     this.audience = trust.audience;
     this.labels = trust.labels;
+    this.workingCopies = WorkingCopiesResponseDto.of(trust.workingCopies);
   }
 }
 
@@ -155,6 +163,9 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
   })
   readonly provision: PoolProvisionResponseDto | null;
 
+  @ApiProperty(WORKING_COPIES)
+  readonly workingCopies: WorkingCopiesResponseDto | null;
+
   constructor(pool: RunnerPoolResourceDto) {
     super(pool);
     this.workspaceId = pool.workspaceId;
@@ -171,6 +182,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
           pool.provision.egressTraffic,
         )
       : null;
+    this.workingCopies = WorkingCopiesResponseDto.of(pool.workingCopies);
   }
 }
 

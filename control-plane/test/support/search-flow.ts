@@ -93,7 +93,8 @@ const archiveStore: WorkingCopyArchiveStorePort = {
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
   }),
-  stored: async (archive) => ({ size: archive.size, digest: archive.digest }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
   grantDownload: async (archive) =>
     `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},

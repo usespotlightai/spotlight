@@ -10,6 +10,7 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import type { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
@@ -26,6 +27,7 @@ export type ParsedTrust =
       readonly key: TrustKey;
       readonly workload: TrustedWorkload;
       readonly labels: RunnerLabels;
+      readonly workingCopies: WorkingCopyStore | null;
     }
   | Invalid;
 
@@ -51,6 +53,7 @@ export type ParsedPool =
       readonly labels: RunnerLabels;
       readonly maxRuns: MaxRuns | null;
       readonly access: ParsedPoolAccess;
+      readonly workingCopies: WorkingCopyStore | null;
     }
   | Invalid;
 

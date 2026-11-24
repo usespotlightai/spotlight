@@ -79,6 +79,7 @@ const TRUST = {
   subject: 'runner',
   audience: 'spotlight',
   labels: [],
+  workingCopies: null,
 };
 
 const OIDC_TRUST = {
@@ -104,6 +105,10 @@ const POOL = {
   maxRuns: 4,
   tokenVersion: 1,
   provision: null,
+  workingCopies: {
+    store: 's3://team-a',
+    base: 'base-v1',
+  },
 };
 
 const DECLARED = {
@@ -222,6 +227,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
             ]
           : [],
     ),
+    toolsOnAnyMarkAsPlanned: vi.fn(async () => []),
   } satisfies IntegrationConfigsPort;
   const hookOf = (id: string, team: TeamProfile, key: string): HookConfig => ({
     id,
@@ -244,6 +250,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     ofTeam: vi.fn(async (teamId: TeamId) =>
       teamId.equals(CORE.id) ? [hookOf('hook_audit', CORE, 'audit')] : [],
     ),
+    mayFireAt: vi.fn(async () => []),
   } satisfies HookConfigsPort;
   const profileOf = (id: string, key: string): HarnessProfileRecord => ({
     id,
@@ -442,7 +449,7 @@ describe('ResourceConfigurationHandler', () => {
     },
   );
 
-  it('contains a pool with its labels, its limit and the token version it pulls with', async () => {
+  it('contains a pool with its labels, its limit, the token version it pulls with and where its hosts keep working copies', async () => {
     expect((await one('runner-pool', 'pool_1'))?.resource).toEqual({
       kind: 'runner-pool',
       ownedBy: 'workspace',
@@ -453,6 +460,10 @@ describe('ResourceConfigurationHandler', () => {
       maxRuns: 4,
       tokenVersion: 1,
       provision: null,
+      workingCopies: {
+        store: 's3://team-a',
+        base: 'base-v1',
+      },
     });
   });
 

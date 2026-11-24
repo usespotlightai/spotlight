@@ -8,6 +8,12 @@ interface StationConfigJudge {
   readonly passThreshold: number;
 }
 
+interface StationDependsOn {
+  readonly harnessProfile: string | null;
+  readonly skills: readonly string[];
+  readonly tools: readonly string[];
+}
+
 export interface StationConfigFacts {
   readonly fingerprint: string;
   readonly handoverWords: readonly string[];
@@ -17,6 +23,7 @@ export interface StationConfigFacts {
   readonly judge: StationConfigJudge | null;
   readonly rubricHash: string | null;
   readonly trialTools: readonly string[];
+  readonly dependsOn: StationDependsOn;
 }
 
 export type ValidatedStationConfig =

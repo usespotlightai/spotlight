@@ -13,6 +13,7 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
     readonly disabled: boolean | null = null,
     readonly allowsSecrets: boolean | null = null,
     readonly allowsReviewWork: boolean | null = null,
+    readonly workingCopiesChanged = false,
   ) {}
 
   // A platform pool records the work it takes from the start.
@@ -40,6 +41,7 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       disabled?: boolean;
       allowsSecrets?: boolean;
       allowsReviewWork?: boolean;
+      workingCopiesChanged?: boolean;
     },
   ): RunnerPoolChangeDetail {
     return new RunnerPoolChangeDetail(
@@ -50,6 +52,7 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       moved.disabled ?? null,
       moved.allowsSecrets ?? null,
       moved.allowsReviewWork ?? null,
+      moved.workingCopiesChanged ?? false,
     );
   }
 
@@ -59,6 +62,7 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
       ...(this.tokenRotated ? { tokenRotated: true } : {}),
       ...(this.secretRotated ? { secretRotated: true } : {}),
       ...(this.egressChanged ? { egressChanged: true } : {}),
+      ...(this.workingCopiesChanged ? { workingCopiesChanged: true } : {}),
       ...(typeof this.disabled === 'boolean'
         ? { disabled: this.disabled }
         : {}),

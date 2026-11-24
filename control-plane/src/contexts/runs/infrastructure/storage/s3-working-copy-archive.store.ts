@@ -19,7 +19,9 @@ import type {
   WorkingCopyArchive,
 } from '@runs/domain/aggregates/working-copy-archive.aggregate';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
+import type { SpotlightStorage } from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 const SIGNED_FOR = 15 * 60;
 
@@ -39,6 +41,17 @@ const digestOf = (head: HeadObjectCommandOutput): ArchiveDigest | null =>
       )
     : null;
 
+const tarOf = (archive: WorkingCopyArchive): SpotlightStorage => {
+  if (archive.location.kind !== 'spotlight') {
+    throw new InconsistentStateError(
+      'working copy archive',
+      `is a snapshot in a store of the hosts, which Spotlight's storage does not keep (${archive.id.value})`,
+    );
+  }
+
+  return archive.location;
+};
+
 export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
   private readonly store: S3Client;
   private readonly runners: S3Client;
@@ -57,9 +70,10 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
   async grantUpload(archive: WorkingCopyArchive): Promise<ArchiveUpload> {
     this.assertBucket();
 
+    const { size, digest } = tarOf(archive);
     const headers = {
       'content-type': CONTENT_TYPE,
-      [CHECKSUM]: base64Of(archive.digest),
+      [CHECKSUM]: base64Of(digest),
     };
 
     const url = await getSignedUrl(
@@ -68,8 +82,8 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
         Bucket: this.bucket,
         Key: this.keys.writeKey(keyOf(archive)),
         ContentType: CONTENT_TYPE,
-        ContentLength: archive.size.bytes,
-        ChecksumSHA256: base64Of(archive.digest),
+        ContentLength: size.bytes,
+        ChecksumSHA256: base64Of(digest),
       }),
       {
         expiresIn: SIGNED_FOR,

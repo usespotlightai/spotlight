@@ -78,8 +78,6 @@ CREATE TYPE "public"."network_call_state" AS ENUM('waiting', 'claimed', 'answere
 CREATE TYPE "public"."run_asks" AS ENUM('requester', 'recorded');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'suspended', 'completed', 'failed', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."run_turn" AS ENUM('pending', 'kept');--> statement-breakpoint
-CREATE TYPE "public"."run_wait_reason" AS ENUM('hosts-pull', 'no-pool-has-room', 'platform-pool-not-allowed', 'no-pool-matches');--> statement-breakpoint
-CREATE TYPE "public"."runner_source_kind" AS ENUM('pool', 'trust');--> statement-breakpoint
 CREATE TYPE "public"."working_copy_restores" AS ENUM('always', 'when-continuing');--> statement-breakpoint
 CREATE TYPE "public"."chat_message_kind" AS ENUM('message', 'proposed', 'opened', 'happened');--> statement-breakpoint
 CREATE TYPE "public"."dispatch_driver" AS ENUM('line', 'person');--> statement-breakpoint
@@ -1889,7 +1887,6 @@ CREATE TABLE "runner" (
 	"workspace_id" text NOT NULL,
 	"pool_id" text,
 	"trust_id" text,
-	"platform" boolean DEFAULT false NOT NULL,
 	"host_id" text,
 	"enters_sandbox_id" text,
 	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -1905,11 +1902,9 @@ CREATE TABLE "runner" (
 	"work_id" text,
 	"claim_by" timestamp (3) with time zone NOT NULL,
 	"started_at" timestamp (3) with time zone NOT NULL,
-	"claimed_at" timestamp (3) with time zone,
 	"last_heartbeat_at" timestamp (3) with time zone,
 	"ended_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
-	CONSTRAINT "runner_claimed_with_work" CHECK (("runner"."work_kind" is null) = ("runner"."claimed_at" is null)),
 	CONSTRAINT "runner_whole_work" CHECK (("runner"."work_kind" is null) = ("runner"."work_id" is null)),
 	CONSTRAINT "runner_one_credential_source" CHECK (("runner"."pool_id" is null) <> ("runner"."trust_id" is null))
 );
@@ -1951,16 +1946,13 @@ CREATE TABLE "runner_pool" (
 	"provision_egress_traffic" text,
 	"platform" boolean DEFAULT false NOT NULL,
 	"disabled" boolean DEFAULT false NOT NULL,
-	"allows_secrets" boolean DEFAULT false NOT NULL,
-	"allows_review_work" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "runner_pool_one_mode" CHECK (case when "runner_pool"."platform" then "runner_pool"."token_hash" is null and "runner_pool"."token_version" is null and "runner_pool"."provision_url" is null and "runner_pool"."provision_secret" is null and "runner_pool"."provision_secret_version" is null else ("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null) end),
 	CONSTRAINT "runner_pool_egress_pushes" CHECK ("runner_pool"."provision_egress" is null or "runner_pool"."provision_url" is not null or "runner_pool"."platform"),
 	CONSTRAINT "runner_pool_platform_key" CHECK (not "runner_pool"."platform" or "runner_pool"."key" = 'spotlight'),
 	CONSTRAINT "runner_pool_platform_unbounded" CHECK (not "runner_pool"."platform" or "runner_pool"."max_runs" is null),
-	CONSTRAINT "runner_pool_disabled_platform" CHECK (not "runner_pool"."disabled" or "runner_pool"."platform"),
-	CONSTRAINT "runner_pool_allows_platform" CHECK ((not "runner_pool"."allows_secrets" and not "runner_pool"."allows_review_work") or "runner_pool"."platform")
+	CONSTRAINT "runner_pool_disabled_platform" CHECK (not "runner_pool"."disabled" or "runner_pool"."platform")
 );
 --> statement-breakpoint
 CREATE TABLE "runner_trust" (
@@ -2088,9 +2080,6 @@ CREATE TABLE "run" (
 	"placement" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"placement_image" text,
 	"ran_in" text,
-	"ran_on_kind" "runner_source_kind",
-	"ran_on_key" text,
-	"ran_on_platform" boolean,
 	"claimed_by" text,
 	"lease_expires_at" timestamp (3) with time zone,
 	"stop_requested_at" timestamp (3) with time zone,
@@ -2131,8 +2120,7 @@ CREATE TABLE "run" (
 	CONSTRAINT "run_requeue_count_not_negative" CHECK ("run"."requeue_count" >= 0),
 	CONSTRAINT "run_turn_check" CHECK (("run"."state" = 'suspended') = ("run"."turn" is not null) and ("run"."turn" is null) = ("run"."turn_report" is null) and ("run"."turn" is null) = ("run"."suspended_at" is null)),
 	CONSTRAINT "run_ended_at_matches_state" CHECK (("run"."state" in ('completed', 'failed', 'cancelled')) = ("run"."ended_at" is not null)),
-	CONSTRAINT "run_working_copy_check" CHECK (("run"."working_copy_key" is null) = ("run"."working_copy_rejoinable" is null) and ("run"."working_copy_key" is null) = ("run"."working_copy_restores" is null)),
-	CONSTRAINT "run_ran_on_check" CHECK (("run"."ran_on_kind" is null) = ("run"."ran_on_key" is null) and ("run"."ran_on_kind" is null) = ("run"."ran_on_platform" is null))
+	CONSTRAINT "run_working_copy_check" CHECK (("run"."working_copy_key" is null) = ("run"."working_copy_rejoinable" is null) and ("run"."working_copy_key" is null) = ("run"."working_copy_restores" is null))
 );
 --> statement-breakpoint
 CREATE TABLE "run_journal_entry" (
@@ -2166,13 +2154,6 @@ CREATE TABLE "run_usage" (
 	"recorded_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "run_usage_run_id_attempt_pk" PRIMARY KEY("run_id","attempt"),
 	CONSTRAINT "run_usage_currency_code" CHECK ("run_usage"."currency" ~ '^[A-Z]{3}$')
-);
---> statement-breakpoint
-CREATE TABLE "run_wait" (
-	"run_id" text PRIMARY KEY NOT NULL,
-	"reason" "run_wait_reason" NOT NULL,
-	"queued_at" timestamp (3) with time zone NOT NULL,
-	"since" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "starting_point_hold" (
@@ -2652,7 +2633,6 @@ ALTER TABLE "replay_entry" ADD CONSTRAINT "replay_entry_replay_id_replay_id_fk" 
 ALTER TABLE "replay_outcome" ADD CONSTRAINT "replay_outcome_replay_id_replay_id_fk" FOREIGN KEY ("replay_id") REFERENCES "public"."replay"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_search_iteration" ADD CONSTRAINT "replay_search_iteration_search_id_replay_search_id_fk" FOREIGN KEY ("search_id") REFERENCES "public"."replay_search"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_set_entry" ADD CONSTRAINT "replay_set_entry_set_id_replay_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."replay_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "run_wait" ADD CONSTRAINT "run_wait_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "starting_point_hold_run" ADD CONSTRAINT "starting_point_hold_run_hold_fk" FOREIGN KEY ("workspace_id","holder") REFERENCES "public"."starting_point_hold"("workspace_id","holder") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_run_id_run_grants_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run_grants"("run_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

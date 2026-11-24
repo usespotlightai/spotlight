@@ -19,6 +19,7 @@ import {
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
+import { SpotlightStorage } from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
@@ -153,8 +154,10 @@ describe('RecordStartingPointHandler', () => {
         workingCopyKey: WorkingCopyKey.of('requester', 'subject-task_2'),
         held: true,
         grantee: ArchiveGrantee.run(RunId.of('run_2')),
-        size: ArchiveSize.of(1_024),
-        digest: ArchiveDigest.of(SHA256),
+        location: SpotlightStorage.of(
+          ArchiveSize.of(1_024),
+          ArchiveDigest.of(SHA256),
+        ),
         at: GRANTED_AT,
       }).complete(storedAs(1_024), GRANTED_AT),
     );

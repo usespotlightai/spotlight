@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -471,6 +473,21 @@ func TestCheckExitsByTheWorstResult(t *testing.T) {
 			},
 			want: 0, contains: "UNCHANGED",
 		},
+		"a changed secret the station uses": {
+			post: func(w http.ResponseWriter) bool {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:dependency-changed","status":409,"detail":"Spotlight cannot decide this change. The plan changes LINEAR_KEY, which the station uses"}`)
+				return true
+			},
+			want: undecidedExit, contains: "The plan changes LINEAR_KEY",
+		},
+		"planned changes too large to send": {
+			post: func(w http.ResponseWriter) bool {
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				return true
+			},
+			want: undecidedExit, contains: "too large to send to Spotlight",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := &checkServer{t: t, result: tc.results, post: tc.post}
@@ -690,7 +707,7 @@ func TestReadPlanChecksEveryWorkStationWhenTheLinesRepositoriesChange(t *testing
 	}
 }
 
-func TestReadPlanLeavesUndecidedAStationWhoseSkillOrProfileThePlanChanges(t *testing.T) {
+func TestReadPlanSendsTheSkillsAndProfilesOfTheStationsTeamThePlanChanges(t *testing.T) {
 	plan := mutated(t, withoutUnknowns(t, planFixture(t)), func(changes []any) []any {
 		delivery := lineChange(changes, "spotlight_line.delivery")
 		for _, side := range []string{"before", "after"} {
@@ -719,15 +736,17 @@ func TestReadPlanLeavesUndecidedAStationWhoseSkillOrProfileThePlanChanges(t *tes
 	})
 
 	stations := parsedFixture(t, plan).Stations
-	if len(stations) != 2 || stations[0].Undecided || !stations[1].Undecided || !strings.Contains(stations[1].Because, "skill spotlight_skill.core_tdd") {
+	want := plannedChanges{Skills: []string{"tdd"}}
+	if len(stations) != 2 || undecidedKeys(stations) != "" || !reflect.DeepEqual(stations[0].Changed, want) || !reflect.DeepEqual(stations[1].Changed, want) {
 		t.Fatalf("stations = %+v", stations)
 	}
 
-	s := &checkServer{t: t, result: []string{"passed"}}
+	s := &checkServer{t: t, result: []string{"passed", "passed"}}
 	server := s.serve()
 	defer server.Close()
-	if got := runCheck(t, map[string]string{urlVar: server.URL, tokenVar: token}, plan); got.code != undecidedExit {
-		t.Fatalf("code = %d\n%s", got.code, got.out)
+	runCheck(t, map[string]string{urlVar: server.URL, tokenVar: token}, plan)
+	if len(s.posted) != 2 || !reflect.DeepEqual(s.posted[1]["changed"], map[string]any{"skills": []any{"tdd"}}) {
+		t.Fatalf("posted = %+v", s.posted)
 	}
 }
 
@@ -854,56 +873,166 @@ func undecidedKeys(stations []plannedStation) string {
 	return strings.Join(keys, ",")
 }
 
-func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanChanges(t *testing.T) {
-	withTool := func(changes []any) []any {
-		delivery := lineChange(changes, "spotlight_line.delivery")
-		for _, side := range []string{"before", "after"} {
-			stationIn(delivery[side].(map[string]any), "review")["tools"] = []any{"linear.comment"}
-		}
-		return changes
-	}
-
+func TestReadPlanSendsTheIntegrationsAndHooksOfTheStationsTeamAndLeavesUndecidedWhatIsNamedOnlyAfterApply(t *testing.T) {
 	for name, tc := range map[string]struct {
-		resource map[string]any
-		want     string
-		contains string
+		resource  map[string]any
+		changed   plannedChanges
+		undecided string
+		contains  string
 	}{
-		"an integration a station's tools come from": {
+		"an integration": {
 			resource: catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "linear"}),
-			want:     "review", contains: "integration spotlight_integration.core_linear",
+			changed:  plannedChanges{Integrations: []plannedIntegration{{Key: "linear"}}},
 		},
 		"an integration of another team": {
 			resource: catalogResource("spotlight_integration.other_linear", "spotlight_integration", map[string]any{"team_id": "another-team", "integration": "linear"}),
-			want:     "",
 		},
-		"a hook matching one station": {
+		"a hook": {
 			resource: catalogResource("spotlight_hook.core_notify", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "notify", "match": map[string]any{"stations": []any{"build"}}}),
-			want:     "build", contains: "hook spotlight_hook.core_notify",
+			changed:  plannedChanges{Hooks: []plannedHook{{Key: "notify", Lines: []string{}, Stations: []string{"build"}}}},
 		},
-		"a hook matching every station": {
-			resource: catalogResource("spotlight_hook.core_audit", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "audit", "match": map[string]any{}}),
-			want:     "build,review",
+		"an integration with its planned definition": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_posthog", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "posthog"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "posthog", "definition": map[string]any{"marks": "planned"}}
+				return integration
+			}(),
+			changed: plannedChanges{Integrations: []plannedIntegration{{Key: "posthog", Definition: map[string]any{"marks": "planned"}}}},
 		},
-		"a secret, which any station may use": {
-			resource: catalogResource("spotlight_secret.linear_key", "spotlight_secret", map[string]any{"workspace_id": "ws", "name": "LINEAR_KEY"}),
-			want:     "build,review", contains: "secret spotlight_secret.linear_key",
+		"an integration whose definition is known only after apply": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_later", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "later"})
+				integration["change"].(map[string]any)["after_unknown"] = map[string]any{"definition": true}
+				return integration
+			}(),
+			undecided: "build,review", contains: "integration spotlight_integration.core_later",
+		},
+		"an integration the plan renames": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "linear"})
+				integration["change"].(map[string]any)["actions"] = []any{"delete", "create"}
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "tracker", "definition": map[string]any{"integration": "tracker"}}
+				return integration
+			}(),
+			changed: plannedChanges{Integrations: []plannedIntegration{{Key: "linear"}, {Key: "tracker", Definition: map[string]any{"integration": "tracker"}}}},
+		},
+		"an integration whose planned definition holds sensitive values": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_secret", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "secret"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "secret", "definition": map[string]any{"token": "value"}}
+				integration["change"].(map[string]any)["after_sensitive"] = map[string]any{"definition": map[string]any{"token": true}}
+				return integration
+			}(),
+			undecided: "build,review", contains: "integration spotlight_integration.core_secret, which the CLI does not send to Spotlight since its planned definition holds sensitive values",
+		},
+		"an integration whose planned definition is sensitive as a whole": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_whole", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "whole"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "whole", "definition": map[string]any{"token": "value"}}
+				integration["change"].(map[string]any)["after_sensitive"] = map[string]any{"definition": true}
+				return integration
+			}(),
+			undecided: "build,review", contains: "spotlight_integration.core_whole, which the CLI does not send to Spotlight since its planned definition holds sensitive values",
+		},
+		"an integration whose planned definition is just under the limit with escaped characters": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_cel", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "cel"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "cel", "definition": map[string]any{"when": strings.Repeat("&", maxDefinitionBytes-20)}}
+				return integration
+			}(),
+			changed: plannedChanges{Integrations: []plannedIntegration{{Key: "cel", Definition: map[string]any{"when": strings.Repeat("&", maxDefinitionBytes-20)}}}},
+		},
+		"an integration whose planned definition is too large to send": {
+			resource: func() map[string]any {
+				integration := catalogResource("spotlight_integration.core_large", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "large"})
+				integration["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "integration": "large", "definition": map[string]any{"text": strings.Repeat("x", maxDefinitionBytes)}}
+				return integration
+			}(),
+			undecided: "build,review", contains: "integration spotlight_integration.core_large, which the CLI does not send to Spotlight since its planned definition is larger than 16 KiB",
+		},
+		"a hook whose match is known only after apply": {
+			resource: func() map[string]any {
+				hook := catalogResource("spotlight_hook.core_later", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "later"})
+				hook["change"].(map[string]any)["after_unknown"] = map[string]any{"match": true}
+				return hook
+			}(),
+			undecided: "build,review", contains: "hook spotlight_hook.core_later",
+		},
+		"a skill the plan renames": {
+			resource: func() map[string]any {
+				skill := catalogResource("spotlight_skill.core_tdd", "spotlight_skill", map[string]any{"team_id": coreTeam, "key": "tdd"})
+				skill["change"].(map[string]any)["actions"] = []any{"delete", "create"}
+				skill["change"].(map[string]any)["after"] = map[string]any{"team_id": coreTeam, "key": "test-first"}
+				return skill
+			}(),
+			changed: plannedChanges{Skills: []string{"tdd", "test-first"}},
+		},
+		"a skill whose key is known only after apply": {
+			resource:  catalogResource("spotlight_skill.core_new", "spotlight_skill", map[string]any{"team_id": coreTeam}),
+			undecided: "build,review", contains: "skill spotlight_skill.core_new",
+		},
+		"a secret whose name is known only after apply": {
+			resource:  catalogResource("spotlight_secret.linear_key", "spotlight_secret", map[string]any{"workspace_id": "ws"}),
+			undecided: "build,review", contains: "secret spotlight_secret.linear_key",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			plan := mutated(t, withoutUnknowns(t, planFixture(t)), func(changes []any) []any {
-				return append(withTool(changes), tc.resource)
+				return append(changes, tc.resource)
 			})
 
 			stations := parsedFixture(t, plan).Stations
-			if got := undecidedKeys(stations); got != tc.want {
-				t.Fatalf("undecided = %q, want %q: %+v", got, tc.want, stations)
+			if got := undecidedKeys(stations); got != tc.undecided {
+				t.Fatalf("undecided = %q, want %q: %+v", got, tc.undecided, stations)
 			}
 			for _, each := range stations {
-				if each.Undecided && tc.contains != "" && !strings.Contains(each.Because, tc.contains) {
+				if each.Undecided && !strings.Contains(each.Because, tc.contains) {
 					t.Fatalf("%s: %s", each.Key, each.Because)
+				}
+				if !each.Undecided && !reflect.DeepEqual(each.Changed, tc.changed) {
+					t.Fatalf("%s: changed = %+v, want %+v", each.Key, each.Changed, tc.changed)
 				}
 			}
 		})
+	}
+}
+
+func TestReadPlanAsksSpotlightWhetherAChangedSecretReachesEachWorkStation(t *testing.T) {
+	secret := func(address, name string, actions ...any) map[string]any {
+		changed := catalogResource(address, "spotlight_secret", map[string]any{"workspace_id": "ws", "name": name})
+		changed["change"].(map[string]any)["actions"] = actions
+		return changed
+	}
+	plan := mutated(t, withoutUnknowns(t, planFixture(t)), func(changes []any) []any {
+		return append(changes,
+			secret("spotlight_secret.b", "B_KEY", "update"),
+			secret("spotlight_secret.a", "A_KEY", "delete"),
+			secret("spotlight_secret.a_again", "A_KEY", "create"),
+			secret("spotlight_secret.same", "SAME_KEY", "no-op"),
+		)
+	})
+
+	stations := parsedFixture(t, plan).Stations
+	if len(stations) != 2 {
+		t.Fatalf("stations = %+v", stations)
+	}
+	for _, each := range stations {
+		if each.Undecided || !slices.Equal(each.Changed.Secrets, []string{"A_KEY", "B_KEY"}) {
+			t.Fatalf("%s: %+v", each.Key, each)
+		}
+	}
+
+	s := &checkServer{t: t, result: []string{"passed", "passed"}}
+	server := s.serve()
+	defer server.Close()
+	runCheck(t, map[string]string{urlVar: server.URL, tokenVar: token}, plan)
+	for _, body := range s.posted {
+		if !reflect.DeepEqual(body["changed"], map[string]any{"secrets": []any{"A_KEY", "B_KEY"}}) {
+			t.Fatalf("posted = %+v", body)
+		}
+	}
+	if len(s.posted) != 2 {
+		t.Fatalf("posted %d checks", len(s.posted))
 	}
 }
 

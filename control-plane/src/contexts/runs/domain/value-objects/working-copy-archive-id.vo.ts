@@ -5,6 +5,10 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
 export class WorkingCopyArchiveId {
   private constructor(readonly value: string) {}
 
+  static isWellFormed(raw: string): boolean {
+    return ID.test(raw.trim());
+  }
+
   static of(raw: string): WorkingCopyArchiveId {
     const value = raw.trim();
 

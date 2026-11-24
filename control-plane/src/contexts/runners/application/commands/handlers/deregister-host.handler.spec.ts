@@ -23,6 +23,7 @@ const deregistering = (authenticated: RunnerPool | RunnerTrust | null) => {
           ? {
               source: CredentialSource.ofId(authenticated.id),
               workspaceId: authenticated.workspaceId,
+              workingCopies: null,
             }
           : null,
       ),

@@ -32,7 +32,7 @@ export const RUN_WAIT_REASON_FACTS = [
   'no-pool-matches',
 ] as const;
 
-export type RunWaitReasonFact = (typeof RUN_WAIT_REASON_FACTS)[number];
+type RunWaitReasonFact = (typeof RUN_WAIT_REASON_FACTS)[number];
 
 export const RUNNER_SOURCE_KIND_FACTS = ['pool', 'trust'] as const;
 

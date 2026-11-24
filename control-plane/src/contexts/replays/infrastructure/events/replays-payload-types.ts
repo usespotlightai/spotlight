@@ -65,6 +65,7 @@ import { Money } from '@replays/domain/value-objects/money.vo';
 import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { OracleReference } from '@replays/domain/value-objects/oracle-reference.vo';
 import { PairingReference } from '@replays/domain/value-objects/pairing-reference.vo';
+import { PlannedChanges } from '@replays/domain/value-objects/planned-changes.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
@@ -186,6 +187,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayCheckStarted,
   StationHashes,
   PlannedLine,
+  PlannedChanges,
   ConfigPullRequestId,
   ConfigPullRequestDetail,
   ConfigPullRequestReason,

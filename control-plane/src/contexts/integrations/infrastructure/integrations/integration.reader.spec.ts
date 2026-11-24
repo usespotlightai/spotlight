@@ -4,6 +4,7 @@ import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const expressions = new CelExpressionEngine();
 
@@ -113,6 +114,36 @@ tools:
     expect(
       reader.enabledOnAnyMark([defined(ENABLING)]).map((each) => each.value),
     ).toEqual(['linear.get-issue']);
+  });
+
+  it('names the tools a planned definition would enable on marks, reading each plan afresh', () => {
+    const reader = new IntegrationReader(expressions, operationsContaining());
+    const planned = (enabledOnMark: string) =>
+      reader
+        .enabledOnAnyMarkAsPlanned(
+          parseYaml(`${WHOLE}actions:
+  get:
+    request:
+      method: GET
+      url: https://api.linear.app/issues/\${{ inputs.issue }}
+tools:
+  get-issue:
+    action: get
+    description: Read the issue.
+${enabledOnMark}    inputs:
+      issue:
+        required: true
+`) as Record<string, unknown>,
+        )
+        ?.map((each) => each.value);
+
+    expect(planned('')).toEqual([]);
+    expect(planned('    enabledOnMark: linear.issue\n')).toEqual([
+      'linear.get-issue',
+    ]);
+    expect(
+      reader.enabledOnAnyMarkAsPlanned({ integration: 'sentry', tools: 1 }),
+    ).toBeNull();
   });
 
   it('keeps reading past a definition that will not', () => {

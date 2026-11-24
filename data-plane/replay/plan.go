@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -33,6 +34,7 @@ type plannedStation struct {
 	Key       string
 	Block     map[string]any
 	Line      map[string]any
+	Changed   plannedChanges
 	Undecided bool
 	Because   string
 }
@@ -53,20 +55,43 @@ type resourceChange struct {
 	Type         string `json:"type"`
 	ProviderName string `json:"provider_name"`
 	Change       struct {
-		Actions      []string       `json:"actions"`
-		Before       map[string]any `json:"before"`
-		After        map[string]any `json:"after"`
-		AfterUnknown any            `json:"after_unknown"`
+		Actions        []string       `json:"actions"`
+		Before         map[string]any `json:"before"`
+		After          map[string]any `json:"after"`
+		AfterUnknown   any            `json:"after_unknown"`
+		AfterSensitive any            `json:"after_sensitive"`
 	} `json:"change"`
 }
 
 type catalogChange struct {
-	address  string
-	kind     string
-	teamID   string
-	key      string
-	stations []string
-	anyTeam  bool
+	address      string
+	kind         string
+	teamID       string
+	keys         []string
+	hooks        []plannedHook
+	integrations []plannedIntegration
+	withheld     string
+}
+
+const maxDefinitionBytes = 16 << 10
+
+type plannedIntegration struct {
+	Key        string         `json:"key"`
+	Definition map[string]any `json:"definition"`
+}
+
+type plannedHook struct {
+	Key      string   `json:"key"`
+	Lines    []string `json:"lines"`
+	Stations []string `json:"stations"`
+}
+
+type plannedChanges struct {
+	Secrets         []string             `json:"secrets,omitempty"`
+	Skills          []string             `json:"skills,omitempty"`
+	HarnessProfiles []string             `json:"harnessProfiles,omitempty"`
+	Integrations    []plannedIntegration `json:"integrations,omitempty"`
+	Hooks           []plannedHook        `json:"hooks,omitempty"`
 }
 
 var derivedAttributes = map[string]bool{"color": true, "diffs": true, "decisions": true, "memories": true}
@@ -126,33 +151,63 @@ func readPlan(in io.Reader) (planned, error) {
 	}
 
 	var lines []resourceChange
-	var catalog []catalogChange
+	var unnamed, withheld []catalogChange
+	var secrets []string
+	teams := map[string]*plannedChanges{}
 	for _, each := range shown.ResourceChanges {
 		if each.Mode != "managed" || !fromSpotlight(each.ProviderName) {
 			continue
 		}
 
-		switch each.Type {
-		case lineType:
+		if each.Type == lineType {
 			lines = append(lines, each)
-		case skillType, profileType, integrationType, hookType, secretType:
-			if changed := catalogChangeOf(each); changed != nil {
-				catalog = append(catalog, *changed)
+			continue
+		}
+		changed := catalogChangeOf(each)
+		switch {
+		case changed == nil:
+		case len(changed.keys) == 0 || changed.kind != "secret" && changed.teamID == "":
+			unnamed = append(unnamed, *changed)
+		case changed.withheld != "":
+			withheld = append(withheld, *changed)
+		case changed.kind == "secret":
+			secrets = append(secrets, changed.keys...)
+		default:
+			if teams[changed.teamID] == nil {
+				teams[changed.teamID] = &plannedChanges{}
 			}
+			teams[changed.teamID].add(*changed)
 		}
 	}
 
 	var plan planned
 	for _, each := range lines {
-		plan.add(each, catalog)
+		teamID, _ := each.Change.Before["team_id"].(string)
+		changes := plannedChanges{Secrets: secrets}
+		if team := teams[teamID]; team != nil {
+			changes.Skills, changes.HarnessProfiles, changes.Integrations, changes.Hooks = team.Skills, team.HarnessProfiles, team.Integrations, team.Hooks
+		}
+		plan.add(each, unnamed, withheld, changes.sorted())
 	}
 
 	return plan, nil
 }
 
+var keyAttributes = map[string]struct{ kind, key string }{
+	skillType:       {"skill", "key"},
+	profileType:     {"harness profile", "key"},
+	integrationType: {"integration", "integration"},
+	hookType:        {"hook", "key"},
+	secretType:      {"secret", "name"},
+}
+
 func catalogChangeOf(change resourceChange) *catalogChange {
 	switch strings.Join(change.Change.Actions, ",") {
 	case "no-op", "read", "":
+		return nil
+	}
+	named, ok := keyAttributes[change.Type]
+	if !ok {
 		return nil
 	}
 
@@ -161,78 +216,95 @@ func catalogChangeOf(change resourceChange) *catalogChange {
 		values = change.Change.After
 	}
 	teamID, _ := values["team_id"].(string)
-	changed := &catalogChange{address: change.Address, teamID: teamID}
+	changed := &catalogChange{address: change.Address, kind: named.kind, teamID: teamID}
+	unknown := objectAt(change.Change.AfterUnknown)
+	partUnknown := change.Type == hookType && isUnknown(unknown["match"]) || change.Type == integrationType && isUnknown(unknown["definition"])
 
-	switch change.Type {
-	case skillType:
-		changed.kind = "skill"
-		changed.key, _ = values["key"].(string)
-	case profileType:
-		changed.kind = "harness profile"
-		changed.key, _ = values["key"].(string)
-	case integrationType:
-		changed.kind = "integration"
-		changed.key, _ = values["integration"].(string)
-	case hookType:
-		changed.kind = "hook"
-		changed.key = "*"
-		if stations, ok := objectAt(values["match"])["stations"].([]any); ok && len(stations) > 0 {
-			for _, each := range stations {
-				if key, ok := each.(string); ok {
-					changed.stations = append(changed.stations, key)
-				}
-			}
+	for _, side := range []map[string]any{change.Change.After, change.Change.Before} {
+		key, _ := side[named.key].(string)
+		if key == "" || slices.Contains(changed.keys, key) {
+			continue
 		}
-	case secretType:
-		changed.kind = "secret"
-		changed.anyTeam = true
+		changed.keys = append(changed.keys, key)
+		switch change.Type {
+		case hookType:
+			match := objectAt(side["match"])
+			changed.hooks = append(changed.hooks, plannedHook{Key: key, Lines: textsAt(match["lines"]), Stations: textsAt(match["stations"])})
+		case integrationType:
+			var definition map[string]any
+			if after, _ := change.Change.After[named.key].(string); after == key {
+				definition, _ = change.Change.After["definition"].(map[string]any)
+				changed.withheld = withheldReason(definition, objectAt(change.Change.AfterSensitive)["definition"])
+			}
+			changed.integrations = append(changed.integrations, plannedIntegration{Key: key, Definition: definition})
+		}
+	}
+	if isUnknown(unknown[named.key]) || partUnknown {
+		changed.keys = nil
 	}
 
 	return changed
 }
 
-func (c catalogChange) feeds(teamID, stationKey string, station map[string]any) bool {
-	if c.anyTeam {
-		return true
+func withheldReason(definition map[string]any, sensitive any) string {
+	if isUnknown(sensitive) {
+		return "holds sensitive values"
 	}
-	if c.teamID != "" && c.teamID != teamID {
-		return false
-	}
-	if c.key == "" {
-		return true
+	var encoded bytes.Buffer
+	encoder := json.NewEncoder(&encoded)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(definition); err != nil || len(bytes.TrimSuffix(encoded.Bytes(), []byte("\n"))) > maxDefinitionBytes {
+		return fmt.Sprintf("is larger than %d KiB", maxDefinitionBytes>>10)
 	}
 
-	switch c.kind {
+	return ""
+}
+
+func textsAt(node any) []string {
+	texts := []string{}
+	for _, each := range listAt(node) {
+		if text, ok := each.(string); ok {
+			texts = append(texts, text)
+		}
+	}
+
+	return texts
+}
+
+func (c catalogChange) reaches(teamID string) bool {
+	return c.teamID == "" || c.teamID == teamID
+}
+
+func (c *plannedChanges) add(changed catalogChange) {
+	switch changed.kind {
 	case "skill":
-		for _, each := range listAt(station["skills"]) {
-			if each == c.key {
-				return true
-			}
-		}
-		return false
+		c.Skills = append(c.Skills, changed.keys...)
+	case "harness profile":
+		c.HarnessProfiles = append(c.HarnessProfiles, changed.keys...)
 	case "integration":
-		for _, each := range listAt(station["tools"]) {
-			if tool, ok := each.(string); ok && strings.HasPrefix(tool, c.key+".") {
-				return true
-			}
-		}
-		return false
+		c.Integrations = append(c.Integrations, changed.integrations...)
 	case "hook":
-		if len(c.stations) == 0 {
-			return true
-		}
-		for _, each := range c.stations {
-			if each == stationKey {
-				return true
-			}
-		}
-		return false
-	default:
-		return station["profile"] == c.key
+		c.Hooks = append(c.Hooks, changed.hooks...)
 	}
 }
 
-func (p *planned) add(change resourceChange, catalog []catalogChange) {
+func (c plannedChanges) sorted() plannedChanges {
+	for _, keys := range []*[]string{&c.Secrets, &c.Skills, &c.HarnessProfiles} {
+		*keys = slices.Compact(slices.Sorted(slices.Values(*keys)))
+	}
+	c.Integrations = slices.Clone(c.Integrations)
+	slices.SortFunc(c.Integrations, func(one, other plannedIntegration) int { return strings.Compare(one.Key, other.Key) })
+	c.Hooks = slices.Clone(c.Hooks)
+	slices.SortFunc(c.Hooks, func(one, other plannedHook) int { return strings.Compare(one.Key, other.Key) })
+
+	return c
+}
+
+func (c plannedChanges) empty() bool {
+	return len(c.Secrets)+len(c.Skills)+len(c.HarnessProfiles)+len(c.Integrations)+len(c.Hooks) == 0
+}
+
+func (p *planned) add(change resourceChange, unnamed, withheld []catalogChange, changes plannedChanges) {
 	actions := strings.Join(change.Change.Actions, ",")
 
 	switch actions {
@@ -302,15 +374,21 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 		}
 
 		changed, unknownParts := current.changedFrom(old.values)
-		var feeding []string
-		for _, each := range catalog {
-			if each.feeds(teamID, key, old.values) || each.feeds(teamID, key, current.values) {
-				feeding = append(feeding, fmt.Sprintf("%s %s", each.kind, each.address))
+		var unknownChanges []string
+		for _, each := range unnamed {
+			if entry := fmt.Sprintf("%s %s", each.kind, each.address); each.reaches(teamID) && !slices.Contains(unknownChanges, entry) {
+				unknownChanges = append(unknownChanges, entry)
+			}
+		}
+		var withheldChanges []string
+		for _, each := range withheld {
+			if each.reaches(teamID) {
+				withheldChanges = append(withheldChanges, fmt.Sprintf("%s %s, which the CLI does not send to Spotlight since its planned definition %s", each.kind, each.address, each.withheld))
 			}
 		}
 
 		lineChanged := repositoriesChanged || repositoriesUnknown
-		if !changed && !lineChanged && len(unknownParts) == 0 && len(feeding) == 0 {
+		if !changed && !lineChanged && len(unknownParts) == 0 && len(unknownChanges) == 0 && len(withheldChanges) == 0 && changes.empty() {
 			continue
 		}
 
@@ -328,6 +406,7 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 			Path:     stationPath(address, change.Address, key),
 			Key:      key,
 			Block:    current.block(),
+			Changed:  changes,
 		}
 
 		switch {
@@ -341,9 +420,12 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 		case len(unknownParts) > 0:
 			station.Undecided = true
 			station.Because = fmt.Sprintf("not checked, since Terraform knows its %s only after apply", strings.Join(unknownParts, ", "))
-		case len(feeding) > 0:
+		case len(unknownChanges) > 0:
 			station.Undecided = true
-			station.Because = fmt.Sprintf("not checked, since the plan also changes the %s its runs depend on, which a check cannot replay before apply", strings.Join(feeding, ", "))
+			station.Because = fmt.Sprintf("not checked, since the plan also changes the %s, which Terraform names only after apply, so Spotlight cannot tell whether its runs depend on it", strings.Join(unknownChanges, ", "))
+		case len(withheldChanges) > 0:
+			station.Undecided = true
+			station.Because = fmt.Sprintf("not checked, since the plan also changes the %s, so Spotlight cannot tell whether its runs depend on it", strings.Join(withheldChanges, "; "))
 		}
 
 		p.Stations = append(p.Stations, station)

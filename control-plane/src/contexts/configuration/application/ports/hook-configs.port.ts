@@ -47,8 +47,30 @@ export interface HookConfig {
   readonly timeoutSeconds: number | null;
 }
 
+export interface PlannedHookMatch {
+  readonly key: string;
+  readonly lines: readonly string[];
+  readonly stations: readonly string[];
+}
+
+export interface HookStation {
+  readonly lineKey: string;
+  readonly stationKey: string;
+}
+
+export interface HookAtStation {
+  readonly key: string;
+  readonly integrations: readonly string[];
+}
+
 export interface HookConfigsPort {
   withId(id: string): Promise<HookConfig | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly HookConfig[]>;
+
+  mayFireAt(
+    teamId: TeamId,
+    station: HookStation,
+    planned: readonly PlannedHookMatch[],
+  ): Promise<readonly HookAtStation[]>;
 }

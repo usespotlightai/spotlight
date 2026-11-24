@@ -103,9 +103,9 @@ func (s *sandboxArchives) WorkingCopyArchive(context.Context) (*protocol.StoredA
 	return s.archives.newest(), nil
 }
 
-func (s *sandboxArchives) GrantArchive(_ context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
+func (s *sandboxArchives) GrantArchive(_ context.Context, request protocol.ArchiveRequest) (protocol.ArchiveGrant, error) {
 	s.grants++
-	return s.archives.grant(size, sha256), nil
+	return s.archives.grant(request), nil
 }
 
 func (s *sandboxArchives) CompleteArchive(_ context.Context, archiveID string) error {

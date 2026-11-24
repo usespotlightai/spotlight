@@ -1,4 +1,5 @@
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import type { StationDependsOn } from '@replays/domain/value-objects/dependency-facts';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -26,6 +27,8 @@ export type CandidateValidation =
       readonly liveHashes: StationHashes;
       readonly scoring: CandidateScoring;
       readonly changedFrom: StationChanges;
+      readonly dependsOn: StationDependsOn;
+      readonly liveDependsOn: StationDependsOn;
     }
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 

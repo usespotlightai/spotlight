@@ -33,6 +33,19 @@ export interface MatchedTask {
   readonly repositories: readonly Repository[];
 }
 
+export interface HookStationMatch {
+  readonly lines: readonly string[];
+  readonly stations: readonly string[];
+}
+
+export const mayFireAtStation = (
+  match: HookStationMatch,
+  line: string,
+  station: string,
+): boolean =>
+  (match.lines.length === 0 || match.lines.includes(line)) &&
+  (match.stations.length === 0 || match.stations.includes(station));
+
 const at = (...segments: (string | number)[]) =>
   FieldPath.of(['match', ...segments]);
 

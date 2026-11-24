@@ -75,6 +75,7 @@ const pooling = (
 const THROUGH_POOL: AuthenticatedHost = {
   source: { kind: 'pool', id: POOL_ID.value },
   workspaceId: WORKSPACE,
+  workingCopies: null,
 };
 
 describe('RunnerPools', () => {
@@ -123,6 +124,7 @@ describe('RunnerPools', () => {
       const { pools, find } = pooling({
         source: { kind: 'trust', id: 'trust_1' },
         workspaceId: WORKSPACE,
+        workingCopies: null,
       });
 
       await expect(

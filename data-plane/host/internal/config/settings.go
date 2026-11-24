@@ -55,6 +55,7 @@ var Settings = []Setting{
 	{Key: "state", Env: envState, Group: GroupHost},
 	{Key: "docker-host", Env: envDocker, Group: GroupHost},
 	{Key: "releases-url", Env: envReleases, Group: GroupHost},
+	{Key: "working-copy-hook", Env: envHook, Group: GroupHost},
 	{Key: "health-addr", Env: telemetry.HealthVar, Group: GroupHost},
 	{Key: "sentry-dsn", Env: "SENTRY_DSN", Group: GroupTelemetry},
 	{Key: "sentry-environment", Env: "SENTRY_ENVIRONMENT", Group: GroupTelemetry},

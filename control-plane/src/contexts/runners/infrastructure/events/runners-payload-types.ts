@@ -52,6 +52,7 @@ import { TokenUsage } from '@runners/domain/value-objects/token-usage.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
+import { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 
 export const RUNNERS_PAYLOAD_TYPES = [
@@ -81,6 +82,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   RotationVersion,
   RunnerPoolChangeDetail,
   RunnerLabels,
+  WorkingCopyStore,
   RunnerTrustId,
   SandboxDrainPolicy,
   SandboxKey,

@@ -25,6 +25,10 @@ import { RotationVersion } from '@runners/domain/value-objects/rotation-version.
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
 import type { RunnerWorkKind } from '@runners/domain/value-objects/runner-work.vo';
+import {
+  sameWorkingCopyStore,
+  type WorkingCopyStore,
+} from '@runners/domain/value-objects/working-copy-store.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -38,6 +42,8 @@ export interface PoolDefinition {
   readonly key: PoolKey;
   readonly labels: RunnerLabels;
   readonly maxRuns: MaxRuns | null;
+  // Only a pull pool keeps working copies in a store of its hosts. With none, Spotlight keeps them as archives.
+  readonly workingCopies?: WorkingCopyStore | null;
 }
 
 export type AccessInput =
@@ -79,6 +85,7 @@ export class RunnerPool extends EventRecorder {
     readonly access: PoolAccess,
     readonly version: number,
     readonly isDeleted: boolean,
+    readonly workingCopies: WorkingCopyStore | null = null,
   ) {
     super();
   }
@@ -99,6 +106,10 @@ export class RunnerPool extends EventRecorder {
     }
 
     const access = RunnerPool.firstAccess(input.access);
+    const workingCopies = RunnerPool.workingCopiesFor(
+      modeOf(access),
+      input.workingCopies ?? null,
+    );
     const created = new RunnerPool(
       input.id,
       input.workspaceId,
@@ -108,6 +119,7 @@ export class RunnerPool extends EventRecorder {
       access,
       0,
       false,
+      workingCopies,
     );
 
     created.record(
@@ -192,6 +204,13 @@ export class RunnerPool extends EventRecorder {
       );
     }
 
+    if (input.workingCopies && modeOf(input.access) !== 'pull') {
+      throw new InconsistentStateError(
+        'runner pool',
+        'keeps working copies in a store of its hosts, but no host pulls from it',
+      );
+    }
+
     return new RunnerPool(
       input.id,
       input.workspaceId,
@@ -201,7 +220,22 @@ export class RunnerPool extends EventRecorder {
       input.access,
       input.version,
       false,
+      input.workingCopies ?? null,
     );
+  }
+
+  private static workingCopiesFor(
+    mode: PoolMode,
+    workingCopies: WorkingCopyStore | null,
+  ): WorkingCopyStore | null {
+    if (workingCopies && mode !== 'pull') {
+      throw new InvalidRunnerPoolError(
+        'workingCopies',
+        'is only for a pool that is pulled from. The provisioner of a pool that provisions keeps its own working copies',
+      );
+    }
+
+    return workingCopies;
   }
 
   private static firstAccess(accessInput: AccessInput): PoolAccess {
@@ -367,6 +401,10 @@ export class RunnerPool extends EventRecorder {
     }
 
     const access = this.nextAccess(accessInput);
+    const workingCopies = RunnerPool.workingCopiesFor(
+      this.mode,
+      definition.workingCopies ?? null,
+    );
     const tokenRotated =
       access.kind === 'pull' &&
       this.access.kind === 'pull' &&
@@ -375,6 +413,7 @@ export class RunnerPool extends EventRecorder {
       labels: definition.labels,
       maxRuns: definition.maxRuns,
       access,
+      workingCopies,
     });
 
     updated.record(
@@ -392,6 +431,10 @@ export class RunnerPool extends EventRecorder {
             egressChanged:
               !sameEgress(this.egress, updated.egress) ||
               !this.egressTraffic.equals(updated.egressTraffic),
+            workingCopiesChanged: !sameWorkingCopyStore(
+              this.workingCopies,
+              workingCopies,
+            ),
           }),
         ),
       ),
@@ -593,6 +636,7 @@ export class RunnerPool extends EventRecorder {
     maxRuns?: MaxRuns | null;
     access?: PoolAccess;
     deleted?: boolean;
+    workingCopies?: WorkingCopyStore | null;
   }): RunnerPool {
     const next = new RunnerPool(
       this.id,
@@ -603,6 +647,9 @@ export class RunnerPool extends EventRecorder {
       part.access ?? this.access,
       this.version,
       part.deleted ?? this.isDeleted,
+      part.workingCopies !== undefined
+        ? part.workingCopies
+        : this.workingCopies,
     );
 
     next.inheritEvents(this);

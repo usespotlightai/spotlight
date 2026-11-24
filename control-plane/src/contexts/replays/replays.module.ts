@@ -13,6 +13,7 @@ import {
   REPLAYS_PROVIDERS,
 } from '@replays/replays.wiring';
 import { RunsModule } from '@runs/runs.module';
+import { SecretsModule } from '@secrets/secrets.module';
 import { WorkModule } from '@work/work.module';
 
 const BINDINGS = contextBindings([
@@ -30,6 +31,7 @@ const BINDINGS = contextBindings([
     ChangeReviewModule,
     InsightsModule,
     ConfigurationModule,
+    SecretsModule,
   ],
   controllers: [...REPLAYS_CONTROLLERS],
   providers: [...REPLAYS_PROVIDERS, ...BINDINGS.exposed],

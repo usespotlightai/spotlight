@@ -20,6 +20,7 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
+import { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
@@ -559,5 +560,85 @@ describe('RunnerPool for the platform', () => {
     expect(pool.isDisabled).toBe(true);
     expect(pool.mode).toBe('push');
     expect(aPushPool().isDisabled).toBe(false);
+  });
+});
+
+describe('RunnerPool working copies', () => {
+  const STORE = WorkingCopyStore.of({ store: 's3://team-a', base: 'base-v1' });
+
+  it('keeps Spotlight’s archives until it names a store of its hosts', () => {
+    expect(aPullPool().workingCopies).toBeNull();
+  });
+
+  it('keeps working copies in a store of its hosts when it is pulled from, and records that they moved', () => {
+    const pool = aPullPool({ tokenVersion: 1 });
+    pool.pullEvents();
+
+    const updated = pool.update(
+      { ...definition('ephemeral'), workingCopies: STORE },
+      { mode: 'pull', tokenHash: null, tokenVersion: 1 },
+      BY,
+    );
+
+    expect(updated.workingCopies?.equals(STORE)).toBe(true);
+    expect(changeOf(updated)?.detail?.recorded()).toEqual({
+      mode: 'pull',
+      workingCopiesChanged: true,
+    });
+  });
+
+  it('records no move when it names the same store again', () => {
+    const pool = aPullPool({ tokenVersion: 1 }).update(
+      { ...definition('ephemeral'), workingCopies: STORE },
+      { mode: 'pull', tokenHash: null, tokenVersion: 1 },
+      BY,
+    );
+    pool.pullEvents();
+
+    const updated = pool.update(
+      {
+        ...definition('ephemeral'),
+        workingCopies: WorkingCopyStore.of({
+          store: 's3://team-a',
+          base: 'base-v1',
+        }),
+      },
+      { mode: 'pull', tokenHash: null, tokenVersion: 1 },
+      BY,
+    );
+
+    expect(changeOf(updated)?.detail?.recorded()).toEqual({ mode: 'pull' });
+  });
+
+  it('goes back to Spotlight’s archives when it names no store', () => {
+    const pool = aPullPool({ tokenVersion: 1 }).update(
+      { ...definition('ephemeral'), workingCopies: STORE },
+      { mode: 'pull', tokenHash: null, tokenVersion: 1 },
+      BY,
+    );
+
+    expect(
+      pool.update(
+        definition('ephemeral'),
+        { mode: 'pull', tokenHash: null, tokenVersion: 1 },
+        BY,
+      ).workingCopies,
+    ).toBeNull();
+  });
+
+  it('refuses a store for a pool that provisions, whose provisioner keeps its own working copies', () => {
+    expect(() =>
+      aPushPool().update(
+        { ...definition('sandboxes'), workingCopies: STORE },
+        {
+          mode: 'push',
+          url: ProvisionUrl.of('https://provision.example.com/runs'),
+          secret: null,
+          secretVersion: 1,
+          egress: null,
+        },
+        BY,
+      ),
+    ).toThrow(/workingCopies is only for a pool that is pulled from/);
   });
 });

@@ -4,6 +4,7 @@ import type {
   StationConfigCandidatesPort,
 } from '@replays/application/ports/station-config-candidates.port';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import type { StationDependsOn } from '@replays/domain/value-objects/dependency-facts';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
@@ -31,6 +32,8 @@ export type ValidatedCandidate =
       readonly liveHashes: StationHashes;
       readonly scoring: CandidateScoring;
       readonly changedFrom: StationChanges;
+      readonly dependsOn: StationDependsOn;
+      readonly liveDependsOn: StationDependsOn;
       readonly block: StationBlock;
     }
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };

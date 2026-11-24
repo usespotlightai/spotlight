@@ -49,6 +49,123 @@ const optionalTextAt = (
   return typeof text === 'string' ? text : rejectAt(at, reason);
 };
 
+const KEYED_FIELDS = ['secrets', 'skills', 'harnessProfiles'] as const;
+
+interface ChangedIntegrationRequest {
+  readonly key: string;
+  readonly definition: Readonly<Record<string, unknown>> | null;
+}
+
+interface ChangedHookRequest {
+  readonly key: string;
+  readonly lines: readonly string[];
+  readonly stations: readonly string[];
+}
+
+type ChangedRequest = Partial<
+  Record<(typeof KEYED_FIELDS)[number], readonly string[]>
+> & {
+  readonly integrations?: readonly ChangedIntegrationRequest[];
+  readonly hooks?: readonly ChangedHookRequest[];
+};
+
+const isTexts = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) && value.every((each) => typeof each === 'string');
+
+const textsAt = (
+  fields: Record<string, unknown>,
+  at: readonly string[],
+): readonly string[] => {
+  const value = fields[at[at.length - 1]];
+
+  if (value === undefined || value === null) {
+    return [];
+  }
+
+  return isTexts(value) ? value : rejectAt(at, 'Must be a list of keys.');
+};
+
+const hookAt = (hook: unknown, index: number): ChangedHookRequest => {
+  const fields = fieldsOf(hook);
+  const at = ['changed', 'hooks', String(index)];
+
+  return {
+    key:
+      typeof fields.key === 'string'
+        ? fields.key
+        : rejectAt([...at, 'key'], 'Must be the key of the hook.'),
+    lines: textsAt(fields, [...at, 'lines']),
+    stations: textsAt(fields, [...at, 'stations']),
+  };
+};
+
+const integrationAt = (
+  integration: unknown,
+  index: number,
+): ChangedIntegrationRequest => {
+  const fields = fieldsOf(integration);
+  const at = ['changed', 'integrations', String(index)];
+  const definition = fields.definition;
+
+  return {
+    key:
+      typeof fields.key === 'string'
+        ? fields.key
+        : rejectAt([...at, 'key'], 'Must be the key of the integration.'),
+    definition: definitionAt(definition, [...at, 'definition']),
+  };
+};
+
+const MAX_DEFINITION_BYTES = 16 * 1024;
+
+const definitionAt = (
+  definition: unknown,
+  at: readonly string[],
+): Record<string, unknown> | null => {
+  if (definition === undefined || definition === null) {
+    return null;
+  }
+
+  if (typeof definition !== 'object' || Array.isArray(definition)) {
+    return rejectAt(at, 'Must be the integration’s definition as planned.');
+  }
+
+  return Buffer.byteLength(JSON.stringify(definition)) > MAX_DEFINITION_BYTES
+    ? rejectAt(at, 'Must be at most 16 KiB as JSON.')
+    : (definition as Record<string, unknown>);
+};
+
+const listAt = <T>(
+  changed: Record<string, unknown>,
+  field: string,
+  each: (item: unknown, index: number) => T,
+): readonly T[] => {
+  const items = changed[field];
+
+  if (items === undefined || items === null) {
+    return [];
+  }
+
+  return Array.isArray(items)
+    ? items.map(each)
+    : rejectAt(['changed', field], 'Must be a list.');
+};
+
+export const changedIn = (body: unknown): ChangedRequest => {
+  const changed = fieldsOf(fieldsOf(body).changed);
+
+  return {
+    ...Object.fromEntries(
+      KEYED_FIELDS.map((field) => [
+        field,
+        textsAt(changed, ['changed', field]),
+      ]),
+    ),
+    integrations: listAt(changed, 'integrations', integrationAt),
+    hooks: listAt(changed, 'hooks', hookAt),
+  };
+};
+
 export const repeatsIn = (body: unknown): number => {
   const fields = fieldsOf(body);
   const repeats = fields.repeats;

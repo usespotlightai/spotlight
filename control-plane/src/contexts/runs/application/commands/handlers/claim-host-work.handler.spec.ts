@@ -141,6 +141,7 @@ const pulling = (
         : {
             source: { kind: 'pool' as const, id: 'pool_1' },
             workspaceId: WorkspaceId.of('ws_1'),
+            workingCopies: null,
           },
     ),
   };
