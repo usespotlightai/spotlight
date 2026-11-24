@@ -26,6 +26,7 @@ import { StartReplayCheckCommand } from '@replays/application/commands/start-rep
 import type { ReplayCheckDto } from '@replays/application/dto/replay-checks.dto';
 import type {
   ChangedDependency,
+  NoRunsToReplay,
   ReplayCheckStartedOutcome,
 } from '@replays/application/dto/replay-outcomes.dto';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
@@ -82,6 +83,18 @@ const dependencyChanged = (changed: readonly ChangedDependency[]): never => {
   });
 };
 
+const noRunsToReplay = ({ stationKey, set }: NoRunsToReplay): never => {
+  throw ProblemException.of({
+    slug: 'no-runs-to-replay',
+    title: 'Station has no runs to replay yet',
+    status: HttpStatus.CONFLICT,
+    detail:
+      set === 'none'
+        ? `Station ${stationKey} has no replay set yet. Spotlight keeps one after a run of the station ends.`
+        : `Station ${stationKey} has no runs in its replay set yet.`,
+  });
+};
+
 @InAudience('automation')
 @ConventionalApiController('teams/:teamId', 'replays')
 @ApiParam({ name: 'teamId', type: String })
@@ -132,7 +145,7 @@ export class ReplayChecksController {
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'The line has no replay_check, the station has no replay set or no runs in it yet, the plan changes nothing that changes how its runs go (nothing-to-replay), or the plan also changes a secret, skill, harness profile, integration or hook the station depends on, which a replay cannot use before apply (dependency-changed)',
+    'The line has no replay_check, the station has no replay set or no runs in it yet (no-runs-to-replay), the plan changes nothing that changes how its runs go (nothing-to-replay), or the plan also changes a secret, skill, harness profile, integration or hook the station depends on, which a replay cannot use before apply (dependency-changed)',
   )
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
@@ -179,6 +192,10 @@ export class ReplayChecksController {
 
     if (started.outcome === 'dependency-changed') {
       return dependencyChanged(started.changed);
+    }
+
+    if (started.outcome === 'no-runs-to-replay') {
+      return noRunsToReplay(started);
     }
 
     if (started.outcome === 'reused') {

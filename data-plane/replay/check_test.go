@@ -481,6 +481,14 @@ func TestCheckExitsByTheWorstResult(t *testing.T) {
 			},
 			want: undecidedExit, contains: "The plan changes LINEAR_KEY",
 		},
+		"a station with no runs to replay yet": {
+			post: func(w http.ResponseWriter) bool {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:no-runs-to-replay","status":409,"detail":"Station build has no replay set yet. Spotlight keeps one after a run of the station ends."}`)
+				return true
+			},
+			want: undecidedExit, contains: "Station build has no replay set yet",
+		},
 		"planned changes too large to send": {
 			post: func(w http.ResponseWriter) bool {
 				w.WriteHeader(http.StatusRequestEntityTooLarge)

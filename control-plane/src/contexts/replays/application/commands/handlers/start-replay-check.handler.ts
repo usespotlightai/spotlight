@@ -1,5 +1,8 @@
 import type { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
-import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
+import type {
+  NoRunsToReplay,
+  ReplayCheckStartedOutcome,
+} from '@replays/application/dto/replay-outcomes.dto';
 import type { DependencyFactsPort } from '@replays/application/ports/dependency-facts.port';
 import type { HashPort } from '@replays/application/ports/hash.port';
 import type { StationView } from '@replays/application/ports/lines.port';
@@ -18,9 +21,7 @@ import type {
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { NoReplaySetError } from '@replays/domain/exceptions/no-replay-set.error';
 import { ReplayCheckUnconfiguredError } from '@replays/domain/exceptions/replay-check-unconfigured.error';
-import { ReplaySetEmptyError } from '@replays/domain/exceptions/replay-set-empty.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
@@ -68,13 +69,31 @@ import {
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
-interface Gated {
+interface Opened {
   readonly station: StationView;
   readonly address: StationPath;
   readonly live: LiveConfig;
   readonly threshold: ReplayThreshold;
+  readonly set: ReplaySet | null;
+}
+
+interface Gated extends Opened {
   readonly set: ReplaySet;
 }
+
+const withRunsToReplay = (opened: Opened): Gated | NoRunsToReplay => {
+  const { set, station } = opened;
+
+  if (set?.hasRunsToReplay) {
+    return { ...opened, set };
+  }
+
+  return {
+    outcome: 'no-runs-to-replay',
+    stationKey: station.key,
+    set: !set || set.isAtGoneStation ? 'none' : 'empty',
+  };
+};
 
 interface ReuseFacts {
   readonly reused: ReusedReplays | null;
@@ -184,7 +203,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
 
       return await this.startedOrReused(
         create,
-        await this.gated(station),
+        await this.opened(station),
         planned,
         ChangeActor.of(command.actor, station.workspaceId),
       );
@@ -195,14 +214,20 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
 
   private async startedOrReused(
     create: IdempotentCreate,
-    gated: Gated,
+    opened: Opened,
     planned: Planned,
     by: ChangeActor,
   ): Promise<ReplayCheckStartedOutcome> {
-    const prepared = await this.prepared(gated, planned);
+    const prepared = await this.prepared(opened, planned);
 
     if ('outcome' in prepared) {
       return prepared;
+    }
+
+    const gated = withRunsToReplay(opened);
+
+    if ('outcome' in gated) {
+      return gated;
     }
 
     const reused = await this.toReuse.for({
@@ -276,7 +301,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     }
   }
 
-  private async gated(station: StationView): Promise<Gated> {
+  private async opened(station: StationView): Promise<Opened> {
     const live = await this.configs.live(station.lineId, station.stationId);
     const teamKey = await this.people.teamKey(station.teamId);
     const set = await this.sets.ofStation(station.stationId);
@@ -291,21 +316,14 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
       throw new ReplayCheckUnconfiguredError(station.lineKey);
     }
 
-    if (!set || set.isAtGoneStation) {
-      throw new NoReplaySetError(station.key);
-    }
-    if (set.entries.length === 0) {
-      throw new ReplaySetEmptyError(station.key);
-    }
-
     return { station, address, live, threshold: live.threshold, set };
   }
 
   private async prepared(
-    gated: Gated,
+    opened: Opened,
     planned: Planned,
   ): Promise<Prepared | Unprepared> {
-    const { station, live } = gated;
+    const { station, live } = opened;
     const scored = scoredLive(planned.station, live.block);
     const validated = await this.configs.validate(
       station.lineId,
@@ -321,7 +339,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
       return { outcome: 'invalid', problems: validated.problems };
     }
 
-    const changed = await this.changedDependencies(gated, validated, planned);
+    const changed = await this.changedDependencies(opened, validated, planned);
 
     if (changed.length > 0) {
       return { outcome: 'dependency-changed', changed };
@@ -338,7 +356,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
   }
 
   private async changedDependencies(
-    { station, address }: Gated,
+    { station, address }: Opened,
     validated: Extract<ValidatedCandidate, { ok: true }>,
     planned: Planned,
   ): Promise<readonly Dependency[]> {

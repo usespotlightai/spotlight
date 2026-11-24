@@ -33,6 +33,7 @@ const (
 
 	nothingToReplay   = "urn:spotlight:problem:nothing-to-replay"
 	dependencyChanged = "urn:spotlight:problem:dependency-changed"
+	noRunsToReplay    = "urn:spotlight:problem:no-runs-to-replay"
 )
 
 type checkSide struct {
@@ -336,7 +337,7 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 	case errors.As(err, &answer) && answer.errorBody.Type == nothingToReplay:
 		checked.Status = checkUnchanged
 		checked.Message = answer.errorBody.Detail
-	case errors.As(err, &answer) && answer.errorBody.Type == dependencyChanged:
+	case errors.As(err, &answer) && (answer.errorBody.Type == dependencyChanged || answer.errorBody.Type == noRunsToReplay):
 		checked.Status = checkUndecided
 		checked.Message = answer.errorBody.Detail
 	case errors.As(err, &answer) && answer.status == http.StatusRequestEntityTooLarge:

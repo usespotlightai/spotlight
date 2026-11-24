@@ -550,14 +550,64 @@ describe('StartReplayCheckHandler', () => {
     expect((await read(id)).baselineReplayId).toBeNull();
   });
 
-  it('rejects a line with no replay_check, and a station with no replay set yet', async () => {
+  it('rejects a line with no replay_check', async () => {
     keptAtStation();
     suppliers.lines.threshold = null;
-    expect(await errorOf(start())).toBe('conflict');
 
-    suppliers.lines.threshold = threshold(0);
-    memory.sets.clear();
     expect(await errorOf(start())).toBe('conflict');
+    expect(checks.stored.size).toBe(0);
+  });
+
+  it('says there are no runs to replay, starting nothing, when the station has no replay set yet', async () => {
+    keptAtStation();
+    memory.sets.clear();
+
+    expect(await start()).toEqual({
+      outcome: 'no-runs-to-replay',
+      stationKey: 'build',
+      set: 'none',
+    });
+    expect(checks.stored.size).toBe(0);
+  });
+
+  it('still says there is nothing to replay, or what the line would not take, at a station with no replay set yet', async () => {
+    const problem = ConfigurationProblem.of({
+      path: '',
+      at: FieldPath.of(['station', 'effort']),
+      reason: 'is low, medium, high, xhigh or max',
+    });
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: LIVE_FINGERPRINT,
+      hashes: LIVE_HASHES,
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
+      block: StationBlock.of(block),
+    });
+
+    expect((await start()) as { outcome: string }).toMatchObject({
+      outcome: 'unchanged',
+    });
+
+    suppliers.configs.validate = async () => ({
+      ok: false,
+      problems: [problem],
+    });
+
+    expect(await start()).toEqual({ outcome: 'invalid', problems: [problem] });
+    expect(checks.stored.size).toBe(0);
+  });
+
+  it('says there are no runs to replay when the station’s replay set is empty', async () => {
+    keptAtStation(aSet(0));
+
+    expect(await start()).toEqual({
+      outcome: 'no-runs-to-replay',
+      stationKey: 'build',
+      set: 'empty',
+    });
     expect(checks.stored.size).toBe(0);
   });
 
@@ -625,6 +675,26 @@ describe('StartReplayCheckHandler', () => {
       { station: 'core/delivery/build', hooks: [notify] },
     ]);
     expect(memory.events).toEqual([]);
+  });
+
+  it('leaves a change undecided when the plan also changes what the station depends on, at a station with no replay set yet', async () => {
+    facts = {
+      hooks: [],
+      onMarksAsPlanned: [],
+      secrets: [
+        { secret: SecretName.of('API_KEY'), carrier: 'skill', key: 'tdd' },
+      ],
+    };
+
+    expect(
+      await start({ ...PLAN, skills: ['tdd'] }, true, undefined, CLOCK, {
+        secrets: ['API_KEY'],
+      }),
+    ).toEqual({
+      outcome: 'dependency-changed',
+      changed: [{ kind: 'secret', key: 'API_KEY' }],
+    });
+    expect(checks.stored.size).toBe(0);
   });
 
   it('leaves a change undecided when the plan changes only what the unchanged station depends on', async () => {
