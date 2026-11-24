@@ -1,14 +1,13 @@
 import { formatDate } from '@/lib/date-format';
-import { type Run, runnerPlace, waitReason } from '@/lib/run';
+import { type Run, waitReason } from '@/lib/run';
 import { since } from '@/lib/since';
 
 type RunRunnerNoticeProps = {
-  run: Pick<Run, 'state' | 'ranOn' | 'waiting'>;
+  run: Pick<Run, 'state' | 'waiting'>;
 };
 
 export function RunRunnerNotice({ run }: RunRunnerNoticeProps) {
   const reason = waitReason(run);
-  const place = runnerPlace(run);
 
   if (reason && run.waiting) {
     return (
@@ -32,24 +31,5 @@ export function RunRunnerNotice({ run }: RunRunnerNoticeProps) {
     );
   }
 
-  if (!place) {
-    return null;
-  }
-
-  return (
-    <p
-      aria-label="Where the run ran"
-      data-slot="run-runner"
-      className="px-3 pb-2 text-muted-foreground text-xs"
-    >
-      <span className="font-medium text-foreground">{place.label}:</span>{' '}
-      {place.place}
-      {place.key && (
-        <>
-          {' '}
-          <code className="font-mono">{place.key}</code>
-        </>
-      )}
-    </p>
-  );
+  return null;
 }

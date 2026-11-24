@@ -92,38 +92,7 @@ export const runStatus = (run: Run): string | null => {
   return null;
 };
 
-type RanOn = NonNullable<Run['ranOn']>;
-
 type WaitReason = NonNullable<Run['waiting']>['reason'];
-
-export type RunnerPlace = {
-  readonly label: string;
-  readonly place: string;
-  readonly key: string | null;
-};
-
-// The platform pool is not one of the pools of the workspace, so it is named apart from them.
-export const runnerPlace = (
-  run: Pick<Run, 'state' | 'ranOn'>,
-): RunnerPlace | null => {
-  const ranOn: RanOn | null = run.ranOn;
-
-  if (!ranOn || run.state === 'queued') {
-    return null;
-  }
-
-  const label = run.state === 'claimed' ? 'Runs on' : 'Ran on';
-
-  if (ranOn.platform) {
-    return { label, place: 'Spotlight platform pool', key: null };
-  }
-
-  return {
-    label,
-    place: ranOn.kind === 'pool' ? 'your pool' : 'your trust',
-    key: ranOn.key,
-  };
-};
 
 const WAIT_REASONS: Readonly<Record<WaitReason, string>> = {
   'hosts-pull':
