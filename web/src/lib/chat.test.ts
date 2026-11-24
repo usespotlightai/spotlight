@@ -291,6 +291,40 @@ describe('a pull request the agent opened', () => {
     ]);
   });
 
+  it('comes after the rest of its turn, since it shows where the task stands now', () => {
+    const turns = turnsOf(
+      momentsOf(
+        [
+          message({}),
+          message({
+            position: 1,
+            kind: 'opened',
+            body: 'Show video icons',
+            at: '2026-09-14T09:00:05.000Z',
+            runId: 'run_1',
+            pullRequest: PULL_REQUEST,
+          }),
+        ],
+        [
+          journal([
+            step({ startedAt: '2026-09-14T09:00:02.000Z' }),
+            step({
+              kind: 'message',
+              text: 'I opened the pull request.',
+              startedAt: '2026-09-14T09:00:07.000Z',
+            }),
+            step({ startedAt: '2026-09-14T09:00:08.000Z' }),
+          ]),
+        ],
+        [],
+      ),
+    );
+
+    expect(turns.map((turn) => turn.moments.map((each) => each.kind))).toEqual([
+      ['worked', 'answered', 'worked', 'opened'],
+    ]);
+  });
+
   it('says where its task stands', () => {
     expect(pullRequestTitleOf(PULL_REQUEST)).toBe('On hold for this chat');
     expect(pullRequestTitleOf({ ...PULL_REQUEST, state: 'line' })).toBe(
