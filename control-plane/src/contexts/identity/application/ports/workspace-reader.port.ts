@@ -2,8 +2,7 @@ import type { TeamSummary } from '@identity/application/ports/workspace-records.
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-type WorkspaceRoleName = 'owner' | 'admin' | 'member';
+import type { WorkspaceRoleName } from '@shared-kernel/domain/value-objects/workspace-role-names';
 
 type WorkspaceSetupStatus = 'pending' | 'done';
 

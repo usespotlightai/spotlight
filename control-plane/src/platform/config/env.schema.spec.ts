@@ -277,3 +277,52 @@ describe('envSchema event webhook', () => {
     ).toBe(false);
   });
 });
+
+describe('envSchema custom settings pages', () => {
+  const required = {
+    DATABASE_URL: url,
+    BETTER_AUTH_SECRET: 'b'.repeat(32),
+    BETTER_AUTH_URL: 'http://localhost:3000',
+    GITHUB_CLIENT_ID: 'id',
+    GITHUB_CLIENT_SECRET: 'secret',
+    GITHUB_APP_ID: 'app',
+    GITHUB_APP_PRIVATE_KEY: 'key',
+    SPOTLIGHT_SECRETS_KEY: 'k',
+    S3_BUCKET: 'files',
+  };
+
+  it('adds no custom settings pages when the value is not set', () => {
+    expect(envSchema.parse(required).SPOTLIGHT_CUSTOM_SETTINGS_PAGES).toEqual(
+      [],
+    );
+  });
+
+  it('takes the custom settings pages in JSON', () => {
+    expect(
+      envSchema.parse({
+        ...required,
+        SPOTLIGHT_CUSTOM_SETTINGS_PAGES:
+          '[{"id":"handbook","label":"Handbook","roles":["owner"],"script":"/handbook/element.js","element":"x-handbook-page"}]',
+      }).SPOTLIGHT_CUSTOM_SETTINGS_PAGES,
+    ).toEqual([
+      {
+        id: 'handbook',
+        label: 'Handbook',
+        group: 'workspace',
+        roles: ['owner'],
+        script: '/handbook/element.js',
+        element: 'x-handbook-page',
+      },
+    ]);
+  });
+
+  it('refuses a script on another origin', () => {
+    expect(
+      envSchema.safeParse({
+        ...required,
+        SPOTLIGHT_CUSTOM_SETTINGS_PAGES:
+          '[{"id":"handbook","label":"Handbook","script":"https://cdn.example.com/element.js","element":"x-handbook-page"}]',
+      }).success,
+    ).toBe(false);
+  });
+});

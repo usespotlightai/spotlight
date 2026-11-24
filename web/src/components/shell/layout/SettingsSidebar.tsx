@@ -1,5 +1,6 @@
 import {
   Bell,
+  Blocks,
   ChevronLeft,
   KeyRound,
   LockKeyhole,
@@ -13,7 +14,9 @@ import { Link } from 'react-router';
 import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useCustomSettingsPages } from '@/hooks/api/useCustomSettingsPages';
 import { useRunners } from '@/hooks/api/useRunners';
+import type { CustomSettingsPageDto } from '@/lib/api';
 import { emailsPath } from '@/lib/emails';
 import { membersPath } from '@/lib/members';
 import { notificationsPath } from '@/lib/notifications';
@@ -21,6 +24,8 @@ import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
 import {
   apiAccessPath,
+  customSettingsPagesIn,
+  customSettingsPath,
   secretsPath,
   TEAM_SETTINGS_PAGES,
   teamSettingsPath,
@@ -43,6 +48,16 @@ export function SettingsSidebar({
   workspace,
 }: SettingsSidebarProps) {
   const { data: fleet } = useRunners(slug);
+  const { data: custom = [] } = useCustomSettingsPages();
+
+  const customIn = (group: CustomSettingsPageDto['group']) =>
+    customSettingsPagesIn(custom, group, workspace.role).map((page) => (
+      <li key={page.id}>
+        <SidebarLink to={customSettingsPath(slug, page.id)} icon={Blocks}>
+          {page.label}
+        </SidebarLink>
+      </li>
+    ));
 
   return (
     <>
@@ -75,6 +90,7 @@ export function SettingsSidebar({
                 Notifications
               </SidebarLink>
             </li>
+            {customIn('account')}
           </SettingsNavGroup>
 
           <SettingsNavGroup heading="Workspace">
@@ -113,6 +129,7 @@ export function SettingsSidebar({
                 </SidebarLink>
               </li>
             )}
+            {customIn('workspace')}
           </SettingsNavGroup>
 
           {workspace.teams.map((team) => (

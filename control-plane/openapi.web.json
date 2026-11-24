@@ -23,6 +23,28 @@
         ]
       }
     },
+    "/custom-settings-pages": {
+      "get": {
+        "operationId": "listCustomSettingsPages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomSettingsPagesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The pages that this deployment adds to the settings",
+        "tags": [
+          "custom-settings-pages"
+        ]
+      }
+    },
     "/teams/{teamId}/lines": {
       "get": {
         "operationId": "listTeamLines",
@@ -6702,6 +6724,85 @@
           "dsn",
           "environment",
           "release"
+        ]
+      },
+      "CustomSettingsPageGroup": {
+        "type": "string",
+        "enum": [
+          "account",
+          "workspace"
+        ],
+        "description": "The sidebar group of the page"
+      },
+      "CustomSettingsPageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "handbook",
+            "description": "The id of the page in its path, /settings/custom/{id}"
+          },
+          "label": {
+            "type": "string",
+            "example": "Handbook",
+            "description": "The text of the page in the sidebar, and its title"
+          },
+          "group": {
+            "example": "workspace",
+            "description": "The sidebar group of the page",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomSettingsPageGroup"
+              }
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "example": [
+              "owner"
+            ],
+            "description": "The workspace roles that see the page. The page must also check the role itself: this only hides it",
+            "items": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "admin",
+                "member"
+              ]
+            }
+          },
+          "script": {
+            "type": "string",
+            "example": "/handbook/element.js",
+            "description": "The path on this origin of the module script that defines the element"
+          },
+          "element": {
+            "type": "string",
+            "example": "x-handbook-page",
+            "description": "The name of the custom element that the page shows"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "group",
+          "roles",
+          "script",
+          "element"
+        ]
+      },
+      "CustomSettingsPagesResponseDto": {
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomSettingsPageDto"
+            }
+          }
+        },
+        "required": [
+          "pages"
         ]
       },
       "StationJudgeResponseDto": {

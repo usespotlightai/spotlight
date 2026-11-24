@@ -1,3 +1,4 @@
+import { customSettingsPagesSchema } from '@platform/config/custom-settings-pages';
 import {
   isContextPrefix,
   isIntegrationEventKind,
@@ -186,6 +187,8 @@ export const envSchema = databaseSchema
             ),
         ),
       ),
+    // The pages that the deployment adds to the settings of the web app, in JSON. Each page is a custom element that a script on this origin defines. With no value, there are none.
+    SPOTLIGHT_CUSTOM_SETTINGS_PAGES: customSettingsPagesSchema,
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
