@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   isAppPath,
-  loadSettingsPageElement,
+  loadCustomSettingsPageElement,
   scriptUrlOf,
-} from '@/lib/settings-page-element';
+} from '@/lib/custom-settings-page-element';
 
 let next = 0;
 
@@ -19,12 +19,12 @@ const defines = (element: string) =>
     customElements.define(element, class extends HTMLElement {});
   });
 
-describe('loadSettingsPageElement', () => {
+describe('loadCustomSettingsPageElement', () => {
   it('imports the script and resolves when the script defines the element', async () => {
     const page = fresh();
     const load = defines(page.element);
 
-    await expect(loadSettingsPageElement(page, 0, load)).resolves.toBe(
+    await expect(loadCustomSettingsPageElement(page, 0, load)).resolves.toBe(
       undefined,
     );
     expect(load).toHaveBeenCalledWith(page.script);
@@ -35,7 +35,7 @@ describe('loadSettingsPageElement', () => {
     customElements.define(page.element, class extends HTMLElement {});
     const load = vi.fn(async () => undefined);
 
-    await loadSettingsPageElement(page, 0, load);
+    await loadCustomSettingsPageElement(page, 0, load);
 
     expect(load).not.toHaveBeenCalled();
   });
@@ -53,8 +53,8 @@ describe('loadSettingsPageElement', () => {
         }),
     );
 
-    const first = loadSettingsPageElement(page, 0, load);
-    const second = loadSettingsPageElement(page, 0, load);
+    const first = loadCustomSettingsPageElement(page, 0, load);
+    const second = loadCustomSettingsPageElement(page, 0, load);
     finish();
     await Promise.all([first, second]);
 
@@ -67,18 +67,32 @@ describe('loadSettingsPageElement', () => {
       throw new TypeError('Failed to fetch dynamically imported module');
     });
 
-    await expect(loadSettingsPageElement(page, 0, load, 50)).rejects.toThrow(
-      'Failed to fetch',
-    );
+    await expect(
+      loadCustomSettingsPageElement(page, 0, load, 50),
+    ).rejects.toThrow('Failed to fetch');
+  });
+
+  it('stops waiting for the element when the script does not load', async () => {
+    const page = fresh();
+    const cleared = vi.spyOn(globalThis, 'clearTimeout');
+    const load = vi.fn(async () => {
+      throw new TypeError('Failed to fetch dynamically imported module');
+    });
+
+    await expect(
+      loadCustomSettingsPageElement(page, 0, load, 60_000),
+    ).rejects.toThrow('Failed to fetch');
+    expect(cleared).toHaveBeenCalled();
+    cleared.mockRestore();
   });
 
   it('fails when the script does not define the element in time', async () => {
     const page = fresh();
     const load = vi.fn(async () => undefined);
 
-    await expect(loadSettingsPageElement(page, 0, load, 20)).rejects.toThrow(
-      `did not define <${page.element}> in time`,
-    );
+    await expect(
+      loadCustomSettingsPageElement(page, 0, load, 20),
+    ).rejects.toThrow(`did not define <${page.element}> in time`);
   });
 
   it('asks for a new URL on a new attempt', async () => {
@@ -90,12 +104,12 @@ describe('loadSettingsPageElement', () => {
         customElements.define(page.element, class extends HTMLElement {});
       });
 
-    await expect(loadSettingsPageElement(page, 0, load, 50)).rejects.toThrow(
-      'Failed to fetch',
-    );
-    await expect(loadSettingsPageElement(page, 1, load, 50)).resolves.toBe(
-      undefined,
-    );
+    await expect(
+      loadCustomSettingsPageElement(page, 0, load, 50),
+    ).rejects.toThrow('Failed to fetch');
+    await expect(
+      loadCustomSettingsPageElement(page, 1, load, 50),
+    ).resolves.toBe(undefined);
     expect(load.mock.calls.map(([url]) => url)).toEqual([
       page.script,
       `${page.script}?attempt=1`,
@@ -105,12 +119,12 @@ describe('loadSettingsPageElement', () => {
 
 describe('scriptUrlOf', () => {
   it('keeps the script as it is on the first attempt', () => {
-    expect(scriptUrlOf('/billing/element.js', 0)).toBe('/billing/element.js');
+    expect(scriptUrlOf('/handbook/element.js', 0)).toBe('/handbook/element.js');
   });
 
   it('adds the attempt after that', () => {
-    expect(scriptUrlOf('/billing/element.js', 2)).toBe(
-      '/billing/element.js?attempt=2',
+    expect(scriptUrlOf('/handbook/element.js', 2)).toBe(
+      '/handbook/element.js?attempt=2',
     );
   });
 });

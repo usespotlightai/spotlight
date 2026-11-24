@@ -1,5 +1,5 @@
 import type {
-  SettingsPageDto,
+  CustomSettingsPageDto,
   ConnectionToolRuleResponseDto,
   HarnessResponseDto,
   IntegrationViewResponseDto,
@@ -406,8 +406,8 @@ export type SettingsWorld = {
   settingUp: string[];
   viewerIsAdmin: boolean;
   setupCi: SetupCiResponseDto | null;
-  // The pages that the deployment adds to the settings (SPOTLIGHT_SETTINGS_PAGES). A story adds them.
-  extraPages: SettingsPageDto[];
+  // The pages that the deployment adds to the settings (SPOTLIGHT_CUSTOM_SETTINGS_PAGES). A story adds them.
+  customPages: CustomSettingsPageDto[];
 };
 
 const NOBODY: TeamConnections = { mine: [], people: [] };
@@ -430,7 +430,7 @@ export const settingsWorld = perWorld((kind): SettingsWorld =>
         settingUp: [],
         viewerIsAdmin: true,
         setupCi: null,
-        extraPages: [],
+        customPages: [],
       }
     : {
         gitHubConnected: true,
@@ -445,6 +445,6 @@ export const settingsWorld = perWorld((kind): SettingsWorld =>
         settingUp: [],
         viewerIsAdmin: true,
         setupCi: { ...SETUP_CI },
-        extraPages: [],
+        customPages: [],
       },
 );

@@ -1,8 +1,12 @@
 import { InvalidWorkspaceRoleError } from '@identity/domain/exceptions/invalid-workspace-role.error';
+import {
+  WORKSPACE_ROLE_NAMES,
+  type WorkspaceRoleName,
+} from '@shared-kernel/domain/value-objects/workspace-role-names';
 
-export const WORKSPACE_ROLES = ['owner', 'admin', 'member'] as const;
+export const WORKSPACE_ROLES = WORKSPACE_ROLE_NAMES;
 
-export type WorkspaceRoleName = (typeof WORKSPACE_ROLES)[number];
+export type { WorkspaceRoleName };
 
 const RANK: Record<WorkspaceRoleName, number> = {
   member: 0,

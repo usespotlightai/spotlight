@@ -30,16 +30,11 @@ export type ErrorReportingResponseDto = {
 /**
  * The sidebar group of the page
  */
-export type SettingsPageGroup = 'account' | 'workspace';
+export type CustomSettingsPageGroup = 'account' | 'workspace';
 
-/**
- * The workspace roles that see the page. The page must also check the role itself: this only hides it
- */
-export type SettingsPageRole = 'owner' | 'admin' | 'member';
-
-export type SettingsPageDto = {
+export type CustomSettingsPageDto = {
   /**
-   * The id of the page in its path, /settings/x/{id}
+   * The id of the page in its path, /settings/custom/{id}
    */
   id: string;
   /**
@@ -49,11 +44,11 @@ export type SettingsPageDto = {
   /**
    * The sidebar group of the page
    */
-  group: SettingsPageGroup;
+  group: CustomSettingsPageGroup;
   /**
    * The workspace roles that see the page. The page must also check the role itself: this only hides it
    */
-  roles: Array<SettingsPageRole>;
+  roles: Array<'owner' | 'admin' | 'member'>;
   /**
    * The path on this origin of the module script that defines the element
    */
@@ -64,8 +59,8 @@ export type SettingsPageDto = {
   element: string;
 };
 
-export type SettingsPagesResponseDto = {
-  pages: Array<SettingsPageDto>;
+export type CustomSettingsPagesResponseDto = {
+  pages: Array<CustomSettingsPageDto>;
 };
 
 export type RedeliverEventWebhookRequestDto = {
@@ -10190,18 +10185,18 @@ export type GetErrorReportingResponses = {
 
 export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
 
-export type ListSettingsPagesData = {
+export type ListCustomSettingsPagesData = {
   body?: never;
   path?: never;
   query?: never;
-  url: '/settings-pages';
+  url: '/custom-settings-pages';
 };
 
-export type ListSettingsPagesResponses = {
-  200: SettingsPagesResponseDto;
+export type ListCustomSettingsPagesResponses = {
+  200: CustomSettingsPagesResponseDto;
 };
 
-export type ListSettingsPagesResponse = ListSettingsPagesResponses[keyof ListSettingsPagesResponses];
+export type ListCustomSettingsPagesResponse = ListCustomSettingsPagesResponses[keyof ListCustomSettingsPagesResponses];
 
 export type RedeliverEventWebhookData = {
   body: RedeliverEventWebhookRequestDto;

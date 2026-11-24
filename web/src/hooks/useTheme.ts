@@ -26,11 +26,17 @@ const store = (theme: Theme) => {
   } catch {}
 };
 
+const DARK_CLASS = 'dark';
+
 const applyTheme = (theme: Theme) => {
   const dark =
     theme === 'system' ? matchMedia(DARK_QUERY).matches : theme === 'dark';
-  document.documentElement.classList.toggle('dark', dark);
+  document.documentElement.classList.toggle(DARK_CLASS, dark);
 };
+
+// The theme that applyTheme last applied to the root element: light or dark, never system.
+export const appliedTheme = (): 'light' | 'dark' =>
+  document.documentElement.classList.contains(DARK_CLASS) ? 'dark' : 'light';
 
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(storedTheme);

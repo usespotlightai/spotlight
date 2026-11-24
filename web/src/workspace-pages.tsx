@@ -32,9 +32,9 @@ const AgentChat = lazyPage(
   (module) => module.AgentChat,
 );
 
-const ExtraSettingsPage = lazyPage(
-  () => import('./routes/ExtraSettingsPage.tsx'),
-  (module) => module.ExtraSettingsPage,
+const CustomSettingsPage = lazyPage(
+  () => import('./routes/CustomSettingsPage.tsx'),
+  (module) => module.CustomSettingsPage,
 );
 const Secrets = lazyPage(
   () => import('./routes/Secrets.tsx'),
@@ -195,7 +195,7 @@ export const workspacePages = (
       <Route path="runners/new" element={<AddHost />} />
       <Route path="secrets" element={<Secrets />} />
       <Route path="api-access" element={<ApiAccess />} />
-      <Route path="x/:pageId" element={<ExtraSettingsPage />} />
+      <Route path="custom/:pageId" element={<CustomSettingsPage />} />
       <Route path="team/:teamId">
         <Route index element={<Navigate to="general" replace />} />
         <Route path="general" element={<TeamGeneral />} />

@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { NAVIGATE_EVENT } from '@/lib/custom-settings-page-element';
 import { membersPath } from '@/lib/members';
-import { extraSettingsPath } from '@/lib/settings';
-import { NAVIGATE_EVENT } from '@/lib/settings-page-element';
+import { customSettingsPath } from '@/lib/settings';
 import { SLUG } from '@/mocks/world';
 import { settingsWorld } from '@/mocks/world/settings';
 import { type PageArgs, pageStory } from '@/stories/application';
@@ -11,7 +11,7 @@ const ELEMENT = 'x-demo-settings-page';
 
 // A page element as a deployment writes one: a shadow root, the theme variables of the app, and one spotlight-navigate event.
 class DemoSettingsPage extends HTMLElement {
-  static readonly observedAttributes = ['workspace', 'role', 'theme'];
+  static readonly observedAttributes = ['workspace', 'workspace-role', 'theme'];
 
   readonly #root = this.attachShadow({ mode: 'open' });
 
@@ -38,7 +38,7 @@ class DemoSettingsPage extends HTMLElement {
     const heading = document.createElement('strong');
     heading.textContent = 'A page that the deployment adds';
     const detail = document.createElement('p');
-    detail.textContent = `Workspace ${this.getAttribute('workspace') ?? '?'}, role ${this.getAttribute('role') ?? '?'}, ${this.getAttribute('theme') ?? '?'} theme.`;
+    detail.textContent = `Workspace ${this.getAttribute('workspace') ?? '?'}, role ${this.getAttribute('workspace-role') ?? '?'}, ${this.getAttribute('theme') ?? '?'} theme.`;
     const open = document.createElement('button');
     open.type = 'button';
     open.textContent = 'Open members';
@@ -62,11 +62,11 @@ if (!customElements.get(ELEMENT)) {
 }
 
 const meta = {
-  title: 'Settings/Workspace/Extra page',
+  title: 'Settings/Workspace/Custom page',
   ...pageStory({
-    at: extraSettingsPath(SLUG, 'demo'),
+    at: customSettingsPath(SLUG, 'demo'),
     world: () => {
-      settingsWorld().extraPages = [
+      settingsWorld().customPages = [
         {
           id: 'demo',
           label: 'Demo',

@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 
-import { isAppPath, NAVIGATE_EVENT } from '@/lib/settings-page-element';
+import { isAppPath, NAVIGATE_EVENT } from '@/lib/custom-settings-page-element';
 
-// Opens the path that a settings page element asks for with a spotlight-navigate event. It opens only paths of this app, never another origin. Give the ref to the element once it shows.
-export function useNavigateRequests<T extends HTMLElement>(shown: boolean) {
+// Opens the path that the element of a custom settings page asks for with a spotlight-navigate event. It opens only paths of this app, never another origin. Give the ref to the element once it shows.
+export function useNavigationRequests<T extends HTMLElement>(shown: boolean) {
   const ref = useRef<T>(null);
   const navigate = useNavigate();
 

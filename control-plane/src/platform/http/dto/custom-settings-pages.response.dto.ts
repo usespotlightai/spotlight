@@ -1,55 +1,54 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  SETTINGS_PAGE_GROUPS,
-  SETTINGS_PAGE_ROLES,
-  type SettingsPage,
-} from '@platform/config/settings-pages';
+  CUSTOM_SETTINGS_PAGE_GROUPS,
+  type CustomSettingsPage,
+} from '@platform/config/custom-settings-pages';
+import { WORKSPACE_ROLE_NAMES } from '@shared-kernel/domain/value-objects/workspace-role-names';
 
-export class SettingsPageDto {
+export class CustomSettingsPageDto {
   @ApiProperty({
-    example: 'billing',
-    description: 'The id of the page in its path, /settings/x/{id}',
+    example: 'handbook',
+    description: 'The id of the page in its path, /settings/custom/{id}',
   })
   readonly id: string;
 
   @ApiProperty({
-    example: 'Billing',
+    example: 'Handbook',
     description: 'The text of the page in the sidebar, and its title',
   })
   readonly label: string;
 
   @ApiProperty({
-    enum: SETTINGS_PAGE_GROUPS,
-    enumName: 'SettingsPageGroup',
+    enum: CUSTOM_SETTINGS_PAGE_GROUPS,
+    enumName: 'CustomSettingsPageGroup',
     example: 'workspace',
     description: 'The sidebar group of the page',
   })
-  readonly group: SettingsPage['group'];
+  readonly group: CustomSettingsPage['group'];
 
   @ApiProperty({
-    enum: SETTINGS_PAGE_ROLES,
-    enumName: 'SettingsPageRole',
+    enum: WORKSPACE_ROLE_NAMES,
     isArray: true,
     example: ['owner'],
     description:
       'The workspace roles that see the page. The page must also check the role itself: this only hides it',
   })
-  readonly roles: SettingsPage['roles'];
+  readonly roles: CustomSettingsPage['roles'];
 
   @ApiProperty({
-    example: '/billing/element.js',
+    example: '/handbook/element.js',
     description:
       'The path on this origin of the module script that defines the element',
   })
   readonly script: string;
 
   @ApiProperty({
-    example: 'x-billing-page',
+    example: 'x-handbook-page',
     description: 'The name of the custom element that the page shows',
   })
   readonly element: string;
 
-  constructor(page: SettingsPage) {
+  constructor(page: CustomSettingsPage) {
     this.id = page.id;
     this.label = page.label;
     this.group = page.group;
@@ -59,11 +58,11 @@ export class SettingsPageDto {
   }
 }
 
-export class SettingsPagesResponseDto {
-  @ApiProperty({ type: [SettingsPageDto] })
-  readonly pages: SettingsPageDto[];
+export class CustomSettingsPagesResponseDto {
+  @ApiProperty({ type: [CustomSettingsPageDto] })
+  readonly pages: CustomSettingsPageDto[];
 
-  constructor(pages: readonly SettingsPage[]) {
-    this.pages = pages.map((each) => new SettingsPageDto(each));
+  constructor(pages: readonly CustomSettingsPage[]) {
+    this.pages = pages.map((each) => new CustomSettingsPageDto(each));
   }
 }

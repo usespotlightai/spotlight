@@ -371,7 +371,9 @@ const teamHandlers = [
 ];
 
 const workspaceHandlers = [
-  api.get('/settings-pages', () => json({ pages: settingsWorld().extraPages })),
+  api.get('/custom-settings-pages', () =>
+    json({ pages: settingsWorld().customPages }),
+  ),
   api.post('/workspaces', async ({ request }) => {
     const {
       name,

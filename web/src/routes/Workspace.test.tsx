@@ -57,8 +57,8 @@ vi.mock('@/hooks/api/useRunners', () => ({
     data: { hosts: hosts(), pools: [] },
   }),
 }));
-vi.mock('@/hooks/api/useSettingsPages', () => ({
-  useSettingsPages: () => ({ data: [] }),
+vi.mock('@/hooks/api/useCustomSettingsPages', () => ({
+  useCustomSettingsPages: () => ({ data: [] }),
 }));
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: { user: { email: 'dev@example.com' } } }),

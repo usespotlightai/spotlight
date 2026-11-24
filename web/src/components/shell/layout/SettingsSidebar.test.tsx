@@ -3,24 +3,24 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
-import type { SettingsPageDto } from '@/lib/api';
+import type { CustomSettingsPageDto } from '@/lib/api';
 import type { Role } from '@/lib/role';
 
-const pages = vi.fn<() => SettingsPageDto[] | undefined>();
+const pages = vi.fn<() => CustomSettingsPageDto[] | undefined>();
 
 vi.mock('@/hooks/api/useRunners', () => ({
   useRunners: () => ({ data: undefined }),
 }));
 
-vi.mock('@/hooks/api/useSettingsPages', () => ({
-  useSettingsPages: () => ({ data: pages() }),
+vi.mock('@/hooks/api/useCustomSettingsPages', () => ({
+  useCustomSettingsPages: () => ({ data: pages() }),
 }));
 
 const page = (
   id: string,
-  group: SettingsPageDto['group'],
-  roles: SettingsPageDto['roles'],
-): SettingsPageDto => ({
+  group: CustomSettingsPageDto['group'],
+  roles: CustomSettingsPageDto['roles'],
+): CustomSettingsPageDto => ({
   id,
   label: id[0].toUpperCase() + id.slice(1),
   group,
@@ -43,10 +43,10 @@ const show = (role: Role) =>
 const group = (heading: string) =>
   screen.getByText(heading).closest('section') as HTMLElement;
 
-describe('SettingsSidebar pages of the deployment', () => {
+describe('SettingsSidebar custom settings pages', () => {
   beforeEach(() => {
     pages.mockReturnValue([
-      page('billing', 'workspace', ['owner']),
+      page('handbook', 'workspace', ['owner']),
       page('runbook', 'workspace', ['owner', 'admin', 'member']),
       page('profile', 'account', ['owner', 'admin', 'member']),
     ]);
@@ -55,19 +55,19 @@ describe('SettingsSidebar pages of the deployment', () => {
   it('shows each page in its group, as a link to the page', () => {
     show('owner');
 
-    expect(screen.getByRole('link', { name: 'Billing' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Handbook' })).toHaveAttribute(
       'href',
-      '/w/acme/settings/x/billing',
+      '/w/acme/settings/custom/handbook',
     );
     expect(screen.getByRole('link', { name: 'Runbook' })).toHaveAttribute(
       'href',
-      '/w/acme/settings/x/runbook',
+      '/w/acme/settings/custom/runbook',
     );
     expect(
       within(group('Account')).getByRole('link', { name: 'Profile' }),
     ).toBeInTheDocument();
     expect(
-      within(group('Workspace')).getByRole('link', { name: 'Billing' }),
+      within(group('Workspace')).getByRole('link', { name: 'Handbook' }),
     ).toBeInTheDocument();
   });
 
@@ -75,7 +75,7 @@ describe('SettingsSidebar pages of the deployment', () => {
     show('member');
 
     expect(
-      screen.queryByRole('link', { name: 'Billing' }),
+      screen.queryByRole('link', { name: 'Handbook' }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Runbook' })).toBeInTheDocument();
   });
@@ -86,7 +86,7 @@ describe('SettingsSidebar pages of the deployment', () => {
 
     expect(screen.getByRole('link', { name: 'General' })).toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: 'Billing' }),
+      screen.queryByRole('link', { name: 'Handbook' }),
     ).not.toBeInTheDocument();
   });
 });

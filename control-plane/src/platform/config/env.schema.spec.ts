@@ -278,7 +278,7 @@ describe('envSchema event webhook', () => {
   });
 });
 
-describe('envSchema settings pages', () => {
+describe('envSchema custom settings pages', () => {
   const required = {
     DATABASE_URL: url,
     BETTER_AUTH_SECRET: 'b'.repeat(32),
@@ -291,25 +291,27 @@ describe('envSchema settings pages', () => {
     S3_BUCKET: 'files',
   };
 
-  it('adds no settings pages when the value is not set', () => {
-    expect(envSchema.parse(required).SPOTLIGHT_SETTINGS_PAGES).toEqual([]);
+  it('adds no custom settings pages when the value is not set', () => {
+    expect(envSchema.parse(required).SPOTLIGHT_CUSTOM_SETTINGS_PAGES).toEqual(
+      [],
+    );
   });
 
-  it('takes the settings pages in JSON', () => {
+  it('takes the custom settings pages in JSON', () => {
     expect(
       envSchema.parse({
         ...required,
-        SPOTLIGHT_SETTINGS_PAGES:
-          '[{"id":"billing","label":"Billing","roles":["owner"],"script":"/billing/element.js","element":"x-billing-page"}]',
-      }).SPOTLIGHT_SETTINGS_PAGES,
+        SPOTLIGHT_CUSTOM_SETTINGS_PAGES:
+          '[{"id":"handbook","label":"Handbook","roles":["owner"],"script":"/handbook/element.js","element":"x-handbook-page"}]',
+      }).SPOTLIGHT_CUSTOM_SETTINGS_PAGES,
     ).toEqual([
       {
-        id: 'billing',
-        label: 'Billing',
+        id: 'handbook',
+        label: 'Handbook',
         group: 'workspace',
         roles: ['owner'],
-        script: '/billing/element.js',
-        element: 'x-billing-page',
+        script: '/handbook/element.js',
+        element: 'x-handbook-page',
       },
     ]);
   });
@@ -318,8 +320,8 @@ describe('envSchema settings pages', () => {
     expect(
       envSchema.safeParse({
         ...required,
-        SPOTLIGHT_SETTINGS_PAGES:
-          '[{"id":"billing","label":"Billing","script":"https://cdn.example.com/element.js","element":"x-billing-page"}]',
+        SPOTLIGHT_CUSTOM_SETTINGS_PAGES:
+          '[{"id":"handbook","label":"Handbook","script":"https://cdn.example.com/element.js","element":"x-handbook-page"}]',
       }).success,
     ).toBe(false);
   });

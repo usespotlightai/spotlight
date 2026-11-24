@@ -77,9 +77,9 @@
         ]
       }
     },
-    "/settings-pages": {
+    "/custom-settings-pages": {
       "get": {
-        "operationId": "listSettingsPages",
+        "operationId": "listCustomSettingsPages",
         "parameters": [],
         "responses": {
           "200": {
@@ -87,7 +87,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SettingsPagesResponseDto"
+                  "$ref": "#/components/schemas/CustomSettingsPagesResponseDto"
                 }
               }
             }
@@ -95,7 +95,7 @@
         },
         "summary": "The pages that this deployment adds to the settings",
         "tags": [
-          "settings-pages"
+          "custom-settings-pages"
         ]
       }
     },
@@ -24196,7 +24196,7 @@
           "release"
         ]
       },
-      "SettingsPageGroup": {
+      "CustomSettingsPageGroup": {
         "type": "string",
         "enum": [
           "account",
@@ -24204,26 +24204,17 @@
         ],
         "description": "The sidebar group of the page"
       },
-      "SettingsPageRole": {
-        "type": "string",
-        "enum": [
-          "owner",
-          "admin",
-          "member"
-        ],
-        "description": "The workspace roles that see the page. The page must also check the role itself: this only hides it"
-      },
-      "SettingsPageDto": {
+      "CustomSettingsPageDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "example": "billing",
-            "description": "The id of the page in its path, /settings/x/{id}"
+            "example": "handbook",
+            "description": "The id of the page in its path, /settings/custom/{id}"
           },
           "label": {
             "type": "string",
-            "example": "Billing",
+            "example": "Handbook",
             "description": "The text of the page in the sidebar, and its title"
           },
           "group": {
@@ -24231,7 +24222,7 @@
             "description": "The sidebar group of the page",
             "allOf": [
               {
-                "$ref": "#/components/schemas/SettingsPageGroup"
+                "$ref": "#/components/schemas/CustomSettingsPageGroup"
               }
             ]
           },
@@ -24242,17 +24233,22 @@
             ],
             "description": "The workspace roles that see the page. The page must also check the role itself: this only hides it",
             "items": {
-              "$ref": "#/components/schemas/SettingsPageRole"
+              "type": "string",
+              "enum": [
+                "owner",
+                "admin",
+                "member"
+              ]
             }
           },
           "script": {
             "type": "string",
-            "example": "/billing/element.js",
+            "example": "/handbook/element.js",
             "description": "The path on this origin of the module script that defines the element"
           },
           "element": {
             "type": "string",
-            "example": "x-billing-page",
+            "example": "x-handbook-page",
             "description": "The name of the custom element that the page shows"
           }
         },
@@ -24265,13 +24261,13 @@
           "element"
         ]
       },
-      "SettingsPagesResponseDto": {
+      "CustomSettingsPagesResponseDto": {
         "type": "object",
         "properties": {
           "pages": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SettingsPageDto"
+              "$ref": "#/components/schemas/CustomSettingsPageDto"
             }
           }
         },

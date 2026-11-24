@@ -5,16 +5,16 @@ import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { useSettingsPages } from '@/hooks/api/useSettingsPages';
+import { useCustomSettingsPages } from '@/hooks/api/useCustomSettingsPages';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { useNavigateRequests } from '@/hooks/useNavigateRequests';
-import { useSettingsPageElement } from '@/hooks/useSettingsPageElement';
-import { useShownTheme } from '@/hooks/useShownTheme';
-import type { SettingsPageDto } from '@/lib/api';
+import { useCustomSettingsPageElement } from '@/hooks/useCustomSettingsPageElement';
+import { useNavigationRequests } from '@/hooks/useNavigationRequests';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import type { CustomSettingsPageDto } from '@/lib/api';
+import { CONTRACT_VERSION } from '@/lib/custom-settings-page-element';
 import { failed } from '@/lib/query';
 import type { Role } from '@/lib/role';
-import { workspaceGeneralPath } from '@/lib/settings';
-import { CONTRACT_VERSION } from '@/lib/settings-page-element';
+import { seesCustomSettingsPage, workspaceGeneralPath } from '@/lib/settings';
 
 function PageLoading() {
   return (
@@ -29,17 +29,17 @@ function PageLoading() {
 }
 
 type PageElementProps = {
-  page: SettingsPageDto;
+  page: CustomSettingsPageDto;
   slug: string;
   role: Role;
 };
 
-// The custom element of a settings page that the deployment adds. Its script comes from this origin and runs as the person who opens the page.
+// The custom element of a custom settings page. Its script comes from this origin and runs as the person who opens the page.
 function PageElement({ page, slug, role }: PageElementProps) {
-  const theme = useShownTheme();
-  const { state, retry } = useSettingsPageElement(page);
+  const theme = useResolvedTheme();
+  const { state, retry } = useCustomSettingsPageElement(page);
 
-  const ref = useNavigateRequests<HTMLElement>(state === 'ready');
+  const ref = useNavigationRequests<HTMLElement>(state === 'ready');
 
   if (state === 'failed') {
     return (
@@ -61,29 +61,39 @@ function PageElement({ page, slug, role }: PageElementProps) {
   return createElement(page.element, {
     ref,
     workspace: slug,
-    role,
+    'workspace-role': role,
     theme,
     'contract-version': CONTRACT_VERSION,
   });
 }
 
-export function ExtraSettingsPage() {
+export function CustomSettingsPage() {
   const { slug, pageId } = useParams();
-  const pages = useSettingsPages();
+  const pages = useCustomSettingsPages();
   const workspace = useWorkspace(slug);
 
   if (!slug) {
     return null;
   }
 
-  if (failed(pages)) {
+  if (failed(pages) || failed(workspace)) {
+    const retrying = pages.isFetching || workspace.isFetching;
+    const retry = () => {
+      if (failed(pages)) {
+        void pages.refetch();
+      }
+      if (failed(workspace)) {
+        void workspace.refetch();
+      }
+    };
+
     return (
       <SettingsPage title="Settings">
         <SettingsSection>
           <CouldNotLoad
             what="This page"
-            retrying={pages.isFetching}
-            onRetry={() => void pages.refetch()}
+            retrying={retrying}
+            onRetry={retry}
             className="items-start px-4 py-3"
           />
         </SettingsSection>
@@ -98,7 +108,7 @@ export function ExtraSettingsPage() {
   const page = pages.data.find((each) => each.id === pageId);
   const role = workspace.data?.role;
 
-  if (!page || !role || !page.roles.includes(role)) {
+  if (!page || !role || !seesCustomSettingsPage(page, role)) {
     return <Navigate to={workspaceGeneralPath(slug)} replace />;
   }
 

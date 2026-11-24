@@ -1,4 +1,4 @@
-import type { SettingsPageDto } from '@/lib/api';
+import type { CustomSettingsPageDto } from '@/lib/api';
 
 // How long a page script has to define its element.
 const DEFINE_TIMEOUT_MS = 10_000;
@@ -13,9 +13,11 @@ const loads = new Map<string, Promise<void>>();
 export const scriptUrlOf = (script: string, attempt: number): string =>
   attempt === 0 ? script : `${script}?attempt=${attempt}`;
 
-const definedIn = (element: string, ms: number): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const timer = setTimeout(
+// Resolves when the element is defined, and fails when the time is over first. cancel stops the timer, for a script that failed to load.
+const definedIn = (element: string, ms: number) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const defined = new Promise<void>((resolve, reject) => {
+    timer = setTimeout(
       () =>
         reject(
           new Error(`The page script did not define <${element}> in time.`),
@@ -28,9 +30,12 @@ const definedIn = (element: string, ms: number): Promise<void> =>
     });
   });
 
-// Loads the script of a settings page once for each attempt, and resolves when its element is defined.
-export const loadSettingsPageElement = (
-  page: Pick<SettingsPageDto, 'script' | 'element'>,
+  return { defined, cancel: () => clearTimeout(timer) };
+};
+
+// Loads the script of a custom settings page once for each attempt, and resolves when its element is defined.
+export const loadCustomSettingsPageElement = (
+  page: Pick<CustomSettingsPageDto, 'script' | 'element'>,
   attempt: number,
   load: ImportModule = importModule,
   timeoutMs: number = DEFINE_TIMEOUT_MS,
@@ -46,9 +51,13 @@ export const loadSettingsPageElement = (
     return known;
   }
 
+  const definition = definedIn(page.element, timeoutMs);
   const loading = Promise.all([
-    load(url),
-    definedIn(page.element, timeoutMs),
+    load(url).catch((error: unknown) => {
+      definition.cancel();
+      throw error;
+    }),
+    definition.defined,
   ]).then(() => undefined);
 
   loads.set(url, loading);
