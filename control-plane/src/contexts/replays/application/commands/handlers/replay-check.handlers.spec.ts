@@ -677,6 +677,26 @@ describe('StartReplayCheckHandler', () => {
     expect(memory.events).toEqual([]);
   });
 
+  it('leaves a change undecided when the plan also changes what the station depends on, at a station with no replay set yet', async () => {
+    facts = {
+      hooks: [],
+      onMarksAsPlanned: [],
+      secrets: [
+        { secret: SecretName.of('API_KEY'), carrier: 'skill', key: 'tdd' },
+      ],
+    };
+
+    expect(
+      await start({ ...PLAN, skills: ['tdd'] }, true, undefined, CLOCK, {
+        secrets: ['API_KEY'],
+      }),
+    ).toEqual({
+      outcome: 'dependency-changed',
+      changed: [{ kind: 'secret', key: 'API_KEY' }],
+    });
+    expect(checks.stored.size).toBe(0);
+  });
+
   it('leaves a change undecided when the plan changes only what the unchanged station depends on', async () => {
     keptAtStation();
     suppliers.configs.validate = async (_line, _station, block) => ({

@@ -84,22 +84,15 @@ interface Gated extends Opened {
 const withRunsToReplay = (opened: Opened): Gated | NoRunsToReplay => {
   const { set, station } = opened;
 
-  if (!set || set.isAtGoneStation) {
-    return {
-      outcome: 'no-runs-to-replay',
-      stationKey: station.key,
-      set: 'none',
-    };
-  }
-  if (set.entries.length === 0) {
-    return {
-      outcome: 'no-runs-to-replay',
-      stationKey: station.key,
-      set: 'empty',
-    };
+  if (set?.hasRunsToReplay) {
+    return { ...opened, set };
   }
 
-  return { ...opened, set };
+  return {
+    outcome: 'no-runs-to-replay',
+    stationKey: station.key,
+    set: !set || set.isAtGoneStation ? 'none' : 'empty',
+  };
 };
 
 interface ReuseFacts {

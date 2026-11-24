@@ -166,6 +166,10 @@ export class ReplaySet extends EventRecorder {
     return this.state.stationGoneAt !== null;
   }
 
+  get hasRunsToReplay(): boolean {
+    return !this.isAtGoneStation && this.state.entries.length > 0;
+  }
+
   get version(): number {
     return this.state.version;
   }

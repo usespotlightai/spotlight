@@ -285,6 +285,12 @@ describe('ReplaySet', () => {
     ]);
   });
 
+  it('has runs to replay only while it holds runs at its station', () => {
+    expect(aSet(1).hasRunsToReplay).toBe(true);
+    expect(aSet(0).hasRunsToReplay).toBe(false);
+    expect(aSet(1).stationLeft(NOW).hasRunsToReplay).toBe(false);
+  });
+
   it('notes once that its station is gone', () => {
     const set = aSet(1);
     set.pullEvents();
