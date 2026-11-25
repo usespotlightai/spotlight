@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   mayLand,
   movableByHand,
-  moveTargetFor,
+  moveOptionsFor,
   placed,
   type Task,
 } from '@/lib/task';
@@ -158,34 +158,31 @@ describe('mayLand', () => {
   });
 });
 
-describe('moveTargetFor', () => {
-  it('starts work waiting in the backlog at the first work station', () => {
-    expect(moveTargetFor(stations, [task('a', 'backlog')], ['a'])?.name).toBe(
-      'Spec',
-    );
+describe('moveOptionsFor', () => {
+  const names = (tasks: Task[], selected: string[]) =>
+    moveOptionsFor(stations, tasks, selected).map((each) => each.name);
+
+  it('offers the first work station and completed for work waiting in the backlog', () => {
+    expect(names([task('a', 'backlog')], ['a'])).toEqual(['Spec', 'Completed']);
   });
 
-  it('parks work further along back in the backlog', () => {
+  it('offers the backlog and completed for work further along', () => {
     expect(
-      moveTargetFor(
-        stations,
-        [task('a', 'build'), task('b', 'backlog')],
-        ['a', 'b'],
-      )?.name,
-    ).toBe('Backlog');
+      names([task('a', 'build'), task('b', 'backlog')], ['a', 'b']),
+    ).toEqual(['Backlog', 'Completed']);
   });
 
-  it('offers nothing once a completed task is picked', () => {
+  it('offers nothing for a completed task', () => {
+    expect(names([task('a', 'completed')], ['a'])).toEqual([]);
+  });
+
+  it('offers only completed once a completed task is picked with others', () => {
     expect(
-      moveTargetFor(
-        stations,
-        [task('a', 'build'), task('b', 'completed')],
-        ['a', 'b'],
-      ),
-    ).toBeNull();
+      names([task('a', 'build'), task('b', 'completed')], ['a', 'b']),
+    ).toEqual(['Completed']);
   });
 
   it('offers nothing until something is picked', () => {
-    expect(moveTargetFor(stations, [task('a', 'build')], [])).toBeNull();
+    expect(names([task('a', 'build')], [])).toEqual([]);
   });
 });

@@ -38,6 +38,8 @@ const ICONS: Partial<Record<ShortcutId, LucideIcon>> = {
   'list.clear': X,
   'task.create': Plus,
   'task.station': Box,
+  'task.backlog': Archive,
+  'task.complete': Check,
   'task.assign': UserRound,
   'task.resume': Play,
   'task.delete': Trash,

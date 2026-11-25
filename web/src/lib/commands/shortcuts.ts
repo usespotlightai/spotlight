@@ -95,6 +95,8 @@ const SHORTCUTS = {
     group: 'Tasks',
     keys: ['s'],
   },
+  'task.backlog': { title: 'Move to Backlog', group: 'Tasks', keys: ['b'] },
+  'task.complete': { title: 'Move to Completed', group: 'Tasks', keys: ['d'] },
   'task.assign': { title: 'Assign', group: 'Tasks', keys: ['a'] },
   'task.resume': {
     title: 'Resume the line',

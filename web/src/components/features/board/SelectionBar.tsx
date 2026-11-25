@@ -1,4 +1,5 @@
-import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { Command } from 'lucide-react';
+
 import { ClearSelection } from '@/components/shared/ClearSelection';
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import { Button } from '@/components/ui/button';
@@ -10,17 +11,11 @@ import {
 
 type SelectionBarProps = {
   count: number;
-  moveTo: { name: string; share: number } | null;
-  onMove: () => void;
+  onActions: () => void;
   onClear: () => void;
 };
 
-export function SelectionBar({
-  count,
-  moveTo,
-  onMove,
-  onClear,
-}: SelectionBarProps) {
+export function SelectionBar({ count, onActions, onClear }: SelectionBarProps) {
   if (count === 0) {
     return null;
   }
@@ -34,29 +29,24 @@ export function SelectionBar({
         {count} selected
       </span>
 
-      {moveTo && (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onMove}
-                className="rounded-full bg-card shadow-none"
-              />
-            }
-          >
-            <StationIcon
-              share={moveTo.share}
-              className="text-muted-foreground"
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onActions}
+              className="rounded-full bg-card shadow-none"
             />
-            Move to {moveTo.name}
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <ShortcutHint id="task.station">Move to {moveTo.name}</ShortcutHint>
-          </TooltipContent>
-        </Tooltip>
-      )}
+          }
+        >
+          <Command className="text-muted-foreground" />
+          Actions
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <ShortcutHint id="palette.open">Actions</ShortcutHint>
+        </TooltipContent>
+      </Tooltip>
 
       <ClearSelection onClear={onClear} />
     </div>

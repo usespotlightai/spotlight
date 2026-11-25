@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
+import { useCommands } from '@/hooks/useCommands';
 import { LineBoard } from '@/routes/LineBoard';
 
 const line = {
@@ -126,6 +127,29 @@ const renderAt = (lineId: string) =>
     </MemoryRouter>,
   );
 
+const palette = vi.fn();
+
+function PaletteStub() {
+  useCommands([{ id: 'palette.open', run: palette }]);
+
+  return null;
+}
+
+const renderWithCommands = () =>
+  render(
+    <CommandsProvider>
+      <PaletteStub />
+      <MemoryRouter initialEntries={['/w/acme/team/team_1/lines/line_1']}>
+        <Routes>
+          <Route
+            path="/w/:slug/team/:teamId/lines/:lineId"
+            element={<LineBoard />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </CommandsProvider>,
+  );
+
 const sections = () =>
   Array.from(document.querySelectorAll('[data-slot="station-section"]'));
 
@@ -146,6 +170,7 @@ describe('LineBoard', () => {
     localStorage.clear();
     added.mockClear();
     moved.mockClear();
+    palette.mockClear();
     lined.mockReturnValue([line]);
     linesFailing.mockReturnValue(false);
     refetchLines.mockClear();
@@ -347,32 +372,46 @@ describe('LineBoard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('offers the backlog to a task further along', async () => {
+  it('offers the actions of the palette once a task is picked', async () => {
     const user = userEvent.setup();
-    renderAt('line_1');
+    renderWithCommands();
 
     await user.click(
       screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
     );
+    await user.click(screen.getByRole('button', { name: /Actions/ }));
 
     expect(screen.getByText('1 selected')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Move to Backlog/ }),
-    ).toBeInTheDocument();
+    expect(palette).toHaveBeenCalledTimes(1);
   });
 
-  it('offers the station after it to a task waiting in the backlog', async () => {
+  it('moves a task further along to the backlog or to completed from the palette', async () => {
     const user = userEvent.setup();
-    renderAt('line_1');
+    renderWithCommands();
+
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
+    );
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'd' });
+
+    expect(moved).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: 'task_1', stationId: 'station_5' }),
+    );
+  });
+
+  it('starts a task waiting in the backlog', async () => {
+    const user = userEvent.setup();
+    renderWithCommands();
 
     await user.click(screen.getByRole('button', { name: 'Backlog' }));
     await user.click(
       screen.getByRole('checkbox', { name: 'Select Groom the idea' }),
     );
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 's' });
 
-    expect(
-      screen.getByRole('button', { name: /Move to Triage/ }),
-    ).toBeInTheDocument();
+    expect(moved).toHaveBeenCalledWith(
+      expect.objectContaining({ stationId: 'station_1' }),
+    );
   });
 
   it('offers no move for a task that is completed', async () => {
@@ -395,19 +434,17 @@ describe('LineBoard', () => {
     );
 
     expect(screen.getByText('1 selected')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Move to/ }),
-    ).not.toBeInTheDocument();
+    expect(palette).not.toHaveBeenCalled();
   });
 
   it('moves every task that was picked', async () => {
     const user = userEvent.setup();
-    renderAt('line_1');
+    renderWithCommands();
 
     await user.click(
       screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
     );
-    await user.click(screen.getByRole('button', { name: /Move to Backlog/ }));
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'b' });
 
     expect(moved).toHaveBeenCalledWith({
       teamId: 'team_1',
@@ -421,12 +458,12 @@ describe('LineBoard', () => {
 
   it('puts the selection down once it has been acted on', async () => {
     const user = userEvent.setup();
-    renderAt('line_1');
+    renderWithCommands();
 
     await user.click(
       screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
     );
-    await user.click(screen.getByRole('button', { name: /Move to Backlog/ }));
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'b' });
 
     expect(
       document.querySelector('[data-slot="selection-bar"]'),
@@ -692,7 +729,7 @@ describe('LineBoard', () => {
       ).toHaveTextContent('Backlog');
     });
 
-    it('moves through the tasks with J, picks one with X and moves it with S', () => {
+    it('moves through the tasks with J, picks one with X and moves it with B', () => {
       renderWithKeys();
 
       press('j');
@@ -704,7 +741,7 @@ describe('LineBoard', () => {
         screen.getByRole('checkbox', { name: `Select ${focused}` }),
       ).toBeChecked();
 
-      press('s');
+      press('b');
 
       expect(moved).toHaveBeenCalledWith(
         expect.objectContaining({
