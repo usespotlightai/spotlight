@@ -278,7 +278,15 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
     }
   }
 
-  return cut.filter((turn) => turn.message || turn.moments.length > 0);
+  return cut
+    .filter((turn) => turn.message || turn.moments.length > 0)
+    .map((turn) => ({
+      message: turn.message,
+      moments: [
+        ...turn.moments.filter((moment) => moment.kind !== 'opened'),
+        ...turn.moments.filter((moment) => moment.kind === 'opened'),
+      ],
+    }));
 };
 
 export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>
