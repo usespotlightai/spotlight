@@ -1,4 +1,5 @@
 import { agentFeaturesOf } from '@lines/domain/services/station-features';
+import { LineSearchPolicy } from '@lines/domain/value-objects/search-policy.vo';
 import { ALL_CLAIMS } from '@lines/domain/value-objects/station-judge.vo';
 
 type LineDefinitionStationKind = 'backlog' | 'work' | 'completed';
@@ -40,6 +41,10 @@ export type LineDefinitionStationSearch = {
 
 export const LINE_DEFINITION_STATION_DEFAULTS = {
   judgePassThreshold: ALL_CLAIMS,
+} as const;
+
+export const LINE_DEFINITION_SEARCH_DEFAULTS = {
+  requestsPerDay: LineSearchPolicy.DEFAULT.requestsPerDay,
 } as const;
 
 /** The switches a station has when its definition leaves them out: one that runs an agent has every agent feature. */

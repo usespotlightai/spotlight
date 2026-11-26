@@ -2,7 +2,7 @@ import type { StationChangeRefusal } from '@replays/application/contracts/statio
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
 import { FEWEST_SEARCH_TASKS } from '@replays/domain/value-objects/held-out-split.vo';
 
-export interface RequestLimit {
+interface RequestLimit {
   readonly perDay: number;
   readonly resetsAt: Date;
 }

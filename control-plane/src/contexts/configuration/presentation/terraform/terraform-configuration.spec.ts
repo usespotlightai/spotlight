@@ -510,6 +510,28 @@ describe('workspaceTerraform', () => {
     ).not.toContain('warm_sandboxes');
   });
 
+  it('writes requests_per_day only where it is not the default 3, and a station’s 3 under a line that takes more', () => {
+    const delivery = resourceOf('line', 'core/delivery');
+    const exported = (line: number, station: number): string =>
+      resourceHcl(CONFIGURATION, {
+        ...delivery,
+        definition: {
+          ...delivery.definition,
+          search: { ...delivery.definition.search, requestsPerDay: line },
+          stations: delivery.definition.stations.map((each) =>
+            each.search
+              ? { ...each, search: { ...each.search, requestsPerDay: station } }
+              : each,
+          ),
+        },
+      }).hcl;
+
+    expect(exported(3, 3)).not.toContain('requests_per_day');
+    expect(exported(4, 5)).toMatch(/^ {4}requests_per_day = 4$/m);
+    expect(exported(4, 5)).toMatch(/^ {6}requests_per_day = 5$/m);
+    expect(exported(5, 3)).toMatch(/^ {6}requests_per_day = 3$/m);
+  });
+
   it('writes the default assignee of a line only when it names one', () => {
     expect(
       resourceHcl(CONFIGURATION, resourceOf('line', 'core/delivery')).hcl,

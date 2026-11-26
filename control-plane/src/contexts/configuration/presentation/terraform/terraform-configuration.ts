@@ -19,17 +19,18 @@ import {
   terraformTypeOf,
   VARIABLES_FILE,
 } from '@configuration/application/rendering/terraform-layout';
-import type {
-  LineDefinitionAlert,
-  LineDefinitionJudge,
-  LineDefinitionReaction,
-  LineDefinitionReplayCheck,
-  LineDefinitionRepository,
-  LineDefinitionReviews,
-  LineDefinitionSearch,
-  LineDefinitionSource,
-  LineDefinitionStation,
-  LineDefinitionStationSearch,
+import {
+  LINE_DEFINITION_SEARCH_DEFAULTS,
+  type LineDefinitionAlert,
+  type LineDefinitionJudge,
+  type LineDefinitionReaction,
+  type LineDefinitionReplayCheck,
+  type LineDefinitionRepository,
+  type LineDefinitionReviews,
+  type LineDefinitionSearch,
+  type LineDefinitionSource,
+  type LineDefinitionStation,
+  type LineDefinitionStationSearch,
 } from '@lines/application/contracts/line-definition.contract';
 import {
   attribute,
@@ -92,6 +93,8 @@ interface ModuleIndex {
 const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 
 const PROVIDER_VERSION = '0.1.0-rc.4';
+
+const REQUESTS_PER_DAY = LINE_DEFINITION_SEARCH_DEFAULTS.requestsPerDay;
 
 const GITIGNORE = {
   path: '.gitignore',
@@ -412,6 +415,9 @@ const line = (
       ],
     );
 
+  const lineRequestsPerDay =
+    definition.search?.requestsPerDay ?? REQUESTS_PER_DAY;
+
   const stationSearch = (set: LineDefinitionStationSearch): HclBlock =>
     block(
       'search',
@@ -425,7 +431,13 @@ const line = (
         ...present('iterations', set.iterations),
         ...present('repeats', set.repeats),
         ...present('objective', set.objective),
-        ...present('requests_per_day', set.requestsPerDay),
+        ...present(
+          'requests_per_day',
+          set.requestsPerDay === REQUESTS_PER_DAY &&
+            lineRequestsPerDay === REQUESTS_PER_DAY
+            ? undefined
+            : set.requestsPerDay,
+        ),
         ...(set.agent
           ? [
               block(
@@ -561,7 +573,12 @@ const line = (
         ...present('period', policy.period),
         ...present('on_alert', policy.onAlert),
         ...present('cooldown', policy.cooldown),
-        ...present('requests_per_day', policy.requestsPerDay),
+        ...present(
+          'requests_per_day',
+          policy.requestsPerDay === REQUESTS_PER_DAY
+            ? undefined
+            : policy.requestsPerDay,
+        ),
       ],
     );
 
