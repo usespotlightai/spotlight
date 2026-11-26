@@ -39,6 +39,7 @@ export function TaskProperties({
             stations={line.stations}
             value={station.id}
             held={task.hold}
+            passesOnTo={task.passesOnTo}
             onChange={(stationId) =>
               teamId &&
               moveTask.mutate({

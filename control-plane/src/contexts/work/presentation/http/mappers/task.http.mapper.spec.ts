@@ -17,6 +17,7 @@ const dto: TaskDto = {
   waitingForYou: false,
   yourMessage: 'message',
   finished: false,
+  passesOnTo: ['station_2'],
   pullRequests: [],
   createdBy: { id: 'user_1', name: 'Ada', image: null },
   assignee: null,

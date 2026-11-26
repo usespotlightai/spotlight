@@ -34,6 +34,7 @@ type StationSelectProps = {
   stations: readonly Station[];
   value: string;
   held: TaskHoldResponseDto | null;
+  passesOnTo: readonly string[];
   onChange: (stationId: string) => void;
 };
 
@@ -41,6 +42,7 @@ export function StationSelect({
   stations,
   value,
   held,
+  passesOnTo,
   onChange,
 }: StationSelectProps) {
   const shareOf = (stationId: string) =>
@@ -51,7 +53,10 @@ export function StationSelect({
 
   const currentStation = stations.find((each) => each.id === value);
   const offered = currentStation
-    ? stations.filter((each) => movableByHand(currentStation, each))
+    ? stations.filter(
+        (each) =>
+          movableByHand(currentStation, each) || passesOnTo.includes(each.id),
+      )
     : [];
   const [open, setOpen] = useState(false);
   const me = useMe();

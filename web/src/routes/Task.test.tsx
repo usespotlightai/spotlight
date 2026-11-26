@@ -15,6 +15,7 @@ const task = {
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
+  passesOnTo: [],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -445,6 +446,19 @@ describe('Task', () => {
     expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
     ).toEqual(['Backlog', 'Triage', 'Completed']);
+  });
+
+  it('offers the stations its station passes work to while the task waits on a question', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([{ ...task, passesOnTo: ['station_2'] }]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getAllByRole('menuitemradio').map((each) => each.textContent),
+    ).toEqual(['Backlog', 'Triage', 'Spec', 'Completed']);
   });
 
   it('offers nothing to move to once a task is completed', async () => {

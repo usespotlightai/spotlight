@@ -49,6 +49,7 @@ export interface TaskDto {
   readonly waitingForYou: boolean;
   readonly yourMessage: MessageOutcome;
   readonly finished: boolean;
+  readonly passesOnTo: readonly string[];
   readonly pullRequests: readonly string[];
   readonly note: TaskNoteDto | null;
   readonly createdBy: TaskPersonDto | null;

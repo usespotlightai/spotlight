@@ -1,5 +1,15 @@
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   TaskReaderPort,
   TaskSummary,
@@ -11,6 +21,11 @@ import {
   linesWhere,
 } from '@work/application/services/run-access.fake-spec';
 import type { WorkAccess } from '@work/application/services/work-access.service';
+import {
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -64,6 +79,7 @@ const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
   createdAt: summary.createdAt.toISOString(),
   waitingForYou: false,
   yourMessage: 'message',
+  passesOnTo: [],
 });
 
 const reader = (result: TaskSummary[]): TaskReaderPort => ({
@@ -131,7 +147,68 @@ const handle = (tasks: TaskReaderPort, access = seeing()) =>
     new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
   );
 
+const TRIAGE_PASSES_TO_SPEC: LineMapsPort = {
+  ofTeam: async () => [
+    lineMapOf({
+      id: LineId.of('line_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      key: LineKey.of('delivery'),
+      name: LineName.of('Delivery'),
+      stations: [
+        stationOf({
+          id: StationId.of('station_0'),
+          key: StationKey.of('backlog'),
+          name: StationName.of('Backlog'),
+          position: 0,
+          color: '#a3a8b0',
+          kind: 'backlog',
+        }),
+        stationOf({
+          id: StationId.of('station_1'),
+          key: StationKey.of('triage'),
+          name: StationName.of('Triage'),
+          position: 1,
+          color: '#a3a8b0',
+          harness: HarnessId.of('dev'),
+          routes: routesOf({ stations: [StationId.of('station_2')] }),
+        }),
+        stationOf({
+          id: StationId.of('station_2'),
+          key: StationKey.of('spec'),
+          name: StationName.of('Spec'),
+          position: 2,
+          color: '#a3a8b0',
+          harness: HarnessId.of('dev'),
+        }),
+        stationOf({
+          id: StationId.of('station_9'),
+          key: StationKey.of('completed'),
+          name: StationName.of('Completed'),
+          position: 3,
+          color: '#a3a8b0',
+          kind: 'completed',
+        }),
+      ],
+    }),
+  ],
+} as unknown as LineMapsPort;
+
+const passesOnToOf = async (summary: TaskSummary) =>
+  (
+    await new ListTasksHandler(
+      reader([summary]),
+      seeing(),
+      TRIAGE_PASSES_TO_SPEC,
+    ).execute(new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE))
+  )?.items[0]?.passesOnTo;
+
 describe('ListTasksHandler', () => {
+  it('offers to move a task that waits on a question on to where its station passes work', async () => {
+    await expect(passesOnToOf(asking(ALICE))).resolves.toEqual(['station_2']);
+    await expect(passesOnToOf(summaries[0])).resolves.toEqual([]);
+  });
+
   it('hands back each task with the station it is at', async () => {
     await expect(handle(reader(summaries))).resolves.toEqual({
       items: summaries.map(asDto),

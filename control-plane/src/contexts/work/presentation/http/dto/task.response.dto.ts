@@ -202,6 +202,14 @@ export class TaskResponseDto {
   readonly finished: boolean;
 
   @ApiProperty({
+    type: [String],
+    example: ['station_spec'],
+    description:
+      'The stations a person may move the task on to while it waits on them: the stations its station passes work to, as its agent could. Empty unless the task waits on a question.',
+  })
+  readonly passesOnTo: readonly string[];
+
+  @ApiProperty({
     example: ['https://github.com/acme/widgets/pull/7'],
     type: [String],
     description:
@@ -270,6 +278,7 @@ export class TaskResponseDto {
     waitingForYou: boolean,
     yourMessage: string,
     finished: boolean,
+    passesOnTo: readonly string[],
     pullRequests: readonly string[],
     createdBy: TaskPersonResponseDto | null,
     assignee: TaskPersonResponseDto | null,
@@ -290,6 +299,7 @@ export class TaskResponseDto {
     this.waitingForYou = waitingForYou;
     this.yourMessage = yourMessage;
     this.finished = finished;
+    this.passesOnTo = passesOnTo;
     this.pullRequests = pullRequests;
     this.createdBy = createdBy;
     this.assignee = assignee;

@@ -16,6 +16,7 @@ const task = (id: string, stationId: string): Task => ({
   waitingForYou: false,
   yourMessage: 'message',
   finished: false,
+  passesOnTo: [],
   createdBy: null,
   assignee: null,
   pullRequests: [],

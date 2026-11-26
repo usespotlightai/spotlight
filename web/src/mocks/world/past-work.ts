@@ -139,6 +139,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   waitingForYou: false,
   yourMessage: 'message',
   finished: false,
+  passesOnTo: [],
   pullRequests: task.pullRequest
     ? [pullRequestUrlOf(task.teamId, task.id)].filter((url) => url !== null)
     : [],

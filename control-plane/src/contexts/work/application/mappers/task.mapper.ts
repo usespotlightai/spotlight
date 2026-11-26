@@ -1,3 +1,4 @@
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
@@ -8,6 +9,7 @@ import type { MessageReading } from '@work/application/services/message-reading'
 import type { ConversationViewer } from '@work/domain/services/conversation-audience';
 import { HoldRights } from '@work/domain/services/hold-rights';
 import type { MessagedTask } from '@work/domain/services/message-effect';
+import { PassOn } from '@work/domain/services/pass-on';
 import { TaskWaits } from '@work/domain/services/task-waits';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
@@ -59,6 +61,14 @@ export const TaskMapper = {
       },
       ...TaskWaits.forViewer(messagedTaskOf(summary, reading), viewer),
       finished: summary.finished,
+      passesOnTo: PassOn.targets(
+        {
+          stationId: StationId.of(summary.stationId),
+          onHold: summary.hold !== null,
+          awaiting: summary.awaitingReview,
+        },
+        reading.lineOf(summary.stationId),
+      ).map((id) => id.value),
       pullRequests: summary.pullRequests,
       createdBy: summary.createdBy,
       assignee: summary.assignee,
