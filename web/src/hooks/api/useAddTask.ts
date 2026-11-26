@@ -16,6 +16,7 @@ export function useAddTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { quiet: true },
     mutationFn: async ({ teamId, lineId, stationId, task }: AddTaskInput) => {
       const { data, response } = await addTask({
         path: { teamId, lineId, stationId },

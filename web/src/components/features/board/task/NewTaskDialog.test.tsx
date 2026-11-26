@@ -24,7 +24,7 @@ function Harness() {
       onOpenChange={setOpen}
       lineName="Default"
       stationName="Triage"
-      onCreate={(task: NewTask) => created(task)}
+      onCreate={async (task: NewTask) => created(task)}
     />
   );
 }
@@ -38,6 +38,8 @@ const renderDialog = () =>
 
 const title = () => screen.getByRole('textbox', { name: 'Task title' });
 const create = () => screen.getByRole('button', { name: 'Create task' });
+const description = () =>
+  screen.getByRole('textbox', { name: 'Task description' });
 
 const attach = () =>
   fireEvent.paste(title(), {
@@ -48,7 +50,7 @@ const attach = () =>
 
 beforeEach(() => {
   localStorage.clear();
-  created.mockClear();
+  created.mockReset();
   uploaded.mockReset();
   uploaded.mockResolvedValue({ id: 'att_1' });
 });
@@ -138,5 +140,50 @@ describe('NewTaskDialog', () => {
     attach();
 
     expect(create()).toBeDisabled();
+  });
+
+  it('keeps a title the server refuses and says why', async () => {
+    const user = userEvent.setup();
+    created.mockRejectedValue({
+      statusCode: 422,
+      message: 'Task title must be at most 200 characters.',
+    });
+    renderDialog();
+
+    const long = `${'x'.repeat(300)} end`;
+    await user.click(title());
+    await user.paste(long);
+    await user.click(create());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Task title must be at most 200 characters.',
+    );
+    expect(title()).toHaveValue(long);
+  });
+
+  it('creates the task on Cmd+Enter in the title', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(title(), 'Fix the queue');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+
+    expect(created).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Fix the queue' }),
+    );
+  });
+
+  it('creates the task on Ctrl+Enter in the description', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(title(), 'Fix the queue');
+    fireEvent.keyDown(description(), { key: 'Enter', ctrlKey: true });
+
+    await waitFor(() =>
+      expect(created).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Fix the queue' }),
+      ),
+    );
   });
 });

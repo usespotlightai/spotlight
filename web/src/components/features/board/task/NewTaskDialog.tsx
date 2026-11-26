@@ -1,4 +1,4 @@
-import { type SubmitEvent, useRef, useState } from 'react';
+import { type KeyboardEvent, type SubmitEvent, useRef, useState } from 'react';
 
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { PendingAttachments } from '@/components/shared/attachment/PendingAttachments';
@@ -16,6 +16,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { useAttachments } from '@/hooks/useAttachments';
+import { messageOf } from '@/lib/error';
 import type { NewTask } from '@/lib/task';
 
 type NewTaskDialogProps = {
@@ -24,7 +25,7 @@ type NewTaskDialogProps = {
   onOpenChange: (open: boolean) => void;
   lineName: string;
   stationName: string;
-  onCreate: (task: NewTask) => void;
+  onCreate: (task: NewTask) => Promise<unknown>;
 };
 
 export function NewTaskDialog({
@@ -39,33 +40,52 @@ export function NewTaskDialog({
   const description = useRef('');
   const [more, setMore] = useState(false);
   const [round, setRound] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
   const draft = useAttachments(slug);
 
-  const uncreatable = !title.trim() || draft.uploading;
+  const uncreatable = !title.trim() || draft.uploading || creating;
 
   const reset = () => {
     setTitle('');
+    setRefusal(null);
     description.current = '';
     draft.clear();
     setRound((each) => each + 1);
   };
 
-  const submit = (event: SubmitEvent) => {
+  const submit = async (event: SubmitEvent) => {
     event.preventDefault();
     if (uncreatable) {
       return;
     }
 
-    onCreate({
-      title: title.trim(),
-      description: description.current.trim(),
-      attachments: draft.ids,
-    });
+    setCreating(true);
+    try {
+      await onCreate({
+        title: title.trim(),
+        description: description.current.trim(),
+        attachments: draft.ids,
+      });
+    } catch (thrown) {
+      setRefusal(messageOf(thrown));
+      return;
+    } finally {
+      setCreating(false);
+    }
 
     if (more) {
       reset();
     } else {
       onOpenChange(false);
+    }
+  };
+
+  const submitOnModEnter = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.requestSubmit();
     }
   };
 
@@ -89,7 +109,12 @@ export function NewTaskDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={submit} {...draft.handlers} className="contents">
+        <form
+          onSubmit={(event) => void submit(event)}
+          onKeyDownCapture={submitOnModEnter}
+          {...draft.handlers}
+          className="contents"
+        >
           <ScrollArea
             className="max-h-[60vh]"
             contentClassName="flex flex-col gap-3"
@@ -97,12 +122,20 @@ export function NewTaskDialog({
             <AutoGrowTextarea
               autoFocus
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                setRefusal(null);
+              }}
               placeholder="Task title"
               aria-label="Task title"
-              maxLength={200}
               className="font-medium text-base text-foreground leading-6"
             />
+
+            {refusal && (
+              <p role="alert" className="text-destructive text-xs">
+                {refusal}
+              </p>
+            )}
 
             <MarkdownEditor
               key={round}

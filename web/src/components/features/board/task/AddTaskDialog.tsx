@@ -28,9 +28,9 @@ export function AddTaskDialog({
       stationName={
         line.stations.find((each) => each.id === stationId)?.name ?? ''
       }
-      onCreate={(task) =>
+      onCreate={async (task) =>
         stationId &&
-        addTask.mutate({ teamId, lineId: line.id, stationId, task })
+        addTask.mutateAsync({ teamId, lineId: line.id, stationId, task })
       }
     />
   );
