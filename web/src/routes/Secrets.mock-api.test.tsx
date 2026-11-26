@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { secretsPath } from '@/lib/settings';
+import { api, json } from '@/mocks/http';
 import { serveMockApi } from '@/mocks/testing';
 import { SLUG } from '@/mocks/world';
+import { settingsWorld } from '@/mocks/world/settings';
 import { MockApplication } from '@/stories/MockApplication';
 import { quietBrowser } from '@/test/signed-in';
 
@@ -29,8 +31,11 @@ const rowOf = async (name: string) => {
   return within(row);
 };
 
+const UNUSED =
+  'No harness profile or integration uses this secret, so no run receives it.';
+
 describe('Secrets on the mock API', () => {
-  serveMockApi();
+  const server = serveMockApi();
   quietBrowser();
 
   it('says where each value comes from, and offers a value only where a person may set one', async () => {
@@ -50,6 +55,25 @@ describe('Secrets on the mock API', () => {
         name: 'Replace value of STAGING_VIEWER_TOKEN',
       }),
     ).toBeVisible();
+  });
+
+  it('says no run receives a secret that no harness profile or integration uses', async () => {
+    server.use(
+      api.get('/workspaces/:slug/secrets', () =>
+        json(
+          settingsWorld().secrets.map((secret) => ({
+            ...secret,
+            reachesRuns: secret.name !== 'LINEAR_API_KEY',
+          })),
+        ),
+      ),
+    );
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    expect((await rowOf('LINEAR_API_KEY')).getByText(UNUSED)).toBeVisible();
+    expect(
+      (await rowOf('STAGING_VIEWER_TOKEN')).queryByText(UNUSED),
+    ).not.toBeInTheDocument();
   });
 
   it('sets the value of a secret that awaits one, and never shows it', async () => {

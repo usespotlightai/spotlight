@@ -11,6 +11,7 @@ import {
   allowsSandbox,
   SANDBOX_NOTE,
   setValueLabel,
+  UNUSED_NOTE,
   valueNote,
   type WorkspaceSecret,
 } from '@/lib/secret';
@@ -27,7 +28,16 @@ export function SecretRow({ secret, onSetValue }: SecretRowProps) {
       <SettingsRow
         label={secret.name}
         leading={<RowIcon icon={LockKeyhole} />}
-        description={describeHosts(secret)}
+        description={
+          <>
+            {describeHosts(secret)}
+            {!secret.reachesRuns && (
+              <span className="block text-amber-600 dark:text-amber-400">
+                {UNUSED_NOTE}
+              </span>
+            )}
+          </>
+        }
         stack
       >
         <div className="flex items-center gap-3">

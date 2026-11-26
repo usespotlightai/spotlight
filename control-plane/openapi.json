@@ -28687,6 +28687,10 @@
           "settable": {
             "type": "boolean",
             "description": "True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets"
+          },
+          "reachesRuns": {
+            "type": "boolean",
+            "description": "False when no harness profile or integration uses it, so no run receives it"
           }
         },
         "required": [
@@ -28695,7 +28699,8 @@
           "sandbox",
           "valueOrigin",
           "valueSetAt",
-          "settable"
+          "settable",
+          "reachesRuns"
         ]
       },
       "SetSecretValueRequestDto": {

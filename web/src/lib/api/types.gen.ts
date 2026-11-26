@@ -2086,6 +2086,10 @@ export type WorkspaceSecretResponseDto = {
    * True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets
    */
   settable: boolean;
+  /**
+   * False when no harness profile or integration uses it, so no run receives it
+   */
+  reachesRuns: boolean;
 };
 
 export type SetSecretValueRequestDto = {

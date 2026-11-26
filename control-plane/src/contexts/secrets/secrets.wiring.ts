@@ -25,6 +25,10 @@ import { BOUND_SECRETS } from '@secrets/application/ports/bound-secrets.port';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
+import {
+  HARNESS_KEYS,
+  type HarnessKeysPort,
+} from '@secrets/application/ports/harness-keys.port';
 import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
 import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetches.port';
@@ -46,7 +50,10 @@ import {
   type SecretStorePort,
 } from '@secrets/application/ports/secret-store.port';
 import { SECRET_USE_LOCKS } from '@secrets/application/ports/secret-use-locks.port';
-import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
+import {
+  SECRET_USES,
+  type SecretUsesPort,
+} from '@secrets/application/ports/secret-uses.port';
 import { ImportSecretHandler } from '@secrets/application/queries/handlers/import-secret.handler';
 import { ListSecretResourcesHandler } from '@secrets/application/queries/handlers/list-secret-resources.handler';
 import { ListWorkspaceSecretsHandler } from '@secrets/application/queries/handlers/list-workspace-secrets.handler';
@@ -58,6 +65,7 @@ import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query'
 import { BoundSecrets } from '@secrets/application/services/bound-secrets.service';
 import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
 import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
+import { HarnessKeysRegistry } from '@secrets/application/services/harness-keys-registry.service';
 import { HostSecretFetches } from '@secrets/application/services/host-secret-fetches.service';
 import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
@@ -68,6 +76,7 @@ import { SealedSecrets } from '@secrets/application/services/sealed-secrets';
 import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretReadiness } from '@secrets/application/services/secret-readiness.service';
+import { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import { SecretUsesRegistry } from '@secrets/application/services/secret-uses-registry.service';
 import {
   RUN_GRANTS_REPOSITORY,
@@ -265,6 +274,13 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       new HostSecretFetches(sealed, logger),
   },
   { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
+  { provide: HARNESS_KEYS, useFactory: () => new HarnessKeysRegistry() },
+  {
+    provide: SecretRunReach,
+    inject: [SECRET_USES, HARNESS_KEYS],
+    useFactory: (uses: SecretUsesPort, harnessKeys: HarnessKeysPort) =>
+      new SecretRunReach(uses, harnessKeys),
+  },
   {
     provide: SECRET_INJECTION,
     inject: [SECRETS, RUN_GRANTS_REPOSITORY, RunGrantsChanges, SECRET_STORE],
@@ -357,17 +373,21 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadSecretQuery, ReadSecretHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    SecretRunReach,
   ]),
   ...bindQueryHandler(ImportSecretQuery, ImportSecretHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    SecretRunReach,
   ]),
   ...bindQueryHandler(ListSecretResourcesQuery, ListSecretResourcesHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    SecretRunReach,
   ]),
   ...bindQueryHandler(ListWorkspaceSecretsQuery, ListWorkspaceSecretsHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    SecretRunReach,
   ]),
 ];

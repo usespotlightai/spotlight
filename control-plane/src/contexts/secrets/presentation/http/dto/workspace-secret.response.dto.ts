@@ -53,6 +53,12 @@ export class WorkspaceSecretResponseDto {
   })
   readonly settable: boolean;
 
+  @ApiProperty({
+    description:
+      'False when no harness profile or integration uses it, so no run receives it',
+  })
+  readonly reachesRuns: boolean;
+
   constructor(secret: WorkspaceSecretDto) {
     this.name = secret.name;
     this.hosts = secret.hosts;
@@ -60,5 +66,6 @@ export class WorkspaceSecretResponseDto {
     this.valueOrigin = secret.valueOrigin;
     this.valueSetAt = secret.valueSetAt?.toISOString() ?? null;
     this.settable = secret.settable;
+    this.reachesRuns = secret.reachesRuns;
   }
 }

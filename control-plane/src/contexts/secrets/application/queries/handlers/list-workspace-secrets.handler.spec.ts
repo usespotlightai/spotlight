@@ -1,6 +1,7 @@
 import type { SecretRecord } from '@secrets/application/ports/secret-resources.port';
 import { ListWorkspaceSecretsHandler } from '@secrets/application/queries/handlers/list-workspace-secrets.handler';
 import { ListWorkspaceSecretsQuery } from '@secrets/application/queries/list-workspace-secrets.query';
+import { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import {
   ADMIN,
   accessFor,
@@ -39,7 +40,11 @@ const RECORDS = [
   record('VIEWER_TOKEN', { holdsValue: true }),
 ];
 
-const listedBy = (managesSecrets: boolean, slug = SLUG) =>
+const listedBy = (
+  managesSecrets: boolean,
+  slug = SLUG,
+  used: readonly string[] = RECORDS.map((each) => each.name),
+) =>
   new ListWorkspaceSecretsHandler(
     accessFor(() => managesSecrets),
     {
@@ -48,6 +53,16 @@ const listedBy = (managesSecrets: boolean, slug = SLUG) =>
       namedIn: async () => [],
       secretsIn: async () => RECORDS,
     },
+    new SecretRunReach(
+      {
+        register: () => undefined,
+        of: async ({ name }) =>
+          used.includes(name)
+            ? [{ kind: 'harness-profile', key: 'core/default', exposes: false }]
+            : [],
+      },
+      { register: () => undefined, names: () => [] },
+    ),
   ).execute(new ListWorkspaceSecretsQuery(slug, ADMIN.principal));
 
 describe('ListWorkspaceSecretsHandler', () => {
@@ -60,6 +75,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'terraform',
         valueSetAt: NOW,
         settable: false,
+        reachesRuns: true,
       },
       {
         name: 'STAGING_PASSWORD',
@@ -68,6 +84,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'awaiting',
         valueSetAt: null,
         settable: true,
+        reachesRuns: true,
       },
       {
         name: 'VIEWER_TOKEN',
@@ -76,7 +93,20 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'spotlight',
         valueSetAt: NOW,
         settable: true,
+        reachesRuns: true,
       },
+    ]);
+  });
+
+  it('says which secrets no run receives, since no harness profile or integration uses them', async () => {
+    const listed = await listedBy(true, SLUG, ['LINEAR_API_KEY']);
+
+    expect(
+      listed?.map(({ name, reachesRuns }) => ({ name, reachesRuns })),
+    ).toEqual([
+      { name: 'LINEAR_API_KEY', reachesRuns: true },
+      { name: 'STAGING_PASSWORD', reachesRuns: false },
+      { name: 'VIEWER_TOKEN', reachesRuns: false },
     ]);
   });
 

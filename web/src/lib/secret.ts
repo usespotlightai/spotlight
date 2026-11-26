@@ -38,3 +38,6 @@ export const SANDBOX_NOTE =
 
 export const describeHosts = (secret: WorkspaceSecret): string =>
   secret.hosts.length > 0 ? secret.hosts.join(', ') : 'Sent to no host';
+
+export const UNUSED_NOTE =
+  'No harness profile or integration uses this secret, so no run receives it.';
