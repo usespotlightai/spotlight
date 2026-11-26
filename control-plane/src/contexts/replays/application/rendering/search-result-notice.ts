@@ -1,7 +1,10 @@
 import type { NoticeWords } from '@replays/application/rendering/reflection-notice';
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
 import { CHECK_SKIPS } from '@replays/application/rendering/task-rows';
-import type { CheckSkip } from '@replays/domain/value-objects/check-skip';
+import type {
+  ReplayChecks,
+  SkippedChecks,
+} from '@replays/domain/services/replay-checks';
 import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { SearchPickDecline } from '@replays/domain/value-objects/search-pick';
@@ -98,11 +101,6 @@ export interface RequestedResult {
   readonly currency: string;
 }
 
-export interface SkippedChecks {
-  readonly skip: CheckSkip;
-  readonly runs: number;
-}
-
 export interface SearchSummary {
   readonly currency: string;
   readonly ceiling: number;
@@ -117,10 +115,7 @@ export interface SearchSummary {
     readonly searched: TaskScore | null;
     readonly spent: SpentShare | null;
   };
-  readonly checks: {
-    readonly ran: number;
-    readonly skipped: readonly SkippedChecks[];
-  };
+  readonly checks: ReplayChecks;
 }
 
 const counted = (count: number, one: string, many: string): string =>

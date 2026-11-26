@@ -6,7 +6,6 @@ import {
   type RequestedResult,
   type SearchSummary,
   SearchResultWording,
-  type SkippedChecks,
   type SpentShare,
   type TaskScore,
 } from '@replays/application/rendering/search-result-notice';
@@ -25,67 +24,21 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import { replayChecksOf } from '@replays/domain/services/replay-checks';
 import { totalsOf } from '@replays/domain/services/replay-results';
 import {
   type SearchScores,
   scoresOf,
 } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
-import {
-  type CheckSkip,
-  checkSkipOf,
-  NOT_GENERATED,
-} from '@replays/domain/value-objects/check-skip';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
-import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { isLastingSkip } from '@replays/domain/value-objects/search-skip-reason';
 import { isCutShort } from '@replays/domain/value-objects/search-stop-reason';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const RESULT = 'result';
-
-const CHECKED: ReadonlySet<ChecksState> = new Set(['passed', 'failed']);
-
-const uncheckedAs = (reasons: readonly EntryReason[]): CheckSkip | null => {
-  for (const reason of reasons) {
-    if (reason.code === 'change-not-generated') {
-      return NOT_GENERATED;
-    }
-    if (reason.code === 'check-skipped') {
-      return checkSkipOf(reason.detail);
-    }
-  }
-
-  return null;
-};
-
-const checksIn = (
-  outcomes: readonly ReplayOutcome[],
-): SearchSummary['checks'] => {
-  const skipped = new Map<CheckSkip, number>();
-  let ran = 0;
-
-  for (const entry of outcomes.flatMap((each) => each.entries)) {
-    const skip = uncheckedAs(entry.reasons);
-
-    if (skip) {
-      skipped.set(skip, (skipped.get(skip) ?? 0) + 1);
-    } else if (entry.checks && CHECKED.has(entry.checks.state)) {
-      ran += 1;
-    }
-  }
-
-  return {
-    ran,
-    skipped: [...skipped]
-      .map(([skip, runs]): SkippedChecks => ({ skip, runs }))
-      .sort((one, other) => other.runs - one.runs),
-  };
-};
 
 const replayIn = (replays: readonly Replay[], id: ReplayId): Replay | null =>
   replays.find((each) => each.id.equals(id)) ?? null;
@@ -360,7 +313,7 @@ export class NoticeSearchResults {
         searched: searchedScoreOf(search, seed),
         spent: spentShareOf(seed),
       },
-      checks: checksIn(replays.map((each) => each.outcome())),
+      checks: replayChecksOf(replays.map((each) => each.outcome())),
     };
   }
 
