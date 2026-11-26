@@ -8,6 +8,7 @@ import { REVISION_COOLDOWN_MS } from '@insights/domain/services/revision-trigger
 import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
 import {
   OPENED_AT,
+  REVISABLE_SPLIT,
   REVISED_STATION,
   startedRevision,
 } from '@insights/judge-repair.fake-spec';
@@ -83,7 +84,25 @@ describe('ClaimsRevision', () => {
         rubric: rubricOf(),
         trigger: 'claim-missing',
         latest: startedRevision(),
+        split: REVISABLE_SPLIT,
         now: later(1),
+      }),
+    ).toThrow(InvalidClaimsRevisionError);
+  });
+
+  it('refuses to start with too few labelled runs held out', () => {
+    expect(() =>
+      ClaimsRevision.started({
+        id: ClaimsRevisionId.of('revision_2'),
+        station: REVISED_STATION,
+        rubric: rubricOf(),
+        trigger: 'claim-missing',
+        latest: null,
+        split: {
+          ...REVISABLE_SPLIT,
+          heldOut: REVISABLE_SPLIT.heldOut.slice(1),
+        },
+        now: OPENED_AT,
       }),
     ).toThrow(InvalidClaimsRevisionError);
   });

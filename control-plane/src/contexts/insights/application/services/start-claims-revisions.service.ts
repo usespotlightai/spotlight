@@ -70,12 +70,15 @@ export class StartClaimsRevisions {
       calibration: rubricVersion === rubric.version ? calibration : null,
     });
 
-    if (
-      !trigger ||
-      !revisableOf(
-        revisionSplitOf(await this.labelled.of(station, rubric.version)),
-      )
-    ) {
+    if (!trigger) {
+      return;
+    }
+
+    const split = revisionSplitOf(
+      await this.labelled.of(station, rubric.version),
+    );
+
+    if (!revisableOf(split)) {
       return;
     }
 
@@ -96,6 +99,7 @@ export class StartClaimsRevisions {
             rubric,
             trigger,
             latest,
+            split,
             now,
           }),
         );

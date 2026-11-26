@@ -7,6 +7,11 @@ import {
   type PickedCandidate,
 } from '@insights/domain/services/revision-pick';
 import {
+  MIN_HELD_OUT,
+  type RevisionSplit,
+  revisableOf,
+} from '@insights/domain/services/revision-split';
+import {
   REVISION_COOLDOWN_MS,
   type RevisionTrigger,
 } from '@insights/domain/services/revision-trigger';
@@ -91,11 +96,18 @@ export class ClaimsRevision
     rubric: Rubric;
     trigger: RevisionTrigger;
     latest: ClaimsRevision | null;
+    /** The station's labelled runs, split as the revision will search and hold them out. */
+    split: RevisionSplit<unknown>;
     now: Date;
   }): ClaimsRevision {
     if (!ClaimsRevision.mayStart(input.latest, input.now)) {
       throw new InvalidClaimsRevisionError(
         'starts only when the station has no open revision and the last one that judged candidates ended at least 7 days ago',
+      );
+    }
+    if (!revisableOf(input.split)) {
+      throw new InvalidClaimsRevisionError(
+        `starts only when at least ${MIN_HELD_OUT} labelled runs are held out`,
       );
     }
 
