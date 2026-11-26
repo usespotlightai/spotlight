@@ -5,6 +5,7 @@ import type { PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { OpenAsk } from '@work/domain/services/conversation-audience';
 import type { Progress } from '@work/domain/value-objects/progress';
+import type { TaskSearch } from '@work/domain/value-objects/task-search.vo';
 
 export interface TaskNoteSummary {
   readonly position: number;
@@ -57,10 +58,11 @@ interface TaskRunNotStartedSummary {
 }
 
 export type TaskListing =
-  | { readonly state: 'board' }
+  | { readonly state: 'board'; readonly search: TaskSearch | null }
   | {
       readonly state: 'completed-station';
       readonly lineId: string | null;
+      readonly search: TaskSearch | null;
       readonly page: PageRequest;
     };
 

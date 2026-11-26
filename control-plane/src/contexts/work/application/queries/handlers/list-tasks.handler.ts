@@ -14,6 +14,7 @@ import type {
 } from '@work/application/queries/list-tasks.query';
 import { messageReadingOf } from '@work/application/services/message-reading';
 import type { WorkAccess } from '@work/application/services/work-access.service';
+import { TaskSearch } from '@work/domain/value-objects/task-search.vo';
 
 export class ListTasksHandler implements QueryHandlerPort<
   ListTasksQuery,
@@ -39,13 +40,15 @@ export class ListTasksHandler implements QueryHandlerPort<
         return null;
       }
 
+      const search = query.search === null ? null : TaskSearch.of(query.search);
       const found = await this.tasks.listForTeam(
         teamId,
         query.state === 'board'
-          ? { state: 'board' }
+          ? { state: 'board', search }
           : {
               state: 'completed-station',
               lineId: query.lineId,
+              search,
               page: query.page,
             },
       );

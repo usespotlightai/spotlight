@@ -148,6 +148,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { TaskSearch } from '@work/domain/value-objects/task-search.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
@@ -229,6 +230,7 @@ export const WORK_PAYLOAD_TYPES = [
   TaskRank,
   TaskOrigin,
   TaskRevision,
+  TaskSearch,
   TaskTitle,
   TeamMembers,
   TeamStanding,
