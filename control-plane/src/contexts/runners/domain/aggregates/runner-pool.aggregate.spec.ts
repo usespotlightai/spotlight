@@ -65,6 +65,22 @@ describe('RunnerPool', () => {
     expect(withEgress.servesEgressNeed(true)).toBe(true);
   });
 
+  it('offers the egress it names, and the Spotlight egress only while the deployment sets it', () => {
+    expect(aPushPool({ egress: null }).offersEgress(true)).toBe(false);
+    expect(
+      aPushPool({ egress: EgressReference.of(EGRESS_ID.value) }).offersEgress(
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      aPushPool({ egress: EgressReference.platform() }).offersEgress(true),
+    ).toBe(true);
+    expect(
+      aPushPool({ egress: EgressReference.platform() }).offersEgress(false),
+    ).toBe(false);
+    expect(aPullPool().offersEgress(true)).toBe(false);
+  });
+
   it('is created as a change to the workspace’s configuration, naming its mode', () => {
     const [created] = aPullPool().pullEvents();
 

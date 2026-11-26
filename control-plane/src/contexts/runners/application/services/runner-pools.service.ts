@@ -92,7 +92,7 @@ export class RunnerPools implements RunnerPoolsPort {
       workspaceId: pool.workspaceId,
       key: pool.key.value,
       labels: RunnerOffer.of(pool.labels.values),
-      egress: pool.egress?.usableWith(this.setup.platformEgressSet) ?? false,
+      egress: pool.offersEgress(this.setup.platformEgressSet),
       platform: pool.isPlatform,
       images: pool.isPlatform ? this.setup.platformImages : null,
       allowsSecrets: pool.allowsSecrets,
