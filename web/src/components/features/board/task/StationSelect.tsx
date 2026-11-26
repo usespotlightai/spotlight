@@ -52,10 +52,10 @@ export function StationSelect({
     );
 
   const currentStation = stations.find((each) => each.id === value);
+  const passes = new Set(passesOnTo);
   const offered = currentStation
     ? stations.filter(
-        (each) =>
-          movableByHand(currentStation, each) || passesOnTo.includes(each.id),
+        (each) => movableByHand(currentStation, each) || passes.has(each.id),
       )
     : [];
   const [open, setOpen] = useState(false);
