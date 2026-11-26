@@ -62,6 +62,27 @@ describe('RunnerReadiness', () => {
     expect(hosts.inWorkspace).toHaveBeenCalledWith(WORKSPACE);
   });
 
+  it('loads the hosts only once the pools are in, since a transaction holds one pg client', async () => {
+    const { readiness: ready, pools, hosts } = readiness();
+    let poolsIn = false;
+
+    vi.mocked(pools.inWorkspace).mockImplementation(async () => {
+      await Promise.resolve();
+      poolsIn = true;
+
+      return [];
+    });
+    vi.mocked(hosts.inWorkspace).mockImplementation(async () => {
+      expect(poolsIn).toBe(true);
+
+      return [];
+    });
+
+    await ready.readyToRun(WORKSPACE);
+
+    expect(hosts.inWorkspace).toHaveBeenCalledOnce();
+  });
+
   it('judges a host by the time now', async () => {
     await expect(
       readiness({ hosts: [aHost()] }).readiness.hasEgressCapableRunner(

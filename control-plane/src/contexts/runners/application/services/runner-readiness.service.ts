@@ -43,10 +43,9 @@ export class RunnerReadiness implements RunnerReadinessPort {
   private async factsOf(
     workspaceId: WorkspaceId,
   ): Promise<WorkspaceRunnerFacts> {
-    const [pools, hosts] = await Promise.all([
-      this.pools.inWorkspace(workspaceId),
-      this.hosts.inWorkspace(workspaceId),
-    ]);
+    // One after the other: inside a transaction, as when an event handler asks, both repositories share one pg client, which refuses a second query while it runs one.
+    const pools = await this.pools.inWorkspace(workspaceId);
+    const hosts = await this.hosts.inWorkspace(workspaceId);
 
     return { pools, hosts, platform: this.platform, now: this.clock.now() };
   }
