@@ -123,10 +123,12 @@ const listing = (
       inWorkspace,
       hostsIn,
       idleSandboxesOn,
+      supportedModels: vi.fn(),
+    },
+    {
       readyToRun,
       hasPlatformRunners: vi.fn(),
       hasEgressCapableRunner: vi.fn(),
-      supportedModels: vi.fn(),
     },
     { aliveInWorkspace } as unknown as RunnerRepository,
     { lastRanIn },

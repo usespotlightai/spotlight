@@ -1,5 +1,5 @@
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -21,7 +21,7 @@ export interface TeamSetup {
 export class SetupStatus {
   constructor(
     private readonly connections: WorkspaceConnectionsPort,
-    private readonly runners: RunnerReaderPort,
+    private readonly runners: RunnerReadinessPort,
     private readonly chats: ChatReaderPort,
     private readonly chatRepository: ChatRepository,
   ) {}

@@ -1,4 +1,4 @@
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -43,7 +43,7 @@ export class StartChatHandler implements CommandHandlerPort<
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
     private readonly repositories: AccessibleRepositoriesPort,
-    private readonly runners: RunnerReaderPort,
+    private readonly runners: RunnerReadinessPort,
     private readonly ci: CiSetups,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,

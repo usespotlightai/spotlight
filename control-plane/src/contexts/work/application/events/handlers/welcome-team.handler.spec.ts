@@ -1,4 +1,4 @@
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -66,7 +66,7 @@ const welcoming = (
     },
     {
       hasPlatformRunners: vi.fn(async () => over.platform ?? false),
-    } as unknown as RunnerReaderPort,
+    } as unknown as RunnerReadinessPort,
     ids(),
     { now: () => new Date('2026-09-03T09:00:00.000Z'), sleep: async () => {} },
   );

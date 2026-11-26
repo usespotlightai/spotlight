@@ -345,6 +345,14 @@ describe('RunnerHost', () => {
     }
   });
 
+  it('serves a harness while it still reports in, and not once it is stale', () => {
+    const host = firstHeartbeat(READY);
+
+    expect(host.servesAHarnessAt(later(60 * 60_000))).toBe(true);
+    expect(host.servesAHarnessAt(later(24 * 60 * 60_000))).toBe(false);
+    expect(firstHeartbeat().servesAHarnessAt(FIRST_HEARTBEAT)).toBe(false);
+  });
+
   it('becomes ready on the first later report that supports a harness', () => {
     const host = firstHeartbeat();
     kindsOf(host);

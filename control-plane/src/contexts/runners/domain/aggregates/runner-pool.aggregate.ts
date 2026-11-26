@@ -309,6 +309,18 @@ export class RunnerPool extends EventRecorder {
     );
   }
 
+  // The pool provisions a runner for work that needs egress: it names an egress the deployment can use, and it takes runs that inject secrets.
+  provisionsWithEgress(platform: {
+    readonly poolSet: boolean;
+    readonly egressSet: boolean;
+  }): boolean {
+    return (
+      this.canProvision(platform.poolSet) &&
+      this.takes({ kind: 'run', needsEgress: true }) &&
+      (this.egress?.usableWith(platform.egressSet) ?? false)
+    );
+  }
+
   belongsTo(workspaceId: WorkspaceId): boolean {
     return this.workspaceId.equals(workspaceId);
   }

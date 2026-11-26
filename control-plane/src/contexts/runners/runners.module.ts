@@ -10,6 +10,7 @@ import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import { RUNNER_LEASES } from '@runners/application/ports/runner-leases.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
+import { RUNNER_READINESS } from '@runners/application/ports/runner-readiness.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
 import { SANDBOX_RETIREMENT } from '@runners/application/ports/sandbox-retirement.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
@@ -31,6 +32,7 @@ import { SecretsModule } from '@secrets/secrets.module';
     RUNNER_CLAIMANTS,
     WORKING_COPY_STORES,
     RUNNER_READER,
+    RUNNER_READINESS,
     IDLE_WORKING_COPIES,
     INSTALLER_ASSETS,
     RUNNER_CONFIGURATION,
