@@ -135,15 +135,6 @@ const sinceReopened = <T extends { kind: TaskNoteKind }>(
   return notes.slice(reopened + 1);
 };
 
-const answeredAfter = <T extends { kind: TaskNoteKind }>(
-  notes: readonly T[],
-  at: number,
-): boolean =>
-  sinceReopened(notes.slice(at + 1)).some(
-    (later) =>
-      later.kind === ANSWERS_A_QUESTION || later.kind === CLOSES_A_CONVERSATION,
-  );
-
 const reviewStateAfter = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
   at: number,
@@ -209,7 +200,7 @@ export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
     }
   });
 
-  return asked !== -1 && !answeredAfter(notes, asked);
+  return asked !== -1 && reviewStateAfter(notes, asked) === 'pending';
 };
 
 export const pendingIn = <T extends { kind: TaskNoteKind }>(

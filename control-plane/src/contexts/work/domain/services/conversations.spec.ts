@@ -291,6 +291,30 @@ describe('awaitsAPerson', () => {
   it('does not wait where nothing was asked', () => {
     expect(awaitsAPerson([note('passed')])).toBe(false);
   });
+
+  it('waits exactly while the review of the last asking is pending', () => {
+    const trails: TaskNoteKind[][] = [
+      ['asked'],
+      ['asked', 'answered'],
+      ['asked', 'passed'],
+      ['asked', 'passed', 'reopened'],
+      ['asked', 'answered', 'passed', 'reopened'],
+      ['asked', 'passed', 'asked'],
+    ];
+
+    for (const kinds of trails) {
+      const notes = kinds.map((kind) => ({
+        kind,
+        runId: kind === 'asked' ? RunId.of('run_1') : null,
+      }));
+
+      const reviews = reviewsIn(notes);
+
+      expect(awaitsAPerson(notes)).toBe(
+        reviews[reviews.length - 1]?.state === 'pending',
+      );
+    }
+  });
 });
 
 describe('worksOn', () => {
