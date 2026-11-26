@@ -2,6 +2,7 @@ import { Lightbulb } from 'lucide-react';
 
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { useResolveAction } from '@/hooks/useResolveAction';
+import { useResolveAllAction } from '@/hooks/useResolveAllAction';
 import { type InboxNotice, noticePath, noticePreviewOf } from '@/lib/inbox';
 
 type NoticeRowProps = {
@@ -11,6 +12,7 @@ type NoticeRowProps = {
 
 export function NoticeRow({ slug, notice }: NoticeRowProps) {
   const resolve = useResolveAction(slug, notice);
+  const resolveAll = useResolveAllAction(slug, notice);
   return (
     <InboxRowFrame
       to={noticePath(slug, notice.id)}
@@ -26,6 +28,7 @@ export function NoticeRow({ slug, notice }: NoticeRowProps) {
       at={notice.askedAt}
       preview={noticePreviewOf(notice)}
       resolve={resolve}
+      menuActions={resolveAll ? [resolveAll] : []}
     />
   );
 }

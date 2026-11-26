@@ -365,6 +365,30 @@ export const resolvable = (entry: InboxEntry): entry is ResolvableEntry =>
 export const reopenable = (entry: InboxEntry): entry is ResolvableEntry =>
   entry.reopenable;
 
+const sortOf = (entry: InboxEntry): string | null => {
+  if (entry.kind === 'notice') {
+    return `notice ${entry.form}`;
+  }
+
+  return entry.kind === 'task' && entry.inboxRequest
+    ? `request ${entry.inboxRequest.form}`
+    : null;
+};
+
+export const resolvableAlike = (
+  entries: readonly InboxEntry[],
+  entry: InboxEntry,
+): ResolvableEntry[] => {
+  const sort = sortOf(entry);
+
+  return sort === null
+    ? []
+    : entries.filter(
+        (each): each is ResolvableEntry =>
+          sortOf(each) === sort && resolvable(each),
+      );
+};
+
 export const entryKey = (entry: InboxEntry): string =>
   `${entry.kind}:${entry.id}`;
 

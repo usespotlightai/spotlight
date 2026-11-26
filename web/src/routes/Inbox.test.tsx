@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
+import { WorkspaceContextMenu } from '@/components/shell/context-menu/WorkspaceContextMenu';
 import { Inbox } from '@/routes/Inbox';
 
 const waiting = vi.fn<(...args: unknown[]) => unknown>();
@@ -725,6 +726,61 @@ describe('Inbox', () => {
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
         '1',
       );
+    });
+  });
+
+  describe('resolving alike requests', () => {
+    const judgeQuestion = (id: string) =>
+      item({
+        id,
+        title: `Question ${id}`,
+        inboxRequest: { form: 'judge-disagreement', about: id },
+      });
+
+    it('resolves every open request of the same form from the row menu', async () => {
+      const user = userEvent.setup();
+      const one = judgeQuestion('request_1');
+      const two = judgeQuestion('request_2');
+      waiting.mockReturnValue([one, item(), two]);
+      render(
+        <WorkspaceContextMenu slug="acme" onOpenTab={() => {}}>
+          {tree('/w/acme/inbox')}
+        </WorkspaceContextMenu>,
+      );
+
+      fireEvent.contextMenu(
+        screen.getByRole('link', { name: /Question request_1/ }),
+        { clientX: 40, clientY: 60 },
+      );
+      await user.click(
+        await screen.findByRole('menuitem', {
+          name: 'Resolve all 2 like this',
+        }),
+      );
+
+      expect(resolve).toHaveBeenCalledTimes(2);
+      expect(resolve).toHaveBeenCalledWith({ slug: 'acme', entry: one });
+      expect(resolve).toHaveBeenCalledWith({ slug: 'acme', entry: two });
+    });
+
+    it('offers it only where another one is open', async () => {
+      waiting.mockReturnValue([judgeQuestion('request_1'), item()]);
+      render(
+        <WorkspaceContextMenu slug="acme" onOpenTab={() => {}}>
+          {tree('/w/acme/inbox')}
+        </WorkspaceContextMenu>,
+      );
+
+      fireEvent.contextMenu(
+        screen.getByRole('link', { name: /Question request_1/ }),
+        { clientX: 40, clientY: 60 },
+      );
+
+      expect(
+        (await screen.findAllByRole('menuitem')).map(
+          (each) => each.textContent,
+        ),
+      ).not.toContain('Resolve all 1 like this');
     });
   });
 

@@ -22,6 +22,7 @@ import {
   previewOf,
   reopenable,
   resolvable,
+  resolvableAlike,
   shownAt,
   spentIn,
   spentOn,
@@ -532,5 +533,51 @@ describe('resolvable', () => {
   it('follows the server for a notice', () => {
     expect(resolvable(notice())).toBe(true);
     expect(resolvable(notice({ resolvable: false }))).toBe(false);
+  });
+});
+
+describe('resolvableAlike', () => {
+  const asking = (id: string, form: string, over: Partial<InboxItem> = {}) =>
+    ({
+      kind: 'task',
+      id,
+      resolvable: true,
+      inboxRequest: { form, about: id },
+      ...over,
+    }) as InboxItem;
+
+  it('finds the open requests of the same form, the entry among them', () => {
+    const one = asking('request_1', 'judge-disagreement');
+    const two = asking('request_2', 'judge-disagreement');
+    const entries: InboxEntry[] = [
+      one,
+      asking('request_3', 'memories'),
+      two,
+      asking('request_4', 'judge-disagreement', { resolvable: false }),
+    ];
+
+    expect(resolvableAlike(entries, one)).toEqual([one, two]);
+  });
+
+  it('finds the notices of the same form', () => {
+    const one = notice({ id: 'notice_1' });
+    const two = notice({ id: 'notice_2' });
+
+    expect(
+      resolvableAlike([one, two, notice({ id: 'other', form: 'advice' })], one),
+    ).toEqual([one, two]);
+  });
+
+  it('finds nothing alike for a conversation', () => {
+    const conversation = {
+      kind: 'task',
+      id: 'task_1:0',
+      resolvable: true,
+      inboxRequest: null,
+    } as InboxItem;
+
+    expect(resolvableAlike([conversation, conversation], conversation)).toEqual(
+      [],
+    );
   });
 });

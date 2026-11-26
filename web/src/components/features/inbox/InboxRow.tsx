@@ -4,6 +4,7 @@ import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { plainPreview } from '@/components/features/inbox/plainPreview';
 import { usePrefetchTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useResolveAction } from '@/hooks/useResolveAction';
+import { useResolveAllAction } from '@/hooks/useResolveAllAction';
 import { type InboxItem, inboxItemPath, previewOf } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 
@@ -14,6 +15,7 @@ type InboxRowProps = {
 
 export function InboxRow({ slug, item }: InboxRowProps) {
   const resolve = useResolveAction(slug, item);
+  const resolveAll = useResolveAllAction(slug, item);
   const prefetch = usePrefetchTaskJournal(slug);
   return (
     <InboxRowFrame
@@ -35,6 +37,7 @@ export function InboxRow({ slug, item }: InboxRowProps) {
       preview={plainPreview(previewOf(item))}
       badge={<FailureCount failure={item.failure} />}
       resolve={resolve}
+      menuActions={resolveAll ? [resolveAll] : []}
     />
   );
 }
