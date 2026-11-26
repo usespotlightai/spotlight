@@ -5,12 +5,16 @@ import type { SetHealths } from '@replays/application/services/set-healths.servi
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ClaimFlips } from '@replays/domain/services/claim-flips';
 import { objectiveFor } from '@replays/domain/services/search-objective';
 import {
   type SetSkipReason,
   setVerdict,
 } from '@replays/domain/services/search-schedule';
-import { searchWarningsOf } from '@replays/domain/services/search-warnings';
+import {
+  type SearchWarning,
+  searchWarningsOf,
+} from '@replays/domain/services/search-warnings';
 import {
   HeldOutSplit,
   type SplitRefusal,
@@ -30,6 +34,8 @@ export type SearchReadiness =
       readonly kind: 'skip';
       readonly reason: SetSkipReason;
       readonly checkAfter: Date;
+      readonly warning: SearchWarning | null;
+      readonly claimFlips: readonly ClaimFlips[];
     }
   | {
       readonly kind: 'go';
@@ -82,15 +88,16 @@ export class CheckSearchReadiness {
     const calibrates =
       standard.fingerprint !== null &&
       (await this.healths.calibrationWanted(set, standard.fingerprint));
+    const warnings = searchWarningsOf(
+      health,
+      standard.minGain,
+      budget.repeats,
+      await this.calibrations.liveAt(set),
+    );
     const verdict = setVerdict({
       now: this.clock.now(),
       tooSmall: split === 'too-small',
-      warnings: searchWarningsOf(
-        health,
-        standard.minGain,
-        budget.repeats,
-        await this.calibrations.liveAt(set),
-      ),
+      warnings,
       freshHeldOut: split !== 'no-fresh',
       affordable:
         typeof split === 'string' || budget.affords(split, calibrates),
@@ -99,13 +106,22 @@ export class CheckSearchReadiness {
     });
 
     if (verdict.kind === 'skip') {
-      return verdict;
+      return {
+        ...verdict,
+        warning: warnings.find((each) => each.kind === verdict.reason) ?? null,
+        claimFlips:
+          verdict.reason === 'judge-unstable' && health.judge
+            ? await this.healths.claimFlipsIn(health.judge.replayId)
+            : [],
+      };
     }
     if (typeof split === 'string') {
       return {
         kind: 'skip',
         reason: split === 'too-small' ? 'set-too-small' : 'no-fresh-held-out',
         checkAfter: this.clock.now(),
+        warning: null,
+        claimFlips: [],
       };
     }
 
