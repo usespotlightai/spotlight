@@ -45,8 +45,31 @@ describe('reasoning in a run’s journal', () => {
       }),
     ).toEqual({
       kind: 'remember',
-      text: '{"command":"spotlight remember --kind failure --body \\"CI flakes\\""}',
+      text: 'spotlight remember --kind failure --body "CI flakes"',
     });
+  });
+
+  it('keeps only the command, not the rest of the script it ran in', () => {
+    const textOf = (text: string) => reasoningIn({ kind: 'tool', text })?.text;
+
+    expect(
+      textOf(
+        [
+          'cd api && spotlight remember --kind environment --body "No make; use npm ci --ignore-scripts | tail" 2>&1 | tail -2',
+          "cat > /tmp/note.md <<'E'",
+          'Notes',
+          'E',
+        ].join('\n'),
+      ),
+    ).toBe(
+      'spotlight remember --kind environment --body "No make; use npm ci --ignore-scripts | tail"',
+    );
+    expect(
+      textOf("spotlight forget M-2 --because 'Wrong; see #12' && echo done"),
+    ).toBe("spotlight forget M-2 --because 'Wrong; see #12'");
+    expect(textOf('`spotlight handover --note "Retries once"`')).toBe(
+      'spotlight handover --note "Retries once"',
+    );
   });
 
   it('is the command the agent ran, not one it only mentions', () => {
