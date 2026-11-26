@@ -208,7 +208,10 @@ const pullRequestActivity = (
     checkConclusion: text(payload.check_suite?.conclusion),
   });
 
-  if (!activity) {
+  if (
+    !activity ||
+    (event === 'issue_comment' && !payload.issue?.pull_request)
+  ) {
     return [];
   }
 

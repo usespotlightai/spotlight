@@ -11,6 +11,10 @@ import {
   type PullRequestReopenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
 import {
+  PULL_REQUEST_UPDATED,
+  type PullRequestUpdatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
+import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
@@ -317,6 +321,19 @@ export const workSubscribers = (reactions: {
     ['task.marked'],
     (event) => reactions.takenMarks.on(event),
     { callsOut: true },
+  ),
+  subscribing<PullRequestUpdatedIntegrationEvent>(
+    'work.track-pull-request-from-task-branch',
+    [PULL_REQUEST_UPDATED],
+    async (event) => {
+      if (event.state === 'open' && event.branch) {
+        await reactions.taskPullRequests.opened(
+          WorkspaceId.of(event.workspaceId),
+          PullRequestUrl.of(event.pullRequest),
+          event.branch,
+        );
+      }
+    },
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'work.close-task-pull-request',

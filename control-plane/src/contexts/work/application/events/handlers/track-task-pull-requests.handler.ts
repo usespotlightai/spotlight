@@ -4,10 +4,12 @@ import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-re
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { correlatedTask } from '@work/application/services/correlated-task';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 export class TrackTaskPullRequests {
@@ -19,6 +21,30 @@ export class TrackTaskPullRequests {
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
+
+  async opened(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+    branch: string,
+  ): Promise<void> {
+    const keys = CorrelationKeys.of({ branch });
+
+    if (!keys) {
+      return;
+    }
+
+    await this.transaction.inTransaction(async () => {
+      const task = await correlatedTask(this.tasks, workspaceId, keys);
+      const line = task && (await this.lines.findByStation(task.stationId));
+      const linked =
+        line &&
+        task.recordBranchPullRequest(pullRequest, this.clock.now(), line);
+
+      if (linked && linked !== task) {
+        await this.tasks.save(linked);
+      }
+    });
+  }
 
   async closed(
     workspaceId: WorkspaceId,

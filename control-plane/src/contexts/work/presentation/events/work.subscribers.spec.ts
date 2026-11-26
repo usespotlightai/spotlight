@@ -1,3 +1,4 @@
+import { PULL_REQUEST_UPDATED } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
 import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -82,5 +83,41 @@ describe('workSubscribers', () => {
     expect(taking?.kinds).toEqual(['runs.run-suspended.v1']);
     expect(taking?.callsOut).toBe(true);
     expect(turns.take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
+  });
+
+  it('tracks a pull request that is open from a branch, and only such a pull request', async () => {
+    const opened = vi.fn(async () => {});
+    const tracking = workSubscribers({
+      taskPullRequests: { opened },
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.track-pull-request-from-task-branch',
+    );
+    const updated = (state: string, branch: string | null) =>
+      ({
+        kind: PULL_REQUEST_UPDATED,
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/api/pull/8',
+        repository: 'acme/api',
+        state,
+        branch,
+      }) as never;
+
+    await tracking?.handle(
+      updated('open', 'feat/retry-uploads-1a2b3c4d'),
+      anOutboxRecord(),
+    );
+    await tracking?.handle(
+      updated('closed', 'feat/retry-uploads-1a2b3c4d'),
+      anOutboxRecord(),
+    );
+    await tracking?.handle(updated('open', null), anOutboxRecord());
+
+    expect(tracking?.kinds).toEqual([PULL_REQUEST_UPDATED]);
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(opened).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      PullRequestUrl.of('https://github.com/acme/api/pull/8'),
+      'feat/retry-uploads-1a2b3c4d',
+    );
   });
 });
