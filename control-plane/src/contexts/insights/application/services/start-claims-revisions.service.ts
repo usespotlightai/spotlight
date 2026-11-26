@@ -1,5 +1,6 @@
 import type { StationJudgesPort } from '@insights/application/ports/station-judges.port';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
+import type { LabelledRuns } from '@insights/application/services/labelled-runs.service';
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { ClaimsRevision } from '@insights/domain/aggregates/claims-revision.aggregate';
 import type { JudgeDisagreementAnswered } from '@insights/domain/events/judge-disagreement-answered.event';
@@ -7,6 +8,10 @@ import type { JudgeDisagreementOpened } from '@insights/domain/events/judge-disa
 import { ClaimsRevisionVersionConflictError } from '@insights/domain/exceptions/claims-revision-version-conflict.error';
 import type { ClaimsRevisionRepository } from '@insights/domain/repositories/claims-revision.repository';
 import type { JudgeDisagreementRepository } from '@insights/domain/repositories/judge-disagreement.repository';
+import {
+  revisableOf,
+  revisionSplitOf,
+} from '@insights/domain/services/revision-split';
 import { revisionTriggerOf } from '@insights/domain/services/revision-trigger';
 import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
@@ -21,6 +26,7 @@ export class StartClaimsRevisions {
     private readonly disagreements: JudgeDisagreementRepository,
     private readonly judges: StationJudgesPort,
     private readonly reports: StationJudgeReports,
+    private readonly labelled: LabelledRuns,
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
@@ -64,7 +70,12 @@ export class StartClaimsRevisions {
       calibration: rubricVersion === rubric.version ? calibration : null,
     });
 
-    if (!trigger) {
+    if (
+      !trigger ||
+      !revisableOf(
+        revisionSplitOf(await this.labelled.of(station, rubric.version)),
+      )
+    ) {
       return;
     }
 

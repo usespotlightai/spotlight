@@ -80,6 +80,7 @@ export class ClaimsRevision
     }
 
     return (
+      !latest.startsCooldown ||
       now.getTime() - latest.fields.endedAt.getTime() >= REVISION_COOLDOWN_MS
     );
   }
@@ -94,7 +95,7 @@ export class ClaimsRevision
   }): ClaimsRevision {
     if (!ClaimsRevision.mayStart(input.latest, input.now)) {
       throw new InvalidClaimsRevisionError(
-        'starts only when the station has no open revision and the last one ended at least 7 days ago',
+        'starts only when the station has no open revision and the last one that judged candidates ended at least 7 days ago',
       );
     }
 
@@ -210,6 +211,11 @@ export class ClaimsRevision
 
   get version(): number {
     return this.fields.version;
+  }
+
+  /** A revision that ended before it judged a candidate changed nothing, so the next one need not wait. */
+  private get startsCooldown(): boolean {
+    return this.fields.judgeCalls > 0;
   }
 
   get hasPendingJob(): boolean {

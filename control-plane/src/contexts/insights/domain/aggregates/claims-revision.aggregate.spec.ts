@@ -42,8 +42,9 @@ describe('ClaimsRevision', () => {
     expect(ClaimsRevision.mayStart(startedRevision(), later(1))).toBe(false);
   });
 
-  it('may start again only 7 days after the last one ended', () => {
-    const ended = startedRevision().ended({
+  it('may start again only 7 days after the last one that judged candidates ended', () => {
+    const leased = startedRevision().leaseJob(OPENED_AT);
+    const ended = leased.reserveJudgeCalls(leased.round, 40).ended({
       reason: 'no-gain',
       now: OPENED_AT,
     });
@@ -54,6 +55,24 @@ describe('ClaimsRevision', () => {
     expect(ClaimsRevision.mayStart(ended, later(REVISION_COOLDOWN_MS))).toBe(
       true,
     );
+  });
+
+  it.each(['no-candidates', 'too-few-labelled-runs', 'unavailable'] as const)(
+    'may start again at once after one that ended with %s before it judged a candidate',
+    (reason) => {
+      const ended = startedRevision().ended({ reason, now: OPENED_AT });
+
+      expect(ClaimsRevision.mayStart(ended, later(1))).toBe(true);
+    },
+  );
+
+  it('may start again at once after one whose drafting kept failing', () => {
+    const failed = startedRevision()
+      .leaseJob(OPENED_AT)
+      .draftingFailed(OPENED_AT)
+      .deadLetter(later(1));
+
+    expect(ClaimsRevision.mayStart(failed, later(2))).toBe(true);
   });
 
   it('refuses to start in the cooldown', () => {
