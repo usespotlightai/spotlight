@@ -85,14 +85,14 @@ describe('workSubscribers', () => {
     expect(turns.take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
   });
 
-  it('tracks a pull request that is open from a branch, and only such a pull request', async () => {
-    const opened = vi.fn(async () => {});
+  it('hands each update of a pull request, with its branch and whether it is open, to the task pull requests', async () => {
+    const updated = vi.fn(async () => {});
     const tracking = workSubscribers({
-      taskPullRequests: { opened },
+      taskPullRequests: { updated },
     } as unknown as Parameters<typeof workSubscribers>[0]).find(
       (each) => each.name === 'work.track-pull-request-from-task-branch',
     );
-    const updated = (state: string, branch: string | null) =>
+    const updateOf = (state: string, branch: string | null) =>
       ({
         kind: PULL_REQUEST_UPDATED,
         workspaceId: 'ws_1',
@@ -103,21 +103,30 @@ describe('workSubscribers', () => {
       }) as never;
 
     await tracking?.handle(
-      updated('open', 'feat/retry-uploads-1a2b3c4d'),
+      updateOf('open', 'feat/retry-uploads-1a2b3c4d'),
       anOutboxRecord(),
     );
     await tracking?.handle(
-      updated('closed', 'feat/retry-uploads-1a2b3c4d'),
+      updateOf('closed', 'feat/retry-uploads-1a2b3c4d'),
       anOutboxRecord(),
     );
-    await tracking?.handle(updated('open', null), anOutboxRecord());
+    await tracking?.handle(updateOf('open', null), anOutboxRecord());
+
+    const url = PullRequestUrl.of('https://github.com/acme/api/pull/8');
 
     expect(tracking?.kinds).toEqual([PULL_REQUEST_UPDATED]);
-    expect(opened).toHaveBeenCalledTimes(1);
-    expect(opened).toHaveBeenCalledWith(
-      WorkspaceId.of('ws_1'),
-      PullRequestUrl.of('https://github.com/acme/api/pull/8'),
-      'feat/retry-uploads-1a2b3c4d',
-    );
+    expect(updated.mock.calls).toEqual([
+      [
+        WorkspaceId.of('ws_1'),
+        { url, open: true },
+        'feat/retry-uploads-1a2b3c4d',
+      ],
+      [
+        WorkspaceId.of('ws_1'),
+        { url, open: false },
+        'feat/retry-uploads-1a2b3c4d',
+      ],
+      [WorkspaceId.of('ws_1'), { url, open: true }, null],
+    ]);
   });
 });

@@ -1157,10 +1157,16 @@ export class Task extends EventRecorder {
     return this.ownedPullRequest(url, at, line);
   }
 
-  recordBranchPullRequest(url: PullRequestUrl, at: Date, line: LineMap): Task {
+  recordBranchPullRequest(
+    pullRequest: { readonly url: PullRequestUrl; readonly open: boolean },
+    at: Date,
+    line: LineMap,
+  ): Task {
+    const { url } = pullRequest;
     const repository = url.repository;
 
     if (
+      !pullRequest.open ||
       this.reviewing ||
       !repository ||
       !line.names(repository) ||

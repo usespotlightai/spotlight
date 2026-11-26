@@ -325,15 +325,15 @@ export const workSubscribers = (reactions: {
   subscribing<PullRequestUpdatedIntegrationEvent>(
     'work.track-pull-request-from-task-branch',
     [PULL_REQUEST_UPDATED],
-    async (event) => {
-      if (event.state === 'open' && event.branch) {
-        await reactions.taskPullRequests.opened(
-          WorkspaceId.of(event.workspaceId),
-          PullRequestUrl.of(event.pullRequest),
-          event.branch,
-        );
-      }
-    },
+    (event) =>
+      reactions.taskPullRequests.updated(
+        WorkspaceId.of(event.workspaceId),
+        {
+          url: PullRequestUrl.of(event.pullRequest),
+          open: event.state === 'open',
+        },
+        event.branch,
+      ),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'work.close-task-pull-request',

@@ -168,7 +168,11 @@ describe('TrackTaskPullRequests', () => {
       const owner = closedOwner();
       const { handler, saved } = tracking([owner]);
 
-      await handler.opened(WORKSPACE, PERSONS, owner.branch.value);
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        owner.branch.value,
+      );
 
       expect(saved).toHaveLength(1);
       expect(saved[0]?.pullRequests).toEqual([API, PERSONS]);
@@ -183,7 +187,11 @@ describe('TrackTaskPullRequests', () => {
       const owner = closedOwner();
       const { handler, saved } = tracking([owner]);
 
-      await handler.opened(WORKSPACE, PERSONS, owner.branch.value);
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        owner.branch.value,
+      );
 
       expect(saved[0]?.holdsMark(Mark.pullRequest(PERSONS))?.since).toEqual(
         NOW,
@@ -194,7 +202,11 @@ describe('TrackTaskPullRequests', () => {
       const owner = closedOwner();
       const { handler, saved } = tracking([owner]);
 
-      await handler.opened(WORKSPACE, PERSONS, owner.branch.value);
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        owner.branch.value,
+      );
 
       const added = saved[0]?.notes[saved[0].notes.length - 1];
       expect(added?.voice.isWorld).toBe(true);
@@ -213,7 +225,11 @@ describe('TrackTaskPullRequests', () => {
       const owner = closedOwner();
       const { handler, saved } = tracking([owner]);
 
-      await handler.opened(WORKSPACE, API, owner.branch.value);
+      await handler.updated(
+        WORKSPACE,
+        { url: API, open: true },
+        owner.branch.value,
+      );
 
       expect(saved).toEqual([]);
     });
@@ -222,7 +238,24 @@ describe('TrackTaskPullRequests', () => {
       const owner = closedOwner();
       const { handler, saved } = tracking([owner]);
 
-      await handler.opened(WORKSPACE, DOCS, owner.branch.value);
+      await handler.updated(
+        WORKSPACE,
+        { url: DOCS, open: true },
+        owner.branch.value,
+      );
+
+      expect(saved).toEqual([]);
+    });
+
+    it('saves nothing for a pull request from the branch that is not open', async () => {
+      const owner = closedOwner();
+      const { handler, saved } = tracking([owner]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: false },
+        owner.branch.value,
+      );
 
       expect(saved).toEqual([]);
     });
@@ -230,7 +263,11 @@ describe('TrackTaskPullRequests', () => {
     it('saves nothing for a branch that no task works on', async () => {
       const { handler, saved } = tracking([closedOwner()]);
 
-      await handler.opened(WORKSPACE, PERSONS, 'feat/somebody-else');
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        'feat/somebody-else',
+      );
 
       expect(saved).toEqual([]);
     });

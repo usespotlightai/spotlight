@@ -22,10 +22,10 @@ export class TrackTaskPullRequests {
     private readonly clock: ClockPort,
   ) {}
 
-  async opened(
+  async updated(
     workspaceId: WorkspaceId,
-    pullRequest: PullRequestUrl,
-    branch: string,
+    pullRequest: { readonly url: PullRequestUrl; readonly open: boolean },
+    branch: string | null,
   ): Promise<void> {
     const keys = CorrelationKeys.of({ branch });
 
