@@ -7,7 +7,6 @@ import type { IncludedCommentReturned } from '@change-review/domain/events/inclu
 import type { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import type { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import type { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
-import type { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import type { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
@@ -26,12 +25,6 @@ export class ReviewReactions {
 
   async onSubmitted(event: ReviewSubmitted): Promise<void> {
     await this.deliver(event, { kind: 'review', subject: event.reviewId });
-  }
-
-  async onPosted(event: ReviewPosted): Promise<void> {
-    for (const commentId of event.onFiles) {
-      await this.deliver(event, { kind: 'file', subject: commentId });
-    }
   }
 
   async onCommentPosted(event: IncludedCommentPosted): Promise<void> {
