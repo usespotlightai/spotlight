@@ -68,11 +68,11 @@ export function NewTaskDialog({
         attachments: draft.ids,
       });
     } catch (thrown) {
+      setCreating(false);
       setRefusal(messageOf(thrown));
       return;
-    } finally {
-      setCreating(false);
     }
+    setCreating(false);
 
     if (more) {
       reset();
