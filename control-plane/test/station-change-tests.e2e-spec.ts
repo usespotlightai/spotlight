@@ -349,7 +349,10 @@ describe('the improve-station chat testing its change', () => {
             /^No candidate did better than the live config on the (searched|held-out) tasks\.$/,
           ),
           expect.stringMatching(
-            /^Candidate worse(, held-out gain: [+−]\d+ points| did not beat the live config on the searched tasks\. Searched gain: [+−]\d+ points)$/,
+            /^Live config: (\d+% success on (\d+ of )?\d+ searched tasks?|none of the \d+ searched tasks? scored)\.$/,
+          ),
+          expect.stringMatching(
+            /^Candidate worse(, held-out gain: [+−]\d+ points|(: (\d+% success on (\d+ of )?\d+ searched tasks?|none of the \d+ searched tasks? scored)\. It did not beat the live config there\.| did not beat the live config on the searched tasks\.) Searched gain: [+−]\d+ points)$/,
           ),
         ],
       }),
