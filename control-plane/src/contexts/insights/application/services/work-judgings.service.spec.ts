@@ -59,6 +59,7 @@ const EVIDENCE: RunEvidence = {
       lines: ['-upload()', '+retry(upload)'],
     },
   ],
+  blockedTools: [],
 };
 
 const logger: LoggerPort = {

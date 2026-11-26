@@ -19,6 +19,7 @@ import {
   runOrderOf,
   trialOrderOf,
 } from '@work/domain/value-objects/dispatch-order.fake-spec';
+import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -89,6 +90,8 @@ const TASK_RUN = { runId: RunId.of('run_1'), checkouts: ['api'] };
 
 const REPLAY = { runId: RunId.of('replay_1'), checkouts: ['api'] };
 
+const BLOCKING_REPLAY = { runId: RunId.of('replay_2'), checkouts: ['api'] };
+
 const BRIEFED = BriefedTask.of({
   stationId: StationId.of('station_1'),
   title: 'Retry uploads, as briefed',
@@ -116,7 +119,11 @@ const CONFIG = StationConfig.rehydrate(
   'f'.repeat(64),
 );
 
-const dispatchOf = (id: RunId, subject: DispatchSubject): Dispatch =>
+const dispatchOf = (
+  id: RunId,
+  subject: DispatchSubject,
+  order: DispatchOrder = trialOrderOf(id),
+): Dispatch =>
   Dispatch.trialOrdered({
     id,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -124,7 +131,7 @@ const dispatchOf = (id: RunId, subject: DispatchSubject): Dispatch =>
     subject,
     configuredAs: CONFIG,
     briefedTask: BRIEFED,
-    order: trialOrderOf(id),
+    order,
     now: new Date('2026-09-30T09:00:00.000Z'),
   });
 
@@ -160,6 +167,29 @@ const DISPATCHES = new Map<string, Dispatch>([
       followUp: null,
     }),
   ],
+  [
+    'replay_2',
+    dispatchOf(
+      RunId.of('replay_2'),
+      {
+        kind: 'trial',
+        basedOn: TASK_RUN.runId,
+        taskId: TaskId.of('task_1'),
+        stationId: StationId.of('station_1'),
+        asOf: null,
+        repositories: [],
+        followUp: null,
+      },
+      DispatchOrder.of({
+        kind: 'trial',
+        runId: RunId.of('replay_2'),
+        snapshot: {
+          runId: 'replay_2',
+          blockedTools: ['pull-request', 'linear.comment'],
+        },
+      }),
+    ),
+  ],
 ]);
 
 const HUNK: ChangeHunk = {
@@ -176,7 +206,9 @@ const evidences = () =>
   new RunEvidences(
     {
       of: async ([id]: readonly RunId[]) =>
-        [TASK_RUN, REPLAY].filter((each) => id && each.runId.equals(id)),
+        [TASK_RUN, REPLAY, BLOCKING_REPLAY].filter(
+          (each) => id && each.runId.equals(id),
+        ),
     } as unknown as RunFactsPort,
     {
       find: async () => ({
@@ -225,6 +257,15 @@ describe('RunEvidences', () => {
       description: 'They failed then.',
     });
     expect(evidence?.hunks).toEqual([HUNK]);
+  });
+
+  it('names the tools of the station that a replay could not call, and none for a task run or a replay that recorded none', async () => {
+    expect((await evidences().of('replay_2'))?.blockedTools).toEqual([
+      'pull-request',
+      'linear.comment',
+    ]);
+    expect((await evidences().of('replay_1'))?.blockedTools).toEqual([]);
+    expect((await evidences().of('run_1'))?.blockedTools).toEqual([]);
   });
 
   it('hands on the hunks cut from the steps of every attempt in the run’s checkouts', async () => {

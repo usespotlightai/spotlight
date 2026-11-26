@@ -34,6 +34,7 @@ import type { DispatchRepository } from '@work/domain/repositories/dispatch.repo
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   describedTools,
+  toolsBlockedInATrial,
   toolsForATrial,
 } from '@work/domain/services/enabled-for-run';
 import { feedbackAfter } from '@work/domain/services/feedback-after';
@@ -81,14 +82,7 @@ const startedIn = (
   trial: Original['trial'],
 ): TrialOriginal => ({
   ...trial,
-  checkouts: trial.checkouts.map((each) => ({
-    checkedOutAt: each.path,
-    repository:
-      candidate.repositories.all.find(
-        (repository) => checkoutPathOf(repository) === each.path,
-      ) ?? null,
-    commit: each.commit,
-  })),
+  checkouts: TrialabilityMapper.checkoutsIn(candidate, trial.checkouts),
 });
 
 export class StationTrials implements StationTrialsPort {
@@ -256,12 +250,11 @@ export class StationTrials implements StationTrialsPort {
     }
 
     const enabled = found.order.enabled.tools;
-    const described = toolsForATrial(
-      describedTools(
-        enabled,
-        await this.integrations.provided(candidate, enabled),
-      ),
+    const declared = describedTools(
+      enabled,
+      await this.integrations.provided(candidate, enabled),
     );
+    const described = toolsForATrial(declared);
     const laidOut = this.ordering.equipped(found, described);
     const { order, folders, home } = laidOut;
     const memories = await this.memories.again(
@@ -328,6 +321,9 @@ export class StationTrials implements StationTrialsPort {
         commit: each.commit,
       })),
       movesOnAfter: plan.movesOnAfter,
+      blockedTools: toolsBlockedInATrial(declared).map(
+        (each) => each.tool.value,
+      ),
     };
 
     await this.recorded(

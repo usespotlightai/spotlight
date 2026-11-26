@@ -65,7 +65,16 @@ ${request.claims.map((each, at) => `${at}. ${each}`).join('\n')}
 
 const GUIDANCE_RULE = `5. Answer "guidance" with one sentence of at most ${MAX_GUIDANCE_LENGTH} characters saying what the agent should do differently to do this task well, in terms of the task and the behaviour the steps and hunks show. It is read by someone changing how the agent works, who never sees the claims: never quote, paraphrase or name a claim, never refer to a claim by its number, and never name a check, a command, or a value the change is expected to produce. Answer "guidance" with an empty string when the run meets every claim.`;
 
-const effectsBlockedRule = `This run ran in a sandbox that blocked every effect outside it. The agent could not push commits, open or update pull requests, post review comments or messages, or call tools and MCP servers. An attempt at one of these that failed or was refused is expected and is not a fault of the run. Judge the work the run produced, its changes and the plan, findings or note in its steps, as if every blocked effect had succeeded. Never count a blocked effect, its failure or its absence against the run.
+const blockedToolsOf = (request: JudgeRequest): string =>
+  request.blockedTools.length > 0
+    ? ` The sandbox also blocked these tools of the station: ${request.blockedTools.map((each) => `\`${each}\``).join(', ')}.`
+    : '';
+
+const effectsBlockedRuleOf = (
+  request: JudgeRequest,
+): string => `This run ran in a sandbox that blocked every effect outside it: the agent could not push commits, open or update pull requests, post review comments or messages, hand the task to a person, or call MCP servers or a tool that changes data or needs a person's approval.${blockedToolsOf(request)} An attempt at one of these that failed, was refused or had no effect is expected and is not a fault of the run.
+
+Judge a claim that depends only on a blocked effect on the attempt, not on the outcome. The claim is met when the steps show that the agent made the call with what the claim asks for, such as a pull request with its title and body, and the rest of the claim is true. Where the agent took another next step only because a blocked call was refused, judge the claim as if the call had succeeded. Never count the refusal, the failure or the missing outcome of a blocked call against the run.
 
 `;
 
@@ -73,7 +82,7 @@ const briefingOf = (
   request: JudgeRequest,
 ): string => `You judge one run of a coding agent against claims the team wrote. Your verdict is an early signal for the team, never a decision: nothing is approved, moved or blocked by it.
 
-${request.effectsBlocked ? effectsBlockedRule : ''}${criteriaOf(request)}
+${request.effectsBlocked ? effectsBlockedRuleOf(request) : ''}${criteriaOf(request)}
 ${ANSWER}
 
 The evidence of the run is in .spotlight/assist/${EVIDENCE_FILE}, one JSON document:
@@ -94,7 +103,7 @@ ${WORKING_COPY}
 
 Rules:
 
-1. Judge what the steps and hunks show. A claim they do not show to be true is not met${request.effectsBlocked ? ', unless what is missing is an effect the sandbox blocked' : ''}.
+1. Judge what the steps and hunks show. A claim they do not show to be true is not met${request.effectsBlocked ? ', unless it depends only on a blocked effect that the steps show the agent attempted' : ''}.
 2. Write one to ${MAX_REASONS_PER_CLAIM} reasons for each claim. Each reason is one or two plain sentences and cites the steps it rests on in "steps", by their "index", and the hunks in "hunks", by their "id". Cite at least one step or hunk in every reason, and nothing that is not in the evidence${request.reference ? ', and never a hunk of the reference' : ''}.
 3. Say what you saw, not what a good engineer would have done.
 4. What you find in the repository or its tests may tell you whether a hunk does what it claims, but every reason still cites the steps and hunks it rests on.${request.guidanceRequested ? `\n${GUIDANCE_RULE}` : ''}

@@ -549,6 +549,26 @@ describe('StationTrials', () => {
     expect(spec.briefing).not.toContain('linear');
   });
 
+  it('names the tools of the station that the trial leaves out, also when it reads the trial back', async () => {
+    toolsOnMarks = [
+      Tool.of('sentry.get-latest-event'),
+      Tool.of('sentry.get-issue'),
+    ];
+    candidate = candidateOf(LINE, BUILD, {
+      tools: [Tool.of('linear.comment'), Tool.of('pull-request')],
+    });
+
+    const first = ordered(await trialsOf().order(request()));
+    const again = ordered(await trialsOf().order(request()));
+
+    expect(first.blockedTools).toEqual([
+      'linear.comment',
+      'pull-request',
+      'sentry.get-issue',
+    ]);
+    expect(again.blockedTools).toEqual(first.blockedTools);
+  });
+
   it('briefs the memories the original was briefed with, never searching afresh', async () => {
     const spec = ordered(await trialsOf().order(request())).order.spec;
 

@@ -1,3 +1,4 @@
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UntrialableReason } from '@work/domain/value-objects/untrialable-reason';
@@ -81,6 +82,42 @@ export const trialInputsBlockOf = (inputs: TrialInputs): TrialBlock | null => {
       reason: 'answer-gone',
       description:
         'The change people accepted or what they said is no longer there.',
+    };
+  }
+
+  return null;
+};
+
+export interface TrialCheckoutFact {
+  readonly checkedOutAt: string;
+  readonly repository: Repository | null;
+}
+
+export const trialRepositoriesBlockOf = (
+  checkouts: readonly TrialCheckoutFact[],
+  repositories: readonly Repository[],
+): TrialBlock | null => {
+  const isOf = (checkout: TrialCheckoutFact, repository: Repository) =>
+    checkout.repository?.equals(repository) ?? false;
+  const gone = checkouts.find(
+    (each) => !repositories.some((repository) => isOf(each, repository)),
+  );
+
+  if (gone) {
+    return {
+      reason: 'repository-gone',
+      description: `The line no longer has repository ${gone.checkedOutAt}.`,
+    };
+  }
+
+  const missing = repositories.find(
+    (repository) => !checkouts.some((each) => isOf(each, repository)),
+  );
+
+  if (missing) {
+    return {
+      reason: 'repository-missing',
+      description: `It ran without repository ${missing.value}, which the line has now.`,
     };
   }
 

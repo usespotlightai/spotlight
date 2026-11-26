@@ -563,6 +563,7 @@ export const RunOrdersMapper = {
         fingerprint: ordering.fingerprint,
         checkouts: ordering.checkouts.map(checkoutJson),
         movesOnAfter: [...ordering.movesOnAfter],
+        blockedTools: [...ordering.blockedTools],
       },
     });
   },
@@ -580,6 +581,13 @@ export const RunOrdersMapper = {
       fingerprint: textOrNullAt(stored.fingerprint, 'fingerprint'),
       checkouts: listAt(stored.checkouts, 'trial checkouts', checkoutOf),
       movesOnAfter: textsAt(stored.movesOnAfter, 'moves on after'),
+      blockedTools: RunOrdersMapper.blockedToolsOf(order),
     };
+  },
+
+  blockedToolsOf(order: DispatchOrder): string[] {
+    const stored = order.snapshot.blockedTools;
+
+    return stored === undefined ? [] : textsAt(stored, 'blocked tools');
   },
 };

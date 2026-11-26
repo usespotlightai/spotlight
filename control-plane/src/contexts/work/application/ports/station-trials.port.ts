@@ -47,6 +47,7 @@ export type TrialOrdering =
       readonly fingerprint: string | null;
       readonly checkouts: readonly TrialCheckout[];
       readonly movesOnAfter: readonly string[];
+      readonly blockedTools: readonly string[];
     }
   | {
       readonly outcome: 'untrialable';

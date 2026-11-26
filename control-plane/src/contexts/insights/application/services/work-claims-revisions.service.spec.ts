@@ -130,6 +130,7 @@ const revising = async (options: Options = {}) => {
             },
           ],
           hunks: [],
+          blockedTools: [],
         }),
       },
       judge: {

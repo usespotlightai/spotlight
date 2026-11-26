@@ -1803,12 +1803,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TRIALABLE_RUNS,
-    inject: [RUN_FACTS, TRIAL_FACTS, STATION_RUN_READER],
+    inject: [RUN_FACTS, TRIAL_FACTS, STATION_RUN_READER, LINE_MAPS],
     useFactory: (
       runs: RunFactsPort,
       trials: TrialFactsPort,
       stationRuns: StationRunReaderPort,
-    ) => new TrialableRuns(runs, trials, stationRuns),
+      lines: LineMapsPort,
+    ) => new TrialableRuns(runs, trials, stationRuns, lines),
   },
 
   { provide: TRIAL_FACTS, useClass: DrizzleTrialFacts },
