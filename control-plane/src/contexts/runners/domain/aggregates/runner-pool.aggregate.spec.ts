@@ -376,6 +376,32 @@ describe('RunnerPool for the platform', () => {
     expect(aPlatformPool().servesEgressNeed(true)).toBe(false);
   });
 
+  it('injects secrets only while it names an egress the deployment sets, is enabled and is allowed them, as a host and a push pool with egress always do', () => {
+    const SET = { platformPoolSet: true, platformEgressSet: true };
+    const withEgress = aPlatformPool({
+      egress: EgressReference.platform(),
+      allows: { allowsSecrets: true },
+    });
+
+    expect(withEgress.injectsSecrets(SET)).toBe(true);
+    expect(
+      withEgress.injectsSecrets({ ...SET, platformEgressSet: false }),
+    ).toBe(false);
+    expect(withEgress.injectsSecrets({ ...SET, platformPoolSet: false })).toBe(
+      false,
+    );
+    expect(withEgress.disable(BY).injectsSecrets(SET)).toBe(false);
+    expect(
+      aPlatformPool({ egress: EgressReference.platform() }).injectsSecrets(SET),
+    ).toBe(false);
+    expect(aPullPool().injectsSecrets(SET)).toBe(true);
+    expect(aPullPool().delete(BY).injectsSecrets(SET)).toBe(false);
+    expect(aPushPool().injectsSecrets(SET)).toBe(false);
+    expect(
+      aPushPool({ egress: EgressReference.to(EGRESS_ID) }).injectsSecrets(SET),
+    ).toBe(true);
+  });
+
   it('takes the labels and egress the deployment sets now, and changes nothing when they are the same', () => {
     const pool = aPlatformPool({ labels: ['linux'] });
     pool.pullEvents();

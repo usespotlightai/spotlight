@@ -25,6 +25,7 @@ import { BOUND_SECRETS } from '@secrets/application/ports/bound-secrets.port';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
+import { EGRESS_RUNNERS } from '@secrets/application/ports/egress-runners.port';
 import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
 import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetches.port';
@@ -58,6 +59,7 @@ import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query'
 import { BoundSecrets } from '@secrets/application/services/bound-secrets.service';
 import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
 import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
+import { EgressRunnersRegistry } from '@secrets/application/services/egress-runners-registry.service';
 import { HostSecretFetches } from '@secrets/application/services/host-secret-fetches.service';
 import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
@@ -265,6 +267,7 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       new HostSecretFetches(sealed, logger),
   },
   { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
+  { provide: EGRESS_RUNNERS, useFactory: () => new EgressRunnersRegistry() },
   {
     provide: SECRET_INJECTION,
     inject: [SECRETS, RUN_GRANTS_REPOSITORY, RunGrantsChanges, SECRET_STORE],
@@ -357,17 +360,21 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadSecretQuery, ReadSecretHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    EGRESS_RUNNERS,
   ]),
   ...bindQueryHandler(ImportSecretQuery, ImportSecretHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    EGRESS_RUNNERS,
   ]),
   ...bindQueryHandler(ListSecretResourcesQuery, ListSecretResourcesHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    EGRESS_RUNNERS,
   ]),
   ...bindQueryHandler(ListWorkspaceSecretsQuery, ListWorkspaceSecretsHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
+    EGRESS_RUNNERS,
   ]),
 ];

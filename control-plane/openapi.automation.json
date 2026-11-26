@@ -1846,6 +1846,10 @@
           "settable": {
             "type": "boolean",
             "description": "True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets"
+          },
+          "reachesHosts": {
+            "type": "boolean",
+            "description": "False when no runner pool of the workspace has egress, so egress never injects it at its hosts"
           }
         },
         "required": [
@@ -1854,7 +1858,8 @@
           "sandbox",
           "valueOrigin",
           "valueSetAt",
-          "settable"
+          "settable",
+          "reachesHosts"
         ]
       },
       "SetSecretValueRequestDto": {

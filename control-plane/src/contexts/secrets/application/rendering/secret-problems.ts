@@ -14,6 +14,16 @@ export const SecretProblems = {
     });
   },
 
+  unreachable(): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: SECRET,
+      at: FieldPath.of(['bindings']),
+      reason:
+        'are never injected: no runner pool of the workspace has egress. Add a pool that hosts pull from, or set provision.egress on a push pool',
+      severity: 'warning',
+    });
+  },
+
   immutableField(error: ImmutableFieldError): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: SECRET,

@@ -61,6 +61,7 @@ export function Secrets() {
           {secrets.data?.map((secret) => (
             <SecretRow
               key={secret.name}
+              slug={slug}
               secret={secret}
               onSetValue={() => setSetting(secret)}
             />

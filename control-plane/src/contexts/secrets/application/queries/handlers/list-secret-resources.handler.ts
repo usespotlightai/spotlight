@@ -1,6 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
 import { SecretResourceMapper } from '@secrets/application/mappers/secret-resource.mapper';
+import type { EgressRunnersPort } from '@secrets/application/ports/egress-runners.port';
 import type { SecretResourcesPort } from '@secrets/application/ports/secret-resources.port';
 import type { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -14,6 +15,7 @@ export class ListSecretResourcesHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SecretResourcesPort,
+    private readonly egress: EgressRunnersPort,
   ) {}
 
   async execute(
@@ -25,11 +27,18 @@ export class ListSecretResourcesHandler implements QueryHandlerPort<
         query.principal,
       );
 
-      return permissions
-        ? (await this.resources.secretsIn(permissions.workspaceId)).map(
-            (each) => SecretResourceMapper.toDto(each),
-          )
-        : null;
+      if (!permissions) {
+        return null;
+      }
+
+      const [records, egressRunners] = await Promise.all([
+        this.resources.secretsIn(permissions.workspaceId),
+        this.egress.anyIn(permissions.workspaceId.value),
+      ]);
+
+      return records.map((each) =>
+        SecretResourceMapper.toDto(each, egressRunners),
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }

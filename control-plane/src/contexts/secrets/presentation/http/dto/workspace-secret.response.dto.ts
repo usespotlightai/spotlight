@@ -53,6 +53,12 @@ export class WorkspaceSecretResponseDto {
   })
   readonly settable: boolean;
 
+  @ApiProperty({
+    description:
+      'False when no runner pool of the workspace has egress, so egress never injects it at its hosts',
+  })
+  readonly reachesHosts: boolean;
+
   constructor(secret: WorkspaceSecretDto) {
     this.name = secret.name;
     this.hosts = secret.hosts;
@@ -60,5 +66,6 @@ export class WorkspaceSecretResponseDto {
     this.valueOrigin = secret.valueOrigin;
     this.valueSetAt = secret.valueSetAt?.toISOString() ?? null;
     this.settable = secret.settable;
+    this.reachesHosts = secret.reachesHosts;
   }
 }

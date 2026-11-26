@@ -4,6 +4,7 @@ import { BOUND_SECRETS } from '@secrets/application/ports/bound-secrets.port';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
+import { EGRESS_RUNNERS } from '@secrets/application/ports/egress-runners.port';
 import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
 import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetches.port';
@@ -27,6 +28,7 @@ import {
     CALL_SECRET_FETCHES,
     CREDENTIAL_ENCRYPTION,
     DEFINED_SECRETS,
+    EGRESS_RUNNERS,
     HOST_SECRET_FETCHES,
     RUN_GRANTS,
     RUN_SECRET_FETCHES,

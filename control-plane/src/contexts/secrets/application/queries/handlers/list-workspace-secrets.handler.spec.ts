@@ -39,14 +39,24 @@ const RECORDS = [
   record('VIEWER_TOKEN', { holdsValue: true }),
 ];
 
-const listedBy = (managesSecrets: boolean, slug = SLUG) =>
+const listedBy = (
+  managesSecrets: boolean,
+  slug = SLUG,
+  egressRunners = true,
+  records = RECORDS,
+) =>
   new ListWorkspaceSecretsHandler(
     accessFor(() => managesSecrets),
     {
       withId: async () => null,
       named: async () => null,
       namedIn: async () => [],
-      secretsIn: async () => RECORDS,
+      secretsIn: async () => records,
+    },
+    {
+      register: () => undefined,
+      anyIn: async (workspaceId) =>
+        egressRunners && workspaceId === WORKSPACE.value,
     },
   ).execute(new ListWorkspaceSecretsQuery(slug, ADMIN.principal));
 
@@ -60,6 +70,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'terraform',
         valueSetAt: NOW,
         settable: false,
+        reachesHosts: true,
       },
       {
         name: 'STAGING_PASSWORD',
@@ -68,6 +79,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'awaiting',
         valueSetAt: null,
         settable: true,
+        reachesHosts: true,
       },
       {
         name: 'VIEWER_TOKEN',
@@ -76,7 +88,22 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'spotlight',
         valueSetAt: NOW,
         settable: true,
+        reachesHosts: true,
       },
+    ]);
+  });
+
+  it('says a secret reaches no host while no runner of the workspace has egress', async () => {
+    const listed = await listedBy(true, SLUG, false, [
+      record('HTTPBIN_TEST_TOKEN'),
+      record('DEV_GITHUB_APP_KEY', { bindings: [], sandbox: 'env' }),
+    ]);
+
+    expect(
+      listed?.map(({ name, reachesHosts }) => ({ name, reachesHosts })),
+    ).toEqual([
+      { name: 'HTTPBIN_TEST_TOKEN', reachesHosts: false },
+      { name: 'DEV_GITHUB_APP_KEY', reachesHosts: true },
     ]);
   });
 

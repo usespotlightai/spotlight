@@ -114,6 +114,14 @@ describe('SecretBindings', () => {
     ).toEqual(['bindings', 1, 'host']);
   });
 
+  it('reaches its hosts only while a runner of the workspace has egress', () => {
+    const bound = SecretBindings.of([{ host: 'httpbin.org' }]);
+
+    expect(bound.reachesHosts(true)).toBe(true);
+    expect(bound.reachesHosts(false)).toBe(false);
+    expect(SecretBindings.none().reachesHosts(false)).toBe(true);
+  });
+
   it('is the same bindings as another written the same', () => {
     const one = SecretBindings.of([{ host: 'a.example', prefix: 'Bearer ' }]);
 

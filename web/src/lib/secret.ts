@@ -38,3 +38,6 @@ export const SANDBOX_NOTE =
 
 export const describeHosts = (secret: WorkspaceSecret): string =>
   secret.hosts.length > 0 ? secret.hosts.join(', ') : 'Sent to no host';
+
+export const UNREACHABLE_NOTE =
+  'No runner pool has egress, so no run sends it.';

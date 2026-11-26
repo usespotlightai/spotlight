@@ -2086,6 +2086,10 @@ export type WorkspaceSecretResponseDto = {
    * True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets
    */
   settable: boolean;
+  /**
+   * False when no runner pool of the workspace has egress, so egress never injects it at its hosts
+   */
+  reachesHosts: boolean;
 };
 
 export type SetSecretValueRequestDto = {

@@ -331,6 +331,19 @@ export class RunnerPool extends EventRecorder {
     return !needsEgress || this.egress !== null;
   }
 
+  // A host injects the secrets of a run through its own egress. A pool that Spotlight asks for runners injects them only through an egress that it names, and only while it takes such runs.
+  injectsSecrets(setup: {
+    readonly platformPoolSet: boolean;
+    readonly platformEgressSet: boolean;
+  }): boolean {
+    return (
+      this.acceptsPullToken ||
+      (this.canProvision(setup.platformPoolSet) &&
+        this.allowsSecrets &&
+        (this.egress?.usableWith(setup.platformEgressSet) ?? false))
+    );
+  }
+
   // The pool takes the work only if the operator allows it this kind of work now: runs that inject secrets, or checks and diffs.
   takes(work: {
     readonly kind: RunnerWorkKind;

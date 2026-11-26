@@ -2,9 +2,12 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { runnersPath } from '@/lib/runner';
 import { secretsPath } from '@/lib/settings';
+import { api, json } from '@/mocks/http';
 import { serveMockApi } from '@/mocks/testing';
 import { SLUG } from '@/mocks/world';
+import { settingsWorld } from '@/mocks/world/settings';
 import { MockApplication } from '@/stories/MockApplication';
 import { quietBrowser } from '@/test/signed-in';
 
@@ -30,7 +33,7 @@ const rowOf = async (name: string) => {
 };
 
 describe('Secrets on the mock API', () => {
-  serveMockApi();
+  const server = serveMockApi();
   quietBrowser();
 
   it('says where each value comes from, and offers a value only where a person may set one', async () => {
@@ -50,6 +53,48 @@ describe('Secrets on the mock API', () => {
         name: 'Replace value of STAGING_VIEWER_TOKEN',
       }),
     ).toBeVisible();
+  });
+
+  it('says no run sends a secret while no runner pool has egress, and links to the runners', async () => {
+    server.use(
+      api.get('/workspaces/:slug/secrets', () =>
+        json(
+          settingsWorld().secrets.map((secret) => ({
+            ...secret,
+            reachesHosts: secret.hosts.length === 0,
+          })),
+        ),
+      ),
+    );
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    const linear = await rowOf('LINEAR_API_KEY');
+
+    expect(
+      linear.getByText('No runner pool has egress, so no run sends it.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    expect(linear.getByRole('link', { name: 'See runners' })).toHaveAttribute(
+      'href',
+      runnersPath(SLUG),
+    );
+    expect(
+      (await rowOf('DEV_GITHUB_APP_KEY')).queryByText(
+        'No runner pool has egress',
+        { exact: false },
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says nothing about egress while a runner pool has it', async () => {
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    expect(
+      (await rowOf('LINEAR_API_KEY')).queryByText('No runner pool has egress', {
+        exact: false,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('sets the value of a secret that awaits one, and never shows it', async () => {
