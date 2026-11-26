@@ -44,7 +44,6 @@ const MERGED: WebhookEvent = {
   activity: {
     activity: 'merged',
     branch: 'spotlight/task_1',
-    base: 'main',
     pullRequest: 'https://github.com/acme/api/pull/7',
     label: null,
     details: null,

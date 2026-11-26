@@ -27,7 +27,6 @@ const pull = (over: Record<string, unknown> = {}) => ({
   merged: true,
   html_url: 'https://github.com/acme/api/pull/7',
   head: { ref: 'spotlight/task_1' },
-  base: { ref: 'main' },
   ...over,
 });
 
@@ -68,7 +67,6 @@ describe('GitHubWebhookParser', () => {
       ).toEqual({
         activity: 'merged',
         branch: 'spotlight/task_1',
-        base: 'main',
         pullRequest: 'https://github.com/acme/api/pull/7',
         label: null,
         details: null,

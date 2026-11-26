@@ -5,8 +5,7 @@ type PullRequestActivityKind =
   | 'closed-unmerged'
   | 'commented'
   | 'changes-requested'
-  | 'checks-failed'
-  | 'conflicted';
+  | 'checks-failed';
 
 export interface PullRequestReviewComment {
   readonly body: string;
@@ -39,7 +38,6 @@ export interface FailedCheck {
 export interface PullRequestActivity {
   readonly activity: PullRequestActivityKind;
   readonly branch: string | null;
-  readonly base: string | null;
   readonly pullRequest: string | null;
   readonly label: string | null;
   readonly details: PullRequestDetails | null;

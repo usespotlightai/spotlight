@@ -102,12 +102,9 @@ const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
   return body ? { body } : null;
 };
 
-const conflictOf = (event: PullRequestActivity): Happened['message'] =>
-  event.activity === 'conflicted' && event.base
-    ? {
-        body: `The pull request conflicts with ${event.base}. Rebase the branch on ${event.base} and push it.`,
-      }
-    : null;
+const conflictOf = (conflict: ConflictedPullRequest): Happened['message'] => ({
+  body: `The pull request conflicts with ${conflict.base}. Rebase the branch on ${conflict.base} and push it.`,
+});
 
 const messageOf = (event: PullRequestActivity): Happened['message'] =>
   event.reviewComment
@@ -132,6 +129,14 @@ const factsOf = (event: PullRequestActivity): PullRequestActivityFacts => ({
 });
 
 type ReviewRequest = Extract<PullRequestHappening, { kind: 'review-request' }>;
+
+type ReportedHappening = Extract<PullRequestHappening, { kind: 'activity' }>;
+
+interface Report {
+  readonly message: Happened['message'];
+  readonly ourOwn: boolean;
+  readonly closedPullRequest: string | null;
+}
 
 const reviewRequested = (
   event: PullRequestActivity,
@@ -171,10 +176,28 @@ const reviewRequested = (
   };
 };
 
+const correlationOf = (
+  happening: ReportedHappening,
+): Happened['correlationKeys'] => {
+  const { pullRequest } = happening;
+
+  return happening.to === 'its-review' && pullRequest
+    ? {
+        branch: null,
+        marks: [{ kind: REVIEW_MARK, value: pullRequest.value }],
+      }
+    : {
+        branch: happening.branch,
+        marks: pullRequest
+          ? [{ kind: PULL_REQUEST_MARK, value: pullRequest.value }]
+          : [],
+      };
+};
+
 const reported = (
-  event: PullRequestActivity,
   activity: ReportedActivity,
   correlationKeys: Happened['correlationKeys'],
+  report: Report,
 ): Happened => {
   const raising = RAISED[activity];
 
@@ -184,13 +207,10 @@ const reported = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys,
-    message: messageOf(event) ?? failedChecksOf(event) ?? conflictOf(event),
-    ourOwn: event.ignoredAsBot,
+    message: report.message,
+    ourOwn: report.ourOwn,
     opens: null,
-    closedPullRequest:
-      activity === 'merged' || activity === 'closed-unmerged'
-        ? (event.pullRequest ?? null)
-        : null,
+    closedPullRequest: report.closedPullRequest,
   };
 };
 
@@ -204,23 +224,16 @@ const happenedFrom = (
       : null;
   }
 
-  const { pullRequest } = happening;
+  const { activity } = happening;
 
-  return reported(
-    event,
-    happening.activity,
-    happening.to === 'its-review' && pullRequest
-      ? {
-          branch: null,
-          marks: [{ kind: REVIEW_MARK, value: pullRequest.value }],
-        }
-      : {
-          branch: happening.branch,
-          marks: pullRequest
-            ? [{ kind: PULL_REQUEST_MARK, value: pullRequest.value }]
-            : [],
-        },
-  );
+  return reported(activity, correlationOf(happening), {
+    message: messageOf(event) ?? failedChecksOf(event),
+    ourOwn: event.ignoredAsBot,
+    closedPullRequest:
+      activity === 'merged' || activity === 'closed-unmerged'
+        ? (event.pullRequest ?? null)
+        : null,
+  });
 };
 
 const happenedIn = (event: PullRequestActivity): readonly Happened[] =>
@@ -270,17 +283,24 @@ export class GitHubWebhookProvider
   }
 
   conflicted(conflict: ConflictedPullRequest): readonly Happened[] {
-    return happenedIn({
+    return PullRequestHappenings.of({
       activity: 'conflicted',
+      pullRequest: PullRequestUrl.of(conflict.pullRequest),
       branch: conflict.branch,
-      base: conflict.base,
-      pullRequest: conflict.pullRequest,
-      label: null,
-      details: null,
-      reviewComment: null,
-      ignoredAsBot: false,
-      checkSuite: null,
-      failedChecks: [],
-    });
+      labelled: false,
+      described: false,
+      body: null,
+      comment: null,
+    }).flatMap((happening) =>
+      happening.kind === 'activity'
+        ? [
+            reported(happening.activity, correlationOf(happening), {
+              message: conflictOf(conflict),
+              ourOwn: false,
+              closedPullRequest: null,
+            }),
+          ]
+        : [],
+    );
   }
 }

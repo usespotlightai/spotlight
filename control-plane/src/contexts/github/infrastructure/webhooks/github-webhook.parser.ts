@@ -90,7 +90,7 @@ interface Pull extends DetailsPayload {
   readonly deletions?: unknown;
   readonly changed_files?: unknown;
   readonly head?: { readonly ref?: unknown; readonly sha?: unknown };
-  readonly base?: { readonly ref?: unknown; readonly sha?: unknown };
+  readonly base?: { readonly sha?: unknown };
 }
 
 interface CommentPayload {
@@ -220,7 +220,6 @@ const pullRequestActivity = (
     branch:
       text(payload.pull_request?.head?.ref) ??
       text(payload.check_suite?.head_branch),
-    base: text(payload.pull_request?.base?.ref),
     pullRequest:
       text(payload.pull_request?.html_url) ??
       text(payload.issue?.pull_request?.html_url) ??
