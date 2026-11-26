@@ -22,6 +22,7 @@ import type { RunCatalog } from '@work/application/services/run-catalog.service'
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import {
+  handoverOf,
   type OrderedAt,
   orderAt,
   type RunLaunch,
@@ -62,16 +63,9 @@ const laidOut = (
   checkouts: RunCheckoutsMapper.toRun(order.checkouts),
   command: RunSpecPartsMapper.traced(prepared.command, laid.naming),
   briefing: laid.briefing,
-  handover: laid.drivenByAPerson
-    ? {
-        options: [],
-        resumeOptions: order.resumeOptions.map((each) => each.word),
-        noteLimit: order.noteLimit,
-      }
-    : {
-        options: order.options.map((each) => each.word),
-        noteLimit: order.noteLimit,
-      },
+  handover: RunSpecPartsMapper.handover(
+    handoverOf(order, laid.drivenByAPerson),
+  ),
   resume: RunSpecPartsMapper.resume(order.resume),
   skills: skillFilesOf(folders, home),
   skillHomes: laid.skillHomes,

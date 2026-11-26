@@ -46,6 +46,12 @@ export interface RunOrder {
   readonly boundSecrets: readonly BoundSecret[];
 }
 
+export interface OrderedHandover {
+  readonly options: readonly HandoverOption[];
+  readonly resumeOptions: readonly HandoverOption[];
+  readonly noteLimit: number;
+}
+
 export interface OrderedAt {
   readonly stationId: StationId;
   readonly resume: Resume;
@@ -158,6 +164,16 @@ export const orderAt = ({
     ),
   };
 };
+
+// A person's turn hands over to no station. Its agent may only resume the line: at this station, at a station it passes to, or done.
+export const handoverOf = (
+  order: Pick<RunOrder, 'options' | 'resumeOptions' | 'noteLimit'>,
+  drivenByAPerson: boolean,
+): OrderedHandover => ({
+  options: drivenByAPerson ? [] : order.options,
+  resumeOptions: drivenByAPerson ? order.resumeOptions : [],
+  noteLimit: order.noteLimit,
+});
 
 export const taskOrderedAt = (task: Task, line: LineMap): OrderedAt => ({
   stationId: task.stationId,
