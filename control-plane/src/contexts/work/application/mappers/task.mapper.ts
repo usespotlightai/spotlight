@@ -9,7 +9,7 @@ import type { MessageReading } from '@work/application/services/message-reading'
 import type { ConversationViewer } from '@work/domain/services/conversation-audience';
 import { HoldRights } from '@work/domain/services/hold-rights';
 import type { MessagedTask } from '@work/domain/services/message-effect';
-import { PassOn } from '@work/domain/services/pass-on';
+import { MovesByHand } from '@work/domain/services/moves-by-hand';
 import { TaskWaits } from '@work/domain/services/task-waits';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
@@ -61,7 +61,7 @@ export const TaskMapper = {
       },
       ...TaskWaits.forViewer(messagedTaskOf(summary, reading), viewer),
       finished: summary.finished,
-      passesOnTo: PassOn.targets(
+      movableTo: MovesByHand.targets(
         {
           stationId: StationId.of(summary.stationId),
           onHold: summary.hold !== null,

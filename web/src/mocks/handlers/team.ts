@@ -598,7 +598,7 @@ const chatHandlers = [
           waitingForYou: false,
           yourMessage: 'message',
           finished: false,
-          passesOnTo: [],
+          movableTo: [],
           pullRequests: [],
           createdBy: SAM,
           assignee: null,

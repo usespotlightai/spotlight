@@ -11491,11 +11491,13 @@
             "type": "boolean",
             "description": "Whether the line finished the task. A message to a finished task sends it back to its station, unless it finished at the completed station."
           },
-          "passesOnTo": {
+          "movableTo": {
             "example": [
+              "station_backlog",
+              "station_triage",
               "station_spec"
             ],
-            "description": "The stations a person may move the task on to while it waits on them: the stations its station passes work to, as its agent could. Empty unless the task waits on a question.",
+            "description": "The stations a person may move the task to by hand, its own station among them. While the task waits on a question, they include the stations its station passes work to, as its agent could.",
             "type": "array",
             "items": {
               "type": "string"
@@ -11581,7 +11583,7 @@
           "waitingForYou",
           "yourMessage",
           "finished",
-          "passesOnTo",
+          "movableTo",
           "pullRequests",
           "createdBy",
           "assignee",

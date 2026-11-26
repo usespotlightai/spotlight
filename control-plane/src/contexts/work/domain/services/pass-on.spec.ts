@@ -64,7 +64,9 @@ const waiting = (over: Partial<PassedOnTask> = {}): PassedOnTask => ({
 });
 
 const targetsOf = (task: PassedOnTask) =>
-  PassOn.targets(task, LINE).map((each) => each.value);
+  LINE.stations
+    .filter((to) => PassOn.allows(task, LINE, to))
+    .map((each) => each.id.value);
 
 describe('PassOn', () => {
   it('offers the stations its station passes work to while the task waits on a question', () => {
@@ -108,19 +110,5 @@ describe('PassOn', () => {
         }),
       ),
     ).toEqual([]);
-  });
-
-  it('offers nothing off a line', () => {
-    expect(PassOn.targets(waiting(), null)).toEqual([]);
-  });
-
-  it('allows only what it offers', () => {
-    const task = waiting();
-
-    expect(
-      LINE.stations
-        .filter((to) => PassOn.allows(task, LINE, to))
-        .map((to) => to.id.value),
-    ).toEqual(targetsOf(task));
   });
 });

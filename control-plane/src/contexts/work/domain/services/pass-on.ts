@@ -22,12 +22,4 @@ export const PassOn = {
       waitsOnAQuestion(task) && line.passDenial(task.stationId, to) === null
     );
   },
-
-  targets(task: PassedOnTask, line: LineMap | null): readonly StationId[] {
-    return line && waitsOnAQuestion(task)
-      ? line.stations
-          .filter((to) => PassOn.allows(task, line, to))
-          .map((to) => to.id)
-      : [];
-  },
 };

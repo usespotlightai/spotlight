@@ -3,6 +3,7 @@ import { pageOf } from '@/mocks/paging';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import { avatars, WORKSPACE_AVATAR } from '@/mocks/world/avatars';
+import { withMovableTo } from '@/mocks/world/movable-to';
 import { pullRequestSummaryOf } from '@/mocks/world/pull-request-summaries';
 import { runsOfAnyTask } from '@/mocks/world/run-stories';
 import { settingsWorld } from '@/mocks/world/settings';
@@ -58,7 +59,9 @@ export const shellHandlers = [
     const query = new URL(request.url).searchParams;
     const lineId = query.get('lineId');
     const completed = completedStationsOf(teamId, lineId);
-    const tasks = world().tasks[teamId] ?? [];
+    const tasks = (world().tasks[teamId] ?? []).map((task) =>
+      withMovableTo(teamId, task),
+    );
 
     return json(
       query.get('state') === 'completed-station'
@@ -77,10 +80,11 @@ export const shellHandlers = [
   }),
 
   api.get('/teams/:teamId/tasks/:taskId', ({ params }) => {
-    const task = world().tasks[String(params.teamId)]?.find(
+    const teamId = String(params.teamId);
+    const task = world().tasks[teamId]?.find(
       (each) => each.id === String(params.taskId),
     );
-    return task ? json(task) : notFound();
+    return task ? json(withMovableTo(teamId, task)) : notFound();
   }),
 
   api.get('/teams/:teamId/tasks/:taskId/runs', ({ params }) =>

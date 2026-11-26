@@ -79,7 +79,7 @@ const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
   createdAt: summary.createdAt.toISOString(),
   waitingForYou: false,
   yourMessage: 'message',
-  passesOnTo: [],
+  movableTo: [],
 });
 
 const reader = (result: TaskSummary[]): TaskReaderPort => ({
@@ -194,14 +194,14 @@ const TRIAGE_PASSES_TO_SPEC: LineMapsPort = {
   ],
 } as unknown as LineMapsPort;
 
-const passesOnToOf = async (summary: TaskSummary) =>
+const movableToOf = async (summary: TaskSummary) =>
   (
     await new ListTasksHandler(
       reader([summary]),
       seeing(),
       TRIAGE_PASSES_TO_SPEC,
     ).execute(new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE))
-  )?.items[0]?.passesOnTo;
+  )?.items[0]?.movableTo;
 
 const askingAQuestion: TaskSummary = {
   ...summaries[0],
@@ -212,10 +212,29 @@ const askingAQuestion: TaskSummary = {
 };
 
 describe('ListTasksHandler', () => {
-  it('offers to move a task that waits on a question on to where its station passes work', async () => {
-    await expect(passesOnToOf(askingAQuestion)).resolves.toEqual(['station_2']);
-    await expect(passesOnToOf(asking(ALICE, 'user_2'))).resolves.toEqual([]);
-    await expect(passesOnToOf(summaries[0])).resolves.toEqual([]);
+  it('offers the hand moves of its line to a task at a work station', async () => {
+    await expect(movableToOf(summaries[0])).resolves.toEqual([
+      'station_0',
+      'station_1',
+      'station_9',
+    ]);
+  });
+
+  it('also offers where its station passes work while the task waits on a question', async () => {
+    await expect(movableToOf(askingAQuestion)).resolves.toEqual([
+      'station_0',
+      'station_1',
+      'station_2',
+      'station_9',
+    ]);
+  });
+
+  it('does not offer to pass on a task that waits on an approval', async () => {
+    await expect(movableToOf(asking(ALICE, 'user_2'))).resolves.toEqual([
+      'station_0',
+      'station_1',
+      'station_9',
+    ]);
   });
 
   it('hands back each task with the station it is at', async () => {

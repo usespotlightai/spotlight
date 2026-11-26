@@ -3697,9 +3697,9 @@ export type TaskResponseDto = {
    */
   finished: boolean;
   /**
-   * The stations a person may move the task on to while it waits on them: the stations its station passes work to, as its agent could. Empty unless the task waits on a question.
+   * The stations a person may move the task to by hand, its own station among them. While the task waits on a question, they include the stations its station passes work to, as its agent could.
    */
-  passesOnTo: Array<string>;
+  movableTo: Array<string>;
   /**
    * The pull requests this task ended in, one for each repository, the first opened first
    */

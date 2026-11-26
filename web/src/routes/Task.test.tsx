@@ -15,7 +15,7 @@ const task = {
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
-  passesOnTo: [],
+  movableTo: ['station_0', 'station_1', 'station_3'],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -436,7 +436,7 @@ describe('Task', () => {
     });
   });
 
-  it('offers only the backlog, completed and its current station to a task at a work station', async () => {
+  it('offers the stations the server lets a person move the task to', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -448,9 +448,14 @@ describe('Task', () => {
     ).toEqual(['Backlog', 'Triage', 'Completed']);
   });
 
-  it('offers the stations its station passes work to while the task waits on a question', async () => {
+  it('offers a station between work stations only where the server lets the task pass on there', async () => {
     const user = userEvent.setup();
-    listed.mockReturnValue([{ ...task, passesOnTo: ['station_2'] }]);
+    listed.mockReturnValue([
+      {
+        ...task,
+        movableTo: ['station_0', 'station_1', 'station_2', 'station_3'],
+      },
+    ]);
     renderAt('task_1');
 
     await user.click(screen.getByRole('button', { name: /Station/ }));
@@ -463,7 +468,9 @@ describe('Task', () => {
 
   it('offers nothing to move to once a task is completed', async () => {
     const user = userEvent.setup();
-    listed.mockReturnValue([{ ...task, stationId: 'station_3' }]);
+    listed.mockReturnValue([
+      { ...task, stationId: 'station_3', movableTo: ['station_3'] },
+    ]);
     renderAt('task_1');
 
     await user.click(screen.getByRole('button', { name: /Station/ }));

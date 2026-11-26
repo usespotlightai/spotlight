@@ -27,7 +27,7 @@ export const TaskHttpMapper = {
       dto.waitingForYou,
       dto.yourMessage,
       dto.finished,
-      dto.passesOnTo,
+      dto.movableTo,
       dto.pullRequests,
       dto.createdBy
         ? new TaskPersonResponseDto(

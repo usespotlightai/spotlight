@@ -90,7 +90,8 @@ import {
   type MessagedTask,
   TO_THE_TASK,
 } from '@work/domain/services/message-effect';
-import { type PassedOnTask, PassOn } from '@work/domain/services/pass-on';
+import { MovesByHand } from '@work/domain/services/moves-by-hand';
+import type { PassedOnTask } from '@work/domain/services/pass-on';
 import { Placement } from '@work/domain/services/placement';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { openSetupList } from '@work/domain/services/setup-list';
@@ -3233,9 +3234,7 @@ export class Task extends EventRecorder {
   private assertHandMoveAllowed(line: LineMap, to: StationId): void {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
-    const denial = PassOn.allows(this.toPassOn, line, into)
-      ? null
-      : line.moveDenial(from, into);
+    const denial = MovesByHand.denial(this.toPassOn, line, into);
 
     if (denial) {
       throw new MoveDeniedError(denial, from.name.value, into.name.value);
