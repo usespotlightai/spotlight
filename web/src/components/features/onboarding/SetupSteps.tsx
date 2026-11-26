@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
@@ -14,13 +14,24 @@ import {
 } from '@/components/features/onboarding/SetupAbout';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { Button } from '@/components/ui/button';
 import { useGitHub } from '@/hooks/api/useGitHub';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
-import type { SetupStepResponseDto } from '@/lib/api/types.gen';
+import type {
+  OnboardingResponseDto,
+  SetupStepResponseDto,
+} from '@/lib/api/types.gen';
 import { chatPath } from '@/lib/chat';
 import { failed, loading } from '@/lib/query';
 import { runnersPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
+
+type SetupRefusal = NonNullable<OnboardingResponseDto['setupRefusal']>;
+
+const SETUP_REFUSALS: Readonly<Record<SetupRefusal, string>> = {
+  'code-unreachable': 'Install the GitHub App first.',
+  'needs-egress': 'Connect a host first.',
+};
 
 type SetupStepsProps = {
   teamId: string;
@@ -125,6 +136,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const query = useOnboarding(teamId);
   const onboarding = query.data;
   const github = useGitHub(slug);
+  const refusalId = useId();
 
   if (slug && (loading(query) || loading(github))) {
     return <SetupStepsSkeleton about={about} />;
@@ -195,9 +207,27 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    return onboarding.canSetUp ? (
-      <ConfigFolderForm slug={slug} teamId={teamId} />
-    ) : null;
+    if (onboarding.canSetUp) {
+      return <ConfigFolderForm slug={slug} teamId={teamId} />;
+    }
+
+    return (
+      onboarding.setupRefusal && (
+        <div className="flex flex-col items-start gap-2">
+          <Button
+            size="sm"
+            disabled
+            aria-describedby={refusalId}
+            className={SETUP_CONTROL}
+          >
+            Continue in chat
+          </Button>
+          <p id={refusalId} className="text-muted-foreground text-sm leading-6">
+            {SETUP_REFUSALS[onboarding.setupRefusal]}
+          </p>
+        </div>
+      )
+    );
   };
 
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {

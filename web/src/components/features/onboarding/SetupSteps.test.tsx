@@ -58,6 +58,11 @@ const onboarding = (
 ) => ({
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
   canSetUp: done.includes('github') && done.includes('harness'),
+  setupRefusal: !done.includes('github')
+    ? 'code-unreachable'
+    : done.includes('harness')
+      ? null
+      : 'needs-egress',
   viewerIsAdmin: true,
   setupChat: null,
   ...over,
@@ -265,13 +270,27 @@ describe('SetupSteps', () => {
     expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
   });
 
-  it('offers nothing for configuration until GitHub and egress are ready', () => {
-    onboardingState.data = onboarding({ canSetUp: false }, [
-      'github',
-      'harness',
-    ]);
+  it('shows the setup disabled, with what to do first, until GitHub and a host are ready', () => {
+    onboardingState.data = onboarding();
     showing();
 
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toHaveAccessibleDescription('Install the GitHub App first.');
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
+  });
+
+  it('asks for a host first once GitHub is ready', () => {
+    onboardingState.data = onboarding(
+      { canSetUp: false, setupRefusal: 'needs-egress' },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(screen.getByText('Connect a host first.')).toBeInTheDocument();
     expect(screen.queryByText('Choose the config folder')).toBeNull();
     expect(screen.queryByText(/egress/)).toBeNull();
   });

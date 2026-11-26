@@ -2,6 +2,13 @@ export const SETUP_STEP_KEYS = ['github', 'harness', 'configuration'] as const;
 
 type SetupStepKeyName = (typeof SETUP_STEP_KEYS)[number];
 
+export const SETUP_REFUSAL_NAMES = [
+  'code-unreachable',
+  'needs-egress',
+] as const;
+
+export type SetupRefusalName = (typeof SETUP_REFUSAL_NAMES)[number];
+
 export const PROVISIONING_NAMES = ['pending', 'done'] as const;
 
 export type ProvisioningName = (typeof PROVISIONING_NAMES)[number];
@@ -31,6 +38,7 @@ export interface OnboardingDto {
   readonly provisioning: ProvisioningName;
   readonly steps: readonly SetupStepDto[];
   readonly canSetUp: boolean;
+  readonly setupRefusal: SetupRefusalName | null;
   readonly viewerIsAdmin: boolean;
   readonly setupChat: SetupChatDto | null;
 }

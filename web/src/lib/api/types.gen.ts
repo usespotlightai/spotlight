@@ -4449,6 +4449,10 @@ export type OnboardingResponseDto = {
    */
   canSetUp: boolean;
   /**
+   * What the workspace lacks before a setup chat can start, while canSetUp is false: code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress)
+   */
+  setupRefusal: 'code-unreachable' | 'needs-egress' | null;
+  /**
    * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
    */
   viewerIsAdmin: boolean;

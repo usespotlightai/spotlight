@@ -34529,6 +34529,17 @@
             "type": "boolean",
             "description": "Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes"
           },
+          "setupRefusal": {
+            "type": "string",
+            "enum": [
+              "code-unreachable",
+              "needs-egress",
+              null
+            ],
+            "nullable": true,
+            "example": "code-unreachable",
+            "description": "What the workspace lacks before a setup chat can start, while canSetUp is false: code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress)"
+          },
           "viewerIsAdmin": {
             "type": "boolean",
             "description": "Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts"
@@ -34548,6 +34559,7 @@
           "provisioning",
           "steps",
           "canSetUp",
+          "setupRefusal",
           "viewerIsAdmin",
           "setupChat"
         ]

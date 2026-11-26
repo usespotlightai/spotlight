@@ -5,13 +5,17 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   OnboardingDto,
   ProvisioningName,
+  SetupRefusalName,
 } from '@work/application/dto/onboarding.dto';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
 import type { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import { shownFor } from '@work/application/rendering/setup-steps';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import { SetupAdmission } from '@work/domain/services/setup-admission';
+import {
+  SetupAdmission,
+  type WorkspaceSetupRefusal,
+} from '@work/domain/services/setup-admission';
 import {
   type Provisioning,
   provisioningOf,
@@ -20,6 +24,11 @@ import {
 const PROVISIONING_NAME: Record<Provisioning, ProvisioningName> = {
   pending: 'pending',
   done: 'done',
+};
+
+const SETUP_REFUSAL_NAME: Record<WorkspaceSetupRefusal, SetupRefusalName> = {
+  'code-unreachable': 'code-unreachable',
+  'needs-egress': 'needs-egress',
 };
 
 export class OnboardingHandler implements QueryHandlerPort<
@@ -55,14 +64,17 @@ export class OnboardingHandler implements QueryHandlerPort<
       );
 
       const { chat } = setup;
+      const readiness = {
+        codeReachable: setup.state.connectedToGitHub,
+        egressAvailable: setup.hasEgressCapableRunner,
+      };
+      const refusal = SetupAdmission.refusalIn(readiness);
 
       return {
         provisioning: PROVISIONING_NAME[provisioning],
         steps: shownFor(setup.state, setup.runners),
-        canSetUp: SetupAdmission.readyIn({
-          codeReachable: setup.state.connectedToGitHub,
-          egressAvailable: setup.hasEgressCapableRunner,
-        }),
+        canSetUp: SetupAdmission.readyIn(readiness),
+        setupRefusal: refusal && SETUP_REFUSAL_NAME[refusal],
         viewerIsAdmin,
         setupChat: chat && {
           id: (await this.access.opensChat(
