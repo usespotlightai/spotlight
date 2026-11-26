@@ -88,16 +88,15 @@ export class CheckSearchReadiness {
     const calibrates =
       standard.fingerprint !== null &&
       (await this.healths.calibrationWanted(set, standard.fingerprint));
-    const warnings = searchWarningsOf(
-      health,
-      standard.minGain,
-      budget.repeats,
-      await this.calibrations.liveAt(set),
-    );
     const verdict = setVerdict({
       now: this.clock.now(),
       tooSmall: split === 'too-small',
-      warnings,
+      warnings: searchWarningsOf(
+        health,
+        standard.minGain,
+        budget.repeats,
+        await this.calibrations.liveAt(set),
+      ),
       freshHeldOut: split !== 'no-fresh',
       affordable:
         typeof split === 'string' || budget.affords(split, calibrates),
@@ -108,9 +107,8 @@ export class CheckSearchReadiness {
     if (verdict.kind === 'skip') {
       return {
         ...verdict,
-        warning: warnings.find((each) => each.kind === verdict.reason) ?? null,
         claimFlips:
-          verdict.reason === 'judge-unstable' && health.judge
+          verdict.warning?.kind === 'judge-unstable' && health.judge
             ? await this.healths.claimFlipsIn(health.judge.replayId)
             : [],
       };
