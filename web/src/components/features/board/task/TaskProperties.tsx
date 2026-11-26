@@ -1,5 +1,8 @@
+import { useState } from 'react';
+
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
+import { StopRunDialog } from '@/components/features/board/task/StopRunDialog';
 import { TASK_PROPERTIES } from '@/components/features/board/task/TaskLayout';
 import { TaskPullRequestLink } from '@/components/features/board/task/TaskPullRequestLink';
 import { TaskSourceLink } from '@/components/features/board/task/TaskSourceLink';
@@ -8,7 +11,7 @@ import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import type { LineResponseDto } from '@/lib/api';
-import type { Task } from '@/lib/task';
+import { stopsRun, type Task } from '@/lib/task';
 
 type TaskPropertiesProps = {
   slug?: string;
@@ -24,8 +27,22 @@ export function TaskProperties({
   line,
 }: TaskPropertiesProps) {
   const moveTask = useMoveTask();
+  const [stopping, setStopping] = useState<string | null>(null);
   const station = line?.stations.find((each) => each.id === task.stationId);
+  const stoppingAt = line?.stations.find((each) => each.id === stopping);
   const linked = slug && teamId ? { slug, teamId } : null;
+
+  const move = (stationId: string) =>
+    teamId &&
+    line &&
+    moveTask.mutate({
+      teamId,
+      lineId: line.id,
+      taskId: task.id,
+      revision: task.revision,
+      stationId,
+      afterTaskId: null,
+    });
 
   return (
     <aside className={TASK_PROPERTIES}>
@@ -40,18 +57,25 @@ export function TaskProperties({
             value={station.id}
             held={task.hold}
             onChange={(stationId) =>
-              teamId &&
-              moveTask.mutate({
-                teamId,
-                lineId: line.id,
-                taskId: task.id,
-                revision: task.revision,
-                stationId,
-                afterTaskId: null,
-              })
+              stopsRun(line.stations, task, stationId)
+                ? setStopping(stationId)
+                : move(stationId)
             }
           />
         )}
+
+        <StopRunDialog
+          move={
+            stoppingAt ? { title: task.title, station: stoppingAt.name } : null
+          }
+          onConfirm={() => {
+            if (stoppingAt) {
+              move(stoppingAt.id);
+            }
+            setStopping(null);
+          }}
+          onClose={() => setStopping(null)}
+        />
 
         {teamId && <AssigneePicker teamId={teamId} task={task} variant="row" />}
 
