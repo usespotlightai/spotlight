@@ -6,6 +6,12 @@ import type { Review } from '@/lib/run';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
+const SHOWN: Record<Review['state'], string> = {
+  pending: 'Waiting for you',
+  answered: 'Answered',
+  'moved-on': 'Moved on without an answer',
+};
+
 type ReviewMarkerProps = {
   slug: string | undefined;
   review: Review;
@@ -27,9 +33,7 @@ export function ReviewMarker({ slug, review, runId, at }: ReviewMarkerProps) {
       >
         <Inbox className="size-4 shrink-0" aria-hidden />
 
-        <span className="truncate">
-          {review.state === 'pending' ? 'Waiting for you' : 'Answered'}
-        </span>
+        <span className="truncate">{SHOWN[review.state]}</span>
 
         <span className="ml-auto shrink-0 text-xs tabular-nums">
           {since(at)}

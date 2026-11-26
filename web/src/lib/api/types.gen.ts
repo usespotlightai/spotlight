@@ -3772,7 +3772,7 @@ export type RunStationResponseDto = {
 };
 
 export type RunReviewResponseDto = {
-  state: 'pending' | 'answered';
+  state: 'pending' | 'answered' | 'moved-on';
   /**
    * The inbox conversation it opened
    */

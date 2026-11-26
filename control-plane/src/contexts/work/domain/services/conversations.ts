@@ -116,7 +116,9 @@ export const conversationsOf = (
   return cut;
 };
 
-export type ReviewState = 'pending' | 'answered';
+export const REVIEW_STATES = ['pending', 'answered', 'moved-on'] as const;
+
+export type ReviewState = (typeof REVIEW_STATES)[number];
 
 interface Review {
   readonly from: NotePosition;
@@ -141,6 +143,22 @@ const answeredAfter = <T extends { kind: TaskNoteKind }>(
     (later) =>
       later.kind === ANSWERS_A_QUESTION || later.kind === CLOSES_A_CONVERSATION,
   );
+
+const reviewStateAfter = <T extends { kind: TaskNoteKind }>(
+  notes: readonly T[],
+  at: number,
+): ReviewState => {
+  const closing = sinceReopened(notes.slice(at + 1)).find(
+    (later) =>
+      later.kind === ANSWERS_A_QUESTION || later.kind === CLOSES_A_CONVERSATION,
+  );
+
+  if (!closing) {
+    return 'pending';
+  }
+
+  return closing.kind === ANSWERS_A_QUESTION ? 'answered' : 'moved-on';
+};
 
 const containing = (cut: readonly Conversation[], at: NotePosition) =>
   cut.find(
@@ -172,7 +190,7 @@ export const reviewsIn = <
       reviews.set(note.runId.value, {
         runId: note.runId,
         from: conversation.from,
-        state: answeredAfter(notes, at) ? 'answered' : 'pending',
+        state: reviewStateAfter(notes, at),
       });
     }
   });

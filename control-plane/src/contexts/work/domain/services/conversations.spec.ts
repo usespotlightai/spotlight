@@ -202,7 +202,7 @@ describe('reviewsIn', () => {
         note('asked', 'run_2'),
       ]),
     ]).toEqual([
-      ['run_1', { from: at(0), state: 'answered' }],
+      ['run_1', { from: at(0), state: 'moved-on' }],
       ['run_2', { from: at(2), state: 'pending' }],
     ]);
   });
@@ -213,10 +213,34 @@ describe('reviewsIn', () => {
     ]);
   });
 
-  it('counts an asking as answered once the task moves on from it without an answer', () => {
+  it('says the task moved on where it left an asking without an answer', () => {
     expect([
       ...reviewed([note('asked', 'run_1'), note('passed', 'run_2')]),
+    ]).toEqual([['run_1', { from: at(0), state: 'moved-on' }]]);
+  });
+
+  it('keeps an asking answered when the task moves on after the answer', () => {
+    expect([
+      ...reviewed([
+        note('asked', 'run_1'),
+        note('answered'),
+        note('passed', 'run_2'),
+      ]),
     ]).toEqual([['run_1', { from: at(0), state: 'answered' }]]);
+  });
+
+  it('does not take the answer to a later asking for an earlier one', () => {
+    expect([
+      ...reviewed([
+        note('asked', 'run_1'),
+        note('passed'),
+        note('asked', 'run_2'),
+        note('answered'),
+      ]),
+    ]).toEqual([
+      ['run_1', { from: at(0), state: 'moved-on' }],
+      ['run_2', { from: at(2), state: 'answered' }],
+    ]);
   });
 
   it('keeps each run apart', () => {
