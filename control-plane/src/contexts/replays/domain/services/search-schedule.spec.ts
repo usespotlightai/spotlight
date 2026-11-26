@@ -3,7 +3,6 @@ import {
   dueVerdict,
   monthSpentOf,
   monthStartOf,
-  nextDayStartOf,
   nextMonthStartOf,
   requestRefusalOf,
   type SetInput,
@@ -253,17 +252,6 @@ describe('setVerdict', () => {
         }),
       ),
     ).toEqual({ kind: 'go', agent: AGENT });
-  });
-});
-
-describe('nextDayStartOf', () => {
-  it('is the next 00:00 UTC, also across a month and a year', () => {
-    expect(nextDayStartOf(new Date('2026-10-29T08:00:00.000Z'))).toEqual(
-      new Date('2026-10-30T00:00:00.000Z'),
-    );
-    expect(nextDayStartOf(new Date('2026-12-31T00:00:00.000Z'))).toEqual(
-      new Date('2027-01-01T00:00:00.000Z'),
-    );
   });
 });
 

@@ -41,7 +41,6 @@ import type { StationSearchScheduleRepository } from '@replays/domain/repositori
 import {
   fitsMonthAfter,
   monthStartOf,
-  nextDayStartOf,
   nextMonthStartOf,
   requestRefusalOf,
 } from '@replays/domain/services/search-schedule';
@@ -210,7 +209,10 @@ export class StationChangeTests {
     });
 
     if (refusal) {
-      return this.refused(refusal, this.limitOf(policy));
+      return this.refused(
+        refusal,
+        this.limitOf(policy.requestsPerDay, schedule.requestsResetAfter(now)),
+      );
     }
 
     await this.refreshing.refreshBefore(set.id);
@@ -273,7 +275,10 @@ export class StationChangeTests {
       return this.refused('monthly-ceiling');
     }
     if (error instanceof RequestLimitReachedError) {
-      return this.refused('request-limit', this.limitOf(policy));
+      return this.refused(
+        'request-limit',
+        this.limitOf(error.limit, error.resetsAt),
+      );
     }
     if (error instanceof UnsearchableRequestError) {
       return invalid(error.problems);
@@ -312,7 +317,7 @@ export class StationChangeTests {
       searchId: seen.id,
       request: candidate.id,
     };
-    const refusal = await this.requestCounted(
+    const refused = await this.requestCounted(
       stationId,
       seen.id,
       candidate.id,
@@ -320,8 +325,8 @@ export class StationChangeTests {
       policy.requestsPerDay,
     );
 
-    if (refusal) {
-      return this.refused(refusal, this.limitOf(policy));
+    if (refused) {
+      return refused;
     }
 
     try {
@@ -373,15 +378,18 @@ export class StationChangeTests {
     request: CandidateId,
     at: Date,
     requestsPerDay: number,
-  ): Promise<StationChangeRefusal | null> {
+  ): Promise<StationChangeTestOutcome | null> {
     return this.transaction.inTransaction(async () => {
       const schedule = await this.schedules.locked(stationId);
 
       if (!schedule) {
-        return 'no-replay-set' as const;
+        return this.refused('no-replay-set');
       }
       if (!schedule.takesRequestOn(at, requestsPerDay)) {
-        return 'request-limit' as const;
+        return this.refused(
+          'request-limit',
+          this.limitOf(requestsPerDay, schedule.requestsResetAfter(at)),
+        );
       }
 
       await this.schedules.save(
@@ -493,13 +501,8 @@ export class StationChangeTests {
     });
   }
 
-  private limitOf(policy: SearchPolicy): RefusalDetail {
-    return {
-      requestLimit: {
-        perDay: policy.requestsPerDay,
-        resetsAt: nextDayStartOf(this.clock.now()),
-      },
-    };
+  private limitOf(perDay: number, resetsAt: Date): RefusalDetail {
+    return { requestLimit: { perDay, resetsAt } };
   }
 
   private refused(

@@ -21,6 +21,11 @@ export interface RequestTally {
 
 const dayOf = (at: Date): string => at.toISOString().slice(0, 10);
 
+const nextDayOf = (at: Date): Date =>
+  new Date(
+    Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate() + 1),
+  );
+
 export interface SearchSkip {
   readonly reason: SearchSkipReason;
   readonly at: Date;
@@ -244,6 +249,11 @@ export class StationSearchSchedule extends EventRecorder {
       requests.day !== dayOf(at) ||
       requests.counted.length < requestsPerDay
     );
+  }
+
+  /** When the station counts its requests afresh after `at`: the start of the next UTC day. */
+  requestsResetAfter(at: Date): Date {
+    return nextDayOf(at);
   }
 
   get pendingSteps(): readonly PendingSearchStep[] {
@@ -537,7 +547,11 @@ export class StationSearchSchedule extends EventRecorder {
     requestsPerDay: number,
   ): StationSearchSchedule {
     if (!this.takesRequestOn(at, requestsPerDay)) {
-      throw new RequestLimitReachedError(this.stationId, requestsPerDay);
+      throw new RequestLimitReachedError(
+        this.stationId,
+        requestsPerDay,
+        this.requestsResetAfter(at),
+      );
     }
 
     const day = dayOf(at);

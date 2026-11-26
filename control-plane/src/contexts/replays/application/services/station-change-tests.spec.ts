@@ -425,6 +425,20 @@ describe('StationChangeTests', () => {
     });
   });
 
+  it('refuses a change to a running search after the requests of the day, and says when the count resets', async () => {
+    await asked({ mode: 'search' });
+    policy = policyOf({ requestsPerDay: 1 });
+
+    expect(
+      await asked({ name: 'second', requester: UserId.of('user_other') }),
+    ).toEqual({
+      outcome: 'refused',
+      code: 'request-limit',
+      reason:
+        'The station took the most requested tests for today. Maximum requests a day: 1. The count resets at 2026-10-02 00:00 UTC. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.',
+    });
+  });
+
   it('takes as many requests a day as the search of the station allows', async () => {
     const schedule = memory.schedules.get(STATION.stationId.value);
 

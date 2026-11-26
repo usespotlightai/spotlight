@@ -270,9 +270,26 @@ describe('StationSearchSchedule', () => {
 
     expect(once.takesRequestOn(day, 1)).toBe(false);
     expect(() => once.requested(join('b', day, 1))).toThrow(
-      new RequestLimitReachedError(STATION.stationId, 1),
+      new RequestLimitReachedError(
+        STATION.stationId,
+        1,
+        new Date('2026-10-30T00:00:00.000Z'),
+      ),
     );
     expect(once.requested(join('b', day, 5)).takesRequestOn(day, 5)).toBe(true);
+  });
+
+  it('counts requests afresh from the next 00:00 UTC, also across a month and a year', () => {
+    const late = new Date('2026-10-29T23:59:59.000Z');
+    const full = created().requested(join('a', late, 1));
+
+    expect(full.requestsResetAfter(late)).toEqual(
+      new Date('2026-10-30T00:00:00.000Z'),
+    );
+    expect(full.takesRequestOn(full.requestsResetAfter(late), 1)).toBe(true);
+    expect(
+      created().requestsResetAfter(new Date('2026-12-31T00:00:00.000Z')),
+    ).toEqual(new Date('2027-01-01T00:00:00.000Z'));
   });
 
   it('keeps the requests it counted after the limit goes down', () => {

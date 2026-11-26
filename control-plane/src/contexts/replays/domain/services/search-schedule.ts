@@ -61,11 +61,6 @@ export const monthStartOf = (at: Date): Date =>
 export const nextMonthStartOf = (at: Date): Date =>
   new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + 1, 1));
 
-export const nextDayStartOf = (at: Date): Date =>
-  new Date(
-    Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate() + 1),
-  );
-
 const committedBy = (search: SpendingSearch): Money =>
   search.isActive && search.spent.isWithin(search.budget.ceiling)
     ? search.budget.ceiling
