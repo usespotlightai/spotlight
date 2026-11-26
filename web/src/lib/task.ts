@@ -60,10 +60,7 @@ const DENIALS: Record<Denial, string> = {
 
 const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
 
-const handMoveTo = (
-  task: Task,
-  stationId: string,
-): HandMove | undefined =>
+const handMoveTo = (task: Task, stationId: string): HandMove | undefined =>
   task.handMoves.find((each) => each.stationId === stationId);
 
 export const mayLand = (task: Task, stationId: string): boolean =>
@@ -77,8 +74,9 @@ export const handMoveHint = (
     return DENIALS[move.denial];
   }
 
+  const skips = new Set(move.skips);
   const skipped = stations
-    .filter((each) => move.skips.includes(each.id))
+    .filter((each) => skips.has(each.id))
     .map((each) => each.name);
 
   return skipped.length > 0 ? `Skips ${NAMES.format(skipped)}` : null;
