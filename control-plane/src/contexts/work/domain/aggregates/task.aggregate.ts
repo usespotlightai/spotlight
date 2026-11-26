@@ -1746,6 +1746,10 @@ export class Task extends EventRecorder {
     switch (outcome.kind) {
       case 'stays':
         return this.addMessage(newNote);
+      case 'asks':
+        return this.running || this.onHold || this.awaitingReview
+          ? this.addMessage(newNote)
+          : this.askedAbout(newNote, null);
       case 'held':
         return this.holdMoveUntilPullRequestsClose(
           outcome.to.id,

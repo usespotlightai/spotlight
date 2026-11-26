@@ -71,6 +71,12 @@ export class TaskNoteBody {
     return TaskNoteBody.of(anchored || summary);
   }
 
+  static closedUnmerged(account: TaskNoteBody): TaskNoteBody {
+    return TaskNoteBody.of(
+      `${account.value}\n\nThe line does not move the task for this. To continue, reopen the pull request, send the task back to a station, or complete the task.`,
+    );
+  }
+
   static heldMove(to: StationName, account: TaskNoteBody): TaskNoteBody {
     return TaskNoteBody.of(
       `The task has another open pull request. It moves to ${to.value} when its last pull request closes.\n\n${account.value}`,

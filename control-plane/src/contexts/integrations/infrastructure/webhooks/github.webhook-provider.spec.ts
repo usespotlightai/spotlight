@@ -82,6 +82,17 @@ describe('GitHubWebhookProvider', () => {
       ourOwn: false,
       opens: null,
       closedPullRequest: MERGED.pullRequest,
+      closedUnmerged: false,
+    });
+  });
+
+  it('says a pull request it closes was closed without a merge', async () => {
+    expect(
+      await readOne({ ...MERGED, activity: 'closed-unmerged' }),
+    ).toMatchObject({
+      summary: 'The pull request was closed without being merged.',
+      closedPullRequest: MERGED.pullRequest,
+      closedUnmerged: true,
     });
   });
 

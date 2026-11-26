@@ -175,6 +175,7 @@ const reported = (
       activity === 'merged' || activity === 'closed-unmerged'
         ? (event.pullRequest ?? null)
         : null,
+    closedUnmerged: activity === 'closed-unmerged',
   };
 };
 

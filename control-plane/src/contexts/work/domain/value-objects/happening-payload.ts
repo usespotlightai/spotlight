@@ -9,4 +9,5 @@ export interface HappeningPayload {
   readonly answers: boolean;
   readonly state: HappeningState;
   readonly closedPullRequest?: PullRequestUrl | null;
+  readonly closedUnmerged?: boolean;
 }

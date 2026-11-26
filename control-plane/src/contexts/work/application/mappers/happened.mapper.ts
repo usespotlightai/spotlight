@@ -84,6 +84,7 @@ export const HappenedMapper = {
         closedPullRequest: happened.closedPullRequest
           ? PullRequestUrl.of(happened.closedPullRequest)
           : null,
+        closedUnmerged: happened.closedUnmerged ?? false,
       },
       correlationKeys,
       anchor: happened.message ? Anchor.of(happened.message) : null,
