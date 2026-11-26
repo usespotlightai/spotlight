@@ -137,7 +137,8 @@ export class SimilarMemoryResponseDto {
   readonly handle: string;
 
   @ApiProperty({
-    example: 'The sandbox has no make, so npm ci cannot compile better-sqlite3.',
+    example:
+      'The sandbox has no make, so npm ci cannot compile better-sqlite3.',
   })
   readonly body: string;
 
