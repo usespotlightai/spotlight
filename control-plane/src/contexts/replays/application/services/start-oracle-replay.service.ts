@@ -13,8 +13,8 @@ import {
   type OracleAnswered,
   oracleAnswerOf,
 } from '@replays/domain/services/oracle-answer';
+import { oracleCeilingOf } from '@replays/domain/services/oracle-ceiling';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import type { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -60,7 +60,10 @@ export class StartOracleReplay {
       return;
     }
 
-    const ceiling = await this.ceilingFor(baseline);
+    const search = baseline.searchId
+      ? await this.searches.find(baseline.searchId)
+      : null;
+    const ceiling = oracleCeilingOf(baseline, search);
     const oracle = Candidate.oracleOf(live, {
       id: CandidateId.of(this.ids.generate()),
       at: this.clock.now(),
@@ -119,14 +122,6 @@ export class StartOracleReplay {
         );
       }
     }
-  }
-
-  private async ceilingFor(baseline: Replay): Promise<Money> {
-    const search =
-      baseline.searchId && (await this.searches.find(baseline.searchId));
-    const share = search ? search.ceilingSplit.oracle : null;
-
-    return share?.isWithin(baseline.ceiling) ? share : baseline.ceiling;
   }
 
   private async stillLive(
