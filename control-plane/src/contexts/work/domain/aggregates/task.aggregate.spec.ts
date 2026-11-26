@@ -537,21 +537,6 @@ describe('Task, reopened by a word', () => {
     ).toThrow(TaskNotReopenableError);
   });
 
-  it('keeps no live working copy once finished for good: at Completed, or with no line left', () => {
-    const completed = added().react(
-      LINE,
-      StationId.of('completed_1'),
-      TaskRank.of('m'),
-      newNote,
-    );
-
-    expect(completed.keepsNoLiveWorkingCopyOn(LINE)).toBe(true);
-    expect(ended().keepsNoLiveWorkingCopyOn(LINE)).toBe(false);
-    expect(ended().keepsNoLiveWorkingCopyOn(null)).toBe(true);
-    expect(added().keepsNoLiveWorkingCopyOn(LINE)).toBe(false);
-    expect(added().keepsNoLiveWorkingCopyOn(null)).toBe(false);
-  });
-
   it('does not take a word from the world as a reopening', () => {
     expect(() =>
       ended().reopen(LINE, MENTIONED, TaskRank.of('m'), {

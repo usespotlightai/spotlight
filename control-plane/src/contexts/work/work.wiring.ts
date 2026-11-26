@@ -249,6 +249,7 @@ import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.h
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
+import { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
@@ -2033,7 +2034,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           deletingChats: new DeleteTeamChats(chats),
           taskInboxRequests: new DeleteTaskInboxRequests(inboxRequests),
           taskDraft: new DeleteTaskDraft(draftStates),
-          taskSandbox: new RetireTaskSandbox(tasks, lines, retirement),
+          taskSandbox: new RetireTaskSandbox(tasks, retirement),
+          chatSandbox: new RetireChatSandbox(chats, retirement),
           toolUsedHooks,
           notices,
           takenMarks: new ReleaseTakenMarks(tasks, transaction),

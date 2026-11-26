@@ -7,6 +7,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { requestedBy } from '@work/application/ports/runs.fake-spec';
+import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -36,6 +37,30 @@ describe('workSubscribers', () => {
 
     expect(reconciling?.kinds).toEqual(['chat.setup-pull-request-opened']);
     expect(forTeam).toHaveBeenCalledWith(TeamId.of('team_1'));
+  });
+
+  it('retires the sandbox of a chat when it is resolved, when its run ends and when it is deleted', async () => {
+    const chatSandbox = { on: vi.fn(async () => {}) };
+    const retiring = workSubscribers({
+      chatSandbox,
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.retire-sandbox-of-resolved-chat',
+    );
+    const resolved = new ChatResolved(
+      ChatId.of('chat_1'),
+      WorkspaceId.of('ws_1'),
+      UserId.of('user_1'),
+      new Date('2026-11-26T10:00:00.000Z'),
+    );
+
+    await retiring?.handle(resolved, anOutboxRecord());
+
+    expect(retiring?.kinds).toEqual([
+      'chat.resolved',
+      'chat.run-ended',
+      'chat.deleted',
+    ]);
+    expect(chatSandbox.on).toHaveBeenCalledWith(resolved);
   });
 
   it('takes up the run a person answered, whichever way the answer came', async () => {

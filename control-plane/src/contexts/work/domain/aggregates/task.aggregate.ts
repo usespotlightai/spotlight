@@ -1668,10 +1668,6 @@ export class Task extends EventRecorder {
     return MessageEffect.reopens(this.messagedOn(line), TO_THE_TASK);
   }
 
-  keepsNoLiveWorkingCopyOn(line: LineMap | null): boolean {
-    return this.finished && (line === null || !this.reopenableOn(line));
-  }
-
   reopensAt(line: LineMap, happening: Happening): StationId {
     const rule = line.reactionTo(happening, this.stationId);
 
