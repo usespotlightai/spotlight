@@ -74,6 +74,20 @@ vi.mock('@/hooks/api/useDisconnectIntegration', () => ({
   }),
 }));
 
+const connectInstallation = vi.fn();
+
+vi.mock('@/hooks/api/useGitHubInstallations', () => ({
+  useGitHubInstallations: () => query([{ id: '42', account: 'acme' }]),
+}));
+
+vi.mock('@/hooks/api/useConnectGitHubInstallation', () => ({
+  useConnectGitHubInstallation: () => ({
+    mutate: connectInstallation,
+    isPending: false,
+    isError: false,
+  }),
+}));
+
 vi.mock('@/hooks/api/useSetToolRule', () => ({
   useSetToolRule: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -235,6 +249,18 @@ describe('TeamIntegrations', () => {
     ).toBeInTheDocument();
   });
 
+  it('connects an installation that is already on GitHub from the opened row', async () => {
+    github.mockReturnValue(ready({ connected: false }));
+    showing();
+
+    const opened = await opening('GitHub');
+    await userEvent.click(
+      within(opened).getByRole('button', { name: 'Connect acme' }),
+    );
+
+    expect(connectInstallation).toHaveBeenCalledWith('42');
+  });
+
   it('says which repositories the App can access, and keeps managing it in the opened row', async () => {
     showing();
 
@@ -250,6 +276,9 @@ describe('TeamIntegrations', () => {
     expect(
       within(opened).getByRole('link', { name: 'Manage on GitHub' }),
     ).toHaveAttribute('href', INSTALL);
+    expect(
+      within(opened).queryByRole('button', { name: 'Connect acme' }),
+    ).not.toBeInTheDocument();
   });
 
   it('marks a repository the team’s lines use that the App cannot access', async () => {

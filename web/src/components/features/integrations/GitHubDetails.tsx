@@ -1,3 +1,4 @@
+import { ExistingGitHubInstallations } from '@/components/features/integrations/ExistingGitHubInstallations';
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
 import { IntegrationFacts } from '@/components/features/integrations/IntegrationFacts';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -5,6 +6,7 @@ import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { inaccessibleOf } from '@/lib/github';
 
 type GitHubDetailsProps = {
+  slug: string;
   installed: boolean;
   href: string | null;
   accessible: readonly string[];
@@ -12,6 +14,7 @@ type GitHubDetailsProps = {
 };
 
 export function GitHubDetails({
+  slug,
   installed,
   href,
   accessible,
@@ -39,6 +42,11 @@ export function GitHubDetails({
             </div>
             {href && <GitHubAppLink href={href} installed={installed} />}
           </div>
+          {!installed && (
+            <div className="mt-3">
+              <ExistingGitHubInstallations slug={slug} />
+            </div>
+          )}
         </dd>
       </FactRow>
 

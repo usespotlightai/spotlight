@@ -30,6 +30,24 @@ vi.mock('@/hooks/api/useGitHub', () => ({
   useGitHub: () => githubState,
 }));
 
+const connectInstallation = vi.fn();
+
+vi.mock('@/hooks/api/useGitHubInstallations', () => ({
+  useGitHubInstallations: () => ({
+    data: [{ id: '42', account: 'acme' }],
+    isPending: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
+vi.mock('@/hooks/api/useConnectGitHubInstallation', () => ({
+  useConnectGitHubInstallation: () => ({
+    mutate: connectInstallation,
+    isPending: false,
+    isError: false,
+  }),
+}));
+
 vi.mock('@/components/features/onboarding/ConfigFolderForm', () => ({
   ConfigFolderForm: () => <p>Choose the config folder</p>,
 }));
@@ -151,6 +169,15 @@ describe('SetupSteps', () => {
     );
   });
 
+  it('connects an installation that is already on GitHub, where GitHub would not send the person back', async () => {
+    onboardingState.data = onboarding();
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Connect acme' }));
+
+    expect(connectInstallation).toHaveBeenCalledWith('42');
+  });
+
   it('offers to configure the App once it is installed', async () => {
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
@@ -165,6 +192,9 @@ describe('SetupSteps', () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Install on GitHub' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Connect acme' }),
     ).not.toBeInTheDocument();
   });
 

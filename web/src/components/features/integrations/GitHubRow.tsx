@@ -73,6 +73,7 @@ export function GitHubRow({
       }
     >
       <GitHubDetails
+        slug={slug}
         installed={connected}
         href={href}
         accessible={accessible}
