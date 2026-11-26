@@ -64,7 +64,7 @@ describe('Secrets on the mock API', () => {
         json(
           settingsWorld().secrets.map((secret) => ({
             ...secret,
-            reachesHosts: secret.hosts.length === 0,
+            reach: { usedByRuns: true, deliverable: secret.hosts.length === 0 },
           })),
         ),
       ),
@@ -106,7 +106,10 @@ describe('Secrets on the mock API', () => {
         json(
           settingsWorld().secrets.map((secret) => ({
             ...secret,
-            reachesRuns: secret.name !== 'LINEAR_API_KEY',
+            reach: {
+              usedByRuns: secret.name !== 'LINEAR_API_KEY',
+              deliverable: true,
+            },
           })),
         ),
       ),
@@ -116,6 +119,35 @@ describe('Secrets on the mock API', () => {
     expect((await rowOf('LINEAR_API_KEY')).getByText(UNUSED)).toBeVisible();
     expect(
       (await rowOf('STAGING_VIEWER_TOKEN')).queryByText(UNUSED),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says both when nothing uses a secret and no runner pool could send it', async () => {
+    server.use(
+      api.get('/workspaces/:slug/secrets', () =>
+        json(
+          settingsWorld().secrets.map((secret) => ({
+            ...secret,
+            reach: {
+              usedByRuns: secret.name !== 'LINEAR_API_KEY',
+              deliverable: secret.hosts.length === 0,
+            },
+          })),
+        ),
+      ),
+    );
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    const linear = await rowOf('LINEAR_API_KEY');
+
+    expect(linear.getByText(UNUSED)).toBeVisible();
+    expect(
+      linear.getByText('No runner pool has egress, so no run sends it.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    expect(
+      (await rowOf('DEV_GITHUB_APP_KEY')).queryByText(UNUSED),
     ).not.toBeInTheDocument();
   });
 

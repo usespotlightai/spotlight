@@ -1,11 +1,11 @@
 import type { SecretRecord } from '@secrets/application/ports/secret-resources.port';
 import { ReadSecretHandler } from '@secrets/application/queries/handlers/read-secret.handler';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
-import { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import {
   ADMIN,
   accessFor,
   NOW,
+  reachesFor,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
 import { describe, expect, it } from 'vitest';
@@ -29,6 +29,20 @@ const HTTPBIN: SecretRecord = {
   rotatedAt: NOW,
 };
 
+const UNUSED = {
+  at: 'bindings',
+  reason:
+    'no harness profile or integration uses this secret, so no run receives it. Name it in a harness profile or an integration',
+  warning: true,
+};
+
+const UNDELIVERABLE = {
+  at: 'bindings',
+  reason:
+    'are never injected: no runner pool of the workspace has egress. Add a pool that hosts pull from, or set provision.egress on a push pool',
+  warning: true,
+};
+
 const warningsWhen = async ({
   egressRunners = true,
   used = true,
@@ -44,17 +58,7 @@ const warningsWhen = async ({
       namedIn: async () => [],
       secretsIn: async () => [],
     },
-    { register: () => undefined, anyIn: async () => egressRunners },
-    new SecretRunReach(
-      {
-        register: () => undefined,
-        of: async () =>
-          used
-            ? [{ kind: 'harness-profile', key: 'core/default', exposes: false }]
-            : [],
-      },
-      { register: () => undefined, names: () => [] },
-    ),
+    reachesFor({ used: () => used, egressRunners }),
   ).execute(new ReadSecretQuery(HTTPBIN.id, ADMIN.principal));
 
   return read?.warnings.map((each) => ({
@@ -67,23 +71,18 @@ const warningsWhen = async ({
 describe('ReadSecretHandler', () => {
   it('warns at the bindings that egress never injects the secret while no runner pool of the workspace has egress', async () => {
     expect(await warningsWhen({ egressRunners: false })).toEqual([
-      {
-        at: 'bindings',
-        reason:
-          'are never injected: no runner pool of the workspace has egress. Add a pool that hosts pull from, or set provision.egress on a push pool',
-        warning: true,
-      },
+      UNDELIVERABLE,
     ]);
   });
 
   it('warns at the bindings that no run receives a secret that no harness profile or integration uses', async () => {
-    expect(await warningsWhen({ used: false })).toEqual([
-      {
-        at: 'bindings',
-        reason:
-          'no harness profile or integration uses this secret, so no run receives it. Name it in a harness profile or an integration',
-        warning: true,
-      },
+    expect(await warningsWhen({ used: false })).toEqual([UNUSED]);
+  });
+
+  it('gives both warnings for a secret that nothing uses and no runner could deliver', async () => {
+    expect(await warningsWhen({ used: false, egressRunners: false })).toEqual([
+      UNUSED,
+      UNDELIVERABLE,
     ]);
   });
 

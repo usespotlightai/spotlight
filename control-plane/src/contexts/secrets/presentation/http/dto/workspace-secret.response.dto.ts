@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { WorkspaceSecretDto } from '@secrets/application/dto/workspace-secret.dto';
+import type {
+  SecretReachDto,
+  WorkspaceSecretDto,
+} from '@secrets/application/dto/workspace-secret.dto';
 import {
   SECRET_SANDBOXES,
   type SecretSandbox,
@@ -9,6 +12,25 @@ import {
   type SecretValueOriginKind,
 } from '@secrets/domain/value-objects/secret-value-origin.vo';
 import { SECRET_SANDBOX } from '@secrets/presentation/http/dto/secret-resource.response.dto';
+
+export class SecretReachResponseDto {
+  @ApiProperty({
+    description:
+      'False when no harness profile or integration uses it, so no run receives it',
+  })
+  readonly usedByRuns: boolean;
+
+  @ApiProperty({
+    description:
+      'False when it is bound to hosts and no runner pool of the workspace has egress, so egress never injects it there',
+  })
+  readonly deliverable: boolean;
+
+  constructor(reach: SecretReachDto) {
+    this.usedByRuns = reach.usedByRuns;
+    this.deliverable = reach.deliverable;
+  }
+}
 
 export class WorkspaceSecretResponseDto {
   @ApiProperty({ example: 'STAGING_LOGIN_PASSWORD' })
@@ -54,16 +76,10 @@ export class WorkspaceSecretResponseDto {
   readonly settable: boolean;
 
   @ApiProperty({
-    description:
-      'False when no runner pool of the workspace has egress, so egress never injects it at its hosts',
+    type: () => SecretReachResponseDto,
+    description: 'How the secret reaches runs',
   })
-  readonly reachesHosts: boolean;
-
-  @ApiProperty({
-    description:
-      'False when no harness profile or integration uses it, so no run receives it',
-  })
-  readonly reachesRuns: boolean;
+  readonly reach: SecretReachResponseDto;
 
   constructor(secret: WorkspaceSecretDto) {
     this.name = secret.name;
@@ -72,7 +88,6 @@ export class WorkspaceSecretResponseDto {
     this.valueOrigin = secret.valueOrigin;
     this.valueSetAt = secret.valueSetAt?.toISOString() ?? null;
     this.settable = secret.settable;
-    this.reachesHosts = secret.reachesHosts;
-    this.reachesRuns = secret.reachesRuns;
+    this.reach = new SecretReachResponseDto(secret.reach);
   }
 }

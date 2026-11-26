@@ -25,7 +25,10 @@ import { BOUND_SECRETS } from '@secrets/application/ports/bound-secrets.port';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
-import { EGRESS_RUNNERS } from '@secrets/application/ports/egress-runners.port';
+import {
+  EGRESS_RUNNERS,
+  type EgressRunnersPort,
+} from '@secrets/application/ports/egress-runners.port';
 import {
   HARNESS_KEYS,
   type HarnessKeysPort,
@@ -77,8 +80,8 @@ import { SandboxEnvReveals } from '@secrets/application/services/sandbox-env-rev
 import { SealedSecrets } from '@secrets/application/services/sealed-secrets';
 import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
+import { SecretReaches } from '@secrets/application/services/secret-reaches.service';
 import { SecretReadiness } from '@secrets/application/services/secret-readiness.service';
-import { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import { SecretUsesRegistry } from '@secrets/application/services/secret-uses-registry.service';
 import {
   RUN_GRANTS_REPOSITORY,
@@ -279,10 +282,13 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   { provide: EGRESS_RUNNERS, useFactory: () => new EgressRunnersRegistry() },
   { provide: HARNESS_KEYS, useFactory: () => new HarnessKeysRegistry() },
   {
-    provide: SecretRunReach,
-    inject: [SECRET_USES, HARNESS_KEYS],
-    useFactory: (uses: SecretUsesPort, harnessKeys: HarnessKeysPort) =>
-      new SecretRunReach(uses, harnessKeys),
+    provide: SecretReaches,
+    inject: [SECRET_USES, HARNESS_KEYS, EGRESS_RUNNERS],
+    useFactory: (
+      uses: SecretUsesPort,
+      harnessKeys: HarnessKeysPort,
+      egressRunners: EgressRunnersPort,
+    ) => new SecretReaches(uses, harnessKeys, egressRunners),
   },
   {
     provide: SECRET_INJECTION,
@@ -376,25 +382,21 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadSecretQuery, ReadSecretHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
-    EGRESS_RUNNERS,
-    SecretRunReach,
+    SecretReaches,
   ]),
   ...bindQueryHandler(ImportSecretQuery, ImportSecretHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
-    EGRESS_RUNNERS,
-    SecretRunReach,
+    SecretReaches,
   ]),
   ...bindQueryHandler(ListSecretResourcesQuery, ListSecretResourcesHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
-    EGRESS_RUNNERS,
-    SecretRunReach,
+    SecretReaches,
   ]),
   ...bindQueryHandler(ListWorkspaceSecretsQuery, ListWorkspaceSecretsHandler, [
     WORKSPACE_ACCESS,
     SECRET_RESOURCES,
-    EGRESS_RUNNERS,
-    SecretRunReach,
+    SecretReaches,
   ]),
 ];

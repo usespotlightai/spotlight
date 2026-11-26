@@ -366,8 +366,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueOrigin: 'terraform',
     valueSetAt: daysAgo(30),
     settable: false,
-    reachesHosts: true,
-    reachesRuns: true,
+    reach: { usedByRuns: true, deliverable: true },
   },
   {
     name: 'STAGING_LOGIN_PASSWORD',
@@ -376,8 +375,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueOrigin: 'awaiting',
     valueSetAt: null,
     settable: true,
-    reachesHosts: true,
-    reachesRuns: true,
+    reach: { usedByRuns: true, deliverable: true },
   },
   {
     name: 'STAGING_VIEWER_TOKEN',
@@ -386,8 +384,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueOrigin: 'spotlight',
     valueSetAt: daysAgo(2),
     settable: true,
-    reachesHosts: true,
-    reachesRuns: true,
+    reach: { usedByRuns: true, deliverable: true },
   },
   {
     name: 'DEV_GITHUB_APP_KEY',
@@ -396,8 +393,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueOrigin: 'spotlight',
     valueSetAt: daysAgo(5),
     settable: true,
-    reachesHosts: true,
-    reachesRuns: true,
+    reach: { usedByRuns: true, deliverable: true },
   },
 ];
 

@@ -70,11 +70,6 @@ export class SecretBindings {
     return this.all.length === 0;
   }
 
-  // Only egress injects a secret at its hosts, so with no runner that has egress no run sends it there.
-  reachesHosts(egressRunners: boolean): boolean {
-    return this.isEmpty || egressRunners;
-  }
-
   equals(other: SecretBindings): boolean {
     return (
       this.all.length === other.all.length &&

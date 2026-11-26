@@ -1,11 +1,11 @@
 import type { SecretRecord } from '@secrets/application/ports/secret-resources.port';
 import { ListWorkspaceSecretsHandler } from '@secrets/application/queries/handlers/list-workspace-secrets.handler';
 import { ListWorkspaceSecretsQuery } from '@secrets/application/queries/list-workspace-secrets.query';
-import { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import {
   ADMIN,
   accessFor,
   NOW,
+  reachesFor,
   SLUG,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
@@ -61,21 +61,7 @@ const listedBy = (
       namedIn: async () => [],
       secretsIn: async () => records,
     },
-    {
-      register: () => undefined,
-      anyIn: async (workspaceId) =>
-        egressRunners && workspaceId === WORKSPACE.value,
-    },
-    new SecretRunReach(
-      {
-        register: () => undefined,
-        of: async ({ name }) =>
-          used.includes(name)
-            ? [{ kind: 'harness-profile', key: 'core/default', exposes: false }]
-            : [],
-      },
-      { register: () => undefined, names: () => [] },
-    ),
+    reachesFor({ used: (name) => used.includes(name), egressRunners }),
   ).execute(new ListWorkspaceSecretsQuery(slug, ADMIN.principal));
 
 describe('ListWorkspaceSecretsHandler', () => {
@@ -88,8 +74,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'terraform',
         valueSetAt: NOW,
         settable: false,
-        reachesHosts: true,
-        reachesRuns: true,
+        reach: { usedByRuns: true, deliverable: true },
       },
       {
         name: 'STAGING_PASSWORD',
@@ -98,8 +83,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'awaiting',
         valueSetAt: null,
         settable: true,
-        reachesHosts: true,
-        reachesRuns: true,
+        reach: { usedByRuns: true, deliverable: true },
       },
       {
         name: 'VIEWER_TOKEN',
@@ -108,13 +92,12 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueOrigin: 'spotlight',
         valueSetAt: NOW,
         settable: true,
-        reachesHosts: true,
-        reachesRuns: true,
+        reach: { usedByRuns: true, deliverable: true },
       },
     ]);
   });
 
-  it('says a secret reaches no host while no runner of the workspace has egress', async () => {
+  it('says a bound secret is undeliverable while no runner of the workspace has egress', async () => {
     const listed = await listedBy(true, SLUG, {
       egressRunners: false,
       records: [
@@ -123,23 +106,43 @@ describe('ListWorkspaceSecretsHandler', () => {
       ],
     });
 
-    expect(
-      listed?.map(({ name, reachesHosts }) => ({ name, reachesHosts })),
-    ).toEqual([
-      { name: 'HTTPBIN_TEST_TOKEN', reachesHosts: false },
-      { name: 'DEV_GITHUB_APP_KEY', reachesHosts: true },
+    expect(listed?.map(({ name, reach }) => ({ name, reach }))).toEqual([
+      {
+        name: 'HTTPBIN_TEST_TOKEN',
+        reach: { usedByRuns: true, deliverable: false },
+      },
+      {
+        name: 'DEV_GITHUB_APP_KEY',
+        reach: { usedByRuns: true, deliverable: true },
+      },
     ]);
   });
 
   it('says which secrets no run receives, since no harness profile or integration uses them', async () => {
     const listed = await listedBy(true, SLUG, { used: ['LINEAR_API_KEY'] });
 
-    expect(
-      listed?.map(({ name, reachesRuns }) => ({ name, reachesRuns })),
-    ).toEqual([
-      { name: 'LINEAR_API_KEY', reachesRuns: true },
-      { name: 'STAGING_PASSWORD', reachesRuns: false },
-      { name: 'VIEWER_TOKEN', reachesRuns: false },
+    expect(listed?.map(({ name, reach }) => ({ name, reach }))).toEqual([
+      {
+        name: 'LINEAR_API_KEY',
+        reach: { usedByRuns: true, deliverable: true },
+      },
+      {
+        name: 'STAGING_PASSWORD',
+        reach: { usedByRuns: false, deliverable: true },
+      },
+      { name: 'VIEWER_TOKEN', reach: { usedByRuns: false, deliverable: true } },
+    ]);
+  });
+
+  it('says both for a bound secret that nothing uses while no runner has egress', async () => {
+    const listed = await listedBy(true, SLUG, {
+      egressRunners: false,
+      records: [record('HTTPBIN_TEST_TOKEN')],
+      used: [],
+    });
+
+    expect(listed?.map(({ reach }) => reach)).toEqual([
+      { usedByRuns: false, deliverable: false },
     ]);
   });
 

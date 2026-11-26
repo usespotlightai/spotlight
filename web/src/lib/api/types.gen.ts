@@ -2064,6 +2064,17 @@ export type SecretResourceListResponseDto = {
  */
 export type SecretValueOrigin = 'awaiting' | 'spotlight' | 'terraform';
 
+export type SecretReachResponseDto = {
+  /**
+   * False when no harness profile or integration uses it, so no run receives it
+   */
+  usedByRuns: boolean;
+  /**
+   * False when it is bound to hosts and no runner pool of the workspace has egress, so egress never injects it there
+   */
+  deliverable: boolean;
+};
+
 export type WorkspaceSecretResponseDto = {
   name: string;
   /**
@@ -2087,13 +2098,9 @@ export type WorkspaceSecretResponseDto = {
    */
   settable: boolean;
   /**
-   * False when no runner pool of the workspace has egress, so egress never injects it at its hosts
+   * How the secret reaches runs
    */
-  reachesHosts: boolean;
-  /**
-   * False when no harness profile or integration uses it, so no run receives it
-   */
-  reachesRuns: boolean;
+  reach: SecretReachResponseDto;
 };
 
 export type SetSecretValueRequestDto = {

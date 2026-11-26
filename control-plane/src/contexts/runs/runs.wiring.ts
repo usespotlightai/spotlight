@@ -250,7 +250,6 @@ import {
 } from '@runs/application/queries/stored-working-copy-archive.query';
 import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
-import { CatalogueHarnessKeys } from '@runs/application/services/catalogue-harness-keys.service';
 import { ClaimGate } from '@runs/application/services/claim-gate.service';
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
@@ -609,9 +608,9 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RUNS_HARNESS_KEYS,
-    inject: [HARNESS_KEYS, HARNESS_LAUNCH],
-    useFactory: (keys: HarnessKeysPort, launch: HarnessLaunchPort) => {
-      keys.register(new CatalogueHarnessKeys(launch));
+    inject: [HARNESS_KEYS, HeldHarnessKeys],
+    useFactory: (keys: HarnessKeysPort, held: HeldHarnessKeys) => {
+      keys.register(held);
       return true;
     },
   },
