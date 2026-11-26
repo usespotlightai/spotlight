@@ -134,7 +134,7 @@ describe('the mock team memories', () => {
   });
 
   it('restores a memory a person retired', async () => {
-    await retireMemory({
+    const { data: retired } = await retireMemory({
       path: { ...team, memoryId: 'memory_staging' },
       body: { reason: 'Wrong.' },
       throwOnError: true,
@@ -144,8 +144,10 @@ describe('the mock team memories', () => {
       throwOnError: true,
     });
 
+    expect(retired.restorable).toBe(true);
     expect(restored.status).toBe('active');
     expect(restored.retirement).toBeNull();
+    expect(restored.restorable).toBe(false);
     expect(await memoryIds()).toContain('memory_staging');
   });
 

@@ -354,14 +354,15 @@ export class Memory extends EventRecorder {
     );
   }
 
-  restore(input: { by: UserId; at: Date }): Memory {
-    const { retirement } = this.state;
+  get restorable(): boolean {
+    return this.state.retirement !== null && !this.state.retirement.superseded;
+  }
 
-    if (!retirement) {
-      throw new MemoryNotRetiredError(this.state.id.value);
-    }
-    if (retirement.superseded) {
-      throw new MemoryReplacedError(this.state.id.value);
+  restore(input: { by: UserId; at: Date }): Memory {
+    if (!this.restorable) {
+      throw this.state.retirement
+        ? new MemoryReplacedError(this.state.id.value)
+        : new MemoryNotRetiredError(this.state.id.value);
     }
 
     const restored = new Memory({ ...this.state, retirement: null });

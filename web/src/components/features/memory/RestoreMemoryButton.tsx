@@ -1,21 +1,20 @@
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { useRestoreTeamMemory } from '@/hooks/api/useRestoreTeamMemory';
-import type { TeamMemory } from '@/lib/memory';
 
 type RestoreMemoryButtonProps = {
   teamId: string;
   memoryId: string;
-  retirement: TeamMemory['retirement'];
+  restorable: boolean;
 };
 
 export function RestoreMemoryButton({
   teamId,
   memoryId,
-  retirement,
+  restorable,
 }: RestoreMemoryButtonProps) {
   const restore = useRestoreTeamMemory();
 
-  if (!retirement || retirement.supersededBy) {
+  if (!restorable) {
     return null;
   }
 

@@ -213,6 +213,21 @@ describe('Memory', () => {
     ]);
   });
 
+  it('is restorable only after a person retired it', () => {
+    const retired = created().retire({
+      by: UserId.of('user_bea'),
+      reason: 'Gone.',
+      at: LATER,
+    });
+
+    expect(retired.restorable).toBe(true);
+    expect(created().restorable).toBe(false);
+    expect(created().supersedeWith(OLD, LATER).restorable).toBe(false);
+    expect(
+      retired.restore({ by: UserId.of('user_ada'), at: LATER }).restorable,
+    ).toBe(false);
+  });
+
   it('is not restored while active, or after a newer memory replaced it', () => {
     expect(() =>
       created().restore({ by: UserId.of('user_ada'), at: LATER }),

@@ -38559,6 +38559,11 @@
                 "$ref": "#/components/schemas/MemoryLinkResponseDto"
               }
             ]
+          },
+          "restorable": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether a person can restore it: a person retired it and no newer memory replaced it"
           }
         },
         "required": [
@@ -38580,7 +38585,8 @@
           "provenance",
           "runs",
           "superseded",
-          "successor"
+          "successor",
+          "restorable"
         ]
       },
       "RetireMemoryRequestDto": {
@@ -38965,6 +38971,11 @@
               }
             ]
           },
+          "restorable": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether a person can restore it: a person retired it and no newer memory replaced it"
+          },
           "steps": {
             "type": "array",
             "items": {
@@ -38998,6 +39009,7 @@
           "runs",
           "superseded",
           "successor",
+          "restorable",
           "steps",
           "notes"
         ]

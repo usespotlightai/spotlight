@@ -6045,6 +6045,10 @@ export type TeamMemoryDetailResponseDto = {
   runs: number;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
+  /**
+   * Whether a person can restore it: a person retired it and no newer memory replaced it
+   */
+  restorable: boolean;
 };
 
 export type RetireMemoryRequestDto = {
@@ -6183,6 +6187,10 @@ export type RecalledMemoryResponseDto = {
   runs: number;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
+  /**
+   * Whether a person can restore it: a person retired it and no newer memory replaced it
+   */
+  restorable: boolean;
   steps: Array<MemoryProvenanceStepResponseDto>;
   notes: Array<MemoryProvenanceNoteResponseDto>;
 };

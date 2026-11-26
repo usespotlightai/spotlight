@@ -53,6 +53,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   provenance: { taskId: 'task_1', runId: 'run_1' },
   superseded: null,
   successor: null,
+  restorable: false,
   ...over,
 });
 
@@ -156,7 +157,7 @@ describe('MemoryDetails', () => {
     ).toBeVisible();
   });
 
-  it('restores a memory that a person retired', async () => {
+  it('restores a memory that the server says is restorable', async () => {
     memoryState.data = detail({
       status: 'retired',
       retirement: {
@@ -165,6 +166,7 @@ describe('MemoryDetails', () => {
         reason: 'Wrong.',
         supersededBy: null,
       },
+      restorable: true,
     });
     showing();
 
@@ -175,5 +177,21 @@ describe('MemoryDetails', () => {
       teamId: 'team_1',
       memoryId: 'memory_1',
     });
+  });
+
+  it('offers no Restore where the server says it is not restorable', () => {
+    memoryState.data = detail({
+      status: 'retired',
+      retirement: {
+        at: '2026-09-27T11:00:00.000Z',
+        by: { id: 'user_2', name: 'Maya Chen', image: null },
+        reason: 'Wrong.',
+        supersededBy: null,
+      },
+      restorable: false,
+    });
+    showing();
+
+    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
   });
 });

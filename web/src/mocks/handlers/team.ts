@@ -69,6 +69,9 @@ const linkTo = (
     : null;
 };
 
+const restorable = (memory: TeamMemoryResponseDto): boolean =>
+  Boolean(memory.retirement && !memory.retirement.supersededBy);
+
 const detailOf = (
   memories: readonly TeamMemoryResponseDto[],
   memory: TeamMemoryResponseDto,
@@ -76,6 +79,7 @@ const detailOf = (
   ...memory,
   superseded: linkTo(memories, memory.supersedes),
   successor: linkTo(memories, memory.retirement?.supersededBy ?? null),
+  restorable: restorable(memory),
 });
 
 const sinceOf = (memory: TeamMemoryResponseDto): number =>
@@ -271,7 +275,7 @@ const memoryHandlers = [
     if (!memory) {
       return notFound();
     }
-    if (!memory.retirement || memory.retirement.supersededBy) {
+    if (!restorable(memory)) {
       return problem(409, 'Sorry, that memory cannot be restored.');
     }
 

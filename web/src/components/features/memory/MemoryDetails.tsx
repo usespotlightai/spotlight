@@ -97,7 +97,7 @@ export function MemoryDetails({
       <RestoreMemoryButton
         teamId={teamId}
         memoryId={memoryId}
-        retirement={retirement}
+        restorable={memory.restorable}
       />
 
       {editing && (
