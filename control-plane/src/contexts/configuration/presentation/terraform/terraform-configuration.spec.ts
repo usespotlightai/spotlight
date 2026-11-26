@@ -116,10 +116,11 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     }
 
     search {
-      ceiling    = 20
-      cooldown   = "12h"
-      iterations = 4
-      objective  = "cost"
+      ceiling          = 20
+      cooldown         = "12h"
+      iterations       = 4
+      objective        = "cost"
+      requests_per_day = 5
 
       agent {
         harness = "claude-code"
@@ -156,13 +157,14 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
   }
 
   search {
-    enabled         = true
-    monthly_ceiling = 100
-    currency        = "USD"
-    ceiling         = 10
-    period          = "7d"
-    on_alert        = false
-    cooldown        = "3d"
+    enabled          = true
+    monthly_ceiling  = 100
+    currency         = "USD"
+    ceiling          = 10
+    period           = "7d"
+    on_alert         = false
+    cooldown         = "3d"
+    requests_per_day = 4
   }
 
   source {

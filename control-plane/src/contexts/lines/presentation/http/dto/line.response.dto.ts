@@ -154,6 +154,13 @@ export class LineSearchResponseDto {
   })
   readonly cooldown: string;
 
+  @ApiProperty({
+    example: 3,
+    description:
+      'The most requested tests of station changes that one station takes in one UTC day',
+  })
+  readonly requestsPerDay: number;
+
   constructor(policy: LineSearchSummary) {
     this.enabled = policy.enabled;
     this.monthlyCeiling = policy.monthlyCeiling;
@@ -162,6 +169,7 @@ export class LineSearchResponseDto {
     this.period = policy.period;
     this.onAlert = policy.onAlert;
     this.cooldown = policy.cooldown;
+    this.requestsPerDay = policy.requestsPerDay;
   }
 }
 

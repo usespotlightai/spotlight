@@ -14,8 +14,6 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const REQUESTS_PER_DAY = 3;
-
 export interface RequestTally {
   readonly day: string;
   readonly counted: readonly CandidateId[];
@@ -146,14 +144,10 @@ export class StationSearchSchedule extends EventRecorder {
       );
     }
 
-    if (
-      state.requests &&
-      (state.requests.counted.length < 1 ||
-        state.requests.counted.length > REQUESTS_PER_DAY)
-    ) {
+    if (state.requests && state.requests.counted.length < 1) {
       throw new InconsistentStateError(
         'station search schedule',
-        `counts from 1 to ${REQUESTS_PER_DAY} requests a day`,
+        'counts at least 1 request on the day it records',
       );
     }
     if (
@@ -242,13 +236,13 @@ export class StationSearchSchedule extends EventRecorder {
     return this.state.requests;
   }
 
-  takesRequestOn(at: Date): boolean {
+  takesRequestOn(at: Date, requestsPerDay: number): boolean {
     const { requests } = this.state;
 
     return (
       requests === null ||
       requests.day !== dayOf(at) ||
-      requests.counted.length < REQUESTS_PER_DAY
+      requests.counted.length < requestsPerDay
     );
   }
 
@@ -267,8 +261,13 @@ export class StationSearchSchedule extends EventRecorder {
     searchId: SearchId;
     request: CandidateId;
     at: Date;
+    requestsPerDay: number;
   }): StationSearchSchedule {
-    return this.counted(input.request, input.at).stepPending({
+    return this.counted(
+      input.request,
+      input.at,
+      input.requestsPerDay,
+    ).stepPending({
       kind: 'join',
       searchId: input.searchId,
       at: input.at,
@@ -395,6 +394,7 @@ export class StationSearchSchedule extends EventRecorder {
     inSet: readonly TaskId[];
     at: Date;
     cooldownMilliseconds: number;
+    requestsPerDay: number;
   }): StationSearchSchedule {
     const { cooldownFrom } = this;
     const cooldownEnd = cooldownFrom
@@ -424,7 +424,7 @@ export class StationSearchSchedule extends EventRecorder {
     };
 
     if (input.request) {
-      return this.counted(input.request, input.at)
+      return this.counted(input.request, input.at, input.requestsPerDay)
         .with({ searchedTasks })
         .stepPending({ ...step, replaced: null });
     }
@@ -531,9 +531,13 @@ export class StationSearchSchedule extends EventRecorder {
     return deleted;
   }
 
-  private counted(request: CandidateId, at: Date): StationSearchSchedule {
-    if (!this.takesRequestOn(at)) {
-      throw new RequestLimitReachedError(this.stationId, REQUESTS_PER_DAY);
+  private counted(
+    request: CandidateId,
+    at: Date,
+    requestsPerDay: number,
+  ): StationSearchSchedule {
+    if (!this.takesRequestOn(at, requestsPerDay)) {
+      throw new RequestLimitReachedError(this.stationId, requestsPerDay);
     }
 
     const day = dayOf(at);

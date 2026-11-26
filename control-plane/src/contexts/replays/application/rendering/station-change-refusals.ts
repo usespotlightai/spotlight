@@ -1,12 +1,25 @@
 import type { StationChangeRefusal } from '@replays/application/contracts/station-change-tests.contract';
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
-import { REQUESTS_PER_DAY } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { FEWEST_SEARCH_TASKS } from '@replays/domain/value-objects/held-out-split.vo';
+
+export interface RequestLimit {
+  readonly perDay: number;
+  readonly resetsAt: Date;
+}
+
+export interface RefusalDetail {
+  readonly requestLimit?: RequestLimit;
+}
+
+const NO_DETAIL: RefusalDetail = {};
 
 const advised = (reason: keyof typeof SKIP_ADVICE): string =>
   SKIP_ADVICE[reason].join(' ');
 
 const day = (at: Date): string => at.toISOString().slice(0, 10);
+
+const time = (at: Date): string =>
+  `${day(at)} ${at.toISOString().slice(11, 16)} UTC`;
 
 const REASONS: Readonly<
   Record<Exclude<StationChangeRefusal, 'monthly-ceiling'>, string>
@@ -20,7 +33,7 @@ const REASONS: Readonly<
     'The last search of the station has not given its result yet.',
   'search-running':
     'A search of the station is running and takes no more candidates.',
-  'request-limit': `The station took the most requested tests for today. Maximum requests a day: ${REQUESTS_PER_DAY}`,
+  'request-limit': 'The station took the most requested tests for today.',
   'pull-request-open':
     'A config pull request for the station is open. A person must merge or close it first.',
   'no-scoring': advised('no-scoring'),
@@ -37,10 +50,21 @@ const REASONS: Readonly<
     'The live config already does about as well as the best past runs on the replay set. A change cannot show a gain.',
 };
 
+const requestLimit = (limit: RequestLimit | undefined): string =>
+  limit
+    ? `${REASONS['request-limit']} Maximum requests a day: ${limit.perDay}. The count resets at ${time(limit.resetsAt)}. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.`
+    : REASONS['request-limit'];
+
 export const stationChangeRefusalReason = (
   refusal: StationChangeRefusal,
   nextMonthStart: Date,
-): string =>
-  refusal === 'monthly-ceiling'
-    ? `The searches of the line reached their monthly ceiling. Next month starts: ${day(nextMonthStart)}`
+  detail: RefusalDetail = NO_DETAIL,
+): string => {
+  if (refusal === 'monthly-ceiling') {
+    return `The searches of the line reached their monthly ceiling. Next month starts: ${day(nextMonthStart)}`;
+  }
+
+  return refusal === 'request-limit'
+    ? requestLimit(detail.requestLimit)
     : REASONS[refusal];
+};

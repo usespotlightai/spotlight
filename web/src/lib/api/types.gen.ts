@@ -173,6 +173,10 @@ export type StationSearchResponseDto = {
    */
   cooldown: string;
   /**
+   * The most requested tests of station changes that one station takes in one UTC day
+   */
+  requestsPerDay: number;
+  /**
    * The agent that proposes candidates. Null when Spotlight picks one.
    */
   agent: StationSearchAgentResponseDto | null;
@@ -350,6 +354,10 @@ export type LineSearchResponseDto = {
    * The shortest time between two automatic searches of a station, as in 12h or 3d
    */
   cooldown: string;
+  /**
+   * The most requested tests of station changes that one station takes in one UTC day
+   */
+  requestsPerDay: number;
 };
 
 export type LineResponseDto = {

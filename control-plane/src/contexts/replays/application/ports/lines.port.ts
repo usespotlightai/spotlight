@@ -47,6 +47,7 @@ export interface NamedStation {
   readonly lineName: string;
   readonly key: string;
   readonly name: string;
+  readonly source: ConfigSourceView | null;
 }
 
 export interface LinesPort {

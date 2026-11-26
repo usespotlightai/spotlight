@@ -425,6 +425,7 @@ const line = (
         ...present('iterations', set.iterations),
         ...present('repeats', set.repeats),
         ...present('objective', set.objective),
+        ...present('requests_per_day', set.requestsPerDay),
         ...(set.agent
           ? [
               block(
@@ -560,6 +561,7 @@ const line = (
         ...present('period', policy.period),
         ...present('on_alert', policy.onAlert),
         ...present('cooldown', policy.cooldown),
+        ...present('requests_per_day', policy.requestsPerDay),
       ],
     );
 

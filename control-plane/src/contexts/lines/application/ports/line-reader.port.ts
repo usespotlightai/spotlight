@@ -32,6 +32,7 @@ export interface LineSearchSummary {
   readonly period: string;
   readonly onAlert: boolean;
   readonly cooldown: string;
+  readonly requestsPerDay: number;
 }
 
 export interface SearchPolicySummary extends LineSearchSummary {

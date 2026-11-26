@@ -1,11 +1,24 @@
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+
 export const TEST_STATION_CHANGE_TOOL = 'test-station-change';
+
+interface ConfigSource {
+  readonly repository: Repository;
+  readonly path: string;
+}
 
 export interface ImprovedStation {
   readonly lineKey: string;
   readonly lineName: string;
   readonly key: string;
   readonly name: string;
+  readonly source: ConfigSource | null;
 }
+
+const terraformOf = (source: ConfigSource | null): string =>
+  source
+    ? `The Terraform of this line is \`${source.path}\` in the \`${source.repository.value}\` repository. Your working copy can have a checkout of it, also in a subfolder. Look for that path there, and read the station's block and the line's \`search\` settings, before you say that the Terraform is not checked out. If you do not find it, show the station block as it should read.`
+    : "If the team's Terraform is not checked out, show the station block as it should read.";
 
 export const ImproveStation = {
   section(stationName: string, current: ImprovedStation | null): string {
@@ -39,7 +52,7 @@ export const ImproveStation = {
         '- The default mode is `test`: Spotlight replays only your change. Add `--mode search` only when the person asks for a search; the search agent then refines your change.',
         '- Tell the person what the tool answered: what happens next and that the result arrives in their inbox.',
       ].join('\n'),
-      `You cannot change the station yourself. Show a Terraform diff only when the tool cannot start, and give its reason first. The diff is of the station's block in the \`spotlight_line\` resource for \`${line}\` and of its prompt file, \`prompts/<team>/${line}/${key}.md\`. A person reviews and applies it. If the team's Terraform is not checked out, show the station block as it should read.`,
+      `You cannot change the station yourself. Show a Terraform diff only when the tool cannot start, and give its reason first. The diff is of the station's block in the \`spotlight_line\` resource for \`${line}\` and of its prompt file, \`prompts/<team>/${line}/${key}.md\`. A person reviews and applies it. ${terraformOf(current.source)}`,
     ].join('\n\n');
   },
 };

@@ -207,6 +207,7 @@ describe('renderLine', () => {
           agent: { harness: 'claude-code', effort: 'high' },
           iterations: 4,
           objective: 'cost',
+          requestsPerDay: 6,
         },
       }),
     });
@@ -219,6 +220,7 @@ describe('renderLine', () => {
       period: '7d',
       onAlert: false,
       cooldown: '3d',
+      requestsPerDay: 3,
     });
     expect(definition.stations[1]?.search).toEqual({
       enabled: false,
@@ -227,6 +229,7 @@ describe('renderLine', () => {
       agent: { harness: 'claude-code', effort: 'high' },
       iterations: 4,
       objective: 'cost',
+      requestsPerDay: 6,
     });
     expect(Object.keys(definition.stations[0] ?? {})).not.toContain('search');
     expect(Object.keys(rendered())).not.toContain('search');

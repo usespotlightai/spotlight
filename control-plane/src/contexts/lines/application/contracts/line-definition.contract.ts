@@ -35,6 +35,7 @@ export type LineDefinitionStationSearch = {
   readonly iterations?: number;
   readonly repeats?: number;
   readonly objective?: 'success' | 'cost';
+  readonly requestsPerDay?: number;
 };
 
 export const LINE_DEFINITION_STATION_DEFAULTS = {
@@ -115,6 +116,7 @@ export type LineDefinitionSearch = {
   readonly period?: string;
   readonly onAlert?: boolean;
   readonly cooldown?: string;
+  readonly requestsPerDay?: number;
 };
 
 export type LineDefinitionSource = {

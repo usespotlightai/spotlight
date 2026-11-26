@@ -24475,6 +24475,11 @@
             "example": "3d",
             "description": "The shortest time between two automatic searches of a station, as in 12h or 3d"
           },
+          "requestsPerDay": {
+            "type": "number",
+            "example": 3,
+            "description": "The most requested tests of station changes that one station takes in one UTC day"
+          },
           "agent": {
             "nullable": true,
             "description": "The agent that proposes candidates. Null when Spotlight picks one.",
@@ -24517,6 +24522,7 @@
           "period",
           "onAlert",
           "cooldown",
+          "requestsPerDay",
           "agent",
           "iterations",
           "repeats",
@@ -24830,6 +24836,11 @@
             "type": "string",
             "example": "3d",
             "description": "The shortest time between two automatic searches of a station, as in 12h or 3d"
+          },
+          "requestsPerDay": {
+            "type": "number",
+            "example": 3,
+            "description": "The most requested tests of station changes that one station takes in one UTC day"
           }
         },
         "required": [
@@ -24839,7 +24850,8 @@
           "ceiling",
           "period",
           "onAlert",
-          "cooldown"
+          "cooldown",
+          "requestsPerDay"
         ]
       },
       "LineResponseDto": {
