@@ -137,7 +137,7 @@ export const ReactionFor = {
       !rule &&
       closed &&
       input.payload.closedUnmerged &&
-      input.task.pullRequests.some((each) => each.equals(closed))
+      input.task.ownsPullRequest(closed)
     ) {
       return {
         kind: 'asks',
