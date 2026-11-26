@@ -2279,6 +2279,10 @@ export type RunnerFleetResponseDto = {
    * Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one
    */
   runners: Array<LiveRunnerResponseDto>;
+  /**
+   * Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects
+   */
+  readyToRun: boolean;
 };
 
 export type RegisterRunnerRequestDto = {

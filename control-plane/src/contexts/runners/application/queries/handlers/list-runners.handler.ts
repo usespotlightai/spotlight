@@ -38,13 +38,14 @@ export class ListRunnersHandler implements QueryHandlerPort<
       }
 
       const now = this.clock.now();
-      const [hosts, runners, alive] = await Promise.all([
+      const [hosts, runners, alive, readyToRun] = await Promise.all([
         this.runners.hostsIn(
           membership.workspaceId,
           RunnerHost.staleBefore(now),
         ),
         this.runners.inWorkspace(membership.workspaceId),
         this.runnerRepository.aliveInWorkspace(membership.workspaceId, now),
+        this.runners.readyToRun(membership.workspaceId),
       ]);
       const aliveIds = new Set(alive.map((each) => each.id.value));
       const idleSandboxes = await this.runners.idleSandboxesOn(
@@ -91,6 +92,7 @@ export class ListRunnersHandler implements QueryHandlerPort<
         runners: runners
           .filter((each) => aliveIds.has(each.id) && !unlisted.has(each.id))
           .map((each) => RunnerFleetMapper.runner(each)),
+        readyToRun,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

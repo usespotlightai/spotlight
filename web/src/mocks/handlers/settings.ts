@@ -441,7 +441,11 @@ const workspaceHandlers = [
     }
 
     const { hosts, runners } = settingsWorld().fleet;
-    return json({ hosts, runners });
+    return json({
+      hosts,
+      runners,
+      readyToRun: hosts.some((host) => host.online) || runners.length > 0,
+    });
   }),
 
   api.delete('/workspaces/:slug/runners/hosts/:hostId', ({ params }) => {

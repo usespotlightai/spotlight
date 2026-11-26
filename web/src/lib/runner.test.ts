@@ -330,6 +330,7 @@ describe('withActivity', () => {
         runners: [
           runner({ id: 'runner_1', hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' }),
         ],
+        readyToRun: true,
       },
       {
         runners: [{ runnerId: 'runner_1', currentRun: LEASED_RUN }],
@@ -359,6 +360,7 @@ describe('withActivity', () => {
           }),
         ],
         runners: [],
+        readyToRun: true,
       },
       {
         runners: [],
@@ -386,6 +388,7 @@ describe('withActivity', () => {
           }),
           runner({ id: 'runner_3' }),
         ],
+        readyToRun: true,
       },
       { runners: [], workingCopies: [] },
     );
@@ -476,6 +479,7 @@ describe('onlineCount', () => {
       onlineCount({
         hosts: [hosted(), hosted({ online: false })],
         pools: [],
+        readyToRun: true,
       }),
     ).toBe(1);
   });

@@ -33,6 +33,7 @@ export const RunnerFleetHttpMapper = {
             source: sourceOf(runner.source),
           }),
       ),
+      dto.readyToRun,
     );
   },
 };

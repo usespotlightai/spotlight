@@ -29133,11 +29133,17 @@
             "items": {
               "$ref": "#/components/schemas/LiveRunnerResponseDto"
             }
+          },
+          "readyToRun": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects"
           }
         },
         "required": [
           "hosts",
-          "runners"
+          "runners",
+          "readyToRun"
         ]
       },
       "RegisterRunnerRequestDto": {

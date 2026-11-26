@@ -321,11 +321,20 @@ export class RunnerFleetResponseDto {
   })
   readonly runners: readonly LiveRunnerResponseDto[];
 
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects',
+  })
+  readonly readyToRun: boolean;
+
   constructor(
     hosts: readonly HostResponseDto[],
     runners: readonly LiveRunnerResponseDto[],
+    readyToRun: boolean,
   ) {
     this.hosts = hosts;
     this.runners = runners;
+    this.readyToRun = readyToRun;
   }
 }
