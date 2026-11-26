@@ -9,6 +9,7 @@ import { PullRequestConflicted } from '@github/domain/events/pull-request-confli
 import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
+import { MergeabilityRead } from '@github/domain/value-objects/mergeability-read.vo';
 import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -842,8 +843,13 @@ describe('PullRequest', () => {
   });
 
   describe('mergeability', () => {
-    const CONFLICTS = { mergeable: false, branch: 'fix/uploads', base: 'main' };
-    const MERGES = { ...CONFLICTS, mergeable: true };
+    const CONFLICTS = MergeabilityRead.of({
+      state: 'open',
+      mergeable: false,
+      branch: 'fix/uploads',
+      base: 'main',
+    });
+    const MERGES = MergeabilityRead.of({ ...CONFLICTS, mergeable: true });
 
     it('says the base of an open pull request moved, and of no other', () => {
       expect(opened().baseMoved('main').pullEvents()).toEqual([
@@ -919,6 +925,26 @@ describe('PullRequest', () => {
       const closed = stored(opened({ state: 'closed', closedAt: MERGED }));
 
       expect(closed.readMergeability(CONFLICTS)).toBe(closed);
+    });
+
+    it('reads nothing from GitHub saying the pull request is no longer open', () => {
+      const open = stored(opened());
+
+      expect(
+        open.readMergeability(
+          MergeabilityRead.of({ ...CONFLICTS, state: 'merged' }),
+        ),
+      ).toBe(open);
+    });
+
+    it('reads nothing while GitHub still computes it', () => {
+      const open = stored(opened());
+
+      expect(
+        open.readMergeability(
+          MergeabilityRead.of({ ...CONFLICTS, mergeable: null }),
+        ),
+      ).toBe(open);
     });
   });
 });

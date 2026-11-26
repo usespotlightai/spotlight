@@ -6,6 +6,7 @@ import type { PullRequestBaseMoved } from '@github/domain/events/pull-request-ba
 import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
+import { MergeabilityRead } from '@github/domain/value-objects/mergeability-read.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -46,28 +47,25 @@ export class PullRequestMergeability {
   }
 
   async check(moved: PullRequestBaseMoved): Promise<void> {
-    const read = await this.github.mergeabilityOf({
+    const answered = await this.github.mergeabilityOf({
       workspaceId: moved.workspaceId,
       repository: moved.repository,
       number: moved.number,
     });
 
-    if (read.state !== 'open') {
-      return;
-    }
+    const read = MergeabilityRead.of({
+      state: answered.state,
+      mergeable: answered.mergeable,
+      branch: answered.branch,
+      base: answered.base ?? moved.base,
+    });
 
-    const { mergeable } = read;
-
-    if (mergeable === null) {
+    if (read.pending) {
       throw new MergeabilityUnknownError(moved.pullRequest.value);
     }
 
     await this.changing(moved.workspaceId, moved.pullRequest, (known) =>
-      known.readMergeability({
-        mergeable,
-        branch: read.branch,
-        base: read.base ?? moved.base,
-      }),
+      known.readMergeability(read),
     );
   }
 

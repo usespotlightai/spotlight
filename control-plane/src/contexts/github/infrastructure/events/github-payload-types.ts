@@ -13,6 +13,7 @@ import { AuthorAssociation } from '@github/domain/value-objects/author-associati
 import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
 import { DraftPeriod } from '@github/domain/value-objects/draft-period.vo';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
+import { MergeabilityRead } from '@github/domain/value-objects/mergeability-read.vo';
 import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 
@@ -21,6 +22,7 @@ export const GITHUB_PAYLOAD_TYPES = [
   BotComment,
   DraftPeriod,
   GitHubInstallation,
+  MergeabilityRead,
   PullRequestReview,
   PullRequestThread,
   WorkspaceConnected,

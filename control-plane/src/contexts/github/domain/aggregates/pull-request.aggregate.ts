@@ -22,6 +22,7 @@ import {
 } from '@github/domain/services/revert-convention';
 import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
 import { DraftPeriod } from '@github/domain/value-objects/draft-period.vo';
+import type { MergeabilityRead } from '@github/domain/value-objects/mergeability-read.vo';
 import type { PullRequestMerge } from '@github/domain/value-objects/pull-request-merge.vo';
 import type { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import type { PullRequestState } from '@github/domain/value-objects/pull-request-state.vo';
@@ -95,12 +96,6 @@ export interface PullRequestPushing {
   readonly pushedBy: string | null;
   readonly byBot: boolean;
   readonly pushedAt: Date;
-}
-
-export interface PullRequestMergeability {
-  readonly mergeable: boolean;
-  readonly branch: string | null;
-  readonly base: string;
 }
 
 interface Props {
@@ -521,9 +516,11 @@ export class PullRequest extends EventRecorder {
   }
 
   // Raises a conflict only when the pull request starts to conflict, so the same conflict is not raised again on each later push to its base.
-  readMergeability(read: PullRequestMergeability): PullRequest {
+  readMergeability(read: MergeabilityRead): PullRequest {
     if (
       this.props.state !== 'open' ||
+      read.state !== 'open' ||
+      read.mergeable === null ||
       this.props.mergeable === read.mergeable
     ) {
       return this;
