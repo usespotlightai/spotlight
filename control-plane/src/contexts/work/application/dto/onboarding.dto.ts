@@ -3,6 +3,7 @@ export const SETUP_STEP_KEYS = ['github', 'harness', 'configuration'] as const;
 type SetupStepKeyName = (typeof SETUP_STEP_KEYS)[number];
 
 export const SETUP_REFUSAL_NAMES = [
+  'needs-an-admin',
   'code-unreachable',
   'needs-egress',
 ] as const;

@@ -115,7 +115,21 @@ describe('OnboardingHandler', () => {
     ).resolves.toMatchObject({ canSetUp: false });
   });
 
-  it('says what the workspace lacks before a setup chat can start', async () => {
+  it('says what keeps the viewer from starting a setup chat, as SetupAdmission refuses it', async () => {
+    await expect(read({ admin: false })).resolves.toMatchObject({
+      canSetUp: false,
+      setupRefusal: 'needs-an-admin',
+    });
+    await expect(
+      read({
+        admin: false,
+        state: { connectedToGitHub: true },
+        hasEgressCapableRunner: true,
+      }),
+    ).resolves.toMatchObject({
+      canSetUp: true,
+      setupRefusal: 'needs-an-admin',
+    });
     await expect(read()).resolves.toMatchObject({
       setupRefusal: 'code-unreachable',
     });

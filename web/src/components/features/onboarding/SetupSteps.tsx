@@ -28,7 +28,9 @@ import { cn } from '@/lib/utils';
 
 type SetupRefusal = NonNullable<OnboardingResponseDto['setupRefusal']>;
 
-const SETUP_REFUSALS: Readonly<Record<SetupRefusal, string>> = {
+type WaitingRefusal = Exclude<SetupRefusal, 'needs-an-admin'>;
+
+const SETUP_REFUSALS: Readonly<Record<WaitingRefusal, string>> = {
   'code-unreachable': 'Install the GitHub App first.',
   'needs-egress': 'Connect a host first.',
 };
@@ -199,7 +201,13 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    if (!onboarding.viewerIsAdmin) {
+    const refusal = onboarding.setupRefusal;
+
+    if (refusal === null) {
+      return <ConfigFolderForm slug={slug} teamId={teamId} />;
+    }
+
+    if (refusal === 'needs-an-admin') {
       return (
         <p className="text-muted-foreground text-sm leading-6">
           Only a workspace owner or admin can set up configuration as code.
@@ -207,26 +215,20 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    if (onboarding.canSetUp) {
-      return <ConfigFolderForm slug={slug} teamId={teamId} />;
-    }
-
     return (
-      onboarding.setupRefusal && (
-        <div className="flex flex-col items-start gap-2">
-          <Button
-            size="sm"
-            disabled
-            aria-describedby={refusalId}
-            className={SETUP_CONTROL}
-          >
-            Continue in chat
-          </Button>
-          <p id={refusalId} className="text-muted-foreground text-sm leading-6">
-            {SETUP_REFUSALS[onboarding.setupRefusal]}
-          </p>
-        </div>
-      )
+      <div className="flex flex-col items-start gap-2">
+        <Button
+          size="sm"
+          disabled
+          aria-describedby={refusalId}
+          className={SETUP_CONTROL}
+        >
+          Continue in chat
+        </Button>
+        <p id={refusalId} className="text-muted-foreground text-sm leading-6">
+          {SETUP_REFUSALS[refusal]}
+        </p>
+      </div>
     );
   };
 

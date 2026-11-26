@@ -347,13 +347,16 @@ describe('SetupSteps', () => {
   });
 
   it('keeps the setup to workspace owners and admins', () => {
-    onboardingState.data = onboarding({ viewerIsAdmin: false }, [
-      'github',
-      'harness',
-    ]);
+    onboardingState.data = onboarding(
+      { viewerIsAdmin: false, setupRefusal: 'needs-an-admin' },
+      ['github', 'harness'],
+    );
     showing();
 
     expect(screen.queryByText('Choose the config folder')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Continue in chat' }),
+    ).toBeNull();
     expect(
       screen.getByText(
         'Only a workspace owner or admin can set up configuration as code.',
@@ -363,7 +366,11 @@ describe('SetupSteps', () => {
 
   it('shows a member who is setting the team up', () => {
     onboardingState.data = onboarding(
-      { viewerIsAdmin: false, setupChat: chat({ id: null }) },
+      {
+        viewerIsAdmin: false,
+        setupRefusal: 'needs-an-admin',
+        setupChat: chat({ id: null }),
+      },
       ['github', 'harness'],
     );
     showing();

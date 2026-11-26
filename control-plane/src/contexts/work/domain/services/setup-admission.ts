@@ -17,12 +17,7 @@ export type SetupRefusal =
   | 'code-unreachable'
   | 'needs-egress';
 
-// What the workspace lacks before anyone can set up, whoever asks.
-export type WorkspaceSetupRefusal = Exclude<SetupRefusal, 'needs-an-admin'>;
-
-const workspaceRefusalOf = (
-  readiness: SetupReadiness,
-): WorkspaceSetupRefusal | null => {
+const workspaceRefusalOf = (readiness: SetupReadiness): SetupRefusal | null => {
   if (!readiness.codeReachable) {
     return 'code-unreachable';
   }
@@ -39,10 +34,6 @@ export const SetupAdmission = {
 
   readyIn(readiness: SetupReadiness): boolean {
     return workspaceRefusalOf(readiness) === null;
-  },
-
-  refusalIn(readiness: SetupReadiness): WorkspaceSetupRefusal | null {
-    return workspaceRefusalOf(readiness);
   },
 
   admitted(folder: ConfigFolder, facts: SetupFacts): ConfigFolder {

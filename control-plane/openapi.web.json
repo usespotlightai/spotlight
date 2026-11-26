@@ -13457,13 +13457,14 @@
           "setupRefusal": {
             "type": "string",
             "enum": [
+              "needs-an-admin",
               "code-unreachable",
               "needs-egress",
               null
             ],
             "nullable": true,
             "example": "code-unreachable",
-            "description": "What the workspace lacks before a setup chat can start, while canSetUp is false: code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress)"
+            "description": "What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one"
           },
           "viewerIsAdmin": {
             "type": "boolean",

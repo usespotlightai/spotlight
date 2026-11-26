@@ -14,21 +14,6 @@ describe('SetupAdmission', () => {
     ).toBe(false);
   });
 
-  it('says what the workspace lacks, the GitHub App before egress', () => {
-    expect(
-      SetupAdmission.refusalIn({
-        codeReachable: false,
-        egressAvailable: false,
-      }),
-    ).toBe('code-unreachable');
-    expect(
-      SetupAdmission.refusalIn({ codeReachable: true, egressAvailable: false }),
-    ).toBe('needs-egress');
-    expect(
-      SetupAdmission.refusalIn({ codeReachable: true, egressAvailable: true }),
-    ).toBeNull();
-  });
-
   it('refuses a person who is no admin before anything else, with the same rule the query shows', () => {
     expect(
       SetupAdmission.refusalOf({
@@ -37,6 +22,13 @@ describe('SetupAdmission', () => {
         egressAvailable: false,
       }),
     ).toBe('needs-an-admin');
+    expect(
+      SetupAdmission.refusalOf({
+        requesterIsAdmin: true,
+        codeReachable: false,
+        egressAvailable: false,
+      }),
+    ).toBe('code-unreachable');
     expect(
       SetupAdmission.refusalOf({
         requesterIsAdmin: true,

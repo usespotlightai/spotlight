@@ -149,7 +149,7 @@ export class OnboardingResponseDto {
     type: String,
     example: 'code-unreachable',
     description:
-      'What the workspace lacks before a setup chat can start, while canSetUp is false: code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress)',
+      'What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one',
   })
   readonly setupRefusal: SetupRefusalName | null;
 

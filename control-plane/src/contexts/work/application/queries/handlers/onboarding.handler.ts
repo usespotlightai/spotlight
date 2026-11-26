@@ -14,7 +14,7 @@ import type { SetupStatus } from '@work/application/services/setup-status.servic
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import {
   SetupAdmission,
-  type WorkspaceSetupRefusal,
+  type SetupRefusal,
 } from '@work/domain/services/setup-admission';
 import {
   type Provisioning,
@@ -26,7 +26,8 @@ const PROVISIONING_NAME: Record<Provisioning, ProvisioningName> = {
   done: 'done',
 };
 
-const SETUP_REFUSAL_NAME: Record<WorkspaceSetupRefusal, SetupRefusalName> = {
+const SETUP_REFUSAL_NAME: Record<SetupRefusal, SetupRefusalName> = {
+  'needs-an-admin': 'needs-an-admin',
   'code-unreachable': 'code-unreachable',
   'needs-egress': 'needs-egress',
 };
@@ -68,7 +69,10 @@ export class OnboardingHandler implements QueryHandlerPort<
         codeReachable: setup.state.connectedToGitHub,
         egressAvailable: setup.hasEgressCapableRunner,
       };
-      const refusal = SetupAdmission.refusalIn(readiness);
+      const refusal = SetupAdmission.refusalOf({
+        ...readiness,
+        requesterIsAdmin: viewerIsAdmin,
+      });
 
       return {
         provisioning: PROVISIONING_NAME[provisioning],
