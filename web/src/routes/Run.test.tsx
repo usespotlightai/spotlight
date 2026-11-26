@@ -1340,10 +1340,7 @@ describe('Run', () => {
 
       expect(
         screen.getByRole('textbox', { name: 'Answer Implementation' }),
-      ).toHaveAttribute(
-        'aria-placeholder',
-        'Reply to continue the run…',
-      );
+      ).toHaveAttribute('aria-placeholder', 'Reply to continue the run…');
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {
