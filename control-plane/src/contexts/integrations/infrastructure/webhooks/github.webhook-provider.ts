@@ -158,11 +158,14 @@ const reviewRequested = (
   };
 };
 
+type Reported = Extract<PullRequestHappening, { kind: 'activity' }>;
+
 const reported = (
   event: PullRequestActivity,
-  activity: ReportedActivity,
+  happening: Reported,
   correlationKeys: Happened['correlationKeys'],
 ): Happened => {
+  const { activity } = happening;
   const raising = RAISED[activity];
 
   return {
@@ -172,10 +175,8 @@ const reported = (
     state: 'raised',
     correlationKeys,
     message:
-      messageOf(
-        event,
-        activity === 'changes-requested' ? raising.summary : null,
-      ) ?? failedChecksOf(event),
+      messageOf(event, happening.statesVerdict ? raising.summary : null) ??
+      failedChecksOf(event),
     ourOwn: event.ignoredAsBot,
     opens: null,
     closedPullRequest:
@@ -199,7 +200,7 @@ const happenedFrom = (
 
   return reported(
     event,
-    happening.activity,
+    happening,
     happening.to === 'its-review' && pullRequest
       ? {
           branch: null,
