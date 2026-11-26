@@ -15298,6 +15298,28 @@
           "reason"
         ]
       },
+      "SimilarMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "memoryId": {
+            "type": "string",
+            "example": "memory_2"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-2"
+          },
+          "body": {
+            "type": "string",
+            "example": "The sandbox has no make, so npm ci cannot compile better-sqlite3."
+          }
+        },
+        "required": [
+          "memoryId",
+          "handle",
+          "body"
+        ]
+      },
       "MemoryDecisionResponseDto": {
         "type": "object",
         "properties": {
@@ -15500,6 +15522,16 @@
               "type": "string"
             }
           },
+          "similarTo": {
+            "nullable": true,
+            "description": "The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SimilarMemoryResponseDto"
+              }
+            ]
+          },
           "decision": {
             "nullable": true,
             "description": "Who approved or rejected it, and when",
@@ -15544,6 +15576,7 @@
           "retires",
           "editable",
           "inactiveMemories",
+          "similarTo",
           "decision",
           "harness",
           "steps",
@@ -16124,6 +16157,16 @@
               "type": "string"
             }
           },
+          "similarTo": {
+            "nullable": true,
+            "description": "The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SimilarMemoryResponseDto"
+              }
+            ]
+          },
           "decision": {
             "nullable": true,
             "description": "Who approved or rejected it, and when",
@@ -16180,6 +16223,7 @@
           "retires",
           "editable",
           "inactiveMemories",
+          "similarTo",
           "decision",
           "harness",
           "steps",

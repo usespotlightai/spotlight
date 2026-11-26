@@ -110,6 +110,7 @@ const reading = (input: {
   const memories = {
     findAll: async (ids: readonly MemoryId[]) =>
       ids.flatMap((id) => input.stored.filter((each) => each.id.equals(id))),
+    ofTeam: async () => [],
   } as unknown as MemoryRepository;
   const uses = {
     usedBy: async () => input.recalled.map((each) => each.id),

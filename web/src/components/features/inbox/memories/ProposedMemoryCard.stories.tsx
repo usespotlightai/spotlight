@@ -16,6 +16,7 @@ const RETIRING: ProposedMemory = {
   supersedes: null,
   editable: false,
   inactiveMemories: [],
+  similarTo: null,
   retires: {
     memoryId: 'memory_staging',
     handle: 'M-43',

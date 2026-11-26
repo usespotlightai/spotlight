@@ -73,6 +73,18 @@ export function ProposedMemoryFacts({
         </dd>
       </FactRow>
 
+      {memory.similarTo && (
+        <FactRow>
+          <dt className={FACT_LABEL}>Similar to</dt>
+          <dd className={FACT_VALUE}>
+            {memory.similarTo.handle}{' '}
+            <span className="text-muted-foreground">
+              {memory.similarTo.body}
+            </span>
+          </dd>
+        </FactRow>
+      )}
+
       <MemoryScopeRows memory={memory} />
 
       {citesAnything(memory) && (

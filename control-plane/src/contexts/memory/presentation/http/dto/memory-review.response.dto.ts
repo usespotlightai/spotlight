@@ -10,6 +10,7 @@ import {
   type PersonDto,
   type ProposedMemoryDto,
   type RetiringDto,
+  type SimilarMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -128,6 +129,25 @@ export class RetiringResponseDto {
   }
 }
 
+export class SimilarMemoryResponseDto {
+  @ApiProperty({ example: 'memory_2' })
+  readonly memoryId: string;
+
+  @ApiProperty({ example: 'M-2' })
+  readonly handle: string;
+
+  @ApiProperty({
+    example: 'The sandbox has no make, so npm ci cannot compile better-sqlite3.',
+  })
+  readonly body: string;
+
+  constructor(similar: SimilarMemoryDto) {
+    this.memoryId = similar.memoryId;
+    this.handle = similar.handle;
+    this.body = similar.body;
+  }
+}
+
 export class ProposedMemoryResponseDto {
   @ApiProperty({ example: 'memory_1' })
   readonly id: string;
@@ -195,6 +215,14 @@ export class ProposedMemoryResponseDto {
   readonly inactiveMemories: readonly string[];
 
   @ApiProperty({
+    type: SimilarMemoryResponseDto,
+    nullable: true,
+    description:
+      'The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided',
+  })
+  readonly similarTo: SimilarMemoryResponseDto | null;
+
+  @ApiProperty({
     type: MemoryDecisionResponseDto,
     nullable: true,
     description: 'Who approved or rejected it, and when',
@@ -236,6 +264,8 @@ export class ProposedMemoryResponseDto {
     this.retires = memory.retires && new RetiringResponseDto(memory.retires);
     this.editable = memory.editable;
     this.inactiveMemories = memory.inactiveMemories;
+    this.similarTo =
+      memory.similarTo && new SimilarMemoryResponseDto(memory.similarTo);
     this.decision = memory.decision
       ? new MemoryDecisionResponseDto(memory.decision)
       : null;

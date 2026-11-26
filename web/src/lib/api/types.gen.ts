@@ -5826,6 +5826,12 @@ export type RetiringResponseDto = {
   reason: string;
 };
 
+export type SimilarMemoryResponseDto = {
+  memoryId: string;
+  handle: string;
+  body: string;
+};
+
 export type MemoryDecisionResponseDto = {
   by: string;
   name: string | null;
@@ -5897,6 +5903,10 @@ export type ProposedMemoryResponseDto = {
    * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
    */
   inactiveMemories: Array<string>;
+  /**
+   * The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided
+   */
+  similarTo: SimilarMemoryResponseDto | null;
   /**
    * Who approved or rejected it, and when
    */
@@ -6085,6 +6095,10 @@ export type RunProposalResponseDto = {
    * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
    */
   inactiveMemories: Array<string>;
+  /**
+   * The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided
+   */
+  similarTo: SimilarMemoryResponseDto | null;
   /**
    * Who approved or rejected it, and when
    */

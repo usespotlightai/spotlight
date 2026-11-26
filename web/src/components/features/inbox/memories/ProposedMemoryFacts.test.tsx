@@ -18,6 +18,7 @@ const MEMORY: ProposedMemory = {
   retires: null,
   editable: true,
   inactiveMemories: [],
+  similarTo: null,
   decision: null,
   harness: null,
   steps: [],
@@ -29,6 +30,32 @@ afterEach(() => {
 });
 
 describe('ProposedMemoryFacts', () => {
+  it('names the active memory it may repeat', () => {
+    render(
+      <ProposedMemoryFacts
+        memory={{
+          ...MEMORY,
+          similarTo: {
+            memoryId: 'memory_2',
+            handle: 'M-2',
+            body: 'Name each branch after its ticket.',
+          },
+        }}
+        editing={false}
+        pending={false}
+        body={MEMORY.body}
+        bodyId="memory-body"
+        onBody={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Similar to')).toBeVisible();
+    expect(screen.getByText('M-2', { exact: false })).toBeVisible();
+    expect(
+      screen.getByText('Name each branch after its ticket.'),
+    ).toBeVisible();
+  });
+
   it('offers to show the whole memory when it is cut off', () => {
     const measure = watchResizes();
     const { container } = render(

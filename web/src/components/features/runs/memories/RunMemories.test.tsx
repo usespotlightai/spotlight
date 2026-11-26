@@ -65,6 +65,7 @@ const proposal = (over: Partial<RunProposal>): RunProposal => ({
   retires: null,
   editable: true,
   inactiveMemories: [],
+  similarTo: null,
   decision: null,
   harness: null,
   steps: [],

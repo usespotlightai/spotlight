@@ -39,6 +39,12 @@ export interface RetiringDto {
   readonly reason: string;
 }
 
+export interface SimilarMemoryDto {
+  readonly memoryId: string;
+  readonly handle: string;
+  readonly body: string;
+}
+
 export interface ProposedMemoryDto {
   readonly id: string;
   readonly kind: string;
@@ -52,6 +58,7 @@ export interface ProposedMemoryDto {
   readonly retires: RetiringDto | null;
   readonly editable: boolean;
   readonly inactiveMemories: readonly string[];
+  readonly similarTo: SimilarMemoryDto | null;
   readonly decision: MemoryDecisionDto | null;
   readonly harness: string | null;
   readonly steps: readonly MemoryProvenanceStepDto[];

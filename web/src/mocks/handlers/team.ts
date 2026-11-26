@@ -329,6 +329,7 @@ const memoryHandlers = [
       retires: null,
       editable: true,
       inactiveMemories: [],
+      similarTo: null,
       decision: null,
       harness: run.harness,
       steps: [

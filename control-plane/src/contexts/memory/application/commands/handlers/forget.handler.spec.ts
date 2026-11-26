@@ -120,6 +120,7 @@ const forgetting = (
       { find: async () => null } as never,
       {
         findAll: async () => (known ? [known] : []),
+        ofTeam: async () => (known ? [known] : []),
       } as unknown as MemoryRepository,
     ),
   );

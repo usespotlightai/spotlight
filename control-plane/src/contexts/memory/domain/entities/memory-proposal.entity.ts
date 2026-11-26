@@ -23,6 +23,8 @@ export type MemoryProposalState = (typeof MEMORY_PROPOSAL_STATES)[number];
 
 const MAX_REASON = 500;
 
+const SIMILAR = 0.7;
+
 const reasonOf = (raw: string): string => {
   const reason = raw.trim();
 
@@ -177,6 +179,32 @@ export class MemoryProposal {
     return this.retires
       ? inactiveOf([this.retires.memory], current, this.scope.teamId)
       : [];
+  }
+
+  similarIn(memories: readonly Memory[]): Memory | null {
+    if (!this.proposed || this.retires) {
+      return null;
+    }
+
+    let found: Memory | null = null;
+    let best = SIMILAR;
+
+    for (const memory of memories) {
+      const likeness = memory.body.similarity(this.body);
+
+      if (
+        likeness >= best &&
+        memory.isActive &&
+        !memory.id.equals(this.id) &&
+        !(this.supersedes && memory.id.equals(this.supersedes)) &&
+        memory.scope.overlaps(this.scope)
+      ) {
+        found = memory;
+        best = likeness;
+      }
+    }
+
+    return found;
   }
 
   get fromOutside(): boolean {
