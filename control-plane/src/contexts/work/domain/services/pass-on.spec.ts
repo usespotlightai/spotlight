@@ -54,10 +54,12 @@ const LINE = lineMapOf({
 
 const AT_TRIAGE = StationId.of('station_1');
 
+const QUESTION = { approval: null, connectionAsk: null };
+
 const waiting = (over: Partial<PassedOnTask> = {}): PassedOnTask => ({
   stationId: AT_TRIAGE,
   onHold: false,
-  awaiting: { ask: null },
+  awaiting: { ask: QUESTION },
   ...over,
 });
 
@@ -71,6 +73,10 @@ describe('PassOn', () => {
 
   it('offers nothing while the task does not wait on a person', () => {
     expect(targetsOf(waiting({ awaiting: null }))).toEqual([]);
+  });
+
+  it('offers nothing where nothing was asked', () => {
+    expect(targetsOf(waiting({ awaiting: { ask: null } }))).toEqual([]);
   });
 
   it('offers nothing while a person holds the task', () => {

@@ -203,9 +203,18 @@ const passesOnToOf = async (summary: TaskSummary) =>
     ).execute(new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE))
   )?.items[0]?.passesOnTo;
 
+const askingAQuestion: TaskSummary = {
+  ...summaries[0],
+  awaitingReview: {
+    conversationId: 'task_1:3',
+    ask: { approval: null, connectionAsk: null },
+  },
+};
+
 describe('ListTasksHandler', () => {
   it('offers to move a task that waits on a question on to where its station passes work', async () => {
-    await expect(passesOnToOf(asking(ALICE))).resolves.toEqual(['station_2']);
+    await expect(passesOnToOf(askingAQuestion)).resolves.toEqual(['station_2']);
+    await expect(passesOnToOf(asking(ALICE, 'user_2'))).resolves.toEqual([]);
     await expect(passesOnToOf(summaries[0])).resolves.toEqual([]);
   });
 

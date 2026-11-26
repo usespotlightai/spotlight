@@ -127,6 +127,10 @@ export const ConversationAudience = {
     return (ask?.approval ?? null) === null;
   },
 
+  asksAQuestion(ask: OpenAsk | null): boolean {
+    return ask !== null && !ask.approval && !ask.connectionAsk;
+  },
+
   answers(standing: ConversationStanding | null): boolean {
     return (
       standing === 'assignee' || standing === 'asked' || standing === 'team'

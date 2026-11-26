@@ -734,9 +734,7 @@ export class Task extends EventRecorder {
   }
 
   private get waitsOnAQuestion(): boolean {
-    const asked = this.pendingAsk;
-
-    return asked !== null && !asked.approval && !asked.connectionAsk;
+    return ConversationAudience.asksAQuestion(this.pendingAsk);
   }
 
   deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {
