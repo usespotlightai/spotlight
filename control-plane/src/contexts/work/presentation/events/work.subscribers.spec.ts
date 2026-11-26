@@ -1,3 +1,4 @@
+import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -82,5 +83,36 @@ describe('workSubscribers', () => {
     expect(taking?.kinds).toEqual(['runs.run-suspended.v1']);
     expect(taking?.callsOut).toBe(true);
     expect(turns.take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
+  });
+
+  it('tells the setup chats of the workspace that a pull request closed', async () => {
+    const setupPullRequests = { closed: vi.fn(async () => {}) };
+    const resolving = workSubscribers({
+      setupPullRequests,
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.resolve-merged-setup-chat',
+    );
+
+    await resolving?.handle(
+      {
+        kind: PULL_REQUEST_CLOSED,
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/infra/pull/12',
+        repository: 'acme/infra',
+        gitHubId: 12,
+        closedAt: '2026-11-07T10:00:00.000Z',
+        merged: true,
+        mergeCommit: 'abc123',
+      } as never,
+      anOutboxRecord(),
+    );
+
+    expect(resolving?.kinds).toEqual([PULL_REQUEST_CLOSED]);
+    expect(setupPullRequests.closed).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      PullRequestUrl.of('https://github.com/acme/infra/pull/12'),
+      new Date('2026-11-07T10:00:00.000Z'),
+      true,
+    );
   });
 });

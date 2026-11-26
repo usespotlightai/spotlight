@@ -29,6 +29,7 @@ import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
 import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import { SetupPullRequestMerged } from '@work/domain/events/setup-pull-request-merged.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
@@ -269,6 +270,7 @@ export const WORK_PAYLOAD_TYPES = [
   ChatStarted,
   ProposalAccepted,
   SetupPullRequestOpened,
+  SetupPullRequestMerged,
   ProposalDismissed,
   ProposalRestored,
   ProposalsReplaced,

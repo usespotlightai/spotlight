@@ -252,6 +252,7 @@ import { RetargetStackedTasks } from '@work/application/events/handlers/retarget
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
+import { TrackSetupPullRequests } from '@work/application/events/handlers/track-setup-pull-requests.handler';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
@@ -2042,6 +2043,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             lines,
             placements,
             taskDispatch,
+            transaction,
+            clock,
+          ),
+          setupPullRequests: new TrackSetupPullRequests(
+            chats,
             transaction,
             clock,
           ),
