@@ -4,11 +4,16 @@ import type { NoticeWords } from '@replays/application/rendering/reflection-noti
 import {
   type PickedResult,
   type RequestedResult,
+  type SearchSummary,
   SearchResultWording,
+  type SkippedChecks,
+  type SpentShare,
+  type TaskScore,
 } from '@replays/application/rendering/search-result-notice';
 import type { SearchFindings } from '@replays/application/services/search-findings.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
 import type { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
@@ -20,15 +25,96 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
-import { scoresOf } from '@replays/domain/services/search-scores';
+import { totalsOf } from '@replays/domain/services/replay-results';
+import {
+  type SearchScores,
+  scoresOf,
+} from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
+import {
+  type CheckSkip,
+  checkSkipOf,
+  NOT_GENERATED,
+} from '@replays/domain/value-objects/check-skip';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
+import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
+import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { isLastingSkip } from '@replays/domain/value-objects/search-skip-reason';
 import { isCutShort } from '@replays/domain/value-objects/search-stop-reason';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const RESULT = 'result';
+
+const CHECKED: ReadonlySet<ChecksState> = new Set(['passed', 'failed']);
+
+const uncheckedAs = (reasons: readonly EntryReason[]): CheckSkip | null => {
+  for (const reason of reasons) {
+    if (reason.code === 'change-not-generated') {
+      return NOT_GENERATED;
+    }
+    if (reason.code === 'check-skipped') {
+      return checkSkipOf(reason.detail);
+    }
+  }
+
+  return null;
+};
+
+const checksIn = (
+  outcomes: readonly ReplayOutcome[],
+): SearchSummary['checks'] => {
+  const skipped = new Map<CheckSkip, number>();
+  let ran = 0;
+
+  for (const entry of outcomes.flatMap((each) => each.entries)) {
+    const skip = uncheckedAs(entry.reasons);
+
+    if (skip) {
+      skipped.set(skip, (skipped.get(skip) ?? 0) + 1);
+    } else if (entry.checks && CHECKED.has(entry.checks.state)) {
+      ran += 1;
+    }
+  }
+
+  return {
+    ran,
+    skipped: [...skipped]
+      .map(([skip, runs]): SkippedChecks => ({ skip, runs }))
+      .sort((one, other) => other.runs - one.runs),
+  };
+};
+
+const replayIn = (replays: readonly Replay[], id: ReplayId): Replay | null =>
+  replays.find((each) => each.id.equals(id)) ?? null;
+
+const searchedScoreOf = (
+  search: Search,
+  replay: Replay | null,
+): TaskScore | null => {
+  if (!replay) {
+    return null;
+  }
+
+  const totals = totalsOf(replay.outcome(), search.split.searchedRuns);
+
+  return {
+    successRate: totals.successRate,
+    tasks: search.split.searchedRuns.length,
+    tasksScored: totals.tasksScored,
+  };
+};
+
+const spentShareOf = (replay: Replay | null): SpentShare | null =>
+  replay && { spent: replay.charged.amount, share: replay.ceiling.amount };
+
+interface Scored {
+  readonly search: Search;
+  readonly replays: readonly Replay[];
+  readonly scores: SearchScores;
+}
 
 export class NoticeSearchResults {
   constructor(
@@ -65,8 +151,11 @@ export class NoticeSearchResults {
   }
 
   async requestersOfDecline(event: SearchPickDeclined): Promise<void> {
-    await this.toRequesters(event.searchId, null, (stationName, lines) =>
-      SearchResultWording.declined(stationName, event.reason, lines),
+    await this.toRequesters(
+      event.searchId,
+      null,
+      (stationName, lines, summary) =>
+        SearchResultWording.declined(stationName, event.reason, lines, summary),
     );
   }
 
@@ -83,8 +172,13 @@ export class NoticeSearchResults {
     await this.toRequesters(
       event.searchId,
       event.candidateId,
-      (stationName, lines) =>
-        SearchResultWording.pickedOther(stationName, picked.name.value, lines),
+      (stationName, lines, summary) =>
+        SearchResultWording.pickedOther(
+          stationName,
+          picked.name.value,
+          lines,
+          summary,
+        ),
     );
   }
 
@@ -95,8 +189,11 @@ export class NoticeSearchResults {
       return;
     }
 
-    await this.toRequesters(event.searchId, null, (stationName, lines) =>
-      SearchResultWording.stopped(stationName, stopReason, lines),
+    await this.toRequesters(
+      event.searchId,
+      null,
+      (stationName, lines, summary) =>
+        SearchResultWording.stopped(stationName, stopReason, lines, summary),
     );
   }
 
@@ -187,6 +284,7 @@ export class NoticeSearchResults {
     words: (
       stationName: string | null,
       lines: readonly RequestedResult[],
+      summary: SearchSummary,
     ) => NoticeWords,
   ): Promise<void> {
     const search = await this.searches.find(searchId);
@@ -210,7 +308,9 @@ export class NoticeSearchResults {
     }
 
     const stationName = await this.stationNameOf(search);
-    const results = await this.requestedResultsOf(search);
+    const scored = await this.scored(search);
+    const summary = this.summaryOf(scored);
+    const results = this.requestedResultsOf(scored);
 
     for (const requester of requesters) {
       await this.notified(
@@ -220,6 +320,7 @@ export class NoticeSearchResults {
           results
             .filter((each) => each.requestedBy.equals(requester))
             .map((each) => each.result),
+          summary,
         ),
         null,
         requester,
@@ -227,18 +328,46 @@ export class NoticeSearchResults {
     }
   }
 
-  private async requestedResultsOf(search: Search): Promise<
-    readonly {
-      readonly requestedBy: UserId;
-      readonly result: RequestedResult;
-    }[]
-  > {
-    const replays = (await this.replays.ofSearch(search.id)).map((each) =>
-      each.outcome(),
-    );
+  private async scored(search: Search): Promise<Scored> {
+    const replays = await this.replays.ofSearch(search.id);
     const live = await this.healths.standardAt(search.station);
-    const scores = scoresOf(search, replays, live.minGain);
 
+    return {
+      search,
+      replays,
+      scores: scoresOf(
+        search,
+        replays.map((each) => each.outcome()),
+        live.minGain,
+      ),
+    };
+  }
+
+  private summaryOf({ search, replays, scores }: Scored): SearchSummary {
+    const seed = replayIn(replays, search.seed.replay.replayId);
+
+    return {
+      currency: search.budget.ceiling.currency,
+      ceiling: search.budget.ceiling.amount,
+      spent: search.spent.amount,
+      stopReason: search.stopReason,
+      candidateFinished: scores.candidates.some((each) => each.finished),
+      live: {
+        replayed: search.seed.replay.end,
+        calibrates: search.calibrates,
+        tasks: search.split.runs,
+        repeats: seed?.repeats ?? search.budget.seedRepeats,
+        searched: searchedScoreOf(search, seed),
+        spent: spentShareOf(seed),
+      },
+      checks: checksIn(replays.map((each) => each.outcome())),
+    };
+  }
+
+  private requestedResultsOf({ search, replays, scores }: Scored): readonly {
+    readonly requestedBy: UserId;
+    readonly result: RequestedResult;
+  }[] {
     return search.requested.map((each) => {
       const scored = scores.candidates.find((one) =>
         one.candidateId.equals(each.candidateId),
@@ -246,6 +375,9 @@ export class NoticeSearchResults {
       const proposal = search.proposals.find((one) =>
         one.candidateId.equals(each.candidateId),
       );
+      const replay = proposal
+        ? replayIn(replays, proposal.replay.replayId)
+        : null;
 
       return {
         requestedBy: each.requestedBy,
@@ -255,6 +387,8 @@ export class NoticeSearchResults {
           replayed: proposal ? (proposal.replay.end ?? 'unfinished') : null,
           heldOutGain: scored?.heldOutGain?.gain ?? null,
           searchedGain: scored?.searchedGain?.gain ?? null,
+          searched: searchedScoreOf(search, replay),
+          spent: spentShareOf(replay),
           costPerRun: scored?.costPerRun ?? null,
           liveCostPerRun: scores.seed.costPerRun,
           currency: search.budget.ceiling.currency,

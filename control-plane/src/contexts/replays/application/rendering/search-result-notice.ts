@@ -1,10 +1,15 @@
 import type { NoticeWords } from '@replays/application/rendering/reflection-notice';
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
+import { CHECK_SKIPS } from '@replays/application/rendering/task-rows';
+import type { CheckSkip } from '@replays/domain/value-objects/check-skip';
 import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { SearchPickDecline } from '@replays/domain/value-objects/search-pick';
 import type { LastingSkipReason } from '@replays/domain/value-objects/search-skip-reason';
-import type { SearchCutShort } from '@replays/domain/value-objects/search-stop-reason';
+import type {
+  SearchCutShort,
+  SearchStopReason,
+} from '@replays/domain/value-objects/search-stop-reason';
 
 const percent = (value: number): number => Math.round(value * 100);
 
@@ -69,16 +74,84 @@ const STOPS: Readonly<Record<SearchCutShort, string>> = {
   'seed-failed': 'The replay of the live config failed.',
 };
 
+export interface TaskScore {
+  readonly successRate: number | null;
+  readonly tasks: number;
+  readonly tasksScored: number;
+}
+
+export interface SpentShare {
+  readonly spent: number;
+  readonly share: number;
+}
+
 export interface RequestedResult {
   readonly objective: SearchObjective;
   readonly candidateName: string;
   readonly replayed: ReplayEndState | 'unfinished' | null;
   readonly heldOutGain: number | null;
   readonly searchedGain: number | null;
+  readonly searched: TaskScore | null;
+  readonly spent: SpentShare | null;
   readonly costPerRun: number | null;
   readonly liveCostPerRun: number | null;
   readonly currency: string;
 }
+
+export interface SkippedChecks {
+  readonly skip: CheckSkip;
+  readonly runs: number;
+}
+
+export interface SearchSummary {
+  readonly currency: string;
+  readonly ceiling: number;
+  readonly spent: number;
+  readonly stopReason: SearchStopReason | null;
+  readonly candidateFinished: boolean;
+  readonly live: {
+    readonly replayed: ReplayEndState | null;
+    readonly calibrates: boolean;
+    readonly tasks: number;
+    readonly repeats: number;
+    readonly searched: TaskScore | null;
+    readonly spent: SpentShare | null;
+  };
+  readonly checks: {
+    readonly ran: number;
+    readonly skipped: readonly SkippedChecks[];
+  };
+}
+
+const counted = (count: number, one: string, many: string): string =>
+  `${count} ${count === 1 ? one : many}`;
+
+const successOn = (score: TaskScore): string => {
+  const tasks = counted(score.tasks, 'searched task', 'searched tasks');
+
+  if (score.successRate === null || score.tasksScored === 0) {
+    return `none of the ${tasks} scored`;
+  }
+
+  const rate = `${percent(score.successRate)}% success`;
+
+  return score.tasksScored < score.tasks
+    ? `${rate} on ${score.tasksScored} of ${tasks}`
+    : `${rate} on ${tasks}`;
+};
+
+const moneyOf = (amount: number, currency: string): string =>
+  `${amount.toFixed(2)} ${currency}`;
+
+const ENDED_FIRST: Readonly<Partial<Record<SearchStopReason, string>>> = {
+  'ceiling-reached': 'the search reached its ceiling first',
+  'iterations-spent': 'the search used all its iterations first',
+  stalled: 'the search stalled first',
+};
+
+const endedFirst = (summary: SearchSummary): string =>
+  (summary.stopReason && ENDED_FIRST[summary.stopReason]) ??
+  'the search ended first';
 
 const heldOutResultOf = (result: RequestedResult, gain: number): string =>
   result.objective === 'cost' &&
@@ -87,25 +160,133 @@ const heldOutResultOf = (result: RequestedResult, gain: number): string =>
     ? `Candidate ${result.candidateName}, cost per run: ${result.costPerRun.toFixed(2)} ${result.currency}, compared with ${result.liveCostPerRun.toFixed(2)} ${result.currency} for the live config`
     : `Candidate ${result.candidateName}, held-out gain: ${pointsOf(gain)}`;
 
-const requestedResultOf = (result: RequestedResult): string => {
-  const name = result.candidateName;
+const soFar = (score: TaskScore | null): string =>
+  score && score.tasksScored > 0 ? ` So far: ${successOn(score)}.` : '';
 
-  switch (result.replayed) {
-    case null:
-      return `Spotlight did not replay ${name}: the search ended first.`;
-    case 'unfinished':
-      return `Spotlight did not finish the replay of ${name}: the search ended first.`;
-    case 'ceiling-reached':
-      return `The replay of ${name} stopped at the search ceiling.`;
-    case 'stopped':
-    case 'deleted':
-      return `The replay of ${name} failed.`;
-    case 'finished':
-      return result.heldOutGain !== null
-        ? heldOutResultOf(result, result.heldOutGain)
-        : `Candidate ${name} did not beat the live config on the searched tasks. Searched gain: ${result.searchedGain === null ? 'not measured' : pointsOf(result.searchedGain)}`;
+const shareOf = (result: RequestedResult): string =>
+  result.spent
+    ? ` It spent ${moneyOf(result.spent.spent, result.currency)}, and its share of the ceiling was ${moneyOf(result.spent.share, result.currency)}.`
+    : '';
+
+const notBetter = (name: string, score: TaskScore | null): string =>
+  score
+    ? `Candidate ${name}: ${successOn(score)}. It did not beat the live config there.`
+    : `Candidate ${name} did not beat the live config on the searched tasks.`;
+
+const requestedResultOf =
+  (summary: SearchSummary) =>
+  (result: RequestedResult): string => {
+    const name = result.candidateName;
+
+    switch (result.replayed) {
+      case null:
+        return `Spotlight did not replay ${name}: ${endedFirst(summary)}.`;
+      case 'unfinished':
+        return `Spotlight did not finish the replay of ${name}: ${endedFirst(summary)}.${soFar(result.searched)}`;
+      case 'ceiling-reached':
+        return `The replay of ${name} stopped at the search ceiling${result.searched ? `: ${successOn(result.searched)}` : ''}.${shareOf(result)}`;
+      case 'stopped':
+      case 'deleted':
+        return `The replay of ${name} failed.`;
+      case 'finished':
+        return result.heldOutGain !== null
+          ? heldOutResultOf(result, result.heldOutGain)
+          : `${notBetter(name, result.searched)} Searched gain: ${result.searchedGain === null ? 'not measured' : pointsOf(result.searchedGain)}`;
+    }
+  };
+
+const declineOf = (reason: SearchPickDecline, summary: SearchSummary): string =>
+  reason === 'no-candidate' && !summary.candidateFinished
+    ? 'No candidate finished its replay of the searched tasks.'
+    : DECLINES[reason];
+
+const liveOf = (summary: SearchSummary): readonly string[] =>
+  summary.live.searched
+    ? [`Live config: ${successOn(summary.live.searched)}.`]
+    : [];
+
+const skipsOf = (skipped: readonly SkippedChecks[]): string =>
+  skipped.length === 1
+    ? CHECK_SKIPS[skipped[0].skip]
+    : skipped
+        .map((each) => `${CHECK_SKIPS[each.skip]} in ${each.runs}`)
+        .join(', ');
+
+const checksOf = (summary: SearchSummary): readonly string[] => {
+  const { ran, skipped } = summary.checks;
+  const unchecked = skipped.reduce((sum, each) => sum + each.runs, 0);
+
+  if (unchecked > 0) {
+    return [
+      `Checks did not run in ${unchecked} of ${counted(ran + unchecked, 'replayed run', 'replayed runs')}: ${skipsOf(skipped)}. A run without checks counts only when the judge fails it.`,
+    ];
   }
+
+  return ran > 0
+    ? [`Checks ran in ${counted(ran, 'replayed run', 'replayed runs')}.`]
+    : [];
 };
+
+const liveReplayOf = (summary: SearchSummary): string => {
+  const { live } = summary;
+  const tasks = counted(live.tasks, 'task', 'tasks');
+  const replayed =
+    live.repeats > 1 ? `${tasks} ${live.repeats} times each` : tasks;
+  const stopped = live.replayed === 'ceiling-reached';
+
+  if (live.calibrates) {
+    return `Calibration of the live config replayed ${replayed}${stopped ? ' and stopped at the search ceiling' : ''}.`;
+  }
+
+  return stopped
+    ? 'The replay of the live config stopped at the search ceiling.'
+    : `The live config replayed ${replayed}.`;
+};
+
+const liveSpentOf = (summary: SearchSummary): string => {
+  const { live, currency } = summary;
+  const spent = live.spent
+    ? ` It spent ${moneyOf(live.spent.spent, currency)}, and its share of the ${moneyOf(summary.ceiling, currency)} search ceiling was ${moneyOf(live.spent.share, currency)}.`
+    : '';
+
+  return `${liveReplayOf(summary)}${spent}`;
+};
+
+const ceilingOf = (
+  summary: SearchSummary,
+  results: readonly RequestedResult[],
+): readonly string[] => {
+  const liveStopped = summary.live.replayed === 'ceiling-reached';
+  const searchStopped =
+    !liveStopped && summary.stopReason === 'ceiling-reached';
+
+  if (
+    !liveStopped &&
+    !searchStopped &&
+    !results.some((each) => each.replayed === 'ceiling-reached')
+  ) {
+    return [];
+  }
+
+  return [
+    liveSpentOf(summary),
+    ...(searchStopped
+      ? [
+          `The search spent ${moneyOf(summary.spent, summary.currency)} of its ${moneyOf(summary.ceiling, summary.currency)} ceiling, and another iteration did not fit.`,
+        ]
+      : []),
+  ];
+};
+
+const resultsOf = (
+  summary: SearchSummary,
+  results: readonly RequestedResult[],
+): readonly string[] => [
+  ...liveOf(summary),
+  ...results.map(requestedResultOf(summary)),
+  ...checksOf(summary),
+  ...ceilingOf(summary, results),
+];
 
 export const SearchResultWording = {
   opened(picked: PickedResult): NoticeWords {
@@ -126,10 +307,11 @@ export const SearchResultWording = {
     stationName: string | null,
     reason: SearchPickDecline,
     results: readonly RequestedResult[],
+    summary: SearchSummary,
   ): NoticeWords {
     return {
       headline: `Spotlight did not open a config pull request for ${stationOf(stationName)}`,
-      points: [DECLINES[reason], ...results.map(requestedResultOf)],
+      points: [declineOf(reason, summary), ...resultsOf(summary, results)],
     };
   },
 
@@ -137,12 +319,13 @@ export const SearchResultWording = {
     stationName: string | null,
     pickedName: string,
     results: readonly RequestedResult[],
+    summary: SearchSummary,
   ): NoticeWords {
     return {
       headline: `Spotlight opened a config pull request for another candidate of ${stationOf(stationName)}`,
       points: [
         `Candidate ${pickedName} became the config pull request.`,
-        ...results.map(requestedResultOf),
+        ...resultsOf(summary, results),
       ],
     };
   },
@@ -151,10 +334,11 @@ export const SearchResultWording = {
     stationName: string | null,
     reason: SearchCutShort,
     results: readonly RequestedResult[],
+    summary: SearchSummary,
   ): NoticeWords {
     return {
       headline: `The search of ${stationOf(stationName)} stopped before a result`,
-      points: [STOPS[reason], ...results.map(requestedResultOf)],
+      points: [STOPS[reason], ...resultsOf(summary, results)],
     };
   },
 
