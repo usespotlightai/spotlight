@@ -61,7 +61,11 @@ const checkoutsAt = (
   candidate: LineMap,
 ): TaskCheckout[] => {
   const repositories = repositoriesReviewedOrAll(briefed.reviewing, candidate);
-  const block = trialRepositoriesBlockOf(original.checkouts, repositories);
+  const block = trialRepositoriesBlockOf({
+    checkouts: original.checkouts,
+    reviewing: briefed.reviewing,
+    line: candidate,
+  });
 
   if (block) {
     untrialable(original, block.reason, block.description);

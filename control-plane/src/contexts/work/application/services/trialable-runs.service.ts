@@ -18,27 +18,26 @@ import type {
   TrialableRunSummary,
   TrialableRunsPort,
 } from '@work/application/ports/trialable-runs.port';
-import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import {
-  type TrialBlock,
-  trialBlockOf,
-  trialRepositoriesBlockOf,
+  type TrialRepositories,
+  trialBlockOnLineOf,
 } from '@work/domain/services/trialability';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
-const repositoriesBlockOf = (
-  run: RunFacts,
-  ran: TaskRunFacts,
+const onLineOf = (
+  run: RunFacts | null,
+  ran: TaskRunFacts | null,
   line: LineMap | null,
-): TrialBlock | null =>
-  line && run.startedFrom
-    ? trialRepositoriesBlockOf(
-        TrialabilityMapper.checkoutsIn(line, run.startedFrom.checkouts),
-        repositoriesReviewedOrAll(
-          ran.reviewing ? Repository.of(ran.reviewing) : null,
+): TrialRepositories | null =>
+  line && ran && run?.startedFrom
+    ? {
+        checkouts: TrialabilityMapper.checkoutsIn(
           line,
+          run.startedFrom.checkouts,
         ),
-      )
+        reviewing: ran.reviewing ? Repository.of(ran.reviewing) : null,
+        line,
+      }
     : null;
 
 const summaryOf = (
@@ -49,7 +48,7 @@ const summaryOf = (
   line: LineMap | null,
 ): TrialableRunSummary => {
   const inWorkspace = run?.workspaceId.value === workspaceId;
-  const blocked = trialBlockOf(
+  const block = trialBlockOnLineOf(
     run && {
       inWorkspace,
       taskId: ran ? TaskId.of(ran.taskId) : null,
@@ -60,9 +59,8 @@ const summaryOf = (
       briefed: ran?.briefed ?? false,
       taskExists: ran?.taskExists ?? false,
     },
+    onLineOf(run, ran, line),
   );
-  const block =
-    blocked ?? (run && ran ? repositoriesBlockOf(run, ran, line) : null);
   const placed = inWorkspace ? run : null;
   const placedRun = placed ? ran : null;
 
