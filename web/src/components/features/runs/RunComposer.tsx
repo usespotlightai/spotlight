@@ -69,9 +69,14 @@ export function RunComposer({
   const send = useSendMessage();
   const sendToTask = useSendTaskMessage();
   const stop = useStopRun();
-  const { line, station: currentStation } = useTaskStation(teamId, taskId);
+  const {
+    line,
+    station: currentStation,
+    task,
+  } = useTaskStation(teamId, taskId);
   const answering = yourMessage === 'answer';
-  const mode = MODES[yourMessage] ?? 'message';
+  const mode =
+    answering && task?.hold ? 'driving' : (MODES[yourMessage] ?? 'message');
   const shared = useSharedDraft(taskId);
 
   return (

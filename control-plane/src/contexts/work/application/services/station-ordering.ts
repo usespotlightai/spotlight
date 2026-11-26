@@ -62,10 +62,16 @@ const laidOut = (
   checkouts: RunCheckoutsMapper.toRun(order.checkouts),
   command: RunSpecPartsMapper.traced(prepared.command, laid.naming),
   briefing: laid.briefing,
-  handover: {
-    options: laid.drivenByAPerson ? [] : order.options.map((each) => each.word),
-    noteLimit: order.noteLimit,
-  },
+  handover: laid.drivenByAPerson
+    ? {
+        options: [],
+        resumeOptions: order.resumeOptions.map((each) => each.word),
+        noteLimit: order.noteLimit,
+      }
+    : {
+        options: order.options.map((each) => each.word),
+        noteLimit: order.noteLimit,
+      },
   resume: RunSpecPartsMapper.resume(order.resume),
   skills: skillFilesOf(folders, home),
   skillHomes: laid.skillHomes,

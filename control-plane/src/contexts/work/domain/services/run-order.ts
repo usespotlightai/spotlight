@@ -35,6 +35,7 @@ export interface RunOrder {
   readonly priority: RunPriority;
   readonly placement: RunnerPlacement;
   readonly options: readonly HandoverOption[];
+  readonly resumeOptions: readonly HandoverOption[];
   readonly noteLimit: number;
   readonly resume: Resume;
   readonly checkouts: readonly TaskCheckout[];
@@ -145,6 +146,7 @@ export const orderAt = ({
     priority: RunPriority.forTask(line.depthOf(station.id)),
     placement: line.placementOf(station.id),
     options: line.optionsFrom(station.id),
+    resumeOptions: line.resumeOptionsAt(station.id),
     noteLimit: 0,
     resume: at.resume,
     checkouts: at.checkouts,
