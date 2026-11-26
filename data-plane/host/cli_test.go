@@ -302,6 +302,31 @@ func TestSetsTheMemoryOfEachSandboxAndRefusesASizeItCannotRead(t *testing.T) {
 	}
 }
 
+func TestInitTakesThePoolTokenFromTheEnvironmentWhenNoFlagGivesACredential(t *testing.T) {
+	env := func(string) string { return " spl_from_env\n" }
+	for _, each := range []struct {
+		name  string
+		f     initFlags
+		token string
+	}{
+		{"no flag", initFlags{given: map[string]bool{"url": true}}, "spl_from_env"},
+		{"--token", initFlags{token: "spl_from_flag", given: map[string]bool{"token": true}}, "spl_from_flag"},
+		{"--token-stdin", initFlags{tokenStdin: true, given: map[string]bool{}}, ""},
+		{"--trust", initFlags{trust: "trust_1", given: map[string]bool{"trust": true}}, ""},
+	} {
+		each.f.tokenFromEnv(env)
+		if each.f.token != each.token || each.f.given["token"] != (each.token != "") {
+			t.Errorf("%s: token %q, given %v", each.name, each.f.token, each.f.given["token"])
+		}
+	}
+
+	f := initFlags{given: map[string]bool{}}
+	f.tokenFromEnv(func(string) string { return "" })
+	if f.given["token"] {
+		t.Error("an empty SPOTLIGHT_POOL_TOKEN gives a token")
+	}
+}
+
 func TestInitNeedsATokenWithoutATerminal(t *testing.T) {
 	file, _ := config.Open(settled(t, ""))
 	err := settle(file, initFlags{given: map[string]bool{}}, nil, "dev", 0)
