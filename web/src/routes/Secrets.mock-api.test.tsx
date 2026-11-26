@@ -32,6 +32,9 @@ const rowOf = async (name: string) => {
   return within(row);
 };
 
+const UNUSED =
+  'No harness profile or integration uses this secret, so no run receives it.';
+
 describe('Secrets on the mock API', () => {
   const server = serveMockApi();
   quietBrowser();
@@ -94,6 +97,25 @@ describe('Secrets on the mock API', () => {
       (await rowOf('LINEAR_API_KEY')).queryByText('No runner pool has egress', {
         exact: false,
       }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says no run receives a secret that no harness profile or integration uses', async () => {
+    server.use(
+      api.get('/workspaces/:slug/secrets', () =>
+        json(
+          settingsWorld().secrets.map((secret) => ({
+            ...secret,
+            reachesRuns: secret.name !== 'LINEAR_API_KEY',
+          })),
+        ),
+      ),
+    );
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    expect((await rowOf('LINEAR_API_KEY')).getByText(UNUSED)).toBeVisible();
+    expect(
+      (await rowOf('STAGING_VIEWER_TOKEN')).queryByText(UNUSED),
     ).not.toBeInTheDocument();
   });
 

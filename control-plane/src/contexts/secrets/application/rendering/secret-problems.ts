@@ -24,6 +24,16 @@ export const SecretProblems = {
     });
   },
 
+  unused(): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: SECRET,
+      at: FieldPath.of(['bindings']),
+      reason:
+        'no harness profile or integration uses this secret, so no run receives it. Name it in a harness profile or an integration',
+      severity: 'warning',
+    });
+  },
+
   immutableField(error: ImmutableFieldError): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: SECRET,

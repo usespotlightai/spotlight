@@ -1,6 +1,7 @@
 import type { SecretRecord } from '@secrets/application/ports/secret-resources.port';
 import { ReadSecretHandler } from '@secrets/application/queries/handlers/read-secret.handler';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
+import { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import {
   ADMIN,
   accessFor,
@@ -28,7 +29,13 @@ const HTTPBIN: SecretRecord = {
   rotatedAt: NOW,
 };
 
-const warningsWhen = async (egressRunners: boolean) => {
+const warningsWhen = async ({
+  egressRunners = true,
+  used = true,
+}: {
+  egressRunners?: boolean;
+  used?: boolean;
+}) => {
   const read = await new ReadSecretHandler(
     accessFor(() => true),
     {
@@ -38,6 +45,16 @@ const warningsWhen = async (egressRunners: boolean) => {
       secretsIn: async () => [],
     },
     { register: () => undefined, anyIn: async () => egressRunners },
+    new SecretRunReach(
+      {
+        register: () => undefined,
+        of: async () =>
+          used
+            ? [{ kind: 'harness-profile', key: 'core/default', exposes: false }]
+            : [],
+      },
+      { register: () => undefined, names: () => [] },
+    ),
   ).execute(new ReadSecretQuery(HTTPBIN.id, ADMIN.principal));
 
   return read?.warnings.map((each) => ({
@@ -49,7 +66,7 @@ const warningsWhen = async (egressRunners: boolean) => {
 
 describe('ReadSecretHandler', () => {
   it('warns at the bindings that egress never injects the secret while no runner pool of the workspace has egress', async () => {
-    expect(await warningsWhen(false)).toEqual([
+    expect(await warningsWhen({ egressRunners: false })).toEqual([
       {
         at: 'bindings',
         reason:
@@ -59,7 +76,18 @@ describe('ReadSecretHandler', () => {
     ]);
   });
 
-  it('warns of nothing while a runner of the workspace has egress', async () => {
-    expect(await warningsWhen(true)).toEqual([]);
+  it('warns at the bindings that no run receives a secret that no harness profile or integration uses', async () => {
+    expect(await warningsWhen({ used: false })).toEqual([
+      {
+        at: 'bindings',
+        reason:
+          'no harness profile or integration uses this secret, so no run receives it. Name it in a harness profile or an integration',
+        warning: true,
+      },
+    ]);
+  });
+
+  it('warns of nothing while a harness profile uses it and a runner of the workspace has egress', async () => {
+    expect(await warningsWhen({})).toEqual([]);
   });
 });

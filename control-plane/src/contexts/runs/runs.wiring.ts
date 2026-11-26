@@ -250,6 +250,7 @@ import {
 } from '@runs/application/queries/stored-working-copy-archive.query';
 import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
+import { CatalogueHarnessKeys } from '@runs/application/services/catalogue-harness-keys.service';
 import { ClaimGate } from '@runs/application/services/claim-gate.service';
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
@@ -359,6 +360,10 @@ import {
   DEFINED_SECRETS,
   type DefinedSecretsPort,
 } from '@secrets/application/ports/defined-secrets.port';
+import {
+  HARNESS_KEYS,
+  type HarnessKeysPort,
+} from '@secrets/application/ports/harness-keys.port';
 import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
 import {
   RUN_GRANTS,
@@ -390,6 +395,8 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+
+const RUNS_HARNESS_KEYS = Symbol('RUNS_HARNESS_KEYS');
 
 const RUNS_EVENTS = Symbol('RUNS_EVENTS');
 
@@ -599,6 +606,15 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_REQUESTER_LABELS, useExisting: RunRequesterLabels },
 
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
+
+  {
+    provide: RUNS_HARNESS_KEYS,
+    inject: [HARNESS_KEYS, HARNESS_LAUNCH],
+    useFactory: (keys: HarnessKeysPort, launch: HarnessLaunchPort) => {
+      keys.register(new CatalogueHarnessKeys(launch));
+      return true;
+    },
+  },
 
   {
     provide: HARNESS_COMMANDS,

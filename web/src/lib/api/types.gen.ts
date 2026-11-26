@@ -2090,6 +2090,10 @@ export type WorkspaceSecretResponseDto = {
    * False when no runner pool of the workspace has egress, so egress never injects it at its hosts
    */
   reachesHosts: boolean;
+  /**
+   * False when no harness profile or integration uses it, so no run receives it
+   */
+  reachesRuns: boolean;
 };
 
 export type SetSecretValueRequestDto = {

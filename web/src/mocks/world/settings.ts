@@ -367,6 +367,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueSetAt: daysAgo(30),
     settable: false,
     reachesHosts: true,
+    reachesRuns: true,
   },
   {
     name: 'STAGING_LOGIN_PASSWORD',
@@ -376,6 +377,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueSetAt: null,
     settable: true,
     reachesHosts: true,
+    reachesRuns: true,
   },
   {
     name: 'STAGING_VIEWER_TOKEN',
@@ -385,6 +387,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueSetAt: daysAgo(2),
     settable: true,
     reachesHosts: true,
+    reachesRuns: true,
   },
   {
     name: 'DEV_GITHUB_APP_KEY',
@@ -394,6 +397,7 @@ const SECRETS: WorkspaceSecretResponseDto[] = [
     valueSetAt: daysAgo(5),
     settable: true,
     reachesHosts: true,
+    reachesRuns: true,
   },
 ];
 

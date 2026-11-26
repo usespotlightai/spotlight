@@ -4,6 +4,7 @@ import { SecretResourceMapper } from '@secrets/application/mappers/secret-resour
 import type { EgressRunnersPort } from '@secrets/application/ports/egress-runners.port';
 import type { SecretResourcesPort } from '@secrets/application/ports/secret-resources.port';
 import type { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
+import type { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,6 +17,7 @@ export class ListSecretResourcesHandler implements QueryHandlerPort<
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SecretResourcesPort,
     private readonly egress: EgressRunnersPort,
+    private readonly reach: SecretRunReach,
   ) {}
 
   async execute(
@@ -35,9 +37,10 @@ export class ListSecretResourcesHandler implements QueryHandlerPort<
         this.resources.secretsIn(permissions.workspaceId),
         this.egress.anyIn(permissions.workspaceId.value),
       ]);
+      const unreached = await this.reach.unreached(records);
 
       return records.map((each) =>
-        SecretResourceMapper.toDto(each, egressRunners),
+        SecretResourceMapper.toDto(each, egressRunners, !unreached.has(each.name)),
       );
     } catch (error) {
       rethrowAsApplicationError(error);

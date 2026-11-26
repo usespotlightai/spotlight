@@ -1,6 +1,7 @@
 import type { SecretRecord } from '@secrets/application/ports/secret-resources.port';
 import { ListWorkspaceSecretsHandler } from '@secrets/application/queries/handlers/list-workspace-secrets.handler';
 import { ListWorkspaceSecretsQuery } from '@secrets/application/queries/list-workspace-secrets.query';
+import { SecretRunReach } from '@secrets/application/services/secret-run-reach.service';
 import {
   ADMIN,
   accessFor,
@@ -42,8 +43,15 @@ const RECORDS = [
 const listedBy = (
   managesSecrets: boolean,
   slug = SLUG,
-  egressRunners = true,
-  records = RECORDS,
+  {
+    egressRunners = true,
+    records = RECORDS,
+    used = records.map((each) => each.name),
+  }: {
+    egressRunners?: boolean;
+    records?: readonly SecretRecord[];
+    used?: readonly string[];
+  } = {},
 ) =>
   new ListWorkspaceSecretsHandler(
     accessFor(() => managesSecrets),
@@ -58,6 +66,16 @@ const listedBy = (
       anyIn: async (workspaceId) =>
         egressRunners && workspaceId === WORKSPACE.value,
     },
+    new SecretRunReach(
+      {
+        register: () => undefined,
+        of: async ({ name }) =>
+          used.includes(name)
+            ? [{ kind: 'harness-profile', key: 'core/default', exposes: false }]
+            : [],
+      },
+      { register: () => undefined, names: () => [] },
+    ),
   ).execute(new ListWorkspaceSecretsQuery(slug, ADMIN.principal));
 
 describe('ListWorkspaceSecretsHandler', () => {
@@ -71,6 +89,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueSetAt: NOW,
         settable: false,
         reachesHosts: true,
+        reachesRuns: true,
       },
       {
         name: 'STAGING_PASSWORD',
@@ -80,6 +99,7 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueSetAt: null,
         settable: true,
         reachesHosts: true,
+        reachesRuns: true,
       },
       {
         name: 'VIEWER_TOKEN',
@@ -89,21 +109,37 @@ describe('ListWorkspaceSecretsHandler', () => {
         valueSetAt: NOW,
         settable: true,
         reachesHosts: true,
+        reachesRuns: true,
       },
     ]);
   });
 
   it('says a secret reaches no host while no runner of the workspace has egress', async () => {
-    const listed = await listedBy(true, SLUG, false, [
-      record('HTTPBIN_TEST_TOKEN'),
-      record('DEV_GITHUB_APP_KEY', { bindings: [], sandbox: 'env' }),
-    ]);
+    const listed = await listedBy(true, SLUG, {
+      egressRunners: false,
+      records: [
+        record('HTTPBIN_TEST_TOKEN'),
+        record('DEV_GITHUB_APP_KEY', { bindings: [], sandbox: 'env' }),
+      ],
+    });
 
     expect(
       listed?.map(({ name, reachesHosts }) => ({ name, reachesHosts })),
     ).toEqual([
       { name: 'HTTPBIN_TEST_TOKEN', reachesHosts: false },
       { name: 'DEV_GITHUB_APP_KEY', reachesHosts: true },
+    ]);
+  });
+
+  it('says which secrets no run receives, since no harness profile or integration uses them', async () => {
+    const listed = await listedBy(true, SLUG, { used: ['LINEAR_API_KEY'] });
+
+    expect(
+      listed?.map(({ name, reachesRuns }) => ({ name, reachesRuns })),
+    ).toEqual([
+      { name: 'LINEAR_API_KEY', reachesRuns: true },
+      { name: 'STAGING_PASSWORD', reachesRuns: false },
+      { name: 'VIEWER_TOKEN', reachesRuns: false },
     ]);
   });
 

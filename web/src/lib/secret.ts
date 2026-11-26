@@ -41,3 +41,5 @@ export const describeHosts = (secret: WorkspaceSecret): string =>
 
 export const UNREACHABLE_NOTE =
   'No runner pool has egress, so no run sends it.';
+export const UNUSED_NOTE =
+  'No harness profile or integration uses this secret, so no run receives it.';

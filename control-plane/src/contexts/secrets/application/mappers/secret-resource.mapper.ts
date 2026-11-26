@@ -7,7 +7,11 @@ import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo
 import { DEFAULT_SECRET_SANDBOX } from '@secrets/domain/value-objects/secret-sandbox.vo';
 
 export const SecretResourceMapper = {
-  toDto(secret: SecretRecord, egressRunners: boolean): SecretResourceDto {
+  toDto(
+    secret: SecretRecord,
+    egressRunners: boolean,
+    reachesRuns: boolean,
+  ): SecretResourceDto {
     return {
       id: secret.id,
       version: secret.version,
@@ -18,9 +22,12 @@ export const SecretResourceMapper = {
       sandbox: secret.sandbox,
       valueWoVersion: secret.valueVersion,
       rotatedAt: secret.rotatedAt.toISOString(),
-      warnings: SecretBindings.of(secret.bindings).reachesHosts(egressRunners)
-        ? []
-        : [SecretProblems.unreachable()],
+      warnings: [
+        ...(SecretBindings.of(secret.bindings).reachesHosts(egressRunners)
+          ? []
+          : [SecretProblems.unreachable()]),
+        ...(reachesRuns ? [] : [SecretProblems.unused()]),
+      ],
     };
   },
 

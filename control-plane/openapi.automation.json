@@ -1850,6 +1850,10 @@
           "reachesHosts": {
             "type": "boolean",
             "description": "False when no runner pool of the workspace has egress, so egress never injects it at its hosts"
+          },
+          "reachesRuns": {
+            "type": "boolean",
+            "description": "False when no harness profile or integration uses it, so no run receives it"
           }
         },
         "required": [
@@ -1859,7 +1863,8 @@
           "valueOrigin",
           "valueSetAt",
           "settable",
-          "reachesHosts"
+          "reachesHosts",
+          "reachesRuns"
         ]
       },
       "SetSecretValueRequestDto": {

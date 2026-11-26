@@ -9,4 +9,5 @@ export interface WorkspaceSecretDto {
   readonly valueSetAt: Date | null;
   readonly settable: boolean;
   readonly reachesHosts: boolean;
+  readonly reachesRuns: boolean;
 }

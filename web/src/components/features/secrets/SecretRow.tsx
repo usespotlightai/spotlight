@@ -14,6 +14,7 @@ import {
   SANDBOX_NOTE,
   setValueLabel,
   UNREACHABLE_NOTE,
+  UNUSED_NOTE,
   valueNote,
   type WorkspaceSecret,
 } from '@/lib/secret';
@@ -34,6 +35,11 @@ export function SecretRow({ slug, secret, onSetValue }: SecretRowProps) {
         description={
           <>
             {describeHosts(secret)}
+            {!secret.reachesRuns && (
+              <span className="block text-amber-600 dark:text-amber-400">
+                {UNUSED_NOTE}
+              </span>
+            )}
             {!secret.reachesHosts && (
               <span className="block text-amber-600 dark:text-amber-400">
                 {UNREACHABLE_NOTE}{' '}

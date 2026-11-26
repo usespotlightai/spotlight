@@ -8,6 +8,7 @@ export const WorkspaceSecretMapper = {
     record: SecretRecord,
     managesSecrets: boolean,
     egressRunners: boolean,
+    reachesRuns: boolean,
   ): WorkspaceSecretDto {
     const origin = SecretValueOrigin.of({
       valueVersion: record.valueVersion,
@@ -24,6 +25,7 @@ export const WorkspaceSecretMapper = {
       reachesHosts: SecretBindings.of(record.bindings).reachesHosts(
         egressRunners,
       ),
+      reachesRuns,
     };
   },
 };
