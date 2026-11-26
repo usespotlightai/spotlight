@@ -1,4 +1,6 @@
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import {
   type HeldFor,
   type HoldViewer,
@@ -27,23 +29,42 @@ export interface HandMove {
   readonly skips: readonly Station[];
 }
 
-const denialOf = (
+type EndsHold = (hold: HeldFor) => boolean;
+
+const denialBetween = (
   task: HandMovedTask,
   line: LineMap,
   from: Station,
   to: Station,
-  viewer: HoldViewer,
+  endsHold: EndsHold,
 ): HandMoveDenial | null => {
   if (from.id.equals(to.id)) {
     return null;
   }
-  if (task.hold && !HoldRights.ends(task.hold, viewer)) {
+  if (task.hold && !endsHold(task.hold)) {
     return 'on-hold';
   }
   return line.moveDenial(from, to);
 };
 
 export const HandMoves = {
+  denial(
+    task: HandMovedTask,
+    line: LineMap,
+    to: Station,
+    mover: UserId,
+  ): HandMoveDenial | null {
+    const from = line.stationAt(task.stationId);
+
+    if (!from) {
+      throw new UnknownStationError(task.stationId.value);
+    }
+
+    return denialBetween(task, line, from, to, (hold) =>
+      HoldRights.endableBy(hold, mover),
+    );
+  },
+
   of(
     task: HandMovedTask,
     line: LineMap | null,
@@ -56,7 +77,9 @@ export const HandMoves = {
     }
 
     return line.stations.map((to) => {
-      const denial = denialOf(task, line, from, to, viewer);
+      const denial = denialBetween(task, line, from, to, (hold) =>
+        HoldRights.ends(hold, viewer),
+      );
 
       return {
         to,

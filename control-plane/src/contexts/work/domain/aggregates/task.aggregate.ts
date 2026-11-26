@@ -83,6 +83,7 @@ import {
   worksOn,
 } from '@work/domain/services/conversations';
 import { deferralIn } from '@work/domain/services/deferred-moves';
+import { HandMoves } from '@work/domain/services/hand-moves';
 import { handsOverOnWait } from '@work/domain/services/hand-over';
 import {
   type MessageAddress,
@@ -616,18 +617,14 @@ export class Task extends EventRecorder {
     turnHeads: readonly TurnHeads[] = [],
   ): Task {
     const hold = this.openHold;
+    const into = Task.stationOn(line, to);
 
-    if (hold) {
-      this.assertMayEnd(hold, handMove.mover);
-    }
+    this.assertHandMoveAllowed(line, into, handMove.mover);
 
     if (hold && this.stationId.equals(to)) {
       this.assertNotOnHold('move it within its station');
     }
 
-    this.assertHandMoveAllowed(line, to);
-
-    const into = Task.stationOn(line, to);
     const next: HoldEnd = into.isCompleted ? 'finish' : 'move-on';
     const ending = hold
       ? this.endedHold({
@@ -3231,12 +3228,24 @@ export class Task extends EventRecorder {
     return station;
   }
 
-  private assertHandMoveAllowed(line: LineMap, to: StationId): void {
+  private assertHandMoveAllowed(
+    line: LineMap,
+    into: Station,
+    mover: UserId,
+  ): void {
     const from = Task.stationOn(line, this.stationId);
-    const into = Task.stationOn(line, to);
-    const denial = line.moveDenial(from, into);
+    const hold = this.openHold;
+    const denial = HandMoves.denial(
+      { stationId: this.stationId, hold },
+      line,
+      into,
+      mover,
+    );
 
-    if (denial) {
+    if (hold && denial === 'on-hold') {
+      throw new HeldForAgentChatError(this.id, hold.by);
+    }
+    if (denial && denial !== 'on-hold') {
       throw new MoveDeniedError(denial, from.name.value, into.name.value);
     }
   }

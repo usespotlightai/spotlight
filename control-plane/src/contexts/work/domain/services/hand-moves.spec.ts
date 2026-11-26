@@ -1,7 +1,9 @@
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import {
   type HandMovedTask,
   HandMoves,
@@ -107,6 +109,38 @@ describe('HandMoves', () => {
 
   it('offers no moves off its line', () => {
     expect(HandMoves.of(at('backlog'), null, viewer())).toEqual([]);
+  });
+
+  it('refuses the mover a move the way it refuses the viewer', () => {
+    const chatHeld = {
+      ...at('implementation'),
+      hold: { by: LEON, chat: ChatId.of('chat_1') },
+    };
+    const turnHeld = {
+      ...at('implementation'),
+      hold: { by: LEON, chat: null },
+    };
+    const denial = (task: HandMovedTask, to: string, mover = LEON) =>
+      HandMoves.denial(task, line, keyed(to), mover);
+
+    expect(denial(chatHeld, 'backlog', MAYA)).toBe('on-hold');
+    expect(denial(chatHeld, 'implementation', MAYA)).toBeNull();
+    expect(denial(chatHeld, 'backlog', LEON)).toBeNull();
+    expect(denial(turnHeld, 'completed', MAYA)).toBeNull();
+    expect(denial(chatHeld, 'spec', LEON)).toBe('between-work-stations');
+    expect(denial(at('completed'), 'backlog')).toBe('out-of-completed');
+    expect(denial(at('backlog'), 'code-review')).toBeNull();
+  });
+
+  it('refuses a mover whose task is on no station of the line', () => {
+    expect(() =>
+      HandMoves.denial(
+        { stationId: StationId.of('elsewhere'), hold: null },
+        line,
+        keyed('backlog'),
+        LEON,
+      ),
+    ).toThrow(UnknownStationError);
   });
 
   it('offers exactly the moves a task takes, finished or not', () => {
