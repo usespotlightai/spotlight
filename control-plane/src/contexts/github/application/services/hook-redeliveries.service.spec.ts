@@ -16,25 +16,32 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
 
 const PAGE_SIZE = 3;
 
+const FIRST_ID = 3_856_285_345_890_959_360n;
+
+const newestFirst = (one: HookDeliveryAttempt, other: HookDeliveryAttempt) => {
+  const [a, b] = [BigInt(one.id), BigInt(other.id)];
+
+  return a > b ? -1 : a < b ? 1 : 0;
+};
+
 const fakeGitHub = () => {
   const attempts: HookDeliveryAttempt[] = [];
   const pages: (string | null)[] = [];
-  let nextId = 1;
-  let refusing = new Set<number>();
+  let nextId = FIRST_ID;
+  let refusing = new Set<string>();
 
   const port: AppHookDeliveriesPort = {
     page: vi.fn(async (cursor: string | null) => {
       pages.push(cursor);
-      const newestFirst = [...attempts].sort((a, b) => b.id - a.id);
+      const listed = [...attempts].sort(newestFirst);
       const from = cursor ? Number(cursor) : 0;
 
       return {
-        attempts: newestFirst.slice(from, from + PAGE_SIZE),
-        next:
-          from + PAGE_SIZE < newestFirst.length ? `${from + PAGE_SIZE}` : null,
+        attempts: listed.slice(from, from + PAGE_SIZE),
+        next: from + PAGE_SIZE < listed.length ? `${from + PAGE_SIZE}` : null,
       };
     }),
-    redeliver: vi.fn(async (attemptId: number) => {
+    redeliver: vi.fn(async (attemptId: string) => {
       if (refusing.has(attemptId)) {
         throw new Error('GitHub did not answer');
       }
@@ -45,13 +52,13 @@ const fakeGitHub = () => {
     port,
     pages,
     attempt: (guid: string, statusCode: number | null, deliveredAt: Date) => {
-      const attempt = { id: nextId, guid, statusCode, deliveredAt };
-      nextId += 1;
+      const attempt = { id: `${nextId}`, guid, statusCode, deliveredAt };
+      nextId += 1n;
       attempts.push(attempt);
 
       return attempt;
     },
-    refuse: (...ids: number[]) => {
+    refuse: (...ids: string[]) => {
       refusing = new Set(ids);
     },
   };
@@ -164,11 +171,11 @@ describe('HookRedeliveries', () => {
   it('reads no further back than GitHub keeps deliveries', async () => {
     const { redeliveries, github, ago } = setup();
     github.attempt('too-old', 500, ago(3 * DAY_MS + MINUTE_MS));
-    github.attempt('recent', 500, ago(2 * DAY_MS));
+    const recent = github.attempt('recent', 500, ago(2 * DAY_MS));
 
     await redeliveries.redeliver();
 
-    expect(github.port.redeliver).toHaveBeenCalledExactlyOnceWith(2);
+    expect(github.port.redeliver).toHaveBeenCalledExactlyOnceWith(recent.id);
   });
 
   it('reads only the deliveries since the last check', async () => {
@@ -201,19 +208,44 @@ describe('HookRedeliveries', () => {
   it('asks for at most 20 redeliveries in one check, the oldest first', async () => {
     const { redeliveries, github, ago } = setup();
 
-    for (let each = 0; each < 25; each += 1) {
-      github.attempt(`failed-${each}`, 500, ago((30 - each) * MINUTE_MS));
-    }
+    const failed = Array.from({ length: 25 }, (_, each) =>
+      github.attempt(`failed-${each}`, 500, ago((30 - each) * MINUTE_MS)),
+    );
 
     await redeliveries.redeliver();
 
     expect(github.port.redeliver).toHaveBeenCalledTimes(20);
-    expect(github.port.redeliver).toHaveBeenNthCalledWith(1, 1);
-    expect(github.port.redeliver).toHaveBeenLastCalledWith(20);
+    expect(github.port.redeliver).toHaveBeenNthCalledWith(1, failed[0]?.id);
+    expect(github.port.redeliver).toHaveBeenLastCalledWith(failed[19]?.id);
+  });
+
+  it('tells apart attempts whose ids differ past the precision of a JS number', async () => {
+    const { redeliveries, github, ago } = setup();
+    const first = github.attempt('closed-10', 500, ago(3 * MINUTE_MS));
+    const second = github.attempt('closed-13', 500, ago(2 * MINUTE_MS));
+
+    await redeliveries.redeliver();
+
+    expect(Number(first.id)).toBe(Number(second.id));
+    expect(vi.mocked(github.port.redeliver).mock.calls).toEqual([
+      [first.id],
+      [second.id],
+    ]);
+  });
+
+  it('follows the attempt with the larger id when two share a second', async () => {
+    const { redeliveries, github, now, later } = setup();
+    github.attempt('closed-18', 500, now());
+    const retried = github.attempt('closed-18', 500, now());
+    later(2 * MINUTE_MS);
+
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenCalledExactlyOnceWith(retried.id);
   });
 
   it('asks for the others when GitHub does not take one request', async () => {
-    const { redeliveries, github, ago, telemetry } = setup();
+    const { redeliveries, github, ago, telemetry, logger } = setup();
     const first = github.attempt('closed-10', 500, ago(3 * MINUTE_MS));
     const second = github.attempt('closed-13', 500, ago(2 * MINUTE_MS));
     github.refuse(first.id);
@@ -231,6 +263,20 @@ describe('HookRedeliveries', () => {
         attributes: { 'spotlight.github.redelivery.outcome': 'requested' },
       },
     ]);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      { guids: ['closed-13'], failed: 1 },
+      'Asked GitHub to redeliver failed webhook deliveries',
+    );
+  });
+
+  it('does not tell it asked when GitHub took no request', async () => {
+    const { redeliveries, github, ago, logger } = setup();
+    const failed = github.attempt('closed-10', 500, ago(3 * MINUTE_MS));
+    github.refuse(failed.id);
+
+    await redeliveries.redeliver();
+
+    expect(logger.info).not.toHaveBeenCalled();
   });
 
   it('tells how many deliveries failed in the last hour and how many are not delivered', async () => {

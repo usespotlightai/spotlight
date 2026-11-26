@@ -12,11 +12,39 @@ import type { Env } from '@platform/config/env.schema';
 const PER_PAGE = 100;
 
 interface DeliveryAnswer {
-  readonly id: number;
+  readonly id: string;
   readonly guid: string;
   readonly delivered_at: string;
   readonly status_code?: number | null;
 }
+
+interface Parsed {
+  readonly source?: string;
+}
+
+const LIST_FAILED = 'Could not list the webhook deliveries of the GitHub App';
+
+// A delivery id is a 64-bit integer. As a JS number it would round to another
+// id, so the id keeps the exact digits GitHub sent.
+const exactIds = (key: string, value: unknown, parsed?: Parsed): unknown => {
+  if (key !== 'id' || typeof value !== 'number') {
+    return value;
+  }
+
+  if (parsed?.source === undefined) {
+    throw new Error('Could not read the exact id of a webhook delivery');
+  }
+
+  return parsed.source;
+};
+
+const answersIn = async (response: Response): Promise<DeliveryAnswer[]> => {
+  if (!response.ok) {
+    await answered(response, LIST_FAILED);
+  }
+
+  return JSON.parse(await response.text(), exactIds) as DeliveryAnswer[];
+};
 
 const NEXT = /<([^>]+)>;\s*rel="next"/;
 
@@ -48,10 +76,7 @@ export class GitHubAppHookDeliveries implements AppHookDeliveriesPort {
       `/app/hook/deliveries?${query}`,
       appJwt(this.env),
     );
-    const answers = await answered<DeliveryAnswer[]>(
-      response,
-      'Could not list the webhook deliveries of the GitHub App',
-    );
+    const answers = await answersIn(response);
 
     return {
       attempts: answers.map(attemptOf),
@@ -59,7 +84,7 @@ export class GitHubAppHookDeliveries implements AppHookDeliveriesPort {
     };
   }
 
-  async redeliver(attemptId: number): Promise<void> {
+  async redeliver(attemptId: string): Promise<void> {
     await answered(
       await call(
         `/app/hook/deliveries/${attemptId}/attempts`,

@@ -9,7 +9,7 @@ const MINUTE_MS = 60_000;
 const ago = (ms: number) => new Date(NOW.getTime() - ms);
 
 const failedAt = (id: number, at: Date, guid = 'closed-10') => ({
-  id,
+  id: `${id}`,
   guid,
   deliveredAt: at,
   outcome: 'transient' as const,
@@ -23,7 +23,7 @@ describe('HookDelivery', () => {
 
     expect(delivery.firstAt).toEqual(ago(10 * MINUTE_MS));
     expect(delivery.lastAt).toEqual(ago(5 * MINUTE_MS));
-    expect(delivery.latestAttemptId).toBe(2);
+    expect(delivery.latestAttemptId).toBe('2');
     expect(delivery.attempts).toBe(2);
   });
 

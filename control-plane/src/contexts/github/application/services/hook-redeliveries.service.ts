@@ -25,6 +25,23 @@ const REDELIVERIES_METRIC = 'spotlight.github.hook_redeliveries';
 
 const OUTCOME = 'spotlight.github.redelivery.outcome';
 
+type RequestOutcome = 'requested' | 'failed';
+
+const oldestFirst = (
+  one: HookDeliveryAttempt,
+  other: HookDeliveryAttempt,
+): number => {
+  const apart = one.deliveredAt.getTime() - other.deliveredAt.getTime();
+
+  if (apart !== 0) {
+    return apart;
+  }
+
+  const [a, b] = [BigInt(one.id), BigInt(other.id)];
+
+  return a < b ? -1 : a > b ? 1 : 0;
+};
+
 export interface HookDeliveryHealth {
   readonly failedLastHour: number;
   readonly undelivered: number;
@@ -32,7 +49,7 @@ export interface HookDeliveryHealth {
 
 export class HookRedeliveries {
   #scannedAt: Date | null = null;
-  readonly #seen = new Map<number, Date>();
+  readonly #seen = new Map<string, Date>();
   readonly #undelivered = new Map<string, HookDelivery>();
   #failures: Date[] = [];
 
@@ -55,13 +72,17 @@ export class HookRedeliveries {
       now,
     ).slice(0, MAX_REQUESTS_PER_RUN);
 
+    const taken: string[] = [];
+
     for (const each of due) {
-      await this.request(each, now);
+      if ((await this.request(each, now)) === 'requested') {
+        taken.push(each.guid);
+      }
     }
 
-    if (due.length > 0) {
+    if (taken.length > 0) {
       this.logger.info(
-        { guids: due.map((each) => each.guid) },
+        { guids: taken, failed: due.length - taken.length },
         'Asked GitHub to redeliver failed webhook deliveries',
       );
     }
@@ -115,11 +136,8 @@ export class HookRedeliveries {
 
   private track(attempts: readonly HookDeliveryAttempt[], now: Date): void {
     const hourAgo = now.getTime() - HOUR_MS;
-    const oldestFirst = [...attempts].sort(
-      (a, b) => a.deliveredAt.getTime() - b.deliveredAt.getTime(),
-    );
 
-    for (const attempt of oldestFirst) {
+    for (const attempt of [...attempts].sort(oldestFirst)) {
       this.#seen.set(attempt.id, attempt.deliveredAt);
 
       const outcome = outcomeOf(attempt.statusCode);
@@ -170,8 +188,11 @@ export class HookRedeliveries {
     this.#failures = this.#failures.filter((at) => at.getTime() >= hourAgo);
   }
 
-  private async request(each: HookDelivery, now: Date): Promise<void> {
-    let outcome = 'requested';
+  private async request(
+    each: HookDelivery,
+    now: Date,
+  ): Promise<RequestOutcome> {
+    let outcome: RequestOutcome = 'requested';
 
     try {
       await this.deliveries.redeliver(each.latestAttemptId);
@@ -185,5 +206,7 @@ export class HookRedeliveries {
 
     this.#undelivered.set(each.guid, each.requested(now));
     this.telemetry.count(REDELIVERIES_METRIC, { [OUTCOME]: outcome });
+
+    return outcome;
   }
 }

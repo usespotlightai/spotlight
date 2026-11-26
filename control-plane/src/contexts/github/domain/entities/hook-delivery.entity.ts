@@ -7,7 +7,7 @@ import {
 } from '@github/domain/services/hook-redelivery-policy';
 
 export interface FailedHookAttempt {
-  readonly id: number;
+  readonly id: string;
   readonly guid: string;
   readonly deliveredAt: Date;
   readonly outcome: Exclude<HookDeliveryOutcome, 'delivered'>;
@@ -22,7 +22,7 @@ export class HookDelivery implements HookDeliveryHistory {
     readonly attempts: number,
     readonly requests: number,
     readonly requestedAt: Date | null,
-    readonly latestAttemptId: number,
+    readonly latestAttemptId: string,
     readonly gaveUp: boolean,
   ) {}
 
