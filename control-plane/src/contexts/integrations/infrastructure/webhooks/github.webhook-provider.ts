@@ -93,10 +93,13 @@ const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
   return body ? { body } : null;
 };
 
-const messageOf = (event: PullRequestActivity): Happened['message'] =>
+const messageOf = (
+  event: PullRequestActivity,
+  verdict: string | null = null,
+): Happened['message'] =>
   event.reviewComment
     ? {
-        body: event.reviewComment.body,
+        body: [verdict, event.reviewComment.body].filter(Boolean).join('\n\n'),
         path: event.reviewComment.path,
         from: event.reviewComment.from,
         to: event.reviewComment.to,
@@ -168,7 +171,11 @@ const reported = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys,
-    message: messageOf(event) ?? failedChecksOf(event),
+    message:
+      messageOf(
+        event,
+        activity === 'changes-requested' ? raising.summary : null,
+      ) ?? failedChecksOf(event),
     ourOwn: event.ignoredAsBot,
     opens: null,
     closedPullRequest:
