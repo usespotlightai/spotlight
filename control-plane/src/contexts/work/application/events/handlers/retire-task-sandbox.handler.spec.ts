@@ -25,11 +25,15 @@ const finished = new TaskFinished(
   new Date('2026-11-18T10:00:00.000Z'),
 );
 
-const retiring = (input: { task?: { finished: boolean } | null } = {}) => {
+const retiring = (
+  input: { task?: { keepsNoLiveWorkingCopy: boolean } | null } = {},
+) => {
   const task =
     input.task === null
       ? null
-      : ({ finished: input.task?.finished ?? false } as unknown as Task);
+      : ({
+          keepsNoLiveWorkingCopy: input.task?.keepsNoLiveWorkingCopy ?? false,
+        } as unknown as Task);
   const tasks = { find: vi.fn(async () => task) } as unknown as TaskRepository;
   const sandboxes: SandboxRetirementPort = { retire: vi.fn(async () => {}) };
 
@@ -38,7 +42,9 @@ const retiring = (input: { task?: { finished: boolean } | null } = {}) => {
 
 describe('RetireTaskSandbox', () => {
   it('retires the sandbox of a finished task, also one that waits at the end of its line for a merge', async () => {
-    const { handler, sandboxes } = retiring({ task: { finished: true } });
+    const { handler, sandboxes } = retiring({
+      task: { keepsNoLiveWorkingCopy: true },
+    });
 
     await handler.onFinished(finished);
 
@@ -46,7 +52,9 @@ describe('RetireTaskSandbox', () => {
   });
 
   it('keeps the sandbox of a task that reopened before the event came', async () => {
-    const { handler, sandboxes } = retiring({ task: { finished: false } });
+    const { handler, sandboxes } = retiring({
+      task: { keepsNoLiveWorkingCopy: false },
+    });
 
     await handler.onFinished(finished);
 

@@ -15,7 +15,7 @@ export class RetireTaskSandbox {
   async onFinished(event: TaskFinished): Promise<void> {
     const task = await this.tasks.find(event.taskId);
 
-    if (!task || task.finished) {
+    if (!task || task.keepsNoLiveWorkingCopy) {
       await this.retire(event.workspaceId, event.taskId);
     }
   }

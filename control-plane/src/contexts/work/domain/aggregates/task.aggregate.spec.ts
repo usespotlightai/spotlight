@@ -537,6 +537,14 @@ describe('Task, reopened by a word', () => {
     ).toThrow(TaskNotReopenableError);
   });
 
+  it('keeps no live working copy once finished, also while it can still reopen', () => {
+    const reopened = ended().reopen(LINE, MENTIONED, TaskRank.of('m'), said);
+
+    expect(ended().keepsNoLiveWorkingCopy).toBe(true);
+    expect(added().keepsNoLiveWorkingCopy).toBe(false);
+    expect(reopened.keepsNoLiveWorkingCopy).toBe(false);
+  });
+
   it('does not take a word from the world as a reopening', () => {
     expect(() =>
       ended().reopen(LINE, MENTIONED, TaskRank.of('m'), {

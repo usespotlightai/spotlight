@@ -1505,6 +1505,10 @@ export class Task extends EventRecorder {
     return this.finished;
   }
 
+  get keepsNoLiveWorkingCopy(): boolean {
+    return this.finished;
+  }
+
   get workingCopyRelease(): WorkingCopyRelease {
     return this.finishedAt
       ? WorkingCopyRelease.since(this.finishedAt)
