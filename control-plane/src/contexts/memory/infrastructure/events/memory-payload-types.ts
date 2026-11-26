@@ -2,6 +2,7 @@ import { MemoriesUsed } from '@memory/domain/events/memories-used.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryMerged } from '@memory/domain/events/memory-merged.event';
+import { MemoryRestored } from '@memory/domain/events/memory-restored.event';
 import { MemoryRetirementApproved } from '@memory/domain/events/memory-retirement-approved.event';
 import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
@@ -41,6 +42,7 @@ export const MEMORY_PAYLOAD_TYPES = [
   MemoryCreated,
   MemoryMerged,
   MemoryRetirementApproved,
+  MemoryRestored,
   MemoryDecision,
   MemoryRetirement,
   MemoryHandle,

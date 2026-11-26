@@ -5,6 +5,7 @@ import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButton
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { useRestoreTeamMemory } from '@/hooks/api/useRestoreTeamMemory';
 import { useTeamMemory } from '@/hooks/api/useTeamMemory';
 import { failed, loading } from '@/lib/query';
 
@@ -32,6 +33,7 @@ export function MemoryDetails({
   onSave,
 }: MemoryDetailsProps) {
   const query = useTeamMemory(teamId, memoryId);
+  const restore = useRestoreTeamMemory();
   const [retiring, setRetiring] = useState(false);
 
   if (!open && retiring) {
@@ -89,6 +91,18 @@ export function MemoryDetails({
             onClick={() => setRetiring(true)}
           >
             Retire
+          </DecisionButton>
+        </div>
+      )}
+
+      {retirement && !retirement.supersededBy && (
+        <div className="flex flex-wrap items-center gap-2">
+          <DecisionButton
+            className="min-w-0"
+            disabled={restore.isPending}
+            onClick={() => restore.mutate({ teamId, memoryId })}
+          >
+            Restore
           </DecisionButton>
         </div>
       )}

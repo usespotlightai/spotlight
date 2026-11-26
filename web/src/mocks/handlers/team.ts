@@ -265,6 +265,22 @@ const memoryHandlers = [
     },
   ),
 
+  api.post('/teams/:teamId/memories/:memoryId/restore', ({ params }) => {
+    const memories = memoriesOf(String(params.teamId)) ?? [];
+    const memory = memories.find((each) => each.id === params.memoryId);
+    if (!memory) {
+      return notFound();
+    }
+    if (!memory.retirement || memory.retirement.supersededBy) {
+      return problem(409, 'Sorry, that memory cannot be restored.');
+    }
+
+    memory.status = 'active';
+    memory.retirement = null;
+
+    return json(detailOf(memories, memory));
+  }),
+
   api.post(
     '/teams/:teamId/memories/:memoryId/retire',
     async ({ params, request }) => {

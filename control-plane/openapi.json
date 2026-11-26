@@ -21466,6 +21466,54 @@
         ]
       }
     },
+    "/teams/{teamId}/memories/{memoryId}/restore": {
+      "post": {
+        "operationId": "restoreTeamMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such memory for this caller"
+          },
+          "409": {
+            "description": "It is not retired, or a newer memory replaced it"
+          }
+        },
+        "summary": "Brief a retired memory to runs again",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
     "/teams/{teamId}/runs/{runId}/memories": {
       "get": {
         "operationId": "readRunMemories",

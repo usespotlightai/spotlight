@@ -25,6 +25,11 @@ vi.mock('@/hooks/api/useRetireMemory', () => ({
     isPending: false,
   }),
 }));
+const restore = vi.fn();
+
+vi.mock('@/hooks/api/useRestoreTeamMemory', () => ({
+  useRestoreTeamMemory: () => ({ mutate: restore, isPending: false }),
+}));
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: { user: { name: 'Ada Lovelace', image: null } } }),
 }));
@@ -145,8 +150,30 @@ describe('MemoryDetails', () => {
     showing();
 
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
     expect(
       screen.getByText('Replaced by: Retry uploads from the worker.'),
     ).toBeVisible();
+  });
+
+  it('restores a memory that a person retired', async () => {
+    memoryState.data = detail({
+      status: 'retired',
+      retirement: {
+        at: '2026-09-27T11:00:00.000Z',
+        by: { id: 'user_2', name: 'Maya Chen', image: null },
+        reason: 'Wrong.',
+        supersededBy: null,
+      },
+    });
+    showing();
+
+    expect(screen.queryByRole('button', { name: 'Retire' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Restore' }));
+
+    expect(restore).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      memoryId: 'memory_1',
+    });
   });
 });
