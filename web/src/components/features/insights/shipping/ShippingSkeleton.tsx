@@ -32,6 +32,7 @@ import {
   REVIEW_BOTS_NOTE,
   ROUNDS,
   SMOOTHINGS,
+  SPOTLIGHT_AND_PEOPLE,
 } from '@/lib/insights-shipping';
 import { ignore } from '@/lib/utils';
 
@@ -71,7 +72,7 @@ export function ShippingSkeleton() {
             description={PIPELINE_NOTE}
             actions={
               <div inert className="flex items-center gap-1.5">
-                <SkeletonLine className="w-20 text-xs" />
+                <SkeletonLine className="w-32 text-xs" />
                 <Segmented
                   label="Show coding as"
                   segments={FLOW_LAYOUTS}
@@ -136,7 +137,7 @@ export function ShippingSkeleton() {
                 {Array.from({ length: TYPES }, (_, at) => (
                   <li key={at} className="flex flex-col gap-1">
                     <div className="flex items-baseline justify-between gap-2 text-xs">
-                      <SkeletonLine className="w-28" />
+                      <SkeletonLine className="w-44" />
                       <SkeletonLine className="w-20" />
                     </div>
                     <div className="flex flex-col gap-0.5">
@@ -154,6 +155,11 @@ export function ShippingSkeleton() {
             flat
             title="Review depth by week"
             description={DEPTH_OVER_TIME_NOTE}
+            actions={
+              <span className="text-muted-foreground text-xs">
+                {SPOTLIGHT_AND_PEOPLE}
+              </span>
+            }
           >
             <figure className="flex flex-col gap-2">
               <ChartLegend entries={DEPTH_LEGEND} />
