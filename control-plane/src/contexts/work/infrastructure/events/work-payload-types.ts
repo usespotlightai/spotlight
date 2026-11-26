@@ -125,6 +125,7 @@ import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.
 import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
+import { RepositoriesMissing } from '@work/domain/value-objects/repositories-missing.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { RequestedBase } from '@work/domain/value-objects/requested-base.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
@@ -193,6 +194,7 @@ export const WORK_PAYLOAD_TYPES = [
   DeniedCatalogItem,
   HarnessPermission,
   ProfileMissing,
+  RepositoriesMissing,
   SecretAwaitingValue,
   SecretSandboxNotAllowed,
   HandoverOption,
