@@ -38,6 +38,7 @@ export function TaskProperties({
           <StationSelect
             stations={line.stations}
             value={station.id}
+            handMoves={task.handMoves}
             held={task.hold}
             onChange={(stationId) =>
               teamId &&

@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { MESSAGE_OUTCOME_NAMES } from '@work/application/dto/task-run.dto';
-import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
+import {
+  HAND_MOVE_DENIAL_NAMES,
+  PROGRESS_NAMES,
+} from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
 
@@ -114,6 +117,39 @@ export class TaskRunNotStartedResponseDto {
 
   constructor(harness: string) {
     this.harness = harness;
+  }
+}
+
+export class TaskHandMoveResponseDto {
+  @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
+  readonly stationId: string;
+
+  @ApiProperty({
+    enum: [...HAND_MOVE_DENIAL_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'between-work-stations',
+    description:
+      'Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, or the task is on hold for someone else. Null where the person may move it there.',
+  })
+  readonly denial: string | null;
+
+  @ApiProperty({
+    example: ['b2e6f9a1-4c3d-4e8f-a7b0-5d1c2e3f4a56'],
+    type: [String],
+    description:
+      'The work stations that the move skips: the ones before this station, when the task starts from the backlog',
+  })
+  readonly skips: readonly string[];
+
+  constructor(
+    stationId: string,
+    denial: string | null,
+    skips: readonly string[],
+  ) {
+    this.stationId = stationId;
+    this.denial = denial;
+    this.skips = skips;
   }
 }
 
@@ -257,6 +293,13 @@ export class TaskResponseDto {
   })
   readonly runNotStarted: TaskRunNotStartedResponseDto | null;
 
+  @ApiProperty({
+    type: [TaskHandMoveResponseDto],
+    description:
+      'Each station of the line, and whether the caller may move the task there by hand. Empty where the task is on no line the caller reads.',
+  })
+  readonly handMoves: readonly TaskHandMoveResponseDto[];
+
   constructor(
     id: string,
     stationId: string,
@@ -277,6 +320,7 @@ export class TaskResponseDto {
     source: string | null,
     hold: TaskHoldResponseDto | null,
     runNotStarted: TaskRunNotStartedResponseDto | null,
+    handMoves: readonly TaskHandMoveResponseDto[],
   ) {
     this.id = id;
     this.stationId = stationId;
@@ -297,6 +341,7 @@ export class TaskResponseDto {
     this.source = source;
     this.hold = hold;
     this.runNotStarted = runNotStarted;
+    this.handMoves = handMoves;
   }
 }
 

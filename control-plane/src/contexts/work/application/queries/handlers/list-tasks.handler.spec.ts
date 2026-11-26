@@ -1,4 +1,6 @@
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
   TaskReaderPort,
@@ -11,6 +13,7 @@ import {
   linesWhere,
 } from '@work/application/services/run-access.fake-spec';
 import type { WorkAccess } from '@work/application/services/work-access.service';
+import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -61,6 +64,7 @@ const summaries: TaskSummary[] = [
 
 const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
   ...summary,
+  handMoves: [],
   createdAt: summary.createdAt.toISOString(),
   waitingForYou: false,
   yourMessage: 'message',
@@ -290,5 +294,40 @@ describe('ListTasksHandler', () => {
       viewerDrives: false,
       viewerEnds: false,
     });
+  });
+
+  it('lists where a person may move each task by hand, as its line decides', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+    });
+    const at = (key: string) =>
+      line.stations.find((each) => each.key.value === key)?.id.value as string;
+    const moves = await new ListTasksHandler(
+      reader([{ ...summaries[0], stationId: at('implementation') }]),
+      seeing(),
+      { ofTeam: async () => [line] } as never,
+    ).execute(
+      new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+    );
+
+    expect(moves?.items[0]?.handMoves).toEqual([
+      { stationId: at('backlog'), denial: null, skips: [] },
+      {
+        stationId: at('triage'),
+        denial: 'between-work-stations',
+        skips: [],
+      },
+      { stationId: at('spec'), denial: 'between-work-stations', skips: [] },
+      { stationId: at('implementation'), denial: null, skips: [] },
+      {
+        stationId: at('code-review'),
+        denial: 'between-work-stations',
+        skips: [],
+      },
+      { stationId: at('completed'), denial: null, skips: [] },
+    ]);
   });
 });

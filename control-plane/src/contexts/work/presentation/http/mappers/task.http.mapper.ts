@@ -1,5 +1,6 @@
 import type { TaskDto } from '@work/application/dto/task.dto';
 import {
+  TaskHandMoveResponseDto,
   TaskNoteResponseDto,
   TaskPersonResponseDto,
   TaskResponseDto,
@@ -68,6 +69,10 @@ export const TaskHttpMapper = {
       dto.runNotStarted
         ? new TaskRunNotStartedResponseDto(dto.runNotStarted.harness)
         : null,
+      dto.handMoves.map(
+        (each) =>
+          new TaskHandMoveResponseDto(each.stationId, each.denial, each.skips),
+      ),
     );
   },
 };

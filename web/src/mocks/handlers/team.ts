@@ -605,6 +605,7 @@ const chatHandlers = [
           source: null,
           hold: null,
           runNotStarted: null,
+          handMoves: [],
         },
       ];
       seenAgain(teamId, taskId);

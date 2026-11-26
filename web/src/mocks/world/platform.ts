@@ -239,6 +239,7 @@ const task = (
   pullRequests: [],
   hold: null,
   runNotStarted: null,
+  handMoves: [],
   createdBy: SAM,
   assignee: null,
   note: null,
