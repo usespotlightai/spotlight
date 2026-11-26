@@ -15,6 +15,7 @@ const task = {
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
+  sendsBackTo: [],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -450,7 +451,12 @@ describe('Task', () => {
   it('sends a finished task back to an earlier station, with the reason the person gives', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([
-      { ...task, stationId: 'station_2', finished: true },
+      {
+        ...task,
+        stationId: 'station_2',
+        finished: true,
+        sendsBackTo: ['station_1'],
+      },
     ]);
     renderAt('task_1');
 

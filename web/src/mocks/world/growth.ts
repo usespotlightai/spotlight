@@ -95,6 +95,7 @@ const task = (
   waitingForYou: false,
   yourMessage: 'message',
   finished: false,
+  sendsBackTo: [],
   pullRequests: [],
   hold: null,
   runNotStarted: null,

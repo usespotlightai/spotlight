@@ -3697,6 +3697,10 @@ export type TaskResponseDto = {
    */
   finished: boolean;
   /**
+   * The stations a person may send the task back to, with a reason: the work stations before its station on the line, and the ones its station passes to. Empty while the line has not finished the task.
+   */
+  sendsBackTo: Array<string>;
+  /**
    * The pull requests this task ended in, one for each repository, the first opened first
    */
   pullRequests: Array<string>;

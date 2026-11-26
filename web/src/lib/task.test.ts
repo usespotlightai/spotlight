@@ -5,7 +5,6 @@ import {
   movableByHand,
   moveTargetFor,
   placed,
-  sendsBack,
   type Task,
 } from '@/lib/task';
 
@@ -22,6 +21,7 @@ const task = (id: string, stationId: string): Task => ({
   waitingForYou: false,
   yourMessage: 'message',
   finished: false,
+  sendsBackTo: [],
   createdBy: null,
   assignee: null,
   pullRequests: [],
@@ -114,29 +114,6 @@ describe('movableByHand', () => {
   it('keeps completed work completed', () => {
     expect(movableByHand(completed, backlog)).toBe(false);
     expect(movableByHand(completed, spec)).toBe(false);
-  });
-});
-
-describe('sendsBack', () => {
-  const routed = (
-    station: { id: string; kind: 'backlog' | 'work' | 'completed' },
-    position: number,
-    passesTo: string[] = [],
-  ) => ({ ...station, position, passesTo });
-  const review = routed({ id: 'review', kind: 'work' }, 3, ['build']);
-
-  it('sends work back to an earlier work station, or one its station passes to', () => {
-    expect(sendsBack(review, routed(build, 2))).toBe(true);
-    expect(sendsBack(review, routed(spec, 1))).toBe(true);
-    expect(sendsBack(routed(spec, 1, ['review']), review)).toBe(true);
-  });
-
-  it('sends nothing on to a later station it does not pass to, nor out of the work stations', () => {
-    expect(sendsBack(routed(spec, 1), review)).toBe(false);
-    expect(sendsBack(review, review)).toBe(false);
-    expect(sendsBack(review, routed(backlog, 0))).toBe(false);
-    expect(sendsBack(review, routed(completed, 4))).toBe(false);
-    expect(sendsBack(routed(backlog, 0), routed(spec, 1))).toBe(false);
   });
 });
 

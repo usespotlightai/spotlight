@@ -11,7 +11,7 @@ import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import { sendsBack, type Task } from '@/lib/task';
+import type { Task } from '@/lib/task';
 
 type TaskPropertiesProps = {
   slug?: string;
@@ -58,11 +58,11 @@ export function TaskProperties({
             stations={line.stations}
             value={station.id}
             held={task.hold}
-            finished={task.finished}
+            sendsBackTo={task.sendsBackTo}
             onChange={(stationId) => {
               const to = line.stations.find((each) => each.id === stationId);
 
-              if (to && task.finished && sendsBack(station, to)) {
+              if (to && task.sendsBackTo.includes(to.id)) {
                 setSendingBackTo(to);
                 return;
               }
