@@ -1089,6 +1089,62 @@ describe('Run', () => {
       );
     });
 
+    it('moves the task on to the next station by default', async () => {
+      const user = userEvent.setup();
+      const theirs = mine();
+      const implementation = {
+        ...working.station,
+        position: 2,
+        passesTo: ['station_spec', 'station_review'],
+      };
+      taskStation.mockReturnValue({
+        ...theirs,
+        station: implementation,
+        line: {
+          stations: [
+            {
+              id: 'station_spec',
+              name: 'Spec',
+              harness: 'claude-code',
+              kind: 'work',
+              position: 1,
+            },
+            implementation,
+            {
+              id: 'station_review',
+              name: 'Code Review',
+              harness: 'claude-code',
+              kind: 'work',
+              position: 3,
+            },
+          ],
+        },
+      });
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Resume' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('radio', { name: /^Move it on/ }),
+      );
+
+      expect(
+        within(dialog).getByRole('radio', { name: 'Code Review' }),
+      ).toBeChecked();
+
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Move it on' }),
+      );
+
+      expect(resumption).toHaveBeenCalledWith(
+        expect.objectContaining({
+          next: 'move-on',
+          stationId: 'station_review',
+        }),
+        expect.anything(),
+      );
+    });
+
     it('says an event asked to finish the task while it was on hold', async () => {
       const user = userEvent.setup();
       const theirs = mine();
