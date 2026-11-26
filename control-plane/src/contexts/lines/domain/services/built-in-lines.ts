@@ -107,8 +107,9 @@ Say in your note what the request comes down to, in a sentence or two, and
 anything it leaves open or takes for granted.
 
 Pass the task to Spec once a plan could be written against it. Which files it
-touches, the approach and the design are Spec's to work out, not yours — do not
-do its job here.
+touches, the approach, the tests and the design are Spec's to work out, not
+yours — do not do its job here. Name no files, functions, tests or steps in
+your note, not even as a hint.
 
 A small change still goes along the line rather than skipping ahead to the end
 of it.
@@ -122,7 +123,12 @@ or route.
 
 If the request is ambiguous, contradictory, already done, or a duplicate, that
 is a question for a person, not a guess for you to make. For a duplicate, name
-the task that already covers it.`;
+the task that already covers it.
+
+End every note with these two lines:
+
+    Clear to plan: yes or no, and why.
+    Duplicate: none, or the task that already covers it.`;
 
 const SPEC = `## Spec
 
@@ -133,31 +139,67 @@ do not reopen it — your job is the how, not the what.
 Say in your note: the approach and why it beats the obvious alternative, the
 files and functions to change, how it should be tested, and what is explicitly
 out of scope. Read enough of the codebase to be concrete — name real things,
-not placeholders.
+not placeholders. Reuse what the codebase already has before you plan
+something new.
 
-Do not write the implementation. If the plan needs a decision that is not
-yours to make — a product call, a schema change, anything hard to undo — put
-that to a person instead of choosing.
+Say how the team will know the change works once it is deployed: the error
+that should stop, the log line or metric that should move, and the alert that
+watches it. If the change can fail in a way no current signal shows, plan the
+logging, metric or alert that does.
+
+Do not write the implementation. Implementation commits and pushes the
+change, and Code Review opens the pull request: do not tell Implementation to
+open one.
+
+If the plan needs a decision that is not yours to make — a product call, a
+schema change, anything hard to undo — put that to a person instead of
+choosing. Do not put a decision to a person that you can make yourself.
 
 If the task comes back from Implementation or Code Review, the note it returns
 with says what the plan got wrong or missed: revise the plan against that note
-rather than starting over.`;
+rather than starting over.
+
+### When nothing needs to change
+
+If the codebase already does what the request wants, write no plan. Put the
+task to a person with \`spotlight handover --next review --suggest done\`, and
+say in your note what you checked and which files and behaviour show it. Do
+not close the task yourself: close it with \`spotlight handover --next done\`
+only when the person tells you to.
+
+End every note with this line:
+
+    Decisions for a person: none, or each decision you put to a person.`;
 
 const IMPLEMENTATION = `## Implementation
 
 Make the change the spec describes, and no more than it.
 
+Before you change code, read how it reports failure today: its errors, its
+logs and the alerts that watch it. Then add the logging, metrics and alerts
+that the spec names.
+
 Match the surrounding code: its naming, its structure, its idioms. Write tests
 that would fail without your change. Run the tests and the linter, and leave
-them passing — a change that does not build is not done.
+them passing — a change that does not build is not done. Where the station has
+a check, it runs what CI runs: run it before you hand over.
 
-Commit your work and push it. The workspace is already on the branch this
+A migration is hard to undo. Make it safe to run while the old code still
+serves, and say in your note how it is rolled back.
+
+Commit your work and push it. Take an issue number for a commit message only
+from the task; never make one up. The workspace is already on the branch this
 task belongs to, so push that branch and nothing else:
 
     git push -u origin HEAD
 
-Say in your note: what you changed, what you tested, and anything you found
-that the spec did not anticipate.
+Do not open a pull request: Code Review opens it. If the spec tells you to open
+one, skip that step. When the change is pushed and its checks pass, pass the
+task to Code Review, not to a person.
+
+Say in your note: what you changed, what you tested, how the code reported
+failure before your change, and anything you found that the spec did not
+anticipate.
 
 If the spec turns out to be wrong, or leaves out something the change depends
 on, do not improvise a different change: pass the task back to Spec, and say
@@ -232,10 +274,39 @@ everything since it forked from the branch it started from:
 Read the spec and the notes first, so you judge the change against what it set
 out to do.
 
+You review; you do not edit. Never change, commit or push code yourself, also
+when the task was sent back to you. Fixing code is Implementation's work.
+
+If a comment on the pull request brought the task back, read it first. A
+question is a question: answer it in a reply and change nothing. When the
+comment asks for a change or names a fault, pass the task back to
+Implementation with what the comment asks for.
+
 ${REVIEWING}
 
+Also look for:
+
+- A requirement of the task that the change does not meet, including one that
+  says what not to do.
+- An issue number in a commit message that the task does not name: read the
+  commits with \`git log refs/spotlight/base..HEAD\`.
+- A change that can fail in production with nothing to show it: no error
+  reported, no log line or metric, no alert. Raise it as medium, or high when it
+  loses data.
+
+Check that the branch still merges into the branch it started from:
+
+    git fetch origin
+    git merge-tree --write-tree HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"
+
+A conflict is a finding: pass the task back to Implementation to rebase it.
+
 Say in your note what you found, most serious first, each finding with its
-severity.
+severity, or say plainly that you found nothing. Then end the note with these
+two lines, also when you found nothing:
+
+    Merges cleanly: yes, or no and the conflicting files.
+    Production failure: what shows this change failing in production, or "none: it can fail silently".
 
 If the code needs changing, pass the task back to implementation. If the
 fault is in the plan rather than the code — the spec requested the wrong
@@ -245,7 +316,8 @@ Either way, your note is what that run works from, so it has to be enough to
 act on without reading the diff again.
 
 If it is sound, say so plainly and say what you checked, then open a pull
-request and write its address in your note.
+request and write its address in your note. Take an issue number for its title
+only from the task; never make one up.
 
 With the pull request open, the task is finished: pass the task to \`done\` rather
 than to a person, so nothing is left waiting on an answer that nobody will send.`;
@@ -277,41 +349,47 @@ Say in your note what you found, most serious first, and pass the task to \`done
 
 const TRIAGE_CLAIMS = [
   'The note says in a sentence or two what the request comes down to.',
-  'The note names what the request leaves open or takes for granted.',
+  'The note names what the request leaves open or takes for granted, or says that it leaves nothing open.',
   'The run changed no file.',
-  'The task went to Spec or Implementation only when a plan could be written against it.',
-  'The task went to a person when the request was ambiguous, contradictory, already done or a duplicate of an open task.',
-  'When the task duplicates an open task, the note names that task.',
-  'The note does not plan the change.',
+  'The note says whether the request is clear enough to plan, and the handover matches: Spec or Implementation when it is, a person when it is not.',
+  'The note says whether the request duplicates an open task, and names that task when it does.',
+  'The note names no files, functions, tests or steps.',
 ];
 
 const SPEC_CLAIMS = [
-  'The plan names the approach and why it beats the obvious alternative.',
-  'The plan names the real files and functions to change.',
-  'The plan says how to test the change and what is out of scope.',
+  'The note names the approach and why it beats the obvious alternative.',
+  'The note names the real files and functions to change.',
+  'The note says how to test the change and what is out of scope.',
+  'The note names the signals that show the change works in production.',
   'Someone could implement the plan without going back to the requester.',
-  'The plan does not reopen what the request wants.',
-  "A decision that is not the agent's to make went to a person.",
+  'The note does not reopen what the request wants.',
+  "The note's last line lists each decision the run put to a person, or says none.",
+  'The run did not close the task unless a person told it to.',
 ];
 
 const IMPLEMENTATION_CLAIMS = [
-  'The change does what the spec describes, and no more.',
+  'The change does what the spec describes.',
+  'The change does no more than the spec describes.',
   'The change matches the surrounding code.',
   'The change adds tests that fail without it.',
-  "The tests and the linter pass, and the change is pushed to the task's branch.",
-  'The note says what changed, what was tested, and what the spec did not anticipate.',
-  'A wrong spec went back to Spec, not into a different change.',
+  'The tests pass after the change.',
+  "The change is pushed to the task's branch.",
+  'The run opened no pull request.',
+  'The note says what changed, what was tested, how the code reported failure before the change, and what the spec did not anticipate.',
 ];
 
 const CODE_REVIEW_CLAIMS = [
-  'The review judges the change against the spec and the notes.',
-  'Each finding is real and has a severity that is not overstated.',
-  'Each finding says where it is, what goes wrong, when, and what would fix it.',
-  'A fault in the code went back to Implementation, and a fault in the plan to Spec.',
-  'A sound change got a pull request and went to done.',
+  'The note says what the review checked against the spec and the notes.',
+  'The note lists each finding with its severity, its file and line, what goes wrong and what would fix it, or says plainly that it found nothing.',
+  'No finding is false, and no severity is overstated.',
+  'The run did not change, commit or push any file.',
+  'The note ends with a line that says whether the branch merges cleanly.',
+  'The note ends with a line that says how the change would show failing in production.',
+  'The handover matches the note: done with a pull request when nothing blocks, Implementation for a fault in the code or a conflict, Spec for a fault in the plan.',
 ];
 
 const PULL_REQUEST_REVIEW_CLAIMS = [
+  'The review judges the pull request against its description.',
   'Each finding is a comment on its line.',
   'Each finding starts with a severity that is not overstated.',
   'Each finding says what goes wrong, when, and what would fix it.',
@@ -373,6 +451,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     prompt: SPEC,
     claims: SPEC_CLAIMS,
     passesTo: ['implementation'],
+    ends: true,
   }),
   opening({
     key: 'implementation',
@@ -421,6 +500,10 @@ const GITHUB_REACTIONS: readonly ReactionOpening[] = [
   {
     happening: Happening.of('github.pull_request.merged'),
     to: StationKey.of('completed'),
+  },
+  {
+    happening: Happening.of('github.pull_request.closed-unmerged'),
+    to: StationKey.of('backlog'),
   },
 ];
 
