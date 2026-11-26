@@ -46,30 +46,23 @@ describe('reasoning in a run’s journal', () => {
     ).toEqual({
       kind: 'remember',
       text: 'spotlight remember --kind failure --body "CI flakes"',
+      commandAt: 0,
     });
   });
 
-  it('keeps only the command, not the rest of the script it ran in', () => {
-    const textOf = (text: string) => reasoningIn({ kind: 'tool', text })?.text;
+  it('finds where in the script the command it ran starts', () => {
+    const script = 'cd api && spotlight remember --kind rationale --body "x"';
 
-    expect(
-      textOf(
-        [
-          'cd api && spotlight remember --kind environment --body "No make; use npm ci --ignore-scripts | tail" 2>&1 | tail -2',
-          "cat > /tmp/note.md <<'E'",
-          'Notes',
-          'E',
-        ].join('\n'),
-      ),
-    ).toBe(
-      'spotlight remember --kind environment --body "No make; use npm ci --ignore-scripts | tail"',
-    );
-    expect(
-      textOf("spotlight forget M-2 --because 'Wrong; see #12' && echo done"),
-    ).toBe("spotlight forget M-2 --because 'Wrong; see #12'");
-    expect(textOf('`spotlight handover --note "Retries once"`')).toBe(
-      'spotlight handover --note "Retries once"',
-    );
+    expect(reasoningIn({ kind: 'tool', text: script })).toEqual({
+      kind: 'remember',
+      text: script,
+      commandAt: script.indexOf('spotlight'),
+    });
+    expect(reasoningIn({ kind: 'message', text: 'Retrying once.' })).toEqual({
+      kind: 'message',
+      text: 'Retrying once.',
+      commandAt: null,
+    });
   });
 
   it('is the command the agent ran, not one it only mentions', () => {

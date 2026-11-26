@@ -20,6 +20,8 @@ type ReasoningKind =
 export interface Reasoning {
   readonly kind: ReasoningKind;
   readonly text: string;
+  /** Where in the text the spotlight command that the step ran starts; null where it ran none. */
+  readonly commandAt: number | null;
 }
 
 const REASONING_KINDS: Partial<Record<StepKind, ReasoningKind>> = {
@@ -39,8 +41,6 @@ const COMMANDS: readonly [RegExp, ReasoningKind][] = [
   [invoking(FORGET_COMMAND), 'remember'],
 ];
 
-const COMMAND_ENDS = new Set(['\n', '|', ';', '&', '>', '<', '`']);
-
 const shellOf = (text: string): string => {
   try {
     const read: unknown = JSON.parse(text);
@@ -51,33 +51,6 @@ const shellOf = (text: string): string => {
   } catch {
     return text;
   }
-};
-
-const invocationFrom = (shell: string, start: number): string => {
-  let quote: string | null = null;
-  let at = start;
-
-  for (; at < shell.length; at += 1) {
-    const char = shell.charAt(at);
-
-    if (char === '\\' && quote !== "'") {
-      at += 1;
-    } else if (quote) {
-      quote = char === quote ? null : quote;
-    } else if (char === '"' || char === "'") {
-      quote = char;
-    } else if (COMMAND_ENDS.has(char)) {
-      break;
-    }
-  }
-
-  const invocation = shell.slice(start, at).replaceAll('\\\n', ' ');
-
-  return (
-    /[<>]/.test(shell.charAt(at))
-      ? invocation.replace(/\s\d+\s*$/, '')
-      : invocation
-  ).trim();
 };
 
 const firstIn = (text: string): Reasoning | null => {
@@ -92,9 +65,7 @@ const firstIn = (text: string): Reasoning | null => {
   }).sort((one, other) => one.at - other.at);
   const first = found[0];
 
-  return first
-    ? { kind: first.kind, text: invocationFrom(shell, first.at) }
-    : null;
+  return first ? { kind: first.kind, text: shell, commandAt: first.at } : null;
 };
 
 const commanded = (step: {
@@ -117,5 +88,5 @@ export const reasoningIn = (step: {
   }
 
   const kind = REASONING_KINDS[step.kind];
-  return kind ? { kind, text: step.text } : null;
+  return kind ? { kind, text: step.text, commandAt: null } : null;
 };
