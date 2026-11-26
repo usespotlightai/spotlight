@@ -85,6 +85,11 @@ const RAISED: Readonly<Record<ReportedActivity, HappeningDeclaration>> = {
     label: 'Pull request closed unmerged',
     summary: 'The pull request was closed without being merged.',
   }),
+  conflicted: raised({
+    key: 'github.pull_request.conflicted',
+    label: 'Pull request conflicts',
+    summary: 'The pull request conflicts with its base branch.',
+  }),
 };
 
 const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
@@ -92,6 +97,13 @@ const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
 
   return body ? { body } : null;
 };
+
+const conflictOf = (event: PullRequestActivity): Happened['message'] =>
+  event.activity === 'conflicted' && event.base
+    ? {
+        body: `The pull request conflicts with ${event.base}. Rebase the branch on ${event.base} and push it.`,
+      }
+    : null;
 
 const messageOf = (event: PullRequestActivity): Happened['message'] =>
   event.reviewComment
@@ -168,7 +180,7 @@ const reported = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys,
-    message: messageOf(event) ?? failedChecksOf(event),
+    message: messageOf(event) ?? failedChecksOf(event) ?? conflictOf(event),
     ourOwn: event.ignoredAsBot,
     opens: null,
     closedPullRequest:
@@ -223,6 +235,7 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
     RAISED['changes-requested'],
     RAISED['checks-failed'],
     RAISED['closed-unmerged'],
+    RAISED.conflicted,
     REVIEW_REQUEST_RAISED.opened,
     REVIEW_REQUEST_RAISED.mentioned,
     REVIEW_REQUEST_RAISED.labelled,

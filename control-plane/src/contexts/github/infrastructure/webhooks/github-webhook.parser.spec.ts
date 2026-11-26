@@ -27,6 +27,7 @@ const pull = (over: Record<string, unknown> = {}) => ({
   merged: true,
   html_url: 'https://github.com/acme/api/pull/7',
   head: { ref: 'spotlight/task_1' },
+  base: { ref: 'main' },
   ...over,
 });
 
@@ -67,6 +68,7 @@ describe('GitHubWebhookParser', () => {
       ).toEqual({
         activity: 'merged',
         branch: 'spotlight/task_1',
+        base: 'main',
         pullRequest: 'https://github.com/acme/api/pull/7',
         label: null,
         details: null,
@@ -637,6 +639,34 @@ describe('GitHubWebhookParser', () => {
 
     it('reads no push from other pull request actions', () => {
       expect(pushed({ action: 'edited' })).toEqual([]);
+    });
+  });
+
+  describe('reading a push to the default branch', () => {
+    const pushedTo = (body: Record<string, unknown> = {}) =>
+      eventsOf('push', {
+        ref: 'refs/heads/main',
+        repository: { full_name: 'acme/api', default_branch: 'main' },
+        ...body,
+      });
+
+    it('reads which default branch of which repository moved', () => {
+      expect(pushedTo()).toEqual([
+        {
+          kind: 'default-branch-pushed',
+          repository: 'acme/api',
+          branch: 'main',
+        },
+      ]);
+    });
+
+    it('reads nothing from a push to another branch, or a tag', () => {
+      expect(pushedTo({ ref: 'refs/heads/spotlight/task_1' })).toEqual([]);
+      expect(pushedTo({ ref: 'refs/tags/main' })).toEqual([]);
+    });
+
+    it('reads nothing when the push deleted the branch', () => {
+      expect(pushedTo({ deleted: true })).toEqual([]);
     });
   });
 

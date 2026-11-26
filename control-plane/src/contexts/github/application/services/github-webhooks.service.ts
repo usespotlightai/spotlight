@@ -2,6 +2,7 @@ import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
+import type { PullRequestConflictsPort } from '@github/application/ports/pull-request-conflicts.port';
 import type { RecordsRepositoryVisibility } from '@github/application/ports/repository-visibility.port';
 import type {
   WebhookEvent,
@@ -25,6 +26,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     private readonly logger: LoggerPort,
     private readonly checkRuns: CheckRunsPort,
     private readonly visibilities: RecordsRepositoryVisibility,
+    private readonly conflicts: PullRequestConflictsPort,
   ) {}
 
   verifies(delivery: GitHubDelivery): boolean {
@@ -49,15 +51,54 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
   async activityIn(
     delivery: GitHubDelivery,
   ): Promise<readonly PullRequestActivity[]> {
-    const activities = this.parser
-      .parse(delivery)
-      .events.flatMap((each) =>
-        each.kind === 'pull-request-activity' ? [each.activity] : [],
-      );
-
-    return Promise.all(
-      activities.map((activity) => this.withFailedChecks(delivery, activity)),
+    const { events } = this.parser.parse(delivery);
+    const activities = events.flatMap((each) =>
+      each.kind === 'pull-request-activity' ? [each.activity] : [],
     );
+    const conflicted: PullRequestActivity[] = [];
+
+    for (const each of events) {
+      if (each.kind === 'default-branch-pushed') {
+        conflicted.push(...(await this.conflictedBy(delivery, each)));
+      }
+    }
+
+    return [
+      ...(await Promise.all(
+        activities.map((activity) => this.withFailedChecks(delivery, activity)),
+      )),
+      ...conflicted,
+    ];
+  }
+
+  private async conflictedBy(
+    delivery: GitHubDelivery,
+    pushed: { readonly repository: string; readonly branch: string },
+  ): Promise<readonly PullRequestActivity[]> {
+    const workspaceId = await this.workspaceOf(delivery);
+
+    if (!workspaceId) {
+      return [];
+    }
+
+    const conflicting = await this.conflicts.conflictingWith(
+      workspaceId,
+      Repository.of(pushed.repository),
+      pushed.branch,
+    );
+
+    return conflicting.map(({ url, branch }) => ({
+      activity: 'conflicted',
+      branch,
+      base: pushed.branch,
+      pullRequest: url,
+      label: null,
+      details: null,
+      reviewComment: null,
+      ignoredAsBot: false,
+      checkSuite: null,
+      failedChecks: [],
+    }));
   }
 
   private async withFailedChecks(
@@ -108,7 +149,11 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     const installation = this.installationIn(delivery);
     const events = this.parser
       .parse(delivery)
-      .events.filter((each) => each.kind !== 'pull-request-activity');
+      .events.filter(
+        (each) =>
+          each.kind !== 'pull-request-activity' &&
+          each.kind !== 'default-branch-pushed',
+      );
 
     if (!installation || events.length === 0) {
       return;

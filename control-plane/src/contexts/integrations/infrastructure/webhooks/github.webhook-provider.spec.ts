@@ -14,6 +14,7 @@ const DELIVERED = { headers: {}, body: {}, raw: null };
 const MERGED: PullRequestActivity = {
   activity: 'merged',
   branch: 'spotlight/task_1',
+  base: 'main',
   pullRequest: 'https://github.com/acme/api/pull/7',
   label: null,
   details: null,
@@ -26,6 +27,7 @@ const MERGED: PullRequestActivity = {
 const OPENED: PullRequestActivity = {
   activity: 'opened',
   branch: 'fix-uploads',
+  base: 'main',
   pullRequest: 'https://github.com/acme/api/pull/7',
   label: null,
   details: {
@@ -94,6 +96,7 @@ describe('GitHubWebhookProvider', () => {
           'commented',
           'changes-requested',
           'checks-failed',
+          'conflicted',
         ] as const
       ).map(
         async (activity) => (await readOne({ ...MERGED, activity })).happening,
@@ -106,7 +109,31 @@ describe('GitHubWebhookProvider', () => {
       'github.pull_request.commented',
       'github.pull_request.changes-requested',
       'github.checks.failed',
+      'github.pull_request.conflicted',
     ]);
+  });
+
+  it('tells the task of a conflicting pull request which branch it conflicts with', async () => {
+    const read = await readOne({ ...MERGED, activity: 'conflicted' });
+
+    expect(read).toMatchObject({
+      happening: 'github.pull_request.conflicted',
+      summary: 'The pull request conflicts with its base branch.',
+      correlationKeys: {
+        branch: 'spotlight/task_1',
+        marks: [
+          {
+            kind: PULL_REQUEST_MARK,
+            value: 'https://github.com/acme/api/pull/7',
+          },
+        ],
+      },
+      message: {
+        body: 'The pull request conflicts with main. Rebase the branch on main and push it.',
+      },
+      ourOwn: false,
+      closedPullRequest: null,
+    });
   });
 
   it('names the checks that failed, with the failed step and the end of the log', async () => {

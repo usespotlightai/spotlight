@@ -411,6 +411,10 @@ const GITHUB_REACTIONS: readonly ReactionOpening[] = [
     to: StationKey.of('implementation'),
   },
   {
+    happening: Happening.of('github.pull_request.conflicted'),
+    to: StationKey.of('implementation'),
+  },
+  {
     happening: Happening.of('github.pull_request.commented'),
     to: StationKey.of('code-review'),
   },

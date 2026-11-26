@@ -33,6 +33,8 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 interface Payload {
   readonly action?: unknown;
+  readonly ref?: unknown;
+  readonly deleted?: unknown;
   readonly label?: { readonly name?: unknown };
   readonly installation?: { readonly id?: unknown };
   readonly pull_request?: Pull;
@@ -61,6 +63,7 @@ interface Payload {
   readonly sender?: { readonly type?: unknown; readonly login?: unknown };
   readonly repository?: {
     readonly full_name?: unknown;
+    readonly default_branch?: unknown;
   };
 }
 
@@ -87,7 +90,7 @@ interface Pull extends DetailsPayload {
   readonly deletions?: unknown;
   readonly changed_files?: unknown;
   readonly head?: { readonly ref?: unknown; readonly sha?: unknown };
-  readonly base?: { readonly sha?: unknown };
+  readonly base?: { readonly ref?: unknown; readonly sha?: unknown };
 }
 
 interface CommentPayload {
@@ -217,6 +220,7 @@ const pullRequestActivity = (
     branch:
       text(payload.pull_request?.head?.ref) ??
       text(payload.check_suite?.head_branch),
+    base: text(payload.pull_request?.base?.ref),
     pullRequest:
       text(payload.pull_request?.html_url) ??
       text(payload.issue?.pull_request?.html_url) ??
@@ -564,6 +568,18 @@ const repositoryVisibility = (payload: Payload): WebhookEvent[] => {
     : [];
 };
 
+const defaultBranchPushed = (payload: Payload): WebhookEvent[] => {
+  const repository = text(payload.repository?.full_name);
+  const branch = text(payload.repository?.default_branch);
+
+  return repository &&
+    branch &&
+    payload.ref === `refs/heads/${branch}` &&
+    payload.deleted !== true
+    ? [{ kind: 'default-branch-pushed', repository, branch }]
+    : [];
+};
+
 const eventsIn = (
   event: string | undefined,
   payload: Payload,
@@ -585,6 +601,7 @@ const eventsIn = (
     ...(event === 'pull_request' ? pullRequestPushed(payload) : []),
     ...(event === 'pull_request_review' ? pullRequestReviewed(payload) : []),
     ...(event === 'pull_request_review' ? reviewDismissed(payload) : []),
+    ...(event === 'push' ? defaultBranchPushed(payload) : []),
     ...pullRequestActivity(event, payload),
   ];
 };
