@@ -7,6 +7,8 @@ import type { WorkPort } from '@memory/application/ports/work.port';
 import { lookUpOnce } from '@memory/application/services/people-lookup';
 import { provenanceNotes } from '@memory/application/services/provenance-notes';
 import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
+import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import type { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -33,8 +35,7 @@ export class MemoryReviews {
     const retired = new Map(
       current.map((each) => [each.id.value, each.handle.value]),
     );
-    const open = proposals.find((each) => each.proposed);
-    const team = open ? await this.memories.ofTeam(open.scope.teamId) : [];
+    const team = await this.comparedWith(proposals);
 
     const memories = await Promise.all(
       proposals.map(async (proposal): Promise<ProposedMemoryDto> => {
@@ -83,5 +84,20 @@ export class MemoryReviews {
     );
 
     return { taskId: set.taskId.value, runId: runId.value, memories };
+  }
+
+  private async comparedWith(
+    proposals: readonly MemoryProposal[],
+  ): Promise<readonly Memory[]> {
+    const teams = new Map(
+      proposals
+        .filter((each) => each.comparable)
+        .map((each) => [each.scope.teamId.value, each.scope.teamId]),
+    );
+    const memories = await Promise.all(
+      [...teams.values()].map((teamId) => this.memories.ofTeam(teamId)),
+    );
+
+    return memories.flat();
   }
 }

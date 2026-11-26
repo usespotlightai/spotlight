@@ -70,6 +70,12 @@ describe('MemoryProposal', () => {
     expect(stored('proposed', null).inactiveIn([])).toEqual([]);
   });
 
+  it('is compared with the memories while it is proposed and retires nothing', () => {
+    expect(stored('proposed', null).comparable).toBe(true);
+    expect(stored('proposed', RETIRES).comparable).toBe(false);
+    expect(stored('approved', null).comparable).toBe(false);
+  });
+
   it('names the active memory most like it that applies in the same place', () => {
     const same = known(2, 'Name the branches after their ticket.');
     const retired = known(4, 'Name branches after the ticket.').retire({

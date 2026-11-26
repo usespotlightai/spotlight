@@ -181,8 +181,12 @@ export class MemoryProposal {
       : [];
   }
 
+  get comparable(): boolean {
+    return this.proposed && !this.retires;
+  }
+
   similarIn(memories: readonly Memory[]): Memory | null {
-    if (!this.proposed || this.retires) {
+    if (!this.comparable) {
       return null;
     }
 

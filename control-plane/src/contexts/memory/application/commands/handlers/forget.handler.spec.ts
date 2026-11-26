@@ -24,7 +24,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const RUN = RunId.of('run_1');
@@ -110,6 +110,7 @@ const forgetting = (
     } as unknown as MemoryRepository,
   );
 
+  const teamMemories = vi.fn(async () => (known ? [known] : []));
   const reading = new ReadProposedMemoryHandler(
     new RunnerMemoryLoader(work),
     {
@@ -120,13 +121,14 @@ const forgetting = (
       { find: async () => null } as never,
       {
         findAll: async () => (known ? [known] : []),
-        ofTeam: async () => (known ? [known] : []),
+        ofTeam: teamMemories,
       } as unknown as MemoryRepository,
     ),
   );
 
   return {
     added,
+    teamMemories,
     proposedAs: (memoryId: string) =>
       reading.execute(
         new ReadProposedMemoryQuery('run_1', 'runner_1', memoryId),
@@ -159,6 +161,15 @@ describe('ForgetHandler', () => {
         reason: 'The worker reloads its limits on deploy.',
       },
     });
+  });
+
+  it('compares no memory with a proposal to retire one', async () => {
+    const { forget, proposedAs, teamMemories } = forgetting();
+
+    const proposed = await proposedAs(await forget());
+
+    expect(proposed.similarTo).toBeNull();
+    expect(teamMemories).not.toHaveBeenCalled();
   });
 
   it('knows no memory of another handle', async () => {
