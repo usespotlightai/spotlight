@@ -90,7 +90,7 @@ export const trialInputsBlockOf = (inputs: TrialInputs): TrialBlock | null => {
   return null;
 };
 
-export interface TrialCheckoutFact {
+interface TrialCheckoutFact {
   readonly checkedOutAt: string;
   readonly repository: Repository | null;
 }
