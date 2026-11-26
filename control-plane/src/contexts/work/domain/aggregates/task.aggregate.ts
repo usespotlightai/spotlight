@@ -95,6 +95,7 @@ import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { openSetupList } from '@work/domain/services/setup-list';
 import { takesUpRun } from '@work/domain/services/taking-up';
 import { anyUnread } from '@work/domain/services/unread';
+import type { ActionKind } from '@work/domain/value-objects/action-kind';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
@@ -658,7 +659,7 @@ export class Task extends EventRecorder {
         this.id,
         this.workspaceId,
         this.stationId,
-        into.isCompleted ? 'accepted' : into.isBacklog ? 'parked' : 'started',
+        this.actionOfMoveInto(line, into),
         handMove.mover,
         this.lastRun,
         newNote.at,
@@ -3234,11 +3235,30 @@ export class Task extends EventRecorder {
   private assertHandMoveAllowed(line: LineMap, to: StationId): void {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
-    const denial = line.moveDenial(from, into);
+    const denial = this.sendsBackTo(line, into)
+      ? null
+      : line.moveDenial(from, into);
 
     if (denial) {
       throw new MoveDeniedError(denial, from.name.value, into.name.value);
     }
+  }
+
+  private actionOfMoveInto(line: LineMap, into: Station): ActionKind {
+    if (into.isCompleted) {
+      return 'accepted';
+    }
+    if (into.isBacklog) {
+      return 'parked';
+    }
+    return this.sendsBackTo(line, into) ? 'sent-back' : 'started';
+  }
+
+  private sendsBackTo(line: LineMap, into: Station): boolean {
+    return (
+      this.finished &&
+      line.sendsBack(Task.stationOn(line, this.stationId), into)
+    );
   }
 
   private assertNotAtStation(stationId: StationId): void {

@@ -51,6 +51,17 @@ export const movableByHand = (from: Placed, to: Placed): boolean =>
       (from.kind === 'backlog' && to.kind === 'work') ||
       (from.kind === 'work' && to.kind === 'backlog')));
 
+type Routed = Placed & {
+  readonly position: number;
+  readonly passesTo: readonly string[];
+};
+
+export const sendsBack = (from: Routed, to: Routed): boolean =>
+  from.kind === 'work' &&
+  to.kind === 'work' &&
+  from.id !== to.id &&
+  (from.passesTo.includes(to.id) || to.position < from.position);
+
 export const mayLand = (
   stations: readonly Placed[],
   task: Task,

@@ -20,7 +20,7 @@ import { useMe } from '@/hooks/useMe';
 import type { StationResponseDto, TaskHoldResponseDto } from '@/lib/api';
 import { heldUntilResumed, lockedHold } from '@/lib/hold';
 import { stationShare } from '@/lib/station';
-import { movableByHand } from '@/lib/task';
+import { movableByHand, sendsBack } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
 type Station = {
@@ -28,12 +28,15 @@ type Station = {
   readonly name: string;
   readonly color: string;
   readonly kind: StationResponseDto['kind'];
+  readonly position: number;
+  readonly passesTo: readonly string[];
 };
 
 type StationSelectProps = {
   stations: readonly Station[];
   value: string;
   held: TaskHoldResponseDto | null;
+  finished: boolean;
   onChange: (stationId: string) => void;
 };
 
@@ -41,6 +44,7 @@ export function StationSelect({
   stations,
   value,
   held,
+  finished,
   onChange,
 }: StationSelectProps) {
   const shareOf = (stationId: string) =>
@@ -51,7 +55,11 @@ export function StationSelect({
 
   const currentStation = stations.find((each) => each.id === value);
   const offered = currentStation
-    ? stations.filter((each) => movableByHand(currentStation, each))
+    ? stations.filter(
+        (each) =>
+          movableByHand(currentStation, each) ||
+          (finished && sendsBack(currentStation, each)),
+      )
     : [];
   const [open, setOpen] = useState(false);
   const me = useMe();

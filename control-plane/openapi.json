@@ -14628,7 +14628,7 @@
             "description": "No such task or station for this caller"
           },
           "422": {
-            "description": "A person may only start a task from the backlog, park it back there, or close it"
+            "description": "A person may only start a task from the backlog, park it back there, close it, or send a finished task back to an earlier station"
           }
         },
         "summary": "Move a task to another station on the same line",
@@ -33628,6 +33628,12 @@
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
             "nullable": true,
             "description": "The task it was dropped after. Left out for the top of the station."
+          },
+          "reason": {
+            "type": "string",
+            "example": "The pull request conflicts with main. Rebase it and run the tests.",
+            "nullable": true,
+            "description": "Why the person moves the task. It goes on the task, so the next run reads it."
           }
         },
         "required": [

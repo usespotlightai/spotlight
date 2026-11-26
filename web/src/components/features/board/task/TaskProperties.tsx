@@ -1,4 +1,7 @@
+import { useState } from 'react';
+
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
+import { SendBackDialog } from '@/components/features/board/task/SendBackDialog';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TASK_PROPERTIES } from '@/components/features/board/task/TaskLayout';
 import { TaskPullRequestLink } from '@/components/features/board/task/TaskPullRequestLink';
@@ -7,8 +10,8 @@ import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
 import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
-import type { LineResponseDto } from '@/lib/api';
-import type { Task } from '@/lib/task';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
+import { sendsBack, type Task } from '@/lib/task';
 
 type TaskPropertiesProps = {
   slug?: string;
@@ -26,6 +29,22 @@ export function TaskProperties({
   const moveTask = useMoveTask();
   const station = line?.stations.find((each) => each.id === task.stationId);
   const linked = slug && teamId ? { slug, teamId } : null;
+  const [sendingBackTo, setSendingBackTo] = useState<StationResponseDto | null>(
+    null,
+  );
+
+  const move = (stationId: string, reason?: string) =>
+    line &&
+    teamId &&
+    moveTask.mutate({
+      teamId,
+      lineId: line.id,
+      taskId: task.id,
+      revision: task.revision,
+      stationId,
+      afterTaskId: null,
+      ...(reason ? { reason } : {}),
+    });
 
   return (
     <aside className={TASK_PROPERTIES}>
@@ -39,19 +58,30 @@ export function TaskProperties({
             stations={line.stations}
             value={station.id}
             held={task.hold}
-            onChange={(stationId) =>
-              teamId &&
-              moveTask.mutate({
-                teamId,
-                lineId: line.id,
-                taskId: task.id,
-                revision: task.revision,
-                stationId,
-                afterTaskId: null,
-              })
-            }
+            finished={task.finished}
+            onChange={(stationId) => {
+              const to = line.stations.find((each) => each.id === stationId);
+
+              if (to && task.finished && sendsBack(station, to)) {
+                setSendingBackTo(to);
+                return;
+              }
+
+              move(stationId);
+            }}
           />
         )}
+
+        <SendBackDialog
+          station={sendingBackTo?.name ?? null}
+          onOpenChange={(open) => !open && setSendingBackTo(null)}
+          onSend={(reason) => {
+            if (sendingBackTo) {
+              move(sendingBackTo.id, reason);
+            }
+            setSendingBackTo(null);
+          }}
+        />
 
         {teamId && <AssigneePicker teamId={teamId} task={task} variant="row" />}
 

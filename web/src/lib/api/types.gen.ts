@@ -4084,6 +4084,10 @@ export type MoveTaskRequestDto = {
    * The task it was dropped after. Left out for the top of the station.
    */
   afterTaskId?: string | null;
+  /**
+   * Why the person moves the task. It goes on the task, so the next run reads it.
+   */
+  reason?: string | null;
 };
 
 export type AssignTaskRequestDto = {
@@ -17677,7 +17681,7 @@ export type MoveTaskErrors = {
    */
   404: unknown;
   /**
-   * A person may only start a task from the backlog, park it back there, or close it
+   * A person may only start a task from the backlog, park it back there, close it, or send a finished task back to an earlier station
    */
   422: unknown;
 };
