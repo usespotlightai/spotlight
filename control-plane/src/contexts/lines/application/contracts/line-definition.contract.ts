@@ -47,6 +47,16 @@ export const LINE_DEFINITION_SEARCH_DEFAULTS = {
   requestsPerDay: LineSearchPolicy.DEFAULT.requestsPerDay,
 } as const;
 
+/** The search settings a station has when its search block leaves them out: what it inherits from the line's search block, or from the defaults when the line has none. */
+export const stationSearchDefaultsOf = (
+  line: LineDefinitionSearch | undefined,
+): { readonly requestsPerDay: number } => ({
+  requestsPerDay: (line
+    ? LineSearchPolicy.of(line)
+    : LineSearchPolicy.DEFAULT
+  ).inheritedByStation().requestsPerDay,
+});
+
 /** The switches a station has when its definition leaves them out: one that runs an agent has every agent feature. */
 export const stationSwitchDefaultsOf = (
   kind: LineDefinitionStationKind,

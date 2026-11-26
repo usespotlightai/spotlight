@@ -337,6 +337,11 @@ export class LineSearchPolicy {
     return station.kind === 'work' ? this.resolved(station.search) : null;
   }
 
+  /** The search a work station has when its block leaves every search setting out. */
+  inheritedByStation(): SearchPolicy {
+    return this.resolved(null);
+  }
+
   toPrimitives(): LineSearchPrimitives {
     return {
       enabled: this.enabled,

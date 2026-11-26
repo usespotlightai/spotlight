@@ -187,6 +187,17 @@ describe('LineSearchPolicy', () => {
   });
 });
 
+describe('LineSearchPolicy.inheritedByStation', () => {
+  it('gives a station that leaves its search settings out the line settings', () => {
+    const line = LineSearchPolicy.of({ requestsPerDay: 5, cooldown: '1d' });
+    const inherited = line.inheritedByStation();
+
+    expect(inherited.requestsPerDay).toBe(5);
+    expect(inherited.cooldown.text).toBe('1d');
+    expect(inherited).toEqual(line.resolvedFor({ kind: 'work', search: null }));
+  });
+});
+
 describe('StationSearchOverride', () => {
   it('leaves every setting it does not name to the line', () => {
     expect(StationSearchOverride.of({})).toMatchObject({

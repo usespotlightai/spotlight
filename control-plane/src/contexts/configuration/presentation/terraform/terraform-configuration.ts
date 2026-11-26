@@ -31,6 +31,7 @@ import {
   type LineDefinitionSource,
   type LineDefinitionStation,
   type LineDefinitionStationSearch,
+  stationSearchDefaultsOf,
 } from '@lines/application/contracts/line-definition.contract';
 import {
   attribute,
@@ -94,6 +95,7 @@ const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 
 const PROVIDER_VERSION = '0.1.0-rc.4';
 
+/** PROVIDER_VERSION has no requests_per_day, so the export writes it only where leaving it out would give the station another value. */
 const REQUESTS_PER_DAY = LINE_DEFINITION_SEARCH_DEFAULTS.requestsPerDay;
 
 const GITIGNORE = {
@@ -415,8 +417,7 @@ const line = (
       ],
     );
 
-  const lineRequestsPerDay =
-    definition.search?.requestsPerDay ?? REQUESTS_PER_DAY;
+  const inherited = stationSearchDefaultsOf(definition.search);
 
   const stationSearch = (set: LineDefinitionStationSearch): HclBlock =>
     block(
@@ -434,7 +435,7 @@ const line = (
         ...present(
           'requests_per_day',
           set.requestsPerDay === REQUESTS_PER_DAY &&
-            lineRequestsPerDay === REQUESTS_PER_DAY
+            inherited.requestsPerDay === REQUESTS_PER_DAY
             ? undefined
             : set.requestsPerDay,
         ),
