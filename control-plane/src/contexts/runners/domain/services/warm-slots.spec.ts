@@ -12,9 +12,11 @@ import {
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { HostSlotHolders } from '@runners/domain/services/host-slot-holders';
 import { WarmSlots } from '@runners/domain/services/warm-slots';
+import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -52,6 +54,9 @@ const warmOn = (id: string, requestedAt = NOW): Sandbox =>
 
 const busy = (id: string): Sandbox =>
   aSandbox({ id, workspaceId: WorkspaceId.of('ws_1'), hostId: HOST, at: NOW });
+
+const idleSince = (id: string, at: Date): Sandbox =>
+  busy(id).releaseRun(RunId.of('run_1'), at);
 
 const working = (id: string): Runner =>
   aRunner({ id }).claim(RunnerWork.run(`run_of_${id}`), NOW);
@@ -101,6 +106,41 @@ describe('WarmSlots', () => {
         NOW,
       )?.id.value,
     ).toBe('sandbox_w1');
+  });
+
+  it('drains the sandbox idle the longest once its host has no free slot and holds no warm one', () => {
+    const live = [
+      idleSince('sandbox_i1', earlier(500)),
+      idleSince('sandbox_i2', earlier(900)),
+      busy('sandbox_run'),
+    ];
+    const host = hostReporting(...live.map((each) => each.id.value));
+
+    expect(
+      WarmSlots.toDrainForQueuedRun(
+        host,
+        held([working('r1'), working('r2')], live),
+        live,
+        NOW,
+      )?.id.value,
+    ).toBe('sandbox_i2');
+  });
+
+  it('drains a warm sandbox before an idle one, and never one an editor holds', () => {
+    const edited = idleSince('sandbox_i1', earlier(900)).holdEditor(
+      LeaseHolder.editor('conn_1'),
+      NOW,
+    );
+    const live = [warmOn('sandbox_w1'), edited, busy('sandbox_run')];
+    const host = hostReporting(...live.map((each) => each.id.value));
+    const holders = held([working('r1'), working('r2')], live);
+
+    expect(
+      WarmSlots.toDrainForQueuedRun(host, holders, live, NOW)?.id.value,
+    ).toBe('sandbox_w1');
+    expect(
+      WarmSlots.toDrainForQueuedRun(host, holders, live.slice(1), NOW),
+    ).toBeNull();
   });
 
   it('drains nothing while its host has a free slot', () => {

@@ -269,7 +269,7 @@ const performed = (
       return service.releaseRun(runIds[each.run], AT).then(() => true);
     case 'drain-for-queued':
       return slots
-        .drainWarmOn(place.host.id.value, AT, async () => true)
+        .drainIdleOn(place.host.id.value, AT, async () => true)
         .then(() => true);
     case 'sweep':
       return service.drainIdle(AT).then(() => true);
