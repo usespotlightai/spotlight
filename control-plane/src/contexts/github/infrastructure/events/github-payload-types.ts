@@ -1,4 +1,6 @@
+import { PullRequestBaseMoved } from '@github/domain/events/pull-request-base-moved.event';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestConflicted } from '@github/domain/events/pull-request-conflicted.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestPushed } from '@github/domain/events/pull-request-pushed.event';
 import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
@@ -30,4 +32,6 @@ export const GITHUB_PAYLOAD_TYPES = [
   PullRequestUpdated,
   PullRequestRevertMerged,
   PullRequestPurged,
+  PullRequestBaseMoved,
+  PullRequestConflicted,
 ] as const;

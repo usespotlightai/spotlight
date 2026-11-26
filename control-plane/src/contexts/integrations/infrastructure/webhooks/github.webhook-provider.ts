@@ -2,6 +2,10 @@ import { isOutsideAuthor } from '@github/application/contracts/author-associatio
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import type {
+  ConflictedPullRequest,
+  GitHubHappeningsPort,
+} from '@integrations/application/ports/github-happenings.port';
+import type {
   Delivered,
   HappeningDeclaration,
   WebhookProviderPort,
@@ -226,7 +230,9 @@ const happenedIn = (event: PullRequestActivity): readonly Happened[] =>
     return happened ? [happened] : [];
   });
 
-export class GitHubWebhookProvider implements WebhookProviderPort {
+export class GitHubWebhookProvider
+  implements WebhookProviderPort, GitHubHappeningsPort
+{
   readonly key = 'github';
 
   readonly happenings: readonly HappeningDeclaration[] = [
@@ -261,5 +267,20 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
 
   async read(delivered: Delivered): Promise<readonly Happened[]> {
     return (await this.github.activityIn(delivered)).flatMap(happenedIn);
+  }
+
+  conflicted(conflict: ConflictedPullRequest): readonly Happened[] {
+    return happenedIn({
+      activity: 'conflicted',
+      branch: conflict.branch,
+      base: conflict.base,
+      pullRequest: conflict.pullRequest,
+      label: null,
+      details: null,
+      reviewComment: null,
+      ignoredAsBot: false,
+      checkSuite: null,
+      failedChecks: [],
+    });
   }
 }

@@ -3,14 +3,11 @@ import type {
   FailedCheckDto,
 } from '@github/application/ports/check-runs.port';
 import type {
-  ConflictingPullRequestDto,
-  PullRequestConflictsPort,
-} from '@github/application/ports/pull-request-conflicts.port';
-import type {
   ParsedDelivery,
   WebhookEvent,
 } from '@github/application/ports/webhook-parser.port';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
+import type { PullRequestMergeability } from '@github/application/services/pull-request-mergeability.service';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
@@ -83,7 +80,6 @@ const hooks = (
     signs?: boolean;
     closed?: () => Promise<void>;
     failedInSuite?: () => Promise<readonly FailedCheckDto[]>;
-    conflicting?: readonly ConflictingPullRequestDto[];
   } = {},
 ) => {
   const connected = over.connected ?? true;
@@ -114,9 +110,7 @@ const hooks = (
     failedInSuite: vi.fn(over.failedInSuite ?? (async () => [BUILD_FAILED])),
   } satisfies CheckRunsPort;
   const visibilities = { record: vi.fn(async () => {}) };
-  const conflicts = {
-    conflictingWith: vi.fn(async () => over.conflicting ?? []),
-  } satisfies PullRequestConflictsPort;
+  const mergeability = { baseMoved: vi.fn(async () => {}) };
   const sync = {
     updateDetails: vi.fn(async () => {}),
     reviewed: vi.fn(async () => {}),
@@ -142,11 +136,11 @@ const hooks = (
       logger,
       checkRuns,
       visibilities,
-      conflicts,
+      mergeability as unknown as PullRequestMergeability,
     ),
     checkRuns,
     visibilities,
-    conflicts,
+    mergeability,
     connections,
     sync,
     signature,
@@ -276,66 +270,36 @@ describe('GitHubWebhooks', () => {
     });
   });
 
-  describe('noticing pull requests that conflict after the default branch moved', () => {
+  describe('receiving a push to the default branch', () => {
     const PUSHED: WebhookEvent = {
       kind: 'default-branch-pushed',
       repository: 'acme/api',
       branch: 'main',
     };
 
-    it('hands over each open pull request into the branch that now conflicts with it', async () => {
-      const { service, conflicts } = hooks(
-        { installation: '158876513', events: [PUSHED] },
-        {
-          conflicting: [
-            {
-              url: 'https://github.com/acme/api/pull/18',
-              branch: 'spotlight/fix-the-queue',
-            },
-          ],
-        },
-      );
-
-      expect(await service.activityIn(DELIVERY)).toEqual([
-        {
-          activity: 'conflicted',
-          branch: 'spotlight/fix-the-queue',
-          base: 'main',
-          pullRequest: 'https://github.com/acme/api/pull/18',
-          label: null,
-          details: null,
-          reviewComment: null,
-          ignoredAsBot: false,
-          checkSuite: null,
-          failedChecks: [],
-        },
-      ]);
-      expect(conflicts.conflictingWith).toHaveBeenCalledWith(
-        WORKSPACE,
-        Repository.of('acme/api'),
-        'main',
-      );
-    });
-
-    it('asks GitHub nothing for an installation that is not connected', async () => {
-      const { service, conflicts } = hooks(
-        { installation: '158876513', events: [PUSHED] },
-        { connected: false },
-      );
-
-      expect(await service.activityIn(DELIVERY)).toEqual([]);
-      expect(conflicts.conflictingWith).not.toHaveBeenCalled();
-    });
-
-    it('attends to nothing else when it receives the push', async () => {
-      const { service, connections } = hooks({
+    it('records that the base of the open pull requests moved', async () => {
+      const { service, mergeability } = hooks({
         installation: '158876513',
         events: [PUSHED],
       });
 
       await service.receive(DELIVERY);
 
-      expect(connections.connectedWorkspaceOf).not.toHaveBeenCalled();
+      expect(mergeability.baseMoved).toHaveBeenCalledWith(
+        { installation: INSTALLED, workspaceId: WORKSPACE },
+        Repository.of('acme/api'),
+        'main',
+      );
+    });
+
+    it('hands over no activity for it, so reading the delivery waits on nothing', async () => {
+      const { service, mergeability } = hooks({
+        installation: '158876513',
+        events: [PUSHED],
+      });
+
+      expect(await service.activityIn(DELIVERY)).toEqual([]);
+      expect(mergeability.baseMoved).not.toHaveBeenCalled();
     });
   });
 

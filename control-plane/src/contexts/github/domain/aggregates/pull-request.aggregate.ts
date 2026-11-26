@@ -1,4 +1,6 @@
+import { PullRequestBaseMoved } from '@github/domain/events/pull-request-base-moved.event';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestConflicted } from '@github/domain/events/pull-request-conflicted.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestPushed } from '@github/domain/events/pull-request-pushed.event';
 import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
@@ -95,6 +97,12 @@ export interface PullRequestPushing {
   readonly pushedAt: Date;
 }
 
+export interface PullRequestMergeability {
+  readonly mergeable: boolean;
+  readonly branch: string | null;
+  readonly base: string;
+}
+
 interface Props {
   readonly title: string;
   readonly author: string | null;
@@ -116,6 +124,7 @@ interface Props {
   readonly botComments: readonly BotComment[];
   readonly threads: readonly PullRequestThread[];
   readonly revertedBy: PullRequestUrl | null;
+  readonly mergeable: boolean | null;
 }
 
 const UPDATED = 'pull-request.updated';
@@ -202,6 +211,7 @@ export class PullRequest extends EventRecorder {
         botComments: [],
         threads: [],
         revertedBy: null,
+        mergeable: null,
       },
       0,
       false,
@@ -264,6 +274,7 @@ export class PullRequest extends EventRecorder {
         botComments: input.botComments,
         threads: input.threads,
         revertedBy: input.revertedBy,
+        mergeable: input.mergeable,
       },
       input.version,
       true,
@@ -348,6 +359,10 @@ export class PullRequest extends EventRecorder {
 
   get revertedBy(): PullRequestUrl | null {
     return this.props.revertedBy;
+  }
+
+  get mergeable(): boolean | null {
+    return this.props.mergeable;
   }
 
   get merged(): boolean {
@@ -477,7 +492,7 @@ export class PullRequest extends EventRecorder {
   }
 
   recordPush(pushing: PullRequestPushing): PullRequest {
-    return this.noticed(
+    return this.withoutEvent({ ...this.props, mergeable: null }).noticed(
       new PullRequestPushed(
         this.workspaceId,
         this.url,
@@ -489,6 +504,47 @@ export class PullRequest extends EventRecorder {
         pushing.pushedAt,
       ),
     );
+  }
+
+  baseMoved(base: string): PullRequest {
+    return this.props.state === 'open'
+      ? this.noticed(
+          new PullRequestBaseMoved(
+            this.workspaceId,
+            this.url,
+            this.repository,
+            this.number,
+            base,
+          ),
+        )
+      : this;
+  }
+
+  // Raises a conflict only when the pull request starts to conflict, so the same conflict is not raised again on each later push to its base.
+  readMergeability(read: PullRequestMergeability): PullRequest {
+    if (
+      this.props.state !== 'open' ||
+      this.props.mergeable === read.mergeable
+    ) {
+      return this;
+    }
+
+    const next = this.withoutEvent({
+      ...this.props,
+      mergeable: read.mergeable,
+    });
+
+    return read.mergeable
+      ? next
+      : next.noticed(
+          new PullRequestConflicted(
+            this.workspaceId,
+            this.url,
+            this.repository,
+            read.branch ?? this.props.branch,
+            read.base,
+          ),
+        );
   }
 
   dismissReview(id: number): PullRequest {

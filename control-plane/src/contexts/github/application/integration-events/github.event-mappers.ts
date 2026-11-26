@@ -1,4 +1,5 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import type { PullRequestConflicted } from '@github/domain/events/pull-request-conflicted.event';
 import type { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import type { PullRequestPushed } from '@github/domain/events/pull-request-pushed.event';
 import type { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
@@ -9,6 +10,10 @@ import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_CONFLICTED,
+  type PullRequestConflictedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-conflicted.integration-event';
 import {
   PULL_REQUEST_PURGED,
   type PullRequestPurgedIntegrationEvent,
@@ -95,6 +100,17 @@ export const GITHUB_EVENT_MAPPERS = [
       repository: event.repository.value,
       gitHubId: event.gitHubId,
       reopenedAt: event.reopenedAt?.toISOString() ?? null,
+    }),
+  ),
+  mapping<PullRequestConflicted>(
+    'pull-request.conflicted',
+    (event): PullRequestConflictedIntegrationEvent => ({
+      kind: PULL_REQUEST_CONFLICTED,
+      workspaceId: event.workspaceId.value,
+      pullRequest: event.pullRequest.value,
+      repository: event.repository.value,
+      branch: event.branch,
+      base: event.base,
     }),
   ),
   mapping<PullRequestPushed>(

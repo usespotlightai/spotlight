@@ -113,6 +113,31 @@ describe('GitHubWebhookProvider', () => {
     ]);
   });
 
+  it('raises a conflict on the task of the pull request, apart from any delivery', () => {
+    const [raised] = providerOver([]).provider.conflicted({
+      pullRequest: 'https://github.com/acme/api/pull/18',
+      branch: 'spotlight/fix-the-queue',
+      base: 'main',
+    });
+
+    expect(raised).toMatchObject({
+      happening: 'github.pull_request.conflicted',
+      correlationKeys: {
+        branch: 'spotlight/fix-the-queue',
+        marks: [
+          {
+            kind: PULL_REQUEST_MARK,
+            value: 'https://github.com/acme/api/pull/18',
+          },
+        ],
+      },
+      message: {
+        body: 'The pull request conflicts with main. Rebase the branch on main and push it.',
+      },
+      ourOwn: false,
+    });
+  });
+
   it('tells the task of a conflicting pull request which branch it conflicts with', async () => {
     const read = await readOne({ ...MERGED, activity: 'conflicted' });
 

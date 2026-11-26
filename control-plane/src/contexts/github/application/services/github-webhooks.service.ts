@@ -2,13 +2,13 @@ import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
-import type { PullRequestConflictsPort } from '@github/application/ports/pull-request-conflicts.port';
 import type { RecordsRepositoryVisibility } from '@github/application/ports/repository-visibility.port';
 import type {
   WebhookEvent,
   WebhookParserPort,
 } from '@github/application/ports/webhook-parser.port';
 import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
+import type { PullRequestMergeability } from '@github/application/services/pull-request-mergeability.service';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
@@ -26,7 +26,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     private readonly logger: LoggerPort,
     private readonly checkRuns: CheckRunsPort,
     private readonly visibilities: RecordsRepositoryVisibility,
-    private readonly conflicts: PullRequestConflictsPort,
+    private readonly mergeability: PullRequestMergeability,
   ) {}
 
   verifies(delivery: GitHubDelivery): boolean {
@@ -51,54 +51,15 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
   async activityIn(
     delivery: GitHubDelivery,
   ): Promise<readonly PullRequestActivity[]> {
-    const { events } = this.parser.parse(delivery);
-    const activities = events.flatMap((each) =>
-      each.kind === 'pull-request-activity' ? [each.activity] : [],
+    const activities = this.parser
+      .parse(delivery)
+      .events.flatMap((each) =>
+        each.kind === 'pull-request-activity' ? [each.activity] : [],
+      );
+
+    return Promise.all(
+      activities.map((activity) => this.withFailedChecks(delivery, activity)),
     );
-    const conflicted: PullRequestActivity[] = [];
-
-    for (const each of events) {
-      if (each.kind === 'default-branch-pushed') {
-        conflicted.push(...(await this.conflictedBy(delivery, each)));
-      }
-    }
-
-    return [
-      ...(await Promise.all(
-        activities.map((activity) => this.withFailedChecks(delivery, activity)),
-      )),
-      ...conflicted,
-    ];
-  }
-
-  private async conflictedBy(
-    delivery: GitHubDelivery,
-    pushed: { readonly repository: string; readonly branch: string },
-  ): Promise<readonly PullRequestActivity[]> {
-    const workspaceId = await this.workspaceOf(delivery);
-
-    if (!workspaceId) {
-      return [];
-    }
-
-    const conflicting = await this.conflicts.conflictingWith(
-      workspaceId,
-      Repository.of(pushed.repository),
-      pushed.branch,
-    );
-
-    return conflicting.map(({ url, branch }) => ({
-      activity: 'conflicted',
-      branch,
-      base: pushed.branch,
-      pullRequest: url,
-      label: null,
-      details: null,
-      reviewComment: null,
-      ignoredAsBot: false,
-      checkSuite: null,
-      failedChecks: [],
-    }));
   }
 
   private async withFailedChecks(
@@ -149,11 +110,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     const installation = this.installationIn(delivery);
     const events = this.parser
       .parse(delivery)
-      .events.filter(
-        (each) =>
-          each.kind !== 'pull-request-activity' &&
-          each.kind !== 'default-branch-pushed',
-      );
+      .events.filter((each) => each.kind !== 'pull-request-activity');
 
     if (!installation || events.length === 0) {
       return;
@@ -293,6 +250,14 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
         byBot: event.byBot,
         pushedAt: event.pushedAt,
       });
+    }
+
+    if (event.kind === 'default-branch-pushed') {
+      await this.mergeability.baseMoved(
+        from,
+        Repository.of(event.repository),
+        event.branch,
+      );
     }
 
     if (event.kind === 'pull-request-reopened') {
