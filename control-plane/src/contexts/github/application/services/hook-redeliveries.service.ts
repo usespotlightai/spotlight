@@ -2,12 +2,10 @@ import type {
   AppHookDeliveriesPort,
   HookDeliveryAttempt,
 } from '@github/application/ports/app-hook-deliveries.port';
+import { HookDelivery } from '@github/domain/entities/hook-delivery.entity';
 import {
-  exhausted,
   HOOK_DELIVERY_LOOKBACK_MS,
-  type HookDeliveryHistory,
   outcomeOf,
-  redeliveryDue,
 } from '@github/domain/services/hook-redelivery-policy';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -27,11 +25,6 @@ const REDELIVERIES_METRIC = 'spotlight.github.hook_redeliveries';
 
 const OUTCOME = 'spotlight.github.redelivery.outcome';
 
-interface Tracked extends HookDeliveryHistory {
-  readonly latestId: number;
-  readonly gaveUp: boolean;
-}
-
 export interface HookDeliveryHealth {
   readonly failedLastHour: number;
   readonly undelivered: number;
@@ -40,7 +33,7 @@ export interface HookDeliveryHealth {
 export class HookRedeliveries {
   #scannedAt: Date | null = null;
   readonly #seen = new Map<number, Date>();
-  readonly #undelivered = new Map<string, Tracked>();
+  readonly #undelivered = new Map<string, HookDelivery>();
   #failures: Date[] = [];
 
   constructor(
@@ -57,18 +50,18 @@ export class HookRedeliveries {
     this.#scannedAt = now;
     this.forget(now);
 
-    const due = [...this.#undelivered]
-      .filter(([, each]) => redeliveryDue(each, now))
-      .sort(([, a], [, b]) => a.firstAt.getTime() - b.firstAt.getTime())
-      .slice(0, MAX_REQUESTS_PER_RUN);
+    const due = HookDelivery.dueOldestFirst(
+      this.#undelivered.values(),
+      now,
+    ).slice(0, MAX_REQUESTS_PER_RUN);
 
-    for (const [guid, each] of due) {
-      await this.request(guid, each, now);
+    for (const each of due) {
+      await this.request(each, now);
     }
 
     if (due.length > 0) {
       this.logger.info(
-        { guids: due.map(([guid]) => guid) },
+        { guids: due.map((each) => each.guid) },
         'Asked GitHub to redeliver failed webhook deliveries',
       );
     }
@@ -141,23 +134,17 @@ export class HookRedeliveries {
       }
 
       const known = this.#undelivered.get(attempt.guid);
-      const tracked: Tracked = {
-        firstAt: known?.firstAt ?? attempt.deliveredAt,
-        lastAt: attempt.deliveredAt,
-        lastOutcome: outcome,
-        attempts: (known?.attempts ?? 0) + 1,
-        requests: known?.requests ?? 0,
-        requestedAt: known?.requestedAt ?? null,
-        latestId: attempt.id,
-        gaveUp: known?.gaveUp ?? false,
-      };
-      const givesUp = !tracked.gaveUp && exhausted(tracked);
+      const failed = { ...attempt, outcome };
+      const delivery = known
+        ? known.failedAgain(failed)
+        : HookDelivery.failed(failed);
+      const givesUp = delivery.gaveUp && !known?.gaveUp;
 
-      this.#undelivered.set(attempt.guid, { ...tracked, gaveUp: givesUp });
+      this.#undelivered.set(attempt.guid, delivery);
 
       if (givesUp) {
         this.logger.warn(
-          { guid: attempt.guid, attempts: tracked.attempts },
+          { guid: attempt.guid, attempts: delivery.attempts },
           'Stopped asking GitHub to redeliver a failed webhook delivery',
         );
       }
@@ -165,12 +152,11 @@ export class HookRedeliveries {
   }
 
   private forget(now: Date): void {
-    const lookback = now.getTime() - HOOK_DELIVERY_LOOKBACK_MS;
     const overlap = now.getTime() - OVERLAP_MS;
     const hourAgo = now.getTime() - HOUR_MS;
 
     for (const [guid, each] of this.#undelivered) {
-      if (each.firstAt.getTime() < lookback) {
+      if (each.isGone(now)) {
         this.#undelivered.delete(guid);
       }
     }
@@ -184,24 +170,20 @@ export class HookRedeliveries {
     this.#failures = this.#failures.filter((at) => at.getTime() >= hourAgo);
   }
 
-  private async request(guid: string, each: Tracked, now: Date): Promise<void> {
+  private async request(each: HookDelivery, now: Date): Promise<void> {
     let outcome = 'requested';
 
     try {
-      await this.deliveries.redeliver(each.latestId);
+      await this.deliveries.redeliver(each.latestAttemptId);
     } catch (error) {
       outcome = 'failed';
       this.logger.warn(
-        { guid, err: error },
+        { guid: each.guid, err: error },
         'GitHub did not take a webhook redelivery request',
       );
     }
 
-    this.#undelivered.set(guid, {
-      ...each,
-      requests: each.requests + 1,
-      requestedAt: now,
-    });
+    this.#undelivered.set(each.guid, each.requested(now));
     this.telemetry.count(REDELIVERIES_METRIC, { [OUTCOME]: outcome });
   }
 }
