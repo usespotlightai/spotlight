@@ -2,6 +2,10 @@ import { ConnectGitHubCommand } from '@github/application/commands/connect-githu
 import { ConnectGitHubHandler } from '@github/application/commands/handlers/connect-github.handler';
 import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/github.event-mappers';
 import {
+  APP_HOOK_DELIVERIES,
+  type AppHookDeliveriesPort,
+} from '@github/application/ports/app-hook-deliveries.port';
+import {
   CHECK_RUNS,
   type CheckRunsPort,
 } from '@github/application/ports/check-runs.port';
@@ -48,12 +52,14 @@ import { ReadGitHubHandler } from '@github/application/queries/handlers/read-git
 import { ListRepositoriesQuery } from '@github/application/queries/list-repositories.query';
 import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
+import { HookRedeliveries } from '@github/application/services/hook-redeliveries.service';
 import { Installations } from '@github/application/services/installations.service';
 import { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { RepositoryVisibilities } from '@github/application/services/repository-visibility.service';
 import { StoredPullRequestSummaries } from '@github/application/services/stored-pull-request-summaries.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
 import { GITHUB_PAYLOAD_TYPES } from '@github/infrastructure/events/github-payload-types';
+import { GitHubAppHookDeliveries } from '@github/infrastructure/github/github-app-hook-deliveries';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
 import { GitHubCheckRuns } from '@github/infrastructure/github/github-check-runs';
@@ -73,11 +79,13 @@ import { DrizzleGitHubConnectionReader } from '@github/infrastructure/persistenc
 import { DrizzlePullRequestSummaryReader } from '@github/infrastructure/persistence/drizzle/readers/pull-request-summary.reader';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
+import { HookDeliveryGauges } from '@github/infrastructure/telemetry/hook-delivery-gauges';
 import { GitHubWebhookParser } from '@github/infrastructure/webhooks/github-webhook.parser';
 import { githubSubscribers } from '@github/presentation/events/github.subscribers';
 import { GitHubConnectionController } from '@github/presentation/http/controllers/github-connection.controller';
 import { RepositoryController } from '@github/presentation/http/controllers/repository.controller';
 import { PurgePullRequestsWorker } from '@github/presentation/workers/purge-pull-requests.worker';
+import { RedeliverHookDeliveriesWorker } from '@github/presentation/workers/redeliver-hook-deliveries.worker';
 import {
   LINKED_ACCOUNTS,
   type LinkedAccountsPort,
@@ -92,6 +100,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { Leadership } from '@platform/redis/leadership';
 import {
   CLOCK,
   type ClockPort,
@@ -182,6 +191,43 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     useFactory: (sync: PullRequestSync, logger: LoggerPort) =>
       new PurgePullRequestsWorker(sync, logger),
   },
+
+  {
+    provide: APP_HOOK_DELIVERIES,
+    inject: [ENV],
+    useFactory: (env: Env) => new GitHubAppHookDeliveries(env),
+  },
+
+  {
+    provide: HookRedeliveries,
+    inject: [APP_HOOK_DELIVERIES, CLOCK, LOGGER, TELEMETRY],
+    useFactory: (
+      deliveries: AppHookDeliveriesPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+      telemetry: TelemetryPort,
+    ) => new HookRedeliveries(deliveries, clock, logger, telemetry),
+  },
+
+  {
+    provide: RedeliverHookDeliveriesWorker,
+    inject: [HookRedeliveries, ENV, Leadership, LOGGER],
+    useFactory: (
+      redeliveries: HookRedeliveries,
+      env: Env,
+      leadership: Leadership,
+      logger: LoggerPort,
+    ) =>
+      new RedeliverHookDeliveriesWorker(
+        redeliveries,
+        env.GITHUB_WEBHOOK_SECRET !== '',
+        leadership,
+        logger,
+      ),
+  },
+
+  HookDeliveryGauges,
+
   {
     provide: PULL_REQUEST_COMMENTS,
     inject: [REPOSITORY_ACCESS],

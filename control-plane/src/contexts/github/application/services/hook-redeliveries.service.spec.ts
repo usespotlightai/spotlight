@@ -1,0 +1,251 @@
+import type {
+  AppHookDeliveriesPort,
+  HookDeliveryAttempt,
+} from '@github/application/ports/app-hook-deliveries.port';
+import { HookRedeliveries } from '@github/application/services/hook-redeliveries.service';
+import { MAX_REDELIVERIES } from '@github/domain/services/hook-redelivery-policy';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { describe, expect, it, vi } from 'vitest';
+
+const START = new Date('2026-11-26T12:00:00Z');
+
+const MINUTE_MS = 60_000;
+
+const DAY_MS = 24 * 60 * MINUTE_MS;
+
+const PAGE_SIZE = 3;
+
+const fakeGitHub = () => {
+  const attempts: HookDeliveryAttempt[] = [];
+  const pages: (string | null)[] = [];
+  let nextId = 1;
+  let refusing = new Set<number>();
+
+  const port: AppHookDeliveriesPort = {
+    page: vi.fn(async (cursor: string | null) => {
+      pages.push(cursor);
+      const newestFirst = [...attempts].sort((a, b) => b.id - a.id);
+      const from = cursor ? Number(cursor) : 0;
+
+      return {
+        attempts: newestFirst.slice(from, from + PAGE_SIZE),
+        next:
+          from + PAGE_SIZE < newestFirst.length ? `${from + PAGE_SIZE}` : null,
+      };
+    }),
+    redeliver: vi.fn(async (attemptId: number) => {
+      if (refusing.has(attemptId)) {
+        throw new Error('GitHub did not answer');
+      }
+    }),
+  };
+
+  return {
+    port,
+    pages,
+    attempt: (guid: string, statusCode: number | null, deliveredAt: Date) => {
+      const attempt = { id: nextId, guid, statusCode, deliveredAt };
+      nextId += 1;
+      attempts.push(attempt);
+
+      return attempt;
+    },
+    refuse: (...ids: number[]) => {
+      refusing = new Set(ids);
+    },
+  };
+};
+
+const setup = () => {
+  let now = START;
+  const github = fakeGitHub();
+  const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  const telemetry = telemetryInMemory();
+  const redeliveries = new HookRedeliveries(
+    github.port,
+    { now: () => now, sleep: async () => {} },
+    logger as unknown as LoggerPort,
+    telemetry,
+  );
+
+  return {
+    redeliveries,
+    github,
+    logger,
+    telemetry,
+    later: (ms: number) => {
+      now = new Date(now.getTime() + ms);
+      return now;
+    },
+    now: () => now,
+    ago: (ms: number) => new Date(now.getTime() - ms),
+  };
+};
+
+describe('HookRedeliveries', () => {
+  it('asks GitHub to redeliver a delivery that failed', async () => {
+    const { redeliveries, github, ago } = setup();
+    const failed = github.attempt('closed-10', 500, ago(2 * MINUTE_MS));
+
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenCalledExactlyOnceWith(failed.id);
+  });
+
+  it('leaves alone a delivery that has a successful attempt', async () => {
+    const { redeliveries, github, ago } = setup();
+    github.attempt('closed-13', 502, ago(5 * MINUTE_MS));
+    github.attempt('closed-13', 200, ago(4 * MINUTE_MS));
+    github.attempt('opened-14', 202, ago(3 * MINUTE_MS));
+
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).not.toHaveBeenCalled();
+  });
+
+  it('redelivers the latest attempt and stops once one gets through', async () => {
+    const { redeliveries, github, later, now } = setup();
+    github.attempt('closed-18', 530, now());
+    later(MINUTE_MS);
+    await redeliveries.redeliver();
+
+    const retried = github.attempt('closed-18', 500, now());
+    later(2 * MINUTE_MS);
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenLastCalledWith(retried.id);
+
+    github.attempt('closed-18', 200, now());
+    later(60 * MINUTE_MS);
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenCalledTimes(2);
+    expect(redeliveries.health().undelivered).toBe(0);
+  });
+
+  it('does not ask again while the redelivery it asked for is not listed yet', async () => {
+    const { redeliveries, github, later, ago } = setup();
+    github.attempt('closed-19', 500, ago(2 * MINUTE_MS));
+
+    await redeliveries.redeliver();
+    later(MINUTE_MS);
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops asking after the last redelivery', async () => {
+    const { redeliveries, github, later, now, logger } = setup();
+    github.attempt('closed-20', 500, now());
+
+    for (let round = 0; round <= MAX_REDELIVERIES + 2; round += 1) {
+      later(60 * MINUTE_MS);
+      await redeliveries.redeliver();
+      github.attempt('closed-20', 500, now());
+    }
+
+    expect(github.port.redeliver).toHaveBeenCalledTimes(MAX_REDELIVERIES);
+    expect(logger.warn).toHaveBeenCalledWith(
+      { guid: 'closed-20', attempts: MAX_REDELIVERIES + 1 },
+      'Stopped asking GitHub to redeliver a failed webhook delivery',
+    );
+  });
+
+  it('does not ask again for a delivery that Spotlight refused', async () => {
+    const { redeliveries, github, ago } = setup();
+    github.attempt('unsigned', 401, ago(5 * MINUTE_MS));
+
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).not.toHaveBeenCalled();
+  });
+
+  it('reads no further back than GitHub keeps deliveries', async () => {
+    const { redeliveries, github, ago } = setup();
+    github.attempt('too-old', 500, ago(3 * DAY_MS + MINUTE_MS));
+    github.attempt('recent', 500, ago(2 * DAY_MS));
+
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenCalledExactlyOnceWith(2);
+  });
+
+  it('reads only the deliveries since the last check', async () => {
+    const { redeliveries, github, later, ago } = setup();
+
+    for (let each = 0; each < 3 * PAGE_SIZE; each += 1) {
+      github.attempt(`old-${each}`, 200, ago(DAY_MS));
+    }
+
+    await redeliveries.redeliver();
+    later(MINUTE_MS);
+    github.attempt('new', 200, ago(0));
+    github.pages.length = 0;
+    await redeliveries.redeliver();
+
+    expect(github.pages).toEqual([null]);
+  });
+
+  it('counts an attempt once while checks overlap', async () => {
+    const { redeliveries, github, later, ago } = setup();
+    github.attempt('closed-10', 500, ago(MINUTE_MS));
+
+    await redeliveries.redeliver();
+    later(MINUTE_MS);
+    await redeliveries.redeliver();
+
+    expect(redeliveries.health().failedLastHour).toBe(1);
+  });
+
+  it('asks for at most 20 redeliveries in one check, the oldest first', async () => {
+    const { redeliveries, github, ago } = setup();
+
+    for (let each = 0; each < 25; each += 1) {
+      github.attempt(`failed-${each}`, 500, ago((30 - each) * MINUTE_MS));
+    }
+
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenCalledTimes(20);
+    expect(github.port.redeliver).toHaveBeenNthCalledWith(1, 1);
+    expect(github.port.redeliver).toHaveBeenLastCalledWith(20);
+  });
+
+  it('asks for the others when GitHub does not take one request', async () => {
+    const { redeliveries, github, ago, telemetry } = setup();
+    const first = github.attempt('closed-10', 500, ago(3 * MINUTE_MS));
+    const second = github.attempt('closed-13', 500, ago(2 * MINUTE_MS));
+    github.refuse(first.id);
+
+    await redeliveries.redeliver();
+
+    expect(github.port.redeliver).toHaveBeenLastCalledWith(second.id);
+    expect(telemetry.counted).toEqual([
+      {
+        metric: 'spotlight.github.hook_redeliveries',
+        attributes: { 'spotlight.github.redelivery.outcome': 'failed' },
+      },
+      {
+        metric: 'spotlight.github.hook_redeliveries',
+        attributes: { 'spotlight.github.redelivery.outcome': 'requested' },
+      },
+    ]);
+  });
+
+  it('tells how many deliveries failed in the last hour and how many are not delivered', async () => {
+    const { redeliveries, github, ago } = setup();
+    github.attempt('closed-10', 500, ago(2 * 60 * MINUTE_MS));
+    github.attempt('closed-10', 500, ago(30 * MINUTE_MS));
+    github.attempt('closed-13', 502, ago(20 * MINUTE_MS));
+    github.attempt('closed-13', 200, ago(10 * MINUTE_MS));
+    github.attempt('opened-14', 200, ago(5 * MINUTE_MS));
+
+    await redeliveries.redeliver();
+
+    expect(redeliveries.health()).toEqual({
+      failedLastHour: 2,
+      undelivered: 1,
+    });
+  });
+});
