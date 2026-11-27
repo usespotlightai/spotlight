@@ -1,7 +1,7 @@
-import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { ReferenceToken } from '@/components/shared/chat-input/ReferenceToken';
+import { ExpandableText } from '@/components/shared/ExpandableText';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { downloadPath, drawn } from '@/lib/attachment';
 import type { ChatMessage, TargetStation } from '@/lib/chat';

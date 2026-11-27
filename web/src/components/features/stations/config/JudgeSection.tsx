@@ -6,6 +6,7 @@ import {
 } from '@/components/features/stations/config/PropertyList';
 import { JudgeClaims } from '@/components/features/stations/judge/JudgeClaims';
 import { TabSection } from '@/components/features/stations/TabSection';
+import { ExpandableText } from '@/components/shared/ExpandableText';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
@@ -80,7 +81,9 @@ export function JudgeSection({
       </PropertyList>
 
       <AuthoredText label={CLAIMS_LABEL}>
-        <JudgeClaims claims={judge.claims} />
+        <ExpandableText what="claims" size="tall">
+          <JudgeClaims claims={judge.claims} />
+        </ExpandableText>
       </AuthoredText>
     </TabSection>
   );

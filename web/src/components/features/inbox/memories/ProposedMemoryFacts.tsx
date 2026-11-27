@@ -1,8 +1,8 @@
 import { use } from 'react';
 
-import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MemoryProvenanceList } from '@/components/features/memory/MemoryProvenanceList';
 import { MemoryScopeRows } from '@/components/features/memory/MemoryScopeRows';
+import { ExpandableText } from '@/components/shared/ExpandableText';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { InPlaceTextarea } from '@/components/shared/form/InPlaceTextarea';
 import { DockedContext } from '@/lib/decision-tray';

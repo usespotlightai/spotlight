@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
+import { ExpandableText } from '@/components/shared/ExpandableText';
 import { scrollViewport, watchResizes } from '@/test/resize';
 
 const renderMeasured = () => {
