@@ -1,4 +1,4 @@
-import { DecisionButton } from '@/components/shared/DecisionButton';
+import { PillButton } from '@/components/shared/PillButton';
 import { useRestoreTeamMemory } from '@/hooks/api/useRestoreTeamMemory';
 
 type RestoreMemoryButtonProps = {
@@ -20,13 +20,14 @@ export function RestoreMemoryButton({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <DecisionButton
-        className="min-w-0"
+      <PillButton
+        size="regular"
+        className="pointer-coarse:h-9"
         disabled={restore.isPending}
         onClick={() => restore.mutate({ teamId, memoryId })}
       >
         Restore
-      </DecisionButton>
+      </PillButton>
     </div>
   );
 }

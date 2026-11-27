@@ -1,4 +1,4 @@
-import { DecisionButton } from '@/components/shared/DecisionButton';
+import { PillButton } from '@/components/shared/PillButton';
 import { cn } from '@/lib/utils';
 
 type SaveCancelButtonsProps = {
@@ -18,17 +18,24 @@ export function SaveCancelButtons({
 }: SaveCancelButtonsProps) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <DecisionButton
+      <PillButton
+        size="regular"
+        className="pointer-coarse:h-9"
         type="button"
         variant="default"
         disabled={unsaveable}
         onClick={onSave}
       >
         {saving ? 'Saving…' : 'Save'}
-      </DecisionButton>
-      <DecisionButton type="button" onClick={onCancel}>
+      </PillButton>
+      <PillButton
+        size="regular"
+        className="pointer-coarse:h-9"
+        type="button"
+        onClick={onCancel}
+      >
         Cancel
-      </DecisionButton>
+      </PillButton>
     </div>
   );
 }

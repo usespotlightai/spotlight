@@ -82,12 +82,17 @@ export function MemoryDetails({
 
       {memory.status === 'active' && !retiring && !editing && (
         <div className="flex flex-wrap items-center gap-2">
-          <PillButton variant="default" size="regular" onClick={onEdit}>
+          <PillButton
+            variant="default"
+            size="regular"
+            className="pointer-coarse:h-9"
+            onClick={onEdit}
+          >
             Edit
           </PillButton>
           <PillButton
             size="regular"
-            className="hover:text-destructive"
+            className="hover:text-destructive pointer-coarse:h-9"
             onClick={() => setRetiring(true)}
           >
             Retire
