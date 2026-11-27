@@ -15,6 +15,7 @@ import type {
   StationInsightsDto,
 } from '@insights/application/dto/station-insights.dto';
 import { CHECK_VERDICTS } from '@insights/domain/value-objects/check-verdict';
+import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
 import { RUN_HUMAN_ACTIONS } from '@insights/domain/value-objects/person-action.vo';
 import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
@@ -109,9 +110,17 @@ export class StationRunOutcomeResponseDto {
   @ApiProperty({
     enum: RUN_RESOLUTIONS,
     description:
-      'What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. Sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong',
+      'What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. A verdict a person recorded on the run comes first: right is accepted, wrong is sent back. Otherwise sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong',
   })
   readonly resolution: string;
+
+  @ApiProperty({
+    enum: [...LABEL_SOURCES, null],
+    nullable: true,
+    description:
+      'What gave people’s verdict on the run, as on the run’s verdicts; null where nothing gives one',
+  })
+  readonly labelFrom: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -167,6 +176,7 @@ export class StationRunOutcomeResponseDto {
     this.endedAt = outcome.endedAt;
     this.ending = outcome.ending;
     this.resolution = outcome.resolution;
+    this.labelFrom = outcome.labelFrom;
     this.failure = outcome.failure;
     this.runNumber = outcome.runNumber;
     this.usage = outcome.usage

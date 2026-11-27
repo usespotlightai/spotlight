@@ -3,6 +3,7 @@ import {
   passesOn,
 } from '@insights/domain/value-objects/label-source';
 import type { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import type { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import {
   leftWork,
   type RunEnding,
@@ -14,6 +15,7 @@ export interface LabelEvidence {
   readonly decidingAction: PersonAction | null;
   readonly taskMerged: boolean;
   readonly followed: boolean;
+  readonly personVerdict: PersonVerdict | null;
 }
 
 export class HumanLabel {
@@ -23,6 +25,12 @@ export class HumanLabel {
   ) {}
 
   static of(run: LabelEvidence): HumanLabel | null {
+    return run.personVerdict
+      ? new HumanLabel(run.personVerdict.labelFrom, run.personVerdict.by)
+      : HumanLabel.implicitOf(run);
+  }
+
+  static implicitOf(run: LabelEvidence): HumanLabel | null {
     const action = run.decidingAction;
     const from = action?.labelFrom;
 

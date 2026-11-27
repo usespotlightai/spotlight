@@ -19,7 +19,9 @@ import {
   readJudgeDisagreement,
   readMemoryReview,
   readTaskReview,
+  clearRunVerdict,
   readRunScores,
+  recordRunVerdict,
   readStationAlert,
   readTaskDecisions,
   readTaskJournal,
@@ -325,6 +327,35 @@ describe('the mock inbox', () => {
     });
     expect(unlabelled).toMatchObject({ labelFrom: null, agrees: null });
     expect(unlabelled.judge?.passes).toBe(true);
+  });
+
+  it('records a person’s verdict on a run in place of the merge, and clears it again', async () => {
+    const path = { teamId: PLATFORM_ID, runId: 'run_search_2' };
+
+    const { data: marked } = await recordRunVerdict({
+      path,
+      body: { right: true, reason: null },
+      throwOnError: true,
+    });
+    expect(marked).toMatchObject({
+      labelFrom: 'marked-right',
+      peoplePass: true,
+      implicitFrom: 'merged',
+      personVerdict: { right: true, reason: null },
+    });
+
+    const refused = await recordRunVerdict({
+      path,
+      body: { right: true, reason: 'Fine' },
+    });
+    expect(refused.response?.status).toBe(422);
+
+    await clearRunVerdict({ path, throwOnError: true });
+    const { data: cleared } = await readRunScores({ path, throwOnError: true });
+    expect(cleared).toMatchObject({
+      labelFrom: 'merged',
+      personVerdict: null,
+    });
   });
 
   it('asks the team about a merged run the judge failed, about the claims in dispute', async () => {

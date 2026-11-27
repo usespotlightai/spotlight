@@ -2,13 +2,16 @@ import { judgeCalibrationOf } from '@insights/application/dto/judge-calibration.
 import type {
   CitationDto,
   JudgeScoreDto,
+  PersonVerdictDto,
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
+import type { PeoplePort } from '@insights/application/ports/people.port';
 import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
 import { visibleJudgeOf } from '@insights/domain/services/judge-verdict';
 import type { Citation } from '@insights/domain/value-objects/citation.vo';
+import type { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import type { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
@@ -66,6 +69,7 @@ export class RunScoresViews {
   constructor(
     private readonly facts: StationFactsPort,
     private readonly reports: StationJudgeReports,
+    private readonly people: PeoplePort,
   ) {}
 
   async of(access: ViewedTeam, runId: string): Promise<RunScoresDto> {
@@ -97,7 +101,27 @@ export class RunScoresViews {
       judge: judge && rubric ? judgeOf(judge, rubric.claims) : null,
       calibration: judgeCalibrationOf(calibration),
       labelFrom: label?.from ?? null,
+      peoplePass: label?.passes ?? null,
+      personVerdict: run.personVerdict
+        ? await this.personVerdictOf(run.personVerdict)
+        : null,
+      implicitFrom: run.implicitLabel?.from ?? null,
+      takesVerdict: run.takesVerdict,
       agrees: judge && label ? label.agreesWith(judge) : null,
+    };
+  }
+
+  private async personVerdictOf(
+    verdict: PersonVerdict,
+  ): Promise<PersonVerdictDto> {
+    const names = await this.people.namesOf([verdict.by.value]);
+
+    return {
+      right: verdict.right,
+      reason: verdict.reason,
+      by: verdict.by.value,
+      byName: names.get(verdict.by.value) ?? null,
+      at: verdict.at.toISOString(),
     };
   }
 }

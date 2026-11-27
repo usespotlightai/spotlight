@@ -1,4 +1,5 @@
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
+import type { LabelSource } from '@insights/domain/value-objects/label-source';
 import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
@@ -21,6 +22,7 @@ export interface RunOutcomeDto {
   readonly endedAt: string;
   readonly ending: RunEnding;
   readonly resolution: RunResolution;
+  readonly labelFrom: LabelSource | null;
   readonly failure: string | null;
   readonly runNumber: number;
   readonly usage: RunUsageDto | null;
@@ -44,6 +46,7 @@ export const runOutcomeOf = (record: RunFact): RunOutcomeDto => {
     endedAt: end.endedAt.toISOString(),
     ending: record.ending,
     resolution: record.resolution,
+    labelFrom: record.humanLabel?.from ?? null,
     failure: end.failure,
     runNumber: end.runNumber,
     usage: usage

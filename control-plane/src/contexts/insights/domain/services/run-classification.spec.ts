@@ -26,6 +26,7 @@ const run = (
     : null,
   taskMerged: change.taskMerged ?? false,
   followed: change.followed ?? false,
+  personVerdict: change.personVerdict ?? null,
   asked: change.asked ?? false,
   answered: change.answered ?? false,
   approvalAnswered: change.approvalAnswered ?? false,

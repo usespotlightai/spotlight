@@ -15,12 +15,12 @@ type TraceRunVerdictProps = {
 
 export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
   const scores = useRunScores(teamId, runId).data;
+  const labelFrom = scores?.labelFrom ?? null;
+  const judge = scores?.judge ?? null;
 
-  if (!scores?.judge) {
+  if (!labelFrom && !judge) {
     return null;
   }
-
-  const { labelFrom, judge, agrees } = scores;
 
   return (
     <span
@@ -31,9 +31,11 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
         <span className="sr-only">
           {labelFrom ? `${PEOPLE_LABEL} ` : 'Judged '}
         </span>
-        {labelFrom ? formatLabel(labelFrom) : formatJudgeVerdict(judge.passes)}
+        {labelFrom
+          ? formatLabel(labelFrom)
+          : judge && formatJudgeVerdict(judge.passes)}
       </span>
-      {agrees === false && (
+      {scores?.agrees === false && (
         <WarningTooltip
           data-slot="trace-run-disagrees"
           label={DISAGREES_LABEL}

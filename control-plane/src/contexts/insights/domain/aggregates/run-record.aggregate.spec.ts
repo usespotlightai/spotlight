@@ -2,9 +2,11 @@ import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
+import { RunTakesNoVerdictError } from '@insights/domain/exceptions/run-takes-no-verdict.error';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import { RunChecks } from '@insights/domain/value-objects/run-checks.vo';
 import {
@@ -348,6 +350,7 @@ describe('RunRecord', () => {
       asked: false,
       checked: RunChecks.NONE,
       actions: RunActions.NONE,
+      personVerdict: null,
       approvalAnsweredAt: null,
       usage: null,
       passed: null,
@@ -407,6 +410,7 @@ describe('RunRecord', () => {
         asked: false,
         checked: RunChecks.NONE,
         actions: RunActions.NONE,
+        personVerdict: null,
         approvalAnsweredAt: null,
         usage: null,
         passed: null,
@@ -472,6 +476,7 @@ describe('RunRecord', () => {
         asked: false,
         checked: RunChecks.NONE,
         actions: RunActions.NONE,
+        personVerdict: null,
         approvalAnsweredAt: null,
         usage,
         passed: null,
@@ -705,5 +710,70 @@ describe('RunRecord', () => {
     expect(
       RunRecord.creditedWithActionAt(records, new Date(EARLIER.getTime() - 1)),
     ).toBeNull();
+  });
+});
+
+describe('RunRecord verdict of a person', () => {
+  const wrong = (reason: string | null = 'It planned the change.') =>
+    PersonVerdict.of({ right: false, reason, by: ACTOR, at: LATER });
+
+  it('takes a person’s verdict on a finished run, even after its task moved on, and tells that its outcome changed', () => {
+    const moved = endedRecord('run_1').recordAction(
+      PersonAction.of('started', AT, ACTOR),
+    );
+    moved.pullEvents();
+
+    const marked = moved.recordVerdict(wrong());
+
+    expect(marked.personVerdict).toEqual(wrong());
+    expect(marked.pullEvents().map((each) => each.kind)).toEqual([
+      'run-record.outcome-changed',
+    ]);
+  });
+
+  it('refuses a verdict on a run that has not ended, or that ended before it ran', () => {
+    expect(() =>
+      RunRecord.empty(RUN, WORKSPACE).recordVerdict(wrong()),
+    ).toThrow(RunTakesNoVerdictError);
+    expect(() =>
+      endedRecord('run_1', { ending: 'cancelled' }).recordVerdict(wrong()),
+    ).toThrow(RunTakesNoVerdictError);
+  });
+
+  it('changes and clears the verdict, and stays as it is where nothing changes', () => {
+    const marked = endedRecord('run_1').recordVerdict(wrong());
+    marked.pullEvents();
+
+    expect(marked.recordVerdict(wrong())).toBe(marked);
+
+    const right = marked.recordVerdict(
+      PersonVerdict.of({ right: true, reason: null, by: ACTOR, at: LATER }),
+    );
+    expect(right.personVerdict?.right).toBe(true);
+
+    const cleared = right.clearVerdict();
+    expect(cleared.personVerdict).toBeNull();
+    expect(cleared.clearVerdict()).toBe(cleared);
+    expect(cleared.pullEvents().map((each) => each.kind)).toEqual([
+      'run-record.outcome-changed',
+      'run-record.outcome-changed',
+    ]);
+  });
+
+  it('keeps the verdict through later changes, and gives it to its fact', () => {
+    const marked = endedRecord('run_1')
+      .recordVerdict(wrong())
+      .recordAction(PersonAction.of('accepted', LATER, ACTOR));
+
+    expect(marked.factWith(null, null, null)?.personVerdict).toEqual(wrong());
+  });
+
+  it('is not stored with a verdict before it ran to an end', () => {
+    expect(() =>
+      RunRecord.rehydrate({
+        ...RunRecord.empty(RUN, WORKSPACE),
+        personVerdict: wrong(),
+      }),
+    ).toThrow(InvalidOutcomeError);
   });
 });

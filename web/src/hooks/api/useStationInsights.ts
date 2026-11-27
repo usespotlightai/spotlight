@@ -4,7 +4,7 @@ import { readStationInsights } from '@/lib/api';
 import { required } from '@/lib/required';
 import type { StationRunOutcomes } from '@/lib/station-insights';
 
-const stationInsightsKeys = {
+export const stationInsightsKeys = {
   forStation: (stationId?: string) =>
     ['station-insights', stationId ?? null] as const,
 };

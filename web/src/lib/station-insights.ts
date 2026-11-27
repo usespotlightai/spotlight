@@ -8,6 +8,7 @@ import type {
 } from '@/lib/api';
 import { formatShortDuration, spentIn } from '@/lib/inbox';
 import { humanActionLabelOf, resolutionLabelOf } from '@/lib/insights';
+import { formatLabel } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { rangeOf } from '@/lib/range';
 import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
@@ -60,9 +61,20 @@ const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
 export const formatChecks = (checks: StationRunOutcome['checks']): string =>
   checks ? CHECKS[checks] : '–';
 
+const MARKED: readonly StationRunOutcome['labelFrom'][] = [
+  'marked-right',
+  'marked-wrong',
+];
+
 export const formatHumanAction = (
-  action: StationRunOutcome['humanAction'],
-): string => (action ? humanActionLabelOf(action.kind) : '–');
+  run: Pick<StationRunOutcome, 'humanAction' | 'labelFrom'>,
+): string => {
+  if (run.labelFrom && MARKED.includes(run.labelFrom)) {
+    return formatLabel(run.labelFrom);
+  }
+
+  return run.humanAction ? humanActionLabelOf(run.humanAction.kind) : '–';
+};
 
 const PULL_REQUEST_STATES: Record<
   NonNullable<StationRunOutcome['pullRequestState']>,

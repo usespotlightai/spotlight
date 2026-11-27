@@ -6591,6 +6591,113 @@
         ]
       }
     },
+    "/teams/{teamId}/runs/{runId}/verdict": {
+      "put": {
+        "operationId": "recordRunVerdict",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRunVerdictRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunScoresResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          },
+          "409": {
+            "description": "The run has not finished, ended before it ran, or changed meanwhile"
+          },
+          "422": {
+            "description": "The verdict has no right, the reason is not text, a reason is given for a run that was right, or the reason is over 2,000 characters"
+          }
+        },
+        "summary": "Say whether a finished run was right, at any time; the verdict is people’s verdict on the run for the station’s judge and Insights, in place of what people’s actions say, and it never moves the task",
+        "tags": [
+          "insights"
+        ]
+      },
+      "delete": {
+        "operationId": "clearRunVerdict",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunScoresResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          },
+          "409": {
+            "description": "The run changed meanwhile"
+          }
+        },
+        "summary": "Take back the verdict recorded on a run, so that what people’s actions say counts again",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
     "/teams/{teamId}/judge-disagreements/{disagreementId}": {
       "get": {
         "operationId": "readJudgeDisagreement",
@@ -17002,7 +17109,21 @@
               "failed",
               "other"
             ],
-            "description": "What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. Sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong"
+            "description": "What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. A verdict a person recorded on the run comes first: right is accepted, wrong is sent back. Otherwise sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong"
+          },
+          "labelFrom": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "merged",
+              "held-as-wrong",
+              "marked-right",
+              "marked-wrong",
+              null
+            ],
+            "nullable": true,
+            "description": "What gave people’s verdict on the run, as on the run’s verdicts; null where nothing gives one"
           },
           "failure": {
             "type": "string",
@@ -17073,6 +17194,7 @@
           "endedAt",
           "ending",
           "resolution",
+          "labelFrom",
           "failure",
           "runNumber",
           "usage",
@@ -18248,6 +18370,42 @@
           "reasons"
         ]
       },
+      "PersonVerdictResponseDto": {
+        "type": "object",
+        "properties": {
+          "right": {
+            "type": "boolean",
+            "description": "Whether the person said the run was right"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the run was wrong, where the person said so"
+          },
+          "by": {
+            "type": "string",
+            "example": "user_1",
+            "description": "Who gave the verdict"
+          },
+          "byName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ada Lovelace",
+            "description": "The name of who gave the verdict; none once they are gone"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-09-30T10:05:00.000Z"
+          }
+        },
+        "required": [
+          "right",
+          "reason",
+          "by",
+          "byName",
+          "at"
+        ]
+      },
       "RunScoresResponseDto": {
         "type": "object",
         "properties": {
@@ -18287,10 +18445,45 @@
               "sent-back",
               "merged",
               "held-as-wrong",
+              "marked-right",
+              "marked-wrong",
               null
             ],
             "nullable": true,
-            "description": "What gave people’s verdict on the run: its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where neither gives a verdict"
+            "description": "What gave people’s verdict on the run: a person’s verdict recorded on the run, which comes first; otherwise its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where none gives a verdict"
+          },
+          "peoplePass": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether people’s verdict passes the run; none where the run has no people’s verdict"
+          },
+          "personVerdict": {
+            "nullable": true,
+            "description": "The verdict a person recorded on the run, which takes the place of what people’s actions say; none where nobody recorded one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonVerdictResponseDto"
+              }
+            ]
+          },
+          "implicitFrom": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "merged",
+              "held-as-wrong",
+              "marked-right",
+              "marked-wrong",
+              null
+            ],
+            "nullable": true,
+            "description": "What people’s actions alone say of the run, without a recorded verdict; null where they say nothing"
+          },
+          "takesVerdict": {
+            "type": "boolean",
+            "description": "Whether a person can record a verdict on the run: it ran to an end"
           },
           "agrees": {
             "type": "boolean",
@@ -18306,7 +18499,28 @@
           "judge",
           "calibration",
           "labelFrom",
+          "peoplePass",
+          "personVerdict",
+          "implicitFrom",
+          "takesVerdict",
           "agrees"
+        ]
+      },
+      "RecordRunVerdictRequestDto": {
+        "type": "object",
+        "properties": {
+          "right": {
+            "type": "boolean",
+            "description": "Whether the run was right"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the run was wrong: only where it was wrong, optional, at most 2,000 characters"
+          }
+        },
+        "required": [
+          "right"
         ]
       },
       "DisagreementCitationResponseDto": {
@@ -18497,7 +18711,9 @@
               "accepted",
               "sent-back",
               "merged",
-              "held-as-wrong"
+              "held-as-wrong",
+              "marked-right",
+              "marked-wrong"
             ],
             "description": "What gave people’s verdict on the run when the disagreement opened, which disagrees with the judge’s"
           },

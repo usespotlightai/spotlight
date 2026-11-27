@@ -240,6 +240,10 @@ const scoresOf = (runId: string): RunScores => {
     judge,
     calibration,
     labelFrom,
+    peoplePass: labelFrom ? labelPasses(labelFrom) : null,
+    personVerdict: null,
+    implicitFrom: labelFrom,
+    takesVerdict: run ? run.ending !== 'cancelled' : true,
     agrees: agreesOf(judge, labelFrom, calibration),
   };
 };
@@ -275,8 +279,30 @@ export const withCitationsGone = (scores: RunScores): RunScores =>
 export const withoutPeople = (scores: RunScores): RunScores => ({
   ...scores,
   labelFrom: null,
+  peoplePass: null,
+  personVerdict: null,
+  implicitFrom: null,
   agrees: null,
 });
+
+export const withPersonVerdict = (
+  scores: RunScores,
+  verdict: RunScores['personVerdict'],
+): RunScores => {
+  const labelFrom = verdict
+    ? verdict.right
+      ? 'marked-right'
+      : 'marked-wrong'
+    : scores.implicitFrom;
+
+  return {
+    ...scores,
+    labelFrom,
+    peoplePass: labelFrom ? labelPasses(labelFrom) : null,
+    personVerdict: verdict,
+    agrees: agreesOf(scores.judge, labelFrom, scores.calibration),
+  };
+};
 
 export const seedRunScores = (
   runIds: readonly string[],
@@ -410,6 +436,10 @@ export const judgedScoresOf = (run: HistoryRun): RunScores => {
     judge,
     calibration,
     labelFrom,
+    peoplePass: labelFrom ? labelPasses(labelFrom) : null,
+    personVerdict: null,
+    implicitFrom: labelFrom,
+    takesVerdict: run.ending !== 'cancelled',
     agrees: agreesOf(judge, labelFrom, calibration),
   };
 };

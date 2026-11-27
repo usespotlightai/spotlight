@@ -76,6 +76,10 @@ export class RunEnd {
     return this.ending !== 'cancelled';
   }
 
+  get takesVerdict(): boolean {
+    return this.ran;
+  }
+
   get ranItsConfig(): boolean {
     return this.ran && this.startedAt !== null;
   }

@@ -37,6 +37,17 @@ vi.mock('@/hooks/api/useRunScores', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useRunVerdict', () => {
+  const mutation = () => ({
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    isPending: false,
+    error: null,
+  });
+
+  return { useRecordRunVerdict: mutation, useClearRunVerdict: mutation };
+});
+
 vi.mock('@/hooks/api/useMembers', () => ({
   useMembers: () => ({ data: [] }),
 }));

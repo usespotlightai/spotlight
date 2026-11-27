@@ -5,9 +5,11 @@ import {
   PersonAction,
   type ActionKind,
 } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
-import { endedRecord, factsWith } from '@insights/runs.fake-spec';
+import { endedRecord, factOf, factsWith } from '@insights/runs.fake-spec';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -28,6 +30,7 @@ const MERGED_LAST_RUN = {
   taskMerged: true,
   ending: 'completed',
   followed: false,
+  personVerdict: null,
 } as const;
 
 const labelled = (change: {
@@ -223,5 +226,48 @@ describe('HumanLabel.agreesWith', () => {
     expect(HumanLabel.of(MERGED_LAST_RUN)?.agreesWith({ passes: false })).toBe(
       false,
     );
+  });
+});
+
+describe('a run fact’s human label, where a person recorded a verdict', () => {
+  const MARKED_AT = new Date('2026-09-30T12:00:00.000Z');
+  const MARKER = UserId.of('user_ada');
+  const verdictOf = (right: boolean) =>
+    PersonVerdict.of({ right, reason: null, by: MARKER, at: MARKED_AT });
+
+  it('labels a run that moved on, and whose pull request merged, by the verdict', () => {
+    const record = actedOn('started').recordVerdict(verdictOf(false));
+    const fact = present(firstOf(factsWith([record], [pullRequestOf(true)])));
+
+    expect(fact.humanLabel).toEqual({ from: 'marked-wrong', by: MARKER });
+    expect(fact.humanLabel?.passes).toBe(false);
+    expect(fact.implicitLabel).toMatchObject({ from: 'merged' });
+    expect(fact.resolution).toBe('sent-back');
+    expect(fact.disposition).toBe('sent-back');
+  });
+
+  it('puts the verdict before what people did on the run', () => {
+    const fact = factOf(actedOn('sent-back').recordVerdict(verdictOf(true)));
+
+    expect(fact.humanLabel).toEqual({ from: 'marked-right', by: MARKER });
+    expect(fact.implicitLabel).toMatchObject({ from: 'sent-back' });
+    expect(fact.resolution).toBe('accepted');
+  });
+
+  it('labels a run by what people did once the verdict is cleared', () => {
+    const fact = factOf(
+      actedOn('sent-back').recordVerdict(verdictOf(true)).clearVerdict(),
+    );
+
+    expect(fact.humanLabel).toMatchObject({ from: 'sent-back' });
+  });
+
+  it('knows nothing of the verdict before it was given', () => {
+    const fact = factOf(endedRecord('run_1').recordVerdict(verdictOf(false)));
+
+    expect(fact.asOf(AT)?.humanLabel).toBeNull();
+    expect(fact.asOf(MARKED_AT)?.humanLabel).toMatchObject({
+      from: 'marked-wrong',
+    });
   });
 });

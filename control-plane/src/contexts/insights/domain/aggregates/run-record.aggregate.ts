@@ -4,12 +4,14 @@ import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.e
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { RunRecordErased } from '@insights/domain/events/run-record-erased.event';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
+import { RunTakesNoVerdictError } from '@insights/domain/exceptions/run-takes-no-verdict.error';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import type {
   ActedOnTool,
   PersonAction,
 } from '@insights/domain/value-objects/person-action.vo';
+import type { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import {
   type RepositoryCheck,
@@ -46,6 +48,7 @@ export class RunRecord extends EventRecorder {
     readonly asked: boolean,
     readonly checked: RunChecks,
     readonly actions: RunActions,
+    readonly personVerdict: PersonVerdict | null,
     readonly approvalAnsweredAt: Date | null,
     readonly usage: RunUsage | null,
     readonly passed: StationPass | null,
@@ -75,6 +78,7 @@ export class RunRecord extends EventRecorder {
       null,
       null,
       null,
+      null,
       [],
       RunMemories.NONE,
       0,
@@ -90,6 +94,7 @@ export class RunRecord extends EventRecorder {
     asked: boolean;
     checked: RunChecks;
     actions: RunActions;
+    personVerdict: PersonVerdict | null;
     approvalAnsweredAt: Date | null;
     usage: RunUsage | null;
     passed: StationPass | null;
@@ -109,6 +114,11 @@ export class RunRecord extends EventRecorder {
         'must have its tools once its usage is recorded',
       );
     }
+    if (input.personVerdict && !input.end?.takesVerdict) {
+      throw new InvalidOutcomeError(
+        'takes a person’s verdict only once it ran to an end',
+      );
+    }
 
     return new RunRecord(
       input.runId,
@@ -119,6 +129,7 @@ export class RunRecord extends EventRecorder {
       input.asked,
       input.checked,
       input.actions,
+      input.personVerdict,
       input.approvalAnsweredAt,
       input.usage,
       input.passed,
@@ -180,6 +191,7 @@ export class RunRecord extends EventRecorder {
           checks: this.checks,
           checkedAt: this.checkedAt,
           actions: this.actions,
+          personVerdict: this.personVerdict,
           approvalAnsweredAt: this.approvalAnsweredAt,
           usage: this.usage,
           passed: this.passed,
@@ -256,6 +268,22 @@ export class RunRecord extends EventRecorder {
     return actions === this.actions ? this : this.withOutcome({ actions });
   }
 
+  recordVerdict(verdict: PersonVerdict): RunRecord {
+    if (!this.end?.takesVerdict) {
+      throw new RunTakesNoVerdictError(this.runId.value);
+    }
+
+    return verdict.saysTheSameAs(this.personVerdict)
+      ? this
+      : this.withOutcome({ personVerdict: verdict });
+  }
+
+  clearVerdict(): RunRecord {
+    return this.personVerdict
+      ? this.withOutcome({ personVerdict: null })
+      : this;
+  }
+
   recordUsage(usage: RunUsage, tools: RunTools): RunRecord {
     return this.usage ? this : this.withOutcome({ usage, tools });
   }
@@ -311,6 +339,7 @@ export class RunRecord extends EventRecorder {
     asked?: boolean;
     checked?: RunChecks;
     actions?: RunActions;
+    personVerdict?: PersonVerdict | null;
     approvalAnsweredAt?: Date;
     usage?: RunUsage;
     tools?: RunTools;
@@ -333,6 +362,7 @@ export class RunRecord extends EventRecorder {
     asked?: boolean;
     checked?: RunChecks;
     actions?: RunActions;
+    personVerdict?: PersonVerdict | null;
     approvalAnsweredAt?: Date;
     usage?: RunUsage;
     passed?: StationPass;
@@ -349,6 +379,9 @@ export class RunRecord extends EventRecorder {
       change.asked ?? this.asked,
       change.checked ?? this.checked,
       change.actions ?? this.actions,
+      change.personVerdict === undefined
+        ? this.personVerdict
+        : change.personVerdict,
       change.approvalAnsweredAt ?? this.approvalAnsweredAt,
       change.usage ?? this.usage,
       change.passed ?? this.passed,

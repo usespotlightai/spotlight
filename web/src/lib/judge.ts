@@ -44,9 +44,44 @@ const LABELS: Record<LabelSource, string> = {
   'sent-back': 'Sent back',
   merged: 'Pull request merged',
   'held-as-wrong': 'Held as wrong',
+  'marked-right': 'Marked right',
+  'marked-wrong': 'Marked wrong',
 };
 
 export const formatLabel = (from: LabelSource): string => LABELS[from];
+
+export type PersonVerdict = NonNullable<RunScores['personVerdict']>;
+
+export const formatPeopleVerdict = (passes: boolean): string =>
+  passes ? 'Passed' : 'Failed';
+
+export const VERDICT_QUESTION = 'Was this run right?';
+
+export const VERDICT_RIGHT = 'Right';
+
+export const VERDICT_WRONG = 'Wrong';
+
+export const VERDICT_CLEAR = 'Clear';
+
+export const VERDICT_REASON_LABEL = 'What was wrong (optional)';
+
+export const VERDICT_SAVE_REASON = 'Save reason';
+
+export const MAX_VERDICT_REASON = 2_000;
+
+export const VERDICT_TEACHES =
+  'Your verdict teaches this station’s judge. It counts in place of what people did with the run, and it never moves the task.';
+
+export const formatVerdictSource = (
+  labelFrom: LabelSource,
+  verdict: PersonVerdict | null,
+): string =>
+  verdict
+    ? `${formatLabel(labelFrom)} by ${verdict.byName ?? 'a former member'}`
+    : formatLabel(labelFrom);
+
+export const formatReplacedSource = (implicitFrom: LabelSource): string =>
+  `In place of: ${formatLabel(implicitFrom)}`;
 
 export const formatJudgeVerdict = (passes: boolean): string =>
   passes ? 'Passed by the judge' : 'Failed by the judge';

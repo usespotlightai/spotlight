@@ -4,7 +4,7 @@ import { readStationJudge } from '@/lib/api';
 import type { StationJudgeAgreement } from '@/lib/judge';
 import { required } from '@/lib/required';
 
-const stationJudgeKeys = {
+export const stationJudgeKeys = {
   forStation: (stationId?: string) =>
     ['station-judge', stationId ?? null] as const,
 };

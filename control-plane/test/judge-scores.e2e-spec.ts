@@ -31,7 +31,7 @@ import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzl
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
-import { scoreFactOf } from '@insights/runs.fake-spec';
+import { NOBODY_ELSE, scoreFactOf } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { firstOf } from '@shared-kernel/domain/item-at';
@@ -543,7 +543,7 @@ describe('how often the judge agrees with people', () => {
   });
 
   it('shows a run’s claims, people’s verdict and whether the judge agrees, read from the stored facts', async () => {
-    const views = new RunScoresViews(facts, reports);
+    const views = new RunScoresViews(facts, reports, NOBODY_ELSE);
     const access = ViewedTeam.onTeam(TEAM, {
       workspaceId: WORKSPACE,
       by: UserId.of('user_1'),

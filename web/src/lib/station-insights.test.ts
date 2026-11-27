@@ -5,6 +5,7 @@ import {
   configFingerprint,
   countedColumnsOf,
   type FingerprintGroup,
+  formatHumanAction,
   hasRuns,
   outcomePartsOf,
   outcomeTone,
@@ -220,5 +221,22 @@ describe('outcomeTone', () => {
     expect(resolutionLabel(run('accepted', 'failed'))).toBe('Accepted');
     expect(resolutionLabel(run('moved-on', 'completed'))).toBe('Moved on');
     expect(resolutionLabel(run('other', 'stopped'))).toBe('Stopped');
+  });
+});
+
+describe('formatHumanAction', () => {
+  it('shows a verdict a person recorded on the run in place of the action people took', () => {
+    const started = {
+      kind: 'started',
+      at: '2026-10-02T09:00:00.000Z',
+    } as const;
+
+    expect(
+      formatHumanAction({ humanAction: started, labelFrom: 'merged' }),
+    ).toBe('Started');
+    expect(
+      formatHumanAction({ humanAction: started, labelFrom: 'marked-wrong' }),
+    ).toBe('Marked wrong');
+    expect(formatHumanAction({ humanAction: null, labelFrom: null })).toBe('–');
   });
 });

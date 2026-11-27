@@ -6486,9 +6486,13 @@ export type StationRunOutcomeResponseDto = {
   endedAt: string;
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   /**
-   * What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. Sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong
+   * What came of the run: failed, sent back, accepted, moved on (the run completed, then passed its task to another station or a person started its task), or other. A verdict a person recorded on the run comes first: right is accepted, wrong is sent back. Otherwise sent back: the run’s deciding action is a send back (a person wrote to the run after it ended or reopened its task), or a hold that ended with the reason The line got it wrong
    */
   resolution: 'accepted' | 'sent-back' | 'moved-on' | 'failed' | 'other';
+  /**
+   * What gave people’s verdict on the run, as on the run’s verdicts; null where nothing gives one
+   */
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | 'marked-right' | 'marked-wrong' | null;
   /**
    * Why it failed, where it did
    */
@@ -7001,6 +7005,26 @@ export type JudgeScoreResponseDto = {
   reasons: Array<JudgeReasonResponseDto>;
 };
 
+export type PersonVerdictResponseDto = {
+  /**
+   * Whether the person said the run was right
+   */
+  right: boolean;
+  /**
+   * Why the run was wrong, where the person said so
+   */
+  reason: string | null;
+  /**
+   * Who gave the verdict
+   */
+  by: string;
+  /**
+   * The name of who gave the verdict; none once they are gone
+   */
+  byName: string | null;
+  at: string;
+};
+
 export type RunScoresResponseDto = {
   runId: string;
   taskId: string;
@@ -7015,13 +7039,40 @@ export type RunScoresResponseDto = {
   judge: JudgeScoreResponseDto | null;
   calibration: JudgeCalibrationResponseDto;
   /**
-   * What gave people’s verdict on the run: its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where neither gives a verdict
+   * What gave people’s verdict on the run: a person’s verdict recorded on the run, which comes first; otherwise its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where none gives a verdict
    */
-  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | null;
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | 'marked-right' | 'marked-wrong' | null;
+  /**
+   * Whether people’s verdict passes the run; none where the run has no people’s verdict
+   */
+  peoplePass: boolean | null;
+  /**
+   * The verdict a person recorded on the run, which takes the place of what people’s actions say; none where nobody recorded one
+   */
+  personVerdict: PersonVerdictResponseDto | null;
+  /**
+   * What people’s actions alone say of the run, without a recorded verdict; null where they say nothing
+   */
+  implicitFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | 'marked-right' | 'marked-wrong' | null;
+  /**
+   * Whether a person can record a verdict on the run: it ran to an end
+   */
+  takesVerdict: boolean;
   /**
    * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or the run has no people’s verdict
    */
   agrees: boolean | null;
+};
+
+export type RecordRunVerdictRequestDto = {
+  /**
+   * Whether the run was right
+   */
+  right: boolean;
+  /**
+   * Why the run was wrong: only where it was wrong, optional, at most 2,000 characters
+   */
+  reason?: string | null;
 };
 
 export type InsightsPeriodResponseDto = {
@@ -9143,7 +9194,7 @@ export type JudgeDisagreementResponseDto = {
   /**
    * What gave people’s verdict on the run when the disagreement opened, which disagrees with the judge’s
    */
-  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong';
+  labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | 'marked-right' | 'marked-wrong';
   openedAt: string;
   claims: Array<DisagreementClaimResponseDto>;
   /**
@@ -21743,6 +21794,72 @@ export type ReadRunScoresResponses = {
 };
 
 export type ReadRunScoresResponse = ReadRunScoresResponses[keyof ReadRunScoresResponses];
+
+export type ClearRunVerdictData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/verdict';
+};
+
+export type ClearRunVerdictErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+  /**
+   * The run changed meanwhile
+   */
+  409: unknown;
+};
+
+export type ClearRunVerdictResponses = {
+  200: RunScoresResponseDto;
+};
+
+export type ClearRunVerdictResponse = ClearRunVerdictResponses[keyof ClearRunVerdictResponses];
+
+export type RecordRunVerdictData = {
+  body: RecordRunVerdictRequestDto;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/verdict';
+};
+
+export type RecordRunVerdictErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+  /**
+   * The run has not finished, ended before it ran, or changed meanwhile
+   */
+  409: unknown;
+  /**
+   * The verdict has no right, the reason is not text, a reason is given for a run that was right, or the reason is over 2,000 characters
+   */
+  422: unknown;
+};
+
+export type RecordRunVerdictResponses = {
+  200: RunScoresResponseDto;
+};
+
+export type RecordRunVerdictResponse = RecordRunVerdictResponses[keyof RecordRunVerdictResponses];
 
 export type ReadInsightsOverviewData = {
   body?: never;

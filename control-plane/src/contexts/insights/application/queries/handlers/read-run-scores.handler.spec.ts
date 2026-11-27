@@ -136,6 +136,7 @@ const reading = async (
         evidence,
         new StationFactsInMemory(records, { scores }),
       ),
+      NOBODY_ELSE,
     ),
   );
 };

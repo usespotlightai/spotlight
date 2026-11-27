@@ -1,5 +1,6 @@
 import { ClaimVerdicts } from '@/components/features/runs/judge/ClaimVerdicts';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
+import { RunVerdictControl } from '@/components/features/runs/judge/RunVerdictControl';
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -12,14 +13,17 @@ import {
   DISAGREES_LABEL,
   DISAGREES_NOTE,
   formatCalibration,
-  formatLabel,
+  formatPeopleVerdict,
+  formatReplacedSource,
   formatVerdict,
+  formatVerdictSource,
   HIDDEN_VERDICT,
   JUDGE_LABEL,
   PEOPLE_LABEL,
   type RunScores,
   VERDICTS_TITLE,
 } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 
 function VerdictsSkeleton() {
@@ -36,6 +40,26 @@ function VerdictsSkeleton() {
         </dl>
       </div>
     </DetailSection>
+  );
+}
+
+function PeopleVerdictValue({
+  labelFrom,
+  peoplePass,
+  personVerdict,
+}: Pick<RunScores, 'labelFrom' | 'peoplePass' | 'personVerdict'>) {
+  if (!labelFrom || peoplePass === null) {
+    return <span className="text-muted-foreground">None yet</span>;
+  }
+
+  return (
+    <span data-slot="run-label">
+      {formatPeopleVerdict(peoplePass)}
+      <span className="text-muted-foreground">
+        {' · '}
+        {formatVerdictSource(labelFrom, personVerdict)}
+      </span>
+    </span>
   );
 }
 
@@ -71,6 +95,32 @@ function JudgeVerdictValue({
   );
 }
 
+function PersonVerdictNotes({ scores }: { scores: RunScores }) {
+  const { personVerdict, implicitFrom } = scores;
+
+  if (!personVerdict) {
+    return null;
+  }
+
+  return (
+    <>
+      {implicitFrom && (
+        <p
+          data-slot="run-label-replaced"
+          className="text-muted-foreground text-xs"
+        >
+          {formatReplacedSource(implicitFrom)}
+        </p>
+      )}
+      {nonEmpty(personVerdict.reason) && (
+        <p data-slot="run-verdict-reason" className="text-sm">
+          {personVerdict.reason}
+        </p>
+      )}
+    </>
+  );
+}
+
 type RunJudgeScoreProps = {
   teamId: string;
   runId: string;
@@ -100,30 +150,40 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
 
   const scores = query.data;
 
-  if (!scores?.judged) {
+  if (!scores || (!scores.judged && !scores.takesVerdict)) {
     return null;
   }
 
-  const { judge, calibration, labelFrom, agrees } = scores;
+  const { judge, calibration, agrees } = scores;
   const unclaimed = judge?.reasons.filter((each) => each.claim === null) ?? [];
 
   return (
     <DetailSection title={VERDICTS_TITLE}>
       <div data-slot="run-judge-score" className="flex flex-col gap-2">
         <dl>
-          {labelFrom && (
-            <DetailProperty name={PEOPLE_LABEL}>
-              <span data-slot="run-label">{formatLabel(labelFrom)}</span>
-            </DetailProperty>
-          )}
-          <DetailProperty name={JUDGE_LABEL}>
-            <JudgeVerdictValue
-              judge={judge}
-              agrees={agrees}
-              calibration={calibration}
+          <DetailProperty name={PEOPLE_LABEL}>
+            <PeopleVerdictValue
+              labelFrom={scores.labelFrom}
+              peoplePass={scores.peoplePass}
+              personVerdict={scores.personVerdict}
             />
           </DetailProperty>
+          {scores.judged && (
+            <DetailProperty name={JUDGE_LABEL}>
+              <JudgeVerdictValue
+                judge={judge}
+                agrees={agrees}
+                calibration={calibration}
+              />
+            </DetailProperty>
+          )}
         </dl>
+
+        <PersonVerdictNotes scores={scores} />
+
+        {scores.takesVerdict && (
+          <RunVerdictControl teamId={teamId} scores={scores} />
+        )}
 
         {judge && (
           <ClaimVerdicts

@@ -1,6 +1,7 @@
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunChecks } from '@insights/domain/value-objects/run-checks.vo';
@@ -37,6 +38,7 @@ export interface RunParts {
   readonly checks: CheckVerdict | null;
   readonly checkedAt: Date | null;
   readonly actions: RunActions;
+  readonly personVerdict: PersonVerdict | null;
   readonly approvalAnsweredAt: Date | null;
   readonly usage: RunUsage | null;
   readonly passed: StationPass | null;
@@ -165,6 +167,49 @@ export const answerOf = (
   return answeredAt && nonEmpty(answeredBy)
     ? PersonAction.of('answered', answeredAt, UserId.of(answeredBy))
     : null;
+};
+
+export const personVerdictOf = (
+  {
+    personVerdictRight,
+    personVerdictReason,
+    personVerdictBy,
+    personVerdictAt,
+  }: Pick<
+    RunPartsRow,
+    | 'personVerdictRight'
+    | 'personVerdictReason'
+    | 'personVerdictBy'
+    | 'personVerdictAt'
+  >,
+  stored: StoredRunParts,
+): PersonVerdict | null => {
+  if (
+    personVerdictRight === null &&
+    personVerdictReason === null &&
+    personVerdictBy === null &&
+    personVerdictAt === null
+  ) {
+    return null;
+  }
+
+  if (
+    personVerdictRight === null ||
+    personVerdictBy === null ||
+    personVerdictAt === null
+  ) {
+    throw new InconsistentStateError(
+      stored,
+      'has only part of a person’s verdict: the verdict, its time and who gave it go together',
+    );
+  }
+
+  return PersonVerdict.of({
+    right: personVerdictRight,
+    reason: personVerdictReason,
+    by: UserId.of(personVerdictBy),
+    at: personVerdictAt,
+  });
 };
 
 export const usageOf = (
@@ -312,6 +357,10 @@ export const partColumnsOf = (record: RunParts): RunPartsRow => {
     decidingActionBy: record.actions.decidingAction?.by.value ?? null,
     answeredAt: record.actions.answer?.at ?? null,
     answeredBy: record.actions.answer?.by.value ?? null,
+    personVerdictRight: record.personVerdict?.right ?? null,
+    personVerdictReason: record.personVerdict?.reason ?? null,
+    personVerdictBy: record.personVerdict?.by.value ?? null,
+    personVerdictAt: record.personVerdict?.at ?? null,
     approvalAnsweredAt: record.approvalAnsweredAt,
     passedTo: record.passed?.to.value ?? null,
     passedAt: record.passed?.at ?? null,

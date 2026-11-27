@@ -50,6 +50,13 @@
       "when": 1795801277812,
       "tag": "20261127174117_repository_missing_unreplayable_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795806962133,
+      "tag": "20261127191602_person_verdict_on_runs",
+      "breakpoints": true
     }
   ]
 }

@@ -12,9 +12,10 @@ import type {
   JudgeDisagreementResponseDto,
   MemoryReviewResponseDto,
   ProposedMemoryResponseDto,
+  RecordRunVerdictRequestDto,
   SubmitReviewRequestDto,
 } from '@/lib/api';
-import type { RunScores } from '@/lib/judge';
+import { MAX_VERDICT_REASON, type RunScores } from '@/lib/judge';
 import { MAX_NOTE } from '@/lib/judge-disagreement';
 import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
@@ -28,7 +29,7 @@ import {
   shownConversation,
 } from '@/mocks/world/inbox';
 import { landingsOf, noDecisions } from '@/mocks/world/inbox-reviews';
-import { pastScoresOf } from '@/mocks/world/inbox-scores';
+import { pastScoresOf, withPersonVerdict } from '@/mocks/world/inbox-scores';
 import { inboxStore, nextId } from '@/mocks/world/inbox-store';
 import {
   historyRunOf,
@@ -508,6 +509,63 @@ const scoreHandlers = [
     const scores = scoresFor(param(params, 'runId'));
 
     return scores ? json(scores) : notFound();
+  }),
+  api.put<RecordRunVerdictRequestDto>(
+    '/teams/:teamId/runs/:runId/verdict',
+    async ({ params, request }) => {
+      const runId = param(params, 'runId');
+      const scores = scoresFor(runId);
+
+      if (!scores) {
+        return notFound();
+      }
+      if (!scores.takesVerdict) {
+        return problem(
+          409,
+          `Run ${runId} takes no verdict: it has not finished, or it ended before it ran.`,
+        );
+      }
+
+      const { right, reason } = await request.json();
+      const kept = reason?.trim() ?? '';
+
+      if (right && kept) {
+        return problem(
+          422,
+          'A verdict on a run takes a reason only where the run was wrong.',
+        );
+      }
+      if (kept.length > MAX_VERDICT_REASON) {
+        return problem(
+          422,
+          `A verdict on a run takes a reason of at most ${MAX_VERDICT_REASON} characters.`,
+        );
+      }
+
+      const marked = withPersonVerdict(scores, {
+        right,
+        reason: kept || null,
+        by: SAM.id,
+        byName: SAM.name,
+        at: now(),
+      });
+      inboxStore().scores[runId] = marked;
+
+      return json(marked);
+    },
+  ),
+  api.delete('/teams/:teamId/runs/:runId/verdict', ({ params }) => {
+    const runId = param(params, 'runId');
+    const scores = scoresFor(runId);
+
+    if (!scores) {
+      return notFound();
+    }
+
+    const cleared = withPersonVerdict(scores, null);
+    inboxStore().scores[runId] = cleared;
+
+    return json(cleared);
   }),
 ];
 

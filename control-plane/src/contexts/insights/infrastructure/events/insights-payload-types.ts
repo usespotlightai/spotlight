@@ -32,6 +32,7 @@ import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
 import { PairReason } from '@insights/domain/value-objects/pair-reason.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
@@ -67,6 +68,7 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   TaskOpening,
   ViewedTeam,
   PersonAction,
+  PersonVerdict,
   HumanLabel,
   RunUsage,
   RunEnd,

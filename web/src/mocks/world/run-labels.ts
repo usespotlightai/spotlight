@@ -11,7 +11,11 @@ const ACTION_LABELS: readonly LabelSource[] = [
   'held-as-wrong',
 ];
 
-const PASSING_LABELS: readonly LabelSource[] = ['accepted', 'merged'];
+const PASSING_LABELS: readonly LabelSource[] = [
+  'accepted',
+  'merged',
+  'marked-right',
+];
 
 const WORK_ENDINGS: readonly string[] = ['completed', 'stopped'];
 

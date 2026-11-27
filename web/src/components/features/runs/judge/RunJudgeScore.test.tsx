@@ -21,6 +21,24 @@ vi.mock('@/hooks/api/useRunScores', () => ({
   }),
 }));
 
+const record = vi.fn();
+const clear = vi.fn();
+
+vi.mock('@/hooks/api/useRunVerdict', () => ({
+  useRecordRunVerdict: () => ({
+    mutate: record,
+    reset: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+  useClearRunVerdict: () => ({
+    mutate: clear,
+    reset: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+}));
+
 const showing = () => render(<RunJudgeScore teamId="team_1" runId="run_1" />);
 
 beforeEach(() => {
@@ -28,6 +46,8 @@ beforeEach(() => {
   scoresFailing.mockReturnValue(false);
   scoresError.mockReturnValue(null);
   refetch.mockClear();
+  record.mockClear();
+  clear.mockClear();
 });
 
 describe('RunJudgeScore', () => {
@@ -130,7 +150,13 @@ describe('RunJudgeScore', () => {
   ] as const)(
     'shows people’s verdict on the run before the judge’s verdict: %s',
     (labelFrom, shown) => {
-      scores.mockReturnValue(runScoresOf('run_1', 'task_1', { labelFrom }));
+      scores.mockReturnValue(
+        runScoresOf('run_1', 'task_1', {
+          labelFrom,
+          peoplePass: labelFrom === 'accepted' || labelFrom === 'merged',
+          implicitFrom: labelFrom,
+        }),
+      );
       showing();
 
       const names = [...document.querySelectorAll('dt')].map(
@@ -147,6 +173,7 @@ describe('RunJudgeScore', () => {
     scores.mockReturnValue(
       runScoresOf('run_1', 'task_1', {
         labelFrom: 'accepted',
+        peoplePass: true,
         agrees: false,
       }),
     );
@@ -160,20 +187,105 @@ describe('RunJudgeScore', () => {
   it('shows no label and no mark where people said nothing yet', () => {
     showing();
 
-    expect(screen.queryByText('People')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="run-label"]'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('None yet')).toBeInTheDocument();
     expect(
       screen.queryByRole('img', { name: 'The judge disagrees with people' }),
     ).not.toBeInTheDocument();
   });
 
-  it('shows nothing for a run no judge checked', () => {
+  it('shows nothing for a run no judge checked that takes no verdict', () => {
     scores.mockReturnValue(
-      runScoresOf('run_1', 'task_1', { judged: false, judge: null }),
+      runScoresOf('run_1', 'task_1', {
+        judged: false,
+        judge: null,
+        takesVerdict: false,
+      }),
     );
 
     const { container } = showing();
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('asks for people’s verdict on a run no judge checked, and says that it teaches the judge', async () => {
+    scores.mockReturnValue(
+      runScoresOf('run_1', 'task_1', { judged: false, judge: null }),
+    );
+    showing();
+
+    expect(
+      [...document.querySelectorAll('dt')].map((each) => each.textContent),
+    ).toEqual(['People']);
+    expect(
+      screen.getByText(/Your verdict teaches this station’s judge/),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Wrong' }));
+
+    expect(record).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      runId: 'run_1',
+      right: false,
+      reason: null,
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Right' }));
+
+    expect(record).toHaveBeenLastCalledWith({
+      teamId: 'team_1',
+      runId: 'run_1',
+      right: true,
+      reason: null,
+    });
+  });
+
+  it('shows a recorded verdict, who gave it and what it takes the place of, and lets a person give a reason or clear it', async () => {
+    scores.mockReturnValue(
+      runScoresOf('run_1', 'task_1', {
+        labelFrom: 'marked-wrong',
+        peoplePass: false,
+        implicitFrom: 'merged',
+        personVerdict: {
+          right: false,
+          reason: null,
+          by: 'user_ada',
+          byName: 'Ada Lovelace',
+          at: '2026-10-02T09:00:00.000Z',
+        },
+      }),
+    );
+    showing();
+
+    expect(document.querySelector('[data-slot="run-label"]')).toHaveTextContent(
+      'Failed · Marked wrong by Ada Lovelace',
+    );
+    expect(
+      screen.getByText('In place of: Pull request merged'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Wrong' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await userEvent.type(
+      screen.getByLabelText('What was wrong (optional)'),
+      'It planned the change.',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save reason' }));
+
+    expect(record).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      runId: 'run_1',
+      right: false,
+      reason: 'It planned the change.',
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(clear).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_1' });
   });
 
   it('shows nothing to someone off the team', () => {

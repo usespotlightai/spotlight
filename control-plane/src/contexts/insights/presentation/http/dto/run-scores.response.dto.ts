@@ -4,10 +4,12 @@ import type {
   CitedStepDto,
   JudgeReasonDto,
   JudgeScoreDto,
+  PersonVerdictDto,
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
 import { CITATION_KINDS } from '@insights/domain/value-objects/citation.vo';
 import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
+import { MAX_VERDICT_REASON_CHARS } from '@insights/domain/value-objects/person-verdict.vo';
 import { JudgeCalibrationResponseDto } from '@insights/presentation/http/dto/station-judge.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -155,6 +157,53 @@ export class JudgeScoreResponseDto {
   }
 }
 
+export class PersonVerdictResponseDto {
+  @ApiProperty({ description: 'Whether the person said the run was right' })
+  readonly right: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Why the run was wrong, where the person said so',
+  })
+  readonly reason: string | null;
+
+  @ApiProperty({ example: 'user_1', description: 'Who gave the verdict' })
+  readonly by: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'Ada Lovelace',
+    description: 'The name of who gave the verdict; none once they are gone',
+  })
+  readonly byName: string | null;
+
+  @ApiProperty({ example: '2026-09-30T10:05:00.000Z' })
+  readonly at: string;
+
+  constructor(verdict: PersonVerdictDto) {
+    this.right = verdict.right;
+    this.reason = verdict.reason;
+    this.by = verdict.by;
+    this.byName = verdict.byName;
+    this.at = verdict.at;
+  }
+}
+
+export class RecordRunVerdictRequestDto {
+  @ApiProperty({ description: 'Whether the run was right' })
+  readonly right!: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    required: false,
+    description: `Why the run was wrong: only where it was wrong, optional, at most ${MAX_VERDICT_REASON_CHARS.toLocaleString('en')} characters`,
+  })
+  readonly reason?: string | null;
+}
+
 export class RunScoresResponseDto {
   @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
   readonly runId: string;
@@ -183,9 +232,39 @@ export class RunScoresResponseDto {
     enum: [...LABEL_SOURCES, null],
     nullable: true,
     description:
-      'What gave people’s verdict on the run: its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where neither gives a verdict',
+      'What gave people’s verdict on the run: a person’s verdict recorded on the run, which comes first; otherwise its deciding action when that is an accept (counted only for a run that completed or stopped), a send back, or a hold that ended with the reason The line got it wrong; otherwise the merge of all of the task’s pull requests, which counts only for the station’s last completed run on the task. Null where none gives a verdict',
   })
   readonly labelFrom: string | null;
+
+  @ApiProperty({
+    type: Boolean,
+    nullable: true,
+    description:
+      'Whether people’s verdict passes the run; none where the run has no people’s verdict',
+  })
+  readonly peoplePass: boolean | null;
+
+  @ApiProperty({
+    type: PersonVerdictResponseDto,
+    nullable: true,
+    description:
+      'The verdict a person recorded on the run, which takes the place of what people’s actions say; none where nobody recorded one',
+  })
+  readonly personVerdict: PersonVerdictResponseDto | null;
+
+  @ApiProperty({
+    enum: [...LABEL_SOURCES, null],
+    nullable: true,
+    description:
+      'What people’s actions alone say of the run, without a recorded verdict; null where they say nothing',
+  })
+  readonly implicitFrom: string | null;
+
+  @ApiProperty({
+    description:
+      'Whether a person can record a verdict on the run: it ran to an end',
+  })
+  readonly takesVerdict: boolean;
 
   @ApiProperty({
     type: Boolean,
@@ -203,6 +282,12 @@ export class RunScoresResponseDto {
     this.judge = scores.judge ? new JudgeScoreResponseDto(scores.judge) : null;
     this.calibration = new JudgeCalibrationResponseDto(scores.calibration);
     this.labelFrom = scores.labelFrom;
+    this.peoplePass = scores.peoplePass;
+    this.personVerdict = scores.personVerdict
+      ? new PersonVerdictResponseDto(scores.personVerdict)
+      : null;
+    this.implicitFrom = scores.implicitFrom;
+    this.takesVerdict = scores.takesVerdict;
     this.agrees = scores.agrees;
   }
 }

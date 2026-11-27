@@ -1,8 +1,12 @@
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import {
   answerOf,
   decidingActionOf,
+  partColumnsOf,
+  personVerdictOf,
 } from '@insights/infrastructure/persistence/drizzle/mappers/run-parts.mapper';
+import { endedRecord } from '@insights/runs.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -78,5 +82,40 @@ describe('answerOf', () => {
     expect(() => answerOf(row, 'run fact')).toThrow(
       'A stored run fact has only part of its answer',
     );
+  });
+});
+
+describe('personVerdictOf', () => {
+  it('stores a person’s verdict and reads it back', () => {
+    const verdict = PersonVerdict.of({
+      right: false,
+      reason: 'It planned the change.',
+      by: UserId.of('user_sam'),
+      at: AT,
+    });
+
+    expect(
+      personVerdictOf(
+        partColumnsOf(endedRecord('run_1').recordVerdict(verdict)),
+        'run record',
+      ),
+    ).toEqual(verdict);
+    expect(
+      personVerdictOf(partColumnsOf(endedRecord('run_1')), 'run record'),
+    ).toBeNull();
+  });
+
+  it('refuses a row with only part of a person’s verdict', () => {
+    expect(() =>
+      personVerdictOf(
+        {
+          personVerdictRight: false,
+          personVerdictReason: null,
+          personVerdictBy: null,
+          personVerdictAt: AT,
+        },
+        'run fact',
+      ),
+    ).toThrow('A stored run fact has only part of a person’s verdict');
   });
 });

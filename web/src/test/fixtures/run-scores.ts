@@ -29,6 +29,10 @@ export const runScoresOf = (
   judged: true,
   calibration: TRUSTED,
   labelFrom: null,
+  peoplePass: null,
+  personVerdict: null,
+  implicitFrom: null,
+  takesVerdict: true,
   agrees: null,
   judge: {
     claims: CLAIMS,

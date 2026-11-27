@@ -14,6 +14,10 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import { ClearRunVerdictCommand } from '@insights/application/commands/clear-run-verdict.command';
+import { ClearRunVerdictHandler } from '@insights/application/commands/handlers/clear-run-verdict.handler';
+import { RecordRunVerdictHandler } from '@insights/application/commands/handlers/record-run-verdict.handler';
+import { RecordRunVerdictCommand } from '@insights/application/commands/record-run-verdict.command';
 import { INSIGHTS_EVENT_MAPPERS } from '@insights/application/integration-events/insights.event-mappers';
 import {
   ALERT_INBOX_REQUESTS,
@@ -125,6 +129,7 @@ import { RunScoresViews } from '@insights/application/services/run-scores-views.
 import { StationJudgeCalibrations } from '@insights/application/services/station-judge-calibrations.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { TeamPullRequests } from '@insights/application/services/team-pull-requests.service';
+import { TeamRunRecords } from '@insights/application/services/team-run-records.service';
 import { TeamScopes } from '@insights/application/services/team-scopes.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
 import { WorkClaimsRevisions } from '@insights/application/services/work-claims-revisions.service';
@@ -172,6 +177,7 @@ import {
   type TeamMemoryUsePort,
 } from '@memory/application/ports/team-memory-use.port';
 import type { Provider, Type } from '@nestjs/common';
+import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -314,9 +320,12 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RunScoresViews,
-    inject: [STATION_FACTS, StationJudgeReports],
-    useFactory: (facts: StationFactsPort, reports: StationJudgeReports) =>
-      new RunScoresViews(facts, reports),
+    inject: [STATION_FACTS, StationJudgeReports, PEOPLE],
+    useFactory: (
+      facts: StationFactsPort,
+      reports: StationJudgeReports,
+      people: PeoplePort,
+    ) => new RunScoresViews(facts, reports, people),
   },
   {
     provide: InsightsAccess,
@@ -470,6 +479,23 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadRunScoresQuery, ReadRunScoresHandler, [
     InsightsAccess,
     RunScoresViews,
+  ]),
+  {
+    provide: TeamRunRecords,
+    inject: [InsightsAccess, DrizzleRunRecordRepository],
+    useFactory: (access: InsightsAccess, records: DrizzleRunRecordRepository) =>
+      new TeamRunRecords(access, records),
+  },
+  ...bindCommandHandler(RecordRunVerdictCommand, RecordRunVerdictHandler, [
+    TeamRunRecords,
+    DrizzleRunRecordRepository,
+    TRANSACTION,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(ClearRunVerdictCommand, ClearRunVerdictHandler, [
+    TeamRunRecords,
+    DrizzleRunRecordRepository,
+    TRANSACTION,
   ]),
   {
     provide: RequestJudging,
