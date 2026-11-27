@@ -142,12 +142,14 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
 
     return workspace.members.flatMap((member): MemberTeamAccess[] => {
       const principal = PersonPrincipal.of(member.userId);
+      const permissions = workspace.permissionsFor(principal);
 
-      return workspace.permissionsFor(principal).reads
+      return permissions.reads
         ? [
             {
               ...teamAccessOf(workspace, teams, principal),
               viewer: member.userId,
+              isAdmin: permissions.isAdmin,
             },
           ]
         : [];

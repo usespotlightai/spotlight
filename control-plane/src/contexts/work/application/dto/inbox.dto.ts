@@ -25,6 +25,7 @@ import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
 import { HOLD_ENDS } from '@work/domain/value-objects/hold-end';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
+import { NOTICE_LINK_SCOPES } from '@work/domain/value-objects/notice-link.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
 import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 
@@ -37,6 +38,7 @@ export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;
 export const INBOX_DTO_PART_KINDS = INBOX_PART_KINDS;
 export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
+export const INBOX_NOTICE_LINK_SCOPES = NOTICE_LINK_SCOPES;
 export const INBOX_DTO_SECTIONS = INBOX_SECTIONS;
 export const INBOX_STANDINGS = CONVERSATION_STANDINGS;
 export const INBOX_RUN_STANDINGS = RUN_STANDINGS;
@@ -208,6 +210,7 @@ export interface InboxNoticeDto {
   readonly points: readonly string[];
   readonly link: string;
   readonly linkLabel: string;
+  readonly linkScope: (typeof INBOX_NOTICE_LINK_SCOPES)[number];
   readonly externalLink: NoticeExternalLinkDto | null;
   readonly askedAt: string;
   readonly unread: boolean;

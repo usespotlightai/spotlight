@@ -1,5 +1,6 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
+import { NOTICE_LINK_SCOPES } from '@work/domain/value-objects/notice-link.vo';
 import {
   index,
   integer,
@@ -12,6 +13,8 @@ import {
 
 export const noticeForm = pgEnum('notice_form', NOTICE_FORMS);
 
+export const noticeLinkScope = pgEnum('notice_link_scope', NOTICE_LINK_SCOPES);
+
 export const notice = pgTable(
   'notice',
   {
@@ -23,6 +26,7 @@ export const notice = pgTable(
     subject: text('subject').notNull(),
     link: text('link').notNull(),
     linkLabel: text('link_label').notNull(),
+    linkScope: noticeLinkScope('link_scope').notNull().default('team'),
     externalUrl: text('external_url'),
     externalLabel: text('external_label'),
     headline: text('headline').notNull(),

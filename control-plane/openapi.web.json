@@ -9133,6 +9133,49 @@
           "lastHeartbeatAt"
         ]
       },
+      "OfflineHostResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "01J8ZQ4Y7N3K5V2W9X6RTBHCDE"
+          },
+          "name": {
+            "type": "string",
+            "example": "dev-host"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "OfflineHarnessResponseDto": {
+        "type": "object",
+        "properties": {
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "hosts": {
+            "description": "Every host here that runs the harness, all offline",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfflineHostResponseDto"
+            }
+          },
+          "since": {
+            "type": "string",
+            "example": "2026-09-25T20:00:00.000Z",
+            "description": "When Spotlight last heard from one of these hosts"
+          }
+        },
+        "required": [
+          "harness",
+          "hosts",
+          "since"
+        ]
+      },
       "RunnerFleetResponseDto": {
         "type": "object",
         "properties": {
@@ -9153,12 +9196,20 @@
             "type": "boolean",
             "example": true,
             "description": "Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects"
+          },
+          "offlineHarnesses": {
+            "description": "The harnesses whose queued work no runner can start until a person acts: every host here that runs one is offline, and no push pool of the workspace provisions a runner instead. A harness that an online host runs is not listed: its work waits only for a free slot",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfflineHarnessResponseDto"
+            }
           }
         },
         "required": [
           "hosts",
           "runners",
-          "readyToRun"
+          "readyToRun",
+          "offlineHarnesses"
         ]
       },
       "GrantAttachmentUploadRequestDto": {
@@ -10801,12 +10852,21 @@
           "link": {
             "type": "string",
             "example": "lines/line_1/stations/station_1",
-            "description": "Where to look, as a path within its team"
+            "description": "Where to look, as a path within its team or workspace"
           },
           "linkLabel": {
             "type": "string",
             "example": "Open the station",
             "description": "What to call the link, naming where it leads"
+          },
+          "linkScope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "workspace"
+            ],
+            "example": "team",
+            "description": "What the link is relative to: its team, or, for a notice about the whole workspace, the workspace"
           },
           "externalLink": {
             "nullable": true,
@@ -10868,6 +10928,7 @@
           "points",
           "link",
           "linkLabel",
+          "linkScope",
           "externalLink",
           "askedAt",
           "unread",

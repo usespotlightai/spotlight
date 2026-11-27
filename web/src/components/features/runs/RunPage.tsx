@@ -106,6 +106,7 @@ export function RunPage({
       journals={ran}
       progress={latest.id === run.id ? progress : null}
       station={run.station}
+      harness={run.harness}
     />
   ) : null;
 
@@ -116,6 +117,7 @@ export function RunPage({
         journals={workedOn(worked, notes, latest.id)}
         progress={progress}
         station={run.station}
+        harness={run.harness}
       />
     ) : undefined;
 

@@ -340,6 +340,7 @@ const NOTICES: StoredNotice[] = [
     ],
     link: STATION_LINK,
     linkLabel: 'Open the station',
+    linkScope: 'team',
     externalLink: null,
     askedAt: hoursAgo(1.2),
     unread: true,
@@ -358,6 +359,7 @@ const NOTICES: StoredNotice[] = [
     ],
     link: STATION_LINK,
     linkLabel: 'Open the station',
+    linkScope: 'team',
     externalLink: {
       url: 'https://github.com/acme/spotlight-config/pull/42',
       label: 'Review the pull request',

@@ -51,6 +51,8 @@ export interface WorkspaceTeamAccess {
 
 export interface MemberTeamAccess extends WorkspaceTeamAccess {
   readonly viewer: UserId;
+  // The member is an owner or an admin of the workspace.
+  readonly isAdmin: boolean;
 }
 
 export interface WorkspaceAccessPort {

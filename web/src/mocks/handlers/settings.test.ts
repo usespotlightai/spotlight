@@ -204,7 +204,12 @@ describe('the mock settings of a fresh workspace', () => {
     const { data: onboarding } = await readOnboarding(platform);
 
     expect(github.connected).toBe(false);
-    expect(fleet).toEqual({ hosts: [], runners: [], readyToRun: false });
+    expect(fleet).toEqual({
+      hosts: [],
+      runners: [],
+      readyToRun: false,
+      offlineHarnesses: [],
+    });
     expect(tokens.items).toEqual([]);
     expect(configuration.integrations).toEqual([]);
     expect(skills.skills).toEqual([]);

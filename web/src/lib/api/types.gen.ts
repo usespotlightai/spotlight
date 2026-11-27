@@ -2296,6 +2296,23 @@ export type LiveRunnerResponseDto = {
   lastHeartbeatAt: string | null;
 };
 
+export type OfflineHostResponseDto = {
+  id: string;
+  name: string;
+};
+
+export type OfflineHarnessResponseDto = {
+  harness: string;
+  /**
+   * Every host here that runs the harness, all offline
+   */
+  hosts: Array<OfflineHostResponseDto>;
+  /**
+   * When Spotlight last heard from one of these hosts
+   */
+  since: string;
+};
+
 export type RunnerFleetResponseDto = {
   hosts: Array<HostResponseDto>;
   /**
@@ -2306,6 +2323,10 @@ export type RunnerFleetResponseDto = {
    * Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects
    */
   readyToRun: boolean;
+  /**
+   * The harnesses whose queued work no runner can start until a person acts: every host here that runs one is offline, and no push pool of the workspace provisions a runner instead. A harness that an online host runs is not listed: its work waits only for a free slot
+   */
+  offlineHarnesses: Array<OfflineHarnessResponseDto>;
 };
 
 export type RegisterRunnerRequestDto = {
@@ -3385,13 +3406,17 @@ export type InboxNoticeResponseDto = {
    */
   points: Array<string>;
   /**
-   * Where to look, as a path within its team
+   * Where to look, as a path within its team or workspace
    */
   link: string;
   /**
    * What to call the link, naming where it leads
    */
   linkLabel: string;
+  /**
+   * What the link is relative to: its team, or, for a notice about the whole workspace, the workspace
+   */
+  linkScope: 'team' | 'workspace';
   /**
    * Where to act outside Spotlight, such as the pull request to review; the main action when present
    */

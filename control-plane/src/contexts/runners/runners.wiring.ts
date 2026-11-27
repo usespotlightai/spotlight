@@ -99,6 +99,10 @@ import {
   type ProvisionSecretsPort,
 } from '@runners/application/ports/provision-secrets.port';
 import {
+  QUEUED_WORK,
+  type QueuedWorkPort,
+} from '@runners/application/ports/queued-work.port';
+import {
   RUNNER_AUTHENTICATOR,
   type RunnerAuthenticatorPort,
 } from '@runners/application/ports/runner-authenticator.port';
@@ -174,6 +178,7 @@ import { Runners } from '@runners/application/services/runners.service';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
+import { WatchHostOutages } from '@runners/application/services/watch-host-outages.service';
 import { WorkingCopyStores } from '@runners/application/services/working-copy-stores.service';
 import { WorkspaceEgressRunners } from '@runners/application/services/workspace-egress-runners.service';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
@@ -190,6 +195,7 @@ import { DrizzleRunnerResources } from '@runners/infrastructure/persistence/driz
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleSandboxPlacements } from '@runners/infrastructure/persistence/drizzle/readers/sandbox-placements.reader';
 import { DrizzleEgressRepository } from '@runners/infrastructure/persistence/drizzle/repositories/egress.repository';
+import { DrizzleHostOutageRepository } from '@runners/infrastructure/persistence/drizzle/repositories/host-outage.repository';
 import { DrizzleRunnerHostRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-host.repository';
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
@@ -215,6 +221,7 @@ import { RunnerTrustResourceController } from '@runners/presentation/http/contro
 import { WorkspaceRunnersResourceController } from '@runners/presentation/http/controllers/workspace-runners-resource.controller';
 import { RunnerGuard } from '@runners/presentation/http/guards/runner.guard';
 import { SandboxEditorGateway } from '@runners/presentation/websocket/sandbox-editor.gateway';
+import { HostOutagesWorker } from '@runners/presentation/workers/host-outages.worker';
 import { SandboxesWorker } from '@runners/presentation/workers/sandboxes.worker';
 import { StaleHostsWorker } from '@runners/presentation/workers/stale-hosts.worker';
 import {
@@ -479,6 +486,34 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     inject: [DrizzleRunnerHostRepository, CLOCK],
     useFactory: (hosts: DrizzleRunnerHostRepository, clock: ClockPort) =>
       new PurgeStaleHosts(hosts, clock),
+  },
+  {
+    provide: WatchHostOutages,
+    inject: [
+      DrizzleHostOutageRepository,
+      DrizzleRunnerHostRepository,
+      DrizzleRunnerPoolRepository,
+      DrizzleRunnerTrustRepository,
+      QUEUED_WORK,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      outages: DrizzleHostOutageRepository,
+      hosts: DrizzleRunnerHostRepository,
+      pools: DrizzleRunnerPoolRepository,
+      trusts: DrizzleRunnerTrustRepository,
+      queued: QueuedWorkPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) =>
+      new WatchHostOutages(outages, hosts, pools, trusts, queued, ids, clock),
+  },
+  {
+    provide: HostOutagesWorker,
+    inject: [WatchHostOutages, LOGGER],
+    useFactory: (watching: WatchHostOutages, logger: LoggerPort) =>
+      new HostOutagesWorker(watching, logger),
   },
   {
     provide: StaleHostsWorker,
@@ -801,6 +836,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   DrizzleEgressRepository,
   DrizzleRunnerRepository,
   DrizzleRunnerHostRepository,
+  DrizzleHostOutageRepository,
   DrizzleSandboxRepository,
   DrizzleSandboxPlacements,
 

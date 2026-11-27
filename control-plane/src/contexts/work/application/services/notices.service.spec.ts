@@ -45,6 +45,18 @@ class InMemoryNotices implements NoticeRepository {
         each.subject.equals(subject),
     ) ?? null;
 
+  inWorkspaceAbout = async (
+    workspaceId: WorkspaceId,
+    form: string,
+    subject: NoticeSubject,
+  ) =>
+    [...this.stored.values()].filter(
+      (each) =>
+        each.workspaceId.equals(workspaceId) &&
+        each.form === form &&
+        each.subject.equals(subject),
+    );
+
   ofTeam = async (teamId: TeamId) =>
     [...this.stored.values()].filter((each) => each.teamId.equals(teamId));
 
@@ -131,6 +143,43 @@ describe('Notices', () => {
     expect(
       [...memory.stored.values()].map((each) => each.resolvedAt !== null),
     ).toEqual([true, false]);
+  });
+
+  it('resolves every notice of the workspace about a subject, whomever it is addressed to, and keeps its workspace link', async () => {
+    const memory = new InMemoryNotices();
+    const notices = noticesOver(memory);
+    const outage = {
+      ...STALLED,
+      form: 'advice' as const,
+      subject: 'host-outage outage_1',
+      link: 'settings/runners',
+      linkLabel: 'Open runners',
+      linkScope: 'workspace' as const,
+    };
+
+    await notices.create(outage);
+    await notices.create({
+      ...outage,
+      teamId: TeamId.of('team_2'),
+    });
+    await notices.create({ ...outage, subject: 'host-outage outage_2' });
+    await notices.resolveEverywhere({
+      workspaceId: WorkspaceId.of('ws_1'),
+      form: 'advice',
+      subject: 'host-outage outage_1',
+    });
+
+    expect(
+      [...memory.stored.values()].map((each) => [
+        each.subject.value,
+        each.link.scope,
+        each.resolvedAt,
+      ]),
+    ).toEqual([
+      ['host-outage outage_1', 'workspace', NOW],
+      ['host-outage outage_1', 'workspace', NOW],
+      ['host-outage outage_2', 'workspace', null],
+    ]);
   });
 
   it('deletes the notices of a deleted team, and only those', async () => {

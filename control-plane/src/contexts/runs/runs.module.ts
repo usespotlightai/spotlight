@@ -3,6 +3,7 @@ import { SEEDING_HARNESS } from '@lines/application/ports/seeding-harness.port';
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
+import { QUEUED_WORK } from '@runners/application/ports/queued-work.port';
 import { WORKING_COPY_IMAGES } from '@runners/application/ports/working-copy-images.port';
 import { RunnersModule } from '@runners/runners.module';
 import { ARCHIVE_HOLDERS } from '@runs/application/ports/archive-holders.port';
@@ -31,7 +32,11 @@ import { TEAM_RUNS } from '@runs/application/ports/team-runs.port';
 import { RUNS_CONTROLLERS, RUNS_PROVIDERS } from '@runs/runs.wiring';
 import { SecretsModule } from '@secrets/secrets.module';
 
-const BINDINGS = contextBindings([SEEDING_HARNESS, WORKING_COPY_IMAGES]);
+const BINDINGS = contextBindings([
+  SEEDING_HARNESS,
+  WORKING_COPY_IMAGES,
+  QUEUED_WORK,
+]);
 
 @Module({
   imports: [IdentityModule, SecretsModule, RunnersModule, LinesModule],

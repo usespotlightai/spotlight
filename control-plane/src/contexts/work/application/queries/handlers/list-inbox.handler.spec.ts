@@ -184,6 +184,7 @@ describe('ListInboxHandler', () => {
               points: ['Fix the claims.'],
               link: 'lines/line_1/stations/station_1',
               linkLabel: 'Open the station',
+              linkScope: 'team',
               externalLink: {
                 url: 'https://github.com/acme/config/pull/12',
                 label: 'Review the pull request',
@@ -209,6 +210,7 @@ describe('ListInboxHandler', () => {
       points: ['Fix the claims.'],
       link: 'lines/line_1/stations/station_1',
       linkLabel: 'Open the station',
+      linkScope: 'team',
       externalLink: {
         url: 'https://github.com/acme/config/pull/12',
         label: 'Review the pull request',

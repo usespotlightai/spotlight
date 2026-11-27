@@ -16,6 +16,8 @@ export interface NoticeOf {
   readonly subject: string;
   readonly link: string;
   readonly linkLabel: string;
+  // What the link is relative to: the team, as by default, or the workspace, for a notice about the whole workspace.
+  readonly linkScope?: 'team' | 'workspace';
   readonly externalLink: {
     readonly url: string;
     readonly label: string;
@@ -29,6 +31,13 @@ export interface NoticesPort {
 
   resolve(notice: {
     readonly teamId: TeamId;
+    readonly form: NoticeFormName;
+    readonly subject: string;
+  }): Promise<void>;
+
+  // Resolves every notice of the workspace about the subject, whomever it is addressed to.
+  resolveEverywhere(notice: {
+    readonly workspaceId: WorkspaceId;
     readonly form: NoticeFormName;
     readonly subject: string;
   }): Promise<void>;

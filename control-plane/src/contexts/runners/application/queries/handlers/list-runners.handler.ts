@@ -40,7 +40,7 @@ export class ListRunnersHandler implements QueryHandlerPort<
       }
 
       const now = this.clock.now();
-      const [hosts, runners, alive, readyToRun] = await Promise.all([
+      const [hosts, runners, alive, readyToRun, offline] = await Promise.all([
         this.runners.hostsIn(
           membership.workspaceId,
           RunnerHost.staleBefore(now),
@@ -48,6 +48,7 @@ export class ListRunnersHandler implements QueryHandlerPort<
         this.runners.inWorkspace(membership.workspaceId),
         this.runnerRepository.aliveInWorkspace(membership.workspaceId, now),
         this.readiness.readyToRun(membership.workspaceId),
+        this.readiness.offlineHarnesses(membership.workspaceId),
       ]);
       const aliveIds = new Set(alive.map((each) => each.id.value));
       const idleSandboxes = await this.runners.idleSandboxesOn(
@@ -95,6 +96,11 @@ export class ListRunnersHandler implements QueryHandlerPort<
           .filter((each) => aliveIds.has(each.id) && !unlisted.has(each.id))
           .map((each) => RunnerFleetMapper.runner(each)),
         readyToRun,
+        offlineHarnesses: offline.map((each) => ({
+          harness: each.harness,
+          hosts: each.hosts,
+          since: each.since.toISOString(),
+        })),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

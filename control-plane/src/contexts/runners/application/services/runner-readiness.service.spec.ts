@@ -4,11 +4,16 @@ import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregat
 import {
   aHost,
   aPlatformPool,
+  aPullPool,
   aPushPool,
   STARTED_AT,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import {
+  aNamedHost,
+  minutesAfter,
+} from '@runners/domain/services/host-outages.fake-spec';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -113,5 +118,32 @@ describe('RunnerReadiness', () => {
         WORKSPACE,
       ),
     ).resolves.toBe(true);
+  });
+
+  it('names each harness whose only hosts are offline, with those hosts and when they were last heard from', async () => {
+    const host = aNamedHost('dev-host');
+    const { readiness: ready } = readiness({
+      pools: [aPullPool()],
+      hosts: [host],
+      now: minutesAfter(30),
+    });
+
+    await expect(ready.offlineHarnesses(WORKSPACE)).resolves.toEqual([
+      {
+        harness: 'claude-code',
+        hosts: [{ id: host.id.value, name: 'dev-host' }],
+        since: minutesAfter(0),
+      },
+    ]);
+  });
+
+  it('names no harness while its host reports in', async () => {
+    const { readiness: ready } = readiness({
+      pools: [aPullPool()],
+      hosts: [aNamedHost('dev-host')],
+      now: minutesAfter(1),
+    });
+
+    await expect(ready.offlineHarnesses(WORKSPACE)).resolves.toEqual([]);
   });
 });

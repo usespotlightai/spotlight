@@ -35,7 +35,11 @@ const toNotice = (row: Row): Notice =>
     addressee: row.addresseeId === null ? null : UserId.of(row.addresseeId),
     form: row.form,
     subject: NoticeSubject.of(row.subject),
-    link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
+    link: NoticeLink.of({
+      path: row.link,
+      label: row.linkLabel,
+      scope: row.linkScope,
+    }),
     externalLink:
       row.externalUrl !== null && row.externalLabel !== null
         ? NoticeExternalLink.of({
@@ -83,6 +87,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       subject: added.subject.value,
       link: added.link.path,
       linkLabel: added.link.label,
+      linkScope: added.link.scope,
       externalUrl: added.externalLink?.url ?? null,
       externalLabel: added.externalLink?.label ?? null,
       headline: added.wording.headline,
@@ -150,6 +155,25 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     );
 
     return row ? toNotice(row) : null;
+  }
+
+  async inWorkspaceAbout(
+    workspaceId: WorkspaceId,
+    form: NoticeForm,
+    subject: NoticeSubject,
+  ): Promise<Notice[]> {
+    const rows = await this.context.db
+      .select()
+      .from(notice)
+      .where(
+        and(
+          eq(notice.workspaceId, workspaceId.value),
+          eq(notice.form, form),
+          eq(notice.subject, subject.value),
+        ),
+      );
+
+    return rows.map(toNotice);
   }
 
   async ofTeam(teamId: TeamId): Promise<Notice[]> {

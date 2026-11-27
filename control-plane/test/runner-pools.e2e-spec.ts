@@ -1035,6 +1035,7 @@ describe('runner pools (e2e)', () => {
           },
         ],
         readyToRun: true,
+        offlineHarnesses: [],
       });
     });
   });

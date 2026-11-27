@@ -253,6 +253,7 @@ import { RetargetStackedTasks } from '@work/application/events/handlers/retarget
 import { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
+import { TellAdminsOfHostOutages } from '@work/application/events/handlers/tell-admins-of-host-outages.handler';
 import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
 import { TrackSetupPullRequests } from '@work/application/events/handlers/track-setup-pull-requests.handler';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
@@ -1937,6 +1938,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       SANDBOX_RETIREMENT,
       PULL_REQUESTS,
       RUNNER_READINESS,
+      WorkAccess,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1973,6 +1975,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       retirement: SandboxRetirementPort,
       pullRequests: PullRequestPort,
       runnerReadiness: RunnerReadinessPort,
+      access: WorkAccess,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -2056,6 +2059,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             clock,
           ),
           chatsOfTasks: new TellChatOfTask(chats, chatDispatch, transaction),
+          hostOutages: new TellAdminsOfHostOutages(access, notices),
           stackedTasks: new RetargetStackedTasks(
             tasks,
             pullRequests,

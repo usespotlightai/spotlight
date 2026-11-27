@@ -513,6 +513,7 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   unreadCount: 0,
   link: 'lines/line_1/stations/station_1',
   linkLabel: 'Open the station',
+  linkScope: 'team',
   externalLink: {
     url: 'https://github.com/acme/config/pull/7',
     label: 'Review the pull request',
@@ -537,6 +538,15 @@ describe('notices', () => {
     expect(noticeLinkPath('acme', notice())).toBe(
       '/w/acme/team/team_1/lines/line_1/stations/station_1',
     );
+  });
+
+  it('turns a link within the workspace into a full route', () => {
+    expect(
+      noticeLinkPath(
+        'acme',
+        notice({ link: 'settings/runners', linkScope: 'workspace' }),
+      ),
+    ).toBe('/w/acme/settings/runners');
   });
 
   it('previews its first point', () => {

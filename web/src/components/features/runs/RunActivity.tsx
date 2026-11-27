@@ -19,6 +19,7 @@ type RunActivityProps = {
   journals: readonly RunJournal[];
   progress: ShownProgress | null;
   station: Station;
+  harness?: string;
 };
 
 export function RunActivity({
@@ -26,6 +27,7 @@ export function RunActivity({
   journals,
   progress,
   station,
+  harness,
 }: RunActivityProps) {
   const stretches = stretchesOf(journals.flatMap((each) => each.steps));
   const arrived = useArrivals(
@@ -67,6 +69,7 @@ export function RunActivity({
           stationColor={station.color}
           stationPosition={station.position}
           stationCount={station.count}
+          harness={harness}
           session={journals.at(-1)}
         />
       )}

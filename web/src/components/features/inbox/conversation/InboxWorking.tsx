@@ -5,9 +5,13 @@ import {
   type LucideIcon,
   Terminal,
 } from 'lucide-react';
+import { useParams } from 'react-router';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { QueuedForOfflineHosts } from '@/components/features/runners/QueuedForOfflineHosts';
+import { useOfflineHarness } from '@/hooks/useOfflineHarness';
 import { ARRIVING, type RunJournal, workingWordsOf } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import type { ShownProgress } from '@/lib/run';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -27,6 +31,8 @@ type InboxWorkingProps = {
   stationPosition: number;
   stationCount: number;
   progress: ShownProgress;
+  // The harness of the run, so that a queued run can say when its hosts are all offline.
+  harness?: string;
   session?: Pick<RunJournal, 'activity' | 'background'>;
 };
 
@@ -36,8 +42,14 @@ export function InboxWorking({
   stationPosition,
   stationCount,
   progress,
+  harness,
   session,
 }: InboxWorkingProps) {
+  const { slug } = useParams();
+  const offline = useOfflineHarness(
+    progress === 'queued' ? slug : undefined,
+    harness,
+  );
   const background =
     progress === 'in-progress' ? (session?.background ?? []) : [];
 
@@ -48,14 +60,18 @@ export function InboxWorking({
           share={stationShare(stationPosition, stationCount)}
           color={stationColor}
         />
-        <span
-          className={cn(
-            progress !== 'in-progress' && 'text-muted-foreground',
-            progress !== 'queued' && 'animate-pulse',
-          )}
-        >
-          {workingWordsOf(progress, station, session)}
-        </span>
+        {offline && nonEmpty(slug) ? (
+          <QueuedForOfflineHosts slug={slug} offline={offline} />
+        ) : (
+          <span
+            className={cn(
+              progress !== 'in-progress' && 'text-muted-foreground',
+              progress !== 'queued' && 'animate-pulse',
+            )}
+          >
+            {workingWordsOf(progress, station, session)}
+          </span>
+        )}
       </div>
 
       {background.length > 0 && (

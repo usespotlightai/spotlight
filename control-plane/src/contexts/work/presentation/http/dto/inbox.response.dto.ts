@@ -7,6 +7,7 @@ import {
   INBOX_STANDINGS,
   INBOX_NOTICE_FORMS,
   INBOX_DTO_PART_KINDS,
+  INBOX_NOTICE_LINK_SCOPES,
   INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
   type InboxChatDto,
@@ -950,7 +951,7 @@ export class InboxNoticeResponseDto {
 
   @ApiProperty({
     example: 'lines/line_1/stations/station_1',
-    description: 'Where to look, as a path within its team',
+    description: 'Where to look, as a path within its team or workspace',
   })
   readonly link: string;
 
@@ -959,6 +960,14 @@ export class InboxNoticeResponseDto {
     description: 'What to call the link, naming where it leads',
   })
   readonly linkLabel: string;
+
+  @ApiProperty({
+    enum: INBOX_NOTICE_LINK_SCOPES,
+    example: 'team',
+    description:
+      'What the link is relative to: its team, or, for a notice about the whole workspace, the workspace',
+  })
+  readonly linkScope: (typeof INBOX_NOTICE_LINK_SCOPES)[number];
 
   @ApiProperty({
     type: NoticeExternalLinkResponseDto,
@@ -1016,6 +1025,7 @@ export class InboxNoticeResponseDto {
     this.points = [...notice.points];
     this.link = notice.link;
     this.linkLabel = notice.linkLabel;
+    this.linkScope = notice.linkScope;
     this.externalLink = notice.externalLink
       ? new NoticeExternalLinkResponseDto(notice.externalLink)
       : null;

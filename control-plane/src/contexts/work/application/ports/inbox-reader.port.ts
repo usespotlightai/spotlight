@@ -20,6 +20,7 @@ import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { HoldEnd } from '@work/domain/value-objects/hold-end';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
+import type { NoticeLinkScope } from '@work/domain/value-objects/notice-link.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
 import type { VoiceKind } from '@work/domain/value-objects/voice.vo';
 
@@ -176,6 +177,7 @@ export interface InboxNoticeSummary {
   readonly points: readonly string[];
   readonly link: string;
   readonly linkLabel: string;
+  readonly linkScope: NoticeLinkScope;
   readonly externalLink: {
     readonly url: string;
     readonly label: string;

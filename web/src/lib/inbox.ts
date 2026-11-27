@@ -16,6 +16,7 @@ import { nonEmpty } from '@/lib/non-empty';
 import type { Person } from '@/lib/person';
 import type { ShownProgress } from '@/lib/run';
 import { teamPath } from '@/lib/team';
+import { workspacePath } from '@/lib/workspace';
 
 export type InboxItem = InboxItemResponseDto;
 
@@ -80,6 +81,8 @@ export type ConversationItem = {
     readonly count: number;
   };
   readonly progress: ShownProgress | null;
+  // The harness of its current run, once known.
+  readonly harness?: string;
   readonly resolved?: boolean;
   readonly notes: readonly Note[];
   readonly folded: readonly FoldedVisit[];
@@ -390,7 +393,11 @@ export const noticePath = (slug: string, id: string): string =>
   `${inboxPath(slug)}/notices/${encodeURIComponent(id)}`;
 
 export const noticeLinkPath = (slug: string, notice: InboxNotice): string =>
-  `${teamPath(slug, notice.teamId)}/${notice.link.replace(/^\/+/, '')}`;
+  `${
+    notice.linkScope === 'workspace'
+      ? workspacePath(slug)
+      : teamPath(slug, notice.teamId)
+  }/${notice.link.replace(/^\/+/, '')}`;
 
 export const followed = (entry: InboxEntry): boolean =>
   (entry.kind === 'task' || entry.kind === 'run') &&

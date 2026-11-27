@@ -6,6 +6,8 @@ import {
   CredentialSourceResponseDto,
   HostResponseDto,
   LiveRunnerResponseDto,
+  OfflineHarnessResponseDto,
+  OfflineHostResponseDto,
   PlatformPoolSourceResponseDto,
   RunnerFleetResponseDto,
 } from '@runners/presentation/http/dto/runner-fleet.response.dto';
@@ -34,6 +36,16 @@ export const RunnerFleetHttpMapper = {
           }),
       ),
       dto.readyToRun,
+      dto.offlineHarnesses.map(
+        (each) =>
+          new OfflineHarnessResponseDto(
+            each.harness,
+            each.hosts.map(
+              (host) => new OfflineHostResponseDto(host.id, host.name),
+            ),
+            each.since,
+          ),
+      ),
     );
   },
 };

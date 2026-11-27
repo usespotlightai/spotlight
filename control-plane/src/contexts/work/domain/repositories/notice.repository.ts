@@ -1,5 +1,6 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Notice } from '@work/domain/aggregates/notice.aggregate';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -20,6 +21,13 @@ export interface NoticeRepository {
     form: NoticeForm,
     subject: NoticeSubject,
   ): Promise<Notice | null>;
+
+  // Every notice of the workspace about the subject, in any team and to anyone.
+  inWorkspaceAbout(
+    workspaceId: WorkspaceId,
+    form: NoticeForm,
+    subject: NoticeSubject,
+  ): Promise<Notice[]>;
 
   ofTeam(teamId: TeamId): Promise<Notice[]>;
 

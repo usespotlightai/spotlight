@@ -58,7 +58,7 @@ export function AgentWorking({
         <HarnessLogo harness={harness} />
       </span>
       {progress === 'queued' ? (
-        <AgentQueued slug={slug} />
+        <AgentQueued slug={slug} harness={harness} />
       ) : progress === 'stopping' ? (
         <span className="animate-pulse text-muted-foreground">Stopping…</span>
       ) : (

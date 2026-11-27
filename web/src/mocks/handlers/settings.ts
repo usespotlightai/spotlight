@@ -469,6 +469,7 @@ const workspaceHandlers = [
       hosts,
       runners,
       readyToRun: hosts.some((host) => host.online) || runners.length > 0,
+      offlineHarnesses: [],
     });
   }),
 

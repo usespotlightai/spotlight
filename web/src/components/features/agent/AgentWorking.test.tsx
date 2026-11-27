@@ -3,13 +3,24 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
+import { formatDate } from '@/lib/date-format';
 import type { JournalStep } from '@/lib/inbox';
+import type { OfflineHarness } from '@/lib/runner';
 
-const fleet = vi.hoisted(() => ({ readyToRun: true }));
+const fleet = vi.hoisted(() => ({
+  readyToRun: true,
+  offlineHarnesses: [] as OfflineHarness[],
+}));
 const workspace = vi.hoisted(() => ({ role: 'member' }));
 
 vi.mock('@/hooks/api/useRunners', () => ({
   useRunners: () => ({ data: { hosts: [], pools: [], ...fleet } }),
+}));
+
+vi.mock('@/hooks/api/useHarnesses', () => ({
+  useHarnesses: () => ({
+    data: [{ id: 'claude-code', name: 'Claude Code' }],
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -41,6 +52,7 @@ describe('AgentWorking', () => {
   afterEach(() => {
     vi.useRealTimers();
     fleet.readyToRun = true;
+    fleet.offlineHarnesses = [];
     workspace.role = 'member';
   });
 
@@ -202,5 +214,90 @@ describe('AgentWorking', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  describe('while the hosts that run its harness are offline', () => {
+    const OFFLINE_SINCE = '2026-09-14T08:30:00.000Z';
+    const at = formatDate(new Date(OFFLINE_SINCE), {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const queued = (harness = 'claude-code') =>
+      render(
+        <MemoryRouter>
+          <AgentWorking
+            slug="acme"
+            harness={harness}
+            progress="queued"
+            phase={{ kind: 'working', key: 'run_1:working', since: null }}
+          />
+        </MemoryRouter>,
+      );
+
+    beforeEach(() => {
+      fleet.offlineHarnesses = [
+        {
+          harness: 'claude-code',
+          hosts: [{ id: 'host_1', name: 'dev-host' }],
+          since: OFFLINE_SINCE,
+        },
+      ];
+    });
+
+    it('names the offline host, and links an admin to adding another', () => {
+      workspace.role = 'admin';
+      queued();
+
+      expect(
+        screen.getByText(
+          `Queued: dev-host, the only host that runs Claude Code here, has been offline since ${at}.`,
+          { exact: false },
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'add another host' }),
+      ).toHaveAttribute('href', '/w/acme/settings/runners/new');
+      expect(
+        screen.queryByText(/when a runner is free/),
+      ).not.toBeInTheDocument();
+    });
+
+    it('asks a member to have an admin start the host', () => {
+      queued();
+
+      expect(
+        screen.getByText(/Ask an admin to start it\.$/),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    });
+
+    it('counts several offline hosts', () => {
+      fleet.offlineHarnesses = [
+        {
+          harness: 'claude-code',
+          hosts: [
+            { id: 'host_1', name: 'dev-host' },
+            { id: 'host_2', name: 'ci-host' },
+          ],
+          since: OFFLINE_SINCE,
+        },
+      ];
+      queued();
+
+      expect(
+        screen.getByText(
+          /^Queued: the 2 hosts that run Claude Code here have been offline since .+ Ask an admin to start one\.$/,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('waits for a free runner when only the hosts of another harness are offline', () => {
+      queued('codex');
+
+      expect(
+        screen.getByText('Queued. The agent starts when a runner is free.'),
+      ).toBeInTheDocument();
+    });
   });
 });

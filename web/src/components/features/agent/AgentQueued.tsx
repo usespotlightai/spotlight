@@ -1,16 +1,23 @@
+import { QueuedForOfflineHosts } from '@/components/features/runners/QueuedForOfflineHosts';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { isAdmin } from '@/lib/role';
-import { addHostPath } from '@/lib/runner';
+import { addHostPath, offlineHarnessOf } from '@/lib/runner';
 
 type AgentQueuedProps = {
   slug: string;
+  harness: string;
 };
 
-export function AgentQueued({ slug }: AgentQueuedProps) {
+export function AgentQueued({ slug, harness }: AgentQueuedProps) {
   const { data: fleet } = useRunners(slug);
   const { data: workspace } = useWorkspace(slug);
+  const offline = offlineHarnessOf(fleet, harness);
+
+  if (offline) {
+    return <QueuedForOfflineHosts slug={slug} offline={offline} />;
+  }
 
   if (fleet?.readyToRun !== false) {
     return (

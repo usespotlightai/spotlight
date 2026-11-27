@@ -80,6 +80,11 @@ export class Notice extends EventRecorder {
     );
   }
 
+  // A notice about the whole workspace, such as one for its admins, lives in the first team that its addressee sees, so that their inbox shows it.
+  static homeTeamOf(teamsSeen: readonly TeamId[]): TeamId | null {
+    return teamsSeen[0] ?? null;
+  }
+
   static reopenable(resolvedAt: Date | null): boolean {
     return resolvedAt !== null;
   }

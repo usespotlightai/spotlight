@@ -91,11 +91,13 @@ const inboxesWith = (entries: InboxEntrySummary[] = [notice, chat]) => {
       {
         workspaceId: WorkspaceId.of('ws_1'),
         viewer: UserId.of('admin_1'),
+        isAdmin: true,
         teams: [{ teamId: PLATFORM, sees: true, actsOn: true, joined: false }],
       },
       {
         workspaceId: WorkspaceId.of('ws_1'),
         viewer: UserId.of('member_1'),
+        isAdmin: false,
         teams: [{ teamId: PLATFORM, sees: true, actsOn: false, joined: false }],
       },
     ],
