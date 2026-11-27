@@ -47,10 +47,15 @@ const denialBetween = (
   if (task.hold && !endsHold(task.hold)) {
     return 'on-hold';
   }
-  if (PassOn.allows({ ...task, onHold: task.hold !== null }, line, to)) {
+  const denial = line.moveDenial(from, to);
+
+  if (
+    denial === 'between-work-stations' &&
+    PassOn.allows({ ...task, onHold: task.hold !== null }, line, to)
+  ) {
     return null;
   }
-  return line.moveDenial(from, to);
+  return denial;
 };
 
 export const HandMoves = {

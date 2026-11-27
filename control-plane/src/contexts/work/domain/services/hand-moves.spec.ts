@@ -1,5 +1,10 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,7 +15,12 @@ import {
   HandMoves,
 } from '@work/domain/services/hand-moves';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
+import {
+  deliveryLineOf,
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -161,6 +171,49 @@ describe('HandMoves', () => {
     expect(HandMoves.denial(held, line, keyed('spec'), LEON)).toBe(
       'between-work-stations',
     );
+  });
+
+  it('keeps a completed task completed, also where its station names a station to pass work to', () => {
+    const station = (
+      id: string,
+      position: number,
+      over: Partial<Parameters<typeof stationOf>[0]> = {},
+    ) =>
+      stationOf({
+        id: StationId.of(id),
+        key: StationKey.of(id),
+        name: StationName.of(id),
+        position,
+        color: '#a3a8b0',
+        ...over,
+      });
+    const odd = lineMapOf({
+      id: LineId.of('line_odd'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      key: LineKey.of('odd'),
+      name: LineName.of('Odd'),
+      stations: [
+        station('backlog', 0, { kind: 'backlog' }),
+        station('work', 1, { harness: HarnessId.of('dev') }),
+        station('closed', 2, {
+          kind: 'completed',
+          routes: routesOf({ stations: [StationId.of('work')] }),
+        }),
+      ],
+    });
+    const done = odd.stationAt(StationId.of('closed'));
+    const work = odd.stationAt(StationId.of('work'));
+
+    expect(
+      HandMoves.denial(
+        { stationId: StationId.of('closed'), hold: null, awaiting: QUESTION },
+        odd,
+        work as Station,
+        LEON,
+      ),
+    ).toBe('out-of-completed');
+    expect(done).not.toBeNull();
   });
 
   it('offers no moves off its line', () => {
