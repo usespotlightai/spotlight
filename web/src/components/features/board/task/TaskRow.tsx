@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { SquareCheck } from 'lucide-react';
 import { useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
@@ -10,6 +11,7 @@ import { CommandScope } from '@/components/shell/command/CommandScope';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useFocusWithin } from '@/hooks/useFocusWithin';
+import { useMenuActions } from '@/hooks/useMenuActions';
 import { createdOn, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +56,13 @@ export function TaskRow({
   });
   const { focused, handlers } = useFocusWithin();
   const [hovered, setHovered] = useState(false);
+  const menu = useMenuActions([
+    {
+      label: selected ? 'Deselect' : 'Select',
+      icon: SquareCheck,
+      onSelect: () => onSelectedChange(!selected),
+    },
+  ]);
 
   return (
     <li
@@ -62,6 +71,7 @@ export function TaskRow({
       {...attributes}
       {...listeners}
       {...handlers}
+      {...menu}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
       data-slot="task-row"

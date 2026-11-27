@@ -5,6 +5,7 @@ import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { inaccessibleOf } from '@/lib/github';
 
 type GitHubDetailsProps = {
+  slug: string;
   installed: boolean;
   href: string | null;
   accessible: readonly string[];
@@ -12,6 +13,7 @@ type GitHubDetailsProps = {
 };
 
 export function GitHubDetails({
+  slug,
   installed,
   href,
   accessible,
@@ -37,7 +39,9 @@ export function GitHubDetails({
                 Agents read code and open pull requests through it.
               </span>
             </div>
-            {href && <GitHubAppLink href={href} installed={installed} />}
+            {href && (
+              <GitHubAppLink slug={slug} href={href} installed={installed} />
+            )}
           </div>
         </dd>
       </FactRow>

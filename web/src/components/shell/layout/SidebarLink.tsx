@@ -16,6 +16,7 @@ type SidebarLinkProps = {
   icon?: ComponentType<{ className?: string }>;
   className?: string;
   trailing?: ReactNode;
+  hint?: string;
   active?: boolean;
   children: ReactNode;
 };
@@ -25,6 +26,7 @@ export function SidebarLink({
   icon: Icon,
   className,
   trailing,
+  hint,
   active,
   children,
 }: SidebarLinkProps) {
@@ -60,6 +62,7 @@ export function SidebarLink({
       <TooltipContent side="right" align="center">
         <ShortcutHint id={command.id}>
           {command.title ?? shortcutOf(command.id).title}
+          {hint && <span className="text-muted-foreground">{hint}</span>}
         </ShortcutHint>
       </TooltipContent>
     </Tooltip>

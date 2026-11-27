@@ -212,7 +212,7 @@ describe('AutoSearches', () => {
     expect(first.calibrates).toBe(true);
     expect(seed.calibration).toBe(true);
     expect(seed.repeats).toBe(3);
-    expect(seed.ceiling).toEqual(first.ceilingSplit.seed);
+    expect(seed.ceiling).toEqual(first.ceilingSplit.seedReplay);
 
     await memory.replayRepository.save(
       replayedAs(seed, () => 'completed', 0.001),

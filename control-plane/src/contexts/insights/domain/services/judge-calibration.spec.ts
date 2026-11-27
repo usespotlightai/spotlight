@@ -160,4 +160,39 @@ describe('calibrationOf', () => {
     ).toBe('below-min-agreement');
     expect(calibrationOf(null).hiddenReason).toBe('no-judge');
   });
+
+  it('leaves a judge unmeasured, not failing, while people pass every run', () => {
+    const calibration = calibrationOf({
+      minAgreement: 0.6,
+      agreement: agreementOf(
+        Array.from({ length: 12 }, (_, at) => ({ judge: at < 8, human: true })),
+      ),
+    });
+
+    expect(calibration).toMatchObject({
+      hiddenReason: 'no-agreement',
+      agreement: null,
+      pairs: 12,
+    });
+    expect(calibrationStateOf(calibration)).toBe('unmeasured');
+    expect(revisesClaimsOf(calibration)).toBe(false);
+  });
+
+  it('fails a judge that fails every run while people pass some and send back others', () => {
+    const calibration = calibrationOf({
+      minAgreement: 0.6,
+      agreement: agreementOf(
+        Array.from({ length: 16 }, (_, at) => ({
+          judge: false,
+          human: at < 11,
+        })),
+      ),
+    });
+
+    expect(calibration).toMatchObject({
+      hiddenReason: 'below-min-agreement',
+      agreement: 0,
+    });
+    expect(calibrationStateOf(calibration)).toBe('failing');
+  });
 });

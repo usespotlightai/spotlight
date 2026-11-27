@@ -115,6 +115,35 @@ describe('OnboardingHandler', () => {
     ).resolves.toMatchObject({ canSetUp: false });
   });
 
+  it('says what keeps the viewer from starting a setup chat, as SetupAdmission refuses it', async () => {
+    await expect(read({ admin: false })).resolves.toMatchObject({
+      canSetUp: false,
+      setupRefusal: 'needs-an-admin',
+    });
+    await expect(
+      read({
+        admin: false,
+        state: { connectedToGitHub: true },
+        hasEgressCapableRunner: true,
+      }),
+    ).resolves.toMatchObject({
+      canSetUp: true,
+      setupRefusal: 'needs-an-admin',
+    });
+    await expect(read()).resolves.toMatchObject({
+      setupRefusal: 'code-unreachable',
+    });
+    await expect(
+      read({ state: { connectedToGitHub: true, hasHarness: true } }),
+    ).resolves.toMatchObject({ setupRefusal: 'needs-egress' });
+    await expect(
+      read({
+        state: { connectedToGitHub: true },
+        hasEgressCapableRunner: true,
+      }),
+    ).resolves.toMatchObject({ setupRefusal: null });
+  });
+
   it('says whether the viewer is an owner or admin, who alone may set up', async () => {
     await expect(read()).resolves.toMatchObject({ viewerIsAdmin: true });
     await expect(read({ admin: false })).resolves.toMatchObject({

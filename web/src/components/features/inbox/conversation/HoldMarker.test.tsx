@@ -33,7 +33,9 @@ describe('HoldMarker', () => {
     render(<HoldMarker note={note({ form: 'held' })} />);
 
     expect(
-      screen.getByText('Sam Rivera put the task on hold.'),
+      screen.getByText(
+        'Sam Rivera put the task on hold. The line waits until someone resumes it.',
+      ),
     ).toBeInTheDocument();
   });
 

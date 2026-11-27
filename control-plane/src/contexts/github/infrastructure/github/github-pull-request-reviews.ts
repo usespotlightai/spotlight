@@ -85,9 +85,14 @@ const located = (on: OnPullRequest): { repo: string; number: number } => {
 const gitHubSide = (comment: LineComment): 'LEFT' | 'RIGHT' =>
   comment.side === 'old' ? 'LEFT' : 'RIGHT';
 
-const folded = (body: string, comments: readonly LineComment[]): string =>
+const folded = (
+  body: string,
+  onFiles: readonly FileComment[],
+  comments: readonly LineComment[],
+): string =>
   [
     body,
+    ...onFiles.map((comment) => `**\`${comment.path}\`**\n\n${comment.body}`),
     ...comments.map(
       (comment) =>
         `**\`${comment.path}\` ${comment.startLine === null ? `line ${comment.line}` : `lines ${comment.startLine}–${comment.line}`}${comment.side === 'old' ? ' (before the change)' : ''}**\n\n${comment.body}`,
@@ -107,6 +112,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       event: ReviewEvent;
       body: string;
       comments: readonly LineComment[];
+      onFiles: readonly FileComment[];
     },
   ): Promise<SubmittedReview> {
     const { repo, number } = located(input);
@@ -144,6 +150,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
                   : [REVIEW_EVENT_TEXTS[input.event], input.body]
                       .filter(Boolean)
                       .join('\n\n'),
+                input.onFiles,
                 inline ? unplaced : input.comments,
               ),
             ),

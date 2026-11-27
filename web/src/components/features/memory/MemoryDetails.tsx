@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { RestoreMemoryButton } from '@/components/features/memory/RestoreMemoryButton';
 import { RetireReply } from '@/components/features/memory/RetireReply';
 import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButtons';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -92,6 +93,12 @@ export function MemoryDetails({
           </DecisionButton>
         </div>
       )}
+
+      <RestoreMemoryButton
+        teamId={teamId}
+        memoryId={memoryId}
+        restorable={memory.restorable}
+      />
 
       {editing && (
         <SaveCancelButtons

@@ -195,7 +195,7 @@ func (o Options) fetch(ctx context.Context, tree string, check protocol.StackChe
 func (o Options) fetchCommits(ctx context.Context, tree, repository string, commits ...string) string {
 	remote := strings.TrimSuffix(o.Remote, "/") + "/" + repository
 
-	if err := os.MkdirAll(tree, 0o700); err != nil {
+	if err := o.makeRoom(tree); err != nil {
 		o.Log.Warn("could not make room for a checkout", "error", err)
 		return err.Error()
 	}
@@ -314,6 +314,35 @@ func (o Options) run(
 	maps.Copy(env, extra)
 
 	return shell.Run(ctx, shell.Command{Dir: dir, Stdin: stdin, Env: env, RunAs: o.RunAs, Name: name, Args: args})
+}
+
+// makeRoom creates tree and hands it, with every directory it had to create on the way, to the user git runs as.
+// Git can't run in a directory its user can't enter.
+func (o Options) makeRoom(tree string) error {
+	var created []string
+	for dir := filepath.Clean(tree); ; dir = filepath.Dir(dir) {
+		if _, err := os.Lstat(dir); err == nil {
+			break
+		}
+		created = append(created, dir)
+		if parent := filepath.Dir(dir); parent == dir {
+			break
+		}
+	}
+
+	if err := os.MkdirAll(tree, 0o700); err != nil {
+		return err
+	}
+	if err := o.own(tree); err != nil {
+		return err
+	}
+	for _, dir := range created {
+		if err := o.own(dir); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (o Options) own(path string) error {

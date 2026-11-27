@@ -16,6 +16,11 @@ export interface PullRequestRepository {
     title: string,
   ): Promise<readonly PullRequest[]>;
 
+  openIn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+  ): Promise<readonly PullRequest[]>;
+
   lastUpdatedBefore(
     before: Date,
     after: PullRequest | null,

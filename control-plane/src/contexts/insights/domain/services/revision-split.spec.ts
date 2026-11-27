@@ -1,5 +1,7 @@
 import {
   HELD_OUT_SHARE,
+  MIN_HELD_OUT,
+  revisableOf,
   revisionSplitOf,
 } from '@insights/domain/services/revision-split';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -31,5 +33,21 @@ describe('revisionSplitOf', () => {
     ).heldOut.map((each) => each.runId.value);
 
     expect(again.every((each) => heldOut.includes(each))).toBe(true);
+  });
+});
+
+describe('revisableOf', () => {
+  it('needs enough held-out runs to measure a candidate on', () => {
+    const heldOut = revisionSplitOf(runs).heldOut;
+
+    expect(
+      revisableOf({ searched: runs, heldOut: heldOut.slice(0, MIN_HELD_OUT) }),
+    ).toBe(true);
+    expect(
+      revisableOf({
+        searched: runs,
+        heldOut: heldOut.slice(0, MIN_HELD_OUT - 1),
+      }),
+    ).toBe(false);
   });
 });
