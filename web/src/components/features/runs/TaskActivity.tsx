@@ -74,13 +74,7 @@ export function TaskActivity({
     })),
     (moves ?? []).map((move) => ({
       at: move.at,
-      rows: [
-        <MoveMarker
-          key={`move-${move.position}`}
-          body={move.body}
-          at={move.at}
-        />,
-      ],
+      rows: [<MoveMarker key={`move-${move.position}`} move={move} />],
     })),
   );
 

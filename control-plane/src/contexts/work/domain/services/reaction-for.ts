@@ -44,11 +44,13 @@ export type Outcome =
       readonly to: Station;
       readonly closed: PullRequestUrl | null;
       readonly asks: TaskNoteBody | null;
+      readonly why: string | null;
     });
 
 interface Moved {
   readonly body: TaskNoteBody;
   readonly asks: TaskNoteBody | null;
+  readonly why: string | null;
 }
 
 export interface Opening {
@@ -138,10 +140,15 @@ export const ReactionFor = {
 
       if (!destination.id.equals(input.task.stationId)) {
         return ReactionFor.movingTo(input.task, destination, note(), closed, {
-          body: TaskNoteBody.movedByHappening(destination.name, received),
+          body: TaskNoteBody.movedByHappening(
+            destination.name,
+            input.payload.summary,
+            input.anchor,
+          ),
           asks: closedUnmerged
             ? TaskNoteBody.closedUnmergedAndMoved(destination.name, received)
             : null,
+          why: input.payload.summary,
         });
       }
     }
@@ -172,7 +179,7 @@ export const ReactionFor = {
     to: Station,
     note: OutcomeNote,
     closed: PullRequestUrl | null,
-    moved: Moved = { body: note.body, asks: null },
+    moved: Moved = { body: note.body, asks: null, why: null },
   ): Outcome {
     return task.movableByHappeningTo(note.line, to.id)
       ? { kind: 'moves', to, closed, ...note, ...moved }

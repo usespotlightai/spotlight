@@ -33,13 +33,13 @@ import type { PageRequest } from '@work/application/dto/page.dto';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type {
-  MovedNote,
   RunConfigSummary,
   RunConfigView,
   RunAudience,
   RunNotesSummary,
   RunReaderPort,
   RunStationSummary,
+  TaskMoveSummary,
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
@@ -524,7 +524,7 @@ export class DrizzleRunReader implements RunReaderPort {
 
   async taskMoves(
     taskId: TaskId,
-  ): Promise<RunsInWorkspace<MovedNote[]> | null> {
+  ): Promise<RunsInWorkspace<TaskMoveSummary[]> | null> {
     const workspaceId = await this.workspaceOfTask(taskId);
 
     return workspaceId

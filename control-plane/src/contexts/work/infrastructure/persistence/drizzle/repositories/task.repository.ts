@@ -153,12 +153,11 @@ const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow => ({
   to: move.to.value,
 });
 
-const toNoteMove = (row: NoteMoveRow): NoteMove =>
-  NoteMove.of(StationId.of(row.to), row.by);
-
 const toNoteMoveRow = (move: NoteMove): NoteMoveRow => ({
   to: move.to.value,
   by: move.by,
+  who: move.who?.value ?? null,
+  why: move.why,
 });
 
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
@@ -213,7 +212,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
         })
       : null,
     suggestsClosing: row.suggestsClosing,
-    move: row.move ? toNoteMove(row.move) : null,
+    move: row.move ? NoteMove.rehydrate(row.move) : null,
   });
 
 type HoldRow = typeof taskHold.$inferSelect;

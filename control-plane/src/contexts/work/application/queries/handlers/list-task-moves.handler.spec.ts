@@ -1,7 +1,6 @@
-import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type {
-  MovedNote,
   RunReaderPort,
+  TaskMoveSummary,
 } from '@work/application/ports/run-reader.port';
 import { ListTaskMovesHandler } from '@work/application/queries/handlers/list-task-moves.handler';
 import { ListTaskMovesQuery } from '@work/application/queries/list-task-moves.query';
@@ -12,37 +11,21 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 
 const AT = new Date('2026-11-27T09:15:00.000Z');
+const ADA = { id: 'user_1', name: 'Ada Lovelace', image: null };
 
-const moved = (position: number, body: string, by: string): MovedNote => {
-  const note: InboxNote = {
-    position,
-    kind: 'passed',
-    form: 'words',
-    voice: by === 'run' ? 'station' : 'world',
-    station: 'Code Review',
-    stationId: 'station_2',
-    stationColor: '#edc12b',
-    stationPosition: 2,
-    runId: null,
-    body,
-    attachments: [],
-    at: AT,
-    author: null,
-    coAuthors: [],
-    source: null,
-    deferredTo: null,
-    readAt: null,
-    approval: null,
-    failure: null,
-    connection: null,
-    resumption: null,
-    suggestsClosing: false,
-  };
+const moved = (
+  position: number,
+  station: string,
+  move: TaskMoveSummary['move'],
+): TaskMoveSummary => ({
+  position,
+  at: AT,
+  move,
+  station,
+  person: move.who === null ? null : ADA,
+});
 
-  return { note, move: { to: 'station_0', by } };
-};
-
-const listed = (found: readonly MovedNote[] | null, sees = true) =>
+const listed = (found: readonly TaskMoveSummary[] | null, sees = true) =>
   new ListTaskMovesHandler(
     {
       listForTask: vi.fn(),
@@ -58,21 +41,45 @@ const listed = (found: readonly MovedNote[] | null, sees = true) =>
 
 describe('ListTaskMovesHandler', () => {
   it('lists the moves the line or a person made, and leaves out what a run passed on', async () => {
-    const notes = await listed([
-      moved(1, 'The work is done.', 'run'),
-      moved(
-        2,
-        'Moved to Backlog: the pull request was closed without being merged.',
-        'line',
-      ),
-      moved(4, 'Moved to Implementation.', 'person'),
+    const moves = await listed([
+      moved(1, 'Code Review', {
+        to: 'station_2',
+        by: 'run',
+        who: null,
+        why: null,
+      }),
+      moved(2, 'Backlog', {
+        to: 'station_0',
+        by: 'line',
+        who: null,
+        why: 'The pull request was closed without being merged.',
+      }),
+      moved(4, 'Implementation', {
+        to: 'station_1',
+        by: 'person',
+        who: 'user_1',
+        why: 'Rebase it.',
+      }),
     ]);
 
-    expect(notes?.map((each) => each.body)).toEqual([
-      'Moved to Backlog: the pull request was closed without being merged.',
-      'Moved to Implementation.',
+    expect(moves).toEqual([
+      {
+        position: 2,
+        at: AT.toISOString(),
+        station: 'Backlog',
+        by: 'line',
+        person: null,
+        why: 'The pull request was closed without being merged.',
+      },
+      {
+        position: 4,
+        at: AT.toISOString(),
+        station: 'Implementation',
+        by: 'person',
+        person: ADA,
+        why: 'Rebase it.',
+      },
     ]);
-    expect(notes?.[0]?.at).toBe(AT.toISOString());
   });
 
   it('finds nothing of a task the viewer cannot see', async () => {

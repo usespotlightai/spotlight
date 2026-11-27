@@ -15,8 +15,8 @@ import type {
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
 import type {
-  MovedNote,
   RunReview,
+  TaskMoveSummary,
 } from '@work/application/ports/run-reader.port';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
@@ -405,33 +405,47 @@ export const notesBetween = async (
   );
 };
 
+const movedTo = alias(workStation, 'moved_to');
+
 export const movesOf = async (
   db: DrizzleDatabase,
   people: PersonReaderPort,
   taskId: string,
-): Promise<MovedNote[]> => {
+): Promise<TaskMoveSummary[]> => {
   const rows = await db
-    .select({ ...NOTE_COLUMNS, move: taskNote.move })
+    .select({
+      position: taskNote.position,
+      at: taskNote.at,
+      move: taskNote.move,
+      station: movedTo.name,
+    })
     .from(taskNote)
-    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
-    .leftJoin(
-      deferredStation,
-      eq(deferredStation.stationId, sql`${taskNote.deferredMove} ->> 'to'`),
-    )
+    .leftJoin(movedTo, eq(movedTo.stationId, sql`${taskNote.move} ->> 'to'`))
     .where(and(eq(taskNote.taskId, taskId), isNotNull(taskNote.move)))
     .orderBy(asc(taskNote.position));
-  const notes = await inboxNotesOf(db, people, rows);
+  const persons = await people.findMany(
+    rows.flatMap((row) =>
+      nonEmpty(row.move?.who) ? [UserId.of(row.move.who)] : [],
+    ),
+  );
 
-  return rows.flatMap((row, at) => {
-    const found = itemAt(notes, at);
-
-    if (!row.move || !found) {
+  return rows.flatMap(({ move, ...row }) => {
+    if (!move) {
       return [];
     }
 
-    const { taskId: _task, ...note } = found;
+    const who = move.who;
+    const found = nonEmpty(who) ? persons.get(who) : undefined;
 
-    return [{ note, move: row.move }];
+    return [
+      {
+        ...row,
+        move,
+        person: nonEmpty(who)
+          ? { id: who, name: found?.name ?? '', image: found?.image ?? null }
+          : null,
+      },
+    ];
   });
 };
 

@@ -788,6 +788,30 @@ describe('a task whose line resumes', () => {
     expect(handed?.resumption?.summary).toBeNull();
   });
 
+  it('counts the finish an event asked for as a move by the line, and a move on as the person’s', () => {
+    const finished = turnDone()
+      .deferMove(
+        line,
+        COMPLETED,
+        said('The pull request was merged.', Voice.world()),
+      )
+      .resumeLine({
+        by: LEON,
+        line,
+        next: 'continue',
+        to: null,
+        rank: TaskRank.of('m'),
+        verdict: null,
+        summary: null,
+        turnHeads: [],
+        at: LATER,
+      });
+    const movedOn = resumption(turnDone(), 'move-on', REVIEW);
+
+    expect(finished.notes.find((each) => each.move)?.move?.by).toBe('line');
+    expect(movedOn.notes.find((each) => each.move)?.move?.by).toBe('person');
+  });
+
   it('is not stored with a resume note that says nothing of how it went', () => {
     const back = resumption(turnDone(), 'continue');
 

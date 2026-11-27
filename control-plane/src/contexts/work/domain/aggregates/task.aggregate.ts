@@ -128,8 +128,11 @@ import type { IntegrationName } from '@work/domain/value-objects/integration-nam
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import {
+  BY_A_RUN,
+  byAPerson,
+  byTheLine,
+  type Mover,
   NoteMove,
-  type MoveMaker,
 } from '@work/domain/value-objects/note-move.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
@@ -193,6 +196,11 @@ export interface NewNote {
   readonly connectionAsk?: ConnectionAsk | null;
   readonly resumption?: Resumption | null;
   readonly suggestsClosing?: boolean;
+}
+
+export interface HandMove {
+  readonly mover: UserId;
+  readonly reason?: string | null;
 }
 
 export interface CurrentApproval {
@@ -622,7 +630,7 @@ export class Task extends EventRecorder {
     to: StationId,
     rank: TaskRank,
     newNote: NewNote,
-    handMove: { mover: UserId },
+    handMove: HandMove,
     turnHeads: readonly TurnHeads[] = [],
   ): Task {
     const hold = this.openHold;
@@ -656,15 +664,20 @@ export class Task extends EventRecorder {
             rank,
             ending.newNote,
             handMove,
-            'person',
+            byAPerson(handMove.mover, handMove.reason),
           ),
           ending.ended,
           next,
           line,
         ).toldChatItLeft(ending.ended, line, newNote.at)
-      : this.relocated(line, to, rank, newNote, handMove, 'person').detachRun(
-          this.currentRunId,
-        );
+      : this.relocated(
+          line,
+          to,
+          rank,
+          newNote,
+          handMove,
+          byAPerson(handMove.mover, handMove.reason),
+        ).detachRun(this.currentRunId);
 
     moved.record(
       new TaskActedOn(
@@ -681,7 +694,13 @@ export class Task extends EventRecorder {
     return moved;
   }
 
-  react(line: LineMap, to: StationId, rank: TaskRank, newNote: NewNote): Task {
+  react(
+    line: LineMap,
+    to: StationId,
+    rank: TaskRank,
+    newNote: NewNote,
+    mover: Mover = byTheLine(),
+  ): Task {
     if (!this.movableByHappeningTo(line, to)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station, or while its run waits on a person's answer to a question.`,
@@ -689,7 +708,7 @@ export class Task extends EventRecorder {
     }
 
     return this.chatHoldFinishedBy(line, newNote)
-      .relocated(line, to, rank, newNote, null, 'line')
+      .relocated(line, to, rank, newNote, null, mover)
       .detachRun(this.currentRunId);
   }
 
@@ -830,7 +849,7 @@ export class Task extends EventRecorder {
         failure,
       },
       null,
-      'line',
+      byTheLine(),
     );
 
     moved.record(
@@ -862,8 +881,8 @@ export class Task extends EventRecorder {
     to: StationId,
     rank: TaskRank,
     newNote: NewNote,
-    handMove: { mover: UserId } | null,
-    by: MoveMaker,
+    handMove: HandMove | null,
+    mover: Mover,
   ): Task {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
@@ -883,7 +902,7 @@ export class Task extends EventRecorder {
       currentRunId: null,
       session: null,
       claimedBy: null,
-      ...this.appendNote(newNote, 'passed', null, NoteMove.to(into.id, by)),
+      ...this.appendNote(newNote, 'passed', null, NoteMove.to(into.id, mover)),
       finishedAt: into.isCompleted ? newNote.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
       revision: this.revision.next(),
@@ -928,7 +947,7 @@ export class Task extends EventRecorder {
     to: StationId,
     rank: TaskRank,
     newNote: NewNote,
-    handMove: { mover: UserId },
+    handMove: HandMove,
     turnHeads: readonly TurnHeads[] = [],
   ): { readonly task: Task; readonly moved: boolean } {
     return this.stationId.equals(to)
@@ -1753,7 +1772,7 @@ export class Task extends EventRecorder {
     const said = { ...newNote, line };
     const reopened = this.stationId.equals(to)
       ? this.addMessage(said)
-      : this.react(line, to, rank, said);
+      : this.react(line, to, rank, said, byAPerson(sender));
 
     reopened.record(
       new TaskActedOn(
@@ -1827,6 +1846,7 @@ export class Task extends EventRecorder {
           outcome.to.id,
           Placement.entering('reacted', on.ranksAtDestination),
           newNote,
+          byTheLine(outcome.why),
         ).movedOnClose(outcome.closed);
 
         return outcome.asks
@@ -1925,7 +1945,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    const passed = this.relocated(line, into.id, rank, newNote, null, 'run');
+    const passed = this.relocated(line, into.id, rank, newNote, null, BY_A_RUN);
 
     passed.record(
       new TaskPassed(
@@ -2168,7 +2188,11 @@ export class Task extends EventRecorder {
           this.rankFor(input.rank),
           ending.newNote,
           null,
-          input.run ? 'run' : 'person',
+          input.next === 'continue'
+            ? byTheLine()
+            : input.run
+              ? BY_A_RUN
+              : byAPerson(input.by),
         )
       : ending.closed
           .withHeldNotesFor(hold)
@@ -2954,7 +2978,7 @@ export class Task extends EventRecorder {
             failure,
           },
           null,
-          'line',
+          byTheLine(),
         )
         .detachRun(this.currentRunId);
     }

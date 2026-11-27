@@ -381,7 +381,7 @@ describe('ReactionFor.happened', () => {
     expect(destination(outcome)).toEqual(LINE.completed.id);
     expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
     expect(outcome.kind === 'moves' && outcome.body.value).toBe(
-      'Moved to Completed: the pull request was merged.',
+      'Moved to Completed. The pull request was merged.',
     );
   });
 
@@ -408,7 +408,7 @@ describe('ReactionFor.happened', () => {
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(LINE.completed.id);
     expect(outcome.kind === 'moves' && outcome.body.value).toBe(
-      'Moved to Completed: the pull request was merged.',
+      'Moved to Completed. The pull request was merged.',
     );
   });
 
@@ -883,13 +883,16 @@ describe('ReactionFor.happened for a pull request closed unmerged that a reactio
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_0'));
     expect(outcome.kind === 'moves' && outcome.body.value).toBe(
-      'Moved to Backlog: the pull request was closed without being merged.',
+      'Moved to Backlog. The pull request was closed without being merged.',
+    );
+    expect(outcome.kind === 'moves' && outcome.why).toBe(
+      'The pull request was closed without being merged.',
     );
     expect(outcome.kind === 'moves' && outcome.asks?.value).toBe(
       [
         'The pull request was closed without being merged.',
         '',
-        'The line moved the task to Backlog for this. To continue, reopen the pull request and move the task to a station, or complete the task.',
+        'The line moved the task to Backlog for this. To continue, reopen the pull request, move the task to a station, or complete the task.',
       ].join('\n'),
     );
   });
@@ -903,7 +906,7 @@ describe('ReactionFor.happened for a pull request closed unmerged that a reactio
     expect(moved.stationId.value).toBe('station_0');
     expect(moved.notes.map((each) => each.kind)).toEqual(['passed', 'asked']);
     expect(move?.body.value).toBe(
-      'Moved to Backlog: the pull request was closed without being merged.',
+      'Moved to Backlog. The pull request was closed without being merged.',
     );
     expect(move?.move?.to.value).toBe('station_0');
     expect(move?.move?.madeOutsideARun).toBe(true);
@@ -934,9 +937,34 @@ describe('ReactionFor.happened for a pull request closed unmerged that a reactio
     expect(moved.stationId.value).toBe('station_3');
     expect(moved.notes.map((each) => each.kind)).toEqual(['passed']);
     expect(moved.notes[0]?.body.value).toBe(
-      'Moved to Completed: the pull request was merged.',
+      'Moved to Completed. The pull request was merged.',
     );
     expect(moved.awaitingReview).toBe(false);
+  });
+
+  it('asks a person where the reaction keeps the task at its station', () => {
+    const outcome = on(lineSending('station_2'), finishedInReview());
+
+    expect(outcome.kind).toBe('asks');
+    expect(outcome.kind === 'asks' && outcome.body.value).toMatch(
+      /The line does not move the task for this\./,
+    );
+  });
+
+  it('says the comment it moved for on a paragraph of its own', () => {
+    const outcome = ReactionFor.happened({
+      task: landedAt('station_1'),
+      line: LINE,
+      payload: commented,
+      anchor: Anchor.of({ body: 'please rebase' }),
+    });
+
+    expect(outcome.kind === 'moves' && outcome.body.value).toBe(
+      'Moved to Code Review.\n\nplease rebase',
+    );
+    expect(outcome.kind === 'moves' && outcome.why).toBe(
+      'The pull request was commented on.',
+    );
   });
 
   it('asks nobody about a pull request the task did not open', () => {

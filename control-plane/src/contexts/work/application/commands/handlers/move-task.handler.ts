@@ -95,7 +95,7 @@ export class MoveTaskHandler implements CommandHandlerPort<
           at: this.clock.now(),
           voice: Voice.station(),
         },
-        { mover: UserId.of(command.viewerId) },
+        { mover: UserId.of(command.viewerId), reason: command.reason },
         await this.resuming.turnHeads(task.openHold),
       );
       const moved = placed.task;

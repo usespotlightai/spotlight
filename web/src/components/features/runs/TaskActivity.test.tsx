@@ -3,12 +3,12 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
-import type { NoteResponseDto } from '@/lib/api';
+import type { TaskMoveResponseDto } from '@/lib/api';
 import type { Run } from '@/lib/run';
 import { partial } from '@/test/partial';
 
 const runs = vi.fn<() => Run[]>();
-const moves = vi.fn<() => NoteResponseDto[]>(() => []);
+const moves = vi.fn<() => TaskMoveResponseDto[]>(() => []);
 
 vi.mock('@/hooks/api/useTaskRuns', () => ({
   useTaskRuns: () => ({ data: runs() }),
@@ -88,38 +88,44 @@ describe('TaskActivity', () => {
   it('shows why the line moved a task that no run took up', () => {
     runs.mockReturnValue([run(null, false)]);
     moves.mockReturnValue([
-      partial<NoteResponseDto>({
+      {
         position: 4,
-        body: 'Moved to Backlog: the pull request was closed without being merged.',
-        at: new Date().toISOString(),
-      }),
+        at: new Date(Date.now() + 1000).toISOString(),
+        station: 'Backlog',
+        by: 'line',
+        person: null,
+        why: 'The pull request was closed without being merged.',
+      },
     ]);
     shown();
 
     const rows = screen.getAllByRole('listitem');
 
-    expect(rows[0]).toHaveTextContent(
-      'Moved to Backlog: the pull request was closed without being merged.',
-    );
     expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('Moved to Backlog');
+    expect(rows[0]).toHaveTextContent(
+      'The pull request was closed without being merged.',
+    );
   });
 
-  it('shows a move on a task that has no runs', () => {
+  it('names the person who moved a task that has no runs', () => {
     runs.mockReturnValue([]);
     moves.mockReturnValue([
-      partial<NoteResponseDto>({
+      {
         position: 1,
-        body: 'Moved to Implementation. The person who moved it gave this reason:\n\nRebase it.',
         at: new Date().toISOString(),
-      }),
+        station: 'Implementation',
+        by: 'person',
+        person: { id: 'user_1', name: 'Ada Lovelace', image: null },
+        why: 'Rebase it.',
+      },
     ]);
     shown();
 
     expect(screen.getByText('Activity')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Moved to Implementation. The person who moved it gave this reason:',
-      ),
+      screen.getByText('Moved to Implementation by Ada Lovelace'),
     ).toBeInTheDocument();
+    expect(screen.getByText('Rebase it.')).toBeInTheDocument();
   });
 });

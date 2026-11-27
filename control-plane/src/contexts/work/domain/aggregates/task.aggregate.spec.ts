@@ -500,6 +500,19 @@ describe('Task, reopened by a word', () => {
     expect(reopened.stationId).toEqual(StationId.of('station_2'));
   });
 
+  it('records the move to another station as the move of the person who spoke', () => {
+    const { notes } = ended().reopen(
+      REACTING,
+      SENT_TO_SPEC,
+      TaskRank.of('m'),
+      said,
+    );
+    const move = itemAt(notes, notes.length - 1)?.move;
+
+    expect(move?.by).toBe('person');
+    expect(move?.who).toEqual(ADA);
+  });
+
   it('does not reopen a task that is not finished', () => {
     expect(() =>
       added().reopen(LINE, MENTIONED, TaskRank.of('m'), said),
@@ -2313,12 +2326,20 @@ describe('Task, what it is doing', () => {
       );
     });
 
-    it('records on its note that a person moved it, and where to', () => {
-      const { notes } = moved(HERE, BACKLOG);
+    it('records on its note who moved it, where to and why', () => {
+      const { notes } = at(HERE).moveTo(
+        LINE,
+        BACKLOG,
+        TaskRank.of('m'),
+        newNote,
+        { ...hand, reason: 'Wait for the API.' },
+      );
       const move = itemAt(notes, notes.length - 1)?.move;
 
       expect(move?.to).toEqual(BACKLOG);
       expect(move?.by).toBe('person');
+      expect(move?.who).toEqual(hand.mover);
+      expect(move?.why).toBe('Wait for the API.');
       expect(move?.madeOutsideARun).toBe(true);
     });
 

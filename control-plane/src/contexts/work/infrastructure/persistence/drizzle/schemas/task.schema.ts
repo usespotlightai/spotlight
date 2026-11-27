@@ -75,6 +75,8 @@ export interface DeferredMoveRow {
 export interface NoteMoveRow {
   readonly to: string;
   readonly by: string;
+  readonly who: string | null;
+  readonly why: string | null;
 }
 
 export interface ConnectionAskRow {

@@ -43,6 +43,7 @@ import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { NoteDto } from '@work/application/dto/inbox.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
+import type { TaskMoveDto } from '@work/application/dto/task-move.dto';
 import type { TaskPullRequestDto } from '@work/application/dto/task-pull-request.dto';
 import type {
   TaskRunDto,
@@ -73,6 +74,7 @@ import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto'
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { ResumeLineRequestDto } from '@work/presentation/http/dto/resume-line.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
+import { TaskMoveResponseDto } from '@work/presentation/http/dto/task-move.response.dto';
 import { TaskPullRequestResponseDto } from '@work/presentation/http/dto/task-pull-request.response.dto';
 import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
@@ -472,25 +474,25 @@ export class TaskController {
   @ApiOperation({
     operationId: 'listTaskMoves',
     summary:
-      'The notes of moves that no run made on a task, such as a move by hand or by a line reaction, oldest first',
+      'The moves on a task that no run made, by a person or by a line reaction, oldest first',
   })
   @ApiParam({ name: 'taskId' })
-  @ApiOkResponse({ type: NoteResponseDto, isArray: true })
+  @ApiOkResponse({ type: TaskMoveResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: "No such task, or not the viewer's" })
   async taskMoves(
     @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<NoteResponseDto[]> {
-    const notes = await this.queryBus.execute<
+  ): Promise<TaskMoveResponseDto[]> {
+    const moves = await this.queryBus.execute<
       ListTaskMovesQuery,
-      NoteDto[] | null
+      TaskMoveDto[] | null
     >(new ListTaskMovesQuery(taskId, user.id));
 
-    if (!notes) {
+    if (!moves) {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    return notes.map(NoteHttpMapper.toResponse);
+    return moves.map((each) => new TaskMoveResponseDto(each));
   }
 
   @Get('tasks/:taskId/trace')
