@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExpandableText } from '@/components/shared/ExpandableText';
 import { scrollViewport, watchResizes } from '@/test/resize';
 
-const renderMeasured = () => {
+const renderMeasured = (size?: 'regular' | 'tall') => {
   const measured = watchResizes();
   const { container } = render(
-    <ExpandableText what="message">
+    <ExpandableText what="message" size={size}>
       <p>
         The checks failed. <a href="https://example.com/run">Open the run</a>
       </p>
@@ -16,6 +16,7 @@ const renderMeasured = () => {
   const viewport = scrollViewport(container);
 
   return {
+    box: () => container.querySelector('[class*="max-h-"]'),
     measure: (sizes: Record<string, number>) => measured(viewport, sizes),
   };
 };
@@ -52,6 +53,18 @@ describe('ExpandableText', () => {
     expect(
       screen.getByRole('button', { name: 'Show the whole message' }),
     ).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('grows a tall text to its taller heights', () => {
+    const { box, measure } = renderMeasured('tall');
+    measure({ clientHeight: 192, scrollHeight: 600 });
+
+    expect(box()).toHaveClass('max-h-[min(30vh,12rem)]');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Show the whole message' }),
+    );
+    expect(box()).toHaveClass('max-h-[min(50vh,28rem)]');
   });
 
   it('keeps links in a closed text out of the toggle', () => {

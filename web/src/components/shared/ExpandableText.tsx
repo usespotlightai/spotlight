@@ -12,7 +12,7 @@ const HEIGHTS = {
   },
   tall: {
     collapsed: 'max-h-[min(30vh,12rem)]',
-    expanded: 'max-h-[min(70vh,28rem)]',
+    expanded: 'max-h-[min(50vh,28rem)]',
   },
 } as const;
 
