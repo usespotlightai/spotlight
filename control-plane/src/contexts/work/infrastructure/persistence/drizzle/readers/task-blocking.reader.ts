@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskBlockingPort } from '@work/application/ports/task-blocking.port';
@@ -13,7 +14,10 @@ export class DrizzleTaskBlocking implements TaskBlockingPort {
 
   async lockIn(workspaceId: WorkspaceId): Promise<void> {
     if (!this.context.transacting) {
-      throw new Error('A lock on what blocks what needs a transaction');
+      throw new InconsistentStateError(
+        'lock on what blocks what',
+        'was asked for outside a transaction',
+      );
     }
 
     await this.context.db.execute(

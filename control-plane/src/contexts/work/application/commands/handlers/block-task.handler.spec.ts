@@ -157,13 +157,14 @@ describe('BlockTaskHandler', () => {
     expect(saved).toEqual([]);
   });
 
-  it('is not blocked by a task deleted meanwhile', async () => {
+  it('does not know a blocking task that does not exist', async () => {
     const { handler, saved } = blocking([opened('task_2', OURS)]);
 
-    await handler.execute(
-      new BlockTaskCommand('team_1', 'task_2', ['task_gone'], 'user_1'),
-    );
-
+    await expect(
+      handler.execute(
+        new BlockTaskCommand('team_1', 'task_2', ['task_gone'], 'user_1'),
+      ),
+    ).rejects.toThrow('Task task_gone not found.');
     expect(saved).toEqual([]);
   });
 });

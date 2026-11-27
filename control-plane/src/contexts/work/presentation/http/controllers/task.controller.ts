@@ -557,7 +557,9 @@ export class TaskController {
         user.id,
         idsInput(body.attachments),
         body.base ?? null,
-        idsInput(body.blockedBy),
+        body.blockedBy === undefined
+          ? []
+          : requiredIdsInput(body.blockedBy, 'blockedBy'),
       ),
     );
 

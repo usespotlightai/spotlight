@@ -3623,7 +3623,7 @@ export class Task extends EventRecorder {
     line: LineMap,
     blockedBy: readonly TaskId[],
     by: UserId,
-    newNote: NewNote,
+    at: Date,
   ): Task {
     const blockers = Task.distinct(blockedBy);
 
@@ -3643,7 +3643,17 @@ export class Task extends EventRecorder {
 
     const blocked = this.blockedOnlyBy(blockers, by);
 
-    return blocked === this ? this : blocked.noted(newNote, 'message');
+    return blocked === this
+      ? this
+      : blocked.noted(
+          {
+            line,
+            body: TaskNoteBody.blockedBy(blockers.length),
+            at,
+            voice: Voice.person(by),
+          },
+          'message',
+        );
   }
 
   blockerFinished(

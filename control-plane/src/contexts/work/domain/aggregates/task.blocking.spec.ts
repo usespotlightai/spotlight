@@ -120,24 +120,11 @@ const completed = (task: Task) =>
     { mover: LEON },
   );
 
-const noteOf = (titles: readonly Task[]) => ({
-  line: LINE,
-  body: TaskNoteBody.blockedBy(titles.map((each) => each.title)),
-  at: NOW,
-  voice: Voice.station(),
-});
-
 const blockedBy = (
   task: Task,
   blockers: readonly Task[],
   graph = BlockingGraph.empty(),
-) =>
-  task.blockBy(
-    LINE,
-    Blocking.forTask(task, blockers, graph),
-    LEON,
-    noteOf(blockers),
-  );
+) => task.blockBy(LINE, Blocking.forTask(task, blockers, graph), LEON, NOW);
 
 const graphOf = (...tasks: Task[]) =>
   BlockingGraph.of(
@@ -185,8 +172,11 @@ describe('Task blocked by other tasks', () => {
     const blocked = blockedBy(second, [first]);
 
     expect(ids(blocked)).toEqual(['task_1']);
+    expect(itemAt(blocked.notes, blocked.notes.length - 1)?.voice).toEqual(
+      Voice.person(LEON),
+    );
     expect(lastNote(blocked)).toBe(
-      'Blocked by Web task_1. It waits in Backlog and starts when they are completed.',
+      'Blocked by 1 task. It waits in Backlog and starts when it is completed.',
     );
     expect(blocked.pullEvents()).toContainEqual(
       new TaskBlockersChanged(second.id, second.workspaceId, [first.id], LEON),
@@ -203,7 +193,7 @@ describe('Task blocked by other tasks', () => {
     const task = opened('task_1');
 
     expect(() => blockedBy(task, [task])).toThrow(InvalidTaskBlockerError);
-    expect(() => task.blockBy(LINE, [task.id], LEON, noteOf([task]))).toThrow(
+    expect(() => task.blockBy(LINE, [task.id], LEON, NOW)).toThrow(
       InvalidTaskBlockerError,
     );
   });

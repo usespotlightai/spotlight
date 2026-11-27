@@ -57,7 +57,7 @@ export const TaskMapper = {
   summaryToDto(
     summary: TaskSummary,
     reading: MessageReading,
-    teamsSeen: ReadonlySet<string> = new Set(),
+    teamsSeen: ReadonlySet<string>,
   ): TaskDto {
     const { viewer } = reading;
 

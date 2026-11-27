@@ -188,6 +188,37 @@ describe('ListTasksHandler', () => {
     });
   });
 
+  it('keeps the title of a blocking task to the people who see its team', async () => {
+    const blocked = {
+      ...summaries[1],
+      blocked: true,
+      blockedBy: [
+        { id: 'task_8', title: 'Ours', teamId: 'team_1' },
+        { id: 'task_9', title: 'Theirs', teamId: 'team_2' },
+      ],
+    } as TaskSummary;
+    const access = partial<WorkAccess>({
+      standingOn: vi.fn(async () =>
+        TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
+      ),
+      seesTeam: vi.fn(async (teamId: TeamId) => teamId.value === 'team_1'),
+    });
+
+    const page = await handle(
+      reader([...summaries.slice(0, 1), blocked]),
+      access,
+    );
+
+    expect(page?.items[1]?.blockedBy).toEqual([
+      { id: 'task_8', title: 'Ours', teamId: 'team_1' },
+      { id: 'task_9', title: null, teamId: 'team_2' },
+    ]);
+  });
+
   it('answers with nothing for a team the caller cannot see', async () => {
     await expect(handle(reader([]), seeing(false))).resolves.toBeNull();
   });

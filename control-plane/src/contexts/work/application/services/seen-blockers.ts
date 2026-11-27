@@ -6,7 +6,7 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
-// The tasks a person names as blockers, each on a team they see. Call it in the transaction that saves the blocked task.
+// The tasks a person names as blockers: each must exist, on a team they see. Call it in the transaction that saves the blocked task.
 export class SeenBlockers {
   constructor(
     private readonly tasks: Pick<TaskRepository, 'blockersAmong'>,
@@ -21,6 +21,14 @@ export class SeenBlockers {
     const blockers = await this.tasks.blockersAmong(
       ids.map((each) => TaskId.of(each)),
     );
+
+    const unknown = ids.find(
+      (id) => !blockers.some((each) => each.id.value === id),
+    );
+
+    if (unknown !== undefined) {
+      throw new UnknownTaskError(unknown);
+    }
 
     for (const blocker of blockers) {
       const line = await this.lines.findByStation(blocker.stationId);

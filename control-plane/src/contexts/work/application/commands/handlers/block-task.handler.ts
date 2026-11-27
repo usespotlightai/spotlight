@@ -13,8 +13,6 @@ import type { WorkAccess } from '@work/application/services/work-access.service'
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Blocking } from '@work/domain/services/blocking';
-import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
-import { Voice } from '@work/domain/value-objects/voice.vo';
 
 export class BlockTaskHandler implements CommandHandlerPort<
   BlockTaskCommand,
@@ -63,16 +61,7 @@ export class BlockTaskHandler implements CommandHandlerPort<
         await this.blocking.graphIn(task.workspaceId),
       );
 
-      const blocked = task.blockBy(line, blockedBy, viewer, {
-        line,
-        body: TaskNoteBody.blockedBy(
-          named
-            .filter((each) => blockedBy.some((id) => id.equals(each.id)))
-            .map((each) => each.title),
-        ),
-        at: this.clock.now(),
-        voice: Voice.station(),
-      });
+      const blocked = task.blockBy(line, blockedBy, viewer, this.clock.now());
 
       if (blocked !== task) {
         await this.tasks.save(blocked);
