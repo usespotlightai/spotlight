@@ -31,7 +31,7 @@ import {
   MAX_CANDIDATES,
 } from '@insights/domain/services/revision-pick';
 import {
-  MIN_HELD_OUT,
+  revisableOf,
   revisionSplitOf,
 } from '@insights/domain/services/revision-split';
 import type { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
@@ -246,7 +246,7 @@ export class WorkClaimsRevisions implements PendingJobsPort {
       await this.sources.labelled.of(station, rubric.version),
     );
 
-    if (split.heldOut.length < MIN_HELD_OUT) {
+    if (!revisableOf(split)) {
       return ended('too-few-labelled-runs');
     }
 

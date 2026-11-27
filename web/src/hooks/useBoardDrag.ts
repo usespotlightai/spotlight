@@ -18,7 +18,7 @@ import { useDragSensors } from '@/hooks/useDragSensors';
 import type { StationResponseDto } from '@/lib/api';
 import { type Landing, landingFor } from '@/lib/dragging';
 import { nonEmpty } from '@/lib/non-empty';
-import { mayLand, type Task } from '@/lib/task';
+import { mayLand, stopsRun, type Task } from '@/lib/task';
 
 const kindOf = (
   collision: Collision,
@@ -43,11 +43,19 @@ type Board = {
   readonly stations: readonly StationResponseDto[];
 };
 
+type Stopping = {
+  readonly task: Task;
+  readonly landing: Landing;
+};
+
 type BoardDragResult = {
   sensors: SensorDescriptor<SensorOptions>[];
   collisionDetection: CollisionDetection;
   draggedId: string | null;
   landing: Landing | null;
+  stopping: Stopping | null;
+  confirmStop: () => void;
+  cancelStop: () => void;
   handlers: {
     onDragStart: ({ active }: DragStartEvent) => void;
     onDragOver: ({ active, over }: DragOverEvent) => void;
@@ -62,6 +70,7 @@ export function useBoardDrag(board: Board): BoardDragResult {
 
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [landing, setLanding] = useState<Landing | null>(null);
+  const [stopping, setStopping] = useState<Stopping | null>(null);
 
   const sensors = useDragSensors();
 
@@ -95,6 +104,20 @@ export function useBoardDrag(board: Board): BoardDragResult {
     setLanding(landingOver(moving, over));
   };
 
+  const move = (task: Task, target: Landing) => {
+    if (!nonEmpty(board.teamId)) {
+      return;
+    }
+
+    moveTask.mutate({
+      teamId: board.teamId,
+      lineId: board.lineId,
+      taskId: task.id,
+      revision: task.revision,
+      ...target,
+    });
+  };
+
   const drop = ({ active, over }: DragEndEvent) => {
     if (
       !over ||
@@ -108,14 +131,14 @@ export function useBoardDrag(board: Board): BoardDragResult {
     const moving = board.tasks.find((each) => each.id === active.id);
     const target = moving ? landingOver(moving, over) : null;
 
-    if (moving && target) {
-      moveTask.mutate({
-        teamId: board.teamId,
-        lineId: board.lineId,
-        taskId: moving.id,
-        revision: moving.revision,
-        ...target,
-      });
+    if (!moving || !target) {
+      return;
+    }
+
+    if (stopsRun(board.stations, moving, target.stationId)) {
+      setStopping({ task: moving, landing: target });
+    } else {
+      move(moving, target);
     }
   };
 
@@ -124,6 +147,14 @@ export function useBoardDrag(board: Board): BoardDragResult {
     collisionDetection: dropping,
     draggedId,
     landing,
+    stopping,
+    confirmStop: () => {
+      if (stopping) {
+        move(stopping.task, stopping.landing);
+      }
+      setStopping(null);
+    },
+    cancelStop: () => setStopping(null),
     handlers: {
       onDragStart: ({ active }: DragStartEvent) =>
         setDraggedId(String(active.id)),

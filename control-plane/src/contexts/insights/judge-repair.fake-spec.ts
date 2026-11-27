@@ -10,6 +10,10 @@ import type {
   AnsweredDisagreements,
   JudgeDisagreementRepository,
 } from '@insights/domain/repositories/judge-disagreement.repository';
+import {
+  MIN_HELD_OUT,
+  type RevisionSplit,
+} from '@insights/domain/services/revision-split';
 import type { RevisionTrigger } from '@insights/domain/services/revision-trigger';
 import type { ClaimAnswerKind } from '@insights/domain/value-objects/claim-answer.vo';
 import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
@@ -97,6 +101,12 @@ export const REVISED_STATION = {
   stationId: StationId.of('station_1'),
 };
 
+/** Just enough labelled runs held out for a revision to start. */
+export const REVISABLE_SPLIT: RevisionSplit<number> = {
+  searched: [],
+  heldOut: Array.from({ length: MIN_HELD_OUT }, (_, at) => at),
+};
+
 export const startedRevision = (
   change: {
     id?: string;
@@ -111,6 +121,7 @@ export const startedRevision = (
     rubric: change.rubric ?? rubricOf(),
     trigger: change.trigger ?? 'claim-wrong',
     latest: null,
+    split: REVISABLE_SPLIT,
     now: change.now ?? OPENED_AT,
   });
 

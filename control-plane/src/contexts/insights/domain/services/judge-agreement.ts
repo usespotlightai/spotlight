@@ -136,10 +136,16 @@ const decisionsOf = (pairs: readonly VerdictPair[]): ScorePair[] =>
     human: decisionOf(each.human),
   }));
 
+const peopleGaveEachVerdict = (distribution: readonly ScoreCount[]): boolean =>
+  distribution.every((each) => each.people > 0);
+
 export const agreementOf = (verdicts: readonly VerdictPair[]): Agreement => {
   const pairs = decisionsOf(verdicts);
-  const kappa = cohensKappa(MET, pairs);
   const confusion = confusionOf(MET, pairs);
+  const distribution = distributionOf(confusion);
+  const kappa = peopleGaveEachVerdict(distribution)
+    ? cohensKappa(MET, pairs)
+    : null;
 
   return {
     pairs: pairs.length,
@@ -148,7 +154,7 @@ export const agreementOf = (verdicts: readonly VerdictPair[]): Agreement => {
     f1: f1Of(decisionOf(true), pairs),
     reading: kappaReadingOf(kappa),
     confusion,
-    distribution: distributionOf(confusion),
+    distribution,
   };
 };
 
