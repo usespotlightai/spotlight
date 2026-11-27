@@ -44,6 +44,7 @@ export interface RunCommandShape {
 
 interface RunHandoverShape {
   readonly options: readonly string[];
+  readonly resumeOptions?: readonly string[];
   readonly noteLimit: number;
 }
 
