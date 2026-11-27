@@ -65,9 +65,10 @@ export function ConnectGitHub({
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem closeOnClick render={<a href={installUrl} />}>
-          Install on another account
-        </DropdownMenuItem>
+        <DropdownMenuItem
+          closeOnClick
+          render={<a href={installUrl}>Install on another account</a>}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
