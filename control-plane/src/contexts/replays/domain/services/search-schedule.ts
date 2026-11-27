@@ -200,41 +200,41 @@ export const dueVerdict = (input: DueInput): ScheduleVerdict => {
   return { kind: 'start', trigger: alerted ? 'alert' : 'schedule', policy };
 };
 
-export interface NextDueInput {
-  readonly policy: SearchPolicy | null;
-  readonly lastStartedAt: Date | null;
-  readonly cooldownFrom: Date | null;
-  readonly alertPendingSince: Date | null;
+export interface NextDueInput extends DueInput {
   readonly checkAfter: Date;
-  readonly busy: boolean;
   readonly skipped: boolean;
-  readonly now: Date;
 }
 
-const latest = (times: readonly (Date | null)[]): Date =>
-  new Date(
-    Math.max(...times.flatMap((each) => (each ? [each.getTime()] : []))),
-  );
+const VERDICTS_AHEAD = 4;
 
 /**
- * When the next search of the station is due, as the schedule's verdict sees it: once the period, or for an alert the cooldown, has passed, and not before the station's next check.
- * None while the policy is off, while a search is in progress or awaits its result, or while the station's last due search was skipped, since its reason may still hold.
+ * When the next search of the station is due: the first time from its next check on at which the schedule's own verdict starts one, as long as only time stands in its way.
+ * None while the policy is off, while a search is in progress or awaits its result, while the station's last due search was skipped, or while a reason other than the cooldown would skip it.
  */
 export const nextDueAt = (input: NextDueInput): Date | null => {
-  const { policy } = input;
-
-  if (!policy?.enabled || input.busy || input.skipped) {
+  if (!input.policy?.enabled || input.busy || input.skipped) {
     return null;
   }
 
-  return latest([
-    input.now,
-    input.checkAfter,
-    alertedUnder(policy, input.alertPendingSince)
-      ? null
-      : periodEndOf(policy, input.lastStartedAt),
-    cooldownEndOf(policy, input.cooldownFrom),
-  ]);
+  let at = input.checkAfter > input.now ? input.checkAfter : input.now;
+
+  for (let looked = 0; looked < VERDICTS_AHEAD; looked += 1) {
+    const verdict = dueVerdict({ ...input, now: at });
+
+    if (verdict.kind === 'start') {
+      return at;
+    }
+    if (
+      (verdict.kind === 'skip' && verdict.reason !== 'cooldown') ||
+      verdict.checkAfter <= at
+    ) {
+      return null;
+    }
+
+    at = verdict.checkAfter;
+  }
+
+  return null;
 };
 
 /** A skip holds only while the policy that would search the station is on. */

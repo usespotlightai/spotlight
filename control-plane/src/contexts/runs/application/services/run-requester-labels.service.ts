@@ -1,8 +1,8 @@
 import type {
   LabelledRequester,
-  RequesterLabel,
   RunRequesterLabelSource,
   RunRequesterLabelsPort,
+  ViewedLabel,
 } from '@runs/application/ports/run-requester-labels.port';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -16,7 +16,7 @@ export class RunRequesterLabels implements RunRequesterLabelsPort {
   async labelsOf(
     requesters: readonly LabelledRequester[],
     viewer: UserId,
-  ): Promise<ReadonlyMap<string, RequesterLabel>> {
+  ): Promise<ReadonlyMap<string, ViewedLabel>> {
     const byOwner = new Map<string, LabelledRequester[]>();
 
     for (const requester of requesters) {
@@ -27,10 +27,17 @@ export class RunRequesterLabels implements RunRequesterLabelsPort {
     }
 
     const labelled = await Promise.all(
-      [...byOwner].map(
-        async ([owner, owned]) =>
-          (await this.sources.get(owner)?.labelsOf(owned, viewer)) ?? new Map(),
-      ),
+      [...byOwner].map(async ([owner, owned]) => {
+        const source = this.sources.get(owner);
+        const labels = (await source?.labelsOf(owned, viewer)) ?? new Map();
+
+        return new Map(
+          [...labels].map(([ref, label]) => [
+            ref,
+            { ...label, checkedForViewer: source?.checksViewer ?? false },
+          ]),
+        );
+      }),
     );
 
     return new Map(labelled.flatMap((labels) => [...labels]));

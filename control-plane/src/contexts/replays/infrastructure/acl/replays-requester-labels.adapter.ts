@@ -14,6 +14,8 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 export class ReplaysRequesterLabels implements RunRequesterLabelSource {
   readonly owner = REPLAYS_OWNER;
 
+  readonly checksViewer = true;
+
   constructor(private readonly labels: ReplayRunLabels) {}
 
   async labelsOf(

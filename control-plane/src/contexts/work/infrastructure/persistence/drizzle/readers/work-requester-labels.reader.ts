@@ -16,6 +16,8 @@ import { inArray } from 'drizzle-orm';
 export class DrizzleWorkRequesterLabels implements RunRequesterLabelSource {
   readonly owner = WorkRequesters.owner;
 
+  readonly checksViewer = false;
+
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async labelsOf(

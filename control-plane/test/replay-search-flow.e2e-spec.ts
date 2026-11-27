@@ -4,12 +4,19 @@ import { AdvanceSearches } from '@replays/application/services/advance-searches.
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { DrizzleReplayRunLabelsReader } from '@replays/infrastructure/persistence/drizzle/readers/replay-run-labels.reader';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { present } from '@shared-kernel/domain/present.fake-spec';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { type Answer, autoSearched, type Problem } from './support/app';
+import {
+  type Answer,
+  autoSearched,
+  type Problem,
+  TEST_USER_HEADER,
+} from './support/app';
 import { activeSearchAt, dueNow } from './support/auto-searches';
 import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
@@ -32,6 +39,7 @@ import {
   entryOf,
   finished,
   fiveTasks,
+  http,
   judged,
   leasedSearchRun,
   liveBlock,
@@ -64,7 +72,7 @@ import { lineChangedOf } from './support/stations';
 openSearchFlow();
 
 describe('a search for a better station config', () => {
-  it('is started only by Spotlight, and no route starts, reads, lists, picks or stops a search, or reads its set, replays, candidates or runs', async () => {
+  it('is started only by Spotlight, and no route starts, lists, picks or stops a search, or reads its set, replays, candidates or runs; a team member reads where the station’s improvement stands', async () => {
     const setId = await createSet(tenTasks);
 
     await owner()
@@ -94,7 +102,6 @@ describe('a search for a better station config', () => {
     for (const path of [
       `${stationPath()}/searches`,
       `${stationPath()}/replay-set`,
-      `${stationPath()}/improvement`,
       `${teamPath()}/searches`,
       `${teamPath()}/searches/${id}`,
       `${teamPath()}/replay-sets`,
@@ -109,6 +116,23 @@ describe('a search for a better station config', () => {
     ]) {
       await owner().get(path).expect(404);
     }
+    expect(
+      bodyOf<{ lastSearch: { searchId: string; state: string } | null }>(
+        await owner().get(`${stationPath()}/improvement`).expect(200),
+      ).lastSearch,
+    ).toMatchObject({ searchId: id, state: 'seeding' });
+
+    const stranger = randomUUID();
+
+    await db.insert(schema.user).values({
+      id: stranger,
+      name: 'Eve',
+      email: `${stranger}@example.com`,
+    });
+    await http()
+      .get(`${stationPath()}/improvement`)
+      .set(TEST_USER_HEADER, stranger)
+      .expect(404);
     expect(
       bodyOf<{
         readonly items: {
@@ -191,6 +215,32 @@ describe('a search for a better station config', () => {
 
     await drained(() => ({ score: 5, cost: 0.2 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
+
+    const seedRuns = (
+      await db
+        .select({ runId: schema.replayEntry.runId })
+        .from(schema.replayEntry)
+        .where(eq(schema.replayEntry.replayId, seedReplayId))
+    ).flatMap((each) => (each.runId === null ? [] : [each.runId]));
+    const labelled = await app
+      .get(DrizzleReplayRunLabelsReader)
+      .replayRuns([...seedRuns, randomUUID()].map((each) => RunId.of(each)));
+
+    expect(seedRuns.length).toBeGreaterThan(0);
+    expect(labelled.map((each) => each.run.value).sort()).toEqual(
+      [...seedRuns].sort(),
+    );
+    expect(
+      labelled.every(
+        (each) =>
+          each.station.stationId.value === BUILD &&
+          each.station.teamId.equals(team.teamId) &&
+          each.candidateKind === 'live',
+      ),
+    ).toBe(true);
+    expect(await app.get(DrizzleReplayRunLabelsReader).replayRuns([])).toEqual(
+      [],
+    );
 
     const agent = await leasedSearchRun(id, 1);
     const heldOutTaskIds = new Set(

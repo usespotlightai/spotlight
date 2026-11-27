@@ -73,6 +73,19 @@ const searchingEvery = (days: number, enabled = true) =>
     requestsPerDay: 3,
   });
 
+const checking = () => {
+  suppliers.candidates.live = async () => ({
+    lineKey: 'delivery',
+    fingerprint: candidateOf('live').fingerprint,
+    scoring: CandidateScoring.of({
+      checksChanges: true,
+      judge: null,
+      rubricVersion: null,
+    }),
+    hashes: candidateOf('live').hashes,
+  });
+};
+
 const searching = (policy: SearchPolicy) => {
   const settings = suppliers.lines.stationSettings;
 
@@ -123,6 +136,8 @@ describe('ReadStationImprovementHandler', () => {
   it('says when the next search is due once nothing stands in its way', async () => {
     const set = aSet(6);
 
+    checking();
+
     await memory.setRepository.add(set);
     await memory.scheduleRepository.add(
       StationSearchSchedule.create({
@@ -142,6 +157,22 @@ describe('ReadStationImprovementHandler', () => {
     });
     expect(answer.nextSearchAt).toBe(daysAfter(2).toISOString());
     expect(answer.lastSkip).toBeNull();
+  });
+
+  it('has no next search while no judge or check can score one', async () => {
+    const set = aSet(6);
+
+    await memory.setRepository.add(set);
+    await memory.scheduleRepository.add(
+      StationSearchSchedule.create({
+        station: STATION,
+        setId: set.id,
+        at: NOW,
+      }),
+    );
+    searching(searchingEvery(7));
+
+    expect((await read()).nextSearchAt).toBeNull();
   });
 
   it('shows no skip while search is off for the station', async () => {

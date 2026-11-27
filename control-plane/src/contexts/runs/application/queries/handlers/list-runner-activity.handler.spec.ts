@@ -55,6 +55,12 @@ const LEASED = [
     'team_1',
     false,
   ),
+  leasedRun(
+    'run_11',
+    { owner: 'assist', kind: 'turn', id: 'turn_1' },
+    'team_1',
+    false,
+  ),
 ];
 
 const { runnerId: _, ...lastTaskRun } = leasedRun(
@@ -74,6 +80,7 @@ const listing = (member: boolean) => {
   const labels = new RunRequesterLabels();
   labels.register({
     owner: 'work',
+    checksViewer: false,
     labelsOf: async () =>
       new Map([
         [
@@ -87,7 +94,19 @@ const listing = (member: boolean) => {
       ]),
   });
   labels.register({
+    owner: 'assist',
+    checksViewer: false,
+    labelsOf: async () =>
+      new Map([
+        [
+          'assist/turn/turn_1',
+          { title: 'Summarise the incident', station: null },
+        ],
+      ]),
+  });
+  labels.register({
     owner: 'replays',
+    checksViewer: true,
     labelsOf: async (_requesters, viewer) =>
       new Map(
         viewer.equals(UserId.of('user_1'))
@@ -186,6 +205,18 @@ describe('ListRunnerActivityHandler', () => {
           station: { lineId: 'line_1', stationId: 'station_build' },
         },
       },
+      {
+        runnerId: 'runner_of_run_11',
+        currentRun: {
+          id: 'run_11',
+          state: 'claimed',
+          kind: 'turn',
+          teamId: 'team_1',
+          readable: false,
+          title: null,
+          station: null,
+        },
+      },
     ]);
     expect(leasedIn).toHaveBeenCalledWith(WORKSPACE);
     expect(viewers.readableAmong).toHaveBeenCalledWith(
@@ -217,6 +248,19 @@ describe('ListRunnerActivityHandler', () => {
     ]);
     expect(idleIn).toHaveBeenCalledWith(WORKSPACE);
     expect(lastRunsOf).toHaveBeenCalledWith(WORKSPACE, ['work/task-task_1']);
+  });
+
+  it('labels an unlisted run for no viewer its owner keeps it from', async () => {
+    const { handler } = listing(true);
+
+    const activity = await handler.execute(
+      new ListRunnerActivityQuery('acme', 'user_2'),
+    );
+
+    expect(
+      activity?.runners.find((each) => each.runnerId === 'runner_of_run_10')
+        ?.currentRun,
+    ).toMatchObject({ readable: false, title: null, station: null });
   });
 
   it('shows nothing to a viewer outside the workspace', async () => {

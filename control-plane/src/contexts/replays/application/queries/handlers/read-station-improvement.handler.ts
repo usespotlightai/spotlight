@@ -10,6 +10,7 @@ import {
   improvementSetView,
   improvementSkipView,
 } from '@replays/application/queries/views/station-improvement-view';
+import { lineMonthSpent } from '@replays/application/services/line-month-spend';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { resultPendingAt } from '@replays/application/services/result-pending';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
@@ -31,9 +32,11 @@ import {
   standingSkipOf,
 } from '@replays/domain/services/search-schedule';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -84,17 +87,7 @@ export class ReadStationImprovementHandler implements QueryHandlerPort<
         lastSearch: last && (await this.searchOf(last, station.workspaceId)),
         nextSearchAt:
           schedule &&
-          (nextDueAt({
-            policy,
-            lastStartedAt: schedule.lastStartedAt,
-            cooldownFrom: schedule.cooldownFrom,
-            alertPendingSince: schedule.alertPendingSince,
-            checkAfter: schedule.checkAfter,
-            busy: await this.busy(last, station.stationId),
-            skipped: schedule.lastSkip !== null,
-            now: this.clock.now(),
-          })?.toISOString() ??
-            null),
+          (await this.nextSearchAt(schedule, policy, live, last, station)),
         lastSkip:
           schedule && skip
             ? improvementSkipView(skip, schedule.checkAfter)
@@ -103,6 +96,36 @@ export class ReadStationImprovementHandler implements QueryHandlerPort<
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async nextSearchAt(
+    schedule: StationSearchSchedule,
+    policy: SearchPolicy | null,
+    live: LiveConfig | null,
+    last: Search | null,
+    station: { readonly lineId: LineId; readonly stationId: StationId },
+  ): Promise<string | null> {
+    const now = this.clock.now();
+
+    return (
+      nextDueAt({
+        policy,
+        scores: live?.scoring.scores ?? false,
+        lastStartedAt: schedule.lastStartedAt,
+        cooldownFrom: schedule.cooldownFrom,
+        alertPendingSince: schedule.alertPendingSince,
+        checkAfter: schedule.checkAfter,
+        busy: await this.busy(last, station.stationId),
+        pullRequestOpen: await this.pullRequests.openAtStation(
+          station.stationId,
+        ),
+        monthSpent:
+          policy &&
+          (await lineMonthSpent(this.searches, station.lineId, policy, now)),
+        skipped: schedule.lastSkip !== null,
+        now,
+      })?.toISOString() ?? null
+    );
   }
 
   private async busy(

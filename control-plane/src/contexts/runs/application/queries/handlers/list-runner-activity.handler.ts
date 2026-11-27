@@ -58,9 +58,10 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
 
       const shown = (each: ActivityRunRow): LeasedRunDto => {
         const reads = readable.has(each.runId.value);
+        const found = labels.get(requesterRefOf(each.requester));
         const label =
-          reads || !each.policy.listed
-            ? labels.get(requesterRefOf(each.requester))
+          reads || (!each.policy.listed && found?.checkedForViewer)
+            ? found
             : undefined;
 
         return {

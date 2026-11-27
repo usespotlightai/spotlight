@@ -326,14 +326,9 @@ describe('requestRefusalOf', () => {
 describe('nextDueAt', () => {
   const next = (over: Partial<Parameters<typeof nextDueAt>[0]> = {}) =>
     nextDueAt({
-      policy: policyOf(),
-      lastStartedAt: null,
-      cooldownFrom: null,
-      alertPendingSince: null,
+      ...due(),
       checkAfter: NOW,
-      busy: false,
       skipped: false,
-      now: NOW,
       ...over,
     });
 
@@ -359,6 +354,37 @@ describe('nextDueAt', () => {
 
   it('waits for the next check', () => {
     expect(next({ checkAfter: ahead(DAY) })).toEqual(ahead(DAY));
+  });
+
+  it('has none while a reason other than time would skip it', () => {
+    expect(next({ scores: false })).toBeNull();
+    expect(next({ pullRequestOpen: true })).toBeNull();
+    expect(next({ monthSpent: Money.of(45, 'USD') })).toBeNull();
+  });
+
+  it('is when the schedule’s own verdict first starts a search', () => {
+    const scenarios: Partial<DueInput>[] = [
+      { lastStartedAt: ago(2 * DAY), cooldownFrom: ago(2 * DAY) },
+      {
+        lastStartedAt: ago(2 * DAY),
+        cooldownFrom: ago(2 * DAY),
+        alertPendingSince: ago(HOUR),
+      },
+      { lastStartedAt: ago(8 * DAY), cooldownFrom: ago(HOUR) },
+    ];
+
+    for (const scenario of scenarios) {
+      const at = next(scenario);
+
+      if (!at) {
+        throw new Error('no next search');
+      }
+      expect(dueVerdict(due({ ...scenario, now: at })).kind).toBe('start');
+      expect(
+        dueVerdict(due({ ...scenario, now: new Date(at.getTime() - 60_000) }))
+          .kind,
+      ).not.toBe('start');
+    }
   });
 
   it('has none while a search is in progress or the last due one was skipped', () => {

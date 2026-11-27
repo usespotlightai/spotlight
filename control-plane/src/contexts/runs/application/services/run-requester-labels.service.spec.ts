@@ -26,6 +26,7 @@ describe('RunRequesterLabels', () => {
     const labels = new RunRequesterLabels();
     labels.register({
       owner: 'work',
+      checksViewer: false,
       labelsOf: async (requesters, viewer) => {
         asked.push(...requesters.map(requesterRefOf), viewer.value);
         return new Map([
@@ -40,6 +41,7 @@ describe('RunRequesterLabels', () => {
     expect(found.get(requesterRefOf(task))).toEqual({
       title: 'Fix the queue',
       station: null,
+      checkedForViewer: false,
     });
   });
 

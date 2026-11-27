@@ -1,4 +1,5 @@
 import type { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
+import { lineMonthSpent } from '@replays/application/services/line-month-spend';
 import type { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { resultPendingAt } from '@replays/application/services/result-pending';
 import type { StartSearch } from '@replays/application/services/start-search.service';
@@ -15,12 +16,9 @@ import type { StationSearchScheduleRepository } from '@replays/domain/repositori
 import {
   BUSY_RECHECK_MS,
   dueVerdict,
-  monthSpentOf,
-  monthStartOf,
   nextMonthStartOf,
   SET_RECHECK_MS,
 } from '@replays/domain/services/search-schedule';
-import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import type { SearchSkipReason } from '@replays/domain/value-objects/search-skip-reason';
@@ -29,7 +27,6 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 const DUE_PER_TICK = 20;
@@ -107,7 +104,8 @@ export class AutoSearches implements PendingJobsPort {
       now,
       busy: await this.busy(stationId),
       pullRequestOpen: await this.pullRequests.openAtStation(stationId),
-      monthSpent: policy && (await this.monthSpent(lineId, policy, now)),
+      monthSpent:
+        policy && (await lineMonthSpent(this.searches, lineId, policy, now)),
     });
 
     if (verdict.kind === 'wait') {
@@ -192,17 +190,6 @@ export class AutoSearches implements PendingJobsPort {
         schedule.postponed(after(this.clock.now(), BUSY_RECHECK_MS)),
       );
     }
-  }
-
-  private async monthSpent(
-    lineId: LineId,
-    policy: SearchPolicy,
-    now: Date,
-  ): Promise<Money> {
-    return monthSpentOf(
-      await this.searches.ofLineStartedSince(lineId, monthStartOf(now)),
-      policy.monthlyCeiling.currency,
-    );
   }
 
   private skipped(
