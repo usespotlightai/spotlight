@@ -337,6 +337,9 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
+  await db
+    .insert(schema.lineRepository)
+    .values({ lineId: DELIVERY, repository: 'acme/widgets' });
   await insertStations(db, [
     {
       id: BACKLOG,

@@ -3,6 +3,7 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -10,6 +11,7 @@ import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { handoverOf, orderAt } from '@work/domain/services/run-order';
+import type { TaskCheckout } from '@work/domain/services/task-checkouts';
 import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import {
@@ -77,9 +79,15 @@ const known = (
 const orderWith = (
   boundSecrets: readonly BoundSecret[],
   sandboxEnv: ReadyProfile['sandboxEnv'] = [],
+  at: { checkouts?: readonly TaskCheckout[]; needsCheckout?: boolean } = {},
 ) =>
   orderAt({
-    at: { stationId: TRIAGE, resume: Resume.of({}), checkouts: [] },
+    at: {
+      stationId: TRIAGE,
+      resume: Resume.of({}),
+      checkouts: at.checkouts ?? [],
+      needsCheckout: at.needsCheckout,
+    },
     line: LINE,
     harnesses: HarnessCatalogue.of([HarnessId.of('dev')]),
     ready: [],
@@ -131,6 +139,38 @@ describe('orderAt', () => {
       'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
       'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
     ]);
+  });
+
+  describe('a run that needs a checkout', () => {
+    const refusalsAt = (at: {
+      checkouts?: readonly TaskCheckout[];
+      needsCheckout?: boolean;
+    }) => orderWith([], [], at)?.refusals.map((each) => each.description);
+
+    it('refuses the run where the line has no repository to check out', () => {
+      expect(refusalsAt({ needsCheckout: true })).toEqual([
+        'line_has_no_repositories: This line has no repositories. Add one in the line’s configuration. Station: Triage',
+      ]);
+    });
+
+    it('does not refuse the run where it checks out a repository', () => {
+      const widgets: TaskCheckout = {
+        repository: Repository.of('acme/widgets'),
+        branch: null,
+        base: null,
+        ref: null,
+        diffOf: 'worktree',
+        setup: null,
+      };
+
+      expect(refusalsAt({ needsCheckout: true, checkouts: [widgets] })).toEqual(
+        [],
+      );
+    });
+
+    it('does not refuse a run that needs no checkout', () => {
+      expect(refusalsAt({})).toEqual([]);
+    });
   });
 
   it('does not refuse the run for a secret the profile does not inject', () => {
