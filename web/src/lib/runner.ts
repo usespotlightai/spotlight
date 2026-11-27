@@ -12,6 +12,7 @@ import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
 import { since } from '@/lib/since';
+import { stationPath } from '@/lib/station';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type LeasedRun = LeasedRunResponseDto;
@@ -300,10 +301,23 @@ export const hiddenFromViewer = (run: LeasedRun | null): boolean =>
 export const leasedRunPath = (
   slug: string,
   run: LeasedRun | null,
-): string | null =>
-  run?.kind === 'task' && run.readable && run.teamId !== null
+): string | null => {
+  if (!run || run.teamId === null) {
+    return null;
+  }
+  if (run.station) {
+    return stationPath(
+      slug,
+      run.teamId,
+      run.station.lineId,
+      run.station.stationId,
+    );
+  }
+
+  return run.kind === 'task' && run.readable
     ? runPath(slug, run.teamId, run.id)
     : null;
+};
 
 export const isWarm = (sandbox: IdleSandbox): boolean =>
   sandbox.warmLineId !== null;

@@ -240,6 +240,11 @@ function Address() {
   return <output aria-label="Address">{location.search}</output>;
 }
 
+function HandedPrompt() {
+  const { state } = useLocation() as { state: { prompt?: string } | null };
+  return <output aria-label="Handed prompt">{state?.prompt ?? ''}</output>;
+}
+
 const showing = (search = '') =>
   render(
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${search}`]}>
@@ -253,6 +258,7 @@ const showing = (search = '') =>
             </>
           }
         />
+        <Route path="/w/:slug/team/:teamId/agent" element={<HandedPrompt />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -484,6 +490,22 @@ describe('TeamInsights', () => {
         name: 'Sent back 30% (was 10%, all stations 15%)',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('asks the agent about the station and the signals that flagged it', async () => {
+    showing();
+
+    await userEvent.click(
+      within(
+        screen.getByRole('list', { name: 'Stations worth improving' }),
+      ).getByRole('link', { name: 'Ask the agent' }),
+    );
+
+    expect(
+      screen.getByRole('status', { name: 'Handed prompt' }),
+    ).toHaveTextContent(
+      'Sent back 30% (was 10%, all stations 15%). What should change at this station?',
+    );
   });
 
   it('keeps the shape of the overview while it loads', () => {

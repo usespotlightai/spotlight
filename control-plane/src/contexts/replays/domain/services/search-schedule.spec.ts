@@ -3,7 +3,9 @@ import {
   dueVerdict,
   monthSpentOf,
   monthStartOf,
+  nextDueAt,
   nextMonthStartOf,
+  standingSkipOf,
   requestRefusalOf,
   type SetInput,
   setVerdict,
@@ -318,5 +320,64 @@ describe('requestRefusalOf', () => {
       'request-limit',
     );
     expect(requestRefusalOf({ ...free, scores: false })).toBe('no-scoring');
+  });
+});
+
+describe('nextDueAt', () => {
+  const next = (over: Partial<Parameters<typeof nextDueAt>[0]> = {}) =>
+    nextDueAt({
+      policy: policyOf(),
+      lastStartedAt: null,
+      cooldownFrom: null,
+      alertPendingSince: null,
+      checkAfter: NOW,
+      busy: false,
+      skipped: false,
+      now: NOW,
+      ...over,
+    });
+
+  it('is now for a station that never searched and is due', () => {
+    expect(next()).toEqual(NOW);
+  });
+
+  it('waits out the period after the last search', () => {
+    expect(
+      next({ lastStartedAt: ago(2 * DAY), cooldownFrom: ago(2 * DAY) }),
+    ).toEqual(ahead(5 * DAY));
+  });
+
+  it('waits only for the cooldown when an alert is pending', () => {
+    expect(
+      next({
+        lastStartedAt: ago(2 * DAY),
+        cooldownFrom: ago(2 * DAY),
+        alertPendingSince: ago(HOUR),
+      }),
+    ).toEqual(ahead(DAY));
+  });
+
+  it('waits for the next check', () => {
+    expect(next({ checkAfter: ahead(DAY) })).toEqual(ahead(DAY));
+  });
+
+  it('has none while a search is in progress or the last due one was skipped', () => {
+    expect(next({ busy: true })).toBeNull();
+    expect(next({ skipped: true, checkAfter: ahead(DAY) })).toBeNull();
+  });
+
+  it('has none while search is off', () => {
+    expect(next({ policy: policyOf({ enabled: false }) })).toBeNull();
+    expect(next({ policy: null })).toBeNull();
+  });
+});
+
+describe('standingSkipOf', () => {
+  it('keeps the last skip only while the policy is on', () => {
+    const skip = { reason: 'set-too-small' };
+
+    expect(standingSkipOf(policyOf(), skip)).toBe(skip);
+    expect(standingSkipOf(policyOf({ enabled: false }), skip)).toBeNull();
+    expect(standingSkipOf(null, skip)).toBeNull();
   });
 });

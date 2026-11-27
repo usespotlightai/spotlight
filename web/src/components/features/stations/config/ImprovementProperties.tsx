@@ -1,3 +1,4 @@
+import { ImprovementStatus } from '@/components/features/stations/config/ImprovementStatus';
 import {
   Property,
   PropertyList,
@@ -10,7 +11,22 @@ import {
   searchPolicyNote,
 } from '@/lib/search-policy';
 
-export function ImprovementProperties({ policy }: { policy: SearchPolicy }) {
+type ImprovedStation = {
+  slug: string;
+  teamId: string;
+  lineId: string;
+  stationId: string;
+};
+
+type ImprovementPropertiesProps = {
+  policy: SearchPolicy;
+  station?: ImprovedStation;
+};
+
+export function ImprovementProperties({
+  policy,
+  station,
+}: ImprovementPropertiesProps) {
   return (
     <TabSection
       level={3}
@@ -31,6 +47,7 @@ export function ImprovementProperties({ policy }: { policy: SearchPolicy }) {
               <span className="text-muted-foreground">Off</span>
             </Property>
           )}
+          {station && <ImprovementStatus {...station} />}
         </PropertyList>
       </div>
     </TabSection>

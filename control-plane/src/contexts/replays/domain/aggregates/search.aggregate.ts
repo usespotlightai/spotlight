@@ -50,7 +50,7 @@ import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import type { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
 import {
-  ACTIVE_SEARCH_STATES,
+  isActiveSearchState,
   type SearchState,
 } from '@replays/domain/value-objects/search-state';
 import type {
@@ -151,9 +151,6 @@ const agentFits = (state: {
   (state.agent === null) === !state.budget.agentRuns &&
   (state.agent !== null ||
     (state.trigger === 'request' && state.budget.iterations === 1));
-
-const isActive = (state: SearchState): boolean =>
-  (ACTIVE_SEARCH_STATES as readonly SearchState[]).includes(state);
 
 export class Search extends EventRecorder {
   private constructor(
@@ -509,6 +506,10 @@ export class Search extends EventRecorder {
     return this.state.pick;
   }
 
+  get anyCandidateFinished(): boolean {
+    return this.proposals.some((each) => each.replay.hasFinished);
+  }
+
   get awaitsPick(): boolean {
     return this.state.state === 'finished' && this.state.pick === null;
   }
@@ -532,7 +533,7 @@ export class Search extends EventRecorder {
   }
 
   get isActive(): boolean {
-    return isActive(this.state.state);
+    return isActiveSearchState(this.state.state);
   }
 
   get activeRun(): RunId | null {

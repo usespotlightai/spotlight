@@ -6,6 +6,7 @@ import type {
   ReplayedSeedDto,
   ReplayedSetDto,
   ReplayedStationDto,
+  ReplayingSearchDto,
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
 import type {
@@ -39,6 +40,7 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
+import { isActiveSearchState } from '@replays/domain/value-objects/search-state';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
@@ -415,22 +417,36 @@ export const replayedCandidatesView = (
 
     return standard;
   };
-  const searched: Placed[] = seen.searches
+  const ofPeriod = seen.searches.filter(
+    (search) =>
+      seen.period.includes(search.startedAt) &&
+      baselines.has(search.setId.value),
+  );
+  const searchedBy = ofPeriod.map((search) => ({
+    search,
+    placed: searchedOf(
+      search,
+      seen.searchReplays,
+      seen.candidates,
+      seen.pullRequests,
+      baselineAt(search.setId.value),
+      standardOf(search.setId.value).minGain,
+    ).map((candidate) => ({ setId: search.setId.value, candidate })),
+  }));
+  const searched: Placed[] = searchedBy.flatMap((each) => each.placed);
+  const replaying: ReplayingSearchDto[] = searchedBy
     .filter(
-      (search) =>
-        seen.period.includes(search.startedAt) &&
-        baselines.has(search.setId.value),
+      (each) =>
+        each.placed.length === 0 && isActiveSearchState(each.search.current),
     )
-    .flatMap((search) =>
-      searchedOf(
-        search,
-        seen.searchReplays,
-        seen.candidates,
-        seen.pullRequests,
-        baselineAt(search.setId.value),
-        standardOf(search.setId.value).minGain,
-      ).map((candidate) => ({ setId: search.setId.value, candidate })),
-    );
+    .map(({ search }) => ({
+      searchId: search.id.value,
+      lineId: search.station.lineId.value,
+      stationId: search.station.stationId.value,
+      state: search.current,
+      startedAt: search.startedAt.toISOString(),
+    }))
+    .sort((one, other) => newestFirst(one.startedAt, other.startedAt));
   const bySet = grouped(searched, (each) => each.setId);
   const shown = seen.sets.flatMap((set) => {
     const placed = bySet.get(set.id.value);
@@ -486,5 +502,6 @@ export const replayedCandidatesView = (
     stations: stations.sort((one, other) =>
       newestFirst(newestOf(one), newestOf(other)),
     ),
+    replaying,
   };
 };

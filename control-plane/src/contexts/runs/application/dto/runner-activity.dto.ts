@@ -1,3 +1,8 @@
+export interface LeasedRunStationDto {
+  readonly lineId: string;
+  readonly stationId: string;
+}
+
 export interface LeasedRunDto {
   readonly id: string;
   readonly state: string;
@@ -5,6 +10,7 @@ export interface LeasedRunDto {
   readonly teamId: string | null;
   readonly readable: boolean;
   readonly title: string | null;
+  readonly station: LeasedRunStationDto | null;
 }
 
 interface BusyRunnerDto {

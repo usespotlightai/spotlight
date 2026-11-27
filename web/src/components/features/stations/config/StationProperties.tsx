@@ -9,12 +9,14 @@ export const PROPERTIES_LAYOUT =
   'grid content-start gap-10 order-first @xl/pane:grid-cols-2 @4xl/pane:order-none @4xl/pane:grid-cols-1';
 
 type StationPropertiesProps = {
+  slug: string;
   teamId: string;
   line: LineResponseDto;
   station: StationResponseDto;
 };
 
 export function StationProperties({
+  slug,
   teamId,
   line,
   station,
@@ -38,7 +40,12 @@ export function StationProperties({
         skills={station.skills}
         tools={station.tools}
       />
-      {station.search && <ImprovementProperties policy={station.search} />}
+      {station.search && (
+        <ImprovementProperties
+          policy={station.search}
+          station={{ slug, teamId, lineId: line.id, stationId: station.id }}
+        />
+      )}
     </aside>
   );
 }

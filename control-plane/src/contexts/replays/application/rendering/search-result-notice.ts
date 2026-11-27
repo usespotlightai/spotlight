@@ -72,7 +72,7 @@ const DECLINES: Readonly<Record<SearchPickDecline, string>> = {
     'A person closed a config pull request with the same config before.',
 };
 
-const STOPS: Readonly<Record<SearchCutShort, string>> = {
+export const STOPS: Readonly<Record<SearchCutShort, string>> = {
   'turned-off': 'A person turned off search for the station.',
   'station-gone': 'The station is no longer on the line.',
   'seed-failed': 'The replay of the live config failed.',
@@ -191,7 +191,10 @@ const requestedResultOf =
     }
   };
 
-const declineOf = (reason: SearchPickDecline, summary: SearchSummary): string =>
+export const declineOf = (
+  reason: SearchPickDecline,
+  summary: Pick<SearchSummary, 'candidateFinished'>,
+): string =>
   reason === 'no-candidate' && !summary.candidateFinished
     ? 'No candidate finished its replay of the searched tasks.'
     : DECLINES[reason];

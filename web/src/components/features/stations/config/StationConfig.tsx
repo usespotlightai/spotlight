@@ -41,7 +41,12 @@ export function StationConfig({
         )}
       </div>
 
-      <StationProperties teamId={teamId} line={line} station={station} />
+      <StationProperties
+        slug={slug}
+        teamId={teamId}
+        line={line}
+        station={station}
+      />
     </section>
   );
 }

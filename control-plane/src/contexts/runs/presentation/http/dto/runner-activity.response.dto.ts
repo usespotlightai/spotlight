@@ -1,8 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
   LeasedRunDto,
+  LeasedRunStationDto,
   RunnerActivityDto,
 } from '@runs/application/dto/runner-activity.dto';
+
+export class LeasedRunStationResponseDto {
+  @ApiProperty({ example: '5b2e8c1f-7a3d-4e9b-b6c0-2f1d8a4e7c35' })
+  readonly lineId: string;
+
+  @ApiProperty({ example: '9c4a1e7b-3f2d-4b8e-a5c6-7d0e1f2a3b48' })
+  readonly stationId: string;
+
+  constructor(station: LeasedRunStationDto) {
+    this.lineId = station.lineId;
+    this.stationId = station.stationId;
+  }
+}
 
 export class LeasedRunResponseDto {
   @ApiProperty({ example: '3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63' })
@@ -39,6 +53,14 @@ export class LeasedRunResponseDto {
   })
   readonly title: string | null;
 
+  @ApiProperty({
+    type: LeasedRunStationResponseDto,
+    nullable: true,
+    description:
+      'The station the run’s requester places it at, such as the station a replay run replays a config of; null where the requester names none, or where the caller cannot read the run’s team',
+  })
+  readonly station: LeasedRunStationResponseDto | null;
+
   constructor(run: LeasedRunDto) {
     this.id = run.id;
     this.state = run.state;
@@ -46,6 +68,9 @@ export class LeasedRunResponseDto {
     this.teamId = run.teamId;
     this.readable = run.readable;
     this.title = run.title;
+    this.station = run.station
+      ? new LeasedRunStationResponseDto(run.station)
+      : null;
   }
 }
 

@@ -100,8 +100,7 @@ export class AutoSearches implements PendingJobsPort {
     const policy = live?.search ?? null;
     const verdict = dueVerdict({
       policy,
-      scores:
-        live !== null && (live.scoring.judges || live.scoring.checksChanges),
+      scores: live !== null && live.scoring.scores,
       lastStartedAt: due.lastStartedAt,
       cooldownFrom: due.cooldownFrom,
       alertPendingSince: due.alertPendingSince,

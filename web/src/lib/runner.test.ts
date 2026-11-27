@@ -114,6 +114,7 @@ const LEASED_RUN = {
   teamId: 'team_1',
   readable: true,
   title: 'Drain the stuck retry queues',
+  station: null,
 };
 
 const busy = (id: string): ActiveRunner => ({
@@ -472,6 +473,26 @@ describe('hiddenFromViewer', () => {
 });
 
 describe('leasedRunPath', () => {
+  it('links a replay run to the station whose config it replays', () => {
+    const replay = {
+      ...LEASED_RUN,
+      kind: 'replay',
+      readable: false,
+      title: 'Replay of candidate terse at Implementation',
+      station: { lineId: 'line_1', stationId: 'station_1' },
+    };
+
+    expect(formatRun(replay)).toBe(
+      'Replay of candidate terse at Implementation',
+    );
+    expect(leasedRunPath('acme', replay)).toBe(
+      '/w/acme/team/team_1/lines/line_1/stations/station_1',
+    );
+    expect(
+      leasedRunPath('acme', { ...replay, title: null, station: null }),
+    ).toBeNull();
+  });
+
   it('links only a task run on a team the viewer reads', () => {
     expect(leasedRunPath('acme', LEASED_RUN)).toBe(
       '/w/acme/team/team_1/runs/run_7',

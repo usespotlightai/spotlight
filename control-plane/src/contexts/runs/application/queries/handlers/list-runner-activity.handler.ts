@@ -49,12 +49,19 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
       );
       const runs = [...leased, ...lastRuns];
       const [labels, readable] = await Promise.all([
-        this.labels.labelsOf(runs.map((each) => each.requester)),
+        this.labels.labelsOf(
+          runs.map((each) => each.requester),
+          viewer,
+        ),
         this.viewers.readableAmong(runs, viewer),
       ]);
 
       const shown = (each: ActivityRunRow): LeasedRunDto => {
         const reads = readable.has(each.runId.value);
+        const label =
+          reads || !each.policy.listed
+            ? labels.get(requesterRefOf(each.requester))
+            : undefined;
 
         return {
           id: each.runId.value,
@@ -62,9 +69,8 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
           kind: each.requester.kind,
           teamId: each.teamId,
           readable: reads,
-          title: reads
-            ? (labels.get(requesterRefOf(each.requester))?.title ?? null)
-            : null,
+          title: label?.title ?? null,
+          station: label?.station ?? null,
         };
       };
 

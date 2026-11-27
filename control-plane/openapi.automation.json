@@ -1681,6 +1681,111 @@
           "replays"
         ]
       }
+    },
+    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/improvement": {
+      "get": {
+        "operationId": "readStationImprovement",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationImprovementResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team or station for this caller",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "How Spotlight improves the station: its replay set against what a search needs, how a replay scores it, its newest search with its replay runs, when the next search is due, and why the last due search was skipped",
+        "tags": [
+          "replays"
+        ]
+      }
     }
   },
   "info": {
@@ -8947,6 +9052,41 @@
           "sets"
         ]
       },
+      "ReplayingSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "searchId": {
+            "type": "string"
+          },
+          "lineId": {
+            "type": "string"
+          },
+          "stationId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "seeding",
+              "searching",
+              "holding-out",
+              "finished",
+              "stopped"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-09-30T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "searchId",
+          "lineId",
+          "stationId",
+          "state",
+          "startedAt"
+        ]
+      },
       "ReplayedCandidatesResponseDto": {
         "type": "object",
         "properties": {
@@ -8963,12 +9103,396 @@
             "items": {
               "$ref": "#/components/schemas/ReplayedStationResponseDto"
             }
+          },
+          "replaying": {
+            "description": "Searches of the period still in progress that have no candidate to show yet, such as one replaying the live config first, newest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplayingSearchResponseDto"
+            }
           }
         },
         "required": [
           "period",
           "truncated",
-          "stations"
+          "stations",
+          "replaying"
+        ]
+      },
+      "ImprovementFreshResponseDto": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "number",
+            "description": "How many of the set’s tasks no earlier search of the station searched on, so a search can hold them out"
+          },
+          "heldOutTasks": {
+            "type": "number",
+            "description": "How many of its tasks a search of the set holds out"
+          },
+          "enough": {
+            "type": "boolean",
+            "description": "Whether enough tasks are fresh for a search to hold out"
+          }
+        },
+        "required": [
+          "tasks",
+          "heldOutTasks",
+          "enough"
+        ]
+      },
+      "ImprovementSetResponseDto": {
+        "type": "object",
+        "properties": {
+          "noise": {
+            "nullable": true,
+            "description": "How much its success rate moves between repeats of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetNoiseResponseDto"
+              }
+            ]
+          },
+          "saturation": {
+            "nullable": true,
+            "description": "How much of the set the live config passes already; null until it replayed the whole set",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetSaturationResponseDto"
+              }
+            ]
+          },
+          "judge": {
+            "nullable": true,
+            "description": "How often the judge agrees with itself, from the set’s newest calibration; null until a calibration was judged",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JudgeConsistencyResponseDto"
+              }
+            ]
+          },
+          "checks": {
+            "nullable": true,
+            "description": "Whether the station’s check returns the same answer twice, from the set’s newest calibration; null until a calibration was checked",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckConsistencyResponseDto"
+              }
+            ]
+          },
+          "oracle": {
+            "nullable": true,
+            "description": "How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OracleReadingResponseDto"
+              }
+            ]
+          },
+          "tasks": {
+            "type": "number",
+            "description": "How many distinct tasks the replay set has"
+          },
+          "fewestTasks": {
+            "type": "number",
+            "description": "The fewest tasks a search needs",
+            "example": 5
+          },
+          "bigEnough": {
+            "type": "boolean",
+            "description": "Whether the set has the tasks a search needs"
+          },
+          "fresh": {
+            "nullable": true,
+            "description": "Its fresh tasks against those a search holds out; null until the set has the tasks a search needs",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImprovementFreshResponseDto"
+              }
+            ]
+          },
+          "minGain": {
+            "type": "number",
+            "description": "The least gain, 0 to 1, that the line counts as better"
+          }
+        },
+        "required": [
+          "noise",
+          "saturation",
+          "judge",
+          "checks",
+          "oracle",
+          "tasks",
+          "fewestTasks",
+          "bigEnough",
+          "fresh",
+          "minGain"
+        ]
+      },
+      "ImprovementScoringResponseDto": {
+        "type": "object",
+        "properties": {
+          "judge": {
+            "type": "boolean",
+            "description": "Whether the station has a judge"
+          },
+          "check": {
+            "type": "boolean",
+            "description": "Whether the station checks its changes"
+          },
+          "scores": {
+            "type": "boolean",
+            "description": "Whether a replay can score a config of the station, by its judge or its check"
+          }
+        },
+        "required": [
+          "judge",
+          "check",
+          "scores"
+        ]
+      },
+      "ImprovementRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The replay run; null until it is queued"
+          },
+          "originalRunId": {
+            "type": "string",
+            "description": "The past run it replays"
+          },
+          "taskId": {
+            "type": "string",
+            "description": "The task of the past run"
+          },
+          "taskTitle": {
+            "type": "string",
+            "nullable": true,
+            "description": "The title of the task; null where it has none"
+          },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "running",
+              "ended"
+            ]
+          },
+          "succeeded": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether it succeeded; null until it ended and was scored"
+          }
+        },
+        "required": [
+          "runId",
+          "originalRunId",
+          "taskId",
+          "taskTitle",
+          "progress",
+          "succeeded"
+        ]
+      },
+      "ImprovementReplayResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string"
+          },
+          "candidate": {
+            "type": "string",
+            "description": "The name of the config it replays",
+            "example": "terse"
+          },
+          "live": {
+            "type": "boolean",
+            "description": "Whether it replays the live config"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "finished",
+              "stopped",
+              "ceiling-reached"
+            ]
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImprovementRunResponseDto"
+            }
+          }
+        },
+        "required": [
+          "replayId",
+          "candidate",
+          "live",
+          "state",
+          "runs"
+        ]
+      },
+      "ImprovementSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "searchId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "seeding",
+              "searching",
+              "holding-out",
+              "finished",
+              "stopped"
+            ]
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "schedule",
+              "alert",
+              "request"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-11-27T10:00:00.000Z"
+          },
+          "endedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "result": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the search came to, in words; null while it runs"
+          },
+          "replays": {
+            "description": "Its replays, oldest first, each with its runs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImprovementReplayResponseDto"
+            }
+          }
+        },
+        "required": [
+          "searchId",
+          "state",
+          "trigger",
+          "startedAt",
+          "endedAt",
+          "result",
+          "replays"
+        ]
+      },
+      "ImprovementSkipResponseDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "no-agent",
+              "no-scoring",
+              "set-too-small",
+              "no-fresh-held-out",
+              "ceiling-too-low",
+              "noisy",
+              "judge-unstable",
+              "judge-disagrees-with-people",
+              "flaky-checks",
+              "no-headroom",
+              "monthly-ceiling",
+              "pull-request-open",
+              "cooldown"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-11-27T10:00:00.000Z"
+          },
+          "text": {
+            "type": "string",
+            "description": "Why Spotlight skipped the search, in words"
+          },
+          "retryAt": {
+            "type": "string",
+            "example": "2026-11-28T10:00:00.000Z",
+            "description": "When Spotlight looks again at starting a search"
+          }
+        },
+        "required": [
+          "reason",
+          "at",
+          "text",
+          "retryAt"
+        ]
+      },
+      "StationImprovementResponseDto": {
+        "type": "object",
+        "properties": {
+          "set": {
+            "nullable": true,
+            "description": "The station’s replay set; null until the station has one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImprovementSetResponseDto"
+              }
+            ]
+          },
+          "scoring": {
+            "nullable": true,
+            "description": "How a replay scores the live config; null without one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImprovementScoringResponseDto"
+              }
+            ]
+          },
+          "lastSearch": {
+            "nullable": true,
+            "description": "The station’s newest search; null before its first",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImprovementSearchResponseDto"
+              }
+            ]
+          },
+          "nextSearchAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the next search of the station is due; null while search is off, while a search is in progress or awaits its result, or while the last due search was skipped"
+          },
+          "lastSkip": {
+            "nullable": true,
+            "description": "Why Spotlight last skipped a due search; null when a search started since, or while search is off",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImprovementSkipResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "set",
+          "scoring",
+          "lastSearch",
+          "nextSearchAt",
+          "lastSkip"
         ]
       }
     }

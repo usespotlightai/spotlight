@@ -8655,6 +8655,23 @@
           "connections"
         ]
       },
+      "LeasedRunStationResponseDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "example": "5b2e8c1f-7a3d-4e9b-b6c0-2f1d8a4e7c35"
+          },
+          "stationId": {
+            "type": "string",
+            "example": "9c4a1e7b-3f2d-4b8e-a5c6-7d0e1f2a3b48"
+          }
+        },
+        "required": [
+          "lineId",
+          "stationId"
+        ]
+      },
       "LeasedRunResponseDto": {
         "type": "object",
         "properties": {
@@ -8684,6 +8701,16 @@
             "type": "string",
             "nullable": true,
             "description": "The title the run’s requester gives it; null where the requester gives none, or where the caller cannot read the run’s team"
+          },
+          "station": {
+            "nullable": true,
+            "description": "The station the run’s requester places it at, such as the station a replay run replays a config of; null where the requester names none, or where the caller cannot read the run’s team",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeasedRunStationResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -8692,7 +8719,8 @@
           "kind",
           "teamId",
           "readable",
-          "title"
+          "title",
+          "station"
         ]
       },
       "BusyRunnerResponseDto": {

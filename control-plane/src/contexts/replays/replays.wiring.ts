@@ -129,9 +129,11 @@ import {
 import { ReadReplayCheckHandler } from '@replays/application/queries/handlers/read-replay-check.handler';
 import { ReadReplayedCandidatesHandler } from '@replays/application/queries/handlers/read-replayed-candidates.handler';
 import { ReadSearchViewHandler } from '@replays/application/queries/handlers/read-search-view.handler';
+import { ReadStationImprovementHandler } from '@replays/application/queries/handlers/read-station-improvement.handler';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
 import { ReadSearchViewQuery } from '@replays/application/queries/read-search-view.query';
+import { ReadStationImprovementQuery } from '@replays/application/queries/read-station-improvement.query';
 import { SearchVisibilities } from '@replays/application/queries/search-visibilities';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
@@ -174,6 +176,7 @@ import { RecordReplayVerdict } from '@replays/application/services/record-replay
 import { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplayRunDispatch } from '@replays/application/services/replay-run-dispatch.service';
+import { ReplayRunLabels } from '@replays/application/services/replay-run-labels.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { ReportJudgeClaimsPullRequests } from '@replays/application/services/report-judge-claims-pull-requests.service';
 import { RequestChangeJudging } from '@replays/application/services/request-change-judging.service';
@@ -215,6 +218,7 @@ import { InsightsPairJudge } from '@replays/infrastructure/acl/insights-pair-jud
 import { Insights } from '@replays/infrastructure/acl/insights.adapter';
 import { Lines } from '@replays/infrastructure/acl/lines.adapter';
 import { People } from '@replays/infrastructure/acl/people.adapter';
+import { ReplaysRequesterLabels } from '@replays/infrastructure/acl/replays-requester-labels.adapter';
 import { Runs } from '@replays/infrastructure/acl/runs.adapter';
 import { SearchNotices } from '@replays/infrastructure/acl/search-notices.adapter';
 import { StartingPointHolds } from '@replays/infrastructure/acl/starting-point-holds.adapter';
@@ -226,6 +230,7 @@ import { TrialableRuns } from '@replays/infrastructure/acl/trialable-runs.adapte
 import { REPLAYS_PAYLOAD_TYPES } from '@replays/infrastructure/events/replays-payload-types';
 import { Sha256Hash } from '@replays/infrastructure/hashing/sha256-hash';
 import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
+import { DrizzleReplayRunLabelsReader } from '@replays/infrastructure/persistence/drizzle/readers/replay-run-labels.reader';
 import { DrizzleReplayedCandidatesReader } from '@replays/infrastructure/persistence/drizzle/readers/replayed-candidates.reader';
 import { DrizzleStationConfigPullRequests } from '@replays/infrastructure/persistence/drizzle/readers/station-config-pull-requests.reader';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
@@ -246,6 +251,7 @@ import { ReplayedCandidatesController } from '@replays/presentation/http/control
 import { RunnerFailureCausesController } from '@replays/presentation/http/controllers/runner-failure-causes.controller';
 import { RunnerSearchCandidatesController } from '@replays/presentation/http/controllers/runner-search-candidates.controller';
 import { RunnerSearchViewController } from '@replays/presentation/http/controllers/runner-search-view.controller';
+import { StationImprovementController } from '@replays/presentation/http/controllers/station-improvement.controller';
 import {
   HARNESS_COMMANDS,
   type HarnessCommandsPort,
@@ -258,6 +264,10 @@ import {
   RUN_LEASES,
   type RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
+import {
+  RUN_REQUESTER_LABELS,
+  type RunRequesterLabelsPort,
+} from '@runs/application/ports/run-requester-labels.port';
 import {
   RUNS as WORK_RUNS,
   type RunsPort as WorkRunsPort,
@@ -333,6 +343,7 @@ export const REPLAYS_CONTROLLERS: readonly Type[] = [
   RunnerFailureCausesController,
   RunnerSearchViewController,
   ReplayedCandidatesController,
+  StationImprovementController,
 ];
 
 export const REPLAYS_PROVIDERS: readonly Provider[] = [
@@ -348,6 +359,27 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       candidates: DrizzleCandidateRepository,
       replays: DrizzleReplayRepository,
     ) => new SearchVisibilities(searches, candidates, replays),
+  },
+  DrizzleReplayRunLabelsReader,
+  {
+    provide: ReplayRunLabels,
+    inject: [DrizzleReplayRunLabelsReader, PEOPLE, REPLAYS_LINES],
+    useFactory: (
+      reader: DrizzleReplayRunLabelsReader,
+      people: PeoplePort,
+      lines: ReplaysLinesPort,
+    ) => new ReplayRunLabels(reader, people, lines),
+  },
+  {
+    provide: ReplaysRequesterLabels,
+    inject: [RUN_REQUESTER_LABELS, ReplayRunLabels],
+    useFactory: (labels: RunRequesterLabelsPort, replays: ReplayRunLabels) => {
+      const source = new ReplaysRequesterLabels(replays);
+
+      labels.register(source);
+
+      return source;
+    },
   },
   {
     provide: ReplaysTraceScopes,
@@ -1030,6 +1062,23 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       REPLAYS_TRIALABLE_RUNS,
       CLOCK,
       SetHealths,
+    ],
+  ),
+  ...bindQueryHandler(
+    ReadStationImprovementQuery,
+    ReadStationImprovementHandler,
+    [
+      ReplaysAccess,
+      DrizzleReplaySetRepository,
+      DrizzleStationSearchScheduleRepository,
+      DrizzleSearchRepository,
+      DrizzleReplayRepository,
+      DrizzleCandidateRepository,
+      DrizzleConfigPullRequestRepository,
+      StationConfigs,
+      SetHealths,
+      REPLAYS_TRIALABLE_RUNS,
+      CLOCK,
     ],
   ),
   {

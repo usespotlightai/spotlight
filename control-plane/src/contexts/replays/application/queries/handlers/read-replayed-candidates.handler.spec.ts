@@ -20,11 +20,13 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import {
+  aSearch,
   aSet,
   BY,
   candidateOf,
   LIVE_FINGERPRINT,
   NOW,
+  replayFor,
   SEARCH_ID,
   STATION,
 } from '@replays/domain/replays.fake-spec';
@@ -104,6 +106,35 @@ describe('ReadReplayedCandidatesHandler', () => {
     expect(answer.truncated).toBe(false);
     expect(answer.stations).toHaveLength(1);
     expect(await namesIn()).toEqual(['terse', 'wordy']);
+  });
+
+  it('shows a search still replaying the live config as replaying, not as nothing replayed', async () => {
+    memory = new InMemoryReplays();
+    const set = aSet(10);
+
+    await memory.setRepository.add(set);
+    await memory.searchRepository.add(aSearch({ set }));
+    await memory.candidateRepository.add(candidateOf('live'));
+    await memory.replayRepository.add(
+      replayFor(set, 'replay_seed', 'candidate_live', null, true, 3),
+    );
+
+    const answer = await read();
+
+    expect(answer.stations).toEqual([]);
+    expect(answer.replaying).toEqual([
+      {
+        searchId: SEARCH_ID.value,
+        lineId: STATION.lineId.value,
+        stationId: STATION.stationId.value,
+        state: 'seeding',
+        startedAt: NOW.toISOString(),
+      },
+    ]);
+  });
+
+  it('leaves a search out of replaying once its candidates show', async () => {
+    expect((await read()).replaying).toEqual([]);
   });
 
   it('shows a candidate only when its search started in the period', async () => {

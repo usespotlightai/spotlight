@@ -29,13 +29,14 @@ const leasedRun = (
   runId: string,
   requester: { owner: string; kind: string; id: string },
   teamId: string | null,
+  listed = true,
 ): RunnerActivityRow => ({
   runnerId: `runner_of_${runId}`,
   runId: RunId.of(runId),
   workspaceId: WORKSPACE,
   state: 'claimed',
   requester: { ...requester, token: null, team: teamId },
-  policy: POLICY,
+  policy: { ...POLICY, listed },
   teamId,
 });
 
@@ -46,6 +47,13 @@ const LEASED = [
     'run_9',
     { owner: 'replays', kind: 'search', id: 'search_1' },
     'team_1',
+    false,
+  ),
+  leasedRun(
+    'run_10',
+    { owner: 'replays', kind: 'replay', id: 'run_10' },
+    'team_1',
+    false,
   ),
 ];
 
@@ -68,9 +76,32 @@ const listing = (member: boolean) => {
     owner: 'work',
     labelsOf: async () =>
       new Map([
-        ['work/task/task_1', { title: 'Drain the stuck retry queues' }],
-        ['work/chat/chat_1', { title: 'Plan the billing migration' }],
+        [
+          'work/task/task_1',
+          { title: 'Drain the stuck retry queues', station: null },
+        ],
+        [
+          'work/chat/chat_1',
+          { title: 'Plan the billing migration', station: null },
+        ],
       ]),
+  });
+  labels.register({
+    owner: 'replays',
+    labelsOf: async (_requesters, viewer) =>
+      new Map(
+        viewer.equals(UserId.of('user_1'))
+          ? [
+              [
+                'replays/replay/run_10',
+                {
+                  title: 'Replay of candidate terse at Build',
+                  station: { lineId: 'line_1', stationId: 'station_build' },
+                },
+              ],
+            ]
+          : [],
+      ),
   });
   const viewers = partial<RunViewing>({
     readableAmong: vi.fn(async () => new Set(['run_6', 'run_7'])),
@@ -99,7 +130,7 @@ const listing = (member: boolean) => {
 };
 
 describe('ListRunnerActivityHandler', () => {
-  it('says which run each busy runner works on, by the kind its requester names, and labels only the runs the viewer may read', async () => {
+  it('says which run each busy runner works on, by the kind its requester names, and labels only the runs the viewer may read, or that an unlisted run’s owner labels for the viewer', async () => {
     const { handler, leasedIn, viewers } = listing(true);
 
     const activity = await handler.execute(
@@ -116,6 +147,7 @@ describe('ListRunnerActivityHandler', () => {
           teamId: 'team_1',
           readable: true,
           title: 'Drain the stuck retry queues',
+          station: null,
         },
       },
       {
@@ -127,6 +159,7 @@ describe('ListRunnerActivityHandler', () => {
           teamId: 'team_1',
           readable: false,
           title: null,
+          station: null,
         },
       },
       {
@@ -138,6 +171,19 @@ describe('ListRunnerActivityHandler', () => {
           teamId: 'team_1',
           readable: false,
           title: null,
+          station: null,
+        },
+      },
+      {
+        runnerId: 'runner_of_run_10',
+        currentRun: {
+          id: 'run_10',
+          state: 'claimed',
+          kind: 'replay',
+          teamId: 'team_1',
+          readable: false,
+          title: 'Replay of candidate terse at Build',
+          station: { lineId: 'line_1', stationId: 'station_build' },
         },
       },
     ]);
@@ -165,6 +211,7 @@ describe('ListRunnerActivityHandler', () => {
           teamId: 'team_1',
           readable: true,
           title: 'Drain the stuck retry queues',
+          station: null,
         },
       },
     ]);

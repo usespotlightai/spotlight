@@ -49,14 +49,14 @@ export class DrizzleWorkRequesterLabels implements RunRequesterLabelSource {
         (row) =>
           [
             requesterRefOf({ owner: this.owner, kind: 'task', id: row.id }),
-            { title: row.title },
+            { title: row.title, station: null },
           ] as const,
       ),
       ...chats.map(
         (row) =>
           [
             requesterRefOf({ owner: this.owner, kind: 'chat', id: row.id }),
-            { title: row.title },
+            { title: row.title, station: null },
           ] as const,
       ),
     ]);

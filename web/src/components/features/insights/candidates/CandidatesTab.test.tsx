@@ -170,6 +170,36 @@ describe('the Candidates tab', () => {
     );
   });
 
+  it('shows a search still replaying as running, not as nothing replayed', () => {
+    answer.candidates = queried({
+      ...CANDIDATES,
+      stations: [],
+      replaying: [
+        {
+          searchId: 'search_1',
+          lineId: 'line_delivery',
+          stationId: 'station_implementation',
+          state: 'seeding',
+          startedAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    showing();
+
+    expect(
+      screen.queryByText('No candidates replayed in this period'),
+    ).not.toBeInTheDocument();
+    const row = screen.getByText(/Replaying the live config, started/);
+    expect(row).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Implementation' }),
+    ).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_delivery/stations/station_implementation',
+    );
+  });
+
   it('notes when the oldest replays were left out', () => {
     answer.candidates = queried({ ...CANDIDATES, truncated: true });
 

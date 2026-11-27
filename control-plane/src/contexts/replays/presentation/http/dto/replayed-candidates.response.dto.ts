@@ -11,6 +11,7 @@ import type {
   ReplayedSetDto,
   ReplayedShownDto,
   ReplayedStationDto,
+  ReplayingSearchDto,
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
 import {
@@ -656,6 +657,31 @@ export class ReplayedStationResponseDto {
   }
 }
 
+export class ReplayingSearchResponseDto {
+  @ApiProperty()
+  readonly searchId: string;
+
+  @ApiProperty()
+  readonly lineId: string;
+
+  @ApiProperty()
+  readonly stationId: string;
+
+  @ApiProperty({ enum: SEARCH_STATES })
+  readonly state: string;
+
+  @ApiProperty({ example: '2026-09-30T10:00:00.000Z' })
+  readonly startedAt: string;
+
+  constructor(search: ReplayingSearchDto) {
+    this.searchId = search.searchId;
+    this.lineId = search.lineId;
+    this.stationId = search.stationId;
+    this.state = search.state;
+    this.startedAt = search.startedAt;
+  }
+}
+
 export class ReplayedCandidatesResponseDto {
   @ApiProperty({ type: ReplayedPeriodResponseDto })
   readonly period: ReplayedPeriodResponseDto;
@@ -674,11 +700,22 @@ export class ReplayedCandidatesResponseDto {
   })
   readonly stations: ReplayedStationResponseDto[];
 
+  @ApiProperty({
+    type: ReplayingSearchResponseDto,
+    isArray: true,
+    description:
+      'Searches of the period still in progress that have no candidate to show yet, such as one replaying the live config first, newest first',
+  })
+  readonly replaying: ReplayingSearchResponseDto[];
+
   constructor(candidates: ReplayedCandidatesDto) {
     this.period = new ReplayedPeriodResponseDto(candidates.period);
     this.truncated = candidates.truncated;
     this.stations = candidates.stations.map(
       (each) => new ReplayedStationResponseDto(each),
+    );
+    this.replaying = candidates.replaying.map(
+      (each) => new ReplayingSearchResponseDto(each),
     );
   }
 }

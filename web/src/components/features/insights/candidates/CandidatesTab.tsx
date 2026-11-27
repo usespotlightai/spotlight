@@ -1,6 +1,7 @@
 import { CandidatesCard } from '@/components/features/insights/candidates/CandidatesCard';
 import { CandidatesSkeleton } from '@/components/features/insights/candidates/CandidatesSkeleton';
 import { NoCandidates } from '@/components/features/insights/candidates/NoCandidates';
+import { ReplayingSearches } from '@/components/features/insights/candidates/ReplayingSearches';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
@@ -33,7 +34,7 @@ export function CandidatesTab({
 
   const read = candidates.data;
 
-  if (read.stations.length === 0) {
+  if (read.stations.length === 0 && read.replaying.length === 0) {
     return (
       <NoCandidates
         slug={slug}
@@ -47,7 +48,18 @@ export function CandidatesTab({
     <div className="flex flex-col gap-10">
       {read.truncated && <TruncatedNote text={CANDIDATES_TRUNCATED} />}
 
-      <CandidatesCard stations={read.stations} names={names} />
+      {read.replaying.length > 0 && (
+        <ReplayingSearches
+          slug={slug}
+          teamId={teamId}
+          searches={read.replaying}
+          names={names}
+        />
+      )}
+
+      {read.stations.length > 0 && (
+        <CandidatesCard stations={read.stations} names={names} />
+      )}
     </div>
   );
 }

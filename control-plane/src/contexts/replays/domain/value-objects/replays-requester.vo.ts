@@ -66,6 +66,10 @@ export class ReplaysRequester {
     return this.requested.kind === 'replay';
   }
 
+  get replayRun(): RunId | null {
+    return this.requested.kind === 'replay' ? this.requested.run : null;
+  }
+
   get searchIteration(): SearchIteration | null {
     return this.requested.kind === 'search'
       ? {

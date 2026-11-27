@@ -209,7 +209,7 @@ export class StationChangeTests {
         ),
       ),
       takesRequest: schedule.takesRequestOn(now, policy.requestsPerDay),
-      scores: live.scoring.judges || live.scoring.checksChanges,
+      scores: live.scoring.scores,
     });
 
     if (refusal) {

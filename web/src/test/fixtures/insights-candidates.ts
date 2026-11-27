@@ -436,4 +436,5 @@ export const CANDIDATES: InsightsCandidates = {
     },
     { lineId: LINE_ID, stationId: 'station_review', sets: [REVIEW_SET] },
   ],
+  replaying: [],
 };

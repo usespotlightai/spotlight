@@ -43,6 +43,24 @@ export const FEWEST_SEARCH_TASKS = fewestTasks();
 
 export type SplitRefusal = 'too-small' | 'no-fresh';
 
+interface FreshTasks {
+  readonly tasks: number;
+  readonly heldOutTasks: number;
+  readonly enough: boolean;
+}
+
+export interface SetSize {
+  readonly tasks: number;
+  readonly fewestTasks: number;
+  readonly bigEnough: boolean;
+  readonly fresh: FreshTasks | null;
+}
+
+interface FreshInput {
+  readonly entries: readonly SplitEntry[];
+  readonly excluding?: readonly TaskId[];
+}
+
 interface SplitInput {
   readonly searchId: SearchId;
   readonly entries: readonly ReplaySetEntry[];
@@ -112,7 +130,26 @@ export class HeldOutSplit {
     );
   }
 
-  private static freshOf(input: SplitInput): readonly string[] {
+  /** How far the set is from a split: its tasks against the fewest a search needs and, once it has them, its fresh tasks against those a search holds out. */
+  static sizeOf(input: FreshInput): SetSize {
+    const tasks = tasksOf(input.entries).length;
+    const fresh = HeldOutSplit.freshOf(input).length;
+
+    return {
+      tasks,
+      fewestTasks: FEWEST_SEARCH_TASKS,
+      bigEnough: splits(tasks),
+      fresh: splits(tasks)
+        ? {
+            tasks: fresh,
+            heldOutTasks: heldOutOf(tasks),
+            enough: fresh >= heldOutOf(tasks),
+          }
+        : null,
+    };
+  }
+
+  private static freshOf(input: FreshInput): readonly string[] {
     const excluded = new Set((input.excluding ?? []).map((each) => each.value));
 
     return tasksOf(input.entries).filter((each) => !excluded.has(each));

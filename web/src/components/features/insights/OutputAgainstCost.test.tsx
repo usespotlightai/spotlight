@@ -10,6 +10,7 @@ import {
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { BeforeAfterActionsContext } from '@/lib/before-after-panel';
 import { type DayOutput, stationNamesOf } from '@/lib/insights';
+import { htmlElement } from '@/test/elements';
 import { partial } from '@/test/partial';
 
 const NAMES = stationNamesOf([
@@ -168,12 +169,28 @@ describe('OutputAgainstCost', () => {
     );
   });
 
+  it('names what each axis counts, on the side of its axis, so a spend tick such as $1.20 reads as spent a day', () => {
+    showing();
+
+    const legend = htmlElement(
+      document.querySelector('[data-slot="output-legend"]'),
+    );
+
+    expect(legend.firstElementChild).toHaveTextContent('PRs merged, left axis');
+    expect(legend.lastElementChild).toHaveTextContent(
+      'Spent a day, right axis',
+    );
+  });
+
   it('leaves spend out where it cannot be summed in one currency', () => {
     showing(null, 'Prices in more than one currency');
 
     expect(
       screen.getByText(/Spend not shown\. Prices in more than one currency/),
     ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="output-legend"]'),
+    ).not.toHaveTextContent('Spent a day');
   });
 
   it('leaves config changes out of the day tooltip', () => {

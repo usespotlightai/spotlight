@@ -17,6 +17,7 @@ import { useCollapsibles } from '@/hooks/useCollapsibles';
 import {
   formatCount,
   formatStation,
+  signalsPrompt,
   STATIONS_WORTH_IMPROVING_HEADINGS,
   STATIONS_WORTH_IMPROVING_NOTE,
   type StationNames,
@@ -77,6 +78,7 @@ export function WorthImprovingList({
                         slug={slug}
                         teamId={teamId}
                         targetStation={targetStationOf(named)}
+                        prompt={signalsPrompt(station.signals)}
                         className="justify-self-start @4xl:justify-self-end"
                       />
                     ) : (

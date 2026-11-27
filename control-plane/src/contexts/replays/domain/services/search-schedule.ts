@@ -119,6 +119,23 @@ export const requestRefusalOf = (input: {
   return input.scores ? null : 'no-scoring';
 };
 
+const periodEndOf = (
+  policy: SearchPolicy,
+  lastStartedAt: Date | null,
+): Date | null =>
+  lastStartedAt ? after(lastStartedAt, policy.periodMilliseconds) : null;
+
+const cooldownEndOf = (
+  policy: SearchPolicy,
+  cooldownFrom: Date | null,
+): Date | null =>
+  cooldownFrom ? after(cooldownFrom, policy.cooldownMilliseconds) : null;
+
+const alertedUnder = (
+  policy: SearchPolicy,
+  alertPendingSince: Date | null,
+): boolean => policy.onAlert && alertPendingSince !== null;
+
 export interface DueInput {
   readonly policy: SearchPolicy | null;
   readonly scores: boolean;
@@ -148,18 +165,14 @@ export const dueVerdict = (input: DueInput): ScheduleVerdict => {
     return { kind: 'wait', checkAfter: after(now, BUSY_RECHECK_MS) };
   }
 
-  const periodEnd = lastStartedAt
-    ? after(lastStartedAt, policy.periodMilliseconds)
-    : null;
-  const alerted = policy.onAlert && input.alertPendingSince !== null;
+  const periodEnd = periodEndOf(policy, lastStartedAt);
+  const alerted = alertedUnder(policy, input.alertPendingSince);
 
   if (!alerted && periodEnd && now < periodEnd) {
     return { kind: 'wait', checkAfter: periodEnd };
   }
 
-  const cooldownEnd = cooldownFrom
-    ? after(cooldownFrom, policy.cooldownMilliseconds)
-    : null;
+  const cooldownEnd = cooldownEndOf(policy, cooldownFrom);
 
   if (cooldownEnd && now < cooldownEnd) {
     return { kind: 'skip', reason: 'cooldown', checkAfter: cooldownEnd };
@@ -186,6 +199,49 @@ export const dueVerdict = (input: DueInput): ScheduleVerdict => {
 
   return { kind: 'start', trigger: alerted ? 'alert' : 'schedule', policy };
 };
+
+export interface NextDueInput {
+  readonly policy: SearchPolicy | null;
+  readonly lastStartedAt: Date | null;
+  readonly cooldownFrom: Date | null;
+  readonly alertPendingSince: Date | null;
+  readonly checkAfter: Date;
+  readonly busy: boolean;
+  readonly skipped: boolean;
+  readonly now: Date;
+}
+
+const latest = (times: readonly (Date | null)[]): Date =>
+  new Date(
+    Math.max(...times.flatMap((each) => (each ? [each.getTime()] : []))),
+  );
+
+/**
+ * When the next search of the station is due, as the schedule's verdict sees it: once the period, or for an alert the cooldown, has passed, and not before the station's next check.
+ * None while the policy is off, while a search is in progress or awaits its result, or while the station's last due search was skipped, since its reason may still hold.
+ */
+export const nextDueAt = (input: NextDueInput): Date | null => {
+  const { policy } = input;
+
+  if (!policy?.enabled || input.busy || input.skipped) {
+    return null;
+  }
+
+  return latest([
+    input.now,
+    input.checkAfter,
+    alertedUnder(policy, input.alertPendingSince)
+      ? null
+      : periodEndOf(policy, input.lastStartedAt),
+    cooldownEndOf(policy, input.cooldownFrom),
+  ]);
+};
+
+/** A skip holds only while the policy that would search the station is on. */
+export const standingSkipOf = <Skip>(
+  policy: SearchPolicy | null,
+  lastSkip: Skip | null,
+): Skip | null => (policy?.enabled ? lastSkip : null);
 
 export interface SetInput {
   readonly now: Date;

@@ -194,4 +194,30 @@ describe('HeldOutSplit', () => {
   it('needs at least five tasks to search', () => {
     expect(FEWEST_SEARCH_TASKS).toBe(5);
   });
+
+  it('says how far a set is from the tasks a search needs, counting tasks, not runs, and leaves fresh tasks out until it has them', () => {
+    expect(
+      HeldOutSplit.sizeOf({ entries: entries(['a', 'a', 'b', 'c']) }),
+    ).toEqual({ tasks: 3, fewestTasks: 5, bigEnough: false, fresh: null });
+  });
+
+  it('says when too few tasks are fresh to hold out, as a draw finds', () => {
+    const set = entries(tasksOf(10));
+    const excluding = tasksOf(8).map((each) => TaskId.of(each));
+
+    expect(HeldOutSplit.sizeOf({ entries: set, excluding })).toEqual({
+      tasks: 10,
+      fewestTasks: 5,
+      bigEnough: true,
+      fresh: { tasks: 2, heldOutTasks: 3, enough: false },
+    });
+    expect(
+      HeldOutSplit.tryDraw({
+        searchId: SEARCH_ID,
+        entries: set,
+        hash: sha256,
+        excluding,
+      }),
+    ).toBe('no-fresh');
+  });
 });

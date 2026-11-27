@@ -1129,6 +1129,13 @@ const signalHeadings = (indent: 'edge' | 'outer'): readonly NestedHeading[] => [
   { label: 'Flagged above', numeric: true, size: SPREAD },
 ];
 
+export const signalsPrompt = (
+  readings: readonly SignalReading[],
+): string | undefined =>
+  readings.length === 0
+    ? undefined
+    : `${readings.map(formatSignal).join('; ')}. What should change at this station?`;
+
 export const signalPrompt = (reading: SignalReading): string =>
   `${formatSignal(reading)}. What should change at this station?`;
 

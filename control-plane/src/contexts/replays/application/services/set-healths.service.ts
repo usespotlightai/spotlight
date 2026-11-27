@@ -1,4 +1,7 @@
-import type { StationConfigs } from '@replays/application/services/station-configs.service';
+import type {
+  LiveConfig,
+  StationConfigs,
+} from '@replays/application/services/station-configs.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -41,8 +44,12 @@ export class SetHealths {
   ) {}
 
   async standardAt(station: AtStation): Promise<LiveStandard> {
-    const live = await this.configs.live(station.lineId, station.stationId);
+    return this.standardOf(
+      await this.configs.live(station.lineId, station.stationId),
+    );
+  }
 
+  standardOf(live: LiveConfig | null): LiveStandard {
     return {
       minGain: minGainUnder(live?.threshold ?? null),
       threshold: live?.threshold ?? null,

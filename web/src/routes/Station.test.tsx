@@ -217,6 +217,14 @@ vi.mock('@/hooks/api/useInsightsOverview', () => ({
   }),
 }));
 
+const improvement = vi.hoisted(() => ({
+  data: undefined as unknown,
+}));
+
+vi.mock('@/hooks/api/useStationImprovement', () => ({
+  useStationImprovement: () => ({ data: improvement.data }),
+}));
+
 vi.mock('@/hooks/api/useStationJudge', () => ({
   useStationJudge: () => ({
     data: judged(),
@@ -350,6 +358,7 @@ const sectionTitled = (title: string): HTMLElement =>
   htmlElement(screen.getByRole('heading', { name: title }).closest('section'));
 
 beforeEach(() => {
+  improvement.data = undefined;
   lines.mockReturnValue([line]);
   failing.mockReturnValue(false);
   refetch.mockClear();
@@ -1093,6 +1102,135 @@ describe('Station', () => {
       );
 
       expect(await screen.findByText('Cooldown')).toBeInTheDocument();
+    });
+
+    it('says how far the replay set is from a search, why the last search was skipped, and when Spotlight looks again', () => {
+      improvement.data = {
+        set: {
+          tasks: 3,
+          fewestTasks: 5,
+          bigEnough: false,
+          fresh: null,
+          minGain: 0.05,
+          noise: null,
+          saturation: null,
+          judge: null,
+          checks: null,
+          oracle: null,
+        },
+        scoring: { judge: true, check: false, scores: true },
+        lastSearch: null,
+        nextSearchAt: null,
+        lastSkip: {
+          reason: 'set-too-small',
+          at: new Date().toISOString(),
+          text: 'The replay set has too few tasks. A search needs at least 5.',
+          retryAt: '2999-06-15T12:00:00.000Z',
+        },
+      };
+      renderAt('station_2', 'config');
+
+      const card = htmlElement(
+        document.querySelector('[data-slot="search-policy"]'),
+      );
+
+      expect(card.querySelector('[data-slot="replay-set"]')).toHaveTextContent(
+        '3 of 5 tasks',
+      );
+      expect(
+        card.querySelector('[data-slot="fresh-tasks"]'),
+      ).not.toBeInTheDocument();
+      expect(card.querySelector('[data-slot="scoring"]')).toHaveTextContent(
+        'Judge',
+      );
+      expect(card.querySelector('[data-slot="last-search"]')).toHaveTextContent(
+        'None yet',
+      );
+      expect(
+        card.querySelector('[data-slot="next-search"]'),
+      ).not.toBeInTheDocument();
+      expect(card.querySelector('[data-slot="last-skip"]')).toHaveTextContent(
+        /^The replay set has too few tasks\. A search needs at least 5\.just now\. Looks again: Jun 15/,
+      );
+    });
+
+    it('shows the last search with its result and its replay runs, each leading to the past run it replays, and when the next search is due', async () => {
+      const user = userEvent.setup();
+      improvement.data = {
+        set: {
+          tasks: 8,
+          fewestTasks: 5,
+          bigEnough: true,
+          fresh: { tasks: 2, heldOutTasks: 3, enough: false },
+          minGain: 0.05,
+          noise: null,
+          saturation: null,
+          judge: null,
+          checks: null,
+          oracle: null,
+        },
+        scoring: { judge: false, check: false, scores: false },
+        lastSearch: {
+          searchId: 'search_1',
+          state: 'finished',
+          trigger: 'request',
+          startedAt: new Date().toISOString(),
+          endedAt: new Date().toISOString(),
+          result:
+            'No candidate did better than the live config on the held-out tasks.',
+          replays: [
+            {
+              replayId: 'replay_seed',
+              candidate: 'Live config, 2026-11-27',
+              live: true,
+              state: 'finished',
+              runs: [
+                {
+                  runId: 'run_replayed',
+                  originalRunId: 'run_past',
+                  taskId: 'task_1',
+                  taskTitle: 'Add the login page',
+                  progress: 'ended',
+                  succeeded: false,
+                },
+              ],
+            },
+          ],
+        },
+        nextSearchAt: '2999-06-15T12:00:00.000Z',
+        lastSkip: null,
+      };
+      renderAt('station_2', 'config');
+
+      const card = htmlElement(
+        document.querySelector('[data-slot="search-policy"]'),
+      );
+
+      expect(card.querySelector('[data-slot="fresh-tasks"]')).toHaveTextContent(
+        '2 of 3 needed',
+      );
+      expect(card.querySelector('[data-slot="scoring"]')).toHaveTextContent(
+        'No judge or check',
+      );
+      expect(card.querySelector('[data-slot="next-search"]')).toHaveTextContent(
+        /Jun 15/,
+      );
+      expect(card.querySelector('[data-slot="last-search"]')).toHaveTextContent(
+        'FinishedStarted just now, asked for by a person in a chatNo candidate did better than the live config on the held-out tasks.1 replay run, 1 ended',
+      );
+
+      await user.click(
+        within(card).getByRole('button', { name: '1 replay run, 1 ended' }),
+      );
+
+      const run = within(
+        await screen.findByRole('dialog', {
+          name: 'Replay runs of the last search',
+        }),
+      ).getByRole('link', { name: 'Add the login page' });
+
+      expect(run).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_past');
+      expect(run.parentElement).toHaveTextContent('Failed');
     });
 
     it('shows no automatic improvement at the ends of the line', () => {

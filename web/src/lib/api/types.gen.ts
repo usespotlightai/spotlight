@@ -1923,6 +1923,11 @@ export type RecordEgressConnectionsRequestDto = {
   records: Array<EgressConnectionRequestDto>;
 };
 
+export type LeasedRunStationResponseDto = {
+  lineId: string;
+  stationId: string;
+};
+
 export type LeasedRunResponseDto = {
   id: string;
   state: string;
@@ -1942,6 +1947,10 @@ export type LeasedRunResponseDto = {
    * The title the run’s requester gives it; null where the requester gives none, or where the caller cannot read the run’s team
    */
   title: string | null;
+  /**
+   * The station the run’s requester places it at, such as the station a replay run replays a config of; null where the requester names none, or where the caller cannot read the run’s team
+   */
+  station: LeasedRunStationResponseDto | null;
 };
 
 export type BusyRunnerResponseDto = {
@@ -10191,6 +10200,14 @@ export type ReplayedStationResponseDto = {
   sets: Array<ReplayedSetResponseDto>;
 };
 
+export type ReplayingSearchResponseDto = {
+  searchId: string;
+  lineId: string;
+  stationId: string;
+  state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
+  startedAt: string;
+};
+
 export type ReplayedCandidatesResponseDto = {
   period: ReplayedPeriodResponseDto;
   /**
@@ -10201,6 +10218,173 @@ export type ReplayedCandidatesResponseDto = {
    * Stations with a candidate replayed in the period, newest first
    */
   stations: Array<ReplayedStationResponseDto>;
+  /**
+   * Searches of the period still in progress that have no candidate to show yet, such as one replaying the live config first, newest first
+   */
+  replaying: Array<ReplayingSearchResponseDto>;
+};
+
+export type ImprovementFreshResponseDto = {
+  /**
+   * How many of the set’s tasks no earlier search of the station searched on, so a search can hold them out
+   */
+  tasks: number;
+  /**
+   * How many of its tasks a search of the set holds out
+   */
+  heldOutTasks: number;
+  /**
+   * Whether enough tasks are fresh for a search to hold out
+   */
+  enough: boolean;
+};
+
+export type ImprovementSetResponseDto = {
+  /**
+   * How much its success rate moves between repeats of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   */
+  noise: SetNoiseResponseDto | null;
+  /**
+   * How much of the set the live config passes already; null until it replayed the whole set
+   */
+  saturation: SetSaturationResponseDto | null;
+  /**
+   * How often the judge agrees with itself, from the set’s newest calibration; null until a calibration was judged
+   */
+  judge: JudgeConsistencyResponseDto | null;
+  /**
+   * Whether the station’s check returns the same answer twice, from the set’s newest calibration; null until a calibration was checked
+   */
+  checks: CheckConsistencyResponseDto | null;
+  /**
+   * How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started
+   */
+  oracle: OracleReadingResponseDto | null;
+  /**
+   * How many distinct tasks the replay set has
+   */
+  tasks: number;
+  /**
+   * The fewest tasks a search needs
+   */
+  fewestTasks: number;
+  /**
+   * Whether the set has the tasks a search needs
+   */
+  bigEnough: boolean;
+  /**
+   * Its fresh tasks against those a search holds out; null until the set has the tasks a search needs
+   */
+  fresh: ImprovementFreshResponseDto | null;
+  /**
+   * The least gain, 0 to 1, that the line counts as better
+   */
+  minGain: number;
+};
+
+export type ImprovementScoringResponseDto = {
+  /**
+   * Whether the station has a judge
+   */
+  judge: boolean;
+  /**
+   * Whether the station checks its changes
+   */
+  check: boolean;
+  /**
+   * Whether a replay can score a config of the station, by its judge or its check
+   */
+  scores: boolean;
+};
+
+export type ImprovementRunResponseDto = {
+  /**
+   * The replay run; null until it is queued
+   */
+  runId: string | null;
+  /**
+   * The past run it replays
+   */
+  originalRunId: string;
+  /**
+   * The task of the past run
+   */
+  taskId: string;
+  /**
+   * The title of the task; null where it has none
+   */
+  taskTitle: string | null;
+  progress: 'waiting' | 'running' | 'ended';
+  /**
+   * Whether it succeeded; null until it ended and was scored
+   */
+  succeeded: boolean | null;
+};
+
+export type ImprovementReplayResponseDto = {
+  replayId: string;
+  /**
+   * The name of the config it replays
+   */
+  candidate: string;
+  /**
+   * Whether it replays the live config
+   */
+  live: boolean;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
+  runs: Array<ImprovementRunResponseDto>;
+};
+
+export type ImprovementSearchResponseDto = {
+  searchId: string;
+  state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
+  trigger: 'schedule' | 'alert' | 'request';
+  startedAt: string;
+  endedAt: string | null;
+  /**
+   * What the search came to, in words; null while it runs
+   */
+  result: string | null;
+  /**
+   * Its replays, oldest first, each with its runs
+   */
+  replays: Array<ImprovementReplayResponseDto>;
+};
+
+export type ImprovementSkipResponseDto = {
+  reason: 'no-agent' | 'no-scoring' | 'set-too-small' | 'no-fresh-held-out' | 'ceiling-too-low' | 'noisy' | 'judge-unstable' | 'judge-disagrees-with-people' | 'flaky-checks' | 'no-headroom' | 'monthly-ceiling' | 'pull-request-open' | 'cooldown';
+  at: string;
+  /**
+   * Why Spotlight skipped the search, in words
+   */
+  text: string;
+  /**
+   * When Spotlight looks again at starting a search
+   */
+  retryAt: string;
+};
+
+export type StationImprovementResponseDto = {
+  /**
+   * The station’s replay set; null until the station has one
+   */
+  set: ImprovementSetResponseDto | null;
+  /**
+   * How a replay scores the live config; null without one
+   */
+  scoring: ImprovementScoringResponseDto | null;
+  /**
+   * The station’s newest search; null before its first
+   */
+  lastSearch: ImprovementSearchResponseDto | null;
+  /**
+   * When the next search of the station is due; null while search is off, while a search is in progress or awaits its result, or while the last due search was skipped
+   */
+  nextSearchAt: string | null;
+  /**
+   * Why Spotlight last skipped a due search; null when a search started since, or while search is off
+   */
+  lastSkip: ImprovementSkipResponseDto | null;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -22741,3 +22925,47 @@ export type ReadReplayedCandidatesResponses = {
 };
 
 export type ReadReplayedCandidatesResponse = ReadReplayedCandidatesResponses[keyof ReadReplayedCandidatesResponses];
+
+export type ReadStationImprovementData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/improvement';
+};
+
+export type ReadStationImprovementErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team or station for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadStationImprovementError = ReadStationImprovementErrors[keyof ReadStationImprovementErrors];
+
+export type ReadStationImprovementResponses = {
+  200: StationImprovementResponseDto;
+};
+
+export type ReadStationImprovementResponse = ReadStationImprovementResponses[keyof ReadStationImprovementResponses];

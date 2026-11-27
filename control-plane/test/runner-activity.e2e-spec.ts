@@ -4,6 +4,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { requesterRefOf } from '@runs/application/ports/run-requester-labels.port';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
 import { DrizzleRunnerActivityReader } from '@runs/infrastructure/persistence/drizzle/readers/runner-activity.reader';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleWorkRequesterLabels } from '@work/infrastructure/persistence/drizzle/readers/work-requester-labels.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -109,7 +110,10 @@ describe('which run each busy runner is working on', () => {
     ]);
 
     const busy = await reader.leasedIn(WorkspaceId.of('ws_1'));
-    const titles = await labels.labelsOf(busy.map((each) => each.requester));
+    const titles = await labels.labelsOf(
+      busy.map((each) => each.requester),
+      UserId.of('user_1'),
+    );
 
     expect(
       busy

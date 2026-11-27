@@ -31,6 +31,11 @@ export class CandidateScoring {
     return this.judge !== null;
   }
 
+  /** A config can be scored only by a judge or by a check of its changes. */
+  get scores(): boolean {
+    return this.judges || this.checksChanges;
+  }
+
   equals(other: CandidateScoring): boolean {
     return (
       this.checksChanges === other.checksChanges &&

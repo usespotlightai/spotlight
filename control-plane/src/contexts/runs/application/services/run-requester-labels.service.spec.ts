@@ -1,5 +1,6 @@
 import { requesterRefOf } from '@runs/application/ports/run-requester-labels.port';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const task = {
@@ -17,25 +18,34 @@ const replay = {
   team: 'team_1',
 };
 
+const VIEWER = UserId.of('user_1');
+
 describe('RunRequesterLabels', () => {
   it('asks each owner only for its own requesters', async () => {
     const asked: string[] = [];
     const labels = new RunRequesterLabels();
     labels.register({
       owner: 'work',
-      labelsOf: async (requesters) => {
-        asked.push(...requesters.map(requesterRefOf));
-        return new Map([[requesterRefOf(task), { title: 'Fix the queue' }]]);
+      labelsOf: async (requesters, viewer) => {
+        asked.push(...requesters.map(requesterRefOf), viewer.value);
+        return new Map([
+          [requesterRefOf(task), { title: 'Fix the queue', station: null }],
+        ]);
       },
     });
 
-    const found = await labels.labelsOf([task, replay]);
+    const found = await labels.labelsOf([task, replay], VIEWER);
 
-    expect(asked).toEqual(['work/task/task_1']);
-    expect(found.get(requesterRefOf(task))).toEqual({ title: 'Fix the queue' });
+    expect(asked).toEqual(['work/task/task_1', 'user_1']);
+    expect(found.get(requesterRefOf(task))).toEqual({
+      title: 'Fix the queue',
+      station: null,
+    });
   });
 
   it('labels nothing for an owner without a source', async () => {
-    expect((await new RunRequesterLabels().labelsOf([replay])).size).toBe(0);
+    expect(
+      (await new RunRequesterLabels().labelsOf([replay], VIEWER)).size,
+    ).toBe(0);
   });
 });

@@ -2,6 +2,7 @@ import type { RequestHandler } from 'msw';
 
 import { api, json, notFound } from '@/mocks/http';
 import { replayedCandidates } from '@/mocks/world/station-candidates';
+import { stationImprovement } from '@/mocks/world/station-improvement';
 import { stationOf, stationRunOutcomes } from '@/mocks/world/station-insights';
 import { stationJudge } from '@/mocks/world/station-judge';
 
@@ -40,6 +41,14 @@ export const stationHandlers: RequestHandler[] = [
     const judge = stationJudge(teamId, lineId, stationId);
 
     return judge ? json(judge) : notFound();
+  }),
+
+  api.get(`${STATION}/improvement`, ({ params }) => {
+    const { teamId, lineId, stationId } = placeOf(params);
+
+    return stationOf(teamId, lineId, stationId)
+      ? json(stationImprovement())
+      : notFound();
   }),
 
   api.get('/teams/:teamId/replayed-candidates', ({ params, request }) => {

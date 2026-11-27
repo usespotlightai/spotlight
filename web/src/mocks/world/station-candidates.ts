@@ -2325,4 +2325,5 @@ export const replayedCandidates = (
   },
   truncated: false,
   stations: world().kind === 'empty' ? [] : (STATIONS()[teamId] ?? []),
+  replaying: [],
 });

@@ -117,8 +117,17 @@ export interface ReplayedStationDto {
   readonly sets: readonly ReplayedSetDto[];
 }
 
+export interface ReplayingSearchDto {
+  readonly searchId: string;
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly state: string;
+  readonly startedAt: string;
+}
+
 export interface ReplayedCandidatesDto {
   readonly period: ReplayedPeriodDto;
   readonly truncated: boolean;
   readonly stations: readonly ReplayedStationDto[];
+  readonly replaying: readonly ReplayingSearchDto[];
 }

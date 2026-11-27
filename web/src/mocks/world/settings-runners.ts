@@ -311,6 +311,7 @@ const leasedRun = (
   teamId,
   readable: true,
   title,
+  station: null,
 });
 
 const BUSY_RUNNERS: RunnerActivityResponseDto['runners'] = [
