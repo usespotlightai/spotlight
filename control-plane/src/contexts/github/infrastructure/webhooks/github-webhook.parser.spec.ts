@@ -277,6 +277,26 @@ describe('GitHubWebhookParser', () => {
       ).toMatchObject({ path: 'compose.yml', from: 10, to: 14 });
     });
 
+    it('carries no line for a comment on the whole file', () => {
+      expect(
+        activity('pull_request_review_comment', {
+          action: 'created',
+          pull_request: pull(),
+          comment: {
+            body: 'Split this file.',
+            path: 'web/src/api/client.test.ts',
+            subject_type: 'file',
+            line: 1,
+            original_line: 1,
+          },
+        })?.reviewComment,
+      ).toMatchObject({
+        path: 'web/src/api/client.test.ts',
+        from: null,
+        to: null,
+      });
+    });
+
     it('falls back to the line a comment was first left on', () => {
       expect(
         activity('pull_request_review_comment', {

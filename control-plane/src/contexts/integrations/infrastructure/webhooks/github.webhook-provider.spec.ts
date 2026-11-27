@@ -192,6 +192,26 @@ describe('GitHubWebhookProvider', () => {
     });
   });
 
+  it('says that a review requests changes, before what the review says', async () => {
+    expect(
+      (
+        await readOne({
+          ...MERGED,
+          activity: 'changes-requested',
+          reviewComment: {
+            body: 'Accept empty filters.',
+            path: null,
+            from: null,
+            to: null,
+            id: 'PRR_1',
+          },
+        })
+      ).message,
+    ).toMatchObject({
+      body: 'Changes were requested on the pull request.\n\nAccept empty filters.',
+    });
+  });
+
   it('reads activity known only by its pull request or only by its branch', async () => {
     expect(
       (await readOne({ ...MERGED, branch: null })).correlationKeys,

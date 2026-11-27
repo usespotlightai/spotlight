@@ -106,10 +106,13 @@ const conflictOf = (conflict: ConflictedPullRequest): Happened['message'] => ({
   body: `The pull request conflicts with ${conflict.base}. Rebase the branch on ${conflict.base} and push it.`,
 });
 
-const messageOf = (event: PullRequestActivity): Happened['message'] =>
+const messageOf = (
+  event: PullRequestActivity,
+  verdict: string | null = null,
+): Happened['message'] =>
   event.reviewComment
     ? {
-        body: event.reviewComment.body,
+        body: [verdict, event.reviewComment.body].filter(Boolean).join('\n\n'),
         path: event.reviewComment.path,
         from: event.reviewComment.from,
         to: event.reviewComment.to,
@@ -227,7 +230,11 @@ const happenedFrom = (
   const { activity } = happening;
 
   return reported(activity, correlationOf(happening), {
-    message: messageOf(event) ?? failedChecksOf(event),
+    message:
+      messageOf(
+        event,
+        happening.statesVerdict ? RAISED[activity].summary : null,
+      ) ?? failedChecksOf(event),
     ourOwn: event.ignoredAsBot,
     closedPullRequest:
       activity === 'merged' || activity === 'closed-unmerged'

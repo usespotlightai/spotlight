@@ -1505,6 +1505,10 @@ export class Task extends EventRecorder {
     return this.finished;
   }
 
+  get keepsNoLiveWorkingCopy(): boolean {
+    return this.finished;
+  }
+
   get workingCopyRelease(): WorkingCopyRelease {
     return this.finishedAt
       ? WorkingCopyRelease.since(this.finishedAt)
@@ -1666,10 +1670,6 @@ export class Task extends EventRecorder {
 
   reopenableOn(line: LineMap): boolean {
     return MessageEffect.reopens(this.messagedOn(line), TO_THE_TASK);
-  }
-
-  keepsNoLiveWorkingCopyOn(line: LineMap | null): boolean {
-    return this.finished && (line === null || !this.reopenableOn(line));
   }
 
   reopensAt(line: LineMap, happening: Happening): StationId {

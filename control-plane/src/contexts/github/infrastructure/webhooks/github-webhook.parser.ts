@@ -102,13 +102,13 @@ interface CommentPayload {
   readonly original_line?: unknown;
   readonly start_line?: unknown;
   readonly original_start_line?: unknown;
+  readonly subject_type?: unknown;
 }
 
 interface ReviewComment {
   readonly id?: unknown;
   readonly html_url?: unknown;
   readonly side?: unknown;
-  readonly subject_type?: unknown;
   readonly in_reply_to_id?: unknown;
   readonly created_at?: unknown;
 }
@@ -152,13 +152,12 @@ const headed = (delivery: GitHubDelivery, name: string): string | undefined => {
   return Array.isArray(value) ? value[0] : value;
 };
 
-const reviewCommentOf = (
-  comment: CommentPayload | undefined,
-): PullRequestReviewComment | null =>
-  comment && (text(comment.body) || text(comment.path))
-    ? {
-        body: text(comment.body)?.trim() ?? '',
-        path: text(comment.path)?.trim() ?? null,
+const linesOf = (
+  comment: CommentPayload,
+): Pick<PullRequestReviewComment, 'from' | 'to'> =>
+  comment.subject_type === 'file'
+    ? { from: null, to: null }
+    : {
         from:
           at(comment.start_line) ??
           at(comment.line) ??
@@ -167,6 +166,16 @@ const reviewCommentOf = (
           at(comment.start_line) !== null
             ? (at(comment.line) ?? at(comment.original_line))
             : null,
+      };
+
+const reviewCommentOf = (
+  comment: CommentPayload | undefined,
+): PullRequestReviewComment | null =>
+  comment && (text(comment.body) || text(comment.path))
+    ? {
+        body: text(comment.body)?.trim() ?? '',
+        path: text(comment.path)?.trim() ?? null,
+        ...linesOf(comment),
         id: text(comment.node_id),
       }
     : null;
