@@ -7,17 +7,19 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import type { MessageReading } from '@work/application/services/message-reading';
 import type { ConversationViewer } from '@work/domain/services/conversation-audience';
-import { HoldRights } from '@work/domain/services/hold-rights';
+import { HandMoves } from '@work/domain/services/hand-moves';
+import { type HeldFor, HoldRights } from '@work/domain/services/hold-rights';
 import type { MessagedTask } from '@work/domain/services/message-effect';
-import { MovesByHand } from '@work/domain/services/moves-by-hand';
 import { TaskWaits } from '@work/domain/services/task-waits';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
+const heldOf = (hold: TaskHoldSummary): HeldFor => ({
+  by: UserId.of(hold.by.id),
+  chat: hold.chatId === null ? null : ChatId.of(hold.chatId),
+});
+
 const holdToDto = (hold: TaskHoldSummary, viewer: ConversationViewer) => {
-  const held = {
-    by: UserId.of(hold.by.id),
-    chat: hold.chatId === null ? null : ChatId.of(hold.chatId),
-  };
+  const held = heldOf(hold);
 
   return {
     ...hold,
@@ -61,20 +63,25 @@ export const TaskMapper = {
       },
       ...TaskWaits.forViewer(messagedTaskOf(summary, reading), viewer),
       finished: summary.finished,
-      movableTo: MovesByHand.targets(
-        {
-          stationId: StationId.of(summary.stationId),
-          onHold: summary.hold !== null,
-          awaiting: summary.awaitingReview,
-        },
-        reading.lineOf(summary.stationId),
-      ).map((id) => id.value),
       pullRequests: summary.pullRequests,
       createdBy: summary.createdBy,
       assignee: summary.assignee,
       source: summary.source,
       hold: summary.hold ? holdToDto(summary.hold, viewer) : null,
       runNotStarted: summary.runNotStarted,
+      handMoves: HandMoves.of(
+        {
+          stationId: StationId.of(summary.stationId),
+          hold: summary.hold && heldOf(summary.hold),
+          awaiting: summary.awaitingReview,
+        },
+        reading.lineOf(summary.stationId),
+        viewer,
+      ).map((move) => ({
+        stationId: move.to.id.value,
+        denial: move.denial,
+        skips: move.skips.map((each) => each.id.value),
+      })),
       note: summary.note
         ? {
             position: summary.note.position,

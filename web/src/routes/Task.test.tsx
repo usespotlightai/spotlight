@@ -6,6 +6,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { Task } from '@/routes/Task';
 
+const opens = (
+  open: readonly string[],
+  denial = 'between-work-stations',
+  skips: Record<string, string[]> = {},
+) =>
+  ['station_0', 'station_1', 'station_2', 'station_3'].map((stationId) => ({
+    stationId,
+    denial: open.includes(stationId) ? null : denial,
+    skips: skips[stationId] ?? [],
+  }));
+
 const task = {
   id: 'task_1',
   stationId: 'station_1',
@@ -13,9 +24,9 @@ const task = {
   title: 'Fix the queue',
   description: '## Steps\n\nReproduce, then fix.',
   attachments: [],
+  handMoves: opens(['station_0', 'station_1', 'station_3']),
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
-  movableTo: ['station_0', 'station_1', 'station_3'],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -436,7 +447,7 @@ describe('Task', () => {
     });
   });
 
-  it('offers the stations the server lets a person move the task to', async () => {
+  it('shows every station, and says why a person may not move the task to one', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -445,15 +456,22 @@ describe('Task', () => {
 
     expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
-    ).toEqual(['Backlog', 'Triage', 'Completed']);
+    ).toEqual(['Backlog', 'Triage', 'SpecOnly runs move it here', 'Completed']);
+    expect(screen.getByRole('menuitemradio', { name: 'Spec' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Backlog' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('offers a station between work stations only where the server lets the task pass on there', async () => {
+  it('offers a work station where the server lets the task pass on there', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([
       {
         ...task,
-        movableTo: ['station_0', 'station_1', 'station_2', 'station_3'],
+        handMoves: opens(['station_0', 'station_1', 'station_2', 'station_3']),
       },
     ]);
     renderAt('task_1');
@@ -464,12 +482,23 @@ describe('Task', () => {
     expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
     ).toEqual(['Backlog', 'Triage', 'Spec', 'Completed']);
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Spec' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('offers nothing to move to once a task is completed', async () => {
+  it('says which stations a move from the backlog skips', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([
-      { ...task, stationId: 'station_3', movableTo: ['station_3'] },
+      {
+        ...task,
+        stationId: 'station_0',
+        handMoves: opens(
+          ['station_0', 'station_1', 'station_2', 'station_3'],
+          'between-work-stations',
+          { station_2: ['station_1'] },
+        ),
+      },
     ]);
     renderAt('task_1');
 
@@ -477,8 +506,31 @@ describe('Task', () => {
     await screen.findByRole('menu');
 
     expect(
+      screen.getByRole('menuitemradio', { name: 'Spec' }),
+    ).toHaveAccessibleDescription('Skips Triage');
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Triage' }),
+    ).not.toHaveAccessibleDescription();
+  });
+
+  it('keeps a completed task where it is, and says why', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([
+      {
+        ...task,
+        stationId: 'station_3',
+        handMoves: opens(['station_3'], 'out-of-completed'),
+      },
+    ]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    const menu = await screen.findByRole('menu');
+
+    expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
     ).toEqual(['Completed']);
+    expect(menu).toHaveTextContent('A completed task stays completed');
   });
 
   it('confirms before taking a task away', async () => {

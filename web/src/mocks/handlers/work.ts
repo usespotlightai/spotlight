@@ -238,7 +238,6 @@ export const workHandlers: RequestHandler[] = [
         waitingForYou: false,
         yourMessage: 'message',
         finished: false,
-        movableTo: [],
         pullRequests: [],
         createdBy: SAM,
         assignee: null,
@@ -246,6 +245,7 @@ export const workHandlers: RequestHandler[] = [
         source: null,
         hold: null,
         runNotStarted: null,
+        handMoves: [],
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];

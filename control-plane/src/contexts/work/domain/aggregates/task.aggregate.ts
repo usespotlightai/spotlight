@@ -83,6 +83,7 @@ import {
   worksOn,
 } from '@work/domain/services/conversations';
 import { deferralIn } from '@work/domain/services/deferred-moves';
+import { HandMoves } from '@work/domain/services/hand-moves';
 import { handsOverOnWait } from '@work/domain/services/hand-over';
 import {
   type MessageAddress,
@@ -90,8 +91,6 @@ import {
   type MessagedTask,
   TO_THE_TASK,
 } from '@work/domain/services/message-effect';
-import { MovesByHand } from '@work/domain/services/moves-by-hand';
-import type { PassedOnTask } from '@work/domain/services/pass-on';
 import { Placement } from '@work/domain/services/placement';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { openSetupList } from '@work/domain/services/setup-list';
@@ -618,18 +617,14 @@ export class Task extends EventRecorder {
     turnHeads: readonly TurnHeads[] = [],
   ): Task {
     const hold = this.openHold;
+    const into = Task.stationOn(line, to);
 
-    if (hold) {
-      this.assertMayEnd(hold, handMove.mover);
-    }
+    this.assertHandMoveAllowed(line, into, handMove.mover);
 
     if (hold && this.stationId.equals(to)) {
       this.assertNotOnHold('move it within its station');
     }
 
-    this.assertHandMoveAllowed(line, to);
-
-    const into = Task.stationOn(line, to);
     const next: HoldEnd = into.isCompleted ? 'finish' : 'move-on';
     const ending = hold
       ? this.endedHold({
@@ -3231,22 +3226,30 @@ export class Task extends EventRecorder {
     return station;
   }
 
-  private assertHandMoveAllowed(line: LineMap, to: StationId): void {
+  private assertHandMoveAllowed(
+    line: LineMap,
+    into: Station,
+    mover: UserId,
+  ): void {
     const from = Task.stationOn(line, this.stationId);
-    const into = Task.stationOn(line, to);
-    const denial = MovesByHand.denial(this.toPassOn, line, into);
+    const hold = this.openHold;
+    const denial = HandMoves.denial(
+      {
+        stationId: this.stationId,
+        hold,
+        awaiting: this.awaitingReview ? { ask: this.openAsk } : null,
+      },
+      line,
+      into,
+      mover,
+    );
 
-    if (denial) {
+    if (hold && denial === 'on-hold') {
+      throw new HeldForAgentChatError(this.id, hold.by);
+    }
+    if (denial && denial !== 'on-hold') {
       throw new MoveDeniedError(denial, from.name.value, into.name.value);
     }
-  }
-
-  private get toPassOn(): PassedOnTask {
-    return {
-      stationId: this.stationId,
-      onHold: this.onHold,
-      awaiting: this.awaitingReview ? { ask: this.openAsk } : null,
-    };
   }
 
   private assertNotAtStation(stationId: StationId): void {
