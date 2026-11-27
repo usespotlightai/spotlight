@@ -68,7 +68,7 @@ describe('RunRefused', () => {
         reason: 'wrong-kind',
         because: 'Catalog item catalog.research@1.0.0 is a skill, not a tool.',
       }),
-      'Catalog item catalog.research@1.0.0 is a skill, not a tool. List it under the station’s tools if it is a tool, or its skills if it is a skill.',
+      'Catalog item catalog.research@1.0.0 is a skill, not a tool. Move it to the station’s list for that kind.',
     ],
     [
       ProfileMissing.of(ProfileKey.of('reckless')),

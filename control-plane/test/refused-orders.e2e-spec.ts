@@ -7,7 +7,9 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { RunRefused } from '@work/application/rendering/run-refused';
 import { WorkRequesters } from '@work/application/services/work-requesters';
+import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
@@ -22,7 +24,13 @@ import { createTeam } from './support/team';
 
 const DELIVERY = randomUUID();
 const BUILD = randomUUID();
-const DENIED = 'Catalog has no item catalog.web-search@1.1.0.';
+const DENIED = RunRefused.text(
+  DeniedCatalogItem.of({
+    id: 'catalog.web-search@1.1.0',
+    reason: 'unknown',
+    because: 'Catalog has no item catalog.web-search@1.1.0.',
+  }),
+);
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -158,7 +166,7 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
       expect.objectContaining({
         runId,
         body: expect.stringContaining(
-          'Build didn’t start. Catalog has no item catalog.web-search@1.1.0. Then answer the task to start it again.',
+          'Build didn’t start. Catalog has no item catalog.web-search@1.1.0. Remove it from the station, or name a version that the catalog has. Then answer the task to start it again.',
         ) as unknown,
       }),
     ]);

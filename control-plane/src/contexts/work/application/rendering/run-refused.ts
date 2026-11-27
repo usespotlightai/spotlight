@@ -24,8 +24,7 @@ const noRepository = (refusal: RepositoriesMissing): string => {
 const CATALOG_FIXES: Readonly<Record<DeniedCatalogItem['reason'], string>> = {
   unknown:
     'Remove it from the station, or name a version that the catalog has.',
-  'wrong-kind':
-    'List it under the station’s tools if it is a tool, or its skills if it is a skill.',
+  'wrong-kind': 'Move it to the station’s list for that kind.',
 };
 
 // Plain words for a person: what stops the run, and how to put it right. The code stays out of them.

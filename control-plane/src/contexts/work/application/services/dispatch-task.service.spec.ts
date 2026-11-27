@@ -568,7 +568,7 @@ describe('DispatchTask', () => {
       );
 
       expect(refusedAs(queued[0])).toEqual([
-        expect.stringMatching(/^wrong kind here\. List it under/) as unknown,
+        expect.stringMatching(/^wrong kind here\. Move it to/) as unknown,
         expect.stringMatching(/^unknown here\. Remove it/) as unknown,
       ]);
     });
