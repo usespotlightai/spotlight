@@ -29,6 +29,7 @@ import type {
   RunReasoning,
   WorkRunLookupPort,
 } from '@work/application/ports/work-run-lookup.port';
+import { reasoningTextOf } from '@work/application/rendering/reasoning-text';
 import { referencesUnder } from '@work/application/services/journal-references';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -50,7 +51,9 @@ const reasoned = ({ step, index }: NumberedJournalStep): ReasonedStep[] => {
     ...step,
     kind: RunReadingMapper.stepKind(step.kind),
   });
-  return reasoning ? [{ index, ...reasoning }] : [];
+  return reasoning
+    ? [{ index, kind: reasoning.kind, text: reasoningTextOf(reasoning) }]
+    : [];
 };
 
 const stationOf = (dispatched: DispatchedRun | null): StationId | null =>

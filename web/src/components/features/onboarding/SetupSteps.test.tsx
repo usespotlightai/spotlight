@@ -30,6 +30,24 @@ vi.mock('@/hooks/api/useGitHub', () => ({
   useGitHub: () => githubState,
 }));
 
+const connectInstallation = vi.fn();
+let installed: { id: string; account: string }[] = [];
+
+vi.mock('@/hooks/api/useGitHubInstallations', () => ({
+  useGitHubInstallations: () => ({
+    data: installed,
+    isPending: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
+vi.mock('@/hooks/api/useConnectGitHubInstallation', () => ({
+  useConnectGitHubInstallation: () => ({
+    mutate: connectInstallation,
+    isPending: false,
+  }),
+}));
+
 vi.mock('@/components/features/onboarding/ConfigFolderForm', () => ({
   ConfigFolderForm: () => <p>Choose the config folder</p>,
 }));
@@ -58,6 +76,11 @@ const onboarding = (
 ) => ({
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
   canSetUp: done.includes('github') && done.includes('harness'),
+  setupRefusal: !done.includes('github')
+    ? 'code-unreachable'
+    : done.includes('harness')
+      ? null
+      : 'needs-egress',
   viewerIsAdmin: true,
   setupChat: null,
   ...over,
@@ -103,6 +126,8 @@ beforeEach(() => {
   refetch.mockReset();
   githubState.data = { connected: false, installUrl: INSTALL };
   githubState.isPending = false;
+  installed = [];
+  connectInstallation.mockReset();
 });
 
 describe('SetupSteps', () => {
@@ -151,7 +176,23 @@ describe('SetupSteps', () => {
     );
   });
 
+  it('connects an installation that is already on GitHub, where GitHub would not send the person back', async () => {
+    installed = [{ id: '42', account: 'acme' }];
+    onboardingState.data = onboarding();
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Connect GitHub' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'acme' }),
+    );
+
+    expect(connectInstallation).toHaveBeenCalledWith('42');
+  });
+
   it('offers to configure the App once it is installed', async () => {
+    installed = [{ id: '42', account: 'acme' }];
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
     showing();
@@ -166,9 +207,13 @@ describe('SetupSteps', () => {
     expect(
       screen.queryByRole('link', { name: 'Install on GitHub' }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Connect GitHub' }),
+    ).not.toBeInTheDocument();
   });
 
   it('collapses a done step, keeping the next one open', () => {
+    installed = [{ id: '42', account: 'acme' }];
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
     showing();
@@ -265,13 +310,29 @@ describe('SetupSteps', () => {
     expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
   });
 
-  it('offers nothing for configuration until GitHub and egress are ready', () => {
-    onboardingState.data = onboarding({ canSetUp: false }, [
-      'github',
-      'harness',
-    ]);
+  it('shows the setup disabled, with what to do first, until GitHub and a host are ready', () => {
+    onboardingState.data = onboarding();
     showing();
 
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toHaveAccessibleDescription('Install the GitHub App first.');
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
+  });
+
+  it('asks for a host first once GitHub is ready', () => {
+    onboardingState.data = onboarding(
+      { canSetUp: false, setupRefusal: 'needs-egress' },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toHaveAccessibleDescription('Connect a host first.');
     expect(screen.queryByText('Choose the config folder')).toBeNull();
     expect(screen.queryByText(/egress/)).toBeNull();
   });
@@ -328,13 +389,16 @@ describe('SetupSteps', () => {
   });
 
   it('keeps the setup to workspace owners and admins', () => {
-    onboardingState.data = onboarding({ viewerIsAdmin: false }, [
-      'github',
-      'harness',
-    ]);
+    onboardingState.data = onboarding(
+      { viewerIsAdmin: false, setupRefusal: 'needs-an-admin' },
+      ['github', 'harness'],
+    );
     showing();
 
     expect(screen.queryByText('Choose the config folder')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Continue in chat' }),
+    ).toBeNull();
     expect(
       screen.getByText(
         'Only a workspace owner or admin can set up configuration as code.',
@@ -344,7 +408,11 @@ describe('SetupSteps', () => {
 
   it('shows a member who is setting the team up', () => {
     onboardingState.data = onboarding(
-      { viewerIsAdmin: false, setupChat: chat({ id: null }) },
+      {
+        viewerIsAdmin: false,
+        setupRefusal: 'needs-an-admin',
+        setupChat: chat({ id: null }),
+      },
       ['github', 'harness'],
     );
     showing();

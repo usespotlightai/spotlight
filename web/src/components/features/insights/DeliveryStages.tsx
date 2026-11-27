@@ -2,6 +2,7 @@ import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TileGroup } from '@/components/features/insights/TileGroup';
 import {
   DELIVERY_NOTE,
+  DELIVERY_SCOPE,
   type Flow,
   formatCount,
   formatMedian,
@@ -16,7 +17,11 @@ type DeliveryStagesProps = {
 
 export function DeliveryStages({ delivery }: DeliveryStagesProps) {
   return (
-    <TileGroup title="Past the last station" tooltip={DELIVERY_NOTE}>
+    <TileGroup
+      title="Past the last station"
+      aside={DELIVERY_SCOPE}
+      tooltip={DELIVERY_NOTE}
+    >
       <InsightsTile
         label="PRs opened"
         value={formatCount(delivery.opened)}
@@ -26,7 +31,7 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
         drill={tasksDrill(delivery.openedTaskIds)}
       />
       <InsightsTile
-        label="First reviews"
+        label="First human reviews"
         value={formatCount(delivery.reviewed)}
         detail={`PR to review ${formatMedian(delivery.toFirstReview)}`}
         tooltip={formatSlowest(delivery.toFirstReview)}

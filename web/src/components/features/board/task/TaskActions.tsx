@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,10 +21,11 @@ import { useCommands } from '@/hooks/useCommands';
 
 type TaskActionsProps = {
   title: string;
+  running: boolean;
   onDelete: () => void;
 };
 
-export function TaskActions({ title, onDelete }: TaskActionsProps) {
+export function TaskActions({ title, running, onDelete }: TaskActionsProps) {
   const [confirming, setConfirming] = useState(false);
   useCommands([{ id: 'task.delete', run: () => setConfirming(true) }]);
 
@@ -50,12 +52,13 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete "{title}"?</DialogTitle>
+            <DialogDescription>
+              {running &&
+                'An agent is working on this task. Spotlight stops the run, and the changes that the agent did not push are lost. '}
+              Spotlight also deletes the station notes on this task. You can’t
+              undo this.
+            </DialogDescription>
           </DialogHeader>
-
-          <p className="text-muted-foreground text-sm">
-            Spotlight also deletes the station notes on this task. You can’t
-            undo this.
-          </p>
 
           <DialogFooter className="sm:justify-end">
             <Button
@@ -66,7 +69,7 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
               Keep it
             </Button>
             <Button variant="destructive" size="sm" onClick={onDelete}>
-              Delete task
+              {running ? 'Stop run and delete' : 'Delete task'}
             </Button>
           </DialogFooter>
         </DialogContent>

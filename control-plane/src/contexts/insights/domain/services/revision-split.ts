@@ -22,3 +22,6 @@ export const revisionSplitOf = <T extends { readonly runId: RunId }>(
     (each) => samplePointOf('revision', each.runId) < HELD_OUT_SHARE,
   ),
 });
+
+export const revisableOf = <T>(split: RevisionSplit<T>): boolean =>
+  split.heldOut.length >= MIN_HELD_OUT;
