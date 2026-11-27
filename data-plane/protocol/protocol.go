@@ -56,8 +56,9 @@ type SessionOption struct {
 }
 
 type HandoverSpec struct {
-	Options   []string `json:"options,omitempty"`
-	NoteLimit int      `json:"noteLimit,omitempty"`
+	Options       []string `json:"options,omitempty"`
+	ResumeOptions []string `json:"resumeOptions,omitempty"`
+	NoteLimit     int      `json:"noteLimit,omitempty"`
 }
 
 type Spec struct {

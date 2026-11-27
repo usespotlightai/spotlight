@@ -189,6 +189,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     });
     await expect(onboarding(member)).resolves.toMatchObject({
       viewerIsAdmin: false,
+      setupRefusal: 'needs-an-admin',
     });
   });
 

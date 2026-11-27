@@ -6,6 +6,7 @@ import type { InferOutputSchemas } from '@integrations/application/services/infe
 import type { IntegrationCursors } from '@integrations/application/services/integration-cursors.service';
 import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import type { MemberConnections } from '@integrations/application/services/member-connections.service';
+import type { PullRequestConflictReactions } from '@integrations/application/services/pull-request-conflict-reactions.service';
 import type { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
 import type { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import type { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
@@ -17,6 +18,10 @@ import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_CONFLICTED,
+  type PullRequestConflictedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-conflicted.integration-event';
 import {
   TASK_MOVED,
   type TaskMovedIntegrationEvent,
@@ -51,6 +56,7 @@ export const integrationsSubscribers = (
   cursors: IntegrationCursors,
   deliveries: InboundDeliveryRetention,
   memberConnections: MemberConnections,
+  conflicts: PullRequestConflictReactions,
 ): readonly DomainEventSubscriber[] => [
   subscribing<WorkspaceMemberAccessEndedIntegrationEvent>(
     'integrations.disconnect-connections-of-member-without-access',
@@ -194,6 +200,21 @@ export const integrationsSubscribers = (
     'integrations.fire-hooks-when-a-pull-request-merged',
     [PULL_REQUEST_CLOSED],
     (event) => hookTriggers.pullRequestClosed(event),
+    { callsOut: true },
+  ),
+  subscribing<PullRequestConflictedIntegrationEvent>(
+    'integrations.react-to-a-pull-request-that-conflicts',
+    [PULL_REQUEST_CONFLICTED],
+    (event, record) =>
+      conflicts.conflicted(
+        WorkspaceId.of(event.workspaceId),
+        {
+          pullRequest: event.pullRequest,
+          branch: event.branch,
+          base: event.base,
+        },
+        `github-conflict:${record.id}`,
+      ),
     { callsOut: true },
   ),
 ];

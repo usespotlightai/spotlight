@@ -267,15 +267,23 @@ export const hiddenRunTip = (run: LeasedRun): string =>
     ? 'Title hidden. This agent chat belongs to a team you’re not on.'
     : 'Title hidden. This run belongs to a team you’re not on.';
 
+const deletedRun = (run: LeasedRun): string =>
+  run.kind === 'chat' ? 'Deleted agent chat' : 'Deleted task';
+
 export const formatRun = (run: LeasedRun | null): string => {
   if (run === null) {
     return 'No run yet';
   }
 
-  return (
-    run.title ??
-    (isUnnamed(run.kind) ? UNNAMED_RUNS[run.kind] : hiddenRunTip(run))
-  );
+  if (run.title !== null) {
+    return run.title;
+  }
+
+  if (isUnnamed(run.kind)) {
+    return UNNAMED_RUNS[run.kind];
+  }
+
+  return run.readable ? deletedRun(run) : hiddenRunTip(run);
 };
 
 export const hiddenFromViewer = (run: LeasedRun | null): boolean =>

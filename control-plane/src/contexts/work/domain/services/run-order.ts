@@ -35,6 +35,7 @@ export interface RunOrder {
   readonly priority: RunPriority;
   readonly placement: RunnerPlacement;
   readonly options: readonly HandoverOption[];
+  readonly resumeOptions: readonly HandoverOption[];
   readonly noteLimit: number;
   readonly resume: Resume;
   readonly checkouts: readonly TaskCheckout[];
@@ -43,6 +44,12 @@ export interface RunOrder {
   readonly check: string | null;
   readonly refusals: readonly RefusalReason[];
   readonly boundSecrets: readonly BoundSecret[];
+}
+
+export interface OrderedHandover {
+  readonly options: readonly HandoverOption[];
+  readonly resumeOptions: readonly HandoverOption[];
+  readonly noteLimit: number;
 }
 
 export interface OrderedAt {
@@ -145,6 +152,7 @@ export const orderAt = ({
     priority: RunPriority.forTask(line.depthOf(station.id)),
     placement: line.placementOf(station.id),
     options: line.optionsFrom(station.id),
+    resumeOptions: line.resumeOptionsAt(station.id),
     noteLimit: 0,
     resume: at.resume,
     checkouts: at.checkouts,
@@ -156,6 +164,16 @@ export const orderAt = ({
     ),
   };
 };
+
+// A person's turn hands over to no station. Its agent may only resume the line: at this station, at a station it passes to, or done.
+export const handoverOf = (
+  order: Pick<RunOrder, 'options' | 'resumeOptions' | 'noteLimit'>,
+  drivenByAPerson: boolean,
+): OrderedHandover => ({
+  options: drivenByAPerson ? [] : order.options,
+  resumeOptions: drivenByAPerson ? order.resumeOptions : [],
+  noteLimit: order.noteLimit,
+});
 
 export const taskOrderedAt = (task: Task, line: LineMap): OrderedAt => ({
   stationId: task.stationId,

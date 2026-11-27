@@ -1,3 +1,4 @@
+import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -7,6 +8,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { requestedBy } from '@work/application/ports/runs.fake-spec';
+import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -36,6 +38,30 @@ describe('workSubscribers', () => {
 
     expect(reconciling?.kinds).toEqual(['chat.setup-pull-request-opened']);
     expect(forTeam).toHaveBeenCalledWith(TeamId.of('team_1'));
+  });
+
+  it('retires the sandbox of a chat when it is resolved, when its run ends and when it is deleted', async () => {
+    const chatSandbox = { on: vi.fn(async () => {}) };
+    const retiring = workSubscribers({
+      chatSandbox,
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.retire-sandbox-of-resolved-chat',
+    );
+    const resolved = new ChatResolved(
+      ChatId.of('chat_1'),
+      WorkspaceId.of('ws_1'),
+      UserId.of('user_1'),
+      new Date('2026-11-26T10:00:00.000Z'),
+    );
+
+    await retiring?.handle(resolved, anOutboxRecord());
+
+    expect(retiring?.kinds).toEqual([
+      'chat.resolved',
+      'chat.run-ended',
+      'chat.deleted',
+    ]);
+    expect(chatSandbox.on).toHaveBeenCalledWith(resolved);
   });
 
   it('takes up the run a person answered, whichever way the answer came', async () => {
@@ -82,5 +108,36 @@ describe('workSubscribers', () => {
     expect(taking?.kinds).toEqual(['runs.run-suspended.v1']);
     expect(taking?.callsOut).toBe(true);
     expect(turns.take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
+  });
+
+  it('tells the setup chats of the workspace that a pull request closed', async () => {
+    const setupPullRequests = { closed: vi.fn(async () => {}) };
+    const resolving = workSubscribers({
+      setupPullRequests,
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.resolve-merged-setup-chat',
+    );
+
+    await resolving?.handle(
+      {
+        kind: PULL_REQUEST_CLOSED,
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/infra/pull/12',
+        repository: 'acme/infra',
+        gitHubId: 12,
+        closedAt: '2026-11-07T10:00:00.000Z',
+        merged: true,
+        mergeCommit: 'abc123',
+      } as never,
+      anOutboxRecord(),
+    );
+
+    expect(resolving?.kinds).toEqual([PULL_REQUEST_CLOSED]);
+    expect(setupPullRequests.closed).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      PullRequestUrl.of('https://github.com/acme/infra/pull/12'),
+      new Date('2026-11-07T10:00:00.000Z'),
+      true,
+    );
   });
 });
