@@ -24,6 +24,7 @@ import type {
 } from '@work/application/ports/station-trials.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Answered } from '@work/application/rendering/answered';
+import { RunRefused } from '@work/application/rendering/run-refused';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import type { CandidateLines } from '@work/application/services/candidate-lines.service';
 import type { StationOrdering } from '@work/application/services/station-ordering';
@@ -315,7 +316,9 @@ export class StationTrials implements StationTrialsPort {
           : null,
         refusal:
           order.refusals.length > 0
-            ? order.refusals.map((each) => ({ description: each.description }))
+            ? order.refusals.map((each) => ({
+                description: RunRefused.text(each),
+              }))
             : null,
       },
       fingerprint: configuredAs?.fingerprint ?? null,

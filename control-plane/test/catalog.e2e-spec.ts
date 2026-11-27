@@ -21,7 +21,6 @@ import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/r
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,
@@ -406,11 +405,7 @@ describe('a catalog call (e2e)', () => {
           catalog: ['catalog.web-search@1.1.0'],
         }),
         refusal: [
-          DeniedCatalogItem.of({
-            id: 'catalog.web-search@1.1.0',
-            reason: 'unknown',
-            because: 'Catalog has no item catalog.web-search@1.1.0.',
-          }),
+          { description: 'Catalog has no item catalog.web-search@1.1.0.' },
         ],
       }),
     );

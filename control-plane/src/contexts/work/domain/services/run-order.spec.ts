@@ -117,12 +117,14 @@ const refusalsWith = (
   boundSecrets: readonly BoundSecret[],
   sandboxEnv: ReadyProfile['sandboxEnv'] = [],
 ) =>
-  orderWith(boundSecrets, sandboxEnv)?.refusals.map((each) => each.description);
+  orderWith(boundSecrets, sandboxEnv)?.refusals.map((each) =>
+    'secret' in each ? `${each.code} ${each.secret.value}` : each.code,
+  );
 
 describe('orderAt', () => {
   it('refuses the run where a secret the profile injects has no value', () => {
     expect(refusalsWith([known('LINEAR_API_KEY', true)])).toEqual([
-      'Secret LINEAR_API_KEY has no value yet. Set it on the Secrets settings page.',
+      'secret_awaiting_value LINEAR_API_KEY',
     ]);
   });
 
@@ -135,14 +137,14 @@ describe('orderAt', () => {
     ];
 
     expect(refusalsWith([known('DEV_GITHUB_APP_KEY', false)], appKey)).toEqual([
-      'Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret.',
+      'secret_sandbox_not_allowed DEV_GITHUB_APP_KEY',
     ]);
     expect(
       refusalsWith([known('DEV_GITHUB_APP_KEY', false, [], true)], appKey),
     ).toEqual([]);
     expect(refusalsWith([known('DEV_GITHUB_APP_KEY', true)], appKey)).toEqual([
-      'Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret.',
-      'Secret DEV_GITHUB_APP_KEY has no value yet. Set it on the Secrets settings page.',
+      'secret_sandbox_not_allowed DEV_GITHUB_APP_KEY',
+      'secret_awaiting_value DEV_GITHUB_APP_KEY',
     ]);
   });
 
@@ -153,41 +155,31 @@ describe('orderAt', () => {
         needsCheckout?: boolean;
       },
       line: LineMap = LINE,
-    ) => orderWith([], [], at, line)?.refusals.map((each) => each.description);
+    ) =>
+      orderWith([], [], at, line)?.refusals.map((each) =>
+        each.code === 'line_has_no_repositories'
+          ? { line: each.line, source: each.source }
+          : each.code,
+      );
 
-    it('refuses the run where the line has no repository to check out, and says where to add one', () => {
+    it('refuses the run where the line has no repository to check out, and names the line', () => {
       expect(refusalsAt({ needsCheckout: true })).toEqual([
-        'The Delivery line has no repository yet. Add a `repository` block to the line’s `spotlight_line` in your team’s configuration. If the team has no configuration as code yet, start with “Set up configuration as code” on the setup checklist.',
+        { line: LineName.of('Delivery'), source: null },
       ]);
     });
 
-    it('names the Terraform file that defines the line, where the team’s configuration says which', () => {
-      const configured = lineMapOf({
-        ...LINE_PARTS,
-        source: LineSource.of({
-          repository: Repository.of('acme/infra'),
-          path: 'teams/core/delivery.tf',
-        }),
+    it('names where the team’s configuration defines the line, where it says', () => {
+      const source = LineSource.of({
+        repository: Repository.of('acme/infra'),
+        path: 'teams/core/delivery.tf',
       });
 
-      expect(refusalsAt({ needsCheckout: true }, configured)).toEqual([
-        'The Delivery line has no repository yet. Add a `repository` block to the line’s `spotlight_line` in `teams/core/delivery.tf` in acme/infra.',
-      ]);
-    });
-
-    it('keeps the machine code of each refusal out of its words', () => {
-      const refusals =
-        orderWith([known('LINEAR_API_KEY', true)], [], { needsCheckout: true })
-          ?.refusals ?? [];
-
-      expect(refusals.map((each) => each.code)).toEqual([
-        'line_has_no_repositories',
-        'secret_awaiting_value',
-      ]);
-      for (const each of refusals) {
-        expect(each.description).not.toContain(each.code);
-        expect(each.description).not.toContain('Station:');
-      }
+      expect(
+        refusalsAt(
+          { needsCheckout: true },
+          lineMapOf({ ...LINE_PARTS, source }),
+        ),
+      ).toEqual([{ line: LineName.of('Delivery'), source }]);
     });
 
     it('does not refuse the run where it checks out a repository', () => {

@@ -158,7 +158,7 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
       expect.objectContaining({
         runId,
         body: expect.stringContaining(
-          'Build didn’t start. Catalog has no item catalog.web-search@1.1.0. Then answer here to start it again.',
+          'Build didn’t start. Catalog has no item catalog.web-search@1.1.0. Then answer the task to start it again.',
         ) as unknown,
       }),
     ]);

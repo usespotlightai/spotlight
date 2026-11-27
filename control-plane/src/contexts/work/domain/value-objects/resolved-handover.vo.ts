@@ -53,10 +53,14 @@ export const ResolvedHandover = {
     asked: true,
   }),
 
-  failed: (body: TaskNoteBody, failure: TaskFailure): ResolvedHandover => ({
+  failed: (
+    body: TaskNoteBody,
+    failure: TaskFailure,
+    account: TaskNoteBody = body,
+  ): ResolvedHandover => ({
     kind: 'review',
     body,
-    account: body,
+    account,
     attachments: [],
     failure,
     suggestsClosing: false,

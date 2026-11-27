@@ -513,7 +513,7 @@ describe('DispatchTask', () => {
       );
 
       expect(refusedAs(queued[0])).toEqual([
-        'Catalog has no item catalog.web-search@1.1.0.',
+        'Catalog has no item catalog.web-search@1.1.0. Remove it from the station, or name a version that the catalog has.',
       ]);
     });
   });
@@ -534,7 +534,9 @@ describe('DispatchTask', () => {
           WIDGETS,
         );
 
-        expect(refusedAs(queued[0])).toEqual(['denied here']);
+        expect(refusedAs(queued[0])).toEqual([
+          expect.stringMatching(/^denied here\. \w/) as unknown,
+        ]);
       },
     );
 
@@ -565,7 +567,10 @@ describe('DispatchTask', () => {
         WIDGETS,
       );
 
-      expect(refusedAs(queued[0])).toEqual(['wrong kind here', 'unknown here']);
+      expect(refusedAs(queued[0])).toEqual([
+        expect.stringMatching(/^wrong kind here\. List it under/) as unknown,
+        expect.stringMatching(/^unknown here\. Remove it/) as unknown,
+      ]);
     });
   });
 
@@ -694,7 +699,7 @@ describe('DispatchTask', () => {
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
-        'The Default line has no repository yet. Add a `repository` block to the line’s `spotlight_line` in your team’s configuration. If the team has no configuration as code yet, start with “Set up configuration as code” on the setup checklist.',
+        'The Default line has no repository yet. Add one in your team’s Terraform, as a `repository` block on the line’s `spotlight_line`. If the team has no configuration as code yet, start with “Set up configuration as code” on the setup checklist.',
       ]);
     });
 
@@ -810,7 +815,7 @@ describe('DispatchTask', () => {
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
-        'Secret LINEAR_API_KEY has no value yet. Set it on the Secrets settings page.',
+        'Secret LINEAR_API_KEY has no value yet. Set it on the Secrets settings page, with `spotlight secret set LINEAR_API_KEY`, or with `value_wo` and `value_wo_version` in Terraform.',
       ]);
     });
 
@@ -851,7 +856,7 @@ describe('DispatchTask', () => {
         await dispatch(naming('app'), undefined, WIDGETS);
 
         expect(refusedAs(queued[0])).toEqual([
-          'Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret.',
+          'Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set `sandbox = "env"` on the secret.',
         ]);
       });
 
@@ -861,7 +866,7 @@ describe('DispatchTask', () => {
         await dispatch(naming('app'), undefined, WIDGETS);
 
         expect(refusedAs(queued[0])).toEqual([
-          'Secret DEV_GITHUB_APP_KEY has no value yet. Set it on the Secrets settings page.',
+          'Secret DEV_GITHUB_APP_KEY has no value yet. Set it on the Secrets settings page, with `spotlight secret set DEV_GITHUB_APP_KEY`, or with `value_wo` and `value_wo_version` in Terraform.',
         ]);
       });
     });
@@ -871,7 +876,7 @@ describe('DispatchTask', () => {
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
-        'The station uses harness profile reckless, which this team does not have. Add the profile to the team’s configuration, or have the station use another one.',
+        'The station uses harness profile reckless, which this team does not have. Add a `spotlight_harness_profile` with that key to the team’s Terraform, or change the station’s `profile`.',
       ]);
       expect(written(queued[0]).harnessSetup).toBeUndefined();
     });

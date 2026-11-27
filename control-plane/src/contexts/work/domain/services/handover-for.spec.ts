@@ -361,33 +361,40 @@ describe('HandoverFor, for a run Spotlight refused to start', () => {
       line,
       currentStation: StationId.of('station_1'),
     });
+  const WHY =
+    'The Delivery line has no repository yet. Add one in your team’s Terraform.';
 
   it('says in plain words that the station did not start, why, and that an answer starts it again', () => {
-    const handover = after(
-      'The Delivery line has no repository yet. Add a `repository` block to the line’s `spotlight_line` in your team’s configuration.',
-    );
+    const handover = after(WHY);
 
     expect(handover.kind).toBe('review');
     expect(handover.body.value).toBe(
-      'Triage didn’t start. The Delivery line has no repository yet. Add a `repository` block to the line’s `spotlight_line` in your team’s configuration. Then answer here to start it again.',
+      `Triage didn’t start. ${WHY} Then answer the task to start it again.`,
     );
     expect(handover.body.value).not.toContain('The run failed');
   });
 
+  it('gives as the run’s account, which a deferred move quotes, only what happened and why', () => {
+    expect(after(WHY).account?.value).toBe(`Triage didn’t start. ${WHY}`);
+  });
+
   it('still says that an answer starts it again where it has no reason', () => {
-    expect(after(null).body.value).toBe(
-      'Triage didn’t start. Answer here to start it again.',
+    const handover = after(null);
+
+    expect(handover.body.value).toBe(
+      'Triage didn’t start. Answer the task to start it again.',
     );
+    expect(handover.account?.value).toBe('Triage didn’t start.');
   });
 
   it('speaks of the run where it cannot name the station', () => {
     expect(after('Secret A has no value yet.', null).body.value).toBe(
-      'The run didn’t start. Secret A has no value yet. Then answer here to start it again.',
+      'The run didn’t start. Secret A has no value yet. Then answer the task to start it again.',
     );
   });
 
   it('keeps the refusal as the task’s failure, for those who read its code', () => {
-    const handover = after('Secret A has no value yet.');
+    const handover = after(WHY);
 
     expect(handover.kind === 'review' && handover.failure?.code).toBe(
       'refused',

@@ -12,6 +12,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { RunRefused } from '@work/application/rendering/run-refused';
 import type { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
@@ -60,6 +61,6 @@ export const runOrderOf = (parts: {
   line: parts.line?.value ?? null,
   refusal:
     parts.refusals.length > 0
-      ? parts.refusals.map((each) => ({ description: each.description }))
+      ? parts.refusals.map((each) => ({ description: RunRefused.text(each) }))
       : null,
 });
