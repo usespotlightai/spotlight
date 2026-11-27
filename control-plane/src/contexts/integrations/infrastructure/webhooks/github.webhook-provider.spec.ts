@@ -34,6 +34,7 @@ const OPENED: PullRequestActivity = {
     author: 'octocat',
     authorAssociation: 'CONTRIBUTOR',
     draft: false,
+    merged: false,
   },
   reviewComment: null,
   ignoredAsBot: false,
@@ -280,6 +281,7 @@ describe('GitHubWebhookProvider', () => {
           author: 'octocat',
           outside: true,
           draft: false,
+          merged: false,
           branch: 'fix-uploads',
         },
       },
@@ -305,6 +307,24 @@ describe('GitHubWebhookProvider', () => {
         review: { trigger: 'labelled', label: 'spotlight' },
       },
     });
+  });
+
+  it('says whether the pull request a review is requested of is already merged', async () => {
+    const reviewRequest = await readOne({
+      ...OPENED,
+      activity: 'labelled',
+      label: 'spotlight',
+      details: {
+        title: 'Retry uploads',
+        body: null,
+        author: 'octocat',
+        authorAssociation: 'MEMBER',
+        draft: false,
+        merged: true,
+      },
+    });
+
+    expect(reviewRequest.opens?.review?.merged).toBe(true);
   });
 
   it('reads nothing from a label GitHub did not name', async () => {

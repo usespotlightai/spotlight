@@ -1254,6 +1254,15 @@ export class Task extends EventRecorder {
     return reviewing;
   }
 
+  // A review stays open on its line until it reaches the completed station, also while it waits finished at its review station.
+  reviewsOpenOn(line: LineMap, url: PullRequestUrl): boolean {
+    return (
+      (this.reviewedPullRequest?.url.equals(url) ?? false) &&
+      line.stationAt(this.stationId) !== null &&
+      !line.completed.id.equals(this.stationId)
+    );
+  }
+
   get pullRequests(): readonly PullRequestUrl[] {
     return this.ownedPullRequests.map((each) => each.url);
   }

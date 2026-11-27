@@ -153,7 +153,44 @@ describe('GitHubWebhookParser', () => {
         author: 'octocat',
         authorAssociation: 'MEMBER',
         draft: true,
+        merged: false,
       });
+    });
+
+    it('says whether the pull request labelled or commented on is already merged', () => {
+      expect(
+        activity('pull_request', {
+          action: 'labeled',
+          label: { name: 'spotlight' },
+          pull_request: pull({ title: 'Retry uploads' }),
+        })?.details?.merged,
+      ).toBe(true);
+      expect(
+        activity('issue_comment', {
+          action: 'created',
+          issue: {
+            title: 'Retry uploads',
+            pull_request: {
+              html_url: 'https://github.com/acme/api/pull/7',
+              merged_at: '2026-11-20T10:00:00Z',
+            },
+          },
+          comment: { body: '@spotlight have a look' },
+        })?.details?.merged,
+      ).toBe(true);
+      expect(
+        activity('issue_comment', {
+          action: 'created',
+          issue: {
+            title: 'Retry uploads',
+            pull_request: {
+              html_url: 'https://github.com/acme/api/pull/7',
+              merged_at: null,
+            },
+          },
+          comment: { body: '@spotlight have a look' },
+        })?.details?.merged,
+      ).toBe(false);
     });
 
     it('passes on how GitHub associates the author with the repository, as GitHub names it', () => {
@@ -236,6 +273,7 @@ describe('GitHubWebhookParser', () => {
         author: 'octocat',
         authorAssociation: null,
         draft: false,
+        merged: false,
       });
     });
 

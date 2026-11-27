@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -43,11 +45,13 @@ import type {
   ReviewStart,
 } from '@work/domain/value-objects/review-intake.vo';
 import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const TEAMMATES = {
@@ -63,7 +67,6 @@ const channels = partial<ChannelChats>({
 const NOW = new Date('2026-09-18T12:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
-const transaction: TransactionPort = { inTransaction: async (work) => work() };
 const members: MemberDirectoryPort = {
   byEmail: async () => null,
 };
@@ -125,6 +128,7 @@ const requested = (
     branch?: string | null;
     outside?: boolean;
     pullRequest?: string;
+    merged?: boolean;
   } = {},
 ): Happened => {
   const pullRequest = over.pullRequest ?? PULL;
@@ -152,10 +156,57 @@ const requested = (
         author: 'octocat',
         outside: over.outside ?? true,
         draft: over.draft ?? false,
+        merged: over.merged ?? false,
         branch: over.branch === undefined ? 'fix-uploads' : over.branch,
       },
     },
   };
+};
+
+// Holds a lock until the transaction that took it ends, as the database does.
+const locking = () => {
+  const held = new Map<string, Promise<void>>();
+  const scope = new AsyncLocalStorage<(() => void)[]>();
+
+  const transaction: TransactionPort = {
+    inTransaction: async (work) => {
+      const releases: (() => void)[] = [];
+
+      try {
+        return await scope.run(releases, work);
+      } finally {
+        for (const release of releases) {
+          release();
+        }
+      }
+    },
+  };
+
+  const lock = async (key: string): Promise<void> => {
+    const releases = scope.getStore();
+
+    if (!releases) {
+      throw new Error('A lock needs a transaction.');
+    }
+
+    while (held.has(key)) {
+      await held.get(key);
+    }
+
+    let release = () => {};
+    held.set(
+      key,
+      new Promise<void>((resolve) => {
+        release = () => {
+          held.delete(key);
+          resolve();
+        };
+      }),
+    );
+    releases.push(release);
+  };
+
+  return { transaction, lock };
 };
 
 const world = (input: {
@@ -163,6 +214,7 @@ const world = (input: {
   connected?: readonly string[];
   findByCorrelation?: (correlationKeys: CorrelationKeys) => Task | null;
   owning?: Task | null;
+  tasks?: readonly Task[];
 }) => {
   const workspaceLines = [
     ...input.lines,
@@ -171,25 +223,48 @@ const world = (input: {
   const added: Task[] = [];
   const saved: Task[] = [];
   const dispatched: Task[] = [];
+  const stored = new Map<string, Task>(
+    (input.tasks ?? []).map((each) => [each.id.value, each]),
+  );
+  const { transaction, lock } = locking();
+  const holding = (correlationKeys: CorrelationKeys): Task[] =>
+    [...stored.values()].filter(
+      (each) =>
+        (correlationKeys.branch?.equals(each.branch) ?? false) ||
+        correlationKeys.marks.some((mark) => each.holdsMark(mark)),
+    );
 
   const tasks = {
     add: vi.fn(async (each: Task) => {
       added.push(each);
+      stored.set(each.id.value, each);
     }),
     save: vi.fn(async (each: Task) => {
       saved.push(each);
+      stored.set(each.id.value, each);
     }),
     find: vi.fn(async () => null),
     remove: vi.fn(),
     placementsAt: vi.fn(async () => []),
     findByCorrelation: vi.fn(
       async (_at: WorkspaceId, correlationKeys: CorrelationKeys) => {
-        const found = input.findByCorrelation?.(correlationKeys) ?? null;
-        return found ? [found] : [];
+        if (input.findByCorrelation) {
+          const found = input.findByCorrelation(correlationKeys);
+          return found ? [found] : [];
+        }
+
+        return holding(correlationKeys);
       },
     ),
     owningPullRequest: vi.fn(async () => input.owning ?? null),
     reviewingPullRequest: vi.fn(async () => null),
+    reviewsOf: vi.fn(async (at: WorkspaceId, pullRequest: PullRequestUrl) => {
+      await lock(`${at.value}:${pullRequest.value}`);
+
+      return [...stored.values()].filter(
+        (each) => each.reviewedPullRequest?.url.equals(pullRequest) ?? false,
+      );
+    }),
     holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
@@ -248,13 +323,60 @@ const world = (input: {
         `delivery_${deliveries}`,
       );
     },
+    redeliver: (delivery: number, ...happenings: Happened[]) =>
+      reactions.react(
+        WorkspaceId.of('ws_1'),
+        null,
+        happenings,
+        `delivery_${delivery}`,
+      ),
     added,
     saved,
     dispatched,
+    stored: (id: TaskId) => stored.get(id.value),
+    put: (task: Task) => stored.set(task.id.value, task),
   };
 };
 
 const policy = (start: ReviewStart, skip = {}) => reviewsOf({ start, skip });
+
+const finishedReview = (line: LineMap, id: string, at = new Date(0)) => {
+  const run = RunId.of(`run_of_${id}`);
+
+  return Task.add({
+    line,
+    // oxlint-disable-next-line typescript/no-non-null-assertion -- the review line has an entry
+    at: line.entry!.id,
+    title: TaskTitle.of('Retry uploads'),
+    rank: TaskRank.of('i'),
+    now: NOW,
+    newId: () => id,
+  })
+    .reviews(PullRequestUrl.of(PULL), { outside: false }, line, at)
+    .assignRun(run, line)
+    .finishHere(run, line, {
+      line,
+      body: TaskNoteBody.of('Reviewed.'),
+      at: NOW,
+      voice: Voice.world(),
+    });
+};
+
+const closedUnmerged = (): Happened => ({
+  happening: 'github.pull_request.closed-unmerged',
+  summary: 'The pull request was closed without being merged.',
+  answers: false,
+  state: 'raised',
+  correlationKeys: {
+    branch: null,
+    marks: [{ kind: REVIEW_MARK, value: PULL }],
+  },
+  message: null,
+  ourOwn: false,
+  opens: null,
+  closedPullRequest: PULL,
+  closedUnmerged: true,
+});
 
 describe('ReactToHappenings, with a review request', () => {
   it('opens a task reviewing a pull request as it opens, on the line that reviews them', async () => {
@@ -459,10 +581,7 @@ describe('ReactToHappenings, with a review request', () => {
     }).reviews(PullRequestUrl.of(PULL), { outside: false }, line, new Date(0));
     const { react, added, saved } = world({
       lines: [line],
-      findByCorrelation: (correlationKeys) =>
-        correlationKeys.marks.some((mark) => mark.kind === REVIEW_MARK)
-          ? underway
-          : null,
+      tasks: [underway],
     });
 
     await react(requested('mentioned', { body: '@spotlight again please' }));
@@ -503,13 +622,125 @@ describe('ReactToHappenings, with a review request', () => {
     });
     const { react, added } = world({
       lines: [line],
-      findByCorrelation: (correlationKeys) =>
-        correlationKeys.marks.length > 0 ? finished : null,
+      tasks: [finished],
     });
 
     await react(requested('mentioned', { body: '@spotlight once more' }));
 
     expect(added).toHaveLength(1);
     expect(added[0]?.id.equals(finished.id)).toBe(false);
+  });
+
+  it('reviews again in the same task when a person labels the pull request again after the review finished', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const finished = finishedReview(line, 'task_review');
+    const { react, added, saved, dispatched } = world({
+      lines: [line],
+      tasks: [finished],
+    });
+
+    await react(requested('labelled', { label: 'spotlight' }));
+
+    expect(added).toEqual([]);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.id.value).toBe('task_review');
+    expect(saved[0]?.finished).toBe(false);
+    expect(saved[0]?.stationId.equals(finished.stationId)).toBe(true);
+    expect(saved[0]?.currentRunId?.value).toBe('run_1');
+    expect(dispatched.map((each) => each.id.value)).toEqual(['task_review']);
+  });
+
+  it('reviews again in the task a label opened when Spotlight is mentioned after it finished', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const { react, added, saved, stored, put } = world({ lines: [line] });
+
+    await react(requested('labelled', { label: 'spotlight' }));
+    const opened = firstOf(added);
+    const review = opened && stored(opened.id);
+    const run = review?.currentRunId;
+    if (!review || !run) {
+      throw new Error('The label opened no review.');
+    }
+    put(
+      review.finishHere(run, line, {
+        line,
+        body: TaskNoteBody.of('Reviewed.'),
+        at: NOW,
+        voice: Voice.world(),
+      }),
+    );
+
+    await react(requested('mentioned', { body: '@spotlight please look' }));
+
+    expect(added).toHaveLength(1);
+    expect(saved[saved.length - 1]?.id.equals(review.id)).toBe(true);
+    expect(stored(review.id)?.finished).toBe(false);
+    expect(stored(review.id)?.currentRunId?.value).toBe('run_1');
+  });
+
+  it('opens one review when two requests for the same pull request arrive at once', async () => {
+    const line = reviewing({ reviews: policy('opened') });
+    const { react, added, saved } = world({ lines: [line] });
+
+    await Promise.all([
+      react(requested('opened')),
+      react(requested('labelled', { label: 'spotlight' })),
+    ]);
+
+    expect(added).toHaveLength(1);
+    expect(saved.map((each) => each.id.value)).toEqual(
+      added.map((each) => each.id.value),
+    );
+  });
+
+  it('opens no second review for a delivery GitHub sends again', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const { react, redeliver, added } = world({ lines: [line] });
+    const labelled = requested('labelled', { label: 'spotlight' });
+
+    await react(labelled);
+    await redeliver(1, labelled);
+    await react(labelled);
+
+    expect(added).toHaveLength(1);
+  });
+
+  it('reviews no pull request that is already merged', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const finished = finishedReview(line, 'task_review');
+    const { react, added, saved } = world({
+      lines: [line],
+      tasks: [finished],
+    });
+
+    await react(requested('labelled', { label: 'spotlight', merged: true }));
+    await react(
+      requested('mentioned', { body: '@spotlight thanks', merged: true }),
+    );
+
+    expect(added).toEqual([]);
+    expect(saved).toEqual([]);
+  });
+
+  it('completes every review of a pull request closed without a merge, also an older one opened twice', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const older = finishedReview(line, 'task_older', new Date(0));
+    const newer = finishedReview(line, 'task_newer', new Date(1));
+    const { react, redeliver, saved, stored } = world({
+      lines: [line],
+      tasks: [older, newer],
+    });
+    const closed = closedUnmerged();
+
+    await react(closed);
+    await redeliver(1, closed);
+
+    expect(saved.map((each) => each.id.value).sort()).toEqual([
+      'task_newer',
+      'task_older',
+    ]);
+    for (const each of [older, newer]) {
+      expect(stored(each.id)?.stationId.equals(line.completed.id)).toBe(true);
+    }
   });
 });

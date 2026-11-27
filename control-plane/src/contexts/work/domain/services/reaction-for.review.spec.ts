@@ -1,11 +1,14 @@
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { ReactionFor } from '@work/domain/services/reaction-for';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import {
   deliveryLineOf,
@@ -19,8 +22,10 @@ import {
   ReviewRequest,
   type ReviewRequestParts,
 } from '@work/domain/value-objects/review-request.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-18T12:00:00.000Z');
@@ -58,6 +63,24 @@ const taskOn = (line: LineMap) =>
     newId: fresh,
   });
 
+const noted = (body: string) => ({
+  line: review,
+  body: TaskNoteBody.of(body),
+  at: NOW,
+  voice: Voice.world(),
+});
+
+const underwayOn = (line: LineMap, at = new Date(0)) =>
+  taskOn(line).reviews(PULL, { outside: false }, line, at);
+
+const finishedOn = (line: LineMap) => {
+  const run = RunId.of('run_1');
+
+  return underwayOn(line)
+    .assignRun(run, line)
+    .finishHere(run, line, noted('Reviewed.'));
+};
+
 const REQUEST = ReviewRequest.of({
   trigger: 'opened',
   label: null,
@@ -65,6 +88,7 @@ const REQUEST = ReviewRequest.of({
   author: 'octocat',
   outside: false,
   draft: false,
+  merged: false,
   branch: Branch.of('fix-uploads'),
 });
 
@@ -73,8 +97,9 @@ const requested = (
     request?: Partial<ReviewRequestParts>;
     branchTask?: Task;
     pullRequestTask?: Task;
-    reviewTask?: Task;
+    reviews?: readonly Task[];
     workspaceLines?: readonly LineMap[];
+    anchor?: Anchor | null;
   } = {},
 ) =>
   ReactionFor.reviewRequested({
@@ -90,10 +115,18 @@ const requested = (
       review: REQUEST.with(over.request ?? {}),
     },
     request: REQUEST.with(over.request ?? {}),
-    anchor: null,
+    payload: {
+      happening: Happening.of(
+        `github.pull_request.${over.request?.trigger ?? 'opened'}`,
+      ),
+      summary: 'A pull request wants a review.',
+      answers: false,
+      state: 'raised',
+    },
+    anchor: over.anchor ?? null,
     branchTask: over.branchTask ?? null,
     pullRequestTask: over.pullRequestTask ?? null,
-    reviewTask: over.reviewTask ?? null,
+    reviews: over.reviews ?? [],
   });
 
 describe('ReactionFor, with a review request', () => {
@@ -119,15 +152,10 @@ describe('ReactionFor, with a review request', () => {
   });
 
   it('does not let a review under way take a word about a repository the workspace no longer names', () => {
-    const underway = taskOn(review).reviews(
-      PULL,
-      { outside: false },
-      review,
-      new Date(0),
-    );
+    const underway = underwayOn(review);
 
     expect(
-      requested({ reviewTask: underway, workspaceLines: [review] }),
+      requested({ reviews: [underway], workspaceLines: [review] }),
     ).toEqual({ kind: 'unconnected' });
   });
 
@@ -159,16 +187,73 @@ describe('ReactionFor, with a review request', () => {
   });
 
   it('lets a review under way receive the word, rather than opening another', () => {
-    const underway = taskOn(review).reviews(
-      PULL,
-      { outside: false },
+    const underway = underwayOn(review);
+
+    expect(requested({ reviews: [underway] })).toMatchObject({
+      kind: 'reviewsAgain',
+      by: underway,
+      outcome: { kind: 'stays' },
+    });
+  });
+
+  it('reviews again in the review that finished at its station, for a label, a mention or the pull request opening again', () => {
+    const finished = finishedOn(review);
+
+    expect(finished.finished).toBe(true);
+
+    for (const request of [
+      { trigger: 'labelled', label: 'spotlight' },
+      { trigger: 'mentioned' },
+      { trigger: 'opened' },
+    ] as const) {
+      const answer = requested({
+        request,
+        reviews: [finished],
+        anchor: Anchor.of({ body: '@spotlight once more, please' }),
+      });
+
+      expect(answer).toMatchObject({ kind: 'reviewsAgain', by: finished });
+      expect(answer.kind === 'reviewsAgain' && answer.outcome.kind).toBe(
+        'stays',
+      );
+    }
+  });
+
+  it('keeps one open review of a pull request on a line, whichever review the lookup found first', () => {
+    const older = finishedOn(review);
+    const newer = underwayOn(review, new Date(1));
+    const answer = requested({ reviews: [newer, older] });
+
+    expect(answer).toMatchObject({ kind: 'reviewsAgain', by: newer });
+    expect(requested({ reviews: [older, newer] })).toMatchObject({
+      kind: 'reviewsAgain',
+      by: newer,
+    });
+  });
+
+  it('opens a fresh review where the last one reached the completed station', () => {
+    const done = finishedOn(review).react(
       review,
-      new Date(0),
+      review.completed.id,
+      TaskRank.of('i'),
+      noted('The pull request was merged.'),
     );
 
-    expect(requested({ reviewTask: underway })).toEqual({
-      kind: 'received',
-      by: underway,
+    expect(requested({ reviews: [done] }).kind).toBe('opens');
+  });
+
+  it('opens a review on its own line, apart from a review of the same pull request on another', () => {
+    const elsewhere = underwayOn(lineOf(LineRole.REVIEW));
+
+    expect(requested({ reviews: [elsewhere] }).kind).toBe('opens');
+  });
+
+  it('reviews no pull request that is already merged', () => {
+    expect(requested({ request: { merged: true } })).toEqual({
+      kind: 'merged',
     });
+    expect(
+      requested({ request: { merged: true }, reviews: [finishedOn(review)] }),
+    ).toEqual({ kind: 'merged' });
   });
 });

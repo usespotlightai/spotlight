@@ -76,6 +76,7 @@ const tasks = (found: Task | null = existing()) =>
     findByCorrelation: vi.fn(async () => []),
     owningPullRequest: vi.fn(async () => null),
     reviewingPullRequest: vi.fn(async () => null),
+    reviewsOf: vi.fn(async () => []),
     holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),

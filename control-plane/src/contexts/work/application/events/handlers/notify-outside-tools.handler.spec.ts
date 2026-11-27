@@ -98,6 +98,7 @@ const notifying = (
       findByCorrelation: async () => (markedTask ? [markedTask] : []),
       owningPullRequest: async () => null,
       reviewingPullRequest: async () => null,
+      reviewsOf: async () => [],
       holdingMark: async () => [],
       save,
     }),

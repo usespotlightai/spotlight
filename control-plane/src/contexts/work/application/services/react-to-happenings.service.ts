@@ -48,6 +48,7 @@ import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { otherReviewsClosedAmong } from '@work/domain/services/mark-holders';
 import { Placement } from '@work/domain/services/placement';
 import {
   movedTo,
@@ -197,9 +198,54 @@ export class ReactToHappenings implements HappeningReactionsPort {
       if (answer) {
         await this.channels.answer(answer);
       }
+
+      await this.closeOtherReviews(workspaceId, happened, attachments, key);
     }
 
     return held;
+  }
+
+  // Each other review hears the close in a transaction of its own, under a key of its own, so that a redelivery reaches a review that a failure left open.
+  private async closeOtherReviews(
+    workspaceId: WorkspaceId,
+    happened: ReceivedHappening,
+    attachments: readonly Attachment[],
+    key: string | null,
+  ): Promise<void> {
+    const { correlationKeys } = happened;
+    const closed = happened.payload.closedPullRequest ?? null;
+    const others = closed
+      ? otherReviewsClosedAmong(
+          correlationKeys,
+          await this.tasks.findByCorrelation(workspaceId, correlationKeys),
+          closed,
+        )
+      : [];
+
+    for (const other of others) {
+      const otherKey = key === null ? null : `${key}\n${other.id.value}`;
+
+      await this.transaction.inTransaction(async () => {
+        if (
+          otherKey !== null &&
+          !(await this.processed.markProcessed(
+            workspaceId,
+            otherKey,
+            this.clock.now(),
+          ))
+        ) {
+          return;
+        }
+
+        const task = (
+          await this.tasks.findByCorrelation(workspaceId, correlationKeys)
+        ).find((each) => each.id.equals(other.id));
+
+        if (task) {
+          await this.receivedBy(task, happened, attachments);
+        }
+      });
+    }
   }
 
   private async heldByATurn(
@@ -339,13 +385,29 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const updated = await this.applied(
+    await this.reacted(
       ReactionFor.happened({
         task,
         line,
         payload: happened.payload,
         anchor: anchorOf(happened, attachments),
       }),
+      task,
+      line,
+      happened,
+      attachments,
+    );
+  }
+
+  private async reacted(
+    outcome: Outcome,
+    task: Task,
+    line: LineMap,
+    happened: ReceivedHappening,
+    attachments: readonly Attachment[],
+  ): Promise<void> {
+    const updated = await this.applied(
+      outcome,
       task,
       line,
       attachments,
@@ -446,12 +508,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
     }
 
     const workspaceLines = await this.lines.ofWorkspace(workspaceId);
+    const anchor = anchorOf(happened, attachments);
     const answer = ReactionFor.reviewRequested({
       lines: teamId ? await this.lines.ofTeam(teamId) : workspaceLines,
       workspaceLines,
       opens: happened.opens,
       request,
-      anchor: happened.anchor,
+      payload: happened.payload,
+      anchor,
       branchTask: request.branch
         ? await this.findByBranch(workspaceId, request.branch)
         : null,
@@ -459,15 +523,19 @@ export class ReactToHappenings implements HappeningReactionsPort {
         workspaceId,
         request.pullRequest,
       ),
-      reviewTask: await correlatedTask(
-        this.tasks,
-        workspaceId,
-        happened.correlationKeys,
-      ),
+      reviews: await this.tasks.reviewsOf(workspaceId, request.pullRequest),
     });
 
     if (answer.kind === 'unconnected') {
       this.skipped('repository-not-connected', happened, {
+        workspaceId: workspaceId.value,
+        teamId: teamId?.value,
+        pullRequest: request.pullRequest.value,
+      });
+    }
+
+    if (answer.kind === 'merged') {
+      this.skipped('pull-request-merged', happened, {
         workspaceId: workspaceId.value,
         teamId: teamId?.value,
         pullRequest: request.pullRequest.value,
@@ -481,8 +549,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
       });
     }
 
-    if (answer.kind === 'received') {
-      await this.receivedBy(answer.by, happened, attachments);
+    if (answer.kind === 'reviewsAgain') {
+      await this.reacted(
+        answer.outcome,
+        answer.by,
+        answer.line,
+        happened,
+        attachments,
+      );
     }
 
     if (answer.kind === 'opens') {

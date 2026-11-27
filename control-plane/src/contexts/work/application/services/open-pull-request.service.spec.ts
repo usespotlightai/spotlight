@@ -169,6 +169,7 @@ const opening = (
     findByCorrelation: async () => (over.markedTask ? [over.markedTask] : []),
     owningPullRequest: async () => null,
     reviewingPullRequest: async () => null,
+    reviewsOf: async () => [],
     holdingMark: async () => [],
     save: async (each: Task) => {
       saved.push(each);

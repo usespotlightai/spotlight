@@ -3,10 +3,11 @@ import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { markHolderAmong } from '@work/domain/services/mark-holders';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { Mark } from '@work/domain/value-objects/mark.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import type {
@@ -60,7 +61,13 @@ export interface OpenedOn {
 export type ReviewAnswer =
   | { readonly kind: 'nothing' }
   | { readonly kind: 'unconnected' }
-  | { readonly kind: 'received'; readonly by: Task }
+  | { readonly kind: 'merged' }
+  | {
+      readonly kind: 'reviewsAgain';
+      readonly by: Task;
+      readonly line: LineMap;
+      readonly outcome: Outcome;
+    }
   | { readonly kind: 'opens'; readonly on: OpenedOn };
 
 const spotlights = (
@@ -196,24 +203,31 @@ export const ReactionFor = {
     return null;
   },
 
-  // pullRequestTask has the mark of the pull request. reviewTask has the mark of a review of the pull request.
+  // pullRequestTask has the mark of the pull request. reviews are every task that reviews the pull request, on any line.
+  // A line keeps at most one open review of a pull request: a request for another review goes to it.
   reviewRequested(input: {
     lines: readonly LineMap[];
     workspaceLines: readonly LineMap[];
     opens: OpensWith;
     request: ReviewRequest;
+    payload: HappeningPayload;
     anchor: Anchor | null;
     branchTask: Task | null;
     pullRequestTask: Task | null;
-    reviewTask: Task | null;
+    reviews: readonly Task[];
   }): ReviewAnswer {
-    const repository = input.request.pullRequest.repository;
+    const { pullRequest } = input.request;
+    const repository = pullRequest.repository;
 
     if (
       !repository ||
       !input.workspaceLines.some((line) => line.names(repository))
     ) {
       return { kind: 'unconnected' };
+    }
+
+    if (input.request.merged) {
+      return { kind: 'merged' };
     }
 
     const on = ReactionFor.reviewOn({
@@ -234,9 +248,46 @@ export const ReactionFor = {
       return { kind: 'nothing' };
     }
 
-    return input.reviewTask && input.reviewTask.finishedAt === null
-      ? { kind: 'received', by: input.reviewTask }
+    const open = markHolderAmong(
+      Mark.review(pullRequest),
+      input.reviews.filter((each) => each.reviewsOpenOn(on.line, pullRequest)),
+    );
+
+    return open
+      ? {
+          kind: 'reviewsAgain',
+          by: open,
+          line: on.line,
+          outcome: ReactionFor.reviewAgain({
+            task: open,
+            line: on.line,
+            payload: input.payload,
+            anchor: input.anchor,
+          }),
+        }
       : { kind: 'opens', on };
+  },
+
+  // The line took the request, so the review takes it also where the line has no reaction to it. A review that finished at its station reviews again.
+  reviewAgain(input: {
+    task: Task;
+    line: LineMap;
+    payload: HappeningPayload;
+    anchor: Anchor | null;
+  }): Outcome {
+    const outcome = ReactionFor.happened(input);
+
+    return outcome.kind === 'nothing'
+      ? {
+          kind: 'stays',
+          line: input.line,
+          body: TaskNoteBody.receivedHappening(
+            input.payload.summary,
+            input.anchor,
+          ),
+          anchor: input.anchor,
+        }
+      : outcome;
   },
 
   reviewOn(input: {

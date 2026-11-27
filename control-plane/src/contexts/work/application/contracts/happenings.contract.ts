@@ -40,6 +40,7 @@ export interface ReviewPayload {
   readonly author: string | null;
   readonly outside: boolean;
   readonly draft: boolean;
+  readonly merged?: boolean;
   readonly branch: string | null;
 }
 

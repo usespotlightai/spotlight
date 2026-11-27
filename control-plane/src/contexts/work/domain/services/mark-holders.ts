@@ -1,7 +1,8 @@
 import { firstOf } from '@shared-kernel/domain/item-at';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import type { Mark } from '@work/domain/value-objects/mark.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
 
 const heldSince = (task: Task, marks: readonly Mark[]): number | null =>
   marks.reduce<number | null>((latest, mark) => {
@@ -43,4 +44,28 @@ export const correlatedTaskAmong = (
     : undefined;
 
   return named ?? newestHolderOf(keys.marks, tasks) ?? firstOf(tasks) ?? null;
+};
+
+// A pull request that closes ends every review of it, not only the newest. The correlated task hears the close; these are the other reviews.
+export const otherReviewsClosedAmong = (
+  keys: CorrelationKeys,
+  tasks: readonly Task[],
+  closed: PullRequestUrl | null,
+): readonly Task[] => {
+  if (!closed) {
+    return [];
+  }
+
+  const mark = Mark.review(closed);
+
+  if (!keys.marks.some((each) => each.equals(mark))) {
+    return [];
+  }
+
+  const heard = correlatedTaskAmong(keys, tasks);
+
+  return tasks.filter(
+    (each) =>
+      !(heard?.id.equals(each.id) ?? false) && each.holdsMark(mark) !== null,
+  );
 };

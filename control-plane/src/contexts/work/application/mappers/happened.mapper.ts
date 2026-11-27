@@ -53,6 +53,7 @@ const reviewOf = (
     // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- a stored payload may lack it, and then it is outside
     outside: review.outside !== false,
     draft: review.draft,
+    merged: review.merged ?? false,
     branch: nonEmpty(review.branch) ? Branch.of(review.branch) : null,
   });
 };
