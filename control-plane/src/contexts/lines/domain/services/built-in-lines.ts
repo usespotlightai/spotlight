@@ -142,11 +142,6 @@ out of scope. Read enough of the codebase to be concrete — name real things,
 not placeholders. Reuse what the codebase already has before you plan
 something new.
 
-Say how the team will know the change works once it is deployed: the error
-that should stop, the log line or metric that should move, and the alert that
-watches it. If the change can fail in a way no current signal shows, plan the
-logging, metric or alert that does.
-
 Do not write the implementation. Implementation commits and pushes the
 change, and Code Review opens the pull request: do not tell Implementation to
 open one.
@@ -175,20 +170,12 @@ const IMPLEMENTATION = `## Implementation
 
 Make the change the spec describes, and no more than it.
 
-Before you change code, read how it reports failure today: its errors, its
-logs and the alerts that watch it. Then add the logging, metrics and alerts
-that the spec names.
-
 Match the surrounding code: its naming, its structure, its idioms. Write tests
 that would fail without your change. Run the tests and the linter, and leave
 them passing — a change that does not build is not done. Where the station has
-a check, it runs what CI runs: run it before you hand over.
+a check, run it before you hand over.
 
-A migration is hard to undo. Make it safe to run while the old code still
-serves, and say in your note how it is rolled back.
-
-Commit your work and push it. Take an issue number for a commit message only
-from the task; never make one up. The workspace is already on the branch this
+Commit your work and push it. The workspace is already on the branch this
 task belongs to, so push that branch and nothing else:
 
     git push -u origin HEAD
@@ -197,9 +184,8 @@ Do not open a pull request: Code Review opens it. If the spec tells you to open
 one, skip that step. When the change is pushed and its checks pass, pass the
 task to Code Review, not to a person.
 
-Say in your note: what you changed, what you tested, how the code reported
-failure before your change, and anything you found that the spec did not
-anticipate.
+Say in your note: what you changed, what you tested, and anything you found
+that the spec did not anticipate.
 
 If the spec turns out to be wrong, or leaves out something the change depends
 on, do not improvise a different change: pass the task back to Spec, and say
@@ -288,25 +274,19 @@ Also look for:
 
 - A requirement of the task that the change does not meet, including one that
   says what not to do.
-- An issue number in a commit message that the task does not name: read the
-  commits with \`git log refs/spotlight/base..HEAD\`.
-- A change that can fail in production with nothing to show it: no error
-  reported, no log line or metric, no alert. Raise it as medium, or high when it
-  loses data.
 
 Check that the branch still merges into the branch it started from:
 
     git fetch origin
-    git merge-tree --write-tree HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"
+    git merge-tree --write-tree HEAD refs/spotlight/base-branch
 
 A conflict is a finding: pass the task back to Implementation to rebase it.
 
 Say in your note what you found, most serious first, each finding with its
-severity, or say plainly that you found nothing. Then end the note with these
-two lines, also when you found nothing:
+severity, or say plainly that you found nothing. Then end the note with this
+line, also when you found nothing:
 
     Merges cleanly: yes, or no and the conflicting files.
-    Production failure: what shows this change failing in production, or "none: it can fail silently".
 
 If the code needs changing, pass the task back to implementation. If the
 fault is in the plan rather than the code — the spec requested the wrong
@@ -316,8 +296,7 @@ Either way, your note is what that run works from, so it has to be enough to
 act on without reading the diff again.
 
 If it is sound, say so plainly and say what you checked, then open a pull
-request and write its address in your note. Take an issue number for its title
-only from the task; never make one up.
+request and write its address in your note.
 
 With the pull request open, the task is finished: pass the task to \`done\` rather
 than to a person, so nothing is left waiting on an answer that nobody will send.`;
@@ -360,7 +339,6 @@ const SPEC_CLAIMS = [
   'The note names the approach and why it beats the obvious alternative.',
   'The note names the real files and functions to change.',
   'The note says how to test the change and what is out of scope.',
-  'The note names the signals that show the change works in production.',
   'Someone could implement the plan without going back to the requester.',
   'The note does not reopen what the request wants.',
   "The note's last line lists each decision the run put to a person, or says none.",
@@ -375,7 +353,7 @@ const IMPLEMENTATION_CLAIMS = [
   'The tests pass after the change.',
   "The change is pushed to the task's branch.",
   'The run opened no pull request.',
-  'The note says what changed, what was tested, how the code reported failure before the change, and what the spec did not anticipate.',
+  'The note says what changed, what was tested, and what the spec did not anticipate.',
 ];
 
 const CODE_REVIEW_CLAIMS = [
@@ -384,7 +362,6 @@ const CODE_REVIEW_CLAIMS = [
   'No finding is false, and no severity is overstated.',
   'The run did not change, commit or push any file.',
   'The note ends with a line that says whether the branch merges cleanly.',
-  'The note ends with a line that says how the change would show failing in production.',
   'The handover matches the note: done with a pull request when nothing blocks, Implementation for a fault in the code or a conflict, Spec for a fault in the plan.',
 ];
 
