@@ -6,6 +6,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { Task } from '@/routes/Task';
 
+const opens = (
+  open: readonly string[],
+  denial = 'between-work-stations',
+  skips: Record<string, string[]> = {},
+  sendsBack: readonly string[] = [],
+) =>
+  ['station_0', 'station_1', 'station_2', 'station_3'].map((stationId) => ({
+    stationId,
+    denial: open.includes(stationId) ? null : denial,
+    skips: skips[stationId] ?? [],
+    sendsBack: sendsBack.includes(stationId),
+  }));
+
 const task = {
   id: 'task_1',
   stationId: 'station_1',
@@ -13,9 +26,9 @@ const task = {
   title: 'Fix the queue',
   description: '## Steps\n\nReproduce, then fix.',
   attachments: [],
+  handMoves: opens(['station_0', 'station_1', 'station_3']),
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
-  sendsBackTo: [],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -435,7 +448,7 @@ describe('Task', () => {
     });
   });
 
-  it('offers only the backlog, completed and its current station to a task at a work station', async () => {
+  it('shows every station, and says why a person may not move the task to one', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -444,17 +457,22 @@ describe('Task', () => {
 
     expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
-    ).toEqual(['Backlog', 'Triage', 'Completed']);
+    ).toEqual(['Backlog', 'Triage', 'SpecOnly runs move it here', 'Completed']);
+    expect(screen.getByRole('menuitemradio', { name: 'Spec' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Backlog' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('sends a finished task back to an earlier station, with the reason the person gives', async () => {
+  it('offers a work station where the server lets the task pass on there', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([
       {
         ...task,
-        stationId: 'station_2',
-        finished: true,
-        sendsBackTo: ['station_1'],
+        handMoves: opens(['station_0', 'station_1', 'station_2', 'station_3']),
       },
     ]);
     renderAt('task_1');
@@ -465,6 +483,34 @@ describe('Task', () => {
     expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
     ).toEqual(['Backlog', 'Triage', 'Spec', 'Completed']);
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Spec' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('sends a finished task back to an earlier station, with the reason the person gives', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([
+      {
+        ...task,
+        stationId: 'station_2',
+        finished: true,
+        handMoves: opens(
+          ['station_0', 'station_1', 'station_2', 'station_3'],
+          'between-work-stations',
+          {},
+          ['station_1'],
+        ),
+      },
+    ]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Triage' }),
+    ).toHaveAccessibleDescription('Sends it back with a reason');
 
     await user.click(screen.getByRole('menuitemradio', { name: 'Triage' }));
     await user.type(
@@ -484,17 +530,52 @@ describe('Task', () => {
     });
   });
 
-  it('offers nothing to move to once a task is completed', async () => {
+  it('says which stations a move from the backlog skips', async () => {
     const user = userEvent.setup();
-    listed.mockReturnValue([{ ...task, stationId: 'station_3' }]);
+    listed.mockReturnValue([
+      {
+        ...task,
+        stationId: 'station_0',
+        handMoves: opens(
+          ['station_0', 'station_1', 'station_2', 'station_3'],
+          'between-work-stations',
+          { station_2: ['station_1'] },
+        ),
+      },
+    ]);
     renderAt('task_1');
 
     await user.click(screen.getByRole('button', { name: /Station/ }));
     await screen.findByRole('menu');
 
     expect(
-      screen.getAllByRole('menuitemradio').map((each) => each.textContent),
-    ).toEqual(['Completed']);
+      screen.getByRole('menuitemradio', { name: 'Spec' }),
+    ).toHaveAccessibleDescription('Skips Triage');
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Triage' }),
+    ).not.toHaveAccessibleDescription();
+  });
+
+  it('keeps a completed task where it is, and says why', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([
+      {
+        ...task,
+        stationId: 'station_3',
+        handMoves: opens(['station_3'], 'out-of-completed'),
+      },
+    ]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    const options = screen.getAllByRole('menuitemradio');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveAccessibleName('Completed');
+    expect(options[0]).toHaveAccessibleDescription(
+      'A completed task stays completed',
+    );
   });
 
   describe('moving a task in progress to the completed station', () => {

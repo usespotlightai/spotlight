@@ -55,6 +55,17 @@ vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
 }));
 
+const opens = (open: readonly string[], denial = 'between-work-stations') =>
+  line.stations.map(({ id }) => ({
+    stationId: id,
+    denial: open.includes(id) ? null : denial,
+    skips: [],
+    sendsBack: false,
+  }));
+
+const AT_WORK = (stationId: string) =>
+  opens(['station_0', stationId, 'station_5']);
+
 const tasks = [
   {
     id: 'task_1',
@@ -63,6 +74,7 @@ const tasks = [
     title: 'Fix the queue',
     description: null,
     createdAt: '2026-08-04T09:15:00.000Z',
+    handMoves: AT_WORK('station_1'),
   },
   {
     id: 'task_2',
@@ -70,6 +82,7 @@ const tasks = [
     title: 'Sort the inbox',
     description: null,
     createdAt: '2026-08-05T09:15:00.000Z',
+    handMoves: AT_WORK('station_2'),
   },
   {
     id: 'task_3',
@@ -77,6 +90,7 @@ const tasks = [
     title: 'Drain the backlog',
     description: null,
     createdAt: '2026-08-06T09:15:00.000Z',
+    handMoves: AT_WORK('station_1'),
   },
   {
     id: 'task_4',
@@ -84,6 +98,7 @@ const tasks = [
     title: 'Groom the idea',
     description: null,
     createdAt: '2026-08-07T09:15:00.000Z',
+    handMoves: opens(line.stations.map(({ id }) => id)),
   },
 ];
 
@@ -388,6 +403,7 @@ describe('LineBoard', () => {
         title: 'Ship the fix',
         description: null,
         createdAt: '2026-08-08T09:15:00.000Z',
+        handMoves: opens(['station_5'], 'out-of-completed'),
       },
     ]);
     renderAt('line_1');

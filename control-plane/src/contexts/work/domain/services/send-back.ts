@@ -13,12 +13,4 @@ export const SendBack = {
 
     return task.finished && from !== null && line.sendsBack(from, to);
   },
-
-  targets(task: SentBackTask, line: LineMap | null): readonly StationId[] {
-    return task.finished && line
-      ? line.stations
-          .filter((to) => SendBack.allows(task, line, to))
-          .map((to) => to.id)
-      : [];
-  },
 };

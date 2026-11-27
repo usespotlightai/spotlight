@@ -21,6 +21,7 @@ const POLICY = SearchPolicy.of({
   iterations: 2,
   repeats: null,
   objective: null,
+  requestsPerDay: 3,
 });
 
 const opened = () =>

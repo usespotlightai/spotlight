@@ -747,7 +747,25 @@ describe('InboxItem', () => {
         { id: 'station_done', kind: 'completed', name: 'Completed' },
       ],
     };
-    const task = { id: 'task_1', stationId: 'station_impl', revision: 7 };
+    const task = {
+      id: 'task_1',
+      stationId: 'station_impl',
+      revision: 7,
+      handMoves: [
+        {
+          stationId: 'station_impl',
+          denial: null,
+          skips: [],
+          sendsBack: false,
+        },
+        {
+          stationId: 'station_done',
+          denial: null,
+          skips: [],
+          sendsBack: false,
+        },
+      ],
+    };
 
     beforeEach(() => {
       taskStation.mockReturnValue({ line, station: line.stations[0], task });
@@ -809,6 +827,20 @@ describe('InboxItem', () => {
         task: {
           ...task,
           hold: { by: { id: 'user_9' }, chatId: 'chat_1', viewerEnds: false },
+          handMoves: [
+            {
+              stationId: 'station_impl',
+              denial: null,
+              skips: [],
+              sendsBack: false,
+            },
+            {
+              stationId: 'station_done',
+              denial: 'on-hold',
+              skips: [],
+              sendsBack: false,
+            },
+          ],
         },
       });
 

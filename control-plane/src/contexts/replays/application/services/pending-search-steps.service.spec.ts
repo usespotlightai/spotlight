@@ -54,6 +54,7 @@ const POLICY = SearchPolicy.of({
   iterations: 2,
   repeats: null,
   objective: null,
+  requestsPerDay: 3,
 });
 
 const startedAt = (searchId: SearchId, at: Date) =>
@@ -65,6 +66,7 @@ const startedAt = (searchId: SearchId, at: Date) =>
     inSet: [TaskId.of('task_a')],
     at,
     cooldownMilliseconds: 3 * DAY,
+    requestsPerDay: 3,
   });
 
 beforeEach(async () => {
@@ -140,11 +142,13 @@ describe('PendingSearchSteps', () => {
           searchId: SEARCH_ID,
           request: CandidateId.of('candidate_asked'),
           at: NOW,
+          requestsPerDay: 3,
         })
         .requested({
           searchId: SEARCH_ID,
           request: CandidateId.of('lost'),
           at: NOW,
+          requestsPerDay: 3,
         }),
     );
 

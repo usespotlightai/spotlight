@@ -562,8 +562,9 @@ describe('the improve-station chat testing its change', () => {
     ).toMatchObject({
       started: false,
       refusal: 'request-limit',
-      reason:
-        'The station took the most requested tests for today. Maximum requests a day: 3',
+      reason: expect.stringMatching(
+        /^The station took the most requested tests for today\. Maximum requests a day: 3\. The count resets at \d{4}-\d{2}-\d{2} 00:00 UTC\. To allow more, set requests_per_day /,
+      ) as unknown,
     });
   });
 

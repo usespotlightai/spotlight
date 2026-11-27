@@ -64,12 +64,16 @@ export function TaskProperties({
           <StationSelect
             stations={line.stations}
             value={station.id}
+            handMoves={task.handMoves}
             held={task.hold}
-            sendsBackTo={task.sendsBackTo}
             onChange={(stationId) => {
               const to = line.stations.find((each) => each.id === stationId);
 
-              if (to && task.sendsBackTo.includes(to.id)) {
+              const sendsBack = task.handMoves.some(
+                (each) => each.stationId === stationId && each.sendsBack,
+              );
+
+              if (to && sendsBack) {
                 setSendingBackTo(to);
                 return;
               }

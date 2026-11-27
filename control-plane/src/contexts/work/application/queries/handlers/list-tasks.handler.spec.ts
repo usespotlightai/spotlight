@@ -1,6 +1,7 @@
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { present } from '@shared-kernel/domain/present.fake-spec';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -68,10 +69,10 @@ const summaries: TaskSummary[] = [
 
 const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
   ...summary,
+  handMoves: [],
   createdAt: summary.createdAt.toISOString(),
   waitingForYou: false,
   yourMessage: 'message',
-  sendsBackTo: [],
 });
 
 const reader = (result: TaskSummary[]): TaskReaderPort => ({
@@ -159,7 +160,9 @@ describe('ListTasksHandler', () => {
         ).execute(
           new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
         )
-      )?.items[0]?.sendsBackTo;
+      )?.items[0]?.handMoves.flatMap((each) =>
+        each.sendsBack ? [each.stationId] : [],
+      );
 
     await expect(sentBack(true)).resolves.toEqual([
       at('triage'),
@@ -327,5 +330,98 @@ describe('ListTasksHandler', () => {
       viewerDrives: false,
       viewerEnds: false,
     });
+  });
+
+  it('lists where a person may move each task by hand, as its line decides', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+    });
+    const at = (key: string) =>
+      present(line.stations.find((each) => each.key.value === key)).id.value;
+    const moves = await new ListTasksHandler(
+      reader([{ ...summaries[0], stationId: at('implementation') }]),
+      seeing(),
+      partial<LineMapsPort>({ ofTeam: async () => [line] }),
+    ).execute(
+      new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+    );
+
+    expect(moves?.items[0]?.handMoves).toEqual([
+      { stationId: at('backlog'), denial: null, skips: [], sendsBack: false },
+      {
+        stationId: at('triage'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('spec'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('implementation'),
+        denial: null,
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('code-review'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      { stationId: at('completed'), denial: null, skips: [], sendsBack: false },
+    ]);
+  });
+
+  it('opens the stations its station passes work to while the task waits on a question, and not while it waits on an approval', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+      harness: HarnessId.of('dev'),
+    });
+    const at = (key: string) =>
+      present(line.stations.find((each) => each.key.value === key)).id.value;
+    const openFrom = async (summary: TaskSummary) =>
+      (
+        await new ListTasksHandler(
+          reader([summary]),
+          seeing(),
+          partial<LineMapsPort>({
+            ofTeam: async () => [line],
+          }),
+        ).execute(
+          new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+        )
+      )?.items[0]?.handMoves
+        .filter((move) => move.denial === null)
+        .map((move) => move.stationId);
+    const atTriage = { ...summaries[0], stationId: at('triage') };
+
+    await expect(
+      openFrom({
+        ...atTriage,
+        awaitingReview: {
+          conversationId: 'task_1:3',
+          ask: { approval: null, connectionAsk: null },
+        },
+      }),
+    ).resolves.toEqual([
+      at('backlog'),
+      at('triage'),
+      at('spec'),
+      at('implementation'),
+      at('completed'),
+    ]);
+    await expect(
+      openFrom({ ...asking(ALICE, 'user_2'), stationId: at('triage') }),
+    ).resolves.toEqual([at('backlog'), at('triage'), at('completed')]);
   });
 });

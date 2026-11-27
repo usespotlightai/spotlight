@@ -1,17 +1,22 @@
 import type { StationChangeRefusal } from '@replays/application/contracts/station-change-tests.contract';
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
-import { REQUESTS_PER_DAY } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import type { ClaimFlips } from '@replays/domain/services/claim-flips';
 import type { SearchWarning } from '@replays/domain/services/search-warnings';
 import { JUDGE_UNSTABLE_BELOW } from '@replays/domain/services/set-health';
 import { FEWEST_SEARCH_TASKS } from '@replays/domain/value-objects/held-out-split.vo';
 
-export interface RefusalDetail {
-  readonly warning: SearchWarning | null;
-  readonly claimFlips: readonly ClaimFlips[];
+interface RequestLimit {
+  readonly perDay: number;
+  readonly resetsAt: Date;
 }
 
-const NO_DETAIL: RefusalDetail = { warning: null, claimFlips: [] };
+export interface RefusalDetail {
+  readonly requestLimit?: RequestLimit;
+  readonly warning?: SearchWarning | null;
+  readonly claimFlips?: readonly ClaimFlips[];
+}
+
+const NO_DETAIL: RefusalDetail = {};
 
 const MOST_FLIPPED = 3;
 
@@ -21,6 +26,9 @@ const advised = (reason: keyof typeof SKIP_ADVICE): string =>
   SKIP_ADVICE[reason].join(' ');
 
 const day = (at: Date): string => at.toISOString().slice(0, 10);
+
+const time = (at: Date): string =>
+  `${day(at)} ${at.toISOString().slice(11, 16)} UTC`;
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`;
 
@@ -48,7 +56,7 @@ const judgeUnstable = (detail: RefusalDetail): string => {
   const [said, asked] = SKIP_ADVICE['judge-unstable'];
   const agreed = Math.round(warning.agreement * warning.compared);
 
-  return `${said} Calibration judged ${runsOf(warning.compared)} twice, and the two verdicts agreed for ${agreed} of them (${percent(warning.agreement)}). Spotlight needs at least ${percent(JUDGE_UNSTABLE_BELOW)}.${flippedOf(detail.claimFlips)} ${asked}`;
+  return `${said} Calibration judged ${runsOf(warning.compared)} twice, and the two verdicts agreed for ${agreed} of them (${percent(warning.agreement)}). Spotlight needs at least ${percent(JUDGE_UNSTABLE_BELOW)}.${flippedOf(detail.claimFlips ?? [])} ${asked}`;
 };
 
 const REASONS: Readonly<
@@ -66,7 +74,7 @@ const REASONS: Readonly<
     'The last search of the station has not given its result yet.',
   'search-running':
     'A search of the station is running and takes no more candidates.',
-  'request-limit': `The station took the most requested tests for today. Maximum requests a day: ${REQUESTS_PER_DAY}`,
+  'request-limit': 'The station took the most requested tests for today.',
   'pull-request-open':
     'A config pull request for the station is open. A person must merge or close it first.',
   'no-scoring': advised('no-scoring'),
@@ -82,6 +90,11 @@ const REASONS: Readonly<
     'The live config already does about as well as the best past runs on the replay set. A change cannot show a gain.',
 };
 
+const requestLimit = (limit: RequestLimit | undefined): string =>
+  limit
+    ? `${REASONS['request-limit']} Maximum requests a day: ${limit.perDay}. The count resets at ${time(limit.resetsAt)}. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.`
+    : REASONS['request-limit'];
+
 export const stationChangeRefusalReason = (
   refusal: StationChangeRefusal,
   nextMonthStart: Date,
@@ -89,6 +102,10 @@ export const stationChangeRefusalReason = (
 ): string => {
   if (refusal === 'monthly-ceiling') {
     return `The searches of the line reached their monthly ceiling. Next month starts: ${day(nextMonthStart)}`;
+  }
+
+  if (refusal === 'request-limit') {
+    return requestLimit(detail.requestLimit);
   }
 
   return refusal === 'judge-unstable'

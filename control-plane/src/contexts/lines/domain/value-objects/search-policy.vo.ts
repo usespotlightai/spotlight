@@ -19,6 +19,8 @@ const MAX_SEARCH_ITERATIONS = 10;
 
 const MAX_SEARCH_REPEATS = 5;
 
+const MAX_REQUESTS_PER_DAY = 20;
+
 export const SEARCH_OBJECTIVES = ['success', 'cost'] as const;
 
 export type SearchObjective = (typeof SEARCH_OBJECTIVES)[number];
@@ -132,6 +134,7 @@ export class StationSearchOverride {
     readonly iterations: number | null,
     readonly repeats: number | null,
     readonly objective: SearchObjective | null,
+    readonly requestsPerDay: number | null,
   ) {}
 
   static of(input: {
@@ -144,6 +147,7 @@ export class StationSearchOverride {
     iterations?: number | null;
     repeats?: number | null;
     objective?: string | null;
+    requestsPerDay?: number | null;
   }): StationSearchOverride {
     const ceiling = optional(input.ceiling, (value) => {
       const problem = spendAmountProblem(value);
@@ -179,6 +183,9 @@ export class StationSearchOverride {
         countOf('repeats', value, MAX_SEARCH_REPEATS),
       ),
       objective,
+      optional(input.requestsPerDay, (value) =>
+        countOf('requestsPerDay', value, MAX_REQUESTS_PER_DAY),
+      ),
     );
   }
 
@@ -198,7 +205,8 @@ export class StationSearchOverride {
       same(this.agent, other.agent) &&
       this.iterations === other.iterations &&
       this.repeats === other.repeats &&
-      this.objective === other.objective
+      this.objective === other.objective &&
+      this.requestsPerDay === other.requestsPerDay
     );
   }
 }
@@ -214,6 +222,7 @@ export interface SearchPolicy {
   readonly iterations: number | null;
   readonly repeats: number | null;
   readonly objective: SearchObjective | null;
+  readonly requestsPerDay: number;
 }
 
 export interface SearchOverrideProblem {
@@ -229,6 +238,7 @@ export interface LineSearchPrimitives {
   readonly period: string;
   readonly onAlert: boolean;
   readonly cooldown: string;
+  readonly requestsPerDay: number;
 }
 
 const BY_DEFAULT: LineSearchPrimitives = {
@@ -239,6 +249,7 @@ const BY_DEFAULT: LineSearchPrimitives = {
   period: '7d',
   onAlert: true,
   cooldown: '3d',
+  requestsPerDay: 3,
 };
 
 export class LineSearchPolicy {
@@ -249,6 +260,7 @@ export class LineSearchPolicy {
     readonly period: SearchInterval,
     readonly onAlert: boolean,
     readonly cooldown: SearchInterval,
+    readonly requestsPerDay: number,
   ) {}
 
   static of(written: Partial<LineSearchPrimitives>): LineSearchPolicy {
@@ -290,6 +302,7 @@ export class LineSearchPolicy {
       period,
       input.onAlert,
       cooldown,
+      countOf('requestsPerDay', input.requestsPerDay, MAX_REQUESTS_PER_DAY),
     );
   }
 
@@ -327,6 +340,11 @@ export class LineSearchPolicy {
     return station.kind === 'work' ? this.resolved(station.search) : null;
   }
 
+  /** The search a work station has when its block leaves every search setting out. */
+  inheritedByStation(): SearchPolicy {
+    return this.resolved(null);
+  }
+
   toPrimitives(): LineSearchPrimitives {
     return {
       enabled: this.enabled,
@@ -336,6 +354,7 @@ export class LineSearchPolicy {
       period: this.period.text,
       onAlert: this.onAlert,
       cooldown: this.cooldown.text,
+      requestsPerDay: this.requestsPerDay,
     };
   }
 
@@ -346,7 +365,8 @@ export class LineSearchPolicy {
       this.ceiling.equals(other.ceiling) &&
       this.period.equals(other.period) &&
       this.onAlert === other.onAlert &&
-      this.cooldown.equals(other.cooldown)
+      this.cooldown.equals(other.cooldown) &&
+      this.requestsPerDay === other.requestsPerDay
     );
   }
 
@@ -365,6 +385,7 @@ export class LineSearchPolicy {
       iterations: station?.iterations ?? null,
       repeats: station?.repeats ?? null,
       objective: station?.objective ?? null,
+      requestsPerDay: station?.requestsPerDay ?? this.requestsPerDay,
     };
   }
 }

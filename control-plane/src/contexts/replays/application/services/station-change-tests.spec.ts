@@ -106,6 +106,7 @@ const policyOf = (over: Partial<Parameters<typeof SearchPolicy.of>[0]> = {}) =>
     iterations: 2,
     repeats: null,
     objective: null,
+    requestsPerDay: 3,
     ...over,
   });
 
@@ -113,6 +114,7 @@ const joinOf = (request: string) => ({
   searchId: SearchId.of('search_other'),
   request: CandidateId.of(request),
   at: now,
+  requestsPerDay: 3,
 });
 
 const tests = () => {
@@ -504,8 +506,37 @@ describe('StationChangeTests', () => {
 
     expect(await asked()).toMatchObject({
       code: 'request-limit',
-      reason: expect.stringMatching(/Maximum requests a day: 3$/) as unknown,
+      reason:
+        'The station took the most requested tests for today. Maximum requests a day: 3. The count resets at 2026-10-02 00:00 UTC. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.',
     });
+  });
+
+  it('refuses a change to a running search after the requests of the day, and says when the count resets', async () => {
+    await asked({ mode: 'search' });
+    policy = policyOf({ requestsPerDay: 1 });
+
+    expect(
+      await asked({ name: 'second', requester: UserId.of('user_other') }),
+    ).toEqual({
+      outcome: 'refused',
+      code: 'request-limit',
+      reason:
+        'The station took the most requested tests for today. Maximum requests a day: 1. The count resets at 2026-10-02 00:00 UTC. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.',
+    });
+  });
+
+  it('takes as many requests a day as the search of the station allows', async () => {
+    const schedule = memory.schedules.get(STATION.stationId.value);
+
+    await memory.scheduleRepository.save(
+      present(schedule)
+        .requested(joinOf('a'))
+        .requested(joinOf('b'))
+        .requested(joinOf('c')),
+    );
+    policy = policyOf({ requestsPerDay: 4 });
+
+    expect(await asked()).toMatchObject({ outcome: 'started' });
   });
 
   it('ignores the cooldown of the station', async () => {
@@ -517,6 +548,7 @@ describe('StationChangeTests', () => {
         inSet: [],
         at: now,
         cooldownMilliseconds: 3 * DAY,
+        requestsPerDay: 3,
         searchId: SearchId.of('search_earlier'),
         request: null,
         candidates: [],

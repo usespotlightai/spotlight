@@ -34,6 +34,7 @@ const SEARCH: SearchPolicyView = {
   iterations: 3,
   repeats: null,
   objective: 'cost',
+  requestsPerDay: 5,
 };
 
 const lineWith = (search: SearchPolicyView | null): LineView =>
@@ -91,6 +92,7 @@ describe('Lines.stationSettings', () => {
       iterations: 3,
       repeats: null,
       objective: 'cost',
+      requestsPerDay: 5,
     });
     expect(read?.search?.ceiling.amount).toBe(10);
     expect(read?.search?.monthlyCeiling.amount).toBe(50);

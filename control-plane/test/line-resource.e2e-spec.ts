@@ -661,6 +661,7 @@ describe('a line, created through the resource API (e2e)', () => {
       period: '36h',
       onAlert: true,
       cooldown: '1d',
+      requestsPerDay: 3,
     });
     expect(made.body.definition.stations[1].search).toEqual({
       enabled: false,
@@ -680,6 +681,7 @@ describe('a line, created through the resource API (e2e)', () => {
       period: '36h',
       onAlert: true,
       cooldown: '1d',
+      requestsPerDay: 3,
       agent: { harness: 'claude-code', model: null, effort: 'high' },
       iterations: 4,
       repeats: null,
@@ -699,6 +701,7 @@ describe('a line, created through the resource API (e2e)', () => {
       period: '7d',
       onAlert: true,
       cooldown: '3d',
+      requestsPerDay: 3,
     });
   });
 

@@ -19,12 +19,7 @@ export function useClosableTask(
   const { line, task } = useTaskStation(teamId, taskId);
   const completed = line?.stations.find((each) => each.kind === 'completed');
 
-  if (
-    !line ||
-    !task ||
-    !completed ||
-    !mayLand(line.stations, task, completed.id)
-  ) {
+  if (!line || !task || !completed || !mayLand(task, completed.id)) {
     return null;
   }
 

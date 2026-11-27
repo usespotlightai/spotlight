@@ -2386,6 +2386,28 @@ describe('Task, what it is doing', () => {
       );
     });
 
+    it('is moved on by a person to a station its station passes work to, while it waits on their answer', () => {
+      const SPEC = StationId.of('station_2');
+      const passed = at(HERE)
+        .assignRun(RUN, LINE)
+        .askedBy({ ...newNote, voice: Voice.station(RUN) }, RUN)
+        .moveTo(LINE, SPEC, TaskRank.of('m'), newNote, hand);
+
+      expect(passed.stationId).toEqual(SPEC);
+      expect(passed.awaitingReview).toBe(false);
+      expect(passed.running).toBe(false);
+    });
+
+    it('will not be moved on by a person to a station its station does not pass work to', () => {
+      const atSpec = at(StationId.of('station_2'))
+        .assignRun(RUN, LINE)
+        .askedBy({ ...newNote, voice: Voice.station(RUN) }, RUN);
+
+      expect(() =>
+        atSpec.moveTo(LINE, HERE, TaskRank.of('m'), newNote, hand),
+      ).toThrow(new MoveDeniedError('between-work-stations', 'Spec', 'Triage'));
+    });
+
     it('is sent back between work stations once its line finished it, and tells a person sent it back', () => {
       const finished = at(HERE)
         .assignRun(RUN, LINE)

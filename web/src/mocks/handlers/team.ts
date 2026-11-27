@@ -630,7 +630,6 @@ const chatHandlers = [
           waitingForYou: false,
           yourMessage: 'message',
           finished: false,
-          sendsBackTo: [],
           pullRequests: [],
           createdBy: SAM,
           assignee: null,
@@ -638,6 +637,7 @@ const chatHandlers = [
           source: null,
           hold: null,
           runNotStarted: null,
+          handMoves: [],
         },
       ];
       seenAgain(teamId, taskId);

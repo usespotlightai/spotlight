@@ -17,7 +17,6 @@ const dto: TaskDto = {
   waitingForYou: false,
   yourMessage: 'message',
   finished: false,
-  sendsBackTo: [],
   pullRequests: [],
   createdBy: { id: 'user_1', name: 'Ada', image: null },
   assignee: null,
@@ -29,6 +28,9 @@ const dto: TaskDto = {
   source: 'linear',
   hold: null,
   runNotStarted: null,
+  handMoves: [
+    { stationId: 'station_2', denial: null, skips: [], sendsBack: false },
+  ],
 };
 
 describe('TaskHttpMapper', () => {

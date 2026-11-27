@@ -88,9 +88,7 @@ export function useBoardDrag(board: Board): BoardDragResult {
         stationId: String(over.data.current?.stationId ?? over.id),
       });
 
-    return target && mayLand(board.stations, moving, target.stationId)
-      ? target
-      : null;
+    return target && mayLand(moving, target.stationId) ? target : null;
   };
 
   const onDragOver = ({ active, over }: DragOverEvent) => {

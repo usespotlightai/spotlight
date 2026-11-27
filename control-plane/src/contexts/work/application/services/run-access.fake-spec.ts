@@ -72,6 +72,7 @@ export const linesWhere = (
               : null,
           }),
         completed: partial<Station>({ id: StationId.of(COMPLETED) }),
+        stations: [],
       }),
     ],
   });

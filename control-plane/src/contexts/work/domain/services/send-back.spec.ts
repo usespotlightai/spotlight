@@ -22,11 +22,13 @@ describe('SendBack', () => {
     stationId: keyed(line, key).id,
     finished,
   });
-  const names = (ids: readonly StationId[]) =>
-    ids.map((id) => line.stationAt(id)?.key.value);
+  const sentBackFrom = (task: { stationId: StationId; finished: boolean }) =>
+    line.stations
+      .filter((to) => SendBack.allows(task, line, to))
+      .map((to) => to.key.value);
 
   it('sends a finished task back to an earlier work station, or to one its station passes to', () => {
-    expect(names(SendBack.targets(at('code-review', true), line))).toEqual([
+    expect(sentBackFrom(at('code-review', true))).toEqual([
       'triage',
       'spec',
       'implementation',
@@ -41,7 +43,7 @@ describe('SendBack', () => {
   });
 
   it('sends back no task that the line has not finished', () => {
-    expect(SendBack.targets(at('code-review', false), line)).toEqual([]);
+    expect(sentBackFrom(at('code-review', false))).toEqual([]);
     expect(
       SendBack.allows(
         at('code-review', false),
@@ -51,13 +53,9 @@ describe('SendBack', () => {
     ).toBe(false);
   });
 
-  it('sends back nothing without the line of the task', () => {
-    expect(SendBack.targets(at('code-review', true), null)).toEqual([]);
+  it('sends back nothing from a station off the line', () => {
     expect(
-      SendBack.targets(
-        { stationId: StationId.of('elsewhere'), finished: true },
-        line,
-      ),
+      sentBackFrom({ stationId: StationId.of('elsewhere'), finished: true }),
     ).toEqual([]);
   });
 });

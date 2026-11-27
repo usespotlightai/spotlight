@@ -17,6 +17,7 @@ const LINE_SEARCH = {
   period: '7d',
   onAlert: true,
   cooldown: '3d',
+  requestsPerDay: 3,
 };
 
 const bare = {
