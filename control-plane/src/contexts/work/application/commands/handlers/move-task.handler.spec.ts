@@ -26,6 +26,7 @@ import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import {
   lineMapOf,
   stationOf,
@@ -117,6 +118,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
         tools: [],
         boundSecrets: [],
         sandboxEnv: [],
+        grants: AppGrants.unread(),
       }),
     });
     return runId === null ? null : RunId.of(runId);

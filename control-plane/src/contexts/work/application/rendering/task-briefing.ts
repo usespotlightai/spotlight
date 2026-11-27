@@ -227,11 +227,11 @@ const workingCopyOf = (task: BriefedTask, line: LineMap): string | null => {
       ].join('\n\n');
 };
 
-const workflowsOf = (grants: AppGrants | undefined): string | null =>
-  grants?.lacks('workflows')
+const workflowsOf = (grants: AppGrants): string | null =>
+  grants.lacks('workflows')
     ? [
         '## Workflow files',
-        'The GitHub App may not change workflows, so GitHub refuses a push with a commit that adds, changes or deletes a file under `.github/workflows/`. Do not commit such a change, and do not try. If the task needs one, say so plainly in your note, with the change for a person to make. They can let the App change workflows by accepting its updated permissions on GitHub.',
+        'The GitHub App may not change workflows, so GitHub refuses a push with a commit that adds, changes or deletes a file under `.github/workflows/`. Do not commit such a change. If the task needs one, say so plainly in your note, with the change for a person to make. They can let the App change workflows by accepting its updated permissions on GitHub.',
       ].join('\n\n')
     : null;
 
@@ -247,7 +247,7 @@ export const TaskBriefing = {
     boundSecrets: readonly BoundSecret[];
     sandboxEnv: readonly SandboxVariable[];
     drivenByAPerson?: boolean;
-    grants?: AppGrants;
+    grants: AppGrants;
   }): string {
     const driven = input.drivenByAPerson ?? false;
     const station = input.line.stationAt(input.task.stationId);

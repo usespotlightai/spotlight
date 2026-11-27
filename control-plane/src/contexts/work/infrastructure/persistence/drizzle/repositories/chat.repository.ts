@@ -194,12 +194,7 @@ const toChat = (
           pullRequest: nonEmpty(row.setup.pullRequest)
             ? PullRequestUrl.of(row.setup.pullRequest)
             : null,
-          ci: row.setup.ci
-            ? CiSetup.of({
-                ...row.setup.ci,
-                workflows: row.setup.ci.workflows ?? 'permitted',
-              })
-            : null,
+          ci: row.setup.ci ? CiSetup.rehydrate(row.setup.ci) : null,
         })
       : null,
     messages: messages.map((each) => toMessage(each, attachments)),

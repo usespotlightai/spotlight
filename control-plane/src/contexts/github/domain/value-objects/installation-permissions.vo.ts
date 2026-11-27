@@ -27,6 +27,15 @@ export class InstallationPermissions {
     return this.granted.get('actions_variables') === WRITE;
   }
 
+  // Whether these grant something that Spotlight relies on and the other
+  // does not.
+  grantsBeyond(other: InstallationPermissions): boolean {
+    return (
+      (this.changesWorkflows() && !other.changesWorkflows()) ||
+      (this.setsVariables() && !other.setsVariables())
+    );
+  }
+
   equals(other: InstallationPermissions): boolean {
     return (
       other instanceof InstallationPermissions &&

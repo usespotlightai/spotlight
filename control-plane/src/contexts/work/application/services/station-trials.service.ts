@@ -49,6 +49,7 @@ import {
   trialBlockOf,
   trialInputsBlockOf,
 } from '@work/domain/services/trialability';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -282,6 +283,8 @@ export class StationTrials implements StationTrialsPort {
       tools: described,
       boundSecrets: order.boundSecrets,
       sandboxEnv: [],
+      // A trial runs in isolation and pushes nothing.
+      grants: AppGrants.unread(),
     });
     const briefing = nonEmpty(followedUp)
       ? `${briefed}\n\n${followedUp}`

@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -26,5 +27,34 @@ describe('CiSetup', () => {
         workflows: 'permitted',
       }),
     ).toThrow(InconsistentStateError);
+  });
+
+  it('lets the agent push the workflow only when the App may change workflows, or Spotlight could not tell', () => {
+    expect(
+      CiSetup.workflowsUnder(
+        AppGrants.of({ workflows: true, variables: false }),
+      ),
+    ).toBe('permitted');
+    expect(
+      CiSetup.workflowsUnder(
+        AppGrants.of({ workflows: false, variables: true }),
+      ),
+    ).toBe('not-permitted');
+    expect(CiSetup.workflowsUnder(AppGrants.unread())).toBe('permitted');
+  });
+
+  it('reads a setup saved before Spotlight read the App’s permissions as one that adds the workflow', () => {
+    const saved = {
+      defaultBranch: 'main',
+      defaultBranchProtected: true,
+      pullRequestsTrustId: 'trust_1',
+      defaultBranchTrustId: 'trust_2',
+      variables: 'written' as const,
+    };
+
+    expect(CiSetup.rehydrate(saved).workflows).toBe('permitted');
+    expect(
+      CiSetup.rehydrate({ ...saved, workflows: 'not-permitted' }).workflows,
+    ).toBe('not-permitted');
   });
 });

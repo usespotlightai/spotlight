@@ -26,6 +26,7 @@ import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import { builtInTool } from '@work/domain/value-objects/built-in-tools';
@@ -185,6 +186,7 @@ const brief = (
     tools,
     boundSecrets: secrets,
     sandboxEnv,
+    grants: AppGrants.unread(),
   });
 };
 
@@ -215,6 +217,7 @@ describe('TaskBriefing', () => {
       tools: [],
       boundSecrets: [],
       sandboxEnv: [],
+      grants: AppGrants.unread(),
       drivenByAPerson: true,
     });
 
@@ -620,6 +623,7 @@ describe('TaskBriefing', () => {
         tools: [],
         boundSecrets: [],
         sandboxEnv: [],
+        grants: AppGrants.unread(),
       });
     };
 
@@ -801,6 +805,7 @@ describe('TaskBriefing', () => {
         tools: [],
         boundSecrets: [],
         sandboxEnv: [],
+        grants: AppGrants.unread(),
       });
 
     it('lists every repository the line works in, side by side', () => {

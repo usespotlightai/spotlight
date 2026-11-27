@@ -56,7 +56,7 @@ export class CiSetups {
       pullRequestsTrustId: trusted.pullRequests.id,
       defaultBranchTrustId: trusted.defaultBranch.id,
       variables,
-      workflows: AppGrantsMapper.toDomain(permissions).workflows,
+      workflows: CiSetup.workflowsUnder(AppGrantsMapper.toDomain(permissions)),
     });
   }
 }

@@ -35,7 +35,10 @@ const answer = (body: unknown, ok = true) => ({
 
 const IN_AN_HOUR = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-const github = (granted: { current: Record<string, string> }) => {
+const github = (
+  granted: { current: Record<string, string> },
+  { tokensSay = true } = {},
+) => {
   let minted = 0;
   const fetching = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') {
@@ -43,7 +46,7 @@ const github = (granted: { current: Record<string, string> }) => {
       return answer({
         token: `token_${minted}`,
         expires_at: IN_AN_HOUR,
-        permissions: { ...granted.current },
+        ...(tokensSay ? { permissions: { ...granted.current } } : {}),
       });
     }
     return url.endsWith('/app/installations/42')
@@ -152,5 +155,60 @@ describe('GitHubAppAccess', () => {
 
     const after = await access.credential(WORKSPACE);
     expect(after.password).not.toBe(before.password);
+  });
+
+  it('keeps the token when the installation grants nothing more that Spotlight relies on', async () => {
+    vi.useFakeTimers();
+    const granted = {
+      current: { contents: 'write', workflows: 'write' } as Record<
+        string,
+        string
+      >,
+    };
+    github(granted);
+    const access = new GitHubAppAccess(env, installed());
+
+    const before = await access.credential(WORKSPACE);
+    granted.current = { ...granted.current, issues: 'write' };
+    await access.of(WORKSPACE);
+
+    await expect(access.credential(WORKSPACE)).resolves.toEqual(before);
+  });
+
+  it('treats a token whose answer names no permissions as one without workflows', async () => {
+    vi.useFakeTimers();
+    github({ current: { workflows: 'write' } }, { tokensSay: false });
+    const access = new GitHubAppAccess(env, installed());
+
+    const before = await access.credential(WORKSPACE);
+    await access.of(WORKSPACE);
+
+    const after = await access.credential(WORKSPACE);
+    expect(after.password).not.toBe(before.password);
+  });
+
+  it('renews a token without workflows after a few minutes, even where nothing reads the permissions', async () => {
+    vi.useFakeTimers();
+    github({ current: { contents: 'write' } });
+    const access = new GitHubAppAccess(env, installed());
+
+    const before = await access.credential(WORKSPACE);
+    vi.advanceTimersByTime(4 * 60_000);
+    await expect(access.credential(WORKSPACE)).resolves.toEqual(before);
+
+    vi.advanceTimersByTime(2 * 60_000);
+    const after = await access.credential(WORKSPACE);
+    expect(after.password).not.toBe(before.password);
+  });
+
+  it('keeps a token with workflows until it nears its expiry', async () => {
+    vi.useFakeTimers();
+    github({ current: { contents: 'write', workflows: 'write' } });
+    const access = new GitHubAppAccess(env, installed());
+
+    const before = await access.credential(WORKSPACE);
+    vi.advanceTimersByTime(30 * 60_000);
+
+    await expect(access.credential(WORKSPACE)).resolves.toEqual(before);
   });
 });

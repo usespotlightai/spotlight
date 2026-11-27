@@ -1,7 +1,5 @@
 export type AppGrant = 'workflows' | 'variables';
 
-export type CiWorkflows = 'permitted' | 'not-permitted';
-
 // What the workspace's GitHub App may do beyond cloning and pushing code.
 export class AppGrants {
   // The setup adds a GitHub Actions workflow and sets repository variables.
@@ -29,10 +27,6 @@ export class AppGrants {
 
   missingForSetup(): readonly AppGrant[] {
     return AppGrants.SETUP_NEEDS.filter((each) => this.lacks(each));
-  }
-
-  get workflows(): CiWorkflows {
-    return this.lacks('workflows') ? 'not-permitted' : 'permitted';
   }
 
   equals(other: AppGrants): boolean {

@@ -44,4 +44,46 @@ describe('InstallationPermissions', () => {
       ),
     ).toBe(false);
   });
+
+  it('reads an installation as GitHub answers it', () => {
+    const answered = InstallationPermissions.of({
+      actions: 'read',
+      actions_variables: 'write',
+      administration: 'write',
+      checks: 'read',
+      contents: 'write',
+      issues: 'write',
+      metadata: 'read',
+      members: 'read',
+      pull_requests: 'write',
+      workflows: 'write',
+    });
+
+    expect(answered.changesWorkflows()).toBe(true);
+    expect(answered.setsVariables()).toBe(true);
+  });
+
+  it('grants beyond another only in what Spotlight relies on', () => {
+    const code = InstallationPermissions.of({ contents: 'write' });
+
+    expect(
+      InstallationPermissions.of({
+        contents: 'write',
+        workflows: 'write',
+      }).grantsBeyond(code),
+    ).toBe(true);
+    expect(
+      InstallationPermissions.of({
+        contents: 'write',
+        actions_variables: 'write',
+      }).grantsBeyond(code),
+    ).toBe(true);
+    expect(
+      InstallationPermissions.of({
+        contents: 'write',
+        issues: 'write',
+      }).grantsBeyond(InstallationPermissions.of({})),
+    ).toBe(false);
+    expect(code.grantsBeyond(code)).toBe(false);
+  });
 });

@@ -26,6 +26,7 @@ import { workAccessSeeing } from '@work/application/services/work-access.fake-sp
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import {
@@ -98,6 +99,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
         tools: [],
         boundSecrets: [],
         sandboxEnv: [],
+        grants: AppGrants.unread(),
       }),
     });
     return runId === null ? null : RunId.of(runId);

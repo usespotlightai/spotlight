@@ -46,8 +46,8 @@ export function MissingAppPermissions({
         className="mt-1 size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
       />
       <p>
-        {WHAT_IS_LEFT(missing)} To let it, accept the App’s updated permissions
-        on GitHub.
+        {WHAT_IS_LEFT(missing)} To allow this, accept the App’s updated
+        permissions on GitHub.
         {nonEmpty(github?.installUrl) && (
           <>
             {' '}

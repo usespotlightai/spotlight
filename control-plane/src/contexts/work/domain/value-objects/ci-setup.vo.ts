@@ -1,7 +1,9 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { CiWorkflows } from '@work/domain/value-objects/app-grants.vo';
+import type { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 
 export type CiVariables = 'written' | 'not-permitted';
+
+export type CiWorkflows = 'permitted' | 'not-permitted';
 
 export type CiApplyScope = 'configure' | 'secrets' | 'runners';
 
@@ -26,6 +28,22 @@ export class CiSetup {
     readonly variables: CiVariables,
     readonly workflows: CiWorkflows,
   ) {}
+
+  // Whether the agent may push the workflow. When Spotlight could not read
+  // what the App may do, the agent tries.
+  static workflowsUnder(grants: AppGrants): CiWorkflows {
+    return grants.lacks('workflows') ? 'not-permitted' : 'permitted';
+  }
+
+  // A setup saved before Spotlight read the App's permissions briefed the
+  // agent to add the workflow.
+  static rehydrate(
+    input: Omit<Parameters<typeof CiSetup.of>[0], 'workflows'> & {
+      workflows?: CiWorkflows;
+    },
+  ): CiSetup {
+    return CiSetup.of({ ...input, workflows: input.workflows ?? 'permitted' });
+  }
 
   static of(input: {
     defaultBranch: string;

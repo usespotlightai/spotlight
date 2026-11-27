@@ -584,7 +584,9 @@ describe('ChatBriefing', () => {
       expect(briefing).toContain(
         'The GitHub App may not change workflows, so GitHub refuses a push that adds `.github/workflows/spotlight.yml`',
       );
-      expect(briefing).toContain('Do not commit one, and do not try.');
+      expect(briefing).toContain(
+        'Do not commit one unless the person tells you that the App may now change workflows.',
+      );
       expect(briefing).toContain(
         'Put the workflow in the pull request description instead',
       );

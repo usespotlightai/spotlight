@@ -321,7 +321,7 @@ describe('SetupSteps', () => {
 
     expect(
       screen.getByText(
-        /The GitHub App can’t add workflows or set repository variables, so the pull request will leave its workflow and variables for you to add\. To let it, accept the App’s updated permissions on GitHub\./,
+        /The GitHub App can’t add workflows or set repository variables, so the pull request will leave its workflow and variables for you to add\. To allow this, accept the App’s updated permissions on GitHub\./,
       ),
     ).toBeInTheDocument();
     expect(

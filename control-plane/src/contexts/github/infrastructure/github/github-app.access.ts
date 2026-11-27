@@ -24,9 +24,16 @@ const RENEW_BEFORE_MS = 60_000;
 
 const PERMISSIONS_FRESH_MS = 30_000;
 
+const PERMISSIONS_TIMEOUT_MS = 5_000;
+
+// A token without workflows is renewed sooner, so a replica that never reads
+// the permissions still picks up ones accepted on GitHub.
+const NARROW_TOKEN_MS = 5 * 60_000;
+
 type Minted = {
   token: string;
   expiresAt: number;
+  mintedAt: number;
   permissions: InstallationPermissions;
 };
 
@@ -101,7 +108,7 @@ export class GitHubAppAccess
     // A token keeps the permissions it was minted with. Once someone accepts
     // new ones on GitHub, mint a token that has them.
     const minted = this.#tokenCache.get(installation.value);
-    if (minted && !minted.permissions.equals(permissions)) {
+    if (minted && permissions.grantsBeyond(minted.permissions)) {
       this.#tokenCache.delete(installation.value);
     }
 
@@ -116,7 +123,10 @@ export class GitHubAppAccess
     try {
       const response = await fetch(
         `${API}/app/installations/${installation.value}`,
-        { headers: this.asTheApp() },
+        {
+          headers: this.asTheApp(),
+          signal: AbortSignal.timeout(PERMISSIONS_TIMEOUT_MS),
+        },
       );
 
       if (!response.ok) {
@@ -144,7 +154,7 @@ export class GitHubAppAccess
   private async token(installation: GitHubInstallation): Promise<string> {
     const cached = this.#tokenCache.get(installation.value);
 
-    if (cached && cached.expiresAt - RENEW_BEFORE_MS > Date.now()) {
+    if (cached && this.renewsAt(cached) > Date.now()) {
       return cached.token;
     }
 
@@ -152,6 +162,14 @@ export class GitHubAppAccess
     this.#tokenCache.set(installation.value, minted);
 
     return minted.token;
+  }
+
+  private renewsAt(minted: Minted): number {
+    const expiring = minted.expiresAt - RENEW_BEFORE_MS;
+
+    return minted.permissions.changesWorkflows()
+      ? expiring
+      : Math.min(expiring, minted.mintedAt + NARROW_TOKEN_MS);
   }
 
   private async mint(installation: GitHubInstallation): Promise<Minted> {
@@ -184,6 +202,7 @@ export class GitHubAppAccess
     return {
       token,
       expiresAt: new Date(expiresAt).getTime(),
+      mintedAt: Date.now(),
       permissions: InstallationPermissions.of(answer.data?.permissions ?? {}),
     };
   }
