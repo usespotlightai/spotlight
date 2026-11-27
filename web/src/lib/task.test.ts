@@ -5,6 +5,7 @@ import {
   movableByHand,
   moveTargetFor,
   placed,
+  stopsRun,
   type Task,
 } from '@/lib/task';
 
@@ -21,6 +22,7 @@ const task = (id: string, stationId: string): Task => ({
   waitingForYou: false,
   yourMessage: 'message',
   finished: false,
+  sendsBackTo: [],
   createdBy: null,
   assignee: null,
   pullRequests: [],
@@ -155,6 +157,26 @@ describe('mayLand', () => {
 
   it('lands nothing at a station off the line', () => {
     expect(mayLand(stations, task('a', 'spec'), 'elsewhere')).toBe(false);
+  });
+});
+
+describe('stopsRun', () => {
+  const running: Task = { ...task('a', 'spec'), progress: 'in-progress' };
+
+  it('stops the run of a task in progress that moves to the completed station', () => {
+    expect(stopsRun(stations, running, 'completed')).toBe(true);
+  });
+
+  it('stops nothing for a task that no run works', () => {
+    expect(stopsRun(stations, task('a', 'spec'), 'completed')).toBe(false);
+    expect(
+      stopsRun(stations, { ...running, progress: 'queued' }, 'completed'),
+    ).toBe(false);
+  });
+
+  it('stops nothing for a move to any other station', () => {
+    expect(stopsRun(stations, running, 'backlog')).toBe(false);
+    expect(stopsRun(stations, running, 'spec')).toBe(false);
   });
 });
 

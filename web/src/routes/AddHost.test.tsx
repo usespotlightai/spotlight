@@ -121,29 +121,51 @@ describe('AddHost', () => {
     expect(screen.getByLabelText('Pool name')).toHaveValue('my-computer-3');
   });
 
-  it('keeps a pool name to lowercase words joined by dashes', async () => {
+  it('keeps the pool name as it is typed, for Spotlight to check', async () => {
     const person = userEvent.setup();
 
     renderPage();
 
     const name = screen.getByLabelText('Pool name');
     await person.clear(name);
-    await person.type(name, 'Build Box 2');
+    await person.type(name, ' My Mac Pool! ');
     await person.click(screen.getByRole('button', { name: 'Create pool' }));
 
-    expect(create).toHaveBeenCalledWith('build-box-2');
+    expect(name).toHaveValue(' My Mac Pool! ');
+    expect(create).toHaveBeenCalledWith('My Mac Pool!');
   });
 
-  it('gives the install command with the new pool’s token, once', () => {
+  it('says why Spotlight refused the pool name', () => {
+    creating.mockReturnValue({
+      error: new Error(
+        'key: is lowercase words joined by dashes, at most 64 characters, as in ephemeral',
+      ),
+    });
+
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'key: is lowercase words joined by dashes, at most 64 characters, as in ephemeral',
+    );
+  });
+
+  it('gives the install command, and the new pool’s token apart from it', () => {
     poolCreated();
 
     renderPage();
 
-    expect(document.body).toHaveTextContent('sh -s -- --token spt_pool_secret');
+    expect(document.body).toHaveTextContent(
+      'read -r SPOTLIGHT_POOL_TOKEN; stty echo; echo; export SPOTLIGHT_POOL_TOKEN; curl -fsSL',
+    );
+    expect(document.body).not.toHaveTextContent('--token');
+    expect(screen.getByText('spt_pool_secret')).toBeInTheDocument();
     expect(
       screen.getByText('Add the machine to the my-computer pool'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy command' })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: 'Copy pool token' }),
+    ).toBeInTheDocument();
   });
 
   it('says what each step is for', () => {
@@ -153,7 +175,9 @@ describe('AddHost', () => {
       screen.getByText(/Pool: hosts that share one token/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Spotlight shows the pool token in it only once/),
+      screen.getByText(
+        /paste the token\. The token stays out of your shell history\./,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(

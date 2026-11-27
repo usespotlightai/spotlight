@@ -69,6 +69,9 @@ const linkTo = (
     : null;
 };
 
+const restorable = (memory: TeamMemoryResponseDto): boolean =>
+  Boolean(memory.retirement && !memory.retirement.supersededBy);
+
 const detailOf = (
   memories: readonly TeamMemoryResponseDto[],
   memory: TeamMemoryResponseDto,
@@ -76,6 +79,7 @@ const detailOf = (
   ...memory,
   superseded: linkTo(memories, memory.supersedes),
   successor: linkTo(memories, memory.retirement?.supersededBy ?? null),
+  restorable: restorable(memory),
 });
 
 const sinceOf = (memory: TeamMemoryResponseDto): number =>
@@ -264,6 +268,22 @@ const memoryHandlers = [
       return json(detailOf(memories, successor), 201);
     },
   ),
+
+  api.post('/teams/:teamId/memories/:memoryId/restore', ({ params }) => {
+    const memories = memoriesOf(String(params.teamId)) ?? [];
+    const memory = memories.find((each) => each.id === params.memoryId);
+    if (!memory) {
+      return notFound();
+    }
+    if (!restorable(memory)) {
+      return problem(409, 'Sorry, that memory cannot be restored.');
+    }
+
+    memory.status = 'active';
+    memory.retirement = null;
+
+    return json(detailOf(memories, memory));
+  }),
 
   api.post(
     '/teams/:teamId/memories/:memoryId/retire',
@@ -599,6 +619,7 @@ const chatHandlers = [
           waitingForYou: false,
           yourMessage: 'message',
           finished: false,
+          sendsBackTo: [],
           pullRequests: [],
           createdBy: SAM,
           assignee: null,

@@ -99,4 +99,15 @@ describe('PullRequestHappenings', () => {
       description: `Review ${PR.value}`,
     });
   });
+
+  it('states the verdict of a review that requests changes, and of no other activity', () => {
+    const verdicts = (activity: PullRequestActivityFacts['activity']) =>
+      PullRequestHappenings.of(facts({ activity })).map(
+        (each) => each.kind === 'activity' && each.statesVerdict,
+      );
+
+    expect(verdicts('changes-requested')).toEqual([true, true]);
+    expect(verdicts('commented')).toEqual([false, false]);
+    expect(verdicts('merged')).toEqual([false, false]);
+  });
 });

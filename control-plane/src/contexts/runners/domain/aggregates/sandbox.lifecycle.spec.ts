@@ -694,14 +694,19 @@ describe('a sandbox under any order of host, run, editor and sweeper actions', (
     );
   });
 
-  it('drains for a queued run only while warm and waiting for its first run', () => {
+  it('drains for a queued run only while warm and waiting for its first run, or idle with its key and no editor', () => {
     fc.assert(
-      lifecycle(
-        (visit) =>
-          visit.step.kind !== 'drain-for-queued' ||
-          !closed(visit) ||
-          (visit.before.warm !== null && visit.before.leases.length === 0),
-      ),
+      lifecycle((visit) => {
+        const { before, step: each, now } = visit;
+
+        if (each.kind !== 'drain-for-queued' || !closed(visit)) {
+          return true;
+        }
+
+        return before.warm === null
+          ? before.key !== null && before.isIdle && !before.holdsAnEditorAt(now)
+          : before.leases.length === 0;
+      }),
       RUNS_PER_PROPERTY,
     );
   });

@@ -7,5 +7,6 @@ export class MoveTaskCommand {
     readonly expectedRevision: number,
     readonly afterTaskId: string | null,
     readonly viewerId: string,
+    readonly reason: string | null = null,
   ) {}
 }

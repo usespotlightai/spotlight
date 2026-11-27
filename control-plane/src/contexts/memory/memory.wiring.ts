@@ -31,6 +31,7 @@ import { RecordRecallHandler } from '@memory/application/commands/handlers/recor
 import { RejectMemoryHandler } from '@memory/application/commands/handlers/reject-memory.handler';
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RestoreMemoryHandler } from '@memory/application/commands/handlers/restore-memory.handler';
+import { RestoreTeamMemoryHandler } from '@memory/application/commands/handlers/restore-team-memory.handler';
 import { RetireMemoryHandler } from '@memory/application/commands/handlers/retire-memory.handler';
 import { WriteMemoryHandler } from '@memory/application/commands/handlers/write-memory.handler';
 import { RecordDeliveryCommand } from '@memory/application/commands/record-delivery.command';
@@ -38,6 +39,7 @@ import { RecordRecallCommand } from '@memory/application/commands/record-recall.
 import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
 import { RememberCommand } from '@memory/application/commands/remember.command';
 import { RestoreMemoryCommand } from '@memory/application/commands/restore-memory.command';
+import { RestoreTeamMemoryCommand } from '@memory/application/commands/restore-team-memory.command';
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { DuplicateCheckReactions } from '@memory/application/events/handlers/duplicate-check-reactions.handler';
@@ -596,6 +598,13 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
   ...bindCommandHandler(RetireMemoryCommand, RetireMemoryHandler, [
+    MemoryAccess,
+    TeamMemoryLoader,
+    MEMORIES,
+    TRANSACTION,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(RestoreTeamMemoryCommand, RestoreTeamMemoryHandler, [
     MemoryAccess,
     TeamMemoryLoader,
     MEMORIES,

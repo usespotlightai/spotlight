@@ -69,6 +69,10 @@ export class JudgeCalibration {
     return this.state === 'failing';
   }
 
+  lacksPairs(): boolean {
+    return this.pairs < this.minPairs;
+  }
+
   toFields(): JudgeCalibrationFields {
     return {
       state: this.state,

@@ -1,5 +1,5 @@
 {
-  "id": "e3eb1eb4-59e0-4c40-ac95-772dff54b43f",
+  "id": "7ff87bba-41c9-4887-888a-b1e78389926e",
   "prevId": "10871cf8-13b2-4f18-b29e-610862e61ce0",
   "version": "7",
   "dialect": "postgresql",
@@ -3205,6 +3205,12 @@
         "reverted_by": {
           "name": "reverted_by",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mergeable": {
+          "name": "mergeable",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": false
         },
@@ -10680,164 +10686,6 @@
         "station_tool_position_not_negative": {
           "name": "station_tool_position_not_negative",
           "value": "\"station_tool\".\"position\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.duplicate_check": {
-      "name": "duplicate_check",
-      "schema": "",
-      "columns": {
-        "run_id": {
-          "name": "run_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "set_id": {
-          "name": "set_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "state": {
-          "name": "state",
-          "type": "duplicate_check_state",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "job_attempts": {
-          "name": "job_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "job_due_at": {
-          "name": "job_due_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "waiting_since": {
-          "name": "waiting_since",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "question": {
-          "name": "question",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "verdicts": {
-          "name": "verdicts",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "duplicate_check_due_idx": {
-          "name": "duplicate_check_due_idx",
-          "columns": [
-            {
-              "expression": "state",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "job_due_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "duplicate_check_task_idx": {
-          "name": "duplicate_check_task_idx",
-          "columns": [
-            {
-              "expression": "task_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "duplicate_check_team_idx": {
-          "name": "duplicate_check_team_idx",
-          "columns": [
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "duplicate_check_attempts_not_negative": {
-          "name": "duplicate_check_attempts_not_negative",
-          "value": "\"duplicate_check\".\"job_attempts\" >= 0"
         }
       },
       "isRLSEnabled": false
@@ -21837,15 +21685,6 @@
         "backlog",
         "work",
         "completed"
-      ]
-    },
-    "public.duplicate_check_state": {
-      "name": "duplicate_check_state",
-      "schema": "public",
-      "values": [
-        "pending",
-        "compared",
-        "failed"
       ]
     },
     "public.memory_kind": {

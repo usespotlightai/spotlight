@@ -115,6 +115,18 @@ describe('RunSpecMapper wire', () => {
     expect(RunSpecPersistence.fromRow(parts()).value).toEqual(parts());
   });
 
+  it('keeps where a person’s turn may resume the line', () => {
+    const turn = parts({
+      handover: {
+        options: [],
+        resumeOptions: ['implementation', 'done'],
+        noteLimit: 0,
+      },
+    });
+
+    expect(RunSpecPersistence.fromRow(turn).value).toEqual(turn);
+  });
+
   it('rejects what is not a spec as a stored run that no longer reads', () => {
     for (const raw of [
       null,
