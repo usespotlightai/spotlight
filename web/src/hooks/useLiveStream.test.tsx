@@ -447,7 +447,7 @@ describe('useLiveStream', () => {
 });
 
 describe('queriesTouchedBy', () => {
-  it('refreshes the board, inbox and that task’s runs for a task change', () => {
+  it('refreshes the board, inbox and that task’s runs and moves for a task change', () => {
     expect(
       queriesTouchedBy({ topic: 'task', ids: { taskId: 'task_1' } }),
     ).toEqual([
@@ -455,6 +455,7 @@ describe('queriesTouchedBy', () => {
       ['inbox'],
       ['runs'],
       ['runs', 'task', 'task_1'],
+      ['task-moves', 'task_1'],
       ['trace', 'task', 'task_1'],
       ['journal-runs', 'task', 'task_1'],
     ]);

@@ -118,6 +118,9 @@ vi.mock('@/hooks/api/useLines', () => ({
 vi.mock('@/hooks/api/useTaskRuns', () => ({
   useTaskRuns: () => ({ data: worked() }),
 }));
+vi.mock('@/hooks/api/useTaskMoves', () => ({
+  useTaskMoves: () => ({ data: [] }),
+}));
 vi.mock('@/hooks/api/useTaskChangeStack', () => ({
   useTaskChangeStack: () => ({ data: stacked() }),
 }));

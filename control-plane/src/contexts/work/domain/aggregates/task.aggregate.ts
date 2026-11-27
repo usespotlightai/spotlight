@@ -127,6 +127,10 @@ import type { HoldVerdict } from '@work/domain/value-objects/hold-verdict';
 import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import {
+  NoteMove,
+  type MoveMaker,
+} from '@work/domain/value-objects/note-move.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -646,12 +650,19 @@ export class Task extends EventRecorder {
       : null;
     const moved = ending
       ? this.recordedResume(
-          ending.closed.relocated(line, to, rank, ending.newNote, handMove),
+          ending.closed.relocated(
+            line,
+            to,
+            rank,
+            ending.newNote,
+            handMove,
+            'person',
+          ),
           ending.ended,
           next,
           line,
         ).toldChatItLeft(ending.ended, line, newNote.at)
-      : this.relocated(line, to, rank, newNote, handMove).detachRun(
+      : this.relocated(line, to, rank, newNote, handMove, 'person').detachRun(
           this.currentRunId,
         );
 
@@ -678,7 +689,7 @@ export class Task extends EventRecorder {
     }
 
     return this.chatHoldFinishedBy(line, newNote)
-      .relocated(line, to, rank, newNote, null)
+      .relocated(line, to, rank, newNote, null, 'line')
       .detachRun(this.currentRunId);
   }
 
@@ -819,6 +830,7 @@ export class Task extends EventRecorder {
         failure,
       },
       null,
+      'line',
     );
 
     moved.record(
@@ -851,6 +863,7 @@ export class Task extends EventRecorder {
     rank: TaskRank,
     newNote: NewNote,
     handMove: { mover: UserId } | null,
+    by: MoveMaker,
   ): Task {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
@@ -870,7 +883,7 @@ export class Task extends EventRecorder {
       currentRunId: null,
       session: null,
       claimedBy: null,
-      ...this.appendNote(newNote, 'passed'),
+      ...this.appendNote(newNote, 'passed', null, NoteMove.to(into.id, by)),
       finishedAt: into.isCompleted ? newNote.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
       revision: this.revision.next(),
@@ -1808,14 +1821,29 @@ export class Task extends EventRecorder {
           on.voice.author,
           on.members,
         );
-      case 'moves':
-        return this.react(
+      case 'moves': {
+        const moved = this.react(
           outcome.line,
           outcome.to.id,
           Placement.entering('reacted', on.ranksAtDestination),
           newNote,
         ).movedOnClose(outcome.closed);
+
+        return outcome.asks
+          ? moved.askedAfterMove(outcome.line, {
+              ...newNote,
+              body: outcome.asks,
+            })
+          : moved;
+      }
     }
+  }
+
+  // A run that starts where the task landed takes the task up, and a finished task needs nobody.
+  private askedAfterMove(line: LineMap, newNote: NewNote): Task {
+    return this.wantsRun(line) || this.finished || this.awaitingReview
+      ? this
+      : this.askedAbout(newNote, null);
   }
 
   get decisionPending(): boolean {
@@ -1897,7 +1925,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    const passed = this.relocated(line, into.id, rank, newNote, null);
+    const passed = this.relocated(line, into.id, rank, newNote, null, 'run');
 
     passed.record(
       new TaskPassed(
@@ -2140,6 +2168,7 @@ export class Task extends EventRecorder {
           this.rankFor(input.rank),
           ending.newNote,
           null,
+          input.run ? 'run' : 'person',
         )
       : ending.closed
           .withHeldNotesFor(hold)
@@ -2925,6 +2954,7 @@ export class Task extends EventRecorder {
             failure,
           },
           null,
+          'line',
         )
         .detachRun(this.currentRunId);
     }
@@ -3340,6 +3370,7 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     kind: TaskNoteKind,
     deferredMove: DeferredMove | null = null,
+    move: NoteMove | null = null,
   ): { notes: readonly TaskNote[]; finishedAt: Date | null } {
     return {
       notes: [
@@ -3351,6 +3382,7 @@ export class Task extends EventRecorder {
           kind,
           position: NotePosition.nextIn(this.notes),
           deferredMove,
+          move,
         }),
       ],
       finishedAt: this.reopenedBy(newNote) ? null : this.finishedAt,

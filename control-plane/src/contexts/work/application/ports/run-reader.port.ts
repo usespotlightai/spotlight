@@ -24,6 +24,11 @@ import type { Progress } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 
+export interface MovedNote {
+  readonly note: InboxNote;
+  readonly move: { readonly to: string; readonly by: string };
+}
+
 export interface RunReview {
   readonly state: ReviewState;
   readonly conversationId: string;
@@ -127,6 +132,8 @@ export interface RunReaderPort {
     from: number,
     to: number,
   ): Promise<RunsInWorkspace<InboxNote[]> | null>;
+
+  taskMoves(taskId: TaskId): Promise<RunsInWorkspace<MovedNote[]> | null>;
 
   configFor(runId: RunId): Promise<RunsInWorkspace<RunConfigSummary> | null>;
 }

@@ -43,7 +43,13 @@ export type Outcome =
       readonly kind: 'moves';
       readonly to: Station;
       readonly closed: PullRequestUrl | null;
+      readonly asks: TaskNoteBody | null;
     });
+
+interface Moved {
+  readonly body: TaskNoteBody;
+  readonly asks: TaskNoteBody | null;
+}
 
 export interface Opening {
   readonly at: Station;
@@ -92,14 +98,21 @@ export const ReactionFor = {
     );
     const here = input.line.stationAt(input.task.stationId);
 
-    const note = (
-      body = TaskNoteBody.receivedHappening(
-        input.payload.summary,
-        input.anchor,
-      ),
-    ): OutcomeNote => ({ line: input.line, body, anchor: input.anchor });
+    const received = TaskNoteBody.receivedHappening(
+      input.payload.summary,
+      input.anchor,
+    );
+    const note = (body = received): OutcomeNote => ({
+      line: input.line,
+      body,
+      anchor: input.anchor,
+    });
 
     const closed = input.payload.closedPullRequest ?? null;
+    const closedUnmerged =
+      closed !== null &&
+      input.payload.closedUnmerged === true &&
+      input.task.ownsPullRequest(closed);
 
     if (rule && closed && input.task.routedCloseOf(closed)) {
       return { kind: 'stays', ...note() };
@@ -119,36 +132,24 @@ export const ReactionFor = {
               kind: 'held',
               to: destination,
               closed,
-              ...note(
-                TaskNoteBody.heldMove(
-                  destination.name,
-                  TaskNoteBody.receivedHappening(
-                    input.payload.summary,
-                    input.anchor,
-                  ),
-                ),
-              ),
+              ...note(TaskNoteBody.heldMove(destination.name, received)),
             };
       }
 
       if (!destination.id.equals(input.task.stationId)) {
-        return ReactionFor.movingTo(input.task, destination, note(), closed);
+        return ReactionFor.movingTo(input.task, destination, note(), closed, {
+          body: TaskNoteBody.movedByHappening(destination.name, received),
+          asks: closedUnmerged
+            ? TaskNoteBody.closedUnmergedAndMoved(destination.name, received)
+            : null,
+        });
       }
     }
 
-    if (
-      !rule &&
-      closed &&
-      input.payload.closedUnmerged &&
-      input.task.ownsPullRequest(closed)
-    ) {
+    if (closedUnmerged) {
       return {
         kind: 'asks',
-        ...note(
-          TaskNoteBody.closedUnmerged(
-            TaskNoteBody.receivedHappening(input.payload.summary, input.anchor),
-          ),
-        ),
+        ...note(TaskNoteBody.closedUnmerged(received)),
       };
     }
 
@@ -171,9 +172,10 @@ export const ReactionFor = {
     to: Station,
     note: OutcomeNote,
     closed: PullRequestUrl | null,
+    moved: Moved = { body: note.body, asks: null },
   ): Outcome {
     return task.movableByHappeningTo(note.line, to.id)
-      ? { kind: 'moves', to, closed, ...note }
+      ? { kind: 'moves', to, closed, ...note, ...moved }
       : { kind: 'deferredMove', to, closed, ...note };
   },
 

@@ -216,10 +216,10 @@ const tasks = (found: Task | null) =>
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
-const lines = () =>
+const lines = (more: readonly Reaction[] = []) =>
   ({
-    find: vi.fn(async () => line()),
-    findByStation: vi.fn(async () => line()),
+    find: vi.fn(async () => line(more)),
+    findByStation: vi.fn(async () => line(more)),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
     candidate: vi.fn(),
@@ -914,6 +914,60 @@ describe('ReactToHappenings', () => {
     expect(logger.info).not.toHaveBeenCalled();
   });
 
+  it('tells the person on a task whose pull request closed unmerged when a reaction moves it to Backlog', async () => {
+    const api = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+    const ended = Task.rehydrate({
+      ...taskAt(),
+      ownedPullRequests: [OwnedPullRequest.of(api, NOW)],
+      finishedAt: NOW,
+    });
+
+    await new ReactToHappenings(
+      tasks(ended),
+      tasks(ended),
+      lines([
+        sends(Happening.of('github.pull_request.closed-unmerged'), 'station_0'),
+      ]),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+      NO_RUNS,
+      TEAMMATES,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [
+        {
+          ...news(Happening.of('github.pull_request.closed-unmerged'), null),
+          summary: 'The pull request was closed without being merged.',
+          closedPullRequest: api.value,
+          closedUnmerged: true,
+        },
+      ],
+      'received-as',
+    );
+
+    expect(saved?.stationId.value).toBe('station_0');
+    expect(saved?.assignee).toEqual(UserId.of('user_1'));
+    expect(saved?.hasUnreadAsk).toBe(true);
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['passed', 'asked']);
+    expect(saved?.notes[0]?.body.value).toBe(
+      'Moved to Backlog: the pull request was closed without being merged.',
+    );
+    expect(saved?.notes[0]?.move?.by).toBe('line');
+    expect(saved?.notes[1]?.body.value).toMatch(
+      /^The pull request was closed without being merged\.\n\nThe line moved the task to Backlog for this\. To continue, reopen the pull request and move the task to a station, or complete the task\.$/,
+    );
+    expect(dispatched).toHaveLength(0);
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
   it('keeps a task with another open pull request where it is, and leaves the close to GitHub’s event', async () => {
     const api = PullRequestUrl.of('https://github.com/acme/api/pull/7');
     const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
@@ -1130,7 +1184,7 @@ describe('ReactToHappenings', () => {
 
       expect(saved?.stationId).toEqual(StationId.of('station_2'));
       expect(saved?.notes[0]?.body.value).toBe(
-        'compose.yml:22\nThis retries forever.',
+        'Moved to Code Review.\n\ncompose.yml:22\nThis retries forever.',
       );
       expect(saved?.deferredMoveTo).toBeNull();
       expect(dispatched).toHaveLength(1);

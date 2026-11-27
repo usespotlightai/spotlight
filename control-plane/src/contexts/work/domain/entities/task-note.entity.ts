@@ -14,6 +14,7 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { NoteMove } from '@work/domain/value-objects/note-move.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { Resumption } from '@work/domain/value-objects/resumption.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
@@ -68,6 +69,7 @@ export class TaskNote {
     readonly connectionAsk: ConnectionAsk | null,
     readonly resumption: Resumption | null,
     readonly suggestsClosing: boolean,
+    readonly move: NoteMove | null,
   ) {}
 
   static of(input: {
@@ -90,6 +92,7 @@ export class TaskNote {
     connectionAsk?: ConnectionAsk | null;
     resumption?: Resumption | null;
     suggestsClosing?: boolean;
+    move?: NoteMove | null;
   }): TaskNote {
     const form = input.form ?? 'words';
     const carried = {
@@ -157,6 +160,13 @@ export class TaskNote {
       );
     }
 
+    if (input.move && input.kind !== 'passed') {
+      throw new InconsistentStateError(
+        'task note',
+        `records a move on a ${input.kind} note`,
+      );
+    }
+
     return new TaskNote(
       input.position,
       input.station,
@@ -177,6 +187,7 @@ export class TaskNote {
       input.connectionAsk ?? null,
       input.resumption ?? null,
       input.suggestsClosing ?? false,
+      input.move ?? null,
     );
   }
 
@@ -264,6 +275,7 @@ export class TaskNote {
           this.connectionAsk,
           this.resumption,
           this.suggestsClosing,
+          this.move,
         )
       : this;
   }
@@ -317,6 +329,7 @@ export class TaskNote {
       part.connectionAsk ?? this.connectionAsk,
       this.resumption,
       this.suggestsClosing,
+      this.move,
     );
   }
 }

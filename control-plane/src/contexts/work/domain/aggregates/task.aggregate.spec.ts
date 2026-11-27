@@ -2135,6 +2135,20 @@ describe('Task, what it is doing', () => {
       ).toEqual(StationId.of('station_2'));
     });
 
+    it('records on its note that the run passed it on', () => {
+      const { notes } = assigned().passedOn(
+        RUN,
+        LINE,
+        StationId.of('station_2'),
+        TaskRank.of('m'),
+        newNote,
+      );
+      const move = itemAt(notes, notes.length - 1)?.move;
+
+      expect(move?.to).toEqual(StationId.of('station_2'));
+      expect(move?.madeOutsideARun).toBe(false);
+    });
+
     it('is passed on only where the line leads from where it is', () => {
       expect(() =>
         assigned().passedOn(
@@ -2297,6 +2311,15 @@ describe('Task, what it is doing', () => {
       expect(moved(BACKLOG, StationId.of('station_2')).stationId).toEqual(
         StationId.of('station_2'),
       );
+    });
+
+    it('records on its note that a person moved it, and where to', () => {
+      const { notes } = moved(HERE, BACKLOG);
+      const move = itemAt(notes, notes.length - 1)?.move;
+
+      expect(move?.to).toEqual(BACKLOG);
+      expect(move?.by).toBe('person');
+      expect(move?.madeOutsideARun).toBe(true);
     });
 
     it('closes from anywhere into completed', () => {

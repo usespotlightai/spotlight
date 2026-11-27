@@ -50,6 +50,7 @@ import type {
 } from '@work/application/dto/task-run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
+import { ListTaskMovesQuery } from '@work/application/queries/list-task-moves.query';
 import { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
@@ -459,6 +460,31 @@ export class TaskController {
       ReadTaskNotesQuery,
       NoteDto[] | null
     >(new ReadTaskNotesQuery(taskId, from, to, user.id));
+
+    if (!notes) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    return notes.map(NoteHttpMapper.toResponse);
+  }
+
+  @Get('tasks/:taskId/moves')
+  @ApiOperation({
+    operationId: 'listTaskMoves',
+    summary:
+      'The notes of moves that no run made on a task, such as a move by hand or by a line reaction, oldest first',
+  })
+  @ApiParam({ name: 'taskId' })
+  @ApiOkResponse({ type: NoteResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: "No such task, or not the viewer's" })
+  async taskMoves(
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<NoteResponseDto[]> {
+    const notes = await this.queryBus.execute<
+      ListTaskMovesQuery,
+      NoteDto[] | null
+    >(new ListTaskMovesQuery(taskId, user.id));
 
     if (!notes) {
       throw new NotFoundException(`Task ${taskId} not found.`);

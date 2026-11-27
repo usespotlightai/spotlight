@@ -14,7 +14,10 @@ import type {
   InboxFoldedVisit,
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
-import type { RunReview } from '@work/application/ports/run-reader.port';
+import type {
+  MovedNote,
+  RunReview,
+} from '@work/application/ports/run-reader.port';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import type { OpenAsk } from '@work/domain/services/conversation-audience';
@@ -400,6 +403,36 @@ export const notesBetween = async (
   return (await inboxNotesOf(db, people, rows)).map(
     ({ taskId: _task, ...note }) => note,
   );
+};
+
+export const movesOf = async (
+  db: DrizzleDatabase,
+  people: PersonReaderPort,
+  taskId: string,
+): Promise<MovedNote[]> => {
+  const rows = await db
+    .select({ ...NOTE_COLUMNS, move: taskNote.move })
+    .from(taskNote)
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
+    .leftJoin(
+      deferredStation,
+      eq(deferredStation.stationId, sql`${taskNote.deferredMove} ->> 'to'`),
+    )
+    .where(and(eq(taskNote.taskId, taskId), isNotNull(taskNote.move)))
+    .orderBy(asc(taskNote.position));
+  const notes = await inboxNotesOf(db, people, rows);
+
+  return rows.flatMap((row, at) => {
+    const found = itemAt(notes, at);
+
+    if (!row.move || !found) {
+      return [];
+    }
+
+    const { taskId: _task, ...note } = found;
+
+    return [{ note, move: row.move }];
+  });
 };
 
 export const newestNotesFor = async (

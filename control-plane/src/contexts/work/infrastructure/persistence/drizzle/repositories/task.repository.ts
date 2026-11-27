@@ -49,6 +49,7 @@ import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { NoteMove } from '@work/domain/value-objects/note-move.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -74,6 +75,7 @@ import {
   type ApprovalRow,
   type ConnectionAskRow,
   type DeferredMoveRow,
+  type NoteMoveRow,
   task,
   taskAttachment,
   taskMark,
@@ -151,6 +153,14 @@ const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow => ({
   to: move.to.value,
 });
 
+const toNoteMove = (row: NoteMoveRow): NoteMove =>
+  NoteMove.of(StationId.of(row.to), row.by);
+
+const toNoteMoveRow = (move: NoteMove): NoteMoveRow => ({
+  to: move.to.value,
+  by: move.by,
+});
+
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({
     teamId: TeamId.of(row.teamId),
@@ -203,6 +213,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
         })
       : null,
     suggestsClosing: row.suggestsClosing,
+    move: row.move ? toNoteMove(row.move) : null,
   });
 
 type HoldRow = typeof taskHold.$inferSelect;
@@ -1104,6 +1115,7 @@ export class DrizzleTaskRepository implements TaskRepository {
               }
             : null,
           suggestsClosing: note.suggestsClosing,
+          move: note.move ? toNoteMoveRow(note.move) : null,
         })),
       )
       .onConflictDoUpdate({

@@ -48,6 +48,9 @@ export const drivenByAPerson = (
     driverRules(here, options),
   ].join('\n\n');
 
+// One line that opens with a capital and a lower-case letter, so it can follow "Moved to X:" in lower case.
+const SENTENCE = /^[A-Z][a-z][^\n]*$/;
+
 export class TaskNoteBody {
   private static readonly TURNS_ARE_OVER =
     "The rules for people's turns no longer apply.";
@@ -76,6 +79,28 @@ export class TaskNoteBody {
   static closedUnmerged(account: TaskNoteBody): TaskNoteBody {
     return TaskNoteBody.of(
       `${account.value}\n\nThe line does not move the task for this. To continue, reopen the pull request, send the task back to a station, or complete the task.`,
+    );
+  }
+
+  static closedUnmergedAndMoved(
+    to: StationName,
+    account: TaskNoteBody,
+  ): TaskNoteBody {
+    return TaskNoteBody.of(
+      `${account.value}\n\nThe line moved the task to ${to.value} for this. To continue, reopen the pull request and move the task to a station, or complete the task.`,
+    );
+  }
+
+  static movedByHappening(
+    to: StationName,
+    account: TaskNoteBody,
+  ): TaskNoteBody {
+    const why = account.value;
+
+    return TaskNoteBody.of(
+      SENTENCE.test(why)
+        ? `Moved to ${to.value}: ${why.charAt(0).toLowerCase()}${why.slice(1)}`
+        : `Moved to ${to.value}.\n\n${why}`,
     );
   }
 

@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -23,6 +24,7 @@ import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -379,7 +381,7 @@ describe('ReactionFor.happened', () => {
     expect(destination(outcome)).toEqual(LINE.completed.id);
     expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
     expect(outcome.kind === 'moves' && outcome.body.value).toBe(
-      'The pull request was merged.',
+      'Moved to Completed: the pull request was merged.',
     );
   });
 
@@ -406,7 +408,7 @@ describe('ReactionFor.happened', () => {
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(LINE.completed.id);
     expect(outcome.kind === 'moves' && outcome.body.value).toBe(
-      'The pull request was merged.',
+      'Moved to Completed: the pull request was merged.',
     );
   });
 
@@ -836,5 +838,111 @@ describe('ReactionFor.happened for a pull request closed unmerged that no reacti
 
   it('says nothing to a task that has landed at the end of the line', () => {
     expect(unruled(owning(landedAt('station_3'))).kind).toBe('nothing');
+  });
+});
+
+describe('ReactionFor.happened for a pull request closed unmerged that a reaction moves', () => {
+  const lineSending = (to: string) =>
+    lineMapOf({
+      id: LineId.of('line_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      key: LineKey.of('delivery'),
+      name: LineName.of('Delivery'),
+      stations: LINE.stations,
+      reactions: [
+        Reaction.of({
+          happening: MERGED,
+          from: null,
+          to: StationId.of('station_3'),
+        }),
+        Reaction.of({ happening: CLOSED, from: null, to: StationId.of(to) }),
+      ],
+    });
+  const TO_BACKLOG = lineSending('station_0');
+
+  const closedUnmerged: HappeningPayload = {
+    ...payloadOf(CLOSED, 'The pull request was closed without being merged.'),
+    closedPullRequest: API,
+    closedUnmerged: true,
+  };
+
+  const finishedInReview = () =>
+    Task.rehydrate({
+      ...landedAt('station_2'),
+      ownedPullRequests: [OwnedPullRequest.of(API, NOW)],
+      finishedAt: NOW,
+    });
+
+  const on = (line: LineMap, task: Task, payload = closedUnmerged) =>
+    ReactionFor.happened({ task, line, payload, anchor: null });
+
+  it('moves the task, says why, and asks its person what to do', () => {
+    const outcome = on(TO_BACKLOG, finishedInReview());
+
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(StationId.of('station_0'));
+    expect(outcome.kind === 'moves' && outcome.body.value).toBe(
+      'Moved to Backlog: the pull request was closed without being merged.',
+    );
+    expect(outcome.kind === 'moves' && outcome.asks?.value).toBe(
+      [
+        'The pull request was closed without being merged.',
+        '',
+        'The line moved the task to Backlog for this. To continue, reopen the pull request and move the task to a station, or complete the task.',
+      ].join('\n'),
+    );
+  });
+
+  it('puts the moved task in the Inbox of its person, after a note that records the move', () => {
+    const task = finishedInReview();
+    const moved = present(task.reactTo(on(TO_BACKLOG, task), ON));
+    const move = itemAt(moved.notes, 0);
+    const ask = itemAt(moved.notes, 1);
+
+    expect(moved.stationId.value).toBe('station_0');
+    expect(moved.notes.map((each) => each.kind)).toEqual(['passed', 'asked']);
+    expect(move?.body.value).toBe(
+      'Moved to Backlog: the pull request was closed without being merged.',
+    );
+    expect(move?.move?.to.value).toBe('station_0');
+    expect(move?.move?.madeOutsideARun).toBe(true);
+    expect(ask?.body.value).toMatch(/^The pull request was closed without/);
+    expect(moved.awaitingReview).toBe(true);
+    expect(moved.hasUnreadAsk).toBe(true);
+    expect(moved.finished).toBe(false);
+    expect(moved.wantsRun(TO_BACKLOG)).toBe(false);
+    expect(moved.pullEvents().map((each) => each.kind)).toContain('task.asked');
+  });
+
+  it('asks nobody where a run takes the task up at the station it moved to', () => {
+    const toWork = lineSending('station_1');
+    const task = finishedInReview();
+    const moved = present(task.reactTo(on(toWork, task), ON));
+
+    expect(moved.stationId.value).toBe('station_1');
+    expect(moved.notes.map((each) => each.kind)).toEqual(['passed']);
+    expect(moved.wantsRun(toWork)).toBe(true);
+  });
+
+  it('asks nobody when the pull request merged', () => {
+    const task = finishedInReview();
+    const outcome = on(TO_BACKLOG, task, mergedOf(API));
+    const moved = present(task.reactTo(outcome, ON));
+
+    expect(outcome.kind === 'moves' && outcome.asks).toBeNull();
+    expect(moved.stationId.value).toBe('station_3');
+    expect(moved.notes.map((each) => each.kind)).toEqual(['passed']);
+    expect(moved.notes[0]?.body.value).toBe(
+      'Moved to Completed: the pull request was merged.',
+    );
+    expect(moved.awaitingReview).toBe(false);
+  });
+
+  it('asks nobody about a pull request the task did not open', () => {
+    const outcome = on(TO_BACKLOG, landedAt('station_2'));
+
+    expect(outcome.kind).toBe('moves');
+    expect(outcome.kind === 'moves' && outcome.asks).toBeNull();
   });
 });

@@ -3,13 +3,19 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
+import type { NoteResponseDto } from '@/lib/api';
 import type { Run } from '@/lib/run';
 import { partial } from '@/test/partial';
 
 const runs = vi.fn<() => Run[]>();
+const moves = vi.fn<() => NoteResponseDto[]>(() => []);
 
 vi.mock('@/hooks/api/useTaskRuns', () => ({
   useTaskRuns: () => ({ data: runs() }),
+}));
+
+vi.mock('@/hooks/api/useTaskMoves', () => ({
+  useTaskMoves: () => ({ data: moves() }),
 }));
 
 vi.mock('@/hooks/api/useStopRun', () => ({
@@ -77,5 +83,43 @@ describe('TaskActivity', () => {
 
     expect(screen.getByText('Moved on without an answer')).toBeInTheDocument();
     expect(screen.queryByText('Answered')).not.toBeInTheDocument();
+  });
+
+  it('shows why the line moved a task that no run took up', () => {
+    runs.mockReturnValue([run(null, false)]);
+    moves.mockReturnValue([
+      partial<NoteResponseDto>({
+        position: 4,
+        body: 'Moved to Backlog: the pull request was closed without being merged.',
+        at: new Date().toISOString(),
+      }),
+    ]);
+    shown();
+
+    const rows = screen.getAllByRole('listitem');
+
+    expect(rows[0]).toHaveTextContent(
+      'Moved to Backlog: the pull request was closed without being merged.',
+    );
+    expect(rows).toHaveLength(2);
+  });
+
+  it('shows a move on a task that has no runs', () => {
+    runs.mockReturnValue([]);
+    moves.mockReturnValue([
+      partial<NoteResponseDto>({
+        position: 1,
+        body: 'Moved to Implementation. The person who moved it gave this reason:\n\nRebase it.',
+        at: new Date().toISOString(),
+      }),
+    ]);
+    shown();
+
+    expect(screen.getByText('Activity')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Moved to Implementation. The person who moved it gave this reason:',
+      ),
+    ).toBeInTheDocument();
   });
 });

@@ -476,6 +476,7 @@ import {
   ReadInboxNoticeHandler,
 } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListTaskJournalRunsHandler } from '@work/application/queries/handlers/list-task-journal-runs.handler';
+import { ListTaskMovesHandler } from '@work/application/queries/handlers/list-task-moves.handler';
 import { ListTaskPullRequestsHandler } from '@work/application/queries/handlers/list-task-pull-requests.handler';
 import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
 import {
@@ -506,6 +507,7 @@ import {
   ReadInboxItemQuery,
   ReadInboxNoticeQuery,
 } from '@work/application/queries/list-inbox.query';
+import { ListTaskMovesQuery } from '@work/application/queries/list-task-moves.query';
 import { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
@@ -2116,6 +2118,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindQueryHandler(ReadTaskNotesQuery, ReadTaskNotesHandler, [
+    RUN_READER,
+    RunAccess,
+  ]),
+
+  ...bindQueryHandler(ListTaskMovesQuery, ListTaskMovesHandler, [
     RUN_READER,
     RunAccess,
   ]),

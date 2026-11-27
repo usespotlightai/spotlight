@@ -410,6 +410,8 @@ export const workHandlers: RequestHandler[] = [
     );
   }),
 
+  api.get('/teams/:teamId/tasks/:taskId/moves', () => json([])),
+
   api.get('/teams/:teamId/runs/:runId/notes', ({ params }) => {
     const located = locateRun(String(params.teamId), String(params.runId));
     return located ? json(conversationOf(located)) : notFound();
