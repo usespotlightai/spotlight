@@ -5849,6 +5849,16 @@ export type RetiringResponseDto = {
   reason: string;
 };
 
+export type SimilarMemoryResponseDto = {
+  memoryId: string;
+  handle: string;
+  body: string;
+  /**
+   * Why the model found that the proposal repeats it
+   */
+  reason: string;
+};
+
 export type MemoryDecisionResponseDto = {
   by: string;
   name: string | null;
@@ -5920,6 +5930,10 @@ export type ProposedMemoryResponseDto = {
    * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
    */
   inactiveMemories: Array<string>;
+  /**
+   * The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided
+   */
+  similarTo: SimilarMemoryResponseDto | null;
   /**
    * Who approved or rejected it, and when
    */
@@ -6112,6 +6126,10 @@ export type RunProposalResponseDto = {
    * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
    */
   inactiveMemories: Array<string>;
+  /**
+   * The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided
+   */
+  similarTo: SimilarMemoryResponseDto | null;
   /**
    * Who approved or rejected it, and when
    */
