@@ -7,6 +7,7 @@ import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInbox } from '@/hooks/api/useInbox';
 import { inboxPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { isAdmin, type Role } from '@/lib/role';
 import type { Team } from '@/lib/team';
 
@@ -51,7 +52,7 @@ export function WorkspaceSidebar({
               icon={Inbox}
               hint={unread}
               trailing={
-                unread ? (
+                nonEmpty(unread) ? (
                   <p className="text-xs">
                     <span aria-hidden>{unseen.length}</span>
                     <span className="sr-only">{unread}</span>
