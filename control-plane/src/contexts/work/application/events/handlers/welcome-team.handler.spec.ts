@@ -1,4 +1,4 @@
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -65,7 +65,7 @@ const welcoming = (
       record: vi.fn(async (teamId: TeamId) => void welcomed.push(teamId)),
       forget: vi.fn(),
     },
-    partial<RunnerReaderPort>({
+    partial<RunnerReadinessPort>({
       hasPlatformRunners: vi.fn(async () => over.platform ?? false),
     }),
     ids(),

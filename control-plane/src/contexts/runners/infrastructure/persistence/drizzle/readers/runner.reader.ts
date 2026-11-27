@@ -14,7 +14,6 @@ import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
-import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
 import {
   runner,
@@ -27,19 +26,9 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  eq,
-  gt,
-  inArray,
-  isNotNull,
-  isNull,
-  or,
-  type SQL,
-} from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 
 interface SourceRow {
   readonly poolId: string | null;
@@ -55,24 +44,12 @@ export class DrizzleRunnerReader
 {
   private readonly platform: boolean;
 
-  private readonly platformPoolSet: boolean;
-
-  // As RunnerPool.canProvision: a pool with a provision URL pushes, and so does the platform pool while the deployment sets its provisioner and the operator did not disable it.
-  private readonly pushes: SQL | undefined;
-
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
-    setup: PlatformSetup,
+    setup: Pick<PlatformSetup, 'platformEgressSet'>,
   ) {
     this.platform = setup.platformEgressSet;
-    this.platformPoolSet = setup.platformPoolSet;
-    this.pushes = setup.platformPoolSet
-      ? or(
-          isNotNull(runnerPool.provisionUrl),
-          and(eq(runnerPool.platform, true), eq(runnerPool.disabled, false)),
-        )
-      : isNotNull(runnerPool.provisionUrl);
   }
 
   private sourceOf(row: SourceRow): CredentialSourceSummary {
@@ -91,94 +68,6 @@ export class DrizzleRunnerReader
           }
         : null,
     };
-  }
-
-  async readyToRun(workspaceId: WorkspaceId): Promise<boolean> {
-    const pushed = firstOf(
-      await this.db
-        .select({ id: runnerPool.id })
-        .from(runnerPool)
-        .where(and(eq(runnerPool.workspaceId, workspaceId.value), this.pushes))
-        .limit(1),
-    );
-
-    if (pushed) {
-      return true;
-    }
-
-    return this.hasEgressCapableRunner(workspaceId);
-  }
-
-  async hasPlatformRunners(workspaceId: WorkspaceId): Promise<boolean> {
-    if (!this.platformPoolSet) {
-      return false;
-    }
-
-    const disabled = firstOf(
-      await this.db
-        .select({ id: runnerPool.id })
-        .from(runnerPool)
-        .where(
-          and(
-            eq(runnerPool.workspaceId, workspaceId.value),
-            eq(runnerPool.platform, true),
-            eq(runnerPool.disabled, true),
-          ),
-        )
-        .limit(1),
-    );
-
-    return !disabled;
-  }
-
-  async hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean> {
-    const egressPools = await this.db
-      .select({ egress: runnerPool.provisionEgress })
-      .from(runnerPool)
-      .where(
-        and(
-          eq(runnerPool.workspaceId, workspaceId.value),
-          this.pushes,
-          isNotNull(runnerPool.provisionEgress),
-          // As RunnerPool.allowsSecrets: the platform pool takes runs that need egress only when the operator allows it.
-          or(
-            eq(runnerPool.platform, false),
-            eq(runnerPool.allowsSecrets, true),
-          ),
-        ),
-      );
-
-    if (
-      egressPools.some(
-        (row) =>
-          row.egress !== null &&
-          EgressReference.of(row.egress).usableWith(this.platform),
-      )
-    ) {
-      return true;
-    }
-
-    const hosts = await this.db
-      .select({
-        name: runnerHost.name,
-        release: runnerHost.release,
-        containerRuntime: runnerHost.containerRuntime,
-        capacity: runnerHost.capacity,
-        running: runnerHost.running,
-        images: runnerHost.images,
-      })
-      .from(runnerHost)
-      .where(
-        and(
-          eq(runnerHost.workspaceId, workspaceId.value),
-          gt(
-            runnerHost.lastHeartbeatAt,
-            RunnerHost.staleBefore(this.clock.now()),
-          ),
-        ),
-      );
-
-    return hosts.some((row) => HostReport.of(row).supportsAHarness);
   }
 
   async supportedModels(

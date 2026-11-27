@@ -1034,6 +1034,7 @@ describe('runner pools (e2e)', () => {
             lastHeartbeatAt: expect.any(String) as unknown,
           },
         ],
+        readyToRun: true,
       });
     });
   });

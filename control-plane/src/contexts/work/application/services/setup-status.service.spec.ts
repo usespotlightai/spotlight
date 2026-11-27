@@ -1,5 +1,5 @@
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,7 +28,7 @@ const read = (options: Options = {}) => {
     isConnected: vi.fn().mockResolvedValue(options.connected ?? false),
   });
 
-  const runners = partial<RunnerReaderPort>({
+  const runners = partial<RunnerReadinessPort>({
     readyToRun: vi.fn().mockResolvedValue(options.harness ?? false),
     hasEgressCapableRunner: vi.fn().mockResolvedValue(options.hosted ?? false),
     hasPlatformRunners: vi.fn().mockResolvedValue(options.platform ?? false),

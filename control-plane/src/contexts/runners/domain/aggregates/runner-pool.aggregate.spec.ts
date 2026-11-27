@@ -65,6 +65,22 @@ describe('RunnerPool', () => {
     expect(withEgress.servesEgressNeed(true)).toBe(true);
   });
 
+  it('offers the egress it names, and the Spotlight egress only while the deployment sets it', () => {
+    expect(aPushPool({ egress: null }).offersEgress(true)).toBe(false);
+    expect(
+      aPushPool({ egress: EgressReference.of(EGRESS_ID.value) }).offersEgress(
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      aPushPool({ egress: EgressReference.platform() }).offersEgress(true),
+    ).toBe(true);
+    expect(
+      aPushPool({ egress: EgressReference.platform() }).offersEgress(false),
+    ).toBe(false);
+    expect(aPullPool().offersEgress(true)).toBe(false);
+  });
+
   it('is created as a change to the workspace’s configuration, naming its mode', () => {
     const [created] = aPullPool().pullEvents();
 
@@ -352,6 +368,41 @@ describe('RunnerPool for the platform', () => {
     expect(aPullPool().canProvision(true)).toBe(false);
   });
 
+  it('provisions for work that needs egress only with an egress the deployment can use, and the platform pool only once the operator allows it secrets', () => {
+    const both = { poolSet: true, egressSet: true };
+
+    expect(
+      aPushPool({ egress: EgressReference.to(EGRESS_ID) }).provisionsWithEgress(
+        { poolSet: false, egressSet: false },
+      ),
+    ).toBe(true);
+    expect(aPushPool().provisionsWithEgress(both)).toBe(false);
+    expect(
+      aPushPool({ egress: EgressReference.platform() }).provisionsWithEgress({
+        poolSet: true,
+        egressSet: false,
+      }),
+    ).toBe(false);
+    expect(aPullPool().provisionsWithEgress(both)).toBe(false);
+    expect(
+      aPlatformPool({
+        egress: EgressReference.platform(),
+      }).provisionsWithEgress(both),
+    ).toBe(false);
+    expect(
+      aPlatformPool({
+        egress: EgressReference.platform(),
+        allows: { allowsSecrets: true },
+      }).provisionsWithEgress(both),
+    ).toBe(true);
+    expect(
+      aPlatformPool({
+        egress: EgressReference.platform(),
+        allows: { allowsSecrets: true },
+      }).provisionsWithEgress({ poolSet: false, egressSet: true }),
+    ).toBe(false);
+  });
+
   it('keeps the platform key for the platform pool', () => {
     expect(() =>
       RunnerPool.create({
@@ -380,6 +431,32 @@ describe('RunnerPool for the platform', () => {
     expect(pool.servesEgressNeed(true)).toBe(true);
     expect(pool.egressTraffic.value).toBe('all');
     expect(aPlatformPool().servesEgressNeed(true)).toBe(false);
+  });
+
+  it('injects secrets only while it names an egress the deployment sets, is enabled and is allowed them, as a host and a push pool with egress always do', () => {
+    const SET = { platformPoolSet: true, platformEgressSet: true };
+    const withEgress = aPlatformPool({
+      egress: EgressReference.platform(),
+      allows: { allowsSecrets: true },
+    });
+
+    expect(withEgress.injectsSecrets(SET)).toBe(true);
+    expect(
+      withEgress.injectsSecrets({ ...SET, platformEgressSet: false }),
+    ).toBe(false);
+    expect(withEgress.injectsSecrets({ ...SET, platformPoolSet: false })).toBe(
+      false,
+    );
+    expect(withEgress.disable(BY).injectsSecrets(SET)).toBe(false);
+    expect(
+      aPlatformPool({ egress: EgressReference.platform() }).injectsSecrets(SET),
+    ).toBe(false);
+    expect(aPullPool().injectsSecrets(SET)).toBe(true);
+    expect(aPullPool().delete(BY).injectsSecrets(SET)).toBe(false);
+    expect(aPushPool().injectsSecrets(SET)).toBe(false);
+    expect(
+      aPushPool({ egress: EgressReference.to(EGRESS_ID) }).injectsSecrets(SET),
+    ).toBe(true);
   });
 
   it('takes the labels and egress the deployment sets now, and changes nothing when they are the same', () => {

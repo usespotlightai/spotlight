@@ -10,7 +10,8 @@ import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/driz
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
+import { RunnerReadiness } from '@runners/application/services/runner-readiness.service';
+import { DrizzleRunnerHostRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-host.repository';
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { present } from '@shared-kernel/domain/present.fake-spec';
@@ -237,8 +238,13 @@ describe('the inbox item of a setup list', () => {
 
 describe('whether a workspace is ready to run', () => {
   const runners = (platformPool = false) =>
-    new DrizzleRunnerReader(
-      db,
+    new RunnerReadiness(
+      new DrizzleRunnerPoolRepository(new DrizzleContext(db), {
+        dispatch: async () => {},
+      }),
+      new DrizzleRunnerHostRepository(new DrizzleContext(db), {
+        dispatch: async () => {},
+      }),
       {
         now: () => NOW,
         sleep: async () => {},
@@ -246,7 +252,6 @@ describe('whether a workspace is ready to run', () => {
       {
         platformEgressSet: true,
         platformPoolSet: platformPool,
-        platformImages: null,
       },
     );
 

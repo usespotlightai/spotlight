@@ -37,6 +37,7 @@ export type PushPool = {
 export type Fleet = {
   readonly hosts: readonly Host[];
   readonly pools: readonly PushPool[];
+  readonly readyToRun: boolean;
 };
 
 export const poolKeyOf = (source: CredentialSourceResponseDto): string =>
@@ -80,6 +81,7 @@ export const withActivity = (
         ? [{ source: first.source, runners: pooled }]
         : [];
     }),
+    readyToRun: fleet.readyToRun,
   };
 };
 

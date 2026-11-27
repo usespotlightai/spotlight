@@ -1,0 +1,1 @@
+ALTER TYPE "public"."unreplayable_reason" ADD VALUE 'repository-missing' BEFORE 'not-at-the-station';

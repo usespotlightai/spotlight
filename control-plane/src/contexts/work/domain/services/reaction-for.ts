@@ -27,6 +27,7 @@ interface OutcomeNote {
 export type Outcome =
   | { readonly kind: 'nothing' }
   | (OutcomeNote & { readonly kind: 'stays' })
+  | (OutcomeNote & { readonly kind: 'asks' })
   | (OutcomeNote & {
       readonly kind: 'deferredMove';
       readonly to: Station;
@@ -133,6 +134,22 @@ export const ReactionFor = {
       if (!destination.id.equals(input.task.stationId)) {
         return ReactionFor.movingTo(input.task, destination, note(), closed);
       }
+    }
+
+    if (
+      !rule &&
+      closed &&
+      input.payload.closedUnmerged &&
+      input.task.ownsPullRequest(closed)
+    ) {
+      return {
+        kind: 'asks',
+        ...note(
+          TaskNoteBody.closedUnmerged(
+            TaskNoteBody.receivedHappening(input.payload.summary, input.anchor),
+          ),
+        ),
+      };
     }
 
     const pending = input.task.pendingConversation;

@@ -73,6 +73,12 @@ export class TaskNoteBody {
     return TaskNoteBody.of(anchored || summary);
   }
 
+  static closedUnmerged(account: TaskNoteBody): TaskNoteBody {
+    return TaskNoteBody.of(
+      `${account.value}\n\nThe line does not move the task for this. To continue, reopen the pull request, send the task back to a station, or complete the task.`,
+    );
+  }
+
   static branchPullRequest(pullRequest: PullRequestUrl): TaskNoteBody {
     return TaskNoteBody.of(
       `Pull request ${pullRequest.value} is open from the branch of this task. It is now the pull request of the task.`,

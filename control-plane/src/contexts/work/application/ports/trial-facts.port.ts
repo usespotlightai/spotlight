@@ -5,6 +5,7 @@ export interface TaskRunFacts {
   readonly taskId: string;
   readonly stationId: string;
   readonly briefed: boolean;
+  readonly reviewing: string | null;
   readonly taskExists: boolean;
   readonly title: string | null;
 }

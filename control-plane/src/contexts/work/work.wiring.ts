@@ -76,9 +76,9 @@ import {
   type RunnerLeasesPort,
 } from '@runners/application/ports/runner-leases.port';
 import {
-  RUNNER_READER,
-  type RunnerReaderPort,
-} from '@runners/application/ports/runner-reader.port';
+  RUNNER_READINESS,
+  type RunnerReadinessPort,
+} from '@runners/application/ports/runner-readiness.port';
 import {
   SANDBOX_RETIREMENT,
   type SandboxRetirementPort,
@@ -1212,13 +1212,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: SetupStatus,
     inject: [
       WORKSPACE_CONNECTIONS,
-      RUNNER_READER,
+      RUNNER_READINESS,
       CHAT_READER,
       CHAT_REPOSITORY,
     ],
     useFactory: (
       connections: WorkspaceConnectionsPort,
-      runners: RunnerReaderPort,
+      runners: RunnerReadinessPort,
       chats: ChatReaderPort,
       chatRepository: ChatRepository,
     ) => new SetupStatus(connections, runners, chats, chatRepository),
@@ -1806,12 +1806,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TRIALABLE_RUNS,
-    inject: [RUN_FACTS, TRIAL_FACTS, STATION_RUN_READER],
+    inject: [RUN_FACTS, TRIAL_FACTS, STATION_RUN_READER, LINE_MAPS],
     useFactory: (
       runs: RunFactsPort,
       trials: TrialFactsPort,
       stationRuns: StationRunReaderPort,
-    ) => new TrialableRuns(runs, trials, stationRuns),
+      lines: LineMapsPort,
+    ) => new TrialableRuns(runs, trials, stationRuns, lines),
   },
 
   { provide: TRIAL_FACTS, useClass: DrizzleTrialFacts },
@@ -1935,7 +1936,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ResumeTaskRun,
       SANDBOX_RETIREMENT,
       PULL_REQUESTS,
-      RUNNER_READER,
+      RUNNER_READINESS,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1971,7 +1972,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       resuming: ResumeTaskRun,
       retirement: SandboxRetirementPort,
       pullRequests: PullRequestPort,
-      runnerReader: RunnerReaderPort,
+      runnerReadiness: RunnerReadinessPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1998,7 +1999,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             lines,
             tasks,
             welcomes,
-            runnerReader,
+            runnerReadiness,
             ids,
             clock,
           ),
@@ -2526,7 +2527,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DispatchChat,
     HARNESS_LAUNCH,
     ACCESSIBLE_REPOSITORIES,
-    RUNNER_READER,
+    RUNNER_READINESS,
     CiSetups,
     ID_GENERATOR,
     CLOCK,

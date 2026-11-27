@@ -28744,6 +28744,23 @@
         ],
         "description": "Where the value comes from: awaiting (no value yet; runs that need it fail), spotlight (stored, and Terraform does not set it), or terraform (value_wo_version sets it)"
       },
+      "SecretReachResponseDto": {
+        "type": "object",
+        "properties": {
+          "usedByRuns": {
+            "type": "boolean",
+            "description": "False when no harness profile or integration uses it, so no run receives it"
+          },
+          "deliverable": {
+            "type": "boolean",
+            "description": "False when it is bound to hosts and no runner pool of the workspace has egress, so egress never injects it there"
+          }
+        },
+        "required": [
+          "usedByRuns",
+          "deliverable"
+        ]
+      },
       "WorkspaceSecretResponseDto": {
         "type": "object",
         "properties": {
@@ -28788,6 +28805,14 @@
           "settable": {
             "type": "boolean",
             "description": "True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets"
+          },
+          "reach": {
+            "description": "How the secret reaches runs",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SecretReachResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -28796,7 +28821,8 @@
           "sandbox",
           "valueOrigin",
           "valueSetAt",
-          "settable"
+          "settable",
+          "reach"
         ]
       },
       "SetSecretValueRequestDto": {
@@ -29234,11 +29260,17 @@
             "items": {
               "$ref": "#/components/schemas/LiveRunnerResponseDto"
             }
+          },
+          "readyToRun": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects"
           }
         },
         "required": [
           "hosts",
-          "runners"
+          "runners",
+          "readyToRun"
         ]
       },
       "RegisterRunnerRequestDto": {
@@ -32920,7 +32952,8 @@
             "type": "string",
             "enum": [
               "pending",
-              "answered"
+              "answered",
+              "moved-on"
             ]
           },
           "conversationId": {

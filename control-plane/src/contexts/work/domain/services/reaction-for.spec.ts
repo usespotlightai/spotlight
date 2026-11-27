@@ -1,3 +1,4 @@
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -732,5 +733,108 @@ describe('ReactionFor.happened with two pull requests, whatever order their clos
       'station_2',
     ]);
     expect(held).toEqual(['station_2', 'station_2', 'station_2', null]);
+  });
+});
+
+describe('ReactionFor.happened for a pull request closed unmerged that no reaction takes', () => {
+  const UNRULED = lineMapOf({
+    id: LineId.of('line_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    key: LineKey.of('delivery'),
+    name: LineName.of('Delivery'),
+    stations: LINE.stations,
+    reactions: [
+      Reaction.of({
+        happening: MERGED,
+        from: null,
+        to: StationId.of('station_3'),
+      }),
+    ],
+  });
+
+  const closedUnmerged: HappeningPayload = {
+    ...payloadOf(CLOSED, 'The pull request was closed without being merged.'),
+    closedPullRequest: API,
+    closedUnmerged: true,
+  };
+
+  const owning = (task: Task) =>
+    Task.rehydrate({
+      ...task,
+      ownedPullRequests: [OwnedPullRequest.of(API, NOW)],
+    });
+
+  const finishedInReview = () =>
+    Task.rehydrate({
+      ...owning(landedAt('station_2')),
+      finishedAt: NOW,
+    });
+
+  const unruled = (task: Task, payload = closedUnmerged) =>
+    ReactionFor.happened({ task, line: UNRULED, payload, anchor: null });
+
+  it('asks a person what to do with the task, and says how to go on', () => {
+    const outcome = unruled(finishedInReview());
+
+    expect(outcome.kind).toBe('asks');
+    expect(outcome.kind === 'asks' && outcome.body.value).toBe(
+      [
+        'The pull request was closed without being merged.',
+        '',
+        'The line does not move the task for this. To continue, reopen the pull request, send the task back to a station, or complete the task.',
+      ].join('\n'),
+    );
+  });
+
+  it('puts the finished task back in the Inbox of its assignee', () => {
+    const asked = present(
+      finishedInReview().reactTo(unruled(finishedInReview()), ON),
+    );
+
+    expect(asked.stationId.value).toBe('station_2');
+    expect(asked.finished).toBe(false);
+    expect(asked.awaitingReview).toBe(true);
+    expect(asked.hasUnreadAsk).toBe(true);
+    expect(asked.notes.map((each) => each.kind)).toEqual(['asked']);
+    expect(asked.notes[0]?.voice.isWorld).toBe(true);
+    expect(asked.wantsRun(UNRULED)).toBe(false);
+  });
+
+  it('adds a note to a task that already waits on a person', () => {
+    const waiting = owning(paused('station_2'));
+    const noted = present(waiting.reactTo(unruled(waiting), ON));
+
+    expect(noted.notes.map((each) => each.kind)).toEqual(['asked', 'message']);
+    expect(noted.awaitingReview).toBe(true);
+  });
+
+  it('adds a note for the run that works the task', () => {
+    const working = owning(handed('station_2'));
+    const noted = present(working.reactTo(unruled(working), ON));
+
+    expect(noted.notes.map((each) => each.kind)).toEqual(['message']);
+    expect(noted.currentRunId).toEqual(RUN);
+  });
+
+  it('leaves the close to the reaction of a line that has one', () => {
+    expect(reaction(finishedInReview(), closedUnmerged).kind).toBe('moves');
+  });
+
+  it('says nothing of a pull request the task did not open', () => {
+    expect(unruled(landedAt('station_2')).kind).toBe('nothing');
+  });
+
+  it('says nothing of a pull request that merged', () => {
+    expect(
+      unruled(finishedInReview(), {
+        ...mergedOf(API),
+        happening: CLOSED,
+      }).kind,
+    ).toBe('nothing');
+  });
+
+  it('says nothing to a task that has landed at the end of the line', () => {
+    expect(unruled(owning(landedAt('station_3'))).kind).toBe('nothing');
   });
 });

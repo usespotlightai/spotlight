@@ -8,7 +8,7 @@ import type {
 } from '@work/application/ports/trial-facts.port';
 import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleTrialFacts implements TrialFactsPort {
@@ -27,6 +27,7 @@ export class DrizzleTrialFacts implements TrialFactsPort {
         taskId: dispatch.taskId,
         stationId: dispatch.stationId,
         briefed: isNotNull(dispatch.briefedTask).mapWith(Boolean),
+        reviewing: sql<string | null>`${dispatch.briefedTask}->>'reviewing'`,
         liveTask: task.id,
         title: task.title,
       })
@@ -51,6 +52,7 @@ export class DrizzleTrialFacts implements TrialFactsPort {
                   taskId: row.taskId,
                   stationId: row.stationId,
                   briefed: row.briefed,
+                  reviewing: row.reviewing,
                   taskExists: row.liveTask !== null,
                   title: row.title,
                 },

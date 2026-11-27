@@ -24,6 +24,8 @@ export interface EvidencedRun {
   readonly description: string | null;
   readonly steps: readonly EvidencedStep[];
   readonly hunks: readonly EvidencedHunk[];
+  /** The tools of the station that its trial left out, so that the run could not call them. */
+  readonly blockedTools: readonly string[];
 }
 
 export interface RunEvidencePort {

@@ -48,6 +48,7 @@ const evidenceOf = (runId: string, line: string): RunEvidence => ({
       lines: ['-stall()', line],
     },
   ],
+  blockedTools: ['pull-request'],
 });
 
 const ROUND = { runId: RunId.of('replay_1'), judging: 1, attempt: 1 };
@@ -225,6 +226,14 @@ describe('ChangeJudgments', () => {
 
     expect(blocked.requests[0]?.effectsBlocked).toBe(true);
     expect(open.requests[0]?.effectsBlocked).toBe(false);
+  });
+
+  it('hands the judge the tools the sandbox blocked for the run', async () => {
+    const { requests } = await judging(async () =>
+      oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]),
+    );
+
+    expect(requests[0]?.blockedTools).toEqual(['pull-request']);
   });
 
   it('judges on the claims alone without a reference, and says so', async () => {

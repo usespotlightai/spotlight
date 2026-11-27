@@ -238,6 +238,11 @@ export class RunnerHost extends EventRecorder {
     return this.state.report.supportsAHarness;
   }
 
+  // The host still reports in, and one of its images serves a harness: work queued for the workspace starts on it once it has a free slot.
+  servesAHarnessAt(now: Date): boolean {
+    return !this.isStaleAt(now) && this.supportsAHarness;
+  }
+
   private recordReadyOnFirstHarness(before: RunnerHost | null): RunnerHost {
     if (this.supportsAHarness && !before?.supportsAHarness) {
       this.record(new HostBecameReady(this.state.id, this.state.workspaceId));

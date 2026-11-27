@@ -9,6 +9,7 @@ const UNTRIALABLE_REASONS = [
   'attachments-gone',
   'answer-gone',
   'repository-gone',
+  'repository-missing',
   'not-at-the-station',
   'candidate-unfit',
   'cannot-start',

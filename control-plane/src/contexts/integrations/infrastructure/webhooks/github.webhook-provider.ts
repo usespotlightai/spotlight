@@ -217,6 +217,7 @@ const reported = (
     ourOwn: report.ourOwn,
     opens: null,
     closedPullRequest: report.closedPullRequest,
+    closedUnmerged: activity === 'closed-unmerged',
   };
 };
 

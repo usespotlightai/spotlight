@@ -428,6 +428,7 @@ export class WorkClaimsRevisions implements PendingJobsPort {
       reference: null,
       guidanceRequested: false,
       effectsBlocked: false,
+      blockedTools: [],
     });
   }
 

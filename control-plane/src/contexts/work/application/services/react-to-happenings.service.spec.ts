@@ -866,6 +866,54 @@ describe('ReactToHappenings', () => {
     );
   });
 
+  it('asks a person about a task whose pull request closed unmerged where no rule takes it', async () => {
+    const api = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+    const ended = Task.rehydrate({
+      ...taskAt(),
+      ownedPullRequests: [OwnedPullRequest.of(api, NOW)],
+      finishedAt: NOW,
+    });
+
+    await new ReactToHappenings(
+      tasks(ended),
+      tasks(ended),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+      NO_RUNS,
+      TEAMMATES,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [
+        {
+          ...news(Happening.of('github.pull_request.closed-unmerged'), null),
+          summary: 'The pull request was closed without being merged.',
+          closedPullRequest: api.value,
+          closedUnmerged: true,
+        },
+      ],
+      'received-as',
+    );
+
+    expect(saved?.stationId.value).toBe('station_2');
+    expect(saved?.finished).toBe(false);
+    expect(saved?.hasUnreadAsk).toBe(true);
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['asked']);
+    expect(saved?.notes[0]?.body.value).toMatch(
+      /^The pull request was closed without being merged\.\n\n.*reopen the pull request, send the task back to a station, or complete the task\.$/,
+    );
+    expect(dispatched).toHaveLength(0);
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
   it('keeps a task with another open pull request where it is, and leaves the close to GitHub’s event', async () => {
     const api = PullRequestUrl.of('https://github.com/acme/api/pull/7');
     const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');

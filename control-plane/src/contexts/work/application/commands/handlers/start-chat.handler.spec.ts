@@ -1,4 +1,4 @@
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type {
   HarnessCatalogueEntry,
   HarnessLaunchPort,
@@ -79,7 +79,7 @@ const starting = ({
         async (_, repository) => accessible.includes(repository.value),
       ),
     } satisfies AccessibleRepositoriesPort,
-    partial<RunnerReaderPort>({
+    partial<RunnerReadinessPort>({
       hasEgressCapableRunner: vi.fn(async () => hosted),
     }),
     partial<CiSetups>({ setUp }),

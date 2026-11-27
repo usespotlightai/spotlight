@@ -2072,6 +2072,17 @@ export type SecretResourceListResponseDto = {
  */
 export type SecretValueOrigin = 'awaiting' | 'spotlight' | 'terraform';
 
+export type SecretReachResponseDto = {
+  /**
+   * False when no harness profile or integration uses it, so no run receives it
+   */
+  usedByRuns: boolean;
+  /**
+   * False when it is bound to hosts and no runner pool of the workspace has egress, so egress never injects it there
+   */
+  deliverable: boolean;
+};
+
 export type WorkspaceSecretResponseDto = {
   name: string;
   /**
@@ -2094,6 +2105,10 @@ export type WorkspaceSecretResponseDto = {
    * True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets
    */
   settable: boolean;
+  /**
+   * How the secret reaches runs
+   */
+  reach: SecretReachResponseDto;
 };
 
 export type SetSecretValueRequestDto = {
@@ -2287,6 +2302,10 @@ export type RunnerFleetResponseDto = {
    * Every runner alive now, on a host or provisioned by a push pool: at work on a run, or started and yet to claim one
    */
   runners: Array<LiveRunnerResponseDto>;
+  /**
+   * Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects
+   */
+  readyToRun: boolean;
 };
 
 export type RegisterRunnerRequestDto = {
@@ -3800,7 +3819,7 @@ export type RunStationResponseDto = {
 };
 
 export type RunReviewResponseDto = {
-  state: 'pending' | 'answered';
+  state: 'pending' | 'answered' | 'moved-on';
   /**
    * The inbox conversation it opened
    */
