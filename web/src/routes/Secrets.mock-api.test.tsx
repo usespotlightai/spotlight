@@ -35,7 +35,10 @@ const rowOf = async (name: string) => {
 
 const UNUSED =
   'No harness profile or integration uses this secret, so no run receives it.';
+const UNDELIVERABLE =
+  'No runner pool has egress, so no run sends it. Select the icon to see the runners.';
 const UNUSED_LABEL = 'No run receives it';
+const TO_RUNNERS = 'No run receives it. See runners';
 
 describe('Secrets on the mock API', () => {
   const server = serveMockApi();
@@ -73,22 +76,16 @@ describe('Secrets on the mock API', () => {
     );
     render(<MockApplication at={secretsPath(SLUG)} />);
 
-    const linear = await rowOf('LINEAR_API_KEY');
+    const toRunners = (await rowOf('LINEAR_API_KEY')).getByRole('link', {
+      name: TO_RUNNERS,
+    });
 
+    expect(toRunners).toHaveAttribute('href', runnersPath(SLUG));
+    expect(toRunners).toHaveAccessibleDescription(UNDELIVERABLE);
     expect(
-      linear.getByText('No runner pool has egress, so no run sends it.', {
-        exact: false,
+      (await rowOf('DEV_GITHUB_APP_KEY')).queryByRole('link', {
+        name: TO_RUNNERS,
       }),
-    ).toBeVisible();
-    expect(linear.getByRole('link', { name: 'See runners' })).toHaveAttribute(
-      'href',
-      runnersPath(SLUG),
-    );
-    expect(
-      (await rowOf('DEV_GITHUB_APP_KEY')).queryByText(
-        'No runner pool has egress',
-        { exact: false },
-      ),
     ).not.toBeInTheDocument();
   });
 
@@ -96,8 +93,8 @@ describe('Secrets on the mock API', () => {
     render(<MockApplication at={secretsPath(SLUG)} />);
 
     expect(
-      (await rowOf('LINEAR_API_KEY')).queryByText('No runner pool has egress', {
-        exact: false,
+      (await rowOf('LINEAR_API_KEY')).queryByRole('link', {
+        name: TO_RUNNERS,
       }),
     ).not.toBeInTheDocument();
   });
@@ -147,16 +144,14 @@ describe('Secrets on the mock API', () => {
     const linear = await rowOf('LINEAR_API_KEY');
 
     expect(
-      linear.getByRole('img', { name: UNUSED_LABEL }),
-    ).toHaveAccessibleDescription(UNUSED);
+      linear.getByRole('link', { name: TO_RUNNERS }),
+    ).toHaveAccessibleDescription(`${UNUSED} ${UNDELIVERABLE}`);
     expect(
-      linear.getByText('No runner pool has egress, so no run sends it.', {
-        exact: false,
-      }),
-    ).toBeVisible();
+      linear.queryByRole('img', { name: UNUSED_LABEL }),
+    ).not.toBeInTheDocument();
     expect(
-      (await rowOf('DEV_GITHUB_APP_KEY')).queryByRole('img', {
-        name: UNUSED_LABEL,
+      (await rowOf('DEV_GITHUB_APP_KEY')).queryByRole('link', {
+        name: TO_RUNNERS,
       }),
     ).not.toBeInTheDocument();
   });

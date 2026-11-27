@@ -39,8 +39,18 @@ export const SANDBOX_NOTE =
 export const describeHosts = (secret: WorkspaceSecret): string =>
   secret.hosts.length > 0 ? secret.hosts.join(', ') : 'Sent to no host';
 
-export const UNDELIVERABLE_NOTE =
-  'No runner pool has egress, so no run sends it.';
-export const UNUSED_LABEL = 'No run receives it';
-export const UNUSED_NOTE =
+export const UNREACHED_LABEL = 'No run receives it';
+
+const UNUSED_NOTE =
   'No harness profile or integration uses this secret, so no run receives it.';
+const UNDELIVERABLE_NOTE =
+  'No runner pool has egress, so no run sends it. Select the icon to see the runners.';
+
+export const unreachedNote = (secret: WorkspaceSecret): string | null => {
+  const notes = [
+    !secret.reach.usedByRuns && UNUSED_NOTE,
+    !secret.reach.deliverable && UNDELIVERABLE_NOTE,
+  ].filter((note) => note !== false);
+
+  return notes.length > 0 ? notes.join(' ') : null;
+};

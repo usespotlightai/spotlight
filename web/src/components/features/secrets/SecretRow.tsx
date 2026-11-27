@@ -1,4 +1,4 @@
-import { LockKeyhole } from 'lucide-react';
+import { LockKeyhole, TriangleAlert } from 'lucide-react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { PillButton } from '@/components/shared/PillButton';
@@ -14,9 +14,8 @@ import {
   allowsSandbox,
   SANDBOX_NOTE,
   setValueLabel,
-  UNDELIVERABLE_NOTE,
-  UNUSED_LABEL,
-  UNUSED_NOTE,
+  UNREACHED_LABEL,
+  unreachedNote,
   valueNote,
   type WorkspaceSecret,
 } from '@/lib/secret';
@@ -28,38 +27,48 @@ type SecretRowProps = {
   onSetValue: () => void;
 };
 
+type UnreachedProps = {
+  slug: string;
+  secret: WorkspaceSecret;
+  note: string;
+};
+
+function Unreached({ slug, secret, note }: UnreachedProps) {
+  if (secret.reach.deliverable) {
+    return (
+      <WarningTooltip tone="warning" label={UNREACHED_LABEL} tooltip={note} />
+    );
+  }
+
+  return (
+    <WithTooltip tooltip={note} named={UNREACHED_LABEL}>
+      <TrailLink
+        to={runnersPath(slug)}
+        aria-label={`${UNREACHED_LABEL}. See runners`}
+        className="inline-flex shrink-0"
+      >
+        <TriangleAlert
+          aria-hidden
+          className="size-3.5 text-amber-600 dark:text-amber-400"
+        />
+      </TrailLink>
+    </WithTooltip>
+  );
+}
+
 export function SecretRow({ slug, secret, onSetValue }: SecretRowProps) {
+  const note = unreachedNote(secret);
+
   return (
     <li data-slot="secret-row">
       <SettingsRow
         label={secret.name}
         leading={<RowIcon icon={LockKeyhole} />}
-        description={
-          <>
-            {describeHosts(secret)}
-            {!secret.reach.deliverable && (
-              <span className="block text-amber-600 dark:text-amber-400">
-                {UNDELIVERABLE_NOTE}{' '}
-                <TrailLink
-                  to={runnersPath(slug)}
-                  className="rounded-sm underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  See runners
-                </TrailLink>
-              </span>
-            )}
-          </>
-        }
+        description={describeHosts(secret)}
         stack
       >
         <div className="flex items-center gap-3">
-          {!secret.reach.usedByRuns && (
-            <WarningTooltip
-              tone="warning"
-              label={UNUSED_LABEL}
-              tooltip={UNUSED_NOTE}
-            />
-          )}
+          {note && <Unreached slug={slug} secret={secret} note={note} />}
 
           {allowsSandbox(secret) && (
             <WithTooltip tooltip={SANDBOX_NOTE}>
