@@ -2,6 +2,7 @@ import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { ExpandableText } from '@/components/shared/ExpandableText';
+import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import type { Attachment } from '@/lib/attachment';
 import type { ConversationItem } from '@/lib/inbox';
 import { nonEmpty } from '@/lib/non-empty';
@@ -40,9 +41,13 @@ export function InboxAsked({
 
           {nonEmpty(description) && (
             <ExpandableText what="description">
-              <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-                {description}
-              </p>
+              <MarkdownEditor
+                readOnly
+                initialValue={description}
+                placeholder=""
+                ariaLabel="Description"
+                className="border-none bg-transparent p-0"
+              />
             </ExpandableText>
           )}
         </div>
