@@ -24,7 +24,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, lte } from 'drizzle-orm';
+import { and, eq, inArray, lte } from 'drizzle-orm';
 
 type Row = typeof runnerHost.$inferSelect;
 
@@ -206,6 +206,26 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
       .select()
       .from(runnerHost)
       .where(eq(runnerHost.workspaceId, workspaceId.value));
+
+    return rows.map(toHost);
+  }
+
+  async inWorkspaces(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly RunnerHost[]> {
+    if (workspaceIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(runnerHost)
+      .where(
+        inArray(
+          runnerHost.workspaceId,
+          workspaceIds.map((each) => each.value),
+        ),
+      );
 
     return rows.map(toHost);
   }

@@ -14,9 +14,10 @@ export const waitsForAnyRunnerAt = (run: WaitingFacts, now: Date): boolean =>
   claimableAt(run, now) &&
   (run.reservedUntil === null || run.reservedUntil <= now);
 
-// Why Spotlight provisions no runner for a queued run: only the hosts of a pull pool or a trust take it, the pools that fit it are full, only the platform pool could take it and the operator does not allow it that work, or no pool fits it.
+// Why Spotlight provisions no runner for a queued run: only the hosts of a pull pool or a trust take it, only such hosts take it and none of them reports in, the pools that fit it are full, only the platform pool could take it and the operator does not allow it that work, or no pool fits it.
 export const WAIT_REASONS = [
   'hosts-pull',
+  'hosts-offline',
   'no-pool-has-room',
   'platform-pool-not-allowed',
   'no-pool-matches',
@@ -24,9 +25,21 @@ export const WAIT_REASONS = [
 
 export type WaitReason = (typeof WAIT_REASONS)[number];
 
-// Why a queued run waits, and since when.
-export interface RunWait {
+// The hosts that a run waits for while none of them reports in.
+export interface QuietHosts {
+  readonly hosts: readonly string[];
+  // When Spotlight last heard from one of them, or null when none is left to hear from.
+  readonly since: Date | null;
+}
+
+// Why a queued run waits. Quiet names the hosts for hosts-offline.
+export interface WaitCause {
   readonly reason: WaitReason;
+  readonly quiet: QuietHosts | null;
+}
+
+// Why a queued run waits, and since when.
+export interface RunWait extends WaitCause {
   readonly since: Date;
 }
 
@@ -50,5 +63,5 @@ export const currentWait = (
   run.state === 'queued' &&
   !run.reserved &&
   wait.queuedAt.getTime() === run.queuedAt.getTime()
-    ? { reason: wait.reason, since: wait.since }
+    ? { reason: wait.reason, quiet: wait.quiet, since: wait.since }
     : null;

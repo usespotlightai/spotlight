@@ -5,6 +5,7 @@ import { useArrivals } from '@/hooks/useArrivals';
 import { ARRIVING, type RunJournal } from '@/lib/inbox';
 import { stretchesOf } from '@/lib/journal-step';
 import type { ShownProgress } from '@/lib/run';
+import type { RunWaiting } from '@/lib/run-waiting';
 import { cn } from '@/lib/utils';
 
 type Station = {
@@ -19,7 +20,7 @@ type RunActivityProps = {
   journals: readonly RunJournal[];
   progress: ShownProgress | null;
   station: Station;
-  harness?: string;
+  waiting?: RunWaiting | null;
 };
 
 export function RunActivity({
@@ -27,7 +28,7 @@ export function RunActivity({
   journals,
   progress,
   station,
-  harness,
+  waiting,
 }: RunActivityProps) {
   const stretches = stretchesOf(journals.flatMap((each) => each.steps));
   const arrived = useArrivals(
@@ -69,7 +70,7 @@ export function RunActivity({
           stationColor={station.color}
           stationPosition={station.position}
           stationCount={station.count}
-          harness={harness}
+          waiting={waiting}
           session={journals.at(-1)}
         />
       )}

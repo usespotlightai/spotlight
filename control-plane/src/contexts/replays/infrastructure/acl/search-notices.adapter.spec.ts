@@ -15,7 +15,8 @@ const work = () => ({
     created.push(notice);
   },
   resolve: async () => {},
-  resolveEverywhere: async () => {},
+  raise: async () => {},
+  resolveInWorkspace: async () => {},
   allowsExternalLink: (url: string) => url.startsWith('https://github.com/'),
 });
 

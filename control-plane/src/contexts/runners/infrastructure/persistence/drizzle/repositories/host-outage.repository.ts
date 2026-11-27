@@ -15,6 +15,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -39,6 +40,7 @@ const toOutage = (row: Row): HostOutage =>
     id: HostOutageId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     source: sourceOf(row),
+    hosts: row.hosts,
     since: row.since,
     raisedAt: row.raisedAt,
     version: row.version,
@@ -60,6 +62,7 @@ export class DrizzleHostOutageRepository implements HostOutageRepository {
           workspaceId: outage.workspaceId.value,
           poolId: outage.source.poolId?.value ?? null,
           trustId: outage.source.trustId?.value ?? null,
+          hosts: [...outage.hosts],
           since: outage.since,
           raisedAt: outage.raisedAt,
           version: outage.version,
@@ -98,6 +101,22 @@ export class DrizzleHostOutageRepository implements HostOutageRepository {
 
       await this.events.dispatch(outage.pullEvents());
     });
+  }
+
+  async ofSource(source: CredentialSource): Promise<HostOutage | null> {
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(hostOutage)
+        .where(
+          source.kind === 'pool'
+            ? eq(hostOutage.poolId, source.id)
+            : eq(hostOutage.trustId, source.id),
+        )
+        .limit(1),
+    );
+
+    return found ? toOutage(found) : null;
   }
 
   async all(): Promise<readonly HostOutage[]> {

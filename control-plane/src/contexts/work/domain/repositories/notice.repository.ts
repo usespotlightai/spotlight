@@ -15,19 +15,14 @@ export interface NoticeRepository {
 
   find(id: NoticeId): Promise<Notice | null>;
 
-  about(
-    teamId: TeamId,
-    addressee: UserId | null,
-    form: NoticeForm,
-    subject: NoticeSubject,
-  ): Promise<Notice | null>;
-
-  // Every notice of the workspace about the subject, in any team and to anyone.
-  inWorkspaceAbout(
-    workspaceId: WorkspaceId,
-    form: NoticeForm,
-    subject: NoticeSubject,
-  ): Promise<Notice[]>;
+  // The notice of a team, or, with no team, the notice of the workspace about the whole workspace, on the subject.
+  about(input: {
+    readonly workspaceId: WorkspaceId | null;
+    readonly teamId: TeamId | null;
+    readonly addressee: UserId | null;
+    readonly form: NoticeForm;
+    readonly subject: NoticeSubject;
+  }): Promise<Notice | null>;
 
   ofTeam(teamId: TeamId): Promise<Notice[]>;
 

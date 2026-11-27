@@ -9,7 +9,6 @@ import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import type { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -242,11 +241,6 @@ export class RunnerHost extends EventRecorder {
   // The host still reports in, and one of its images serves a harness: work queued for the workspace starts on it once it has a free slot.
   servesAHarnessAt(now: Date): boolean {
     return !this.isStaleAt(now) && this.supportsAHarness;
-  }
-
-  // The host still reports in, though perhaps not now, and one of its images serves this harness.
-  servesAt(harness: HarnessId, now: Date): boolean {
-    return !this.isStaleAt(now) && this.state.report.runs(harness);
   }
 
   private recordReadyOnFirstHarness(before: RunnerHost | null): RunnerHost {

@@ -16,11 +16,6 @@ import { ChatAccess } from '@work/domain/services/chat-access';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
-export interface WorkspaceAdmin {
-  readonly admin: UserId;
-  readonly teamsSeen: readonly TeamId[];
-}
-
 export interface SeenTeam {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
@@ -44,6 +39,7 @@ const inboxScopeOf = (
   teamsJoined: new Set(
     access.teams.filter((each) => each.joined).map((each) => each.teamId.value),
   ),
+  isAdmin: access.isAdmin,
 });
 
 export class WorkAccess {
@@ -121,18 +117,6 @@ export class WorkAccess {
     return (await this.access.teamAccessOfMembers(workspaceId)).map((each) =>
       inboxScopeOf(each, each.viewer),
     );
-  }
-
-  // The owners and admins of the workspace, with the teams that each sees.
-  async adminsIn(workspaceId: WorkspaceId): Promise<WorkspaceAdmin[]> {
-    return (await this.access.teamAccessOfMembers(workspaceId))
-      .filter((each) => each.isAdmin)
-      .map((each) => ({
-        admin: each.viewer,
-        teamsSeen: each.teams
-          .filter((team) => team.sees)
-          .map((team) => team.teamId),
-      }));
   }
 
   async inboxOf(slug: string, viewer: UserId): Promise<InboxScope | null> {

@@ -3,20 +3,21 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { isAdmin } from '@/lib/role';
-import { addHostPath, offlineHarnessOf } from '@/lib/runner';
+import { quietHostsOf, type RunWaiting } from '@/lib/run-waiting';
+import { addHostPath } from '@/lib/runner';
 
 type AgentQueuedProps = {
   slug: string;
-  harness: string;
+  waiting: RunWaiting | null;
 };
 
-export function AgentQueued({ slug, harness }: AgentQueuedProps) {
+export function AgentQueued({ slug, waiting }: AgentQueuedProps) {
   const { data: fleet } = useRunners(slug);
   const { data: workspace } = useWorkspace(slug);
-  const offline = offlineHarnessOf(fleet, harness);
+  const quiet = quietHostsOf(waiting);
 
-  if (offline) {
-    return <QueuedForOfflineHosts slug={slug} offline={offline} />;
+  if (quiet && fleet?.readyToRun !== false) {
+    return <QueuedForOfflineHosts slug={slug} quiet={quiet} what="chat" />;
   }
 
   if (fleet?.readyToRun !== false) {

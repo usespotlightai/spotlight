@@ -29,36 +29,31 @@ class InMemoryNotices implements NoticeRepository {
 
   find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
-  about = async (
-    teamId: TeamId,
-    addressee: UserId | null,
-    form: string,
-    subject: NoticeSubject,
-  ) =>
+  about = async (input: {
+    readonly workspaceId: WorkspaceId | null;
+    readonly teamId: TeamId | null;
+    readonly addressee: UserId | null;
+    readonly form: string;
+    readonly subject: NoticeSubject;
+  }) =>
     [...this.stored.values()].find(
       (each) =>
-        each.teamId.equals(teamId) &&
-        (each.addressee === null || addressee === null
-          ? each.addressee === addressee
-          : each.addressee.equals(addressee)) &&
-        each.form === form &&
-        each.subject.equals(subject),
+        (each.teamId === null || input.teamId === null
+          ? each.teamId === input.teamId
+          : each.teamId.equals(input.teamId)) &&
+        (input.workspaceId === null ||
+          each.workspaceId.equals(input.workspaceId)) &&
+        (each.addressee === null || input.addressee === null
+          ? each.addressee === input.addressee
+          : each.addressee.equals(input.addressee)) &&
+        each.form === input.form &&
+        each.subject.equals(input.subject),
     ) ?? null;
 
-  inWorkspaceAbout = async (
-    workspaceId: WorkspaceId,
-    form: string,
-    subject: NoticeSubject,
-  ) =>
-    [...this.stored.values()].filter(
-      (each) =>
-        each.workspaceId.equals(workspaceId) &&
-        each.form === form &&
-        each.subject.equals(subject),
-    );
-
   ofTeam = async (teamId: TeamId) =>
-    [...this.stored.values()].filter((each) => each.teamId.equals(teamId));
+    [...this.stored.values()].filter(
+      (each) => each.teamId?.equals(teamId) ?? false,
+    );
 
   remove = async (notice: Notice) => {
     this.stored.delete(notice.id.value);
@@ -135,7 +130,7 @@ describe('Notices', () => {
     await notices.create(team);
     await notices.create({ ...team, subject: 'memory-upkeep upkeep_2' });
     await notices.resolve({
-      teamId: team.teamId,
+      teamId: TeamId.of('team_1'),
       form: 'advice',
       subject: team.subject,
     });
@@ -145,40 +140,54 @@ describe('Notices', () => {
     ).toEqual([true, false]);
   });
 
-  it('resolves every notice of the workspace about a subject, whomever it is addressed to, and keeps its workspace link', async () => {
+  it('raises a notice about the whole workspace once, resolves it, and opens it again when raised again', async () => {
     const memory = new InMemoryNotices();
     const notices = noticesOver(memory);
     const outage = {
       ...STALLED,
+      teamId: null,
+      addressee: null,
       form: 'advice' as const,
-      subject: 'host-outage outage_1',
+      subject: 'host-outage pool:pool_1',
       link: 'settings/runners',
       linkLabel: 'Open runners',
-      linkScope: 'workspace' as const,
     };
+    const states = () =>
+      [...memory.stored.values()].map((each) => [each.teamId, each.resolvedAt]);
 
-    await notices.create(outage);
-    await notices.create({
-      ...outage,
-      teamId: TeamId.of('team_2'),
-    });
-    await notices.create({ ...outage, subject: 'host-outage outage_2' });
-    await notices.resolveEverywhere({
+    await notices.raise(outage);
+    await notices.raise(outage);
+    expect(states()).toEqual([[null, null]]);
+
+    await notices.resolveInWorkspace({
       workspaceId: WorkspaceId.of('ws_1'),
       form: 'advice',
-      subject: 'host-outage outage_1',
+      subject: outage.subject,
+    });
+    expect(states()).toEqual([[null, NOW]]);
+
+    await notices.raise(outage);
+    expect(states()).toEqual([[null, null]]);
+  });
+
+  it('resolves no notice about the whole workspace of another workspace', async () => {
+    const memory = new InMemoryNotices();
+    const notices = noticesOver(memory);
+
+    await notices.raise({
+      ...STALLED,
+      teamId: null,
+      addressee: null,
+      subject: 'host-outage pool:pool_1',
+    });
+    await notices.resolveInWorkspace({
+      workspaceId: WorkspaceId.of('ws_2'),
+      form: 'ended',
+      subject: 'host-outage pool:pool_1',
     });
 
-    expect(
-      [...memory.stored.values()].map((each) => [
-        each.subject.value,
-        each.link.scope,
-        each.resolvedAt,
-      ]),
-    ).toEqual([
-      ['host-outage outage_1', 'workspace', NOW],
-      ['host-outage outage_1', 'workspace', NOW],
-      ['host-outage outage_2', 'workspace', null],
+    expect([...memory.stored.values()].map((each) => each.resolvedAt)).toEqual([
+      null,
     ]);
   });
 
@@ -195,7 +204,7 @@ describe('Notices', () => {
     await notices.deleteForTeam(TeamId.of('team_1'));
 
     expect(
-      [...memory.stored.values()].map((each) => each.teamId.value),
+      [...memory.stored.values()].map((each) => each.teamId?.value),
     ).toEqual(['team_2']);
   });
 

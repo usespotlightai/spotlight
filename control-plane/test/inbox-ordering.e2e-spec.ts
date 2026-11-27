@@ -52,6 +52,7 @@ const scopeOf = (viewer: string): InboxScope => ({
   teamsSeen: new Set(['team_1']),
   teamsActedOn: new Set(),
   teamsJoined: new Set(),
+  isAdmin: false,
 });
 
 const noticeFor = (viewer: string, raisedAt: Date) =>

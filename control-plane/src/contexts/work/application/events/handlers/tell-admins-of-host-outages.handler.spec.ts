@@ -1,122 +1,118 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { HostOutagesPort } from '@runners/application/ports/host-outages.port';
 import {
   HOST_OUTAGE_BEGAN,
   type HostOutageBeganIntegrationEvent,
 } from '@shared-kernel/application/integration-events/host-outage-began.integration-event';
-import { HOST_OUTAGE_ENDED } from '@shared-kernel/application/integration-events/host-outage-ended.integration-event';
+import {
+  HOST_OUTAGE_ENDED,
+  type HostOutageEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-outage-ended.integration-event';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { TellAdminsOfHostOutages } from '@work/application/events/handlers/tell-admins-of-host-outages.handler';
 import type {
   NoticeOf,
   NoticesPort,
 } from '@work/application/ports/notices.port';
-import { WorkAccess } from '@work/application/services/work-access.service';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
-
-const PLATFORM = TeamId.of('team_platform');
-
-const BILLING = TeamId.of('team_billing');
-
-const member = (viewer: string, isAdmin: boolean, seen: readonly TeamId[]) => ({
-  workspaceId: WORKSPACE,
-  viewer: UserId.of(viewer),
-  isAdmin,
-  teams: [PLATFORM, BILLING].map((teamId) => ({
-    teamId,
-    sees: seen.some((each) => each.equals(teamId)),
-    actsOn: true,
-    joined: false,
-  })),
-});
 
 const BEGAN: HostOutageBeganIntegrationEvent = {
   kind: HOST_OUTAGE_BEGAN,
   outageId: 'outage_1',
   workspaceId: WORKSPACE.value,
   source: 'pool',
+  sourceId: 'pool_1',
   sourceKey: 'default',
   hosts: ['dev-host'],
   since: '2026-11-27T20:00:00.000Z',
 };
 
-const telling = () => {
-  const created: NoticeOf[] = [];
+const ENDED: HostOutageEndedIntegrationEvent = {
+  kind: HOST_OUTAGE_ENDED,
+  outageId: 'outage_1',
+  workspaceId: WORKSPACE.value,
+  source: 'pool',
+  sourceId: 'pool_1',
+};
+
+const telling = (open: string | null) => {
+  const raised: NoticeOf[] = [];
   const notices = partial<NoticesPort>({
-    create: async (notice: NoticeOf) => {
-      created.push(notice);
+    raise: async (notice: NoticeOf) => {
+      raised.push(notice);
     },
-    resolveEverywhere: vi.fn(async () => {}),
+    resolveInWorkspace: vi.fn(async () => {}),
   });
-  const access = new WorkAccess(
-    partial<WorkspaceAccessPort>({
-      teamAccessOfMembers: async () => [
-        member('owner_1', true, [BILLING, PLATFORM]),
-        member('admin_1', true, [PLATFORM]),
-        member('admin_2', true, []),
-        member('member_1', false, [PLATFORM]),
-      ],
-    }),
-    partial({}),
-    partial({}),
-  );
+  const openOutageOf = vi.fn(async () => open);
 
   return {
-    created,
+    raised,
     notices,
-    handler: new TellAdminsOfHostOutages(access, notices),
+    openOutageOf,
+    handler: new TellAdminsOfHostOutages(
+      { openOutageOf } satisfies HostOutagesPort,
+      notices,
+    ),
   };
 };
 
 describe('TellAdminsOfHostOutages', () => {
-  it('gives each admin who sees a team one notice that leads to the runners settings, and members none', async () => {
-    const { handler, created } = telling();
+  it('raises one notice about the whole workspace for its admins, which leads to the runners settings', async () => {
+    const { handler, raised, openOutageOf } = telling('outage_1');
 
     await handler.began(BEGAN);
 
-    expect(
-      created.map((each) => [each.addressee?.value, each.teamId.value]),
-    ).toEqual([
-      ['owner_1', 'team_platform'],
-      ['admin_1', 'team_platform'],
+    expect(openOutageOf).toHaveBeenCalledWith({ kind: 'pool', id: 'pool_1' });
+    expect(raised).toEqual([
+      expect.objectContaining({
+        workspaceId: WORKSPACE,
+        teamId: null,
+        addressee: null,
+        form: 'advice',
+        subject: 'host-outage pool:pool_1',
+        link: 'settings/runners',
+        headline: 'dev-host, the only host of the pool default, is offline',
+      }),
     ]);
-    expect(created[0]).toMatchObject({
-      workspaceId: WORKSPACE,
-      form: 'advice',
-      subject: 'host-outage outage_1',
-      link: 'settings/runners',
-      linkScope: 'workspace',
-      headline: 'dev-host, the only host of the pool default, is offline',
-    });
   });
 
   it('counts the hosts when the pool has several', async () => {
-    const { handler, created } = telling();
+    const { handler, raised } = telling('outage_1');
 
     await handler.began({ ...BEGAN, hosts: ['dev-host', 'ci-host'] });
 
-    expect(created[0]?.headline).toBe(
+    expect(raised[0]?.headline).toBe(
       'All 2 hosts of the pool default are offline',
     );
   });
 
-  it('resolves the notices of the outage everywhere once it ends', async () => {
-    const { handler, notices } = telling();
+  it('raises nothing for an outage that ended before its event arrived', async () => {
+    const { handler, raised } = telling(null);
 
-    await handler.ended({
-      kind: HOST_OUTAGE_ENDED,
-      outageId: 'outage_1',
-      workspaceId: WORKSPACE.value,
-    });
+    await handler.began(BEGAN);
 
-    expect(notices.resolveEverywhere).toHaveBeenCalledWith({
+    expect(raised).toEqual([]);
+  });
+
+  it('resolves the notice once the outage ends', async () => {
+    const { handler, notices } = telling(null);
+
+    await handler.ended(ENDED);
+
+    expect(notices.resolveInWorkspace).toHaveBeenCalledWith({
       workspaceId: WORKSPACE,
       form: 'advice',
-      subject: 'host-outage outage_1',
+      subject: 'host-outage pool:pool_1',
     });
+  });
+
+  it('leaves the notice open when a later outage of the same hosts holds by the time the end arrives', async () => {
+    const { handler, notices } = telling('outage_2');
+
+    await handler.ended(ENDED);
+
+    expect(notices.resolveInWorkspace).not.toHaveBeenCalled();
   });
 });

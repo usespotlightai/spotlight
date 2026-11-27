@@ -513,7 +513,6 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   unreadCount: 0,
   link: 'lines/line_1/stations/station_1',
   linkLabel: 'Open the station',
-  linkScope: 'team',
   externalLink: {
     url: 'https://github.com/acme/config/pull/7',
     label: 'Review the pull request',
@@ -540,11 +539,11 @@ describe('notices', () => {
     );
   });
 
-  it('turns a link within the workspace into a full route', () => {
+  it('turns the link of a notice about the whole workspace into a route within the workspace', () => {
     expect(
       noticeLinkPath(
         'acme',
-        notice({ link: 'settings/runners', linkScope: 'workspace' }),
+        notice({ link: 'settings/runners', teamId: null }),
       ),
     ).toBe('/w/acme/settings/runners');
   });
@@ -613,6 +612,7 @@ describe('chatPreviewOf', () => {
     teamId: 'team_1',
     title: 'Why do retries pile up?',
     progress: null,
+    waiting: null,
     openProposals: 0,
     unreadCount: 0,
     askedAt: '2026-10-01T10:00:00.000Z',
@@ -626,6 +626,23 @@ describe('chatPreviewOf', () => {
   it('says how far the run of a chat has come', () => {
     expect(chatPreviewOf(chat({ progress: 'queued' }))).toBe(
       'Queued. Agent starts when a runner is free.',
+    );
+  });
+
+  it('names the offline host that a queued chat waits for', () => {
+    expect(
+      chatPreviewOf(
+        chat({
+          progress: 'queued',
+          waiting: {
+            reason: 'hosts-offline',
+            since: '2026-10-01T10:00:00.000Z',
+            quiet: { hosts: ['dev-host'], since: null },
+          },
+        }),
+      ),
+    ).toBe(
+      'Queued: dev-host, the only host that can take this chat, has been offline.',
     );
   });
 

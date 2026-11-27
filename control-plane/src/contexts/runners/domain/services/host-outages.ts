@@ -1,92 +1,64 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
-import type { WorkspaceRunnerFacts } from '@runners/domain/services/workspace-readiness';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
-import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 
 // A person hears of an outage once work waits for its hosts, or once they have been quiet this long.
 const TELLS_A_PERSON_AFTER_MS = 5 * 60_000;
 
-// Hosts that serve work here, none of which reports in now.
-export interface OfflineHosts {
-  readonly hosts: readonly RunnerHost[];
-  // When Spotlight last heard from one of them.
+// The hosts of a pull pool or a trust when none of them reports in now: no runner of theirs can start work until a person brings one back.
+export interface QuietHosts {
+  // The names of the hosts, those whose images serve a harness.
+  readonly hosts: readonly string[];
+  // When Spotlight last heard from one of them, or null when none is left to hear from.
+  readonly since: Date | null;
+}
+
+// The hosts of a pull pool or a trust went quiet after Spotlight had heard from them.
+export interface SourceOutage {
+  readonly source: CredentialSource;
+  readonly hosts: readonly string[];
   readonly since: Date;
 }
 
-export interface HarnessOutage extends OfflineHosts {
-  readonly harness: HarnessId;
-}
-
-export interface SourceOutage extends OfflineHosts {
-  readonly source: CredentialSource;
-}
-
-const offline = (
-  hosts: readonly RunnerHost[],
-  now: Date,
-): OfflineHosts | null => {
-  if (hosts.length === 0 || hosts.some((host) => host.isOnlineAt(now))) {
-    return null;
-  }
-
-  return {
-    hosts,
-    since: new Date(
-      Math.max(...hosts.map((host) => host.lastHeartbeatAt.getTime())),
-    ),
-  };
-};
-
-const each = <Item>(
-  items: readonly Item[],
-  same: (one: Item, other: Item) => boolean,
-): Item[] =>
-  items.filter(
-    (item, at) => items.findIndex((other) => same(item, other)) === at,
-  );
-
-export const HostOutages = {
-  // No runner can start work for these harnesses until a person acts: hosts here run the harness, none of them reports in now, and no pool of the workspace provisions a runner instead. The platform pool does not count, because it takes no work that the hosts of the workspace fit. Where an online host runs the harness, the work waits only for a free slot.
-  ofHarnesses(facts: WorkspaceRunnerFacts): HarnessOutage[] {
-    if (
-      facts.pools.some(
-        (pool) => !pool.isPlatform && pool.canProvision(facts.platform.poolSet),
-      )
-    ) {
-      return [];
-    }
-
-    const serving = facts.hosts.filter((host) =>
-      host.servesAHarnessAt(facts.now),
-    );
-
-    return each(
-      serving.flatMap((host) => host.report.harnesses),
-      (one, other) => one.equals(other),
-    ).flatMap((harness) => {
-      const quiet = offline(
-        serving.filter((host) => host.servesAt(harness, facts.now)),
-        facts.now,
+const latest = (hosts: readonly RunnerHost[]): Date | null =>
+  hosts.length === 0
+    ? null
+    : new Date(
+        Math.max(...hosts.map((host) => host.lastHeartbeatAt.getTime())),
       );
 
-      return quiet ? [{ harness, ...quiet }] : [];
-    });
+export const HostOutages = {
+  // The hosts of one pull pool or trust are quiet while none of those that can take work reports in now. A host that serves no harness takes no work, so it neither counts nor keeps the others from being quiet.
+  quietOf(hosts: readonly RunnerHost[], now: Date): QuietHosts | null {
+    const serving = hosts.filter((host) => host.supportsAHarness);
+
+    if (serving.some((host) => host.isOnlineAt(now))) {
+      return null;
+    }
+
+    return {
+      hosts: serving.map((host) => host.report.name),
+      since: latest(serving),
+    };
   },
 
-  // The pull pools and trusts whose hosts, those that serve a harness, all stopped reporting in.
+  // The pull pools and trusts of these hosts whose hosts all went quiet. A source with no host never went down.
   ofSources(hosts: readonly RunnerHost[], now: Date): SourceOutage[] {
-    const serving = hosts.filter((host) => host.servesAHarnessAt(now));
+    const sources = hosts
+      .map((host) => host.source)
+      .filter(
+        (source, at, all) =>
+          all.findIndex((each) => each.equals(source)) === at,
+      );
 
-    return each(
-      serving.map((host) => host.source),
-      (one, other) => one.equals(other),
-    ).flatMap((source) => {
-      const quiet = offline(
-        serving.filter((host) => host.hasSource(source)),
+    return sources.flatMap((source) => {
+      const quiet = HostOutages.quietOf(
+        hosts.filter((host) => host.hasSource(source)),
         now,
       );
 
-      return quiet ? [{ source, ...quiet }] : [];
+      return quiet?.since
+        ? [{ source, hosts: quiet.hosts, since: quiet.since }]
+        : [];
     });
   },
 
@@ -100,9 +72,9 @@ export const HostOutages = {
     );
   },
 
-  // A person hears of the outage once work waits in the workspace, or once its hosts have been quiet for a few minutes.
+  // A person hears of the outage at once while work waits that its hosts could take, or once its hosts have been quiet for a few minutes.
   tellsAPerson(
-    outage: OfflineHosts,
+    outage: SourceOutage,
     input: { readonly workWaits: boolean; readonly now: Date },
   ): boolean {
     return (

@@ -1,42 +1,47 @@
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { isAdmin } from '@/lib/role';
-import { addHostPath, type OfflineHarness, offlineWordsOf } from '@/lib/runner';
+import { offlineWordsOf, type QuietHosts } from '@/lib/run-waiting';
+import { addHostPath } from '@/lib/runner';
 
 type QueuedForOfflineHostsProps = {
   slug: string;
-  offline: OfflineHarness;
+  quiet: QuietHosts;
+  what: 'chat' | 'run';
 };
+
+const LINK =
+  'rounded-sm text-foreground underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50';
 
 export function QueuedForOfflineHosts({
   slug,
-  offline,
+  quiet,
+  what,
 }: QueuedForOfflineHostsProps) {
   const { data: workspace } = useWorkspace(slug);
-  const { data: harnesses } = useHarnesses();
-  const name =
-    harnesses?.find((each) => each.id === offline.harness)?.name ??
-    offline.harness;
-  const which = offline.hosts.length === 1 ? 'it' : 'one';
+  const admin = workspace ? isAdmin(workspace.role) : false;
+  const none = quiet.hosts.length === 0;
+  const which = quiet.hosts.length === 1 ? 'it' : 'one';
 
   return (
     <span className="min-w-0 text-muted-foreground">
-      {offlineWordsOf(offline, name)}{' '}
-      {workspace && isAdmin(workspace.role) ? (
+      {offlineWordsOf(quiet, what)}{' '}
+      {admin && none && (
+        <TrailLink to={addHostPath(slug)} className={LINK}>
+          Add a host
+        </TrailLink>
+      )}
+      {admin && !none && (
         <>
           Start {which}, or{' '}
-          <TrailLink
-            to={addHostPath(slug)}
-            className="rounded-sm text-foreground underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
+          <TrailLink to={addHostPath(slug)} className={LINK}>
             add another host
           </TrailLink>
           .
         </>
-      ) : (
-        `Ask an admin to start ${which}.`
       )}
+      {!admin &&
+        (none ? 'Ask an admin to add one.' : `Ask an admin to start ${which}.`)}
     </span>
   );
 }

@@ -205,6 +205,7 @@ const inboxOf = (workspaceId: string, teamId: string) => {
     teamsSeen: new Set([teamId]),
     teamsActedOn: new Set([teamId]),
     teamsJoined: new Set<string>(),
+    isAdmin: false,
   });
 
   return {

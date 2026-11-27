@@ -271,6 +271,7 @@ export const hostOutage = pgTable(
     workspaceId: text('workspace_id').notNull(),
     poolId: text('pool_id'),
     trustId: text('trust_id'),
+    hosts: jsonb('hosts').$type<string[]>().notNull().default([]),
     since: timestamptz('since').notNull(),
     raisedAt: timestamptz('raised_at').notNull(),
     version: integer('version').notNull().default(0),

@@ -282,4 +282,7 @@ export const runWait = pgTable('run_wait', {
   queuedAt: timestamptz('queued_at').notNull(),
   // When Spotlight first noted this reason in that queueing.
   since: timestamptz('since').notNull(),
+  // For hosts-offline: the hosts the run waits for, and when Spotlight last heard from one of them.
+  quietHosts: jsonb('quiet_hosts').$type<string[]>(),
+  quietSince: timestamptz('quiet_since'),
 });

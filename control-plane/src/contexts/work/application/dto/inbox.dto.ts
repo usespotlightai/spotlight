@@ -1,4 +1,5 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
+import type { RunWaitingDto } from '@work/application/dto/run-waiting.dto';
 import {
   INBOX_SECTIONS,
   type InboxSection,
@@ -25,7 +26,6 @@ import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
 import { HOLD_ENDS } from '@work/domain/value-objects/hold-end';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
-import { NOTICE_LINK_SCOPES } from '@work/domain/value-objects/notice-link.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
 import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 
@@ -38,7 +38,6 @@ export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;
 export const INBOX_DTO_PART_KINDS = INBOX_PART_KINDS;
 export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
-export const INBOX_NOTICE_LINK_SCOPES = NOTICE_LINK_SCOPES;
 export const INBOX_DTO_SECTIONS = INBOX_SECTIONS;
 export const INBOX_STANDINGS = CONVERSATION_STANDINGS;
 export const INBOX_RUN_STANDINGS = RUN_STANDINGS;
@@ -168,6 +167,7 @@ export interface InboxItemDto {
   readonly resolvable: boolean;
   readonly reopenable: boolean;
   readonly progress: Progress | null;
+  readonly waiting: RunWaitingDto | null;
   readonly runId: string | null;
   readonly stoppableByYou: boolean;
   readonly unread: boolean;
@@ -204,13 +204,12 @@ export interface NoticeExternalLinkDto {
 export interface InboxNoticeDto {
   readonly kind: 'notice';
   readonly id: string;
-  readonly teamId: string;
+  readonly teamId: string | null;
   readonly form: string;
   readonly headline: string;
   readonly points: readonly string[];
   readonly link: string;
   readonly linkLabel: string;
-  readonly linkScope: (typeof INBOX_NOTICE_LINK_SCOPES)[number];
   readonly externalLink: NoticeExternalLinkDto | null;
   readonly askedAt: string;
   readonly unread: boolean;
@@ -232,6 +231,7 @@ export interface InboxRunDto {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly progress: Progress;
+  readonly waiting: RunWaitingDto | null;
   readonly askedAt: string;
   readonly unread: false;
   readonly unreadCount: 0;
@@ -248,6 +248,7 @@ export interface InboxChatDto {
   readonly teamId: string;
   readonly title: string;
   readonly progress: Progress | null;
+  readonly waiting: RunWaitingDto | null;
   readonly openProposals: number;
   readonly askedAt: string;
   readonly unread: boolean;

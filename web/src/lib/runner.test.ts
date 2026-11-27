@@ -21,8 +21,6 @@ import {
   idleSandboxLabel,
   imageHarnesses,
   leasedRunPath,
-  offlineHarnessOf,
-  offlineWordsOf,
   onlineCount,
   runnerStatus,
   sandboxActivity,
@@ -333,7 +331,6 @@ describe('withActivity', () => {
           runner({ id: 'runner_1', hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' }),
         ],
         readyToRun: true,
-        offlineHarnesses: [],
       },
       {
         runners: [{ runnerId: 'runner_1', currentRun: LEASED_RUN }],
@@ -364,7 +361,6 @@ describe('withActivity', () => {
         ],
         runners: [],
         readyToRun: true,
-        offlineHarnesses: [],
       },
       {
         runners: [],
@@ -393,7 +389,6 @@ describe('withActivity', () => {
           runner({ id: 'runner_3' }),
         ],
         readyToRun: true,
-        offlineHarnesses: [],
       },
       { runners: [], workingCopies: [] },
     );
@@ -495,7 +490,6 @@ describe('onlineCount', () => {
         hosts: [hosted(), hosted({ online: false })],
         pools: [],
         readyToRun: true,
-        offlineHarnesses: [],
       }),
     ).toBe(1);
   });
@@ -508,35 +502,6 @@ describe('sourceLabel', () => {
     ).toBe('Pool build-farm');
     expect(sourceLabel({ kind: 'trust', key: null, platform: null })).toBe(
       'Trust deleted',
-    );
-  });
-});
-
-describe('offline harnesses', () => {
-  const offline = {
-    harness: 'claude-code',
-    hosts: [{ id: 'host_1', name: 'dev-host' }],
-    since: '2026-09-12T20:00:00.000Z',
-  };
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('finds the harness that the control plane names, and no other', () => {
-    const fleet = { offlineHarnesses: [offline] };
-
-    expect(offlineHarnessOf(fleet, 'claude-code')).toBe(offline);
-    expect(offlineHarnessOf(fleet, 'codex')).toBeNull();
-    expect(offlineHarnessOf(undefined, 'claude-code')).toBeNull();
-  });
-
-  it('dates an outage from an earlier day by its day', () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-09-14T09:00:00.000Z'));
-
-    expect(offlineWordsOf(offline, 'Claude Code')).toBe(
-      `Queued: dev-host, the only host that runs Claude Code here, has been offline since ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(offline.since))}.`,
     );
   });
 });

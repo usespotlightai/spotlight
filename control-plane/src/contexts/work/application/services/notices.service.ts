@@ -33,55 +33,33 @@ export class Notices implements NoticesPort {
   ) {}
 
   async create(input: NoticeOf): Promise<void> {
-    const form = FORMS[input.form];
-    const created = Notice.create({
-      id: NoticeId.of(this.ids.generate()),
-      workspaceId: input.workspaceId,
-      teamId: input.teamId,
-      addressee: input.addressee,
-      form,
-      subject: NoticeSubject.of(input.subject),
-      link: NoticeLink.of({
-        path: input.link,
-        label: input.linkLabel,
-        scope: input.linkScope,
-      }),
-      externalLink: input.externalLink
-        ? NoticeExternalLink.of(input.externalLink)
-        : null,
-      wording: NoticeWording.of({
-        headline: input.headline,
-        points: input.points,
-      }),
-      at: this.clock.now(),
-    });
+    const created = this.noticeOf(input);
 
-    const addresseeSeesTeam = input.addressee
-      ? await this.access.seesTeam(input.teamId, input.addressee)
-      : false;
-
-    const teamExists = (await this.access.membersOf(input.teamId)) !== null;
-
-    if (
-      !Notice.deliverable({
-        teamExists,
-        addressee: input.addressee,
-        addresseeSeesTeam,
-      })
-    ) {
+    if (!(await this.deliverable(input))) {
       return;
     }
 
     return this.transaction.inTransaction(async () => {
-      if (
-        !(await this.notices.about(
-          created.teamId,
-          created.addressee,
-          form,
-          created.subject,
-        ))
-      ) {
+      if (!(await this.storedLike(created))) {
         await this.notices.add(created);
+      }
+    });
+  }
+
+  async raise(input: NoticeOf): Promise<void> {
+    const created = this.noticeOf(input);
+
+    if (!(await this.deliverable(input))) {
+      return;
+    }
+
+    return this.transaction.inTransaction(async () => {
+      const stored = await this.storedLike(created);
+
+      if (!stored) {
+        await this.notices.add(created);
+      } else if (Notice.reopenable(stored.resolvedAt)) {
+        await this.notices.save(stored.reopen(this.clock.now()));
       }
     });
   }
@@ -91,13 +69,30 @@ export class Notices implements NoticesPort {
     form: NoticeFormName;
     subject: string;
   }): Promise<void> {
+    return this.resolved(null, input.teamId, input);
+  }
+
+  resolveInWorkspace(input: {
+    workspaceId: WorkspaceId;
+    form: NoticeFormName;
+    subject: string;
+  }): Promise<void> {
+    return this.resolved(input.workspaceId, null, input);
+  }
+
+  private resolved(
+    workspaceId: WorkspaceId | null,
+    teamId: TeamId | null,
+    input: { readonly form: NoticeFormName; readonly subject: string },
+  ): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      const notice = await this.notices.about(
-        input.teamId,
-        null,
-        FORMS[input.form],
-        NoticeSubject.of(input.subject),
-      );
+      const notice = await this.notices.about({
+        workspaceId,
+        teamId,
+        addressee: null,
+        form: FORMS[input.form],
+        subject: NoticeSubject.of(input.subject),
+      });
 
       if (notice) {
         await this.notices.save(notice.resolve(this.clock.now()));
@@ -105,21 +100,48 @@ export class Notices implements NoticesPort {
     });
   }
 
-  resolveEverywhere(input: {
-    workspaceId: WorkspaceId;
-    form: NoticeFormName;
-    subject: string;
-  }): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const at = this.clock.now();
+  private noticeOf(input: NoticeOf): Notice {
+    return Notice.create({
+      id: NoticeId.of(this.ids.generate()),
+      workspaceId: input.workspaceId,
+      teamId: input.teamId,
+      addressee: input.addressee,
+      form: FORMS[input.form],
+      subject: NoticeSubject.of(input.subject),
+      link: NoticeLink.of({ path: input.link, label: input.linkLabel }),
+      externalLink: input.externalLink
+        ? NoticeExternalLink.of(input.externalLink)
+        : null,
+      wording: NoticeWording.of({
+        headline: input.headline,
+        points: input.points,
+      }),
+      at: this.clock.now(),
+    });
+  }
 
-      for (const notice of await this.notices.inWorkspaceAbout(
-        input.workspaceId,
-        FORMS[input.form],
-        NoticeSubject.of(input.subject),
-      )) {
-        await this.notices.save(notice.resolve(at));
-      }
+  private async deliverable(input: NoticeOf): Promise<boolean> {
+    const { teamId, addressee } = input;
+
+    return Notice.deliverable({
+      aboutWorkspace: teamId === null,
+      teamExists:
+        teamId !== null && (await this.access.membersOf(teamId)) !== null,
+      addressee,
+      addresseeSeesTeam:
+        teamId !== null && addressee !== null
+          ? await this.access.seesTeam(teamId, addressee)
+          : false,
+    });
+  }
+
+  private storedLike(notice: Notice): Promise<Notice | null> {
+    return this.notices.about({
+      workspaceId: notice.teamId === null ? notice.workspaceId : null,
+      teamId: notice.teamId,
+      addressee: notice.addressee,
+      form: notice.form,
+      subject: notice.subject,
     });
   }
 

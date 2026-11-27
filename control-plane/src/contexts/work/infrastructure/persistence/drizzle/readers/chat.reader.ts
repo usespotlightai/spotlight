@@ -34,12 +34,14 @@ import {
   chatProgress,
 } from '@work/domain/services/chat-inbox';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { RunProgressReading } from '@work/domain/value-objects/progress';
 import {
   chatInboxFacts,
   chatInboxFactsOf,
 } from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
-import { currentRunReadings } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
+import {
+  type CurrentRun,
+  currentRunsOf,
+} from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
@@ -63,9 +65,11 @@ type InboxFacts = {
 const summaryOf = (
   row: Row,
   inbox: InboxFacts,
-  currentRunOf: (runId: string | null) => RunProgressReading | null,
+  currentRunOf: (runId: string | null) => CurrentRun,
 ): ChatSummary => {
   const facts = chatInboxFactsOf({ ...row, ...inbox });
+  const current = currentRunOf(row.currentRunId);
+  const progress = chatProgress(facts, current.reading);
 
   return {
     id: row.id,
@@ -78,7 +82,8 @@ const summaryOf = (
     setup: row.setup ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    progress: chatProgress(facts, currentRunOf(row.currentRunId)),
+    progress,
+    waiting: progress === 'queued' ? current.waiting : null,
     waitingForYou:
       inboxSectionOf({ ...chatInboxStanding(facts), following: false }) ===
       'open',
@@ -169,7 +174,7 @@ export class DrizzleChatReader implements ChatReaderPort {
       .orderBy(desc(chat.updatedAt), desc(chat.id))
       .limit(page.limit + 1);
 
-    const currentRunOf = await currentRunReadings(
+    const currentRunOf = await currentRunsOf(
       this.progress,
       rows.map((row) => row.chat.currentRunId),
     );
@@ -209,7 +214,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         .where(eq(chatAttachment.chatId, row.id))
         .orderBy(asc(chatAttachment.place)),
       this.people.find(UserId.of(row.startedById)).then((found) => [found]),
-      currentRunReadings(this.progress, [row.currentRunId]),
+      currentRunsOf(this.progress, [row.currentRunId]),
     ]);
 
     const tasksOpened = messages.flatMap((each) =>

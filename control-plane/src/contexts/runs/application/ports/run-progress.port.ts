@@ -2,6 +2,7 @@ import type {
   RunProgressFact,
   RunStateFact,
   RunTurnFact,
+  RunWaitFact,
 } from '@runs/application/ports/run-facts.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -17,6 +18,8 @@ export interface RunProgressFacts {
   readonly working: boolean;
   readonly suspendedAt: Date | null;
   readonly queuedAt: Date;
+  // Why it is still queued, as Spotlight last saw it.
+  readonly waiting: RunWaitFact | null;
 }
 
 export interface RunProgressPort {

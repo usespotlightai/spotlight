@@ -60,17 +60,18 @@ describe('why a queued run waits', () => {
     const runId = await queued();
 
     await waits.note(
-      [{ runId, reason: 'no-pool-has-room', queuedAt: QUEUED_AT }],
+      [{ runId, reason: 'no-pool-has-room', quiet: null, queuedAt: QUEUED_AT }],
       NOTED_AT,
     );
     await waits.note(
-      [{ runId, reason: 'no-pool-has-room', queuedAt: QUEUED_AT }],
+      [{ runId, reason: 'no-pool-has-room', quiet: null, queuedAt: QUEUED_AT }],
       LATER,
     );
 
     expect(await waitingOf(runId)).toEqual({
       reason: 'no-pool-has-room',
       since: NOTED_AT,
+      quiet: null,
     });
   });
 
@@ -78,17 +79,18 @@ describe('why a queued run waits', () => {
     const runId = await queued();
 
     await waits.note(
-      [{ runId, reason: 'no-pool-has-room', queuedAt: QUEUED_AT }],
+      [{ runId, reason: 'no-pool-has-room', quiet: null, queuedAt: QUEUED_AT }],
       NOTED_AT,
     );
     await waits.note(
-      [{ runId, reason: 'hosts-pull', queuedAt: QUEUED_AT }],
+      [{ runId, reason: 'hosts-pull', quiet: null, queuedAt: QUEUED_AT }],
       LATER,
     );
 
     expect(await waitingOf(runId)).toEqual({
       reason: 'hosts-pull',
       since: LATER,
+      quiet: null,
     });
   });
 
@@ -97,20 +99,48 @@ describe('why a queued run waits', () => {
     const runId = await queued(requeuedAt);
 
     await waits.note(
-      [{ runId, reason: 'no-pool-matches', queuedAt: QUEUED_AT }],
+      [{ runId, reason: 'no-pool-matches', quiet: null, queuedAt: QUEUED_AT }],
       NOTED_AT,
     );
 
     expect(await waitingOf(runId)).toBeNull();
 
     await waits.note(
-      [{ runId, reason: 'no-pool-matches', queuedAt: requeuedAt }],
+      [{ runId, reason: 'no-pool-matches', quiet: null, queuedAt: requeuedAt }],
       LATER,
     );
 
     expect(await waitingOf(runId)).toEqual({
       reason: 'no-pool-matches',
       since: LATER,
+      quiet: null,
+    });
+  });
+
+  it('keeps the offline hosts a run waits for, and their time, while the time of the reason stays', async () => {
+    const runId = await queued();
+    const quiet = { hosts: ['dev-host'], since: QUEUED_AT };
+
+    await waits.note(
+      [{ runId, reason: 'hosts-offline', quiet, queuedAt: QUEUED_AT }],
+      NOTED_AT,
+    );
+    await waits.note(
+      [
+        {
+          runId,
+          reason: 'hosts-offline',
+          quiet: { hosts: ['dev-host', 'ci-host'], since: NOTED_AT },
+          queuedAt: QUEUED_AT,
+        },
+      ],
+      LATER,
+    );
+
+    expect(await waitingOf(runId)).toEqual({
+      reason: 'hosts-offline',
+      since: NOTED_AT,
+      quiet: { hosts: ['dev-host', 'ci-host'], since: NOTED_AT },
     });
   });
 
@@ -118,7 +148,7 @@ describe('why a queued run waits', () => {
     const runId = await queued();
 
     await waits.note(
-      [{ runId, reason: 'no-pool-matches', queuedAt: QUEUED_AT }],
+      [{ runId, reason: 'no-pool-matches', quiet: null, queuedAt: QUEUED_AT }],
       NOTED_AT,
     );
     await database.db
@@ -147,8 +177,18 @@ describe('why a queued run waits', () => {
 
     await waits.note(
       [
-        { runId: cleared, reason: 'no-pool-matches', queuedAt: QUEUED_AT },
-        { runId: deleted, reason: 'no-pool-matches', queuedAt: QUEUED_AT },
+        {
+          runId: cleared,
+          reason: 'no-pool-matches',
+          quiet: null,
+          queuedAt: QUEUED_AT,
+        },
+        {
+          runId: deleted,
+          reason: 'no-pool-matches',
+          quiet: null,
+          queuedAt: QUEUED_AT,
+        },
       ],
       NOTED_AT,
     );

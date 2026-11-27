@@ -4,7 +4,6 @@ import {
   type ReportedImage,
 } from '@runners/domain/value-objects/host-image.vo';
 import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
-import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 
@@ -93,26 +92,6 @@ export class HostReport {
 
   get supportsAHarness(): boolean {
     return this.images.some((each) => each.supportsAHarness);
-  }
-
-  // One of the images that the host can run serves the harness.
-  runs(harness: HarnessId): boolean {
-    return this.images.some(
-      (each) =>
-        each.isSupported &&
-        each.harnesses.some((installed) => installed.id.equals(harness)),
-    );
-  }
-
-  // The harnesses that the images the host can run serve, each once.
-  get harnesses(): readonly HarnessId[] {
-    return this.images
-      .filter((each) => each.isSupported)
-      .flatMap((each) => each.harnesses.map((installed) => installed.id))
-      .filter(
-        (harness, at, all) =>
-          all.findIndex((each) => each.equals(harness)) === at,
-      );
   }
 
   supportedImage(image: RunnerImage): HostImage | null {

@@ -273,6 +273,7 @@ describe('waitReason', () => {
   const waiting = {
     reason: 'no-pool-has-room',
     since: '2026-08-30T12:00:00.000Z',
+    quiet: null,
   } as const;
 
   it('says why a queued run waits', () => {
@@ -288,6 +289,19 @@ describe('waitReason', () => {
         waiting: { ...waiting, reason: 'platform-pool-not-allowed' },
       }),
     ).toMatch(/operator of this deployment/);
+  });
+
+  it('leaves a run that waits for offline hosts to the line that names them', () => {
+    expect(
+      waitReason({
+        state: 'queued',
+        waiting: {
+          reason: 'hosts-offline',
+          since: waiting.since,
+          quiet: { hosts: ['dev-host'], since: waiting.since },
+        },
+      }),
+    ).toBeNull();
   });
 
   it('says nothing once the run is no longer queued, or without a reason', () => {

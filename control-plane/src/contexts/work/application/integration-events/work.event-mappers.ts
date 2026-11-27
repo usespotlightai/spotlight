@@ -117,16 +117,18 @@ const inboxRequestOpened = (
   at: event.at.toISOString(),
 });
 
+// A notice about the whole workspace has no team, so it is not published.
 const noticeRaised = (
   event: NoticeRaised | NoticeReopened,
-): NoticeRaisedIntegrationEvent => ({
-  kind: NOTICE_RAISED,
-  noticeId: event.noticeId.value,
-  workspaceId: event.workspaceId.value,
-  teamId: event.teamId.value,
-  addressee: event.addressee?.value ?? null,
-  at: event.at.toISOString(),
-});
+): NoticeRaisedIntegrationEvent | null =>
+  event.teamId && {
+    kind: NOTICE_RAISED,
+    noticeId: event.noticeId.value,
+    workspaceId: event.workspaceId.value,
+    teamId: event.teamId.value,
+    addressee: event.addressee?.value ?? null,
+    at: event.at.toISOString(),
+  };
 
 export const WORK_EVENT_MAPPERS = [
   mapping<DispatchBriefed>(

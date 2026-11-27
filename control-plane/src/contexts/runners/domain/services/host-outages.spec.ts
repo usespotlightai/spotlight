@@ -1,7 +1,5 @@
 import {
-  aPlatformPool,
   aPullPool,
-  aPushPool,
   aTrust,
   POOL_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
@@ -11,95 +9,53 @@ import {
   MINUTE,
   minutesAfter,
 } from '@runners/domain/services/host-outages.fake-spec';
-import type { WorkspaceRunnerFacts } from '@runners/domain/services/workspace-readiness';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const facts = (
-  over: Partial<WorkspaceRunnerFacts> = {},
-): WorkspaceRunnerFacts => ({
-  pools: [aPullPool()],
-  hosts: [],
-  platform: { poolSet: true, egressSet: true },
-  now: minutesAfter(0),
-  ...over,
-});
-
-const offlineOf = (over: Partial<WorkspaceRunnerFacts>) =>
-  HostOutages.ofHarnesses(facts(over)).map((each) => ({
-    harness: each.harness.value,
-    hosts: each.hosts.map((host) => host.report.name),
-    since: each.since,
-  }));
-
-describe('HostOutages.ofHarnesses', () => {
-  it('names no harness while its only host reports in, and names it once the host goes quiet', () => {
+describe('HostOutages.quietOf', () => {
+  it('finds the hosts quiet once the only one stops reporting in, and not while it reports in', () => {
     const hosts = [aNamedHost('dev-host')];
 
-    expect(offlineOf({ hosts, now: minutesAfter(1) })).toEqual([]);
-    expect(offlineOf({ hosts, now: minutesAfter(30) })).toEqual([
-      { harness: 'claude-code', hosts: ['dev-host'], since: minutesAfter(0) },
-    ]);
+    expect(HostOutages.quietOf(hosts, minutesAfter(1))).toBeNull();
+    expect(HostOutages.quietOf(hosts, minutesAfter(30))).toEqual({
+      hosts: ['dev-host'],
+      since: minutesAfter(0),
+    });
   });
 
-  it('names no harness that one online host still runs, while another host of it is offline', () => {
+  it('finds them not quiet while one of several hosts still reports in', () => {
     expect(
-      offlineOf({
-        hosts: [aNamedHost('dev-host'), aNamedHost('ci-host', { lastAt: 29 })],
-        now: minutesAfter(30),
-      }),
-    ).toEqual([]);
+      HostOutages.quietOf(
+        [aNamedHost('dev-host'), aNamedHost('ci-host', { lastAt: 29 })],
+        minutesAfter(30),
+      ),
+    ).toBeNull();
   });
 
-  it('names only the harnesses that no online host runs', () => {
+  it('dates quiet hosts from the last one Spotlight heard from', () => {
     expect(
-      offlineOf({
-        hosts: [
-          aNamedHost('dev-host', { harnesses: ['claude-code', 'codex'] }),
-          aNamedHost('ci-host', { lastAt: 29, harnesses: ['codex'] }),
+      HostOutages.quietOf(
+        [aNamedHost('dev-host'), aNamedHost('ci-host', { lastAt: 10 })],
+        minutesAfter(30),
+      ),
+    ).toEqual({ hosts: ['dev-host', 'ci-host'], since: minutesAfter(10) });
+  });
+
+  it('lets no online host that serves no harness count, and finds a source with no host quiet', () => {
+    expect(
+      HostOutages.quietOf(
+        [
+          aNamedHost('dev-host'),
+          aNamedHost('bare-host', { lastAt: 30, harnesses: [] }),
         ],
-        now: minutesAfter(30),
-      }),
-    ).toEqual([
-      { harness: 'claude-code', hosts: ['dev-host'], since: minutesAfter(0) },
-    ]);
-  });
-
-  it('dates an outage of several hosts from the last one Spotlight heard from', () => {
-    expect(
-      offlineOf({
-        hosts: [aNamedHost('dev-host'), aNamedHost('ci-host', { lastAt: 10 })],
-        now: minutesAfter(30),
-      }),
-    ).toEqual([
-      {
-        harness: 'claude-code',
-        hosts: ['dev-host', 'ci-host'],
-        since: minutesAfter(10),
-      },
-    ]);
-  });
-
-  it('names nothing while a push pool of the workspace provisions runners, but the platform pool does not count', () => {
-    const hosts = [aNamedHost('dev-host')];
-    const now = minutesAfter(30);
-
-    expect(
-      offlineOf({ hosts, now, pools: [aPullPool(), aPushPool()] }),
-    ).toEqual([]);
-    expect(
-      offlineOf({ hosts, now, pools: [aPullPool(), aPlatformPool()] }),
-    ).toHaveLength(1);
-  });
-
-  it('forgets a host that has been quiet for a day', () => {
-    expect(
-      offlineOf({
-        hosts: [aNamedHost('dev-host')],
-        now: minutesAfter(24 * 60),
-      }),
-    ).toEqual([]);
+        minutesAfter(30),
+      ),
+    ).toEqual({ hosts: ['dev-host'], since: minutesAfter(0) });
+    expect(HostOutages.quietOf([], minutesAfter(30))).toEqual({
+      hosts: [],
+      since: null,
+    });
   });
 });
 
@@ -108,23 +64,27 @@ describe('HostOutages.ofSources', () => {
 
   it('finds each pool or trust whose hosts are all offline, and none whose host is online', () => {
     const trust = aTrust();
-    const outages = HostOutages.ofSources(
-      [
-        aNamedHost('dev-host'),
-        aNamedHost('ci-host', { through: other, lastAt: 29 }),
-        aNamedHost('gh-host', { through: trust }),
-      ],
-      minutesAfter(30),
-    );
 
     expect(
-      outages.map((each) => [
-        each.source,
-        each.hosts.map((host) => host.report.name),
-      ]),
+      HostOutages.ofSources(
+        [
+          aNamedHost('dev-host'),
+          aNamedHost('ci-host', { through: other, lastAt: 29 }),
+          aNamedHost('gh-host', { through: trust }),
+        ],
+        minutesAfter(30),
+      ),
     ).toEqual([
-      [CredentialSource.ofId(POOL_ID), ['dev-host']],
-      [CredentialSource.ofId(trust.id), ['gh-host']],
+      {
+        source: CredentialSource.ofId(POOL_ID),
+        hosts: ['dev-host'],
+        since: minutesAfter(0),
+      },
+      {
+        source: CredentialSource.ofId(trust.id),
+        hosts: ['gh-host'],
+        since: minutesAfter(0),
+      },
     ]);
   });
 
@@ -152,9 +112,13 @@ describe('HostOutages.ofSources', () => {
 });
 
 describe('HostOutages.tellsAPerson', () => {
-  const outage = { hosts: [aNamedHost('dev-host')], since: minutesAfter(0) };
+  const outage = {
+    source: CredentialSource.ofId(POOL_ID),
+    hosts: ['dev-host'],
+    since: minutesAfter(0),
+  };
 
-  it('tells a person at once while work waits', () => {
+  it('tells a person at once while work waits that the hosts could take', () => {
     expect(
       HostOutages.tellsAPerson(outage, {
         workWaits: true,

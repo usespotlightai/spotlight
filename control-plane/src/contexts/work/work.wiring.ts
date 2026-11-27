@@ -72,6 +72,10 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import {
+  HOST_OUTAGES,
+  type HostOutagesPort,
+} from '@runners/application/ports/host-outages.port';
+import {
   RUNNER_LEASES,
   type RunnerLeasesPort,
 } from '@runners/application/ports/runner-leases.port';
@@ -1938,7 +1942,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       SANDBOX_RETIREMENT,
       PULL_REQUESTS,
       RUNNER_READINESS,
-      WorkAccess,
+      HOST_OUTAGES,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1975,7 +1979,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       retirement: SandboxRetirementPort,
       pullRequests: PullRequestPort,
       runnerReadiness: RunnerReadinessPort,
-      access: WorkAccess,
+      hostOutages: HostOutagesPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -2059,7 +2063,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             clock,
           ),
           chatsOfTasks: new TellChatOfTask(chats, chatDispatch, transaction),
-          hostOutages: new TellAdminsOfHostOutages(access, notices),
+          hostOutages: new TellAdminsOfHostOutages(hostOutages, notices),
           stackedTasks: new RetargetStackedTasks(
             tasks,
             pullRequests,

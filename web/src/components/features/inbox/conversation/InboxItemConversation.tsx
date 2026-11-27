@@ -17,7 +17,6 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { useTaskPullRequests } from '@/hooks/api/useTaskPullRequests';
-import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import { useClosableTask } from '@/hooks/useClosableTask';
 import { useRunProgress } from '@/hooks/useRunProgress';
 import {
@@ -65,8 +64,7 @@ export function InboxItemConversation({
   const reported = useRunProgress(item.runId, item.progress);
   const progress = shownProgress(reported, item.runId, worked);
   const closable = useClosableTask(item.teamId, item.taskId);
-  const { data: runs } = useTaskRuns(item.teamId, item.taskId);
-  const harness = runs?.find((each) => each.id === item.runId)?.harness;
+
   const { data: pullRequests = [] } = useTaskPullRequests(
     item.teamId,
     item.taskId,
@@ -108,7 +106,7 @@ export function InboxItemConversation({
             createdAt: item.createdAt,
             station: stationOf(item),
             progress,
-            harness,
+            waiting: item.waiting,
             resolved,
             notes: item.notes,
             folded: item.folded,
@@ -156,7 +154,7 @@ export function InboxItemConversation({
                 journals={workedOn(worked, item.notes, item.runId)}
                 progress={progress}
                 station={stationOf(item)}
-                harness={harness}
+                waiting={item.waiting}
               />
             ) : undefined
           }

@@ -1,56 +1,67 @@
+import type { HostOutagesPort } from '@runners/application/ports/host-outages.port';
 import type { HostOutageBeganIntegrationEvent } from '@shared-kernel/application/integration-events/host-outage-began.integration-event';
 import type { HostOutageEndedIntegrationEvent } from '@shared-kernel/application/integration-events/host-outage-ended.integration-event';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { NoticesPort } from '@work/application/ports/notices.port';
 import { hostOutageWords } from '@work/application/rendering/host-outage-notice';
-import type { WorkAccess } from '@work/application/services/work-access.service';
-import { Notice } from '@work/domain/aggregates/notice.aggregate';
 
 const RUNNERS_SETTINGS = 'settings/runners';
 
 const OPENS_RUNNERS = 'Open runners';
 
-const subjectOf = (outageId: string): string => `host-outage ${outageId}`;
+// One notice for each pool or trust: a later outage of the same hosts opens it again, rather than adding another.
+const subjectOf = (event: {
+  readonly source: 'pool' | 'trust';
+  readonly sourceId: string;
+}): string => `host-outage ${event.source}:${event.sourceId}`;
 
-// Each owner and admin of the workspace gets one notice when the hosts of a pool or a trust all go offline. The notices resolve themselves when the outage ends.
+// The admins of the workspace get one notice when the hosts of a pool or a trust all go offline, and it resolves itself once the outage ends. Runners is asked whether the outage still holds, so that an event that arrives late changes nothing.
 export class TellAdminsOfHostOutages {
   constructor(
-    private readonly access: WorkAccess,
+    private readonly outages: HostOutagesPort,
     private readonly notices: NoticesPort,
   ) {}
 
   async began(event: HostOutageBeganIntegrationEvent): Promise<void> {
-    const workspaceId = WorkspaceId.of(event.workspaceId);
+    if (
+      (await this.outages.openOutageOf({
+        kind: event.source,
+        id: event.sourceId,
+      })) !== event.outageId
+    ) {
+      return;
+    }
+
     const words = hostOutageWords(event);
 
-    for (const { admin, teamsSeen } of await this.access.adminsIn(
-      workspaceId,
-    )) {
-      const teamId = Notice.homeTeamOf(teamsSeen);
-
-      if (teamId) {
-        await this.notices.create({
-          workspaceId,
-          teamId,
-          addressee: admin,
-          form: 'advice',
-          subject: subjectOf(event.outageId),
-          link: RUNNERS_SETTINGS,
-          linkLabel: OPENS_RUNNERS,
-          linkScope: 'workspace',
-          externalLink: null,
-          headline: words.headline,
-          points: words.points,
-        });
-      }
-    }
+    await this.notices.raise({
+      workspaceId: WorkspaceId.of(event.workspaceId),
+      teamId: null,
+      addressee: null,
+      form: 'advice',
+      subject: subjectOf(event),
+      link: RUNNERS_SETTINGS,
+      linkLabel: OPENS_RUNNERS,
+      externalLink: null,
+      headline: words.headline,
+      points: words.points,
+    });
   }
 
-  ended(event: HostOutageEndedIntegrationEvent): Promise<void> {
-    return this.notices.resolveEverywhere({
+  async ended(event: HostOutageEndedIntegrationEvent): Promise<void> {
+    if (
+      (await this.outages.openOutageOf({
+        kind: event.source,
+        id: event.sourceId,
+      })) !== null
+    ) {
+      return;
+    }
+
+    await this.notices.resolveInWorkspace({
       workspaceId: WorkspaceId.of(event.workspaceId),
       form: 'advice',
-      subject: subjectOf(event.outageId),
+      subject: subjectOf(event),
     });
   }
 }

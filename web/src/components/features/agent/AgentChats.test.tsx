@@ -54,6 +54,7 @@ const chat: ChatSummary = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   progress: null,
+  waiting: null,
   waitingForYou: false,
   targetStation: null,
   setup: null,

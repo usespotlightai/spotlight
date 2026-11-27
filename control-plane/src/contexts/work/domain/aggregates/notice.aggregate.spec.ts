@@ -2,7 +2,10 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Notice } from '@work/domain/aggregates/notice.aggregate';
+import {
+  Notice,
+  type NoticeStanding,
+} from '@work/domain/aggregates/notice.aggregate';
 import { InvalidNoticeExternalLinkError } from '@work/domain/exceptions/invalid-notice-external-link.error';
 import { InvalidNoticeError } from '@work/domain/exceptions/invalid-notice.error';
 import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
@@ -172,16 +175,22 @@ describe('Notice', () => {
 });
 
 describe('who can resolve or reopen a notice', () => {
-  const ACTS = TeamStanding.of({
-    seesTeam: true,
-    actsOnTeam: true,
-    memberOfTeam: true,
-  });
-  const SEES = TeamStanding.of({
-    seesTeam: true,
-    actsOnTeam: false,
-    memberOfTeam: false,
-  });
+  const ACTS: NoticeStanding = {
+    kind: 'team',
+    team: TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: true,
+    }),
+  };
+  const SEES: NoticeStanding = {
+    kind: 'team',
+    team: TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: false,
+      memberOfTeam: false,
+    }),
+  };
   const AT = new Date('2026-11-20T09:00:00.000Z');
 
   it('lets a person who acts on the team resolve it while it is open', () => {
@@ -197,5 +206,69 @@ describe('who can resolve or reopen a notice', () => {
   it('lets nobody resolve or reopen it who only sees the team', () => {
     expect(Notice.resolvableBy(SEES, null)).toBe(false);
     expect(Notice.reopenableBy(SEES, AT)).toBe(false);
+  });
+
+  it('lets only an owner or admin resolve or reopen a notice about the whole workspace', () => {
+    const admin: NoticeStanding = { kind: 'workspace', isAdmin: true };
+    const member: NoticeStanding = { kind: 'workspace', isAdmin: false };
+    const unseen = () => new Error('unseen');
+
+    expect(Notice.resolvableBy(admin, null)).toBe(true);
+    expect(Notice.reopenableBy(admin, AT)).toBe(true);
+    expect(Notice.resolvableBy(member, null)).toBe(false);
+    expect(() => {
+      Notice.assertActedOnBy(member, unseen);
+    }).toThrow('unseen');
+  });
+});
+
+describe('a notice about the whole workspace', () => {
+  const aboutWorkspace = (addressee: UserId | null) =>
+    Notice.create({
+      id: NoticeId.of('notice_ws'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: null,
+      addressee,
+      form: 'advice',
+      subject: NoticeSubject.of('host-outage pool:pool_1'),
+      link: NoticeLink.of({ path: 'settings/runners', label: 'Open runners' }),
+      externalLink: null,
+      wording: NoticeWording.of({
+        headline: 'dev-host is offline',
+        points: ['Start a host.'],
+      }),
+      at: new Date('2026-11-27T20:05:00.000Z'),
+    });
+
+  it('goes to the owners and admins, and to nobody else, whatever teams they see', () => {
+    const shown = (isAdmin: boolean) =>
+      Notice.shownTo({
+        teamId: null,
+        addressee: null,
+        person: UserId.of('user_1'),
+        teamsSeen: new Set(['team_1']),
+        isAdmin,
+      });
+
+    expect(shown(true)).toBe(true);
+    expect(shown(false)).toBe(false);
+    expect(aboutWorkspace(null).openToTeam).toBe(false);
+  });
+
+  it('has no addressee', () => {
+    expect(() => aboutWorkspace(UserId.of('user_1'))).toThrow(
+      InvalidNoticeError,
+    );
+  });
+
+  it('always reaches the workspace, needing no team', () => {
+    expect(
+      Notice.deliverable({
+        aboutWorkspace: true,
+        teamExists: false,
+        addressee: null,
+        addresseeSeesTeam: false,
+      }),
+    ).toBe(true);
   });
 });

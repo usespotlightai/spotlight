@@ -2,6 +2,7 @@ import type {
   TaskRunDto,
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
+import { RunWaitingMapper } from '@work/application/mappers/run-waiting.mapper';
 import type {
   TaskRunSummary,
   TeamRunSummary,
@@ -28,10 +29,7 @@ export const TaskRunMapper = {
         key: summary.ranOn.key,
         platform: summary.ranOn.platform,
       },
-      waiting: summary.waiting && {
-        reason: summary.waiting.reason,
-        since: summary.waiting.since.toISOString(),
-      },
+      waiting: RunWaitingMapper.toDto(summary.waiting),
       station: summary.station,
       review: summary.review && {
         state: summary.review.state,

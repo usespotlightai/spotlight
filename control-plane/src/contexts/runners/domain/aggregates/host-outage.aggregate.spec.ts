@@ -14,27 +14,25 @@ import { describe, expect, it } from 'vitest';
 
 const SOURCE = CredentialSource.ofId(POOL_ID);
 
-const POOL_WORKSPACE = WorkspaceId.of('ws_1');
+const WORKSPACE = WorkspaceId.of('ws_1');
 
-const raised = () =>
+const ID = HostOutageId.of('outage_1');
+
+const raised = (at = minutesAfter(5)) =>
   HostOutage.raise({
-    id: HostOutageId.of('outage_1'),
-    outage: {
-      source: SOURCE,
-      hosts: [aNamedHost('dev-host')],
-      since: minutesAfter(0),
-    },
-    workspaceId: POOL_WORKSPACE,
+    id: ID,
+    workspaceId: WORKSPACE,
+    outage: { source: SOURCE, hosts: ['dev-host'], since: minutesAfter(0) },
     sourceKey: 'ephemeral',
-    at: minutesAfter(5),
+    at,
   });
 
 describe('HostOutage', () => {
   it('records that it began, with the names of the quiet hosts', () => {
     expect(raised().pullEvents()).toEqual([
       new HostOutageBegan(
-        HostOutageId.of('outage_1'),
-        POOL_WORKSPACE,
+        ID,
+        WORKSPACE,
         SOURCE,
         'ephemeral',
         ['dev-host'],
@@ -44,42 +42,62 @@ describe('HostOutage', () => {
     ]);
   });
 
+  it('refuses to be raised before its hosts went quiet, as when stored so', () => {
+    expect(() => raised(new Date(minutesAfter(0).getTime() - 1))).toThrow(
+      InconsistentStateError,
+    );
+    expect(() =>
+      HostOutage.rehydrate({
+        id: ID,
+        workspaceId: WORKSPACE,
+        source: SOURCE,
+        hosts: ['dev-host'],
+        since: minutesAfter(5),
+        raisedAt: minutesAfter(0),
+        version: 0,
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+
   it('records that it ended once, however often it is ended', () => {
     const outage = raised();
     outage.pullEvents();
 
     expect(
       outage.end(minutesAfter(9)).end(minutesAfter(10)).pullEvents(),
-    ).toEqual([
-      new HostOutageEnded(
-        HostOutageId.of('outage_1'),
-        POOL_WORKSPACE,
-        minutesAfter(9),
-      ),
-    ]);
+    ).toEqual([new HostOutageEnded(ID, WORKSPACE, SOURCE, minutesAfter(9))]);
   });
 
-  it('holds while its source is among the outages of the workspace', () => {
+  it('is over once a host of its source reports in, or the source is gone, and not once its hosts are forgotten', () => {
     const outage = raised();
 
     expect(
-      outage.holdsAmong([
-        { source: SOURCE, hosts: [], since: minutesAfter(0) },
-      ]),
-    ).toBe(true);
-    expect(outage.holdsAmong([])).toBe(false);
-  });
-
-  it('refuses a stored outage raised before its hosts went quiet', () => {
-    expect(() =>
-      HostOutage.rehydrate({
-        id: HostOutageId.of('outage_1'),
-        workspaceId: POOL_WORKSPACE,
-        source: SOURCE,
-        since: minutesAfter(5),
-        raisedAt: minutesAfter(0),
-        version: 0,
+      outage.isOverWith({
+        hosts: [aNamedHost('dev-host')],
+        sourceExists: true,
+        now: minutesAfter(10),
       }),
-    ).toThrow(InconsistentStateError);
+    ).toBe(false);
+    expect(
+      outage.isOverWith({
+        hosts: [aNamedHost('dev-host', { lastAt: 10 })],
+        sourceExists: true,
+        now: minutesAfter(10),
+      }),
+    ).toBe(true);
+    expect(
+      outage.isOverWith({
+        hosts: [],
+        sourceExists: true,
+        now: minutesAfter(60 * 25),
+      }),
+    ).toBe(false);
+    expect(
+      outage.isOverWith({
+        hosts: [],
+        sourceExists: false,
+        now: minutesAfter(10),
+      }),
+    ).toBe(true);
   });
 });

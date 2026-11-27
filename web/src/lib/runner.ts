@@ -5,11 +5,9 @@ import type {
   IdleSandboxResponseDto,
   LeasedRunResponseDto,
   LiveRunnerResponseDto,
-  OfflineHarnessResponseDto,
   RunnerActivityResponseDto,
   RunnerFleetResponseDto,
 } from '@/lib/api';
-import { formatDate } from '@/lib/date-format';
 import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
@@ -36,13 +34,10 @@ export type PushPool = {
   readonly runners: readonly ActiveRunner[];
 };
 
-export type OfflineHarness = OfflineHarnessResponseDto;
-
 export type Fleet = {
   readonly hosts: readonly Host[];
   readonly pools: readonly PushPool[];
   readonly readyToRun: boolean;
-  readonly offlineHarnesses: readonly OfflineHarness[];
 };
 
 export const poolKeyOf = (source: CredentialSourceResponseDto): string =>
@@ -87,38 +82,7 @@ export const withActivity = (
         : [];
     }),
     readyToRun: fleet.readyToRun,
-    offlineHarnesses: fleet.offlineHarnesses,
   };
-};
-
-// The control plane names each harness whose work waits for offline hosts.
-export const offlineHarnessOf = (
-  fleet: Pick<Fleet, 'offlineHarnesses'> | undefined,
-  harness: string | undefined,
-): OfflineHarness | null =>
-  fleet?.offlineHarnesses.find((each) => each.harness === harness) ?? null;
-
-const sameDay = (one: Date, other: Date): boolean =>
-  one.toDateString() === other.toDateString();
-
-const offlineSince = (at: string): string => {
-  const since = new Date(at);
-
-  return sameDay(since, new Date())
-    ? formatDate(since, { hour: '2-digit', minute: '2-digit' })
-    : formatDate(since, { month: 'short', day: 'numeric' });
-};
-
-export const offlineWordsOf = (
-  offline: OfflineHarness,
-  harnessName: string,
-): string => {
-  const at = offlineSince(offline.since);
-  const only = offline.hosts.at(0);
-
-  return only !== undefined && offline.hosts.length === 1
-    ? `Queued: ${only.name}, the only host that runs ${harnessName} here, has been offline since ${at}.`
-    : `Queued: the ${offline.hosts.length} hosts that run ${harnessName} here have been offline since ${at}.`;
 };
 
 export const imageShortName = (image: string): string =>

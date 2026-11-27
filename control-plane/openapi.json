@@ -29254,49 +29254,6 @@
           "lastHeartbeatAt"
         ]
       },
-      "OfflineHostResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "01J8ZQ4Y7N3K5V2W9X6RTBHCDE"
-          },
-          "name": {
-            "type": "string",
-            "example": "dev-host"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ]
-      },
-      "OfflineHarnessResponseDto": {
-        "type": "object",
-        "properties": {
-          "harness": {
-            "type": "string",
-            "example": "claude-code"
-          },
-          "hosts": {
-            "description": "Every host here that runs the harness, all offline",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OfflineHostResponseDto"
-            }
-          },
-          "since": {
-            "type": "string",
-            "example": "2026-09-25T20:00:00.000Z",
-            "description": "When Spotlight last heard from one of these hosts"
-          }
-        },
-        "required": [
-          "harness",
-          "hosts",
-          "since"
-        ]
-      },
       "RunnerFleetResponseDto": {
         "type": "object",
         "properties": {
@@ -29317,20 +29274,12 @@
             "type": "boolean",
             "example": true,
             "description": "Whether a runner can start work in the workspace: a push pool can provision one, or an online host runs a harness. When false, queued work waits until a host connects"
-          },
-          "offlineHarnesses": {
-            "description": "The harnesses whose queued work no runner can start until a person acts: every host here that runs one is offline, and no push pool of the workspace provisions a runner instead. A harness that an online host runs is not listed: its work waits only for a free slot",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OfflineHarnessResponseDto"
-            }
           }
         },
         "required": [
           "hosts",
           "runners",
-          "readyToRun",
-          "offlineHarnesses"
+          "readyToRun"
         ]
       },
       "RegisterRunnerRequestDto": {
@@ -30945,6 +30894,68 @@
           "body"
         ]
       },
+      "QuietHostsResponseDto": {
+        "type": "object",
+        "properties": {
+          "hosts": {
+            "example": [
+              "dev-host"
+            ],
+            "description": "The hosts that could take it, none of which reports in; empty when none is left",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "since": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-11-27T20:00:00.000Z",
+            "description": "When Spotlight last heard from one of them; null when none is left to hear from"
+          }
+        },
+        "required": [
+          "hosts",
+          "since"
+        ]
+      },
+      "RunWaitingResponseDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "hosts-pull",
+              "hosts-offline",
+              "no-pool-has-room",
+              "platform-pool-not-allowed",
+              "no-pool-matches"
+            ],
+            "example": "no-pool-has-room",
+            "description": "Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), only such hosts take it and none of them reports in (hosts-offline), the pools that fit it run all the runs they can (no-pool-has-room), only the platform pool could take it and the operator does not let it (platform-pool-not-allowed), or no pool fits it (no-pool-matches)"
+          },
+          "since": {
+            "type": "string",
+            "example": "2026-08-28T16:32:47.877Z",
+            "description": "When Spotlight first saw this reason since the run was last queued"
+          },
+          "quiet": {
+            "nullable": true,
+            "description": "The offline hosts it waits for; set for hosts-offline",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuietHostsResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reason",
+          "since",
+          "quiet"
+        ]
+      },
       "InboxChatResponseDto": {
         "type": "object",
         "properties": {
@@ -30978,6 +30989,16 @@
             "nullable": true,
             "example": "in-progress",
             "description": "How far the run on the chat has come; null when none runs"
+          },
+          "waiting": {
+            "nullable": true,
+            "description": "Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
           },
           "openProposals": {
             "type": "number",
@@ -31027,6 +31048,7 @@
           "teamId",
           "title",
           "progress",
+          "waiting",
           "openProposals",
           "askedAt",
           "unread",
@@ -31773,6 +31795,16 @@
             "example": "in-progress",
             "description": "What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
           },
+          "waiting": {
+            "nullable": true,
+            "description": "Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
+          },
           "runId": {
             "type": "string",
             "nullable": true,
@@ -31879,6 +31911,7 @@
           "resolvable",
           "reopenable",
           "progress",
+          "waiting",
           "runId",
           "stoppableByYou",
           "unread",
@@ -31918,7 +31951,7 @@
             "enum": [
               "notice"
             ],
-            "description": "Word put to one person about their team’s work, outside any task"
+            "description": "Word put to one person about their team’s work, outside any task, or to the owners and admins about the whole workspace"
           },
           "id": {
             "type": "string",
@@ -31926,7 +31959,9 @@
           },
           "teamId": {
             "type": "string",
-            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+            "nullable": true,
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+            "description": "Its team; null for a notice about the whole workspace, which goes to its owners and admins"
           },
           "form": {
             "type": "string",
@@ -31953,21 +31988,12 @@
           "link": {
             "type": "string",
             "example": "lines/line_1/stations/station_1",
-            "description": "Where to look, as a path within its team or workspace"
+            "description": "Where to look, as a path within its team, or within the workspace for a notice about the whole workspace"
           },
           "linkLabel": {
             "type": "string",
             "example": "Open the station",
             "description": "What to call the link, naming where it leads"
-          },
-          "linkScope": {
-            "type": "string",
-            "enum": [
-              "team",
-              "workspace"
-            ],
-            "example": "team",
-            "description": "What the link is relative to: its team, or, for a notice about the whole workspace, the workspace"
           },
           "externalLink": {
             "nullable": true,
@@ -32029,7 +32055,6 @@
           "points",
           "link",
           "linkLabel",
-          "linkScope",
           "externalLink",
           "askedAt",
           "unread",
@@ -32095,6 +32120,16 @@
             ],
             "example": "in-progress",
             "description": "Queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
+          },
+          "waiting": {
+            "nullable": true,
+            "description": "Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
           },
           "askedAt": {
             "type": "string",
@@ -32165,6 +32200,7 @@
           "stationPosition",
           "stationCount",
           "progress",
+          "waiting",
           "askedAt",
           "unread",
           "unreadCount",
@@ -32364,6 +32400,16 @@
             "example": "in-progress",
             "description": "What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
           },
+          "waiting": {
+            "nullable": true,
+            "description": "Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
+          },
           "runId": {
             "type": "string",
             "nullable": true,
@@ -32484,6 +32530,7 @@
           "resolvable",
           "reopenable",
           "progress",
+          "waiting",
           "runId",
           "stoppableByYou",
           "unread",
@@ -33155,31 +33202,6 @@
           "kind",
           "key",
           "platform"
-        ]
-      },
-      "RunWaitingResponseDto": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "enum": [
-              "hosts-pull",
-              "no-pool-has-room",
-              "platform-pool-not-allowed",
-              "no-pool-matches"
-            ],
-            "example": "no-pool-has-room",
-            "description": "Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), the pools that fit it run all the runs they can (no-pool-has-room), or no pool fits it (no-pool-matches)"
-          },
-          "since": {
-            "type": "string",
-            "example": "2026-08-28T16:32:47.877Z",
-            "description": "When Spotlight first saw this reason since the run was last queued"
-          }
-        },
-        "required": [
-          "reason",
-          "since"
         ]
       },
       "RunStationResponseDto": {
@@ -34293,6 +34315,16 @@
             "example": "in-progress",
             "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
           },
+          "waiting": {
+            "nullable": true,
+            "description": "Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
+          },
           "waitingForYou": {
             "type": "boolean",
             "example": false,
@@ -34311,6 +34343,7 @@
           "createdAt",
           "updatedAt",
           "progress",
+          "waiting",
           "waitingForYou"
         ]
       },
@@ -34741,6 +34774,16 @@
             "example": "in-progress",
             "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
           },
+          "waiting": {
+            "nullable": true,
+            "description": "Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunWaitingResponseDto"
+              }
+            ]
+          },
           "waitingForYou": {
             "type": "boolean",
             "example": false,
@@ -34770,6 +34813,7 @@
           "createdAt",
           "updatedAt",
           "progress",
+          "waiting",
           "waitingForYou",
           "runId",
           "messages"

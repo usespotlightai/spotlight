@@ -62,6 +62,10 @@ export class DrizzleRunFactsReader implements RunFactsReaderPort {
     return rows.map((row) => ({
       runId: RunId.of(row.runId),
       reason: row.reason,
+      quiet:
+        row.reason === 'hosts-offline'
+          ? { hosts: row.quietHosts ?? [], since: row.quietSince }
+          : null,
       queuedAt: row.queuedAt,
       since: row.since,
     }));

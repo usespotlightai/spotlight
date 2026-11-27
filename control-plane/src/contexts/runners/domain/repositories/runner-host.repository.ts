@@ -16,5 +16,9 @@ export interface RunnerHostRepository {
 
   inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerHost[]>;
 
+  inWorkspaces(
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly RunnerHost[]>;
+
   silentSince(cutoff: Date): Promise<readonly RunnerHost[]>;
 }

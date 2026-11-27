@@ -25,8 +25,19 @@ export interface PoolAtWork extends OfferAtWork {
   readonly platform: boolean;
 }
 
+// The hosts of a pull pool or a trust while none of them reports in now. Runners decides it from their heartbeats.
+interface QuietHostsAtWork {
+  // The names of the hosts that can take work.
+  readonly hosts: readonly string[];
+  // When Spotlight last heard from one of them, or null when none is left to hear from.
+  readonly since: Date | null;
+}
+
 // What the hosts of a pull pool or a trust can take. It names no pool, because Spotlight asks no host for a runner. A host injects secrets through its own egress.
-export type HostOfferAtWork = OfferAtWork;
+export interface HostOfferAtWork extends OfferAtWork {
+  // Set while no host of the pool or trust reports in: its work waits for a person.
+  readonly quiet: QuietHostsAtWork | null;
+}
 
 export interface OffersAtWork {
   readonly pools: readonly PoolAtWork[];

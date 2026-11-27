@@ -1,6 +1,7 @@
 import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
+import type { RunWaitingDto } from '@work/application/dto/run-waiting.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxSection } from '@work/application/read-models/inbox-section';
 import type {
@@ -20,7 +21,6 @@ import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { HoldEnd } from '@work/domain/value-objects/hold-end';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
-import type { NoticeLinkScope } from '@work/domain/value-objects/notice-link.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
 import type { VoiceKind } from '@work/domain/value-objects/voice.vo';
 
@@ -140,6 +140,8 @@ export interface InboxItemSummary {
   readonly resolvable: boolean;
   readonly reopenable: boolean;
   readonly progress: Progress | null;
+  // Why its queued run waits for a runner, while it is queued.
+  readonly waiting: RunWaitingDto | null;
   readonly runId: string | null;
   readonly stoppableByYou: boolean;
   readonly unread: boolean;
@@ -171,13 +173,13 @@ export interface InboxItemView extends InboxItemSummary {
 export interface InboxNoticeSummary {
   readonly kind: 'notice';
   readonly id: string;
-  readonly teamId: string;
+  // Null for a notice about the whole workspace.
+  readonly teamId: string | null;
   readonly form: NoticeForm;
   readonly headline: string;
   readonly points: readonly string[];
   readonly link: string;
   readonly linkLabel: string;
-  readonly linkScope: NoticeLinkScope;
   readonly externalLink: {
     readonly url: string;
     readonly label: string;
@@ -202,6 +204,7 @@ export interface InboxRunSummary {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly progress: Progress;
+  readonly waiting: RunWaitingDto | null;
   readonly askedAt: Date;
   readonly unread: false;
   readonly unreadCount: 0;
@@ -218,6 +221,7 @@ export interface InboxChatSummary {
   readonly teamId: string;
   readonly title: string;
   readonly progress: Progress | null;
+  readonly waiting: RunWaitingDto | null;
   readonly openProposals: number;
   readonly askedAt: Date;
   readonly unread: boolean;
@@ -241,6 +245,8 @@ export interface InboxScope {
   readonly teamsSeen: ReadonlySet<string>;
   readonly teamsActedOn: ReadonlySet<string>;
   readonly teamsJoined: ReadonlySet<string>;
+  // The viewer is an owner or an admin of the workspace, and sees its notices about the whole workspace.
+  readonly isAdmin: boolean;
 }
 
 export interface InboxReaderPort {

@@ -4,11 +4,14 @@ import { useElapsed } from '@/hooks/useElapsed';
 import type { AgentPhase } from '@/lib/chat';
 import { doingOf } from '@/lib/journal-step';
 import type { Progress } from '@/lib/run';
+import type { RunWaiting } from '@/lib/run-waiting';
 
 type AgentWorkingProps = {
   slug: string;
   harness: string;
   progress: Progress;
+  // Why the chat's queued run waits, as the control plane last saw it.
+  waiting: RunWaiting | null;
   phase: AgentPhase;
 };
 
@@ -50,6 +53,7 @@ export function AgentWorking({
   slug,
   harness,
   progress,
+  waiting,
   phase,
 }: AgentWorkingProps) {
   return (
@@ -58,7 +62,7 @@ export function AgentWorking({
         <HarnessLogo harness={harness} />
       </span>
       {progress === 'queued' ? (
-        <AgentQueued slug={slug} harness={harness} />
+        <AgentQueued slug={slug} waiting={waiting} />
       ) : progress === 'stopping' ? (
         <span className="animate-pulse text-muted-foreground">Stopping…</span>
       ) : (

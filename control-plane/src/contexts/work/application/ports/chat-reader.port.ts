@@ -2,6 +2,7 @@ import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
+import type { RunWaitingDto } from '@work/application/dto/run-waiting.dto';
 import type { ChatPullRequestState } from '@work/application/read-models/chat-pull-request-state';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
@@ -35,6 +36,8 @@ export interface ChatSummary {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly progress: Progress | null;
+  // Why its queued run waits for a runner, while it is queued.
+  readonly waiting: RunWaitingDto | null;
   readonly waitingForYou: boolean;
 }
 

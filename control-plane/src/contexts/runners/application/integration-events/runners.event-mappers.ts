@@ -55,6 +55,7 @@ export const RUNNERS_EVENT_MAPPERS = [
       outageId: event.outageId.value,
       workspaceId: event.workspaceId.value,
       source: event.source.kind,
+      sourceId: event.source.id,
       sourceKey: event.sourceKey,
       hosts: event.hosts,
       since: event.since.toISOString(),
@@ -66,6 +67,8 @@ export const RUNNERS_EVENT_MAPPERS = [
       kind: HOST_OUTAGE_ENDED,
       outageId: event.outageId.value,
       workspaceId: event.workspaceId.value,
+      source: event.source.kind,
+      sourceId: event.source.id,
     }),
   ),
   mapping<RunnerEnded>(

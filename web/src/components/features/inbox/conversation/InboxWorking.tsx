@@ -9,10 +9,10 @@ import { useParams } from 'react-router';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { QueuedForOfflineHosts } from '@/components/features/runners/QueuedForOfflineHosts';
-import { useOfflineHarness } from '@/hooks/useOfflineHarness';
 import { ARRIVING, type RunJournal, workingWordsOf } from '@/lib/inbox';
 import { nonEmpty } from '@/lib/non-empty';
 import type { ShownProgress } from '@/lib/run';
+import { quietHostsOf, type RunWaiting } from '@/lib/run-waiting';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
@@ -31,8 +31,8 @@ type InboxWorkingProps = {
   stationPosition: number;
   stationCount: number;
   progress: ShownProgress;
-  // The harness of the run, so that a queued run can say when its hosts are all offline.
-  harness?: string;
+  // Why the queued run waits, so that it can say when its hosts are all offline.
+  waiting?: RunWaiting | null;
   session?: Pick<RunJournal, 'activity' | 'background'>;
 };
 
@@ -42,14 +42,11 @@ export function InboxWorking({
   stationPosition,
   stationCount,
   progress,
-  harness,
+  waiting,
   session,
 }: InboxWorkingProps) {
   const { slug } = useParams();
-  const offline = useOfflineHarness(
-    progress === 'queued' ? slug : undefined,
-    harness,
-  );
+  const quiet = progress === 'queued' ? quietHostsOf(waiting) : null;
   const background =
     progress === 'in-progress' ? (session?.background ?? []) : [];
 
@@ -60,8 +57,8 @@ export function InboxWorking({
           share={stationShare(stationPosition, stationCount)}
           color={stationColor}
         />
-        {offline && nonEmpty(slug) ? (
-          <QueuedForOfflineHosts slug={slug} offline={offline} />
+        {quiet && nonEmpty(slug) ? (
+          <QueuedForOfflineHosts slug={slug} quiet={quiet} what="run" />
         ) : (
           <span
             className={cn(

@@ -78,6 +78,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   resolvable: true,
   reopenable: false,
   progress: null,
+  waiting: null,
   runId: null,
   stoppableByYou: false,
   unread: true,
@@ -125,6 +126,7 @@ const SCOPE: InboxScope = {
   teamsSeen: new Set(['team_1']),
   teamsActedOn: new Set(),
   teamsJoined: new Set(),
+  isAdmin: false,
 };
 
 const access = (scope: InboxScope | null = SCOPE): WorkAccess =>
@@ -184,7 +186,6 @@ describe('ListInboxHandler', () => {
               points: ['Fix the claims.'],
               link: 'lines/line_1/stations/station_1',
               linkLabel: 'Open the station',
-              linkScope: 'team',
               externalLink: {
                 url: 'https://github.com/acme/config/pull/12',
                 label: 'Review the pull request',
@@ -210,7 +211,6 @@ describe('ListInboxHandler', () => {
       points: ['Fix the claims.'],
       link: 'lines/line_1/stations/station_1',
       linkLabel: 'Open the station',
-      linkScope: 'team',
       externalLink: {
         url: 'https://github.com/acme/config/pull/12',
         label: 'Review the pull request',

@@ -7,7 +7,6 @@ import type {
   IdleSandboxSummary,
   LiveRunnerSummary,
 } from '@runners/application/ports/runner-reader.port';
-import type { OfflineHarness } from '@runners/application/ports/runner-readiness.port';
 import { ListRunnersHandler } from '@runners/application/queries/handlers/list-runners.handler';
 import { ListRunnersQuery } from '@runners/application/queries/list-runners.query';
 import { aRunner } from '@runners/domain/aggregates/runner-pool.fake-spec';
@@ -82,7 +81,6 @@ type Fleet = {
   alive?: Runner[];
   lastRanIn?: ReadonlyMap<string, string>;
   readyToRun?: boolean;
-  offlineHarnesses?: readonly OfflineHarness[];
 };
 
 const HOST = '01J8ZQ4Y7N3K5V2W9X6RTBHCDE';
@@ -117,9 +115,6 @@ const listing = (
     );
   const lastRanIn = vi.fn().mockResolvedValue(input.lastRanIn ?? new Map());
   const readyToRun = vi.fn().mockResolvedValue(input.readyToRun ?? false);
-  const offlineHarnesses = vi
-    .fn()
-    .mockResolvedValue(input.offlineHarnesses ?? []);
 
   const handler = new ListRunnersHandler(
     partial<WorkspaceAccessPort>({
@@ -133,7 +128,6 @@ const listing = (
     },
     {
       readyToRun,
-      offlineHarnesses,
       hasPlatformRunners: vi.fn(),
       hasEgressCapableRunner: vi.fn(),
     },
@@ -150,7 +144,6 @@ const listing = (
     aliveInWorkspace,
     lastRanIn,
     readyToRun,
-    offlineHarnesses,
   };
 };
 
@@ -191,31 +184,6 @@ describe('ListRunnersHandler', () => {
 
     expect(fleet?.readyToRun).toBe(true);
     expect(readyToRun).toHaveBeenCalledWith(MEMBER.workspaceId);
-  });
-
-  it('names the harnesses whose work waits for offline hosts, as Runners decides it', async () => {
-    const since = new Date(NOW.getTime() - 30 * 60_000);
-    const { handler, offlineHarnesses } = listing({
-      readyToRun: true,
-      offlineHarnesses: [
-        {
-          harness: 'claude-code',
-          hosts: [{ id: 'host_1', name: 'dev-host' }],
-          since,
-        },
-      ],
-    });
-
-    const fleet = await handler.execute(new ListRunnersQuery('acme', 'user_1'));
-
-    expect(fleet?.offlineHarnesses).toEqual([
-      {
-        harness: 'claude-code',
-        hosts: [{ id: 'host_1', name: 'dev-host' }],
-        since: since.toISOString(),
-      },
-    ]);
-    expect(offlineHarnesses).toHaveBeenCalledWith(MEMBER.workspaceId);
   });
 
   it('keeps a host online across a missed heartbeat', async () => {
@@ -539,7 +507,6 @@ describe('ListRunnersHandler', () => {
       hosts: [],
       runners: [],
       readyToRun: false,
-      offlineHarnesses: [],
     });
   });
 });

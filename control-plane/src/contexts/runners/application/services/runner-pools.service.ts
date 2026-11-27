@@ -8,10 +8,14 @@ import type {
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { occupancyOf } from '@runners/application/services/pool-occupancy';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import { HostOutages } from '@runners/domain/services/host-outages';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -24,6 +28,8 @@ export class RunnerPools implements RunnerPoolsPort {
     private readonly placements: SandboxPlacementsPort,
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly setup: PlatformSetup,
+    private readonly hosts: RunnerHostRepository,
+    private readonly clock: ClockPort,
   ) {}
 
   async pulledWith(
@@ -48,10 +54,12 @@ export class RunnerPools implements RunnerPoolsPort {
   }
 
   async offersIn(workspaceIds: readonly WorkspaceId[]): Promise<OffersAtWork> {
-    const [pools, trusts] = await Promise.all([
+    const [pools, trusts, hosts] = await Promise.all([
       this.pools.inWorkspaces(workspaceIds),
       this.trusts.inWorkspaces(workspaceIds),
+      this.hosts.inWorkspaces(workspaceIds),
     ]);
+    const now = this.clock.now();
 
     return {
       pools: pools
@@ -67,6 +75,12 @@ export class RunnerPools implements RunnerPoolsPort {
         images: null,
         allowsSecrets: true,
         allowsReviewWork: true,
+        quiet: HostOutages.quietOf(
+          hosts.filter((host) =>
+            host.hasSource(CredentialSource.ofId(source.id)),
+          ),
+          now,
+        ),
       })),
     };
   }

@@ -14,9 +14,16 @@ import type { CredentialSource } from '@runners/domain/value-objects/credential-
 import { HostOutageId } from '@runners/domain/value-objects/host-outage-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-// Raises an outage once the hosts of a pull pool or a trust all stop reporting in, and ends it once one of them reports in again. A worker calls it every minute.
+// What the sweep needs of a pull pool or a trust. Null once it is gone.
+interface Source {
+  readonly key: string;
+  readonly labels: readonly string[];
+}
+
+// Raises an outage once the hosts of a pull pool or a trust all stop reporting in, and ends it once one of them reports in again or the source is gone. A worker calls it every minute.
 export class WatchHostOutages {
   constructor(
     private readonly outages: HostOutageRepository,
@@ -26,55 +33,81 @@ export class WatchHostOutages {
     private readonly queued: QueuedWorkPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async sweep(): Promise<void> {
     const now = this.clock.now();
     const open = await this.outages.all();
+
+    for (const outage of open) {
+      await this.logged({ outageId: outage.id.value }, () =>
+        this.endedIfOver(outage, now),
+      );
+    }
+
     const quiet = await this.hosts.silentSince(RunnerHost.onlineCutoff(now));
     const workspaces = new Map(
-      [...open, ...quiet].map((each) => [
-        each.workspaceId.value,
-        each.workspaceId,
-      ]),
+      quiet.map((host) => [host.workspaceId.value, host.workspaceId]),
     );
 
     for (const workspaceId of workspaces.values()) {
-      await this.inWorkspace(
-        workspaceId,
-        open.filter((each) => each.workspaceId.equals(workspaceId)),
-        now,
+      await this.logged({ workspaceId: workspaceId.value }, () =>
+        this.raisedIn(
+          workspaceId,
+          open.filter((each) => each.workspaceId.equals(workspaceId)),
+          now,
+        ),
       );
     }
   }
 
-  private async inWorkspace(
+  private async endedIfOver(outage: HostOutage, now: Date): Promise<void> {
+    const over = outage.isOverWith({
+      hosts: await this.hosts.servingThrough(outage.source),
+      sourceExists: (await this.sourceOf(outage.source)) !== null,
+      now,
+    });
+
+    if (!over) {
+      return;
+    }
+
+    try {
+      await this.outages.remove(outage.end(now));
+    } catch (error) {
+      // Another sweep ended it first.
+      if (!(error instanceof HostOutageVersionConflictError)) {
+        throw error;
+      }
+    }
+  }
+
+  private async raisedIn(
     workspaceId: WorkspaceId,
     open: readonly HostOutage[],
     now: Date,
   ): Promise<void> {
-    const outages = HostOutages.ofSources(
-      await this.hosts.inWorkspace(workspaceId),
-      now,
+    const unraised = HostOutages.unraised(
+      HostOutages.ofSources(await this.hosts.inWorkspace(workspaceId), now),
+      open,
     );
 
-    for (const outage of open) {
-      if (!outage.holdsAmong(outages)) {
-        await this.ended(outage.end(now));
-      }
-    }
-
-    const unraised = HostOutages.unraised(outages, open);
-
-    if (unraised.length === 0) {
-      return;
-    }
-
-    const workWaits = await this.queued.waitsIn(workspaceId, now);
-
     for (const outage of unraised) {
-      if (HostOutages.tellsAPerson(outage, { workWaits, now })) {
-        await this.raised(workspaceId, outage, now);
+      const source = await this.sourceOf(outage.source);
+
+      if (
+        source &&
+        HostOutages.tellsAPerson(outage, {
+          workWaits: await this.queued.waitsFor(
+            workspaceId,
+            source.labels,
+            now,
+          ),
+          now,
+        })
+      ) {
+        await this.raised(workspaceId, outage, source, now);
       }
     }
   }
@@ -82,15 +115,16 @@ export class WatchHostOutages {
   private async raised(
     workspaceId: WorkspaceId,
     outage: SourceOutage,
+    source: Source,
     now: Date,
   ): Promise<void> {
     try {
       await this.outages.add(
         HostOutage.raise({
           id: HostOutageId.of(this.ids.generate()),
-          outage,
           workspaceId,
-          sourceKey: await this.keyOf(outage.source),
+          outage,
+          sourceKey: source.key,
           at: now,
         }),
       );
@@ -102,26 +136,28 @@ export class WatchHostOutages {
     }
   }
 
-  private async ended(outage: HostOutage): Promise<void> {
-    try {
-      await this.outages.remove(outage);
-    } catch (error) {
-      // Another sweep ended it first.
-      if (!(error instanceof HostOutageVersionConflictError)) {
-        throw error;
-      }
-    }
+  private async sourceOf(source: CredentialSource): Promise<Source | null> {
+    const { poolId, trustId } = source;
+    const found = poolId
+      ? await this.pools.find(poolId)
+      : trustId
+        ? await this.trusts.find(trustId)
+        : null;
+
+    return found && !found.isDeleted
+      ? { key: found.key.value, labels: found.labels.values }
+      : null;
   }
 
-  private async keyOf(source: CredentialSource): Promise<string | null> {
-    const { poolId, trustId } = source;
-
-    if (poolId) {
-      return (await this.pools.find(poolId))?.key.value ?? null;
+  // One outage or workspace that fails does not hold up the others.
+  private async logged(
+    about: Readonly<Record<string, string>>,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      await work();
+    } catch (error) {
+      this.logger.error({ ...about, err: error }, 'Watching a host outage');
     }
-
-    return trustId
-      ? ((await this.trusts.find(trustId))?.key.value ?? null)
-      : null;
   }
 }

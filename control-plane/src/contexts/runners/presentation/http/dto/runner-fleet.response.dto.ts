@@ -310,46 +310,6 @@ export class LiveRunnerResponseDto {
   }
 }
 
-export class OfflineHostResponseDto {
-  @ApiProperty({ example: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE' })
-  readonly id: string;
-
-  @ApiProperty({ example: 'dev-host' })
-  readonly name: string;
-
-  constructor(id: string, name: string) {
-    this.id = id;
-    this.name = name;
-  }
-}
-
-export class OfflineHarnessResponseDto {
-  @ApiProperty({ example: 'claude-code' })
-  readonly harness: string;
-
-  @ApiProperty({
-    type: [OfflineHostResponseDto],
-    description: 'Every host here that runs the harness, all offline',
-  })
-  readonly hosts: readonly OfflineHostResponseDto[];
-
-  @ApiProperty({
-    example: '2026-09-25T20:00:00.000Z',
-    description: 'When Spotlight last heard from one of these hosts',
-  })
-  readonly since: string;
-
-  constructor(
-    harness: string,
-    hosts: readonly OfflineHostResponseDto[],
-    since: string,
-  ) {
-    this.harness = harness;
-    this.hosts = hosts;
-    this.since = since;
-  }
-}
-
 export class RunnerFleetResponseDto {
   @ApiProperty({ type: [HostResponseDto] })
   readonly hosts: readonly HostResponseDto[];
@@ -368,22 +328,13 @@ export class RunnerFleetResponseDto {
   })
   readonly readyToRun: boolean;
 
-  @ApiProperty({
-    type: [OfflineHarnessResponseDto],
-    description:
-      'The harnesses whose queued work no runner can start until a person acts: every host here that runs one is offline, and no push pool of the workspace provisions a runner instead. A harness that an online host runs is not listed: its work waits only for a free slot',
-  })
-  readonly offlineHarnesses: readonly OfflineHarnessResponseDto[];
-
   constructor(
     hosts: readonly HostResponseDto[],
     runners: readonly LiveRunnerResponseDto[],
     readyToRun: boolean,
-    offlineHarnesses: readonly OfflineHarnessResponseDto[],
   ) {
     this.hosts = hosts;
     this.runners = runners;
     this.readyToRun = readyToRun;
-    this.offlineHarnesses = offlineHarnesses;
   }
 }

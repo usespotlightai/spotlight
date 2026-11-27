@@ -538,6 +538,7 @@ const chatHandlers = [
           createdAt: at,
           updatedAt: at,
           progress: null,
+          waiting: null,
           waitingForYou: false,
           runId: null,
           messages: [messageBy(SAM, 0, input.body, at, traces)],

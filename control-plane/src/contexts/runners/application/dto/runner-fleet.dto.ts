@@ -60,15 +60,8 @@ export interface LiveRunnerDto {
   readonly lastHeartbeatAt: string | null;
 }
 
-interface OfflineHarnessDto {
-  readonly harness: string;
-  readonly hosts: readonly { readonly id: string; readonly name: string }[];
-  readonly since: string;
-}
-
 export interface RunnerFleetDto {
   readonly hosts: readonly HostDto[];
   readonly runners: readonly LiveRunnerDto[];
   readonly readyToRun: boolean;
-  readonly offlineHarnesses: readonly OfflineHarnessDto[];
 }

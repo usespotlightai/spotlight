@@ -31,15 +31,11 @@ const toNotice = (row: Row): Notice =>
   Notice.rehydrate({
     id: NoticeId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    teamId: TeamId.of(row.teamId),
+    teamId: row.teamId === null ? null : TeamId.of(row.teamId),
     addressee: row.addresseeId === null ? null : UserId.of(row.addresseeId),
     form: row.form,
     subject: NoticeSubject.of(row.subject),
-    link: NoticeLink.of({
-      path: row.link,
-      label: row.linkLabel,
-      scope: row.linkScope,
-    }),
+    link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
     externalLink:
       row.externalUrl !== null && row.externalLabel !== null
         ? NoticeExternalLink.of({
@@ -81,13 +77,12 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     await this.context.db.insert(notice).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,
-      teamId: added.teamId.value,
+      teamId: added.teamId?.value ?? null,
       addresseeId: added.addressee?.value ?? null,
       form: added.form,
       subject: added.subject.value,
       link: added.link.path,
       linkLabel: added.link.label,
-      linkScope: added.link.scope,
       externalUrl: added.externalLink?.url ?? null,
       externalLabel: added.externalLink?.label ?? null,
       headline: added.wording.headline,
@@ -131,49 +126,36 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     return row ? toNotice(row) : null;
   }
 
-  async about(
-    teamId: TeamId,
-    addressee: UserId | null,
-    form: NoticeForm,
-    subject: NoticeSubject,
-  ): Promise<Notice | null> {
+  async about(input: {
+    readonly workspaceId: WorkspaceId | null;
+    readonly teamId: TeamId | null;
+    readonly addressee: UserId | null;
+    readonly form: NoticeForm;
+    readonly subject: NoticeSubject;
+  }): Promise<Notice | null> {
     const row = firstOf(
       await this.context.db
         .select()
         .from(notice)
         .where(
           and(
-            eq(notice.teamId, teamId.value),
-            addressee === null
+            input.teamId === null
+              ? isNull(notice.teamId)
+              : eq(notice.teamId, input.teamId.value),
+            input.workspaceId === null
+              ? undefined
+              : eq(notice.workspaceId, input.workspaceId.value),
+            input.addressee === null
               ? isNull(notice.addresseeId)
-              : eq(notice.addresseeId, addressee.value),
-            eq(notice.form, form),
-            eq(notice.subject, subject.value),
+              : eq(notice.addresseeId, input.addressee.value),
+            eq(notice.form, input.form),
+            eq(notice.subject, input.subject.value),
           ),
         )
         .limit(1),
     );
 
     return row ? toNotice(row) : null;
-  }
-
-  async inWorkspaceAbout(
-    workspaceId: WorkspaceId,
-    form: NoticeForm,
-    subject: NoticeSubject,
-  ): Promise<Notice[]> {
-    const rows = await this.context.db
-      .select()
-      .from(notice)
-      .where(
-        and(
-          eq(notice.workspaceId, workspaceId.value),
-          eq(notice.form, form),
-          eq(notice.subject, subject.value),
-        ),
-      );
-
-    return rows.map(toNotice);
   }
 
   async ofTeam(teamId: TeamId): Promise<Notice[]> {

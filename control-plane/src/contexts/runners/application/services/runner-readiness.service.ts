@@ -1,11 +1,7 @@
 import type { PlatformSetup } from '@runners/application/ports/platform-setup.port';
-import type {
-  OfflineHarness,
-  RunnerReadinessPort,
-} from '@runners/application/ports/runner-readiness.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
-import { HostOutages } from '@runners/domain/services/host-outages';
 import {
   type PlatformProvisioning,
   type WorkspaceRunnerFacts,
@@ -31,21 +27,6 @@ export class RunnerReadiness implements RunnerReadinessPort {
 
   async readyToRun(workspaceId: WorkspaceId): Promise<boolean> {
     return WorkspaceReadiness.readyToRun(await this.factsOf(workspaceId));
-  }
-
-  async offlineHarnesses(
-    workspaceId: WorkspaceId,
-  ): Promise<readonly OfflineHarness[]> {
-    return HostOutages.ofHarnesses(await this.factsOf(workspaceId)).map(
-      (outage) => ({
-        harness: outage.harness.value,
-        hosts: outage.hosts.map((host) => ({
-          id: host.id.value,
-          name: host.report.name,
-        })),
-        since: outage.since,
-      }),
-    );
   }
 
   async hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean> {

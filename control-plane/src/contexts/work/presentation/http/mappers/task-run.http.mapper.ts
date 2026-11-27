@@ -2,11 +2,11 @@ import type {
   TaskRunDto,
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
+import { RunWaitingResponseDto } from '@work/presentation/http/dto/run-waiting.response.dto';
 import {
   RunRanOnResponseDto,
   RunReviewResponseDto,
   RunStationResponseDto,
-  RunWaitingResponseDto,
   TaskRunResponseDto,
   TeamRunResponseDto,
 } from '@work/presentation/http/dto/task-run.response.dto';
@@ -29,9 +29,7 @@ export const TaskRunHttpMapper = {
             dto.ranOn.platform,
           )
         : null,
-      dto.waiting
-        ? new RunWaitingResponseDto(dto.waiting.reason, dto.waiting.since)
-        : null,
+      RunWaitingResponseDto.of(dto.waiting),
       dto.station
         ? new RunStationResponseDto(
             dto.station.id,

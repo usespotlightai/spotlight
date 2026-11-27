@@ -46,7 +46,7 @@ export const waitingFor = (
           state: 'queued',
           progress: 'queued',
           exitCode: null,
-          waiting: { reason, since },
+          waiting: { reason, since, quiet: null },
         },
         ...before,
       ]

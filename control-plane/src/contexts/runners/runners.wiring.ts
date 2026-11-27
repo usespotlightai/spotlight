@@ -82,6 +82,7 @@ import {
   type EditorSandboxesPort,
 } from '@runners/application/ports/editor-sandboxes.port';
 import { EDITOR_SESSIONS } from '@runners/application/ports/editor-sessions.port';
+import { HOST_OUTAGES } from '@runners/application/ports/host-outages.port';
 import {
   HOST_SLOT_LOCKS,
   type HostSlotLocksPort,
@@ -162,6 +163,7 @@ import {
 } from '@runners/application/queries/runner-resource.queries';
 import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
 import { HostAdmission } from '@runners/application/services/host-admission.service';
+import { HostOutageLookup } from '@runners/application/services/host-outages.service';
 import { HostWarmSlots } from '@runners/application/services/host-warm-slots.service';
 import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
@@ -497,6 +499,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       QUEUED_WORK,
       ID_GENERATOR,
       CLOCK,
+      LOGGER,
     ],
     useFactory: (
       outages: DrizzleHostOutageRepository,
@@ -506,8 +509,24 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       queued: QueuedWorkPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
+      logger: LoggerPort,
     ) =>
-      new WatchHostOutages(outages, hosts, pools, trusts, queued, ids, clock),
+      new WatchHostOutages(
+        outages,
+        hosts,
+        pools,
+        trusts,
+        queued,
+        ids,
+        clock,
+        logger,
+      ),
+  },
+  {
+    provide: HOST_OUTAGES,
+    inject: [DrizzleHostOutageRepository],
+    useFactory: (outages: DrizzleHostOutageRepository) =>
+      new HostOutageLookup(outages),
   },
   {
     provide: HostOutagesWorker,
@@ -811,6 +830,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       RunnerAuthenticator,
       PLATFORM_EGRESS,
       PLATFORM_POOL,
+      DrizzleRunnerHostRepository,
+      CLOCK,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
@@ -820,12 +841,23 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       authenticator: RunnerAuthenticator,
       platformEgress: PlatformEgressSettings | null,
       platformPool: PlatformPoolSettings | null,
+      hosts: DrizzleRunnerHostRepository,
+      clock: ClockPort,
     ) =>
-      new RunnerPools(pools, trusts, runners, placements, authenticator, {
-        platformEgressSet: platformEgress !== null,
-        platformPoolSet: platformPool !== null,
-        platformImages: platformPool?.images ?? null,
-      }),
+      new RunnerPools(
+        pools,
+        trusts,
+        runners,
+        placements,
+        authenticator,
+        {
+          platformEgressSet: platformEgress !== null,
+          platformPoolSet: platformPool !== null,
+          platformImages: platformPool?.images ?? null,
+        },
+        hosts,
+        clock,
+      ),
   },
   { provide: INSTALLER_ASSETS, useClass: InstallerAssets },
 

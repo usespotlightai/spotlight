@@ -106,6 +106,18 @@ describe('ListTaskRunsHandler', () => {
         waiting: {
           reason: 'no-pool-has-room',
           since: new Date('2026-08-28T16:40:00.000Z'),
+          quiet: null,
+        },
+      }),
+      summary({
+        state: 'queued',
+        waiting: {
+          reason: 'hosts-offline',
+          since: new Date('2026-08-28T16:40:00.000Z'),
+          quiet: {
+            hosts: ['dev-host'],
+            since: new Date('2026-08-28T16:00:00.000Z'),
+          },
         },
       }),
     ]);
@@ -127,6 +139,12 @@ describe('ListTaskRunsHandler', () => {
     expect(queued?.waiting).toEqual({
       reason: 'no-pool-has-room',
       since: '2026-08-28T16:40:00.000Z',
+      quiet: null,
+    });
+    expect(itemAt(listed, 2)?.waiting).toEqual({
+      reason: 'hosts-offline',
+      since: '2026-08-28T16:40:00.000Z',
+      quiet: { hosts: ['dev-host'], since: '2026-08-28T16:00:00.000Z' },
     });
   });
 

@@ -5,24 +5,22 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-11-27T20:30:00.000Z');
 
+const WORKSPACE = WorkspaceId.of('ws_1');
+
 describe('RunsQueuedWork', () => {
-  it('says work waits while a run of the workspace waits for any runner', async () => {
+  it('says work waits only while a run of the workspace waits that a runner with the labels could take', async () => {
     const asked: unknown[] = [];
-    const queued = (placements: readonly RunnerPlacement[]) =>
-      new RunsQueuedWork({
-        unclaimedIn: async (workspaceId, now) => {
-          asked.push([workspaceId.value, now]);
-          return placements;
-        },
-      });
+    const queued = new RunsQueuedWork({
+      unclaimedIn: async (workspaceId, now) => {
+        asked.push([workspaceId.value, now]);
+        return [RunnerPlacement.of(['gpu'])];
+      },
+    });
 
     await expect(
-      queued([RunnerPlacement.ofLabelGroups([], null)]).waitsIn(
-        WorkspaceId.of('ws_1'),
-        NOW,
-      ),
+      queued.waitsFor(WORKSPACE, ['gpu', 'linux'], NOW),
     ).resolves.toBe(true);
-    await expect(queued([]).waitsIn(WorkspaceId.of('ws_1'), NOW)).resolves.toBe(
+    await expect(queued.waitsFor(WORKSPACE, ['linux'], NOW)).resolves.toBe(
       false,
     );
     expect(asked).toEqual([

@@ -9,12 +9,14 @@ import type {
   JournalledRunResponseDto,
   NoteResponseDto,
   RunJournalResponseDto,
+  RunWaitingResponseDto,
 } from '@/lib/api';
 import { formatDate } from '@/lib/date-format';
 import { OPEN_PREVIEW, RESOLVED_PREVIEW } from '@/lib/judge-disagreement';
 import { nonEmpty } from '@/lib/non-empty';
 import type { Person } from '@/lib/person';
 import type { ShownProgress } from '@/lib/run';
+import { offlineWordsOf, quietHostsOf } from '@/lib/run-waiting';
 import { teamPath } from '@/lib/team';
 import { workspacePath } from '@/lib/workspace';
 
@@ -81,8 +83,8 @@ export type ConversationItem = {
     readonly count: number;
   };
   readonly progress: ShownProgress | null;
-  // The harness of its current run, once known.
-  readonly harness?: string;
+  // Why its queued run waits.
+  readonly waiting?: RunWaitingResponseDto | null;
   readonly resolved?: boolean;
   readonly notes: readonly Note[];
   readonly folded: readonly FoldedVisit[];
@@ -392,11 +394,10 @@ export const workingWordsOf = (
 export const noticePath = (slug: string, id: string): string =>
   `${inboxPath(slug)}/notices/${encodeURIComponent(id)}`;
 
+// A notice about the whole workspace has no team, and its link leads within the workspace.
 export const noticeLinkPath = (slug: string, notice: InboxNotice): string =>
   `${
-    notice.linkScope === 'workspace'
-      ? workspacePath(slug)
-      : teamPath(slug, notice.teamId)
+    notice.teamId === null ? workspacePath(slug) : teamPath(slug, notice.teamId)
   }/${notice.link.replace(/^\/+/, '')}`;
 
 export const followed = (entry: InboxEntry): boolean =>
@@ -414,7 +415,20 @@ export const reopenable = (entry: InboxEntry): entry is ResolvableEntry =>
 export const entryKey = (entry: InboxEntry): string =>
   `${entry.kind}:${entry.id}`;
 
+export const runPreviewOf = (run: InboxRun): string => {
+  const quiet = run.progress === 'queued' ? quietHostsOf(run.waiting) : null;
+
+  return quiet
+    ? offlineWordsOf(quiet, 'run')
+    : workingWordsOf(run.progress, run.station);
+};
+
 export const chatPreviewOf = (chat: InboxChat): string => {
+  const quiet = chat.progress === 'queued' ? quietHostsOf(chat.waiting) : null;
+
+  if (quiet) {
+    return offlineWordsOf(quiet, 'chat');
+  }
   if (chat.progress) {
     return workingWordsOf(chat.progress, 'Agent');
   }

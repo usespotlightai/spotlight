@@ -4,7 +4,10 @@ import {
   poolFits,
   type WorkNeeds,
 } from '@runs/domain/services/pool-fit';
-import type { WaitReason } from '@runs/domain/value-objects/run-waiting';
+import type {
+  QuietHosts,
+  WaitCause,
+} from '@runs/domain/value-objects/run-waiting';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 
@@ -15,8 +18,21 @@ export interface PoolOnOffer extends Offer {
   readonly platform: boolean;
 }
 
-// What the hosts of a pull pool or a trust can take. Hosts pull their runners, so Spotlight never chooses a host offer.
-export type HostOffer = Offer;
+// What the hosts of a pull pool or a trust can take. Hosts pull their runners, so Spotlight never chooses a host offer. Quiet is set while none of its hosts reports in, as Runners decides it.
+export interface HostOffer extends Offer {
+  readonly quiet: QuietHosts | null;
+}
+
+const togetherOf = (quiet: readonly QuietHosts[]): QuietHosts => {
+  const heard = quiet.flatMap((each) =>
+    each.since ? [each.since.getTime()] : [],
+  );
+
+  return {
+    hosts: [...new Set(quiet.flatMap((each) => each.hosts))],
+    since: heard.length > 0 ? new Date(Math.max(...heard)) : null,
+  };
+};
 
 // The workspace's own pools come first, by key. The platform pool comes last.
 export const offerOrder = (one: PoolOnOffer, other: PoolOnOffer): number => {
@@ -85,24 +101,37 @@ export const poolChoiceFor = <Pool extends PoolOnOffer>(
   return chosen.filter((offered) => room.hasRoomIn(offered.pool));
 };
 
-// Why no pool takes the work now: hosts pull it, the pools that fit it are full, a pool could take it once the operator allows it, or no pool or host could take it at all.
+const waiting = (reason: WaitCause['reason']): WaitCause => ({
+  reason,
+  quiet: null,
+});
+
+// Why no pool takes the work now: hosts pull it, hosts would pull it but none of them reports in and no pool of the workspace's own fits it, the pools that fit it are full, a pool could take it once the operator allows it, or no pool or host could take it at all.
 export const waitReasonFor = (
   placement: RunnerPlacement,
   pools: readonly PoolOnOffer[],
   hostOffers: readonly HostOffer[],
   needs: WorkNeeds,
-): WaitReason => {
+): WaitCause => {
   const fits = (offer: Offer): boolean => poolFits(placement, offer, needs);
+  const hosts = hostOffers.filter(fits);
 
-  if (hostOffers.some(fits)) {
-    return 'hosts-pull';
+  if (hosts.length > 0) {
+    const quiet = hosts.flatMap((offer) => (offer.quiet ? [offer.quiet] : []));
+    const ownPoolFits = pools.some((offer) => !offer.platform && fits(offer));
+
+    return quiet.length === hosts.length && !ownPoolFits
+      ? { reason: 'hosts-offline', quiet: togetherOf(quiet) }
+      : waiting('hosts-pull');
   }
 
   if (pools.some(fits)) {
-    return 'no-pool-has-room';
+    return waiting('no-pool-has-room');
   }
 
-  return pools.some((offer) => offerCouldServe(placement, offer, needs))
-    ? 'platform-pool-not-allowed'
-    : 'no-pool-matches';
+  return waiting(
+    pools.some((offer) => offerCouldServe(placement, offer, needs))
+      ? 'platform-pool-not-allowed'
+      : 'no-pool-matches',
+  );
 };

@@ -111,6 +111,7 @@ const scopeOf = (viewer: UserId, actsOnTeam = true): InboxScope => ({
   teamsSeen: new Set([teamId]),
   teamsActedOn: new Set(actsOnTeam ? [teamId] : []),
   teamsJoined: new Set(actsOnTeam ? [teamId] : []),
+  isAdmin: false,
 });
 
 const heldAndAsking = async (): Promise<Task> => {
@@ -352,6 +353,7 @@ describe('a held task whose turn asks another person (e2e)', () => {
     const adminScope = (viewer: UserId): InboxScope => ({
       ...scopeOf(viewer),
       teamsJoined: new Set(),
+      isAdmin: false,
     });
 
     expect(
