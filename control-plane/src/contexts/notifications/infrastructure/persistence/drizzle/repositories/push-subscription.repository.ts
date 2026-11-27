@@ -23,9 +23,7 @@ const toSubscription = (row: Row): PushSubscription =>
   });
 
 @Injectable()
-export class DrizzlePushSubscriptionRepository
-  implements PushSubscriptionRepository
-{
+export class DrizzlePushSubscriptionRepository implements PushSubscriptionRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async find(endpoint: PushEndpoint): Promise<PushSubscription | null> {

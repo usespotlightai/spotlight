@@ -1,10 +1,10 @@
-import type { ComponentType, ReactElement } from 'react';
+import type { ComponentType } from 'react';
 
 type RowIconProps = {
   icon: ComponentType<{ className?: string }>;
 };
 
-export function RowIcon({ icon: Icon }: RowIconProps): ReactElement {
+export function RowIcon({ icon: Icon }: RowIconProps) {
   return (
     <span
       aria-hidden

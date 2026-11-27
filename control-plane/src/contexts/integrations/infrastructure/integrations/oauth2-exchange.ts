@@ -7,6 +7,7 @@ import type { Expression } from '@platform/expressions/expression-engine.port';
 import { value } from '@platform/expressions/readings';
 import { fieldOf } from '@platform/json/field-of';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -55,11 +56,11 @@ export class OAuth2Exchange {
 
     const form = new URLSearchParams({ ...grant, client_id: client.id });
 
-    if (client.secret !== null && client.secret !== '') {
+    if (nonEmpty(client.secret)) {
       form.set('client_secret', client.secret);
     }
 
-    if (oauth2.resource !== null && oauth2.resource !== '') {
+    if (nonEmpty(oauth2.resource)) {
       form.set('resource', oauth2.resource);
     }
 

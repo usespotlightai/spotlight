@@ -63,7 +63,7 @@ const comment = (
   id,
   on: 'line',
   action,
-  login: over.byBot === true ? 'coderabbitai[bot]' : 'grace',
+  login: over.byBot ? 'coderabbitai[bot]' : 'grace',
   inReplyToId: null,
   byBot: false,
   details: null,

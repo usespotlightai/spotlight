@@ -31,9 +31,9 @@ const CONTEXT: TaskToolContext = {
 const using = () => {
   const opened: { target: PullRequestFor; input: PullRequestInput }[] = [];
   const opening = partial<OpenPullRequest>({
-    open: (target: PullRequestFor, wanted: PullRequestInput) => {
+    open: async (target: PullRequestFor, wanted: PullRequestInput) => {
       opened.push({ target, input: wanted });
-      return Promise.resolve({ url: 'https://github.com/acme/widgets/pull/7' });
+      return { url: 'https://github.com/acme/widgets/pull/7' };
     },
   });
 

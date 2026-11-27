@@ -85,22 +85,22 @@ const done: SetupState = {
 
 const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
   const task = options.task ?? list();
-  const save = vi.fn((_task: Task) => Promise.resolve());
+  const save = vi.fn(async (_task: Task) => {});
 
   const tasks = {
     save,
-    settingUpIn: vi.fn(() => Promise.resolve([task])),
-    settingUp: vi.fn(() => Promise.resolve([task])),
-    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-    settingUpFor: vi.fn(() => Promise.resolve(task)),
+    settingUpIn: vi.fn(async () => [task]),
+    settingUp: vi.fn(async () => [task]),
+    withTurnAnsweredBetween: vi.fn(async () => []),
+    settingUpFor: vi.fn(async () => task),
   } satisfies Partial<TaskRepository>;
 
   const setup = partial<SetupStatus>({
-    stateFor: vi.fn(() => Promise.resolve(options.state ?? done)),
+    stateFor: vi.fn(async () => options.state ?? done),
   });
 
   const lines = partial<LineMapsPort>({
-    findByStation: vi.fn(() => Promise.resolve(DELIVERY)),
+    findByStation: vi.fn(async () => DELIVERY),
   });
 
   const logger = partial<LoggerPort>({ warn: vi.fn(), error: vi.fn() });

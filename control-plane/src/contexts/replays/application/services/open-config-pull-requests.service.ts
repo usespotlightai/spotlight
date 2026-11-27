@@ -42,6 +42,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -172,7 +173,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         'The config pull request has no target repository.',
       );
     }
-    if (!search || !station || teamKey === null || teamKey === '') {
+    if (!search || !station || !nonEmpty(teamKey)) {
       return failedAs(
         'block-not-found',
         'The searched station is gone from its line.',

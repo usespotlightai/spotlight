@@ -84,7 +84,7 @@ const webhook = (path = '/events', hosts = '127.0.0.1') =>
   new EventWebhook(
     { url: `${base}${path}`, secret: SigningSecret.of(SECRET) },
     new OutboundGuard(HostAllowList.listed(hosts), true),
-    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+    { now: () => NOW, sleep: async () => undefined },
   );
 
 describe('EventWebhook', () => {

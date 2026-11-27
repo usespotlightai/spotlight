@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { InvalidBranchError } from '@work/domain/exceptions/invalid-branch.error';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -45,10 +46,9 @@ const SHORT_ID_LENGTH = 8;
 
 const typeOf = (title: string): BranchType => {
   const conventional = CONVENTIONAL.exec(title)?.[1]?.toLowerCase();
-  const typed =
-    conventional !== undefined && conventional !== ''
-      ? CONVENTIONAL_TYPES.get(conventional)
-      : undefined;
+  const typed = nonEmpty(conventional)
+    ? CONVENTIONAL_TYPES.get(conventional)
+    : undefined;
 
   return (
     typed ??

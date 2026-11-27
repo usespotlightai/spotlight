@@ -57,7 +57,7 @@ const copiedJson = (native: JsonObject): JsonObject => {
 };
 
 export class ProfileSettings {
-  private readonly kind: string = 'profile-settings';
+  private readonly kind = 'profile-settings';
 
   private constructor(
     readonly rules: readonly PermissionRule[],
@@ -190,7 +190,7 @@ export class ProfileSettings {
 
   equals(other: ProfileSettings): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof ProfileSettings &&
       JSON.stringify(this.snapshot) === JSON.stringify(other.snapshot)
     );
   }

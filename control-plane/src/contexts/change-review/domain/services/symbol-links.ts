@@ -12,6 +12,7 @@ import type {
   SymbolIndex,
   SymbolKind,
 } from '@change-review/domain/value-objects/symbol-index.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface SymbolLink {
   readonly from: HunkId;
@@ -145,7 +146,7 @@ export const indexedFacts = (
       each.status === 'deleted' ? [] : [[each.path, each.path] as const],
     ),
     ...diff.files.flatMap((each) =>
-      each.previousPath !== null && each.previousPath !== ''
+      nonEmpty(each.previousPath)
         ? [[each.previousPath, each.path] as const]
         : [],
     ),

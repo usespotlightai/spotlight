@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { ICON_ACTION } from '@/components/shared/icon-action';
 import {
@@ -26,7 +26,7 @@ export function IconAction({
   focusNext,
   onClick,
   children,
-}: IconActionProps): ReactElement {
+}: IconActionProps) {
   return (
     <Tooltip>
       <TooltipTrigger

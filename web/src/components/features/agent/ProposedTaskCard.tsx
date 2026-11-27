@@ -1,5 +1,5 @@
 import { Undo2 } from 'lucide-react';
-import { type ReactElement, type Ref, use, useId, useState } from 'react';
+import { type Ref, use, useId, useState } from 'react';
 
 import { ProposedTaskFacts } from '@/components/features/agent/ProposedTaskFacts';
 import { Collapsible } from '@/components/shared/Collapsible';
@@ -45,7 +45,7 @@ export function ProposedTaskCard({
   onDismiss,
   onRestore,
   ref,
-}: ProposedTaskCardProps): ReactElement {
+}: ProposedTaskCardProps) {
   const titleId = useId();
   const docked = use(DockedContext) !== null;
   const [unfolded, setUnfolded] = useState(false);

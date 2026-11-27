@@ -105,29 +105,28 @@ const notice = (input: Partial<ChannelNoticeDto> = {}): ChannelNoticeDto => ({
 
 const notifying = (definition = SLACK) => {
   const run = vi.fn(
-    (
+    async (
       _action: unknown,
       _against: Record<string, unknown>,
       _credentials?: Credentials,
-    ): Promise<OutboundResult> =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        response: { ok: true, ts: '1700.2' },
-        capture: {},
-      }),
+    ): Promise<OutboundResult> => ({
+      ok: true,
+      status: 200,
+      response: { ok: true, ts: '1700.2' },
+      capture: {},
+    }),
   );
   const warn = vi.fn();
 
   const notices = channelNotices(
     partial<DefinedIntegrationsPort>({
-      ofTeam: vi.fn(() => Promise.resolve([defined(definition)])),
+      ofTeam: vi.fn(async () => [defined(definition)]),
     }),
     runtimeWith({ run }),
     callAuthFor(injecting().injection),
     new WebInboxLinks(
       partial<WorkspaceReaderPort>({
-        slugOf: vi.fn(() => Promise.resolve('acme')),
+        slugOf: vi.fn(async () => 'acme'),
       }),
       taskLinks,
     ),

@@ -39,15 +39,13 @@ const launch = partial<HarnessLaunchPort>({
 });
 
 const handler = (member: boolean) => {
-  const supportedModels = vi.fn(() =>
-    Promise.resolve(new Map([['claude-code', ['claude-sonnet-5']]])),
+  const supportedModels = vi.fn(
+    async () => new Map([['claude-code', ['claude-sonnet-5']]]),
   );
-  const inWorkspace = vi.fn(() =>
-    Promise.resolve(
-      member
-        ? partial<WorkspaceMembership>({ workspaceId: WorkspaceId.of('ws_1') })
-        : null,
-    ),
+  const inWorkspace = vi.fn(async () =>
+    member
+      ? partial<WorkspaceMembership>({ workspaceId: WorkspaceId.of('ws_1') })
+      : null,
   );
 
   return {
@@ -95,29 +93,27 @@ describe('listing harnesses for a workspace', () => {
 
   describe('for a host looking for what its runners should carry', () => {
     const authenticator: RunnerAuthenticatorPort = {
-      authenticate: (credential: HostCredentials) =>
-        Promise.resolve(
-          credential.bearer === 'pool-token'
+      authenticate: async (credential: HostCredentials) =>
+        credential.bearer === 'pool-token'
+          ? {
+              source: { kind: 'pool', id: 'pool_1' },
+              workspaceId: WorkspaceId.of('ws_1'),
+              workingCopies: null,
+            }
+          : credential.bearer === 'store-pool-token'
             ? {
-                source: { kind: 'pool', id: 'pool_1' },
+                source: { kind: 'pool', id: 'pool_2' },
                 workspaceId: WorkspaceId.of('ws_1'),
-                workingCopies: null,
+                workingCopies: {
+                  store: 's3://team-a',
+                  base: 'base-v1',
+                },
               }
-            : credential.bearer === 'store-pool-token'
-              ? {
-                  source: { kind: 'pool', id: 'pool_2' },
-                  workspaceId: WorkspaceId.of('ws_1'),
-                  workingCopies: {
-                    store: 's3://team-a',
-                    base: 'base-v1',
-                  },
-                }
-              : null,
-        ),
+            : null,
     };
 
     const requirements = (release: string | null = 'v0.7.0') => {
-      const namedIn = vi.fn(() => Promise.resolve(['ghcr.io/acme/widgets:1']));
+      const namedIn = vi.fn(async () => ['ghcr.io/acme/widgets:1']);
 
       return {
         namedIn,
@@ -127,9 +123,8 @@ describe('listing harnesses for a workspace', () => {
           { namedIn } satisfies LineImagesPort,
           { release },
           new HeldHarnessKeys(launch, {
-            namesIn: () =>
-              Promise.resolve(['LINEAR_API_KEY', 'ANTHROPIC_API_KEY']),
-            sandboxSecrets: () => Promise.resolve([]),
+            namesIn: async () => ['LINEAR_API_KEY', 'ANTHROPIC_API_KEY'],
+            sandboxSecrets: async () => [],
           }),
         ),
       };

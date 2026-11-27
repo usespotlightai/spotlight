@@ -1,5 +1,5 @@
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
-import { type ReactElement, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { NewReviewComment } from '@/components/features/review/NewReviewComment';
 import { ReviewGutterPlus } from '@/components/features/review/ReviewGutterPlus';
@@ -24,13 +24,7 @@ type Annotated =
   | { readonly kind: 'thread'; readonly thread: ReviewThread }
   | { readonly kind: 'composer'; readonly spot: ReviewSpot };
 
-export function HunkReview({
-  file,
-  hunk,
-}: {
-  file: DiffFile;
-  hunk: DiffHunk;
-}): ReactElement {
+export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
   const reviewing = useReviewing();
   const patch = patchOf(file, hunk);
   const everyThread = reviewing?.threads;
@@ -90,7 +84,7 @@ export function HunkReview({
             onPointedAt={(pointing) =>
               setPointedAt(pointing ? rangeOf(metadata.thread.root) : null)
             }
-            appear={firstSeen?.has(metadata.thread.root.id) !== true}
+            appear={!firstSeen?.has(metadata.thread.root.id)}
           />
         ) : (
           <NewReviewComment

@@ -160,12 +160,12 @@ const inboxWith = async (
 
   const tasks = new DrizzleTaskReader(
     db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     progress(),
   );
   const reader = new DrizzleInboxReader(
     db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     progress(),
   );
 
@@ -373,7 +373,7 @@ describe('the progress of a chat whose run waits to start', () => {
       items: [found],
     } = await new DrizzleChatReader(
       db,
-      partial<PersonReaderPort>({ find: () => Promise.resolve(null) }),
+      partial<PersonReaderPort>({ find: async () => null }),
       progress(),
     ).startedBy(TeamId.of('team_1'), UserId.of(viewer), FIRST_PAGE);
 
@@ -519,7 +519,7 @@ const movedOnWith = async (
 
   const reader = new DrizzleInboxReader(
     db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     progress(),
   );
   const entries = await reader.open({

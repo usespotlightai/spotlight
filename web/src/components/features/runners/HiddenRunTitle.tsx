@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   Tooltip,
   TooltipContent,
@@ -8,7 +6,7 @@ import {
 
 const STAND_IN = 'Tidy the retry handling';
 
-export function HiddenRunTitle({ tip }: { tip: string }): ReactElement {
+export function HiddenRunTitle({ tip }: { tip: string }) {
   return (
     <Tooltip>
       <TooltipTrigger

@@ -1,5 +1,5 @@
 import { LogIn } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { AddEmailDialog } from '@/components/features/emails/AddEmailDialog';
 import { EmailRow } from '@/components/features/emails/EmailRow';
@@ -13,7 +13,7 @@ import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
 import { useMyEmails } from '@/hooks/api/useMyEmails';
 import { failed, loading } from '@/lib/query';
 
-export function AccountEmails(): ReactElement {
+export function AccountEmails() {
   const emails = useMyEmails();
   const [adding, setAdding] = useState(false);
 

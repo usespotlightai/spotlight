@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import { type ReactElement, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { EditorLogo } from '@/components/features/editor/EditorLogo';
 import { EditorMenuItems } from '@/components/features/editor/EditorMenuItems';
@@ -25,10 +25,7 @@ type OpenInEditorProps = {
   target: SandboxTarget;
 };
 
-export function OpenInEditor({
-  slug,
-  target,
-}: OpenInEditorProps): ReactElement {
+export function OpenInEditor({ slug, target }: OpenInEditorProps) {
   const editor = useEditorLaunch(slug, target);
   const group = useRef<HTMLDivElement>(null);
   const app = editor.preferred;

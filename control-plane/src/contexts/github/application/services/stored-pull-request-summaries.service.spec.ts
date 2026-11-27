@@ -48,9 +48,9 @@ const summaryOf = (number: number, state: PullRequestStatus) => ({
 const holding = (...stored: readonly StoredPullRequestSummary[]) => {
   const asked: NumberedPullRequest[][] = [];
   const reader: PullRequestSummaryReaderPort = {
-    summariesOf: (_, pullRequests) => {
+    summariesOf: async (_, pullRequests) => {
       asked.push([...pullRequests]);
-      return Promise.resolve(stored);
+      return stored;
     },
   };
 

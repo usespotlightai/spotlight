@@ -3,7 +3,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 const MAX_BODY = 1_000;
 
 export class MemoryBody {
-  private readonly kind: string = 'memory-body';
+  private readonly kind = 'memory-body';
 
   private constructor(readonly value: string) {}
 
@@ -22,7 +22,7 @@ export class MemoryBody {
   }
 
   equals(other: MemoryBody): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MemoryBody && this.value === other.value;
   }
 
   toString(): string {

@@ -124,11 +124,9 @@ const driven = () =>
     });
 
 const people: PersonReaderPort = {
-  find: (id) =>
-    Promise.resolve(
-      id.value === 'user_1' ? { id, name: 'Sam Lee', image: null } : null,
-    ),
-  findMany: () => Promise.resolve(new Map()),
+  find: async (id) =>
+    id.value === 'user_1' ? { id, name: 'Sam Lee', image: null } : null,
+  findMany: async () => new Map(),
 };
 
 const resumeLine = async (
@@ -140,17 +138,15 @@ const resumeLine = async (
   let saved: Task | undefined;
   let dispatched = false;
   const tasks = partial<TaskRepository>({
-    find: vi.fn(() => Promise.resolve(found())),
-    save: vi.fn((task: Task) => {
+    find: vi.fn(async () => found()),
+    save: vi.fn(async (task: Task) => {
       saved = task;
-
-      return Promise.resolve();
     }),
   });
   const dispatch: TaskDispatching = {
-    runIdFor: () => {
+    runIdFor: async () => {
       dispatched = true;
-      return Promise.resolve(RunId.of('run_line_2'));
+      return RunId.of('run_line_2');
     },
   };
   const transaction: TransactionPort = {
@@ -160,35 +156,29 @@ const resumeLine = async (
   const lines = new LineLoader(
     workAccessSeeing(() => true),
     partial<LineMapsPort>({
-      find: () => Promise.resolve(line),
-      findByStation: () => Promise.resolve(line),
+      find: async () => line,
+      findByStation: async () => line,
     }),
   );
   const facts = {
-    of: () =>
-      Promise.resolve([
-        leasedRun({
-          runId: TURN,
-          startedFrom: {
-            archiveId: null,
-            archiveStored: false,
-            at: NOW,
-            checkouts: [{ path: '/workspace/app', commit: FIRST }],
-          },
-          endHeads: ended,
-        }),
-      ]),
+    of: async () => [
+      leasedRun({
+        runId: TURN,
+        startedFrom: {
+          archiveId: null,
+          archiveStored: false,
+          at: NOW,
+          checkouts: [{ path: '/workspace/app', commit: FIRST }],
+        },
+        endHeads: ended,
+      }),
+    ],
   };
 
   await new ResumeLineHandler(
     tasks,
     lines,
-    new LineResuming(
-      { placementsAt: () => Promise.resolve([]) },
-      facts,
-      dispatch,
-      clock,
-    ),
+    new LineResuming({ placementsAt: async () => [] }, facts, dispatch, clock),
     transaction,
     people,
   ).execute(

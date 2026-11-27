@@ -7,9 +7,7 @@ import {
   shortcutOf,
 } from '@/lib/commands/shortcuts';
 
-const runByListener = SHORTCUT_IDS.filter(
-  (id) => shortcutOf(id).focused !== true,
-);
+const runByListener = SHORTCUT_IDS.filter((id) => !shortcutOf(id).focused);
 
 const pairs = runByListener.flatMap((left, at) =>
   runByListener.slice(at + 1).map((right) => [left, right] as const),

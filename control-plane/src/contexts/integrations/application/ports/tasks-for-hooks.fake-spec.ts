@@ -1,4 +1,5 @@
 import type { LinkedTaskView } from '@integrations/application/ports/tasks-for-hooks.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -38,12 +39,9 @@ export const taskViewOf = (fields: TaskViewFields = {}): LinkedTaskView => {
     stationKey: StationKey.of(fields.stationKey ?? 'implementation'),
     marks: fields.marks ?? {},
     repositories: (fields.repositories ?? ['acme/api']).map(Repository.of),
-    pullRequests:
-      fields.pullRequest !== undefined &&
-      fields.pullRequest !== null &&
-      fields.pullRequest !== ''
-        ? [PullRequestUrl.of(fields.pullRequest)]
-        : [],
+    pullRequests: nonEmpty(fields.pullRequest)
+      ? [PullRequestUrl.of(fields.pullRequest)]
+      : [],
     runId: runId === null ? null : RunId.of(runId),
     waiting: null,
   };

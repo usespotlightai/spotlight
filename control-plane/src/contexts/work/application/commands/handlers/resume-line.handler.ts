@@ -2,6 +2,7 @@ import type { PersonReaderPort } from '@identity/application/ports/person-reader
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -60,14 +61,12 @@ export class ResumeLineHandler implements CommandHandlerPort<
       await this.resuming.resumed(task, line, {
         by: UserId.of(command.viewerId),
         next: holdEndOf(command.next),
-        to:
-          command.stationId !== null && command.stationId !== ''
-            ? StationId.of(command.stationId)
-            : null,
-        verdict:
-          command.verdict !== null && command.verdict !== ''
-            ? holdVerdictOf(command.verdict)
-            : null,
+        to: nonEmpty(command.stationId)
+          ? StationId.of(command.stationId)
+          : null,
+        verdict: nonEmpty(command.verdict)
+          ? holdVerdictOf(command.verdict)
+          : null,
         summary: command.summary,
         endingTurn: null,
       }),

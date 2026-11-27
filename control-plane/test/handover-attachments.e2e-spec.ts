@@ -39,34 +39,36 @@ const granted = new Map<string, { uploader: string; file: Attachment }>();
 const taken: string[] = [];
 
 const attachmentStore = partial<AttachmentStorePort>({
-  grant: (_workspace: unknown, uploader: UserId | RunId, file: Attachment) => {
+  grant: async (
+    _workspace: unknown,
+    uploader: UserId | RunId,
+    file: Attachment,
+  ) => {
     granted.set(file.id.value, { uploader: uploader.value, file });
-    return Promise.resolve({
+    return {
       url: `https://files.test/pending/${file.id.value}`,
       headers: { 'content-type': file.contentType },
-    });
+    };
   },
-  received: (
+  received: async (
     _workspace: unknown,
     ids: readonly AttachmentId[],
     uploadedBy?: RunId,
   ) =>
-    Promise.resolve(
-      ids.map((id) => {
-        const upload = granted.get(id.value);
+    ids.map((id) => {
+      const upload = granted.get(id.value);
 
-        if (!upload) {
-          throw new InvalidAttachmentError('was never uploaded');
-        }
-        if (uploadedBy && upload.uploader !== uploadedBy.value) {
-          throw new InvalidAttachmentError('was not uploaded by this run');
-        }
+      if (!upload) {
+        throw new InvalidAttachmentError('was never uploaded');
+      }
+      if (uploadedBy && upload.uploader !== uploadedBy.value) {
+        throw new InvalidAttachmentError('was not uploaded by this run');
+      }
 
-        return upload.file;
-      }),
-    ),
-  taken: (_workspace: unknown, files: readonly Attachment[]) =>
-    Promise.resolve(void taken.push(...files.map((each) => each.id.value))),
+      return upload.file;
+    }),
+  taken: async (_workspace: unknown, files: readonly Attachment[]) =>
+    void taken.push(...files.map((each) => each.id.value)),
 });
 
 let app: INestApplication;

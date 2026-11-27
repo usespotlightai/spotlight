@@ -1,5 +1,4 @@
 import { Inbox } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { inboxItemPath } from '@/lib/inbox';
@@ -15,12 +14,7 @@ type ReviewMarkerProps = {
   at: string;
 };
 
-export function ReviewMarker({
-  slug,
-  review,
-  runId,
-  at,
-}: ReviewMarkerProps): ReactElement {
+export function ReviewMarker({ slug, review, runId, at }: ReviewMarkerProps) {
   return (
     <li>
       <TrailLink

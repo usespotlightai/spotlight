@@ -139,7 +139,7 @@ export const repeatsByOriginal = (
 const successOf = (repeats: readonly EntryOutcome[]): number | null => {
   const judged = judgedIn(repeats);
 
-  return mean(judged.map((each) => (each.succeeded === true ? 1 : 0)));
+  return mean(judged.map((each) => (each.succeeded ? 1 : 0)));
 };
 
 interface Tally {

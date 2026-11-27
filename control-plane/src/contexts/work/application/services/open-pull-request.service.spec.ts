@@ -144,69 +144,57 @@ const opening = (
   const edited: Parameters<PullRequestPort['edit']>[0][] = [];
 
   const pullRequests = partial<PullRequestPort>({
-    open: (request: Parameters<PullRequestPort['open']>[0]) => {
+    open: async (request: Parameters<PullRequestPort['open']>[0]) => {
       if (over.connected === false) {
-        return Promise.reject(new NoGitHubInstallationError());
+        throw new NoGitHubInstallationError();
       }
       opened.push(request);
       if (stored && over.meanwhile) {
         stored = over.meanwhile(stored);
       }
-      return Promise.resolve(
-        partial<OpenedPullRequestDto>({
-          url: 'https://github.com/acme/widgets/pull/7',
-        }),
-      );
+      return partial<OpenedPullRequestDto>({
+        url: 'https://github.com/acme/widgets/pull/7',
+      });
     },
-    edit: (request: Parameters<PullRequestPort['edit']>[0]) => {
+    edit: async (request: Parameters<PullRequestPort['edit']>[0]) => {
       edited.push(request);
-
-      return Promise.resolve();
     },
-    changedOn: (...on: unknown[]) => {
+    changedOn: async (...on: unknown[]) => {
       compared.push(on);
-      return Promise.resolve([
-        'db/migrations/0042_add_index.sql',
-        'src/queue.ts',
-      ]);
+      return ['db/migrations/0042_add_index.sql', 'src/queue.ts'];
     },
   });
   const tasks = partial<TaskRepository>({
-    find: () => Promise.resolve(stored),
-    findByCorrelation: () =>
-      Promise.resolve(over.markedTask ? [over.markedTask] : []),
-    owningPullRequest: () => Promise.resolve(null),
-    reviewingPullRequest: () => Promise.resolve(null),
-    holdingMark: () => Promise.resolve([]),
-    save: (each: Task) => {
+    find: async () => stored,
+    findByCorrelation: async () => (over.markedTask ? [over.markedTask] : []),
+    owningPullRequest: async () => null,
+    reviewingPullRequest: async () => null,
+    holdingMark: async () => [],
+    save: async (each: Task) => {
       saved.push(each);
-
-      return Promise.resolve();
     },
   });
   const line = lineWorking(over.repositories ?? ['acme/widgets']);
   const service = new OpenPullRequest(
     tasks,
-    partial<LineMapsPort>({ findByStation: () => Promise.resolve(line) }),
+    partial<LineMapsPort>({ findByStation: async () => line }),
     pullRequests,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     new PullRequestOpeningHook(
       partial<TaskViewsPort>({
-        of: (taskId: string, runId: string | null) =>
-          Promise.resolve(
-            over.viewed === false
-              ? null
-              : partial<TaskViewDto>({ taskId, runId, teamId: 'team_1' }),
-          ),
+        of: async (taskId: string, runId: string | null) =>
+          over.viewed === false
+            ? null
+            : partial<TaskViewDto>({ taskId, runId, teamId: 'team_1' }),
       }),
       {
-        listens: (teamId, on) => {
+        listens: async (teamId, on) => {
           listened.push([teamId, on]);
-          return Promise.resolve(over.listening ?? true);
+          return over.listening ?? true;
         },
-        before: (_task, event) => {
+        before: async (_task, event) => {
           hookCalls.push(event);
-          return Promise.resolve(over.decision ?? { kind: 'allowed' });
+          return over.decision ?? { kind: 'allowed' };
         },
         after: async () => {},
       },

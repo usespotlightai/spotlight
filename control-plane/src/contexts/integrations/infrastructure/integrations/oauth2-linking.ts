@@ -37,6 +37,7 @@ import {
 } from '@integrations/infrastructure/integrations/oauth2-state';
 import { returnPathOf } from '@integrations/infrastructure/integrations/return-to';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -151,7 +152,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       authorize.searchParams.set('code_challenge_method', 'S256');
     }
 
-    if (oauth2.resource !== null && oauth2.resource !== '') {
+    if (nonEmpty(oauth2.resource)) {
       authorize.searchParams.set('resource', oauth2.resource);
     }
 
@@ -167,11 +168,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       return refused('state-not-accepted');
     }
 
-    if (
-      returned.nonce === null ||
-      returned.nonce === '' ||
-      !sameNonce(returned.nonce, intent.nonce)
-    ) {
+    if (!nonEmpty(returned.nonce) || !sameNonce(returned.nonce, intent.nonce)) {
       return refused('nonce-mismatch', intent);
     }
 
@@ -284,17 +281,16 @@ export class OAuth2Linking implements OAuth2LinkingPort {
   ): Promise<string> {
     const landing = returnPathOf(returnTo);
 
-    if (landing !== null && landing !== '') {
+    if (nonEmpty(landing)) {
       return `${this.base}${landing}?connected=${encodeURIComponent(integration.value)}`;
     }
 
     const team = await this.teams.find(teamId);
     const slug = team ? await this.workspaces.slugOf(team.workspaceId) : null;
 
-    const where =
-      slug !== null && slug !== ''
-        ? `${this.base}/w/${slug}/settings/team/${teamId.value}/integrations`
-        : this.base;
+    const where = nonEmpty(slug)
+      ? `${this.base}/w/${slug}/settings/team/${teamId.value}/integrations`
+      : this.base;
 
     return `${where}?connected=${encodeURIComponent(integration.value)}`;
   }

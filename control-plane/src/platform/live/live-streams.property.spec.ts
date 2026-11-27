@@ -134,7 +134,7 @@ class SteppedLog implements LiveNoticeLogPort {
     });
   }
 
-  prune(before: Date, limit: number): Promise<number> {
+  async prune(before: Date, limit: number): Promise<number> {
     const old = new Set(
       this.rows
         .filter((row) => row.recordedAt < before.getTime())
@@ -142,7 +142,7 @@ class SteppedLog implements LiveNoticeLogPort {
     );
     this.rows = this.rows.filter((row) => !old.has(row));
 
-    return Promise.resolve(old.size);
+    return old.size;
   }
 
   headOf(channel: LiveChannel): number {
@@ -450,7 +450,7 @@ class World {
     new Leadership(null, new Instance('http://10.0.0.2:3000'), logger),
     {
       now: () => new Date(this.log.now),
-      sleep: () => Promise.resolve(undefined),
+      sleep: async () => undefined,
     },
     logger,
   );
@@ -539,7 +539,7 @@ class World {
     if (event.type === 'ready') {
       const ready = readyIn([event]);
 
-      if (ready?.complete === true) {
+      if (ready?.complete) {
         for (const [channel, head] of ready.heads) {
           state.applied.set(
             channel,

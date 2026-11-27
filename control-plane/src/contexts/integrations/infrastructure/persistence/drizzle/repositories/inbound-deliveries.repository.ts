@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import {
   InboundDelivery,
   type InboundDeliveryProgress,
@@ -12,6 +11,7 @@ import { inboundDelivery } from '@integrations/infrastructure/persistence/drizzl
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray, isNull, lt, lte, or } from 'drizzle-orm';
@@ -149,11 +149,13 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
   }
 
   async current(delivery: InboundDelivery): Promise<InboundDelivery | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(inboundDelivery)
-      .where(this.keyOf(delivery))
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(inboundDelivery)
+        .where(this.keyOf(delivery))
+        .limit(1),
+    );
 
     return row ? toDelivery(row) : null;
   }

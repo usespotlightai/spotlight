@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TeamAccountButton } from '@/components/features/integrations/TeamAccountButton';
 import { YourAccountButton } from '@/components/features/integrations/YourAccountButton';
 import {
@@ -20,7 +18,7 @@ export function IntegrationNeed({
   teamId,
   admin,
   mine,
-}: IntegrationNeedProps): ReactElement | null {
+}: IntegrationNeedProps) {
   if (integration.connectionStatus === 'disconnected') {
     return admin ? (
       <TeamAccountButton integration={integration} teamId={teamId} />

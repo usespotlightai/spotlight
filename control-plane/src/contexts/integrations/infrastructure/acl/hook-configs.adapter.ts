@@ -16,6 +16,7 @@ import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo'
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { mayFireAtStation } from '@integrations/domain/value-objects/hook-match.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
@@ -35,7 +36,7 @@ const integrationsCalledBy = (
       const integration =
         'call' in step ? Tool.of(step.call).integration : null;
 
-      return integration !== null && integration !== '' ? [integration] : [];
+      return nonEmpty(integration) ? [integration] : [];
     }),
   ),
 ];

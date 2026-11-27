@@ -9,6 +9,7 @@ import type {
 } from '@memory/application/ports/work.port';
 import { MEMORY_FOLDER } from '@memory/domain/services/memory-folder';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -128,10 +129,7 @@ export class Work implements WorkPort {
       notes?.map((each) => ({
         position: each.position,
         by: each.by,
-        author:
-          each.author !== null && each.author !== ''
-            ? UserId.of(each.author)
-            : null,
+        author: nonEmpty(each.author) ? UserId.of(each.author) : null,
         text: each.text,
       })) ?? null
     );

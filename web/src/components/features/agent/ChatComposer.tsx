@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { AgentPicker } from '@/components/features/stations/AgentPicker';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
@@ -17,11 +17,7 @@ type ChatComposerProps = {
   chat: Chat;
 };
 
-export function ChatComposer({
-  slug,
-  teamId,
-  chat,
-}: ChatComposerProps): ReactElement {
+export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
   const send = useSendChatMessage();
   const { data: session } = useSession();
   const stop = useStopChat();

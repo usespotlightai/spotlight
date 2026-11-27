@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { PollCursor } from '@integrations/domain/aggregates/poll-cursor.aggregate';
 import { PollCursorVersionConflictError } from '@integrations/domain/exceptions/poll-cursor-version-conflict.error';
 import type { PollCursorRepository } from '@integrations/domain/repositories/poll-cursor.repository';
@@ -6,6 +5,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { pollCursor } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -14,16 +14,18 @@ export class DrizzlePollCursors implements PollCursorRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async of(teamId: TeamId, integration: IntegrationKey): Promise<PollCursor> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(pollCursor)
-      .where(
-        and(
-          eq(pollCursor.teamId, teamId.value),
-          eq(pollCursor.integration, integration.value),
-        ),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(pollCursor)
+        .where(
+          and(
+            eq(pollCursor.teamId, teamId.value),
+            eq(pollCursor.integration, integration.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return found
       ? PollCursor.rehydrate({

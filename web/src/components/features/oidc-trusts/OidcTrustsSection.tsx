@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { OidcTrustRow } from '@/components/features/oidc-trusts/OidcTrustRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -11,9 +9,7 @@ type OidcTrustsSectionProps = {
   slug: string | undefined;
 };
 
-export function OidcTrustsSection({
-  slug,
-}: OidcTrustsSectionProps): ReactElement {
+export function OidcTrustsSection({ slug }: OidcTrustsSectionProps) {
   const trusts = useOidcTrusts(slug);
 
   return (

@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps } from 'react';
 
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { SidebarSlide } from '@/components/shell/layout/SidebarSlide';
@@ -22,7 +22,7 @@ export function AppSidebar({
   from,
   leftAt,
   onSearch,
-}: AppSidebarProps): ReactElement {
+}: AppSidebarProps) {
   return (
     <SidebarSlide key={inSettings ? 'settings' : 'app'} from={from}>
       {inSettings ? (

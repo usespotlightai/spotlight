@@ -68,6 +68,7 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { fieldOf } from '@platform/json/field-of';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -99,7 +100,7 @@ const integrationToolCalls = (
   );
 
 const NO_LINKS = partial<InboxLinksPort>({
-  task: () => Promise.resolve('https://app.example/tasks/task_1'),
+  task: async () => 'https://app.example/tasks/task_1',
 });
 
 const NOW = new Date('2026-10-05T10:00:00.000Z');
@@ -214,8 +215,7 @@ class FakeLinear {
       this.verifiers.push(verifier);
 
       if (
-        challenge === undefined ||
-        challenge === '' ||
+        !nonEmpty(challenge) ||
         createHash('sha256').update(verifier).digest('base64url') !== challenge
       ) {
         return asJson({ error: 'invalid_grant' }, 400);
@@ -251,32 +251,26 @@ class FakeLinear {
 class InMemoryRegistrations implements OAuth2ClientRegistrationRepository {
   stored: OAuth2ClientRegistration | null = null;
 
-  of(): Promise<OAuth2ClientRegistration | null> {
-    return Promise.resolve(this.stored);
+  async of(): Promise<OAuth2ClientRegistration | null> {
+    return this.stored;
   }
 
-  save(registration: OAuth2ClientRegistration): Promise<void> {
+  async save(registration: OAuth2ClientRegistration): Promise<void> {
     if (registration.isNew && this.stored) {
-      return Promise.reject(
-        new OAuth2ClientRegistrationVersionConflictError(
-          registration.integration.value,
-        ),
+      throw new OAuth2ClientRegistrationVersionConflictError(
+        registration.integration.value,
       );
     }
 
     this.stored = registration;
-
-    return Promise.resolve();
   }
 
-  ofTeam(): Promise<readonly OAuth2ClientRegistration[]> {
-    return Promise.resolve(this.stored ? [this.stored] : []);
+  async ofTeam(): Promise<readonly OAuth2ClientRegistration[]> {
+    return this.stored ? [this.stored] : [];
   }
 
-  remove(): Promise<void> {
+  async remove(): Promise<void> {
     this.stored = null;
-
-    return Promise.resolve();
   }
 }
 
@@ -294,15 +288,14 @@ const TASK: IntegrationTaskViewDto = {
 };
 
 const TEAMS = {
-  find: (id: TeamId) =>
-    Promise.resolve({
-      id,
-      workspaceId: WorkspaceId.of('ws_1'),
-      key: 'platform',
-      name: 'Platform',
-      members: [],
-    }),
-  inWorkspace: () => Promise.resolve([]),
+  find: async (id: TeamId) => ({
+    id,
+    workspaceId: WorkspaceId.of('ws_1'),
+    key: 'platform',
+    name: 'Platform',
+    members: [],
+  }),
+  inWorkspace: async () => [],
 } satisfies TeamDirectoryPort;
 
 const HASH = ContentHash.of('e'.repeat(64));
@@ -373,12 +366,11 @@ const settingUp = ({
     });
   }
   const definitions = {
-    ofTeam: () =>
-      Promise.resolve([
-        generated
-          ? defined(GENERATED, { hash: HASH.value, tools: ['linear.issue'] })
-          : defined(DEFINITION),
-      ]),
+    ofTeam: async () => [
+      generated
+        ? defined(GENERATED, { hash: HASH.value, tools: ['linear.issue'] })
+        : defined(DEFINITION),
+    ],
   };
   const operations = operationsContaining(
     SpecDocument.read({
@@ -405,7 +397,7 @@ const settingUp = ({
     clock,
     CALLBACK,
     quiet,
-    { sentTo: () => Promise.resolve('unused') },
+    { sentTo: async () => 'unused' },
   );
   const exchange = new OAuth2Exchange(policy, clock, linear.fetch);
   const runtime = new CompiledIntegrationRuntime(
@@ -418,12 +410,10 @@ const settingUp = ({
     exchange,
     blocked
       ? partial<OAuth2Discovery>({
-          endpoints: () => {
-            return Promise.reject(
-              new EgressBlockedError(
-                'linear.app',
-                "Host is not on the workspace's allowed list.",
-              ),
+          endpoints: async () => {
+            throw new EgressBlockedError(
+              'linear.app',
+              "Host is not on the workspace's allowed list.",
             );
           },
         })
@@ -448,8 +438,7 @@ const settingUp = ({
       connections,
       TEAMS,
       partial<WorkspaceAccessPort>({
-        inWorkspaceOfTeam: () =>
-          Promise.resolve(partial<TeamWorkspaceMembership>({})),
+        inWorkspaceOfTeam: async () => partial<TeamWorkspaceMembership>({}),
       }),
       injecting().injection,
       new InjectedCallCredentials(injecting().injection),
@@ -466,9 +455,9 @@ const settingUp = ({
     clients,
     exchange,
     TEAMS,
-    partial<WorkspaceReaderPort>({ slugOf: () => Promise.resolve('acme') }),
+    partial<WorkspaceReaderPort>({ slugOf: async () => 'acme' }),
     new OAuth2State('a-secret'),
-    { spend: () => Promise.resolve(true) },
+    { spend: async () => true },
     clock,
     'https://app.example',
     CALLBACK,

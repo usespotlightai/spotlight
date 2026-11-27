@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
 import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
@@ -17,7 +15,7 @@ export function InboxItemFooter({
   slug,
   item,
   progress,
-}: InboxItemFooterProps): ReactElement {
+}: InboxItemFooterProps) {
   const { station, task } = useTaskStation(item.teamId, item.taskId);
 
   if (!item.resolved && !item.answerable && followed(item)) {

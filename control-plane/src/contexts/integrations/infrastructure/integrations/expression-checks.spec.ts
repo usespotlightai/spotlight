@@ -11,6 +11,7 @@ import {
 import { PIECE } from '@integrations/infrastructure/integrations/templating';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
@@ -327,7 +328,7 @@ describe('a position that names no expression', () => {
 
 describe('the check and the compiler', () => {
   const doubted = (message: string, suggestion: string | null) =>
-    suggestion !== null && suggestion !== ''
+    nonEmpty(suggestion)
       ? `does not check: ${message}. Did you mean ${suggestion}?`
       : `does not check: ${message}`;
 

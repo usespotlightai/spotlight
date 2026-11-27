@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { DraggableInboxEntry } from '@/components/features/inbox/DraggableInboxEntry';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
@@ -23,7 +23,7 @@ export function InboxSection({
   open,
   onToggle,
   after,
-}: InboxSectionProps): ReactElement {
+}: InboxSectionProps) {
   return (
     <>
       <DisclosureRow

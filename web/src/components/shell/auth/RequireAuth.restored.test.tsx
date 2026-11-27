@@ -48,9 +48,9 @@ const saved = (): PersistedClient => {
 };
 
 const persisterWith = (client: PersistedClient | undefined): Persister => ({
-  persistClient: () => Promise.resolve(),
-  restoreClient: () => Promise.resolve(client),
-  removeClient: () => Promise.resolve(),
+  persistClient: async () => {},
+  restoreClient: async () => client,
+  removeClient: async () => {},
 });
 
 const reload = (client: PersistedClient | undefined) =>

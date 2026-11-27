@@ -6,7 +6,7 @@ import type { ClaimsRevisionId } from '@insights/domain/value-objects/claims-rev
  * and is retried is a new round, so it orders new sessions and reserves its judge calls again.
  */
 export class ClaimsRevisionRound {
-  private readonly kind: string = 'claims-revision-round';
+  private readonly kind = 'claims-revision-round';
 
   private constructor(
     readonly revisionId: ClaimsRevisionId,
@@ -28,7 +28,7 @@ export class ClaimsRevisionRound {
 
   equals(other: ClaimsRevisionRound): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof ClaimsRevisionRound &&
       this.revisionId.equals(other.revisionId) &&
       this.attempt === other.attempt
     );

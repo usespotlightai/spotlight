@@ -1,4 +1,5 @@
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -236,7 +237,7 @@ export const ReactionFor = {
   },
 
   opening(input: { line: LineMap; opens: OpensWith }): Opening | null {
-    if (input.line.role?.equals(input.opens.lineRole) !== true) {
+    if (!input.line.role?.equals(input.opens.lineRole)) {
       return null;
     }
 
@@ -257,10 +258,9 @@ export const ReactionFor = {
     return {
       at,
       title: TaskTitle.clamp(input.opens.title || first.value),
-      description:
-        input.opens.description !== null && input.opens.description !== ''
-          ? TaskDescription.clamp(input.opens.description)
-          : null,
+      description: nonEmpty(input.opens.description)
+        ? TaskDescription.clamp(input.opens.description)
+        : null,
       marks: input.opens.marks,
     };
   },

@@ -81,9 +81,7 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
 
   async of(id: WorkingCopyArchiveId): Promise<ArchiveDue | null> {
     const row = firstOf(
-      await this.selected()
-        .where(eq(workingCopyArchive.id, id.value))
-        .limit(1),
+      await this.selected().where(eq(workingCopyArchive.id, id.value)).limit(1),
     );
 
     return row ? dueOf(row) : null;

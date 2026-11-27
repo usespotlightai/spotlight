@@ -1,4 +1,5 @@
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { NumberedProposal } from '@work/domain/aggregates/chat.aggregate';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 
@@ -37,7 +38,7 @@ export class ChatReply {
     return new ChatReply(
       trimmed,
       isProposalDecision(decision) ? decision : null,
-      number !== undefined && number !== '' ? Number(number) : null,
+      nonEmpty(number) ? Number(number) : null,
     );
   }
 

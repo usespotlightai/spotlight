@@ -47,6 +47,7 @@ import { UpstreamError } from '@shared-kernel/application/errors/upstream.error'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -63,9 +64,7 @@ const receivedIn = (
   delivered: Delivered,
   header: string | null,
 ): string | undefined =>
-  header === null || header === ''
-    ? undefined
-    : headed(delivered.headers, header);
+  !nonEmpty(header) ? undefined : headed(delivered.headers, header);
 
 const rawOf = (delivered: Delivered): Buffer => {
   if (delivered.raw === null) {
@@ -154,7 +153,7 @@ export class WebhookRuntime implements WebhookProviderPort {
   ): Promise<boolean> {
     const received = receivedIn(delivered, auth.header);
 
-    if (received === undefined || received === '') {
+    if (!nonEmpty(received)) {
       return false;
     }
 
@@ -169,7 +168,7 @@ export class WebhookRuntime implements WebhookProviderPort {
   ): Promise<boolean> {
     const received = receivedIn(delivered, auth.header);
 
-    if (received === undefined || received === '') {
+    if (!nonEmpty(received)) {
       return false;
     }
 
@@ -197,12 +196,7 @@ export class WebhookRuntime implements WebhookProviderPort {
     const raw = this.templated(auth.key, delivered);
     const received = receivedIn(delivered, auth.header);
 
-    if (
-      raw === null ||
-      raw === '' ||
-      received === undefined ||
-      received === ''
-    ) {
+    if (!nonEmpty(raw) || !nonEmpty(received)) {
       return false;
     }
 
@@ -239,7 +233,7 @@ export class WebhookRuntime implements WebhookProviderPort {
     const carried = headed(delivered.headers, auth.header ?? 'authorization');
     const token = carried?.replace(/^Bearer\s+/i, '');
 
-    if (token === undefined || token === '') {
+    if (!nonEmpty(token)) {
       return false;
     }
 
@@ -292,18 +286,13 @@ export class WebhookRuntime implements WebhookProviderPort {
     }
 
     if (
-      auth.audience !== null &&
-      auth.audience !== '' &&
+      nonEmpty(auth.audience) &&
       !within(fieldOf(payload, 'aud'), auth.audience)
     ) {
       return false;
     }
 
-    return (
-      auth.issuer === null ||
-      auth.issuer === '' ||
-      fieldOf(payload, 'iss') === auth.issuer
-    );
+    return !nonEmpty(auth.issuer) || fieldOf(payload, 'iss') === auth.issuer;
   }
 
   private fresh(auth: AuthIR, delivered: Delivered): boolean {
@@ -359,8 +348,8 @@ export class WebhookRuntime implements WebhookProviderPort {
     );
   }
 
-  routes(): Promise<WorkspaceId | null> {
-    return Promise.resolve(this.workspaceId);
+  async routes(): Promise<WorkspaceId | null> {
+    return this.workspaceId;
   }
 
   async read(delivered: Delivered): Promise<readonly Happened[]> {

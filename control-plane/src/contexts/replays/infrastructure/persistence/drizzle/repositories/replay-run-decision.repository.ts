@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
@@ -11,6 +10,8 @@ import {
   replay,
   replayRunDecision,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -30,7 +31,7 @@ const toDecision = (row: DecisionRow): ReplayRunDecision =>
     unreplayableReason: row.unreplayableReason,
     trial: row.movesOnAfter
       ? {
-          fingerprint: row.trialFingerprint !== null && row.trialFingerprint !== ''
+          fingerprint: nonEmpty(row.trialFingerprint)
             ? StationFingerprint.of(row.trialFingerprint)
             : null,
           movesOnAfter: MovesOnWords.of(row.movesOnAfter),
@@ -47,16 +48,16 @@ const columnsOf = (decision: ReplayRunDecision) => ({
 });
 
 @Injectable()
-export class DrizzleReplayRunDecisionRepository
-  implements ReplayRunDecisionRepository
-{
+export class DrizzleReplayRunDecisionRepository implements ReplayRunDecisionRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async find(runId: RunId): Promise<ReplayRunDecision | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(replayRunDecision)
-      .where(eq(replayRunDecision.runId, runId.value)));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(replayRunDecision)
+        .where(eq(replayRunDecision.runId, runId.value)),
+    );
 
     return found ? toDecision(found) : null;
   }

@@ -3,7 +3,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 /** One try at judging two runs' changes side by side. A try that failed and is retried is a new round with new sessions. */
 export class SideBySideJudgingRound {
-  private readonly kind: string = 'side-by-side-judging-round';
+  private readonly kind = 'side-by-side-judging-round';
 
   private constructor(
     readonly runId: RunId,
@@ -31,7 +31,7 @@ export class SideBySideJudgingRound {
 
   equals(other: SideBySideJudgingRound): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof SideBySideJudgingRound &&
       this.runId.equals(other.runId) &&
       this.otherRunId.equals(other.otherRunId) &&
       this.attempt === other.attempt

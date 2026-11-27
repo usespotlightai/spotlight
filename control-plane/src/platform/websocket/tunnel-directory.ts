@@ -28,10 +28,10 @@ export const NO_TUNNEL_DIRECTORY: TunnelDirectory = {
   claimPeer: async () => {},
   renewPeer: async () => {},
   releasePeer: async () => {},
-  ownerOfPeer: () => Promise.resolve(null),
+  ownerOfPeer: async () => null,
   claimStream: async () => {},
-  ownerOfStream: () => Promise.resolve(null),
-  ask: () => Promise.resolve(false),
+  ownerOfStream: async () => null,
+  ask: async () => false,
   onAsk: () => {},
   stopAsking: async () => {},
 };

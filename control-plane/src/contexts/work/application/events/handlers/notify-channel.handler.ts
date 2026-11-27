@@ -137,7 +137,7 @@ export class NotifyChannel implements RunEndingReactions {
   private async fromChannel(chatId: ChatId | null): Promise<Chat | null> {
     const chat = chatId ? await this.chats.find(chatId) : null;
 
-    return chat?.fromChannel === true ? chat : null;
+    return chat?.fromChannel ? chat : null;
   }
 
   private async listed(

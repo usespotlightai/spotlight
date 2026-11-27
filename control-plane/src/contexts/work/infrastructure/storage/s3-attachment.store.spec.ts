@@ -17,15 +17,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: vi.fn(
-    (
+    async (
       _client: unknown,
       command: {
         input: { Key?: string; ResponseContentDisposition?: string };
       },
     ) =>
-      Promise.resolve(
-        `signed ${command.input.Key} ${command.input.ResponseContentDisposition}`,
-      ),
+      `signed ${command.input.Key} ${command.input.ResponseContentDisposition}`,
   ),
 }));
 
@@ -69,25 +67,25 @@ const bucketWith = (
   failing: Error[] = [],
   prefix?: string,
 ) => {
-  const send = vi.fn((command: Command) => {
+  const send = vi.fn(async (command: Command) => {
     if (command instanceof HeadObjectCommand) {
       if (keys.includes(command.input.Key ?? '')) {
-        return Promise.resolve(headOutput());
+        return headOutput();
       }
-      return Promise.reject(notThere());
+      throw notThere();
     }
     if (command instanceof CopyObjectCommand) {
       const source = command.input.CopySource?.replace(/^files\//, '') ?? '';
       if (keys.includes(source)) {
-        return Promise.resolve({});
+        return {};
       }
-      return Promise.reject(notThere());
+      throw notThere();
     }
     const failure = failing.shift();
     if (failure) {
-      return Promise.reject(failure);
+      throw failure;
     }
-    return Promise.resolve({});
+    return {};
   });
   const store = partial<S3Client>({ send });
 
@@ -254,12 +252,12 @@ describe('S3AttachmentStore', () => {
     it('is content with a pending copy another message moved meanwhile', async () => {
       const keys = [PENDING];
       const { send, store } = bucketWith(keys);
-      send.mockImplementationOnce(() => {
-        return Promise.reject(notThere());
+      send.mockImplementationOnce(async () => {
+        throw notThere();
       });
-      send.mockImplementationOnce(() => {
+      send.mockImplementationOnce(async () => {
         keys.splice(0, 1, STORED);
-        return Promise.reject(notThere());
+        throw notThere();
       });
 
       await expect(store.taken(WORKSPACE, [FILE])).resolves.toBeUndefined();

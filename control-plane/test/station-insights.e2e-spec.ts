@@ -137,42 +137,37 @@ const endedRun = (
 };
 
 const work: WorkPort = {
-  endedRun: (runId) => Promise.resolve(ended.get(runId.value) ?? null),
-  taskRunOf: (runId) => {
+  endedRun: async (runId) => ended.get(runId.value) ?? null,
+  taskRunOf: async (runId) => {
     const run = ended.get(runId.value);
 
-    return Promise.resolve(
-      run
-        ? {
-            runId,
-            workspaceId: run.workspaceId,
-            taskId: run.taskId,
-            teamId: run.teamId,
-          }
-        : null,
-    );
+    return run
+      ? {
+          runId,
+          workspaceId: run.workspaceId,
+          taskId: run.taskId,
+          teamId: run.teamId,
+        }
+      : null;
   },
-  unfinishedRuns: () => Promise.resolve([]),
-  traced: () =>
-    Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
-  configsInOrder: (fingerprints) =>
-    Promise.resolve(
-      fingerprints.map((fingerprint, index) => ({
-        ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
-        changes:
-          index > 0 && fingerprints[index - 1] !== fingerprint
-            ? [
-                {
-                  part: 'model',
-                  name: null,
-                  kind: 'changed' as const,
-                  was: fingerprints[index - 1] === SONNET ? 'sonnet' : 'opus',
-                  now: fingerprint === SONNET ? 'sonnet' : 'opus',
-                },
-              ]
-            : [],
-      })),
-    ),
+  unfinishedRuns: async () => [],
+  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+  configsInOrder: async (fingerprints) =>
+    fingerprints.map((fingerprint, index) => ({
+      ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
+      changes:
+        index > 0 && fingerprints[index - 1] !== fingerprint
+          ? [
+              {
+                part: 'model',
+                name: null,
+                kind: 'changed' as const,
+                was: fingerprints[index - 1] === SONNET ? 'sonnet' : 'opus',
+                now: fingerprint === SONNET ? 'sonnet' : 'opus',
+              },
+            ]
+          : [],
+    })),
 };
 
 let database: TestDatabase;
@@ -278,7 +273,7 @@ beforeAll(async () => {
   recorder = new FactRecorder(deletions);
   subscribers = insightsSubscribers({
     waking: partial<WorkJudgings>({
-      sessionSettled: () => Promise.resolve(undefined),
+      sessionSettled: async () => undefined,
     }),
     ending: new RecordRunEnding(work, records, recorder, context),
     superseding: new RecordSupersededRun(records, recorder, context),
@@ -306,12 +301,12 @@ beforeAll(async () => {
     judging: new RequestJudging(
       work,
       {
-        hasTask: () => Promise.resolve(true),
-        of: () => Promise.resolve(null),
+        hasTask: async () => true,
+        of: async () => null,
       },
       {
-        judgesOnTeam: () => Promise.resolve(new Map()),
-        judgeAt: () => Promise.resolve(null),
+        judgesOnTeam: async () => new Map(),
+        judgeAt: async () => null,
       },
       judgings,
       recorder,
@@ -331,8 +326,8 @@ beforeAll(async () => {
     shaping: new RecordChangeShape(work, shapes, recorder, context),
     watching: new WatchStations(
       {
-        teamRepositories: () => Promise.resolve([]),
-        alertsAt: () => Promise.resolve(null),
+        teamRepositories: async () => [],
+        alertsAt: async () => null,
       },
       { facts: stationFacts, alertStates },
       recorder,
@@ -350,13 +345,11 @@ beforeAll(async () => {
   });
   listing = new ReadStationInsightsHandler(
     new InsightsAccess({
-      namesOf: () => Promise.resolve(new Map()),
-      viewerOf: (_teamId, principal) =>
-        Promise.resolve(
-          principal.userId.equals(UserId.of('user_ada'))
-            ? { workspaceId: WorkspaceId.of(WORKSPACE), by: principal.userId }
-            : null,
-        ),
+      namesOf: async () => new Map(),
+      viewerOf: async (_teamId, principal) =>
+        principal.userId.equals(UserId.of('user_ada'))
+          ? { workspaceId: WorkspaceId.of(WORKSPACE), by: principal.userId }
+          : null,
     }),
     stationFacts,
     configPullRequests,

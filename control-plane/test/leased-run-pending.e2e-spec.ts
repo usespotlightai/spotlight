@@ -37,7 +37,7 @@ beforeAll(async () => {
     partial<RunsPort>({}),
     new DrizzleTaskRepository(context, NO_EVENTS),
     new DrizzleChatRepository(context, NO_EVENTS),
-    partial<LineMapsPort>({ findByStation: () => Promise.resolve(null) }),
+    partial<LineMapsPort>({ findByStation: async () => null }),
     new DrizzleDispatchRepository(context, NO_EVENTS),
     partial<RepositorySettingsPort>({}),
     { now: () => new Date(), sleep: async () => {} },

@@ -4,6 +4,7 @@ import type {
   PermissionKindShape,
 } from '@runs/application/contracts/harness-profile.contract';
 import { BuiltInHarnesses } from '@runs/infrastructure/harnesses/built-in-harnesses';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -38,14 +39,8 @@ const prepared = (
   chosen: { model?: string; effort?: string } = {},
 ) => {
   const ready = harnesses.preparedFor(HarnessId.of(harness), {
-    model:
-      chosen.model !== undefined && chosen.model !== ''
-        ? HarnessModel.of(chosen.model)
-        : null,
-    effort:
-      chosen.effort !== undefined && chosen.effort !== ''
-        ? Effort.of(chosen.effort)
-        : null,
+    model: nonEmpty(chosen.model) ? HarnessModel.of(chosen.model) : null,
+    effort: nonEmpty(chosen.effort) ? Effort.of(chosen.effort) : null,
     profile: { ...shape, key: ProfileKey.of(shape.key), injectedSecrets: [] },
   });
 

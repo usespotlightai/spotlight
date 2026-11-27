@@ -16,7 +16,7 @@ describe('OtelTelemetry', () => {
     const seen = await new OtelTelemetry().inSpan(
       'Judging runs',
       { runId: 'r-1', taskId: undefined },
-      () => Promise.resolve(logContext()),
+      async () => logContext(),
     );
 
     expect(seen).toEqual({ runId: 'r-1' });
@@ -27,9 +27,7 @@ describe('OtelTelemetry', () => {
     const spans = new OtelTelemetry();
 
     const seen = await spans.inSpan('outer', { teamId: 't-1' }, () =>
-      spans.inSpan('inner', { runId: 'r-1' }, () =>
-        Promise.resolve(logContext()),
-      ),
+      spans.inSpan('inner', { runId: 'r-1' }, async () => logContext()),
     );
 
     expect(seen).toEqual({ teamId: 't-1', runId: 'r-1' });
@@ -39,8 +37,8 @@ describe('OtelTelemetry', () => {
     const failure = new Error('judge is down');
 
     await expect(
-      new OtelTelemetry().inSpan('Judging runs', {}, () => {
-        return Promise.reject(failure);
+      new OtelTelemetry().inSpan('Judging runs', {}, async () => {
+        throw failure;
       }),
     ).rejects.toBe(failure);
   });

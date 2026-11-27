@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { SETUP_CONTROL } from '@/components/features/onboarding/setup-control';
@@ -21,10 +21,7 @@ type ConfigFolderFormProps = {
   teamId: string;
 };
 
-export function ConfigFolderForm({
-  slug,
-  teamId,
-}: ConfigFolderFormProps): ReactElement {
+export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
   const navigate = useNavigate();
   const trail = useForwardTrail();
   const { data: repositories } = useRepositories(slug);

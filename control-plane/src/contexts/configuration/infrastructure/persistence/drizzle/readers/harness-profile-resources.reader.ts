@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   HarnessProfileRecord,
   HarnessProfileResourcesPort,
@@ -8,6 +7,7 @@ import { storedProfileOf } from '@configuration/infrastructure/persistence/drizz
 import { harnessProfile } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
@@ -22,9 +22,7 @@ const recordFrom = (found: ProfileRow): HarnessProfileRecord => ({
 });
 
 @Injectable()
-export class DrizzleHarnessProfileResources
-  implements HarnessProfileResourcesPort
-{
+export class DrizzleHarnessProfileResources implements HarnessProfileResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
   withId(id: HarnessProfileId): Promise<HarnessProfileRecord | null> {
@@ -52,11 +50,9 @@ export class DrizzleHarnessProfileResources
   private async stored(
     where: SQL | undefined,
   ): Promise<HarnessProfileRecord | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(harnessProfile)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db.select().from(harnessProfile).where(where).limit(1),
+    );
 
     return found ? recordFrom(found) : null;
   }

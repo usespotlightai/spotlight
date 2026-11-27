@@ -23,6 +23,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import IORedis from 'ioredis';
 import { WebSocketServer } from 'ws';
 import { type Doc, encodeStateAsUpdate } from 'yjs';
@@ -88,15 +89,14 @@ export class CollabServer
     @Inject(ENV) env: Env,
     @Inject(LOGGER) private readonly logger: LoggerPort,
   ) {
-    const extensions: Extension[] =
-      env.REDIS_URL !== undefined && env.REDIS_URL !== ''
-        ? [
-            new Redis({
-              createClient: () => new IORedis(env.REDIS_URL ?? ''),
-              prefix: 'spotlight-collab',
-            }),
-          ]
-        : [];
+    const extensions: Extension[] = nonEmpty(env.REDIS_URL)
+      ? [
+          new Redis({
+            createClient: () => new IORedis(env.REDIS_URL ?? ''),
+            prefix: 'spotlight-collab',
+          }),
+        ]
+      : [];
 
     this.hocuspocus = new Hocuspocus<Admitted>({
       quiet: true,

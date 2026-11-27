@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import type { TrendPoint } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
 
@@ -18,11 +16,7 @@ const summaryOf = (trend: readonly TrendPoint[]): string => {
     : 'No runs per day';
 };
 
-export function DailyRunBars({
-  trend,
-}: {
-  trend: readonly TrendPoint[];
-}): ReactElement {
+export function DailyRunBars({ trend }: { trend: readonly TrendPoint[] }) {
   const max = Math.max(...trend.map((each) => each.runs), 1);
   const step = WIDTH / Math.max(trend.length, 1);
   const bar = Math.max(step - GAP, 1);

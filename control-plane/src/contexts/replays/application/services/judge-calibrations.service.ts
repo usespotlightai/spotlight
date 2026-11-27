@@ -28,7 +28,7 @@ export class JudgeCalibrations {
     );
     const rubricVersion = live?.scoring.rubricVersion ?? null;
 
-    if (live?.scoring.judges !== true || rubricVersion === null) {
+    if (!live?.scoring.judges || rubricVersion === null) {
       return null;
     }
 

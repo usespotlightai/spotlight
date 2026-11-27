@@ -239,7 +239,7 @@ export class RunnerHost extends EventRecorder {
   }
 
   private recordReadyOnFirstHarness(before: RunnerHost | null): RunnerHost {
-    if (this.supportsAHarness && before?.supportsAHarness !== true) {
+    if (this.supportsAHarness && !before?.supportsAHarness) {
       this.record(new HostBecameReady(this.state.id, this.state.workspaceId));
     }
 

@@ -23,13 +23,12 @@ const IMAGE = 'ghcr.io/acme/runner:main';
 const POOL_TOKEN = `${'a'.repeat(8)}${randomUUID().replaceAll('-', '')}`;
 
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({
-      bytes: new Uint8Array([7, 7, 7]),
-      contentType: 'image/png',
-    }),
+  received: async () => [],
+  taken: async () => undefined,
+  open: async () => ({
+    bytes: new Uint8Array([7, 7, 7]),
+    contentType: 'image/png',
+  }),
 });
 
 let app: INestApplication;

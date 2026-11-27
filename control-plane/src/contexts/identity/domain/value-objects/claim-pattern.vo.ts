@@ -5,7 +5,7 @@ const LONGEST = 255;
 const WILDCARD = '*';
 
 export class ClaimPattern {
-  private readonly kind: string = 'claim-pattern';
+  private readonly kind = 'claim-pattern';
 
   private constructor(readonly value: string) {}
 
@@ -64,7 +64,7 @@ export class ClaimPattern {
   }
 
   equals(other: ClaimPattern): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ClaimPattern && this.value === other.value;
   }
 
   toString(): string {

@@ -1,20 +1,20 @@
-import { Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
-import { ENV } from "@platform/config/config.constants";
-import { ConfigModule } from "@platform/config/config.module";
-import { LoggingModule } from "@platform/logging/logging.module";
+import { Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
+import { ENV } from '@platform/config/config.constants';
+import { ConfigModule } from '@platform/config/config.module';
+import { LoggingModule } from '@platform/logging/logging.module';
 import {
   createDatabase,
   createPool,
   createReadPool,
-} from "@platform/persistence/drizzle/drizzle.client";
+} from '@platform/persistence/drizzle/drizzle.client';
 import {
   DRIZZLE,
   PG_POOL,
   READ_DRIZZLE,
   READ_PG_POOL,
-} from "@platform/persistence/drizzle/drizzle.constants";
-import { LOGGER } from "@shared-kernel/application/ports/logger.port";
-import type { Pool } from "pg";
+} from '@platform/persistence/drizzle/drizzle.constants';
+import { LOGGER } from '@shared-kernel/application/ports/logger.port';
+import type { Pool } from 'pg';
 
 @Module({
   imports: [ConfigModule, LoggingModule],

@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
@@ -56,8 +57,7 @@ const waiting = (
     task: {
       running: true,
       pending: {
-        assignee:
-          assignee !== null && assignee !== '' ? UserId.of(assignee) : null,
+        assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
         ask,
       },
     },
@@ -80,10 +80,10 @@ const reading = (found: TeamRunSummary): RunReaderPort => ({
 
 const access = (standing: TeamStanding) =>
   new RunAccess(
-    partial<ChatReaderPort>({ ownershipOf: () => Promise.resolve(null) }),
+    partial<ChatReaderPort>({ ownershipOf: async () => null }),
     partial<WorkAccess>({
-      seesWorkspaceOfTeam: () => Promise.resolve(standing.seesTasks),
-      standingOn: () => Promise.resolve(standing),
+      seesWorkspaceOfTeam: async () => standing.seesTasks,
+      standingOn: async () => standing,
     }),
   );
 

@@ -33,15 +33,14 @@ export function useToggleFocus({
       return;
     }
 
-    if (hidden && paneRef.current?.contains(active) === true) {
+    if (hidden && paneRef.current?.contains(active)) {
       restoreRef.current = active;
       toggleRef.current?.focus();
     } else if (opened && !reachable && active === toggleRef.current) {
       const aside = asideRef.current;
-      const restore =
-        restoreRef.current?.isConnected === true
-          ? restoreRef.current
-          : aside?.querySelector<HTMLElement>('a[href]');
+      const restore = restoreRef.current?.isConnected
+        ? restoreRef.current
+        : aside?.querySelector<HTMLElement>('a[href]');
       (restore ?? aside)?.focus();
     }
   }, [hidden, opened, reachable, paneRef, asideRef, toggleRef]);

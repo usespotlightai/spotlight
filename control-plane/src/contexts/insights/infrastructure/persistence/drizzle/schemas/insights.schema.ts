@@ -204,18 +204,15 @@ export const runRecord = pgTable(
       .$type<StoredDismissal[]>()
       .notNull()
       .default([]),
-    memories: jsonb('memories')
-      .$type<StoredMemories>()
-      .notNull()
-      .default({
-        briefed: [],
-        cut: [],
-        read: [],
-        recalled: [],
-        delivered: [],
-        cutThenRead: [],
-        used: false,
-      }),
+    memories: jsonb('memories').$type<StoredMemories>().notNull().default({
+      briefed: [],
+      cut: [],
+      read: [],
+      recalled: [],
+      delivered: [],
+      cutThenRead: [],
+      used: false,
+    }),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -337,10 +334,7 @@ export const taskAction = pgTable(
     openedById: text('opened_by_id'),
     openedAt: timestamptz('opened_at'),
     asks: jsonb('asks').$type<StoredAsk[]>().notNull().default([]),
-    actions: jsonb('actions')
-      .$type<StoredTaskAction[]>()
-      .notNull()
-      .default([]),
+    actions: jsonb('actions').$type<StoredTaskAction[]>().notNull().default([]),
     lastActionAt: timestamptz('last_action_at'),
     version: integer('version').notNull().default(0),
   },

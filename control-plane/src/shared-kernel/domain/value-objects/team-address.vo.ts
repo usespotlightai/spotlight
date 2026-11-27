@@ -11,7 +11,7 @@ const invalid = (): never => {
 };
 
 export class TeamAddress {
-  private readonly kind: string = 'team-address';
+  private readonly kind = 'team-address';
 
   private constructor(
     readonly teamKey: string,
@@ -34,7 +34,7 @@ export class TeamAddress {
 
   equals(other: TeamAddress): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof TeamAddress &&
       this.teamKey === other.teamKey &&
       this.key === other.key
     );

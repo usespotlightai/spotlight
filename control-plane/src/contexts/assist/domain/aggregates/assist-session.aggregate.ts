@@ -9,6 +9,7 @@ import type { AssistState } from '@assist/domain/value-objects/assist-state.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -55,7 +56,7 @@ const isSettled = (progress: AssistProgress): boolean =>
   progress.status === 'submitted' || progress.status === 'failed';
 
 const modelOf = ({ harness, model }: AssistHarness): string =>
-  model !== null && model !== '' ? `${harness}/${model}` : harness;
+  nonEmpty(model) ? `${harness}/${model}` : harness;
 
 export class AssistSession extends EventRecorder {
   private constructor(private readonly fields: AssistSessionFields) {

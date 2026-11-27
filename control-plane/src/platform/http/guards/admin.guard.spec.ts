@@ -9,6 +9,7 @@ import type { Env } from '@platform/config/env.schema';
 import { ADMIN_ONLY } from '@platform/http/decorators/admin-only.decorator';
 import { AdminGuard } from '@platform/http/guards/admin.guard';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -25,10 +26,9 @@ function setup(options: {
   );
   const env = partial<Env>({ SPOTLIGHT_ADMIN_TOKEN: options.configured });
   const request = {
-    headers:
-      options.authorization !== undefined && options.authorization !== ''
-        ? { authorization: options.authorization }
-        : {},
+    headers: nonEmpty(options.authorization)
+      ? { authorization: options.authorization }
+      : {},
   };
   const context: ExecutionContext = new ExecutionContextHost([request]);
 

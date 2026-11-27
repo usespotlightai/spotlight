@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { memoryPath } from '@/lib/memory';
 
@@ -15,7 +13,7 @@ export function MemoryHandleLink({
   teamId,
   memoryId,
   handle,
-}: MemoryHandleLinkProps): ReactElement {
+}: MemoryHandleLinkProps) {
   return (
     <TrailLink
       to={memoryPath(slug, teamId, memoryId)}

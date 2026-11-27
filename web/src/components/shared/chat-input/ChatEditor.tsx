@@ -11,7 +11,7 @@ import {
   defineExtension,
   type LexicalEditor,
 } from 'lexical';
-import { type RefObject, useState, type ReactElement } from 'react';
+import { type RefObject, useState } from 'react';
 
 import { EditorHandle } from '@/components/shared/chat-input/EditorHandle';
 import {
@@ -53,7 +53,7 @@ export function ChatEditor({
   onWritten,
   shared,
   cursors,
-}: ChatEditorProps): ReactElement {
+}: ChatEditorProps) {
   const [extension] = useState(() =>
     defineExtension({
       name: '@spotlight/chat-input',

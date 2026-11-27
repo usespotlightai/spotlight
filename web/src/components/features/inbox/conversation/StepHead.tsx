@@ -1,5 +1,4 @@
 import { ChevronRight } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import type { ShownStep } from '@/lib/journal-step';
 import { cn } from '@/lib/utils';
@@ -18,7 +17,7 @@ export function StepHead({
   failed,
   open,
   expandable,
-}: StepHeadProps): ReactElement {
+}: StepHeadProps) {
   return (
     <>
       <span className={cn('min-w-0 flex-1 truncate', running && 'step-shine')}>

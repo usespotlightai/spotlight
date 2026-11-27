@@ -51,6 +51,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface Redirectable extends CookieJar {
   redirect(url: string): void;
@@ -160,22 +161,17 @@ export class OAuth2ConnectionController {
     const nonce = this.nonceCookie.readFrom(request.headers);
     this.nonceCookie.clear(response);
 
-    if (error !== undefined && error !== '') {
+    if (nonEmpty(error)) {
       this.failed(response, 'provider-error', error);
       return;
     }
 
-    if (
-      state === undefined ||
-      state === '' ||
-      code === undefined ||
-      code === ''
-    ) {
+    if (!nonEmpty(state) || !nonEmpty(code)) {
       this.failed(response, 'incomplete-callback');
       return;
     }
 
-    if (nonce === null || nonce === '') {
+    if (!nonEmpty(nonce)) {
       this.failed(response, 'no-nonce-cookie');
       return;
     }
@@ -202,9 +198,7 @@ export class OAuth2ConnectionController {
       {
         reason,
         providerError:
-          error !== undefined && error !== '' && OAUTH2_ERROR_CODE.test(error)
-            ? error
-            : undefined,
+          nonEmpty(error) && OAUTH2_ERROR_CODE.test(error) ? error : undefined,
       },
       'Did not finish an OAuth2 connection',
     );

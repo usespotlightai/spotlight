@@ -184,7 +184,7 @@ export class ClaimReviewWork implements ReviewWorkPort {
         StackCheckId.of(ChangeStackId.of(work.id.value), work.recheck),
       );
 
-      if (existing?.beingCheckedBy(runner, now) !== true) {
+      if (!existing?.beingCheckedBy(runner, now)) {
         return;
       }
 
@@ -239,10 +239,7 @@ export class ClaimReviewWork implements ReviewWorkPort {
         StackCheckId.of(ChangeStackId.of(work.id.value), work.recheck),
       );
 
-      if (
-        check?.beingCheckedBy(runner, now) !== true ||
-        !check.checkableAt(now)
-      ) {
+      if (!check?.beingCheckedBy(runner, now) || !check.checkableAt(now)) {
         return 'stop';
       }
 

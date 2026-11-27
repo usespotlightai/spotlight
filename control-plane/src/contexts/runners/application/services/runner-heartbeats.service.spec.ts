@@ -26,7 +26,7 @@ const setUp = (runner: Runner | null) => {
     save,
     heartbeats: new RunnerHeartbeats(
       partial<RunnerRepository>({
-        find: vi.fn(() => Promise.resolve(runner)),
+        find: vi.fn(async () => runner),
         save,
       }),
     ),

@@ -5,11 +5,7 @@ import { useDesktopHandoff } from '@/hooks/useDesktopHandoff';
 import { openInDesktop } from '@/lib/desktop';
 import { nonEmpty } from '@/lib/non-empty';
 
-export function DesktopHandoff({
-  children,
-}: {
-  children: ReactNode;
-}): ReactNode {
+export function DesktopHandoff({ children }: { children: ReactNode }) {
   const { link, stayHere } = useDesktopHandoff();
 
   if (!nonEmpty(link)) {

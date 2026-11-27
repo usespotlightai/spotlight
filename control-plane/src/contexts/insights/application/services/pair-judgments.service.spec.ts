@@ -51,19 +51,17 @@ const judging = async (
   const requests: SideBySideJudgeRequest[] = [];
   const judgments = new PairJudgments(
     {
-      hasTask: () => Promise.resolve(true),
-      of: (runId) => Promise.resolve(evidence[runId.value] ?? null),
+      hasTask: async () => true,
+      of: async (runId) => evidence[runId.value] ?? null,
     },
     {
-      judgePair: (request) => {
+      judgePair: async (request) => {
         requests.push(request);
         const verdict = answer(request);
 
-        return Promise.resolve(
-          'status' in verdict
-            ? verdict
-            : { status: 'judged', model: 'some/model', verdict },
-        );
+        return 'status' in verdict
+          ? verdict
+          : { status: 'judged', model: 'some/model', verdict };
       },
       roundOf: () => ROUND,
     },

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
@@ -11,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { STICKY_AT_TOP } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-export function ConversationSkeleton(): ReactElement {
+export function ConversationSkeleton() {
   return (
     <>
       <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">

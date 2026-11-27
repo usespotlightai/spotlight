@@ -29,7 +29,7 @@ export class GrantWorkingCopyArchiveHandler implements CommandHandlerPort<
       const runner = RunnerId.of(command.runnerId);
       const run = await this.runs.findById(RunId.of(command.runId));
 
-      if (run?.isLeasedBy(runner) !== true) {
+      if (!run?.isLeasedBy(runner)) {
         return null;
       }
 

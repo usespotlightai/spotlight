@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class RotationVersion {
-  private readonly kind: string = 'rotation-version';
+  private readonly kind = 'rotation-version';
 
   private constructor(readonly value: number | null) {}
 
@@ -21,6 +21,6 @@ export class RotationVersion {
   }
 
   equals(other: RotationVersion): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof RotationVersion && this.value === other.value;
   }
 }

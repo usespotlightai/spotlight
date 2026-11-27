@@ -19,7 +19,7 @@ export class OrderTaskRun {
   async on(event: TaskRunAssigned): Promise<void> {
     const task = await this.tasks.find(event.taskId);
 
-    if (task?.hasCurrentRun(event.runId) !== true) {
+    if (!task?.hasCurrentRun(event.runId)) {
       return;
     }
 

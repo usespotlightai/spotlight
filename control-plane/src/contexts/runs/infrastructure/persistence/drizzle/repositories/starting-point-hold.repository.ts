@@ -14,9 +14,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, asc, eq } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleStartingPointHoldRepository
-  implements StartingPointHoldRepository
-{
+export class DrizzleStartingPointHoldRepository implements StartingPointHoldRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async find(holder: HoldHolder): Promise<StartingPointHold | null> {

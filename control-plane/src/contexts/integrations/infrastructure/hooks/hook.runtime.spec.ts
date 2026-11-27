@@ -79,10 +79,10 @@ const setUp = (document: Record<string, unknown> = DOCUMENT) => {
     version: 1,
   };
   const hooks = {
-    listening: vi.fn((_team: TeamId, on: string) =>
-      Promise.resolve(on === 'tool.used' ? [definition] : []),
+    listening: vi.fn(async (_team: TeamId, on: string) =>
+      on === 'tool.used' ? [definition] : [],
     ),
-    withId: vi.fn(() => Promise.resolve(definition)),
+    withId: vi.fn(async () => definition),
   };
 
   return {

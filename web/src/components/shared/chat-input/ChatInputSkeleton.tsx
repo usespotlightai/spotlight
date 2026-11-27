@@ -1,5 +1,4 @@
 import { ArrowUp, Plus } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   ONE_LINE,
@@ -9,11 +8,7 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { cn } from '@/lib/utils';
 
-export function ChatInputSkeleton({
-  placeholder,
-}: {
-  placeholder: string;
-}): ReactElement {
+export function ChatInputSkeleton({ placeholder }: { placeholder: string }) {
   return (
     <div className="flex flex-col gap-1.5">
       <div

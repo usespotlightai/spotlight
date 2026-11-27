@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ClosedChatInput } from '@/components/shared/chat-input/ClosedChatInput';
@@ -28,7 +26,7 @@ export function ClosedTaskComposer({
   placeholder,
   because,
   stopRunId = null,
-}: ClosedTaskComposerProps): ReactElement {
+}: ClosedTaskComposerProps) {
   const { line, station: current } = useTaskStation(teamId, taskId);
   const stop = useStopRun();
   const agent = line?.stations.find((each) => each.name === station) ?? current;

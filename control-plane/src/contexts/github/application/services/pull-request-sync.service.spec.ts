@@ -59,93 +59,82 @@ class PullRequestsInMemory implements PullRequestRepository {
     return this.rows.get(url.value) ?? null;
   }
 
-  numbered(_: WorkspaceId, __: Repository, number: number) {
-    return Promise.resolve(
-      [...this.rows.values()].find((each) => each.number === number) ?? null,
+  async numbered(_: WorkspaceId, __: Repository, number: number) {
+    return (
+      [...this.rows.values()].find((each) => each.number === number) ?? null
     );
   }
 
-  titled(_: WorkspaceId, __: Repository, title: string) {
-    return Promise.resolve(
-      [...this.rows.values()].filter((each) => each.title === title),
-    );
+  async titled(_: WorkspaceId, __: Repository, title: string) {
+    return [...this.rows.values()].filter((each) => each.title === title);
   }
 
-  lastUpdatedBefore(before: Date, after: PullRequest | null, max: number) {
-    return Promise.resolve(
-      [...this.rows.values()]
-        .filter(
-          (each) =>
-            (each.closedAt ?? each.updatedAt).getTime() < before.getTime(),
-        )
-        .sort(
-          (a, b) =>
-            a.updatedAt.getTime() - b.updatedAt.getTime() ||
-            a.url.value.localeCompare(b.url.value),
-        )
-        .filter(
-          (each) =>
-            !after ||
-            each.updatedAt.getTime() > after.updatedAt.getTime() ||
-            (each.updatedAt.getTime() === after.updatedAt.getTime() &&
-              each.url.value > after.url.value),
-        )
-        .slice(0, max),
-    );
+  async lastUpdatedBefore(
+    before: Date,
+    after: PullRequest | null,
+    max: number,
+  ) {
+    return [...this.rows.values()]
+      .filter(
+        (each) =>
+          (each.closedAt ?? each.updatedAt).getTime() < before.getTime(),
+      )
+      .sort(
+        (a, b) =>
+          a.updatedAt.getTime() - b.updatedAt.getTime() ||
+          a.url.value.localeCompare(b.url.value),
+      )
+      .filter(
+        (each) =>
+          !after ||
+          each.updatedAt.getTime() > after.updatedAt.getTime() ||
+          (each.updatedAt.getTime() === after.updatedAt.getTime() &&
+            each.url.value > after.url.value),
+      )
+      .slice(0, max);
   }
 
-  ofWorkspace(
+  async ofWorkspace(
     workspaceId: WorkspaceId,
     after: PullRequestUrl | null,
     max: number,
   ) {
-    return Promise.resolve(
-      [...this.rows.values()]
-        .filter((each) => each.workspaceId.equals(workspaceId))
-        .sort((a, b) => a.url.value.localeCompare(b.url.value))
-        .filter((each) => !after || each.url.value > after.value)
-        .slice(0, max),
-    );
+    return [...this.rows.values()]
+      .filter((each) => each.workspaceId.equals(workspaceId))
+      .sort((a, b) => a.url.value.localeCompare(b.url.value))
+      .filter((each) => !after || each.url.value > after.value)
+      .slice(0, max);
   }
 
-  lockedAt(workspaceId: WorkspaceId, url: PullRequestUrl) {
-    return Promise.resolve(this.at(workspaceId, url));
+  async lockedAt(workspaceId: WorkspaceId, url: PullRequestUrl) {
+    return this.at(workspaceId, url);
   }
 
-  lockedUnlessBusy(workspaceId: WorkspaceId, url: PullRequestUrl) {
-    return Promise.resolve(this.at(workspaceId, url));
+  async lockedUnlessBusy(workspaceId: WorkspaceId, url: PullRequestUrl) {
+    return this.at(workspaceId, url);
   }
 
-  add(pullRequest: PullRequest) {
+  async add(pullRequest: PullRequest) {
     if (this.rows.has(pullRequest.url.value)) {
-      return Promise.reject(
-        new PullRequestVersionConflictError(pullRequest.url.value),
-      );
+      throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     this.stored(pullRequest);
-    return Promise.resolve();
   }
 
-  save(pullRequest: PullRequest) {
+  async save(pullRequest: PullRequest) {
     if (this.collisions > 0) {
       this.collisions -= 1;
-      return Promise.reject(
-        new PullRequestVersionConflictError(pullRequest.url.value),
-      );
+      throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     if (this.rows.get(pullRequest.url.value)?.version !== pullRequest.version) {
-      return Promise.reject(
-        new PullRequestVersionConflictError(pullRequest.url.value),
-      );
+      throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     this.stored(pullRequest);
-    return Promise.resolve();
   }
 
-  remove(pullRequest: PullRequest) {
+  async remove(pullRequest: PullRequest) {
     this.rows.delete(pullRequest.url.value);
     this.dispatched.push(...pullRequest.pullEvents());
-    return Promise.resolve();
   }
 
   private stored(pullRequest: PullRequest) {
@@ -191,26 +180,23 @@ class ConnectionsInMemory implements GitHubConnectionRepository {
   });
   readonly dispatched: DomainEvent[] = [];
 
-  of() {
-    return Promise.resolve(this.connection);
+  async of() {
+    return this.connection;
   }
 
-  connectedWorkspaceOf(installation: GitHubInstallation) {
-    return Promise.resolve(
-      this.connection.installation?.equals(installation) === true
-        ? this.connection.workspaceId
-        : null,
-    );
+  async connectedWorkspaceOf(installation: GitHubInstallation) {
+    return this.connection.installation?.equals(installation)
+      ? this.connection.workspaceId
+      : null;
   }
 
   async lockedConnectedWorkspaceOf(installation: GitHubInstallation) {
     return this.connectedWorkspaceOf(installation);
   }
 
-  save(connection: GitHubConnection) {
+  async save(connection: GitHubConnection) {
     this.dispatched.push(...connection.pullEvents());
     this.connection = connection;
-    return Promise.resolve();
   }
 }
 
@@ -452,12 +438,11 @@ describe('PullRequestSync', () => {
       snapshotOf(8, { updatedAt: new Date(NOW.getTime() - 170 * DAY) }),
     );
     const failing = Object.assign(pullRequests, {
-      remove: (pullRequest: PullRequest) => {
+      remove: async (pullRequest: PullRequest) => {
         if (pullRequest.number === 7) {
-          return Promise.reject(new Error('Database went away'));
+          throw new Error('Database went away');
         }
         pullRequests.rows.delete(pullRequest.url.value);
-        return Promise.resolve();
       },
     });
     const { service: later, logged } = syncAt(
@@ -519,12 +504,11 @@ describe('PullRequestSync', () => {
     await service.updateDetails(FROM, snapshotOf(7));
     await service.updateDetails(FROM, snapshotOf(8));
     Object.assign(pullRequests, {
-      remove: (pullRequest: PullRequest) => {
+      remove: async (pullRequest: PullRequest) => {
         if (pullRequest.number === 7) {
-          return Promise.reject(new Error('Database went away'));
+          throw new Error('Database went away');
         }
         pullRequests.rows.delete(pullRequest.url.value);
-        return Promise.resolve();
       },
     });
 
@@ -546,12 +530,11 @@ describe('PullRequestSync', () => {
       );
     }
     Object.assign(pullRequests, {
-      remove: (pullRequest: PullRequest) => {
+      remove: async (pullRequest: PullRequest) => {
         if (pullRequest.number <= 200) {
-          return Promise.reject(new Error('Database went away'));
+          throw new Error('Database went away');
         }
         pullRequests.rows.delete(pullRequest.url.value);
-        return Promise.resolve();
       },
     });
 

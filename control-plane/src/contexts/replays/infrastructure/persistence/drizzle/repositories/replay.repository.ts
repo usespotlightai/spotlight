@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -55,6 +54,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -127,7 +128,9 @@ const measuresOf = (row: EntryRow): EntryMeasures | null => {
     steps: row.steps,
     changedLines: row.changedLines,
     cost:
-      row.costAmount !== null && row.costCurrency !== null && row.costCurrency !== ''
+      row.costAmount !== null &&
+      row.costCurrency !== null &&
+      row.costCurrency !== ''
         ? Money.of(row.costAmount, row.costCurrency)
         : null,
     tokens: {
@@ -159,7 +162,7 @@ const judgingOf = (stored: StoredEntryJudging | null): EntryJudging | null => {
     return EntryJudging.judged(JudgeVerdict.of(stored.verdict));
   }
 
-  return stored.unjudged !== null && stored.unjudged !== ''
+  return nonEmpty(stored.unjudged)
     ? EntryJudging.failed(unjudgedOf(stored.unjudged))
     : EntryJudging.requested();
 };
@@ -223,10 +226,10 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     original: RunId.of(row.originalRunId),
     taskId: TaskId.of(row.taskId),
     repeat: row.repeat,
-    run: row.runId !== null && row.runId !== '' ? RunId.of(row.runId) : null,
+    run: nonEmpty(row.runId) ? RunId.of(row.runId) : null,
     slot: row.slot,
     queued: row.queued,
-    fingerprint: row.fingerprint !== null && row.fingerprint !== ''
+    fingerprint: nonEmpty(row.fingerprint)
       ? StationFingerprint.of(row.fingerprint)
       : null,
     queueAttempts: row.queueAttempts,
@@ -277,13 +280,13 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
       : null,
     repeats: row.repeats,
     calibration: row.calibration,
-    referenceReplayId: row.referenceReplayId !== null && row.referenceReplayId !== ''
+    referenceReplayId: nonEmpty(row.referenceReplayId)
       ? ReplayId.of(row.referenceReplayId)
       : null,
-    pairwiseReferenceId: row.pairwiseReferenceId !== null && row.pairwiseReferenceId !== ''
+    pairwiseReferenceId: nonEmpty(row.pairwiseReferenceId)
       ? ReplayId.of(row.pairwiseReferenceId)
       : null,
-    searchId: row.searchId !== null && row.searchId !== '' ? SearchId.of(row.searchId) : null,
+    searchId: nonEmpty(row.searchId) ? SearchId.of(row.searchId) : null,
     state: row.state,
     entries: entries
       .filter((each) => each.replayId === row.id)
@@ -370,14 +373,16 @@ export class DrizzleReplayRepository implements ReplayRepository {
   }
 
   async ranAs(run: RunId): Promise<Replay | null> {
-    const found = firstOf(await this.withEntries(
-      exists(
-        this.context.db
-          .select({ one: replayEntry.position })
-          .from(replayEntry)
-          .where(and(ofThisReplay, eq(replayEntry.runId, run.value))),
+    const found = firstOf(
+      await this.withEntries(
+        exists(
+          this.context.db
+            .select({ one: replayEntry.position })
+            .from(replayEntry)
+            .where(and(ofThisReplay, eq(replayEntry.runId, run.value))),
+        ),
       ),
-    ));
+    );
 
     return found ?? null;
   }
@@ -560,7 +565,9 @@ export class DrizzleReplayRepository implements ReplayRepository {
       });
   }
 
-  private async withEntries(where: SQL | undefined): Promise<readonly Replay[]> {
+  private async withEntries(
+    where: SQL | undefined,
+  ): Promise<readonly Replay[]> {
     return this.hydrated(
       await this.context.db
         .select()

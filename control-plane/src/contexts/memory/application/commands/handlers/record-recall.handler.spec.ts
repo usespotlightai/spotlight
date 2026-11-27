@@ -61,20 +61,17 @@ const handler = (run: LeasedRun) => {
   const recording = new RecordRecallHandler(
     new RunnerMemoryLoader(
       partial<WorkPort>({
-        leasedBy: () => Promise.resolve(run),
+        leasedBy: async () => run,
       }),
     ),
     partial<MemoryRepository>({
-      findAll: (ids: readonly MemoryId[]) =>
-        Promise.resolve(
-          memories.filter((each) => ids.some((id) => id.equals(each.id))),
-        ),
+      findAll: async (ids: readonly MemoryId[]) =>
+        memories.filter((each) => ids.some((id) => id.equals(each.id))),
     }),
     new RecordMemoryUses(
       partial<MemoryUsesPort>({
-        record: (uses: MemoryUses) => {
+        record: async (uses: MemoryUses) => {
           recorded.push(uses.memories.map((each) => each.value));
-          return Promise.resolve();
         },
       }),
       { inTransaction: (work) => work() },

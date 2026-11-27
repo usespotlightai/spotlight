@@ -1,4 +1,4 @@
-import { type ReactElement, useRef } from 'react';
+import { useRef } from 'react';
 
 import {
   HOST_COLUMNS,
@@ -20,7 +20,7 @@ export function HostHead({
   onPin,
   onResize,
   onReset,
-}: HostHeadProps): ReactElement {
+}: HostHeadProps) {
   const row = useRef<HTMLDivElement>(null);
   const pin = () =>
     onPin(

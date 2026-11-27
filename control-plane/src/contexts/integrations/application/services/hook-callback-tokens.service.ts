@@ -67,8 +67,6 @@ export class HookCallbackTokens {
       TokenHash.of(this.issuer.hash(token)),
     );
 
-    return callbackToken?.isValidAt(this.clock.now()) === true
-      ? callbackToken
-      : null;
+    return callbackToken?.isValidAt(this.clock.now()) ? callbackToken : null;
   }
 }

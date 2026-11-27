@@ -1,4 +1,4 @@
-import { type ReactElement, use } from 'react';
+import { use } from 'react';
 import { useLocation } from 'react-router';
 
 import { DecisionButton } from '@/components/shared/DecisionButton';
@@ -44,7 +44,7 @@ export function ConnectionCard({
   teamId,
   viewer,
   outdated = false,
-}: ConnectionCardProps): ReactElement {
+}: ConnectionCardProps) {
   const { pathname } = useLocation();
   const connect = useConnectIntegration(teamId);
   const theirs = viewer === connection.personId;

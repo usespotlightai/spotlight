@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
@@ -33,7 +31,7 @@ export function WorldMessage({
   authors,
   source,
   deferredTo,
-}: WorldMessageProps): ReactElement {
+}: WorldMessageProps) {
   const from = source?.name ?? null;
   const signed = from !== null || authors.length > 0;
 

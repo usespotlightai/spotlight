@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type { MemberLookupPort } from '@identity/application/ports/member-lookup.port';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
@@ -7,6 +6,7 @@ import { workspaceMember } from '@identity/infrastructure/persistence/drizzle/sc
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
@@ -32,11 +32,13 @@ export class DrizzleMemberDirectory
   }
 
   async emailsOf(userId: UserId): Promise<readonly string[]> {
-    const primary = firstOf(await this.db
-      .select({ email: user.email })
-      .from(user)
-      .where(eq(user.id, userId.value))
-      .limit(1));
+    const primary = firstOf(
+      await this.db
+        .select({ email: user.email })
+        .from(user)
+        .where(eq(user.id, userId.value))
+        .limit(1),
+    );
     const verified = await this.db
       .select({ email: userEmail.email })
       .from(userEmail)
@@ -67,31 +69,33 @@ export class DrizzleMemberDirectory
       return null;
     }
 
-    const found = firstOf(await this.db
-      .select({ id: user.id })
-      .from(workspaceMember)
-      .innerJoin(user, eq(user.id, workspaceMember.userId))
-      .where(
-        and(
-          eq(workspaceMember.workspaceId, workspaceId.value),
-          activeOnly ? isNull(workspaceMember.suspendedAt) : undefined,
-          or(
-            sql`lower(${user.email}) = lower(${wanted})`,
-            sql`exists (${this.db
-              .select({ one: sql`1` })
-              .from(userEmail)
-              .where(
-                and(
-                  eq(userEmail.userId, user.id),
-                  isNotNull(userEmail.verifiedAt),
-                  sql`lower(${userEmail.email}) = lower(${wanted})`,
-                ),
-              )})`,
+    const found = firstOf(
+      await this.db
+        .select({ id: user.id })
+        .from(workspaceMember)
+        .innerJoin(user, eq(user.id, workspaceMember.userId))
+        .where(
+          and(
+            eq(workspaceMember.workspaceId, workspaceId.value),
+            activeOnly ? isNull(workspaceMember.suspendedAt) : undefined,
+            or(
+              sql`lower(${user.email}) = lower(${wanted})`,
+              sql`exists (${this.db
+                .select({ one: sql`1` })
+                .from(userEmail)
+                .where(
+                  and(
+                    eq(userEmail.userId, user.id),
+                    isNotNull(userEmail.verifiedAt),
+                    sql`lower(${userEmail.email}) = lower(${wanted})`,
+                  ),
+                )})`,
+            ),
           ),
-        ),
-      )
-      .orderBy(sql`lower(${user.email}) = lower(${wanted}) desc`)
-      .limit(1));
+        )
+        .orderBy(sql`lower(${user.email}) = lower(${wanted}) desc`)
+        .limit(1),
+    );
 
     return found ? UserId.of(found.id) : null;
   }

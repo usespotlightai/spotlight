@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { InboxEmpty } from '@/components/features/inbox/InboxEmpty';
@@ -8,7 +7,7 @@ import { useInbox } from '@/hooks/api/useInbox';
 import { nonEmpty } from '@/lib/non-empty';
 import { failed } from '@/lib/query';
 
-export function InboxIndex(): ReactElement | null {
+export function InboxIndex() {
   const { slug } = useParams();
   const inbox = useInbox(slug);
 

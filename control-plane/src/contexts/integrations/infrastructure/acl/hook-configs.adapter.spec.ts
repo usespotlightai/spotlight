@@ -24,26 +24,24 @@ const storedOf = (written: Record<string, unknown>) => {
 const configsOf = (definition: Readonly<Record<string, unknown>>) =>
   new HookConfigs(
     {
-      withId: () =>
-        Promise.resolve({
-          id: 'hook_1',
-          teamId: TEAM,
-          key: 'dba',
-          version: 1,
-          written: writtenHookDocumentOf('dba', definition),
-        }),
-      at: () => Promise.resolve(null),
-      ofTeam: () => Promise.resolve([]),
+      withId: async () => ({
+        id: 'hook_1',
+        teamId: TEAM,
+        key: 'dba',
+        version: 1,
+        written: writtenHookDocumentOf('dba', definition),
+      }),
+      at: async () => null,
+      ofTeam: async () => [],
     } satisfies HookResourcesPort,
     partial<TeamDirectoryPort>({
-      find: () =>
-        Promise.resolve({
-          id: TEAM,
-          key: 'core',
-          name: 'Core',
-          workspaceId: WorkspaceId.of('workspace_1'),
-          members: [],
-        }),
+      find: async () => ({
+        id: TEAM,
+        key: 'core',
+        name: 'Core',
+        workspaceId: WorkspaceId.of('workspace_1'),
+        members: [],
+      }),
     }),
   );
 
@@ -149,17 +147,16 @@ describe('HookConfigs.mayFireAt', () => {
   });
   const configs = new HookConfigs(
     {
-      withId: () => Promise.resolve(null),
-      at: () => Promise.resolve(null),
-      ofTeam: () =>
-        Promise.resolve([
-          recordOf('everywhere', {}),
-          recordOf('on-build', { lines: ['delivery'], stations: ['build'] }),
-          recordOf('on-review', { stations: ['code-review'] }),
-          recordOf('other-line', { lines: ['incident'] }),
-        ]),
+      withId: async () => null,
+      at: async () => null,
+      ofTeam: async () => [
+        recordOf('everywhere', {}),
+        recordOf('on-build', { lines: ['delivery'], stations: ['build'] }),
+        recordOf('on-review', { stations: ['code-review'] }),
+        recordOf('other-line', { lines: ['incident'] }),
+      ],
     } satisfies HookResourcesPort,
-    partial<TeamDirectoryPort>({ find: () => Promise.resolve(null) }),
+    partial<TeamDirectoryPort>({ find: async () => null }),
   );
 
   it('names the live and planned hooks that may fire at a station, with the integrations they call', async () => {

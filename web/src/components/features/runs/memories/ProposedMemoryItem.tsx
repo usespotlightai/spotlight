@@ -1,5 +1,4 @@
 import { Inbox } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { MemoryCard } from '@/components/features/runs/memories/MemoryCard';
 import { MemoryHandleLink } from '@/components/features/runs/memories/MemoryHandleLink';
@@ -20,7 +19,7 @@ export function ProposedMemoryItem({
   teamId,
   proposal,
   reviewItemId,
-}: ProposedMemoryItemProps): ReactElement {
+}: ProposedMemoryItemProps) {
   const waiting = proposal.state === 'proposed' && reviewItemId;
 
   return (

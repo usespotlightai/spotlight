@@ -6,6 +6,7 @@ import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   DOTTED_NAME,
   INTEGRATION_KEY_SHAPE,
@@ -405,29 +406,17 @@ const connectionSchema = z.object({
             .optional(),
         })
         .strict()
-        .refine(
-          (oauth2) =>
-            !(
-              oauth2.client &&
-              oauth2.registration !== undefined &&
-              oauth2.registration !== ''
-            ),
-          {
-            path: ['client'],
-            message:
-              'names its own client, so it registers none: remove registration or client',
-          },
-        )
+        .refine((oauth2) => !(oauth2.client && nonEmpty(oauth2.registration)), {
+          path: ['client'],
+          message:
+            'names its own client, so it registers none: remove registration or client',
+        })
         .refine(
           (oauth2) =>
             oauth2.pkce ||
             (oauth2.client
-              ? !(
-                  oauth2.client.secret === undefined ||
-                  oauth2.client.secret === ''
-                )
-              : oauth2.registration === undefined ||
-                oauth2.registration === ''),
+              ? nonEmpty(oauth2.client.secret)
+              : !nonEmpty(oauth2.registration)),
           {
             path: ['pkce'],
             message:

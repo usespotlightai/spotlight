@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { StationAttention } from '@/components/features/stations/activity/StationAttention';
@@ -21,7 +20,7 @@ export function StationActivity({
   teamId,
   line,
   station,
-}: StationActivityProps): ReactElement {
+}: StationActivityProps) {
   const [params] = useSearchParams();
   const period = activityPeriodOf(params);
   const at = { slug, teamId, lineId: line.id, stationId: station.id };

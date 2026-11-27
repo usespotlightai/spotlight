@@ -46,16 +46,14 @@ const permissions = (allowed: boolean): WorkspacePermissions => ({
 const kept = () => {
   const stored = new Map<string, OidcTrust>();
   const trusts = partial<OidcTrustRepository>({
-    add: (trust: OidcTrust) => {
+    add: async (trust: OidcTrust) => {
       stored.set(trust.key.value, trust);
-      return Promise.resolve();
     },
-    save: (trust: OidcTrust) => {
+    save: async (trust: OidcTrust) => {
       stored.set(trust.key.value, trust);
-      return Promise.resolve();
     },
-    findByKey: (_: WorkspaceId, key: { value: string }) =>
-      Promise.resolve(stored.get(key.value) ?? null),
+    findByKey: async (_: WorkspaceId, key: { value: string }) =>
+      stored.get(key.value) ?? null,
   });
 
   return { stored, trusts };
@@ -66,14 +64,14 @@ const trusting = (admin = true) => {
   let next = 0;
   const service = new GitHubActionsTrusts(
     partial<WorkspaceAccessPort>({
-      permissionsIn: () => Promise.resolve(permissions(admin)),
+      permissionsIn: async () => permissions(admin),
     }),
     trusts,
     { generate: () => `trust_${++next}` },
     { inTransaction: (work) => work() },
     {
       now: () => new Date('2026-10-26T10:00:00Z'),
-      sleep: () => Promise.resolve(undefined),
+      sleep: async () => undefined,
     },
   );
 

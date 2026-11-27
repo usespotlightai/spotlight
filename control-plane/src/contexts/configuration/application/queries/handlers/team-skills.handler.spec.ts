@@ -32,19 +32,17 @@ const GRAFANA: ReadSkillFolder = {
 const listing = (teamId = 'team_1') =>
   new TeamSkillsHandler(
     partial<WorkspaceAccessPort>({
-      inWorkspaceOfTeam: vi.fn((id: TeamId) =>
-        Promise.resolve(
-          id.value === 'team_1'
-            ? partial<TeamWorkspaceMembership>({
-                teamId: TeamId.of('team_1'),
-                workspaceId: WorkspaceId.of('ws_1'),
-              })
-            : null,
-        ),
+      inWorkspaceOfTeam: vi.fn(async (id: TeamId) =>
+        id.value === 'team_1'
+          ? partial<TeamWorkspaceMembership>({
+              teamId: TeamId.of('team_1'),
+              workspaceId: WorkspaceId.of('ws_1'),
+            })
+          : null,
       ),
     }),
     partial<TeamSkillReading>({
-      of: vi.fn(() => Promise.resolve([GRAFANA])),
+      of: vi.fn(async () => [GRAFANA]),
     }),
   ).execute(new TeamSkillsQuery(teamId, 'user_1'));
 

@@ -29,17 +29,13 @@ const keyOf = (...parts: Parameters<AvatarImagesPort['read']>) =>
   `${parts[0].toString()}/${parts[1].value}`;
 
 const images: AvatarImagesPort = {
-  put: (owner, imageId, image) =>
-    Promise.resolve(
-      void stored.set(keyOf(owner, imageId), {
-        bytes: image.bytes,
-        contentType: image.contentType,
-      }),
-    ),
-  read: (owner, imageId) =>
-    Promise.resolve(stored.get(keyOf(owner, imageId)) ?? null),
-  remove: (owner, imageId) =>
-    Promise.resolve(void stored.delete(keyOf(owner, imageId))),
+  put: async (owner, imageId, image) =>
+    void stored.set(keyOf(owner, imageId), {
+      bytes: image.bytes,
+      contentType: image.contentType,
+    }),
+  read: async (owner, imageId) => stored.get(keyOf(owner, imageId)) ?? null,
+  remove: async (owner, imageId) => void stored.delete(keyOf(owner, imageId)),
   removeAllOfTeam: async () => {},
   removeAllIn: async () => {},
 };
@@ -133,7 +129,7 @@ describe('avatars (e2e)', () => {
     await as(seat.owner)
       .get(second ?? '')
       .expect(200);
-    await eventually(() => Promise.resolve(stored.size === 2));
+    await eventually(async () => stored.size === 2);
   });
 
   it('writes nothing when the image is the one shown', async () => {
@@ -174,6 +170,6 @@ describe('avatars (e2e)', () => {
 
     const team = firstOf((await workspaceOf(seat.owner)).teams);
     expect(team?.avatarUrl).toBeNull();
-    await eventually(() => Promise.resolve(stored.size === 1));
+    await eventually(async () => stored.size === 1);
   });
 });

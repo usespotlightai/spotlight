@@ -78,6 +78,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -196,7 +197,7 @@ export const changeReviewSubscribers = (
     'change-review.signal-reviewed',
     [DISPATCH_ENDED],
     (event) =>
-      event.taskId !== null && event.taskId !== ''
+      nonEmpty(event.taskId)
         ? signalling.signal(TaskId.of(event.taskId))
         : Promise.resolve(),
     { callsOut: true },
@@ -216,10 +217,7 @@ export const changeReviewSubscribers = (
         pullRequest: PullRequestUrl.of(event.pullRequest),
         repository: Repository.of(event.repository),
         merge: event.merged ? { commit: event.mergeCommit } : null,
-        closedAt:
-          event.closedAt !== null && event.closedAt !== ''
-            ? new Date(event.closedAt)
-            : null,
+        closedAt: nonEmpty(event.closedAt) ? new Date(event.closedAt) : null,
       }),
   ),
   subscribing<ChangeStackCompleted>(
@@ -380,10 +378,9 @@ export const changeReviewSubscribers = (
           body: event.body,
           inReplyToId: event.inReplyToId,
           login: event.login,
-          writtenAt:
-            event.writtenAt !== null && event.writtenAt !== ''
-              ? new Date(event.writtenAt)
-              : null,
+          writtenAt: nonEmpty(event.writtenAt)
+            ? new Date(event.writtenAt)
+            : null,
         },
       }),
   ),

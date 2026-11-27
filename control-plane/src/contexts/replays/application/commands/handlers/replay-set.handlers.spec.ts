@@ -214,7 +214,7 @@ describe('KeepReplaySets', () => {
   it('keeps no set for a station whose team is gone', async () => {
     await keeping({
       ...peopleWho(true),
-      teamKey: () => Promise.resolve(null),
+      teamKey: async () => null,
     }).onRunEnded(STATION.stationId.value, STATION.workspaceId, false);
 
     expect(memory.sets.size).toBe(0);
@@ -281,7 +281,7 @@ describe('RefreshReplaySets', () => {
     suppliers.trialableRuns.recent = [recent('run_1')];
     const repository = {
       ...memory.setRepository,
-      atLiveStationsRefreshedBefore: () => Promise.resolve([fresh]),
+      atLiveStationsRefreshedBefore: async () => [fresh],
     };
 
     await new RefreshReplaySets(

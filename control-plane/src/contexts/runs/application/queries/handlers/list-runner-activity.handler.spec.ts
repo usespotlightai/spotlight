@@ -60,37 +60,33 @@ const LAST_RUNS: WorkingCopyRunRow[] = [
 ];
 
 const listing = (member: boolean) => {
-  const leasedIn = vi.fn(() => Promise.resolve(LEASED));
-  const lastRunsOf = vi.fn(() => Promise.resolve(LAST_RUNS));
-  const idleIn = vi.fn(() => Promise.resolve(['work/task-task_1']));
+  const leasedIn = vi.fn(async () => LEASED);
+  const lastRunsOf = vi.fn(async () => LAST_RUNS);
+  const idleIn = vi.fn(async () => ['work/task-task_1']);
   const labels = new RunRequesterLabels();
   labels.register({
     owner: 'work',
-    labelsOf: () =>
-      Promise.resolve(
-        new Map([
-          ['work/task/task_1', { title: 'Drain the stuck retry queues' }],
-          ['work/chat/chat_1', { title: 'Plan the billing migration' }],
-        ]),
-      ),
+    labelsOf: async () =>
+      new Map([
+        ['work/task/task_1', { title: 'Drain the stuck retry queues' }],
+        ['work/chat/chat_1', { title: 'Plan the billing migration' }],
+      ]),
   });
   const viewers = partial<RunViewing>({
-    readableAmong: vi.fn(() => Promise.resolve(new Set(['run_6', 'run_7']))),
+    readableAmong: vi.fn(async () => new Set(['run_6', 'run_7'])),
   });
 
   const handler = new ListRunnerActivityHandler(
     partial<WorkspaceAccessPort>({
-      inWorkspace: vi.fn(() =>
-        Promise.resolve(
-          member
-            ? {
-                workspaceId: WORKSPACE,
-                slug: 'acme',
-                viewer: UserId.of('user_1'),
-                isAdmin: false,
-              }
-            : null,
-        ),
+      inWorkspace: vi.fn(async () =>
+        member
+          ? {
+              workspaceId: WORKSPACE,
+              slug: 'acme',
+              viewer: UserId.of('user_1'),
+              isAdmin: false,
+            }
+          : null,
       ),
     }),
     { leasedIn, lastRunsOf },

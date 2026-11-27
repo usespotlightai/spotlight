@@ -17,10 +17,8 @@ export function useTaskReview(
     queryKey: reviewKeys.forTask(taskId),
     enabled: Boolean(teamId) && Boolean(taskId),
     refetchInterval: (query) =>
-      query.state.data?.comments.some((each) => each.state === 'sending') ===
-        true ||
-      query.state.data?.reviews.some((each) => each.state === 'sending') ===
-        true
+      query.state.data?.comments.some((each) => each.state === 'sending') ||
+      query.state.data?.reviews.some((each) => each.state === 'sending')
         ? POLL_MS
         : false,
     queryFn: async () => {

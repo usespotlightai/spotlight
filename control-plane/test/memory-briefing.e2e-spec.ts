@@ -116,8 +116,7 @@ const briefingContext = (
   stationId: BUILD,
   repositories: [API],
   about: '',
-  touched: () =>
-    Promise.resolve([{ repository: API, path: 'src/uploads/retry.ts' }]),
+  touched: async () => [{ repository: API, path: 'src/uploads/retry.ts' }],
   ...over,
 });
 
@@ -195,7 +194,7 @@ describe('briefing runs with what the team remembers', () => {
 
   it('gives a path-scoped memory only once the task has touched its paths', async () => {
     const { briefed: memories } = await briefed().forBriefing(
-      briefingContext({ touched: () => Promise.resolve([]) }),
+      briefingContext({ touched: async () => [] }),
     );
 
     expect(memories.map((each) => each.id)).not.toContain(byPath.id);
@@ -414,7 +413,7 @@ describe('briefing runs with what the team remembers', () => {
   it('briefs a memory about paths the task has not touched yet when the task is about the same thing', async () => {
     const { briefed: memories } = await briefed().forBriefing(
       briefingContext({
-        touched: () => Promise.resolve([]),
+        touched: async () => [],
         about: 'Uploads retry in the request and fail',
       }),
     );

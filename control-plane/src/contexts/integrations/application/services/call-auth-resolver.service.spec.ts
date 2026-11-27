@@ -18,6 +18,7 @@ import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-re
 import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -69,31 +70,23 @@ const resolving = (
   over: { member?: boolean } = {},
 ) => {
   const of = vi.fn(
-    (_teamId: TeamId, _source: IntegrationKey, owner: ConnectionOwner) =>
-      Promise.resolve(
-        token !== null && token !== '' ? connected(token, owner) : null,
-      ),
+    async (_teamId: TeamId, _source: IntegrationKey, owner: ConnectionOwner) =>
+      nonEmpty(token) ? connected(token, owner) : null,
   );
-  const onTeam = vi.fn(() =>
-    Promise.resolve(
-      over.member === false ? null : partial<TeamWorkspaceMembership>({}),
-    ),
+  const onTeam = vi.fn(async () =>
+    over.member === false ? null : partial<TeamWorkspaceMembership>({}),
   );
-  const afterUnauthorized = vi.fn(() =>
-    Promise.resolve(AccessToken.of('xoxp-refreshed')),
-  );
-  const find = vi.fn(() =>
-    Promise.resolve(
-      inWorkspace
-        ? {
-            id: TEAM,
-            workspaceId: WorkspaceId.of('ws_1'),
-            key: 'platform',
-            name: 'Platform',
-            members: [],
-          }
-        : null,
-    ),
+  const afterUnauthorized = vi.fn(async () => AccessToken.of('xoxp-refreshed'));
+  const find = vi.fn(async () =>
+    inWorkspace
+      ? {
+          id: TEAM,
+          workspaceId: WorkspaceId.of('ws_1'),
+          key: 'platform',
+          name: 'Platform',
+          members: [],
+        }
+      : null,
   );
   const secrets = injecting(BOUND);
 

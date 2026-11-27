@@ -1,5 +1,4 @@
 import { CornerDownRight } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   HOST_COLUMNS,
@@ -32,12 +31,7 @@ type RunnerRowProps = {
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function RunnerRow({
-  slug,
-  runner,
-  slots,
-  harnesses,
-}: RunnerRowProps): ReactElement {
+export function RunnerRow({ slug, runner, slots, harnesses }: RunnerRowProps) {
   const label = formatRun(runner.currentRun);
   const path = leasedRunPath(slug, runner.currentRun);
 

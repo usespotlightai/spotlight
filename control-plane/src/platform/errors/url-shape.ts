@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const WORD = /^[a-z][a-z-]{0,23}$/;
 
 const shapedPath = (path: string): string =>
@@ -9,7 +10,7 @@ const shapedPath = (path: string): string =>
 export function urlShape(url: string): string;
 export function urlShape(url: string | undefined): string | undefined;
 export function urlShape(url: string | undefined): string | undefined {
-  if (url === undefined || url === '') {
+  if (!nonEmpty(url)) {
     return url;
   }
 
@@ -24,7 +25,7 @@ export function urlShape(url: string | undefined): string | undefined {
 export function originOf(url: string): string;
 export function originOf(url: string | undefined): string | undefined;
 export function originOf(url: string | undefined): string | undefined {
-  if (url === undefined || url === '') {
+  if (!nonEmpty(url)) {
     return url;
   }
 

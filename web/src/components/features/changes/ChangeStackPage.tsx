@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   ChangeStackNotice,
@@ -94,7 +94,7 @@ export function ChangeStackPage({
   review,
   trail,
   back,
-}: ChangeStackPageProps): ReactElement {
+}: ChangeStackPageProps) {
   const view = useStackInView(stacks);
 
   return (
@@ -125,7 +125,7 @@ type PublicChangeStackPageProps = {
 export function PublicChangeStackPage({
   stacks,
   signedIn,
-}: PublicChangeStackPageProps): ReactElement {
+}: PublicChangeStackPageProps) {
   const view = useStackInView(stacks);
 
   return (

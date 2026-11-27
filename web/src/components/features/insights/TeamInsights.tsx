@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
@@ -24,10 +23,7 @@ type TeamInsightsProps = {
   teamId: string;
 };
 
-export function TeamInsights({
-  slug,
-  teamId,
-}: TeamInsightsProps): ReactElement {
+export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
   const [params, setParams] = useSearchParams();
   const view = viewOf(params);
   const lines = useLines(teamId).data ?? [];

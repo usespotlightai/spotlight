@@ -53,8 +53,8 @@ const administering = (
   over: { workspace?: Workspace | null; team?: Team | null } = {},
 ) => {
   const workspaces = {
-    find: vi.fn(() =>
-      Promise.resolve(over.workspace === undefined ? acme() : over.workspace),
+    find: vi.fn(async () =>
+      over.workspace === undefined ? acme() : over.workspace,
     ),
   };
 
@@ -62,8 +62,8 @@ const administering = (
     workspaces,
     administration: new TeamAdministration(
       partial<TeamRepository>({
-        find: vi.fn(() =>
-          Promise.resolve(over.team === undefined ? platform : over.team),
+        find: vi.fn(async () =>
+          over.team === undefined ? platform : over.team,
         ),
       }),
       partial<WorkspaceRepository>(workspaces),

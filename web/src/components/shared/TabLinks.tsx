@@ -1,4 +1,4 @@
-import { useRef, type ReactElement } from 'react';
+import { useRef } from 'react';
 import { Link } from 'react-router';
 
 import { useOpenIntent } from '@/hooks/useOpenIntent';
@@ -40,7 +40,7 @@ export function TabLinks<T extends string>({
   variant = 'pills',
   className,
   onIntent,
-}: TabLinksProps<T>): ReactElement {
+}: TabLinksProps<T>) {
   const look = LOOKS[variant];
   const nav = useRef<HTMLElement>(null);
   const indicator = useTabIndicator(nav, current);

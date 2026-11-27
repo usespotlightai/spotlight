@@ -1,4 +1,4 @@
-import { nonEmpty } from '@change-review/domain/services/non-empty';
+import { textOrNull } from '@change-review/domain/services/text-or-null';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
@@ -29,7 +29,7 @@ export class ReviewAuthor {
       'github',
       null,
       null,
-      nonEmpty(login?.trim()),
+      textOrNull(login?.trim()),
       AuthorName.onGitHub(login),
     );
   }

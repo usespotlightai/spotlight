@@ -21,27 +21,24 @@ const deleting = (pools: readonly RunnerPool[]) => {
   const saved: Egress[] = [];
   const handler = new DeleteEgressHandler(
     partial<WorkspaceAccessPort>({
-      permissionsIn: vi.fn(() =>
-        Promise.resolve({
-          workspaceId: egress.workspaceId,
-          slug: 'acme',
-          plans: false,
-          configures: false,
-          scopes: new Set(['runners'] as const),
-          isAdmin: false,
-        }),
-      ),
+      permissionsIn: vi.fn(async () => ({
+        workspaceId: egress.workspaceId,
+        slug: 'acme',
+        plans: false,
+        configures: false,
+        scopes: new Set(['runners'] as const),
+        isAdmin: false,
+      })),
     }),
     partial<EgressRepository>({
-      find: vi.fn(() => Promise.resolve(egress)),
-      findToDelete: vi.fn(() => Promise.resolve(egress)),
-      save: vi.fn((each: Egress) => {
+      find: vi.fn(async () => egress),
+      findToDelete: vi.fn(async () => egress),
+      save: vi.fn(async (each: Egress) => {
         saved.push(each);
-        return Promise.resolve();
       }),
     }),
     partial<RunnerPoolRepository>({
-      inWorkspace: vi.fn(() => Promise.resolve(pools)),
+      inWorkspace: vi.fn(async () => pools),
     }),
     partial<TransactionPort>({
       inTransaction: <T>(work: () => Promise<T>) => work(),

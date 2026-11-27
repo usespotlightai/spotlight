@@ -32,7 +32,7 @@ const adapterFor = (
     error: vi.fn(),
   };
   const resources = partial<SkillResourcesPort>({
-    ofTeam: vi.fn(() => Promise.resolve(records)),
+    ofTeam: vi.fn(async () => records),
   });
   const views = partial<SkillViews>({
     onTeam: (each: SkillRecord) =>

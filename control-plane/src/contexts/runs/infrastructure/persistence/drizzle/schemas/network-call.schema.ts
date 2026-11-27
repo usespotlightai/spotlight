@@ -25,7 +25,10 @@ export const networkCall = pgTable(
     headers: jsonb('headers').$type<Record<string, string>>().notNull(),
     body: text('body').notNull(),
     timeoutMs: integer('timeout_ms').notNull(),
-    secrets: text('secrets').array().notNull().default(sql`'{}'::text[]`),
+    secrets: text('secrets')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     secretsTokenHash: text('secrets_token_hash'),
     secretsRedeemedAt: timestamptz('secrets_redeemed_at'),
     queuedAt: timestamptz('queued_at').notNull(),

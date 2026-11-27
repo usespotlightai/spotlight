@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
@@ -24,6 +23,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
@@ -156,7 +156,11 @@ export class DrizzleHookDefinitions implements HookDefinitionRepository {
   private async first(where: SQL | undefined): Promise<Row | null> {
     return (
       firstOf(
-        await this.context.db.select().from(hookDefinition).where(where).limit(1),
+        await this.context.db
+          .select()
+          .from(hookDefinition)
+          .where(where)
+          .limit(1),
       ) ?? null
     );
   }

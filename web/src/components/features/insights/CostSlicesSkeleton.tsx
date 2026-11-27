@@ -1,11 +1,9 @@
-import type { ReactElement } from 'react';
-
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SLICE_TITLE, sliceHeadings } from '@/lib/insights';
 
-export function CostSlicesSkeleton(): ReactElement {
+export function CostSlicesSkeleton() {
   return (
     <InsightsCard
       flat

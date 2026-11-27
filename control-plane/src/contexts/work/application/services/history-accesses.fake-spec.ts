@@ -3,6 +3,7 @@ import type {
   LeasedRunFacts,
   RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -69,38 +70,34 @@ export const historyAccessesOf = (
 
   scopes.register({
     owner: 'replays',
-    scopeOf: () => Promise.resolve(fixture.scope ?? null),
+    scopeOf: async () => fixture.scope ?? null,
   });
 
   return new HistoryAccesses(
     partial<RunLeasesPort>({
-      leasedBy: (runId: RunId) =>
-        Promise.resolve(
-          team !== null && team !== ''
-            ? partial<LeasedRunFacts>({
-                runId,
-                team: TeamId.of(team),
-                requester: {
-                  owner: isolated ? 'replays' : 'work',
-                  kind: fixture.trialAsOf !== undefined ? 'replay' : 'search',
-                  id: runId.value,
-                  token: null,
-                  team,
-                },
-                policy: partial<RunPolicyContract>({
-                  actsBeyondItself: !isolated,
-                }),
-              })
-            : null,
-        ),
+      leasedBy: async (runId: RunId) =>
+        nonEmpty(team)
+          ? partial<LeasedRunFacts>({
+              runId,
+              team: TeamId.of(team),
+              requester: {
+                owner: isolated ? 'replays' : 'work',
+                kind: fixture.trialAsOf !== undefined ? 'replay' : 'search',
+                id: runId.value,
+                token: null,
+                team,
+              },
+              policy: partial<RunPolicyContract>({
+                actsBeyondItself: !isolated,
+              }),
+            })
+          : null,
     }),
     partial<DispatchRepository>({
-      find: (runId: RunId) =>
-        Promise.resolve(
-          fixture.trialAsOf === undefined
-            ? null
-            : trialOf(runId, fixture.trialAsOf),
-        ),
+      find: async (runId: RunId) =>
+        fixture.trialAsOf === undefined
+          ? null
+          : trialOf(runId, fixture.trialAsOf),
     }),
     scopes,
   );

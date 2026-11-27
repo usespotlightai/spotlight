@@ -145,7 +145,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
         const kind =
           defined === 'function' && context.inHost
             ? 'method'
-            : grammar.components === true &&
+            : grammar.components &&
                 (defined === 'function' || defined === 'constant') &&
                 PASCAL_CASE.test(text)
               ? 'component'
@@ -168,7 +168,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     const route = grammar.routeOf?.(node);
     if (route) {
       walked.symbols.push({
-        name: `${route.method} ${routePath(route.absolute === true ? '' : prefix, route.path)}`,
+        name: `${route.method} ${routePath(route.absolute ? '' : prefix, route.path)}`,
         kind: 'route',
         line: lineOf(node),
         endLine: node.endPosition.row + 1,
@@ -255,8 +255,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
       prefix,
     };
 
-    const children =
-      grammar.opaque?.has(node.type) === true ? [] : node.children;
+    const children = grammar.opaque?.has(node.type) ? [] : node.children;
     for (let at = children.length - 1; at >= 0; at -= 1) {
       const child = children[at];
       if (child) {

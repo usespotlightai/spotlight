@@ -83,9 +83,9 @@ const sessions = (state: AssistState) => {
   return {
     orders,
     generator: new AssistChangeStackGenerator({
-      request: (order) => {
+      request: async (order) => {
         orders.push(order);
-        return Promise.resolve(state);
+        return state;
       },
     }),
   };

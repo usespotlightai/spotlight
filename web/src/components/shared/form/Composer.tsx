@@ -3,7 +3,6 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useState,
-  type ReactElement,
 } from 'react';
 
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
@@ -35,7 +34,7 @@ export function Composer({
   pending,
   onSubmit,
   onCancel,
-}: ComposerProps): ReactElement {
+}: ComposerProps) {
   const [body, setBody] = useState(initial);
   const ready = body.trim().length > 0 && !pending;
 

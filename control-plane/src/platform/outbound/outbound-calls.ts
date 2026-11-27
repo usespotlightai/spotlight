@@ -11,6 +11,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const requestIn = (message: unknown): object | null => {
   const request = fieldOf(message, 'request');
@@ -27,9 +28,7 @@ const SERVER_ERROR = 500;
 
 const hostOf = (origin: string | undefined): string | undefined => {
   try {
-    return origin !== undefined && origin !== ''
-      ? new URL(origin).host
-      : undefined;
+    return nonEmpty(origin) ? new URL(origin).host : undefined;
   } catch {
     return undefined;
   }

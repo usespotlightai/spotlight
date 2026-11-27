@@ -4,7 +4,6 @@ import {
   useCallback,
   useRef,
   useState,
-  type ReactElement,
 } from 'react';
 
 import { FileDropContext, type TakeFiles } from '@/hooks/useFileDropTarget';
@@ -16,10 +15,7 @@ type FileDropZoneProps = {
   className?: string;
 };
 
-export function FileDropZone({
-  children,
-  className,
-}: FileDropZoneProps): ReactElement {
+export function FileDropZone({ children, className }: FileDropZoneProps) {
   const take = useRef<TakeFiles | null>(null);
   const [over, setOver] = useState(false);
   const depth = useRef(0);

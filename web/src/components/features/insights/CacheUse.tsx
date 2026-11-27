@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import {
@@ -30,12 +30,7 @@ type CacheUseProps = {
   names: StationNames;
 };
 
-export function CacheUse({
-  slug,
-  teamId,
-  stations,
-  names,
-}: CacheUseProps): ReactElement {
+export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
   return (
     <InsightsCard
       flat

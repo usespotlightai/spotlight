@@ -91,10 +91,8 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     invites = new DrizzleWorkspaceInviteRepository(
       new DrizzleContext(database.db),
       {
-        dispatch: (events) => {
+        dispatch: async (events) => {
           recorded.push(...events);
-
-          return Promise.resolve();
         },
       },
     );

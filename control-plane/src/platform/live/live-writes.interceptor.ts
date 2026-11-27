@@ -17,6 +17,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Response } from 'express';
 import { mergeMap, Observable } from 'rxjs';
 
@@ -51,7 +52,7 @@ class LiveWritesInterceptor implements NestInterceptor {
           ),
         );
 
-        if (header !== null && header !== '' && !response.headersSent) {
+        if (nonEmpty(header) && !response.headersSent) {
           response.setHeader(LIVE_SEQUENCES_HEADER, header);
         }
 

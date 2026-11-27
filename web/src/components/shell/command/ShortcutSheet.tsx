@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import { useState, type ReactElement } from 'react';
+import { useState } from 'react';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 import {
@@ -18,10 +18,7 @@ type ShortcutSheetProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-export function ShortcutSheet({
-  open,
-  onOpenChange,
-}: ShortcutSheetProps): ReactElement {
+export function ShortcutSheet({ open, onOpenChange }: ShortcutSheetProps) {
   const [query, setQuery] = useState('');
   const sections = shortcutSections(query, desktopApp() !== null);
 

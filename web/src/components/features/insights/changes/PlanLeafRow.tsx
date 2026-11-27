@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { PlanRow } from '@/components/features/insights/changes/PlanRow';
 import { leafAssigned, type PlanLeaf } from '@/lib/config-plan';
 import { nonEmpty } from '@/lib/non-empty';
@@ -10,11 +8,7 @@ type PlanLeafRowProps = {
   depth?: number;
 };
 
-export function PlanLeafRow({
-  leaf,
-  width,
-  depth = 0,
-}: PlanLeafRowProps): ReactElement {
+export function PlanLeafRow({ leaf, width, depth = 0 }: PlanLeafRowProps) {
   const assigned = leafAssigned(leaf);
 
   return (

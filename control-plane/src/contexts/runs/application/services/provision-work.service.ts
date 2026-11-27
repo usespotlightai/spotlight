@@ -452,7 +452,7 @@ export class ProvisionWork {
   ): Promise<Provisioned> {
     const current = await this.runs.findById(queued.id);
 
-    if (current?.provisionableAt(this.clock.now(), pool.egress) !== true) {
+    if (!current?.provisionableAt(this.clock.now(), pool.egress)) {
       return 'done';
     }
 

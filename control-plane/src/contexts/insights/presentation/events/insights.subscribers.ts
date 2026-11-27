@@ -120,6 +120,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -315,9 +316,7 @@ export const insightsSubscribers = (
       handlers.superseding.superseded(
         RunId.of(event.runId),
         WorkspaceId.of(event.workspaceId),
-        event.taskId !== null && event.taskId !== ''
-          ? TaskId.of(event.taskId)
-          : null,
+        nonEmpty(event.taskId) ? TaskId.of(event.taskId) : null,
         new Date(event.at),
       ),
   ),
@@ -328,9 +327,7 @@ export const insightsSubscribers = (
       handlers.checking.checked(
         RunId.of(event.runId),
         WorkspaceId.of(event.workspaceId),
-        event.taskId !== null && event.taskId !== ''
-          ? TaskId.of(event.taskId)
-          : null,
+        nonEmpty(event.taskId) ? TaskId.of(event.taskId) : null,
         {
           repository: event.repository,
           startedAt: new Date(event.stackStartedAt),
@@ -392,10 +389,7 @@ export const insightsSubscribers = (
     [TASK_ASKED],
     (event) =>
       handlers.asking.asked({
-        runId:
-          event.runId !== null && event.runId !== ''
-            ? RunId.of(event.runId)
-            : null,
+        runId: nonEmpty(event.runId) ? RunId.of(event.runId) : null,
         workspaceId: WorkspaceId.of(event.workspaceId),
         taskId: TaskId.of(event.taskId),
         drivenByAPerson: event.driver === 'person',

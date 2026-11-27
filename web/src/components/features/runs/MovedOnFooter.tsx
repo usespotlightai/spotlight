@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
 import {
   RunComposer,
@@ -24,7 +22,7 @@ export function MovedOnFooter({
   current,
   station,
   onSent,
-}: MovedOnFooterProps): ReactElement | null {
+}: MovedOnFooterProps) {
   const { data: runs } = useTaskRuns(teamId, taskId);
 
   if (!runs) {

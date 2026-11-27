@@ -642,7 +642,7 @@ export class ChangeStack
     this.assertGenerating();
     const basis = this.previousStack(previous);
 
-    if (basis?.diffUnchanged !== true) {
+    if (!basis?.diffUnchanged) {
       return null;
     }
 

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { WAIT_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
@@ -13,7 +11,7 @@ const DELIVERY = ['PRs opened', 'First reviews', 'PRs merged'];
 
 const LEGEND = WAIT_SERIES.map(({ label, fill }) => ({ label, color: fill }));
 
-export function FlowSkeleton({ stations }: { stations: number }): ReactElement {
+export function FlowSkeleton({ stations }: { stations: number }) {
   return (
     <div
       role="status"

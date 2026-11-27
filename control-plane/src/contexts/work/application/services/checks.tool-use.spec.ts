@@ -50,23 +50,21 @@ const using = (
   } | null,
 ) => {
   const checkRuns = {
-    failedOn: vi.fn((_workspaceId: WorkspaceId, _pullRequest: PullRequestUrl) =>
-      Promise.resolve(FAILED),
+    failedOn: vi.fn(
+      async (_workspaceId: WorkspaceId, _pullRequest: PullRequestUrl) => FAILED,
     ),
     failedInSuite: vi.fn(),
   } satisfies CheckRunsPort;
   const tasks = partial<TaskLookupReaderPort>({
-    find: vi.fn(() =>
-      Promise.resolve(
-        task
-          ? partial<TaskLookupReading>({
-              reviewedPullRequest: null,
-              pullRequests: task.pullRequest
-                ? [task.pullRequest, ...(task.later ?? [])]
-                : [],
-            })
-          : null,
-      ),
+    find: vi.fn(async () =>
+      task
+        ? partial<TaskLookupReading>({
+            reviewedPullRequest: null,
+            pullRequests: task.pullRequest
+              ? [task.pullRequest, ...(task.later ?? [])]
+              : [],
+          })
+        : null,
     ),
   });
 
@@ -114,11 +112,11 @@ describe('ChecksToolUse', () => {
       pullRequest: PULL_REQUEST,
       later: [DOCS],
     });
-    checkRuns.failedOn.mockImplementation((_workspaceId, pullRequest) => {
+    checkRuns.failedOn.mockImplementation(async (_workspaceId, pullRequest) => {
       if (pullRequest === DOCS) {
-        return Promise.reject(new Error('GitHub did not answer'));
+        throw new Error('GitHub did not answer');
       }
-      return Promise.resolve(FAILED);
+      return FAILED;
     });
 
     expect(await tool.call(CONTEXT)).toEqual({

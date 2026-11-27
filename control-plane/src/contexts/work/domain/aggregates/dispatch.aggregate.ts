@@ -1,6 +1,7 @@
 import { distinct } from '@shared-kernel/domain/distinct';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -86,10 +87,7 @@ const problemOf = (state: DispatchState): string | null => {
     return 'tries a station without the station config it tries';
   }
 
-  if (
-    state.briefedTask &&
-    station?.equals(state.briefedTask.stationId) !== true
-  ) {
+  if (state.briefedTask && !station?.equals(state.briefedTask.stationId)) {
     return 'records a task briefed at another station';
   }
 
@@ -97,10 +95,7 @@ const problemOf = (state: DispatchState): string | null => {
     return 'is superseded though no task holds it';
   }
 
-  if (
-    state.superseded &&
-    !(state.detachedAt && state.ending?.failed === true)
-  ) {
+  if (state.superseded && !(state.detachedAt && state.ending?.failed)) {
     return 'is superseded though its task held it or it did not fail';
   }
 
@@ -203,7 +198,7 @@ export class Dispatch extends EventRecorder {
     };
     const problem = problemOf(state);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InvalidDispatchTransitionError(
         `Run ${input.id.value} ${problem}.`,
       );
@@ -215,7 +210,7 @@ export class Dispatch extends EventRecorder {
   static rehydrate(state: DispatchState): Dispatch {
     const problem = problemOf(state);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('dispatch', problem);
     }
 
@@ -375,7 +370,7 @@ export class Dispatch extends EventRecorder {
 
     const before = this.state.toolsOnMarks;
     const now = distinct(onMarks).filter(
-      (each) => this.state.configuredAs?.lists(each) !== true,
+      (each) => !this.state.configuredAs?.lists(each),
     );
     const added = now.filter(
       (each) => !before.some((tool) => tool.equals(each)),
@@ -432,7 +427,7 @@ export class Dispatch extends EventRecorder {
       this.state.refused ||
       subject.kind !== 'task' ||
       !this.state.detachedAt ||
-      this.state.ending?.failed !== true
+      !this.state.ending?.failed
     ) {
       return this;
     }

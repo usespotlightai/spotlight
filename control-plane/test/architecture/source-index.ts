@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 export const SOURCE_ROOT = resolve(__dirname, '..', '..', 'src');
@@ -152,7 +153,7 @@ export const importsOf = (file: SourceFile): ImportedName[] =>
     const target = moduleTarget(file.path, statement.moduleSpecifier.text);
     const bindings = statement.importClause?.namedBindings;
 
-    if (target === null || target === '') {
+    if (!nonEmpty(target)) {
       return [];
     }
 

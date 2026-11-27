@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -169,7 +170,7 @@ export class TaskNoteBody {
       [
         `The line resumed at ${input.at.value}. ${TaskNoteBody.resumedInto(input.into)}`,
         TaskNoteBody.heldMoveOnResume(input.into, input.held),
-        input.summary !== null && input.summary !== ''
+        nonEmpty(input.summary)
           ? `About the changes:\n\n${input.summary}`
           : null,
         changed.length > 0

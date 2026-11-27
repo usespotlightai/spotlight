@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { RowActionsTrigger } from '@/components/shared/RowActionsTrigger';
 import {
   DropdownMenu,
@@ -37,7 +35,7 @@ export function MemberActions({
   disabled,
   onChangeRole,
   onAsk,
-}: MemberActionsProps): ReactElement | null {
+}: MemberActionsProps) {
   const offered = rolesOffered(role, assignableRoles);
   const changesRole = offered.length >= 2;
 

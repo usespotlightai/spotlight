@@ -1,4 +1,5 @@
 import type { RunUsageFacts } from '@runs/application/ports/run-usage-reader.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   RunNotesSummary,
@@ -72,7 +73,7 @@ const reading = (
       taskNotesBetween: vi.fn(),
       configFor: vi.fn(),
     } satisfies RunReaderPort,
-    { forRuns: () => Promise.resolve(new Map(usages)) },
+    { forRuns: async () => new Map(usages) },
     runAccessWhere(true, standing),
     linesWhere(),
   ).execute(new ReadRunNotesQuery(RUN_ID, viewer));
@@ -91,8 +92,7 @@ const waitingOn = (
       task: {
         running: true,
         pending: {
-          assignee:
-            assignee !== null && assignee !== '' ? UserId.of(assignee) : null,
+          assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
           ask,
         },
       },

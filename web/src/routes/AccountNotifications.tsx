@@ -1,5 +1,5 @@
 import { AppWindow, Bell } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
@@ -39,7 +39,7 @@ const ON: ReadonlySet<BrowserNotificationState> = new Set([
   'on-while-open',
 ]);
 
-export function AccountNotifications(): ReactElement {
+export function AccountNotifications() {
   const notifications = useBrowserNotifications();
   const [opensDesktop, setOpensDesktop] = useState(opensInDesktop);
   const { state, turnOn, turnOff } = notifications;

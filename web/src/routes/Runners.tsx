@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AddHostLink } from '@/components/features/runners/AddHostLink';
@@ -20,7 +19,7 @@ import { TrailContext, useTrail } from '@/lib/trail';
 
 const FILTER_KEY = 'spotlight.runner-filter';
 
-export function Runners(): ReactElement | null {
+export function Runners() {
   const { slug } = useParams();
   const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();

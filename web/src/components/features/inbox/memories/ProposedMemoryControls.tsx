@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
 
@@ -23,7 +21,7 @@ export function ProposedMemoryControls({
   onApprove,
   onReject,
   onCancel,
-}: ProposedMemoryControlsProps): ReactElement {
+}: ProposedMemoryControlsProps) {
   return (
     <DecisionControls>
       {editing ? (

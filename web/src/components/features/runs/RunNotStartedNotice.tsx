@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { Button } from '@/components/ui/button';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useTriedToStartRun } from '@/hooks/api/useSendMessage';
@@ -17,7 +15,7 @@ export function RunNotStartedNotice({
   taskId,
   station,
   harness,
-}: RunNotStartedNoticeProps): ReactElement {
+}: RunNotStartedNoticeProps) {
   const start = useStartTaskRun();
   const { data: harnesses } = useHarnesses();
   const agent = harnesses?.find((each) => each.id === harness)?.name ?? harness;

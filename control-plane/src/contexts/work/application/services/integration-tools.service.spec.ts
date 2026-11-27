@@ -32,46 +32,43 @@ const CONTEXT: TaskToolContext = {
 
 const resolving = (options: { movedOn?: boolean } = {}) => {
   const steps: string[] = [];
-  const stillOn = vi.fn(() => {
+  const stillOn = vi.fn(async () => {
     steps.push('still on');
-    if (options.movedOn === true) {
-      return Promise.reject(new LeaseLostError(RUN.value, ATTEMPT.attempt));
+    if (options.movedOn) {
+      throw new LeaseLostError(RUN.value, ATTEMPT.attempt);
     }
-
-    return Promise.resolve();
   });
   const calls: IntegrationToolCallsPort = {
-    resolve: () =>
-      Promise.resolve({
-        declared: {
-          tool: 'linear.comment',
-          integrationName: 'Linear',
-          description: 'Comment on an issue',
-          inputs: [],
-          approval: null,
-          inferredOutput: null,
-          readOnly: false,
-        },
-        actingAs: null,
-        missing: null,
-        personRule: null,
-        defaultFor: () => undefined,
-        call: () => {
-          steps.push('called with its secrets injected');
-          return Promise.resolve({ outcome: 'answered', output: 'commented' });
-        },
-      }),
+    resolve: async () => ({
+      declared: {
+        tool: 'linear.comment',
+        integrationName: 'Linear',
+        description: 'Comment on an issue',
+        inputs: [],
+        approval: null,
+        inferredOutput: null,
+        readOnly: false,
+      },
+      actingAs: null,
+      missing: null,
+      personRule: null,
+      defaultFor: () => undefined,
+      call: async () => {
+        steps.push('called with its secrets injected');
+        return { outcome: 'answered', output: 'commented' };
+      },
+    }),
   };
 
   const tools = new IntegrationTools(
     partial<TaskRepository>({
-      find: () => Promise.resolve(partial<Task>({})),
+      find: async () => partial<Task>({}),
     }),
     partial<LineMapsPort>({
-      findByStation: () => Promise.resolve(partial<LineMap>({})),
+      findByStation: async () => partial<LineMap>({}),
     }),
     partial<IntegrationTaskViews>({
-      of: () => Promise.resolve(partial<IntegrationTaskViewDto>({})),
+      of: async () => partial<IntegrationTaskViewDto>({}),
     }),
     calls,
     partial<RunWorks>({ stillOn }),

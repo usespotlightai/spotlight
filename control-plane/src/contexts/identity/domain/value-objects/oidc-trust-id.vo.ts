@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class OidcTrustId {
-  private readonly kind: string = 'oidc-trust';
+  private readonly kind = 'oidc-trust';
 
   private constructor(readonly value: string) {}
 
@@ -13,7 +13,7 @@ export class OidcTrustId {
   }
 
   equals(other: OidcTrustId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OidcTrustId && this.value === other.value;
   }
 
   toString(): string {

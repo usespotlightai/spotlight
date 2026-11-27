@@ -63,7 +63,7 @@ export const holding = (...owners: readonly string[]): ArchiveHolders => {
   const holders = new ArchiveHolders();
 
   for (const owner of owners) {
-    holders.register({ owner, heldOf: () => Promise.resolve(new Map()) });
+    holders.register({ owner, heldOf: async () => new Map() });
   }
 
   return holders;
@@ -71,41 +71,37 @@ export const holding = (...owners: readonly string[]): ArchiveHolders => {
 
 export const runsOf = (...runs: readonly Run[]): RunRepository =>
   partial<RunRepository>({
-    findById: (id: RunId) =>
-      Promise.resolve(runs.find((each) => each.id.equals(id)) ?? null),
+    findById: async (id: RunId) =>
+      runs.find((each) => each.id.equals(id)) ?? null,
   });
 
 export class InMemoryArchives implements WorkingCopyArchiveRepository {
   readonly stored = new Map<string, WorkingCopyArchive>();
 
-  add(archive: WorkingCopyArchive): Promise<void> {
+  async add(archive: WorkingCopyArchive): Promise<void> {
     this.stored.set(archive.id.value, archive);
-    return Promise.resolve();
   }
 
-  save(archive: WorkingCopyArchive): Promise<void> {
+  async save(archive: WorkingCopyArchive): Promise<void> {
     const existing = this.stored.get(archive.id.value);
 
     if (!existing || existing.version !== archive.version) {
-      return Promise.reject(
-        new WorkingCopyArchiveVersionConflictError(archive.id.value),
-      );
+      throw new WorkingCopyArchiveVersionConflictError(archive.id.value);
     }
 
     if (archive.isDiscarded) {
       this.stored.delete(archive.id.value);
-      return Promise.resolve();
+      return;
     }
 
     this.stored.set(archive.id.value, archive);
-    return Promise.resolve();
   }
 
-  find(id: WorkingCopyArchiveId): Promise<WorkingCopyArchive | null> {
-    return Promise.resolve(this.stored.get(id.value) ?? null);
+  async find(id: WorkingCopyArchiveId): Promise<WorkingCopyArchive | null> {
+    return this.stored.get(id.value) ?? null;
   }
 
-  newestCompleted(
+  async newestCompleted(
     workspaceId: WorkspaceId,
     workingCopyKey: WorkingCopyKey,
   ): Promise<WorkingCopyArchive | null> {
@@ -121,21 +117,19 @@ export class InMemoryArchives implements WorkingCopyArchiveRepository {
           (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
       );
 
-    return Promise.resolve(completed[0] ?? null);
+    return completed[0] ?? null;
   }
 
-  completedKeysAmong(
+  async completedKeysAmong(
     workspaceId: WorkspaceId,
     keys: readonly WorkingCopyKey[],
   ): Promise<readonly WorkingCopyKey[]> {
-    return Promise.resolve(
-      keys.filter((key) =>
-        [...this.stored.values()].some(
-          (each) =>
-            each.isCompleted &&
-            each.workspaceId.equals(workspaceId) &&
-            each.workingCopyKey.equals(key),
-        ),
+    return keys.filter((key) =>
+      [...this.stored.values()].some(
+        (each) =>
+          each.isCompleted &&
+          each.workspaceId.equals(workspaceId) &&
+          each.workingCopyKey.equals(key),
       ),
     );
   }
@@ -145,8 +139,8 @@ export class InMemoryArchiveStore implements WorkingCopyArchiveStorePort {
   readonly uploaded = new Map<string, StoredArchive>();
   readonly removed: string[] = [];
 
-  grantUpload(archive: WorkingCopyArchive): Promise<ArchiveUpload> {
-    return Promise.resolve({
+  async grantUpload(archive: WorkingCopyArchive): Promise<ArchiveUpload> {
+    return {
       url: `https://storage.test/put/${archive.id.value}`,
       headers: {
         'x-amz-checksum-sha256':
@@ -154,20 +148,19 @@ export class InMemoryArchiveStore implements WorkingCopyArchiveStorePort {
             ? archive.location.digest.sha256
             : '',
       },
-    });
+    };
   }
 
-  stored(archive: WorkingCopyArchive): Promise<StoredArchive | null> {
-    return Promise.resolve(this.uploaded.get(archive.id.value) ?? null);
+  async stored(archive: WorkingCopyArchive): Promise<StoredArchive | null> {
+    return this.uploaded.get(archive.id.value) ?? null;
   }
 
-  grantDownload(archive: WorkingCopyArchive): Promise<string> {
-    return Promise.resolve(`https://storage.test/get/${archive.id.value}`);
+  async grantDownload(archive: WorkingCopyArchive): Promise<string> {
+    return `https://storage.test/get/${archive.id.value}`;
   }
 
-  remove(archive: WorkingCopyArchive): Promise<void> {
+  async remove(archive: WorkingCopyArchive): Promise<void> {
     this.removed.push(archive.id.value);
     this.uploaded.delete(archive.id.value);
-    return Promise.resolve();
   }
 }

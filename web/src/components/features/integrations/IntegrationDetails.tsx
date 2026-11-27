@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { IntegrationAccount } from '@/components/features/integrations/IntegrationAccount';
 import { IntegrationFacts } from '@/components/features/integrations/IntegrationFacts';
 import { IntegrationPeople } from '@/components/features/integrations/IntegrationPeople';
@@ -36,7 +34,7 @@ export function IntegrationDetails({
   admin,
   mine,
   joined,
-}: IntegrationDetailsProps): ReactElement {
+}: IntegrationDetailsProps) {
   const { spec } = integration;
   const problem = spec ? formatReadProblem(spec) : null;
 

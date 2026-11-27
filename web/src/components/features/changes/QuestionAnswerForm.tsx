@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
 import { Composer } from '@/components/shared/form/Composer';
 import { Button } from '@/components/ui/button';
@@ -18,7 +16,7 @@ const MAX_REPLY = 4_000;
 export function QuestionAnswerForm({
   stack,
   question,
-}: QuestionAnswerFormProps): ReactElement {
+}: QuestionAnswerFormProps) {
   const teamId = useStackTeam();
   const answering = useAnswerStackQuestion();
   const { answered } = question;

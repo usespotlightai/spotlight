@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { AlertsSection } from '@/components/features/stations/config/AlertsSection';
 import { JudgeSection } from '@/components/features/stations/config/JudgeSection';
 import { PromptSection } from '@/components/features/stations/config/PromptSection';
@@ -23,7 +21,7 @@ export function StationConfig({
   teamId,
   line,
   station,
-}: StationConfigProps): ReactElement {
+}: StationConfigProps) {
   return (
     <section aria-label="Config" className={CONFIG_LAYOUT}>
       <div className={CONFIG_MAIN}>

@@ -160,22 +160,22 @@ const notifying = (
   injection: SecretInjectionPort = injecting().injection,
 ) => {
   const run = vi.fn(
-    (
+    async (
       _action: unknown,
       _against: Record<string, unknown>,
       _credentials?: Credentials,
-    ) => Promise.resolve(reply),
+    ) => reply,
   );
 
   const notifier = taskNotices(
     partial<DefinedIntegrationsPort>({
-      ofTeam: vi.fn(() => Promise.resolve([defined(file)])),
+      ofTeam: vi.fn(async () => [defined(file)]),
     }),
     runtimeWith({ run }),
     callAuthFor(injection),
     new WebInboxLinks(
       partial<WorkspaceReaderPort>({
-        slugOf: vi.fn(() => Promise.resolve('acme')),
+        slugOf: vi.fn(async () => 'acme'),
       }),
       taskLinks,
     ),
@@ -409,7 +409,7 @@ const uploading = (
     capture,
   });
   const run = vi.fn(
-    (
+    async (
       action: RequestIR,
       against: Record<string, unknown>,
     ): Promise<OutboundResult> => {
@@ -422,39 +422,35 @@ const uploading = (
         const answer = readiness(file.name, check);
 
         if (answer === 'lost') {
-          return Promise.reject(new Error('socket hang up'));
+          throw new Error('socket hang up');
         }
 
         if (answer === 'forbidden') {
-          return Promise.resolve({
+          return {
             ok: false,
             status: 403,
             response: { ok: false, error: 'forbidden' },
             capture: {},
-          });
+          };
         }
 
-        return Promise.resolve(
-          answer === 'ready'
-            ? answered({ ok: true, file: { mimetype: 'image/png' } })
-            : {
-                ok: false,
-                status: 200,
-                response: { ok: true, file: {} },
-                capture: {},
-              },
-        );
+        return answer === 'ready'
+          ? answered({ ok: true, file: { mimetype: 'image/png' } })
+          : {
+              ok: false,
+              status: 200,
+              response: { ok: true, file: {} },
+              capture: {},
+            };
       }
 
       if (file && !('prepared' in against)) {
-        return Promise.resolve(
-          answered(
-            { ok: true },
-            {
-              url: `https://files.slack.com/upload/${file.name}`,
-              id: `F_${file.name}`,
-            },
-          ),
+        return answered(
+          { ok: true },
+          {
+            url: `https://files.slack.com/upload/${file.name}`,
+            id: `F_${file.name}`,
+          },
         );
       }
 
@@ -462,23 +458,23 @@ const uploading = (
       const shown: readonly unknown[] = Array.isArray(uploaded) ? uploaded : [];
 
       if (!('uploads' in action) || images === 'shown' || shown.length === 0) {
-        return Promise.resolve(answered({ ok: true }));
+        return answered({ ok: true });
       }
 
       if (images === 'lost') {
-        return Promise.reject(new Error('socket hang up'));
+        throw new Error('socket hang up');
       }
 
-      return Promise.resolve({
+      return {
         ok: false,
         status: 200,
         response: { ok: false, error: 'invalid_blocks' },
         capture: {},
-      });
+      };
     },
   );
   const upload = vi.fn(
-    (
+    async (
       _request: unknown,
       against: Record<string, unknown>,
       _credentials: Credentials,
@@ -486,21 +482,21 @@ const uploading = (
     ): Promise<OutboundResult> => {
       const status = against.connection === 'at-old' ? 401 : sendStatus;
 
-      return Promise.resolve({
+      return {
         ok: status === 200,
         status,
         response: 'OK',
         capture: {},
-      });
+      };
     },
   );
-  const open = vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3])));
+  const open = vi.fn(async () => new Uint8Array([1, 2, 3]));
   const sleep = vi.fn(async () => {});
   const warn = vi.fn();
 
   const notifier = taskNotices(
     partial<DefinedIntegrationsPort>({
-      ofTeam: vi.fn(() => Promise.resolve([defined(file)])),
+      ofTeam: vi.fn(async () => [defined(file)]),
     }),
     new CompiledIntegrationRuntime(
       new IntegrationReader(expressions, operationsContaining()),
@@ -518,7 +514,7 @@ const uploading = (
     callAuth,
     new WebInboxLinks(
       partial<WorkspaceReaderPort>({
-        slugOf: vi.fn(() => Promise.resolve('acme')),
+        slugOf: vi.fn(async () => 'acme'),
       }),
       taskLinks,
     ),
@@ -640,9 +636,9 @@ describe('TaskNotices uploads', () => {
   });
 
   it('sends a file with the connection, and refreshes the connection once where it is refused', async () => {
-    const unauthorized = vi.fn(() => Promise.resolve(AccessToken.of('at-new')));
+    const unauthorized = vi.fn(async () => AccessToken.of('at-new'));
     const connected: CallAuth = {
-      workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
+      workspace: async () => WorkspaceId.of('ws_1'),
       connection: {
         token: AccessToken.of('at-old'),
         owner: ConnectionOwner.person(UserId.of('ada')),
@@ -675,7 +671,7 @@ connection:
 `,
       ),
       'shown',
-      partial<CallAuthResolver>({ of: () => Promise.resolve(connected) }),
+      partial<CallAuthResolver>({ of: async () => connected }),
     );
 
     await notifier.notify(withFiles([SHOT]), 'task.asked');

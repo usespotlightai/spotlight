@@ -65,23 +65,21 @@ const reacting = (
   const reviews = { reopen: vi.fn(), resolve: vi.fn() };
   let handles = 100;
   const memories = {
-    nextHandle: () => {
+    nextHandle: async () => {
       handles += 1;
-      return Promise.resolve(MemoryHandle.of(handles));
+      return MemoryHandle.of(handles);
     },
-    find: (id: MemoryId) =>
-      Promise.resolve(stored.find((each) => each.id.equals(id)) ?? null),
-    add: vi.fn((memory: Memory) => {
+    find: async (id: MemoryId) =>
+      stored.find((each) => each.id.equals(id)) ?? null,
+    add: vi.fn(async (memory: Memory) => {
       stored.push(memory);
-      return Promise.resolve();
     }),
-    save: vi.fn((memory: Memory) => {
+    save: vi.fn(async (memory: Memory) => {
       stored.splice(
         stored.findIndex((each) => each.id.equals(memory.id)),
         1,
         memory,
       );
-      return Promise.resolve();
     }),
   };
 
@@ -89,22 +87,19 @@ const reacting = (
     reactions: new MemoryReactions(
       partial<ReviewsPort>(reviews),
       partial<MemoryProposalSetRepository>({
-        forTaskLocked: () =>
-          Promise.resolve(
-            partial<MemoryProposalSet>({
-              awaitsReviewIn: (runId: RunId) =>
-                awaiting.some((each) => each.equals(runId)),
-            }),
-          ),
-        forTask: () => Promise.resolve(sets[sets.length - 1] ?? null),
-        save: (saved: MemoryProposalSet) => {
+        forTaskLocked: async () =>
+          partial<MemoryProposalSet>({
+            awaitsReviewIn: (runId: RunId) =>
+              awaiting.some((each) => each.equals(runId)),
+          }),
+        forTask: async () => sets[sets.length - 1] ?? null,
+        save: async (saved: MemoryProposalSet) => {
           sets.push(saved);
-          return Promise.resolve();
         },
       }),
       partial<MemoryRepository>(memories),
       { inTransaction: <T>(work: () => Promise<T>) => work() },
-      { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+      { now: () => NOW, sleep: async () => undefined },
     ),
     reviews,
     memories,

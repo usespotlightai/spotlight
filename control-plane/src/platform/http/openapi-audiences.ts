@@ -17,6 +17,7 @@ import {
 } from '@platform/http/decorators/in-audience.decorator';
 import { MACHINE_ONLY } from '@platform/http/decorators/machine-only.decorator';
 import { ADMIN } from '@platform/http/routes';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Credential =
   | 'session'
@@ -60,10 +61,7 @@ const securitySchemesFor = (
   const bearer = schemes?.bearer;
   const description = BEARER_TOKENS[audience];
 
-  return bearer &&
-    description !== undefined &&
-    description !== '' &&
-    !('$ref' in bearer)
+  return bearer && nonEmpty(description) && !('$ref' in bearer)
     ? { ...schemes, bearer: { ...bearer, description } }
     : schemes;
 };

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import {
   TRACE_CELL as CELL,
@@ -8,7 +6,7 @@ import {
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { cn } from '@/lib/utils';
 
-export function TraceRowSkeleton(): ReactElement {
+export function TraceRowSkeleton() {
   return (
     <li
       className={cn(

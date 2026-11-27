@@ -66,17 +66,17 @@ const configured = (
     forVerifying,
     providers: new ConfiguredWebhookProviders(
       {
-        ofTeam: vi.fn(() => Promise.resolve(integrations)),
+        ofTeam: vi.fn(async () => integrations),
         everywhere: vi.fn(),
       } satisfies DefinedIntegrationsPort,
       new IntegrationReader(expressions, operationsContaining()),
-      { keys: () => Promise.resolve(new Map()) },
+      { keys: async () => new Map() },
       new HttpOutbound(allowingOutbound([])),
       injection,
       unlimited,
       unscoped,
       { now: () => new Date(), sleep: async () => {} },
-      { activeOf: () => Promise.resolve(null) },
+      { activeOf: async () => null },
     ),
   };
 };

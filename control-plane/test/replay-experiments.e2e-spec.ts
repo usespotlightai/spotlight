@@ -48,6 +48,7 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
@@ -94,25 +95,21 @@ const POLISH = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const DAY = 24 * 60 * 60_000;
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  stored: () => Promise.resolve(true),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+  received: async () => [],
+  stored: async () => true,
+  taken: async () => undefined,
+  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 });
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
@@ -175,10 +172,7 @@ const anOriginal = async (
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
     originStationId: input.originStationId ?? taskAt,
-    createdById:
-      input.openedFrom !== undefined && input.openedFrom !== ''
-        ? null
-        : team.owner.value,
+    createdById: nonEmpty(input.openedFrom) ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
     workingCopyReleasedAt: at,
@@ -281,9 +275,7 @@ const replayRunsOf = async (replayIds: readonly string[]) =>
       .select({ runId: schema.replayEntry.runId })
       .from(schema.replayEntry)
       .where(inArray(schema.replayEntry.replayId, [...replayIds]))
-  ).flatMap((each) =>
-    each.runId !== null && each.runId !== '' ? [each.runId] : [],
-  );
+  ).flatMap((each) => (nonEmpty(each.runId) ? [each.runId] : []));
 
 const runRow = async (runId: string) => {
   const row = firstOf(
@@ -669,13 +661,13 @@ describe('a candidate', () => {
       ...station,
       prompt: 'Build it, then drain the queue.',
     });
-    expect(
-      changed?.ok === true ? changed.candidate.fingerprint : changed?.ok,
-    ).not.toBe(live?.config.fingerprint);
-    expect(changed?.ok === true ? changed.live.fingerprint : changed?.ok).toBe(
+    expect(changed?.ok ? changed.candidate.fingerprint : changed?.ok).not.toBe(
       live?.config.fingerprint,
     );
-    expect(changed?.ok === true ? changed.changes : changed?.ok).toEqual([
+    expect(changed?.ok ? changed.live.fingerprint : changed?.ok).toBe(
+      live?.config.fingerprint,
+    );
+    expect(changed?.ok ? changed.changes : changed?.ok).toEqual([
       {
         part: 'prompt',
         name: null,

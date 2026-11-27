@@ -90,54 +90,50 @@ const sweeping = (input: {
   let next = 0;
 
   const schedules = partial<MemoryUpkeepScheduleRepository>({
-    ofTeam: () => Promise.resolve(stored),
-    ofTeamLocked: () => Promise.resolve(stored),
-    nextDue: (at: Date) => Promise.resolve(stored.isDue(at) ? stored : null),
-    save: (schedule: MemoryUpkeepSchedule) => {
+    ofTeam: async () => stored,
+    ofTeamLocked: async () => stored,
+    nextDue: async (at: Date) => (stored.isDue(at) ? stored : null),
+    save: async (schedule: MemoryUpkeepSchedule) => {
       stored = schedule;
-      return Promise.resolve();
     },
   });
   const consolidator: MemoryConsolidatorPort = {
-    consolidate: (request) => {
+    consolidate: async (request) => {
       requests.push(request);
-      return Promise.resolve(
+      return (
         input.answers[Math.min(requests.length, input.answers.length) - 1] ?? {
           status: 'waiting',
-        },
+        }
       );
     },
     roundOf: () => null,
   };
   const hosts: TeamHostRunsPort = {
-    hostOf: () =>
-      Promise.resolve(
-        input.host === undefined ? RunId.of('run_9') : input.host,
-      ),
+    hostOf: async () =>
+      input.host === undefined ? RunId.of('run_9') : input.host,
   };
 
   const sweeps = new MemoryUpkeepSweeps(
     schedules,
     partial<MemoryUpkeepRepository>({
-      add: (upkeep: MemoryUpkeep) => {
+      add: async (upkeep: MemoryUpkeep) => {
         upkeeps.push(upkeep);
-        return Promise.resolve();
       },
-      historySince: () => Promise.resolve([]),
+      historySince: async () => [],
     }),
-    partial<MemoryRepository>({ ofTeam: () => Promise.resolve(MEMORIES) }),
-    { ofTeam: () => Promise.resolve([]) },
+    partial<MemoryRepository>({ ofTeam: async () => MEMORIES }),
+    { ofTeam: async () => [] },
     partial<MemoryUsesPort>({
-      lastUsed: () => {
+      lastUsed: async () => {
         checked += 1;
-        return Promise.resolve(new Map());
+        return new Map();
       },
     }),
-    { pathsAt: () => Promise.resolve(new Set<string>()) },
+    { pathsAt: async () => new Set<string>() },
     consolidator,
     hosts,
     { generate: () => `id_${(next += 1)}` },
-    { now: () => now, sleep: () => Promise.resolve(undefined) },
+    { now: () => now, sleep: async () => undefined },
     QUIET,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { report: () => undefined },

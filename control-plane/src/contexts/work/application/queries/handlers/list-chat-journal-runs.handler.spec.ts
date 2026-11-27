@@ -10,13 +10,13 @@ import { describe, expect, it, vi } from 'vitest';
 const listing = (found: JournalledRun[]) =>
   new ListChatJournalRunsHandler(
     partial<RunJournalReaderPort>({
-      runsOfChat: vi.fn(() =>
-        Promise.resolve(partial<RunsOfChat<JournalledRun[]>>({ found })),
+      runsOfChat: vi.fn(async () =>
+        partial<RunsOfChat<JournalledRun[]>>({ found }),
       ),
     }),
     partial<RunAccess>({
-      shownOfChat: <T>(runs: RunsOfChat<T> | null) =>
-        Promise.resolve(runs === null ? null : runs.found),
+      shownOfChat: async <T>(runs: RunsOfChat<T> | null) =>
+        runs === null ? null : runs.found,
     }),
   ).execute(new ListChatJournalRunsQuery('team_1', 'chat_1', 'user_1'));
 

@@ -21,15 +21,15 @@ const UNTIL = new Date('2026-09-26T09:00:10.000Z');
 const TEAM = TeamId.of('team_1');
 
 const gating = (viewed = true, failure: Error | null = null) => {
-  const of = vi.fn((taskId: string, runId: string | null) =>
-    Promise.resolve(viewed ? partial<TaskViewDto>({ taskId, runId }) : null),
+  const of = vi.fn(async (taskId: string, runId: string | null) =>
+    viewed ? partial<TaskViewDto>({ taskId, runId }) : null,
   );
-  const before = vi.fn(() => {
+  const before = vi.fn(async () => {
     if (failure) {
-      return Promise.reject(failure);
+      throw failure;
     }
 
-    return Promise.resolve({ kind: 'denied' as const, reason: 'frozen' });
+    return { kind: 'denied' as const, reason: 'frozen' };
   });
 
   return {

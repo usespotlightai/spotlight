@@ -1,9 +1,5 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-export function SettingsEmpty({
-  children,
-}: {
-  children: ReactNode;
-}): ReactElement {
+export function SettingsEmpty({ children }: { children: ReactNode }) {
   return <p className="text-muted-foreground text-sm">{children}</p>;
 }

@@ -1,7 +1,7 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 
 export class ValueVersion {
-  private readonly kind: string = 'value-version';
+  private readonly kind = 'value-version';
 
   private constructor(readonly value: number) {}
 
@@ -21,6 +21,6 @@ export class ValueVersion {
   }
 
   equals(other: ValueVersion): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ValueVersion && this.value === other.value;
   }
 }

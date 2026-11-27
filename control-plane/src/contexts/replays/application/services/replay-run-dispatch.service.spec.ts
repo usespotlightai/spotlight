@@ -70,7 +70,7 @@ class FakeTrials implements StationTrialsPort {
   readonly withdrawn: string[] = [];
   onOrder: () => Promise<void> = async () => {};
 
-  answers = () => Promise.resolve([]);
+  answers = async () => [];
 
   order = async (request: TrialRequest) => {
     this.requests.push(request);
@@ -78,9 +78,8 @@ class FakeTrials implements StationTrialsPort {
     return this.ordering;
   };
 
-  withdraw = (run: RunId) => {
+  withdraw = async (run: RunId) => {
     this.withdrawn.push(run.value);
-    return Promise.resolve();
   };
 }
 
@@ -103,40 +102,38 @@ class FakeRuns implements RunsPort {
     return this.enqueueing;
   };
 
-  enqueueSearch = () => Promise.resolve(this.enqueueing);
+  enqueueSearch = async () => this.enqueueing;
 
-  cancel = (run: RunId) => {
+  cancel = async (run: RunId) => {
     this.cancelled.push(run.value);
     this.queuedRuns.delete(run.value);
-    return Promise.resolve({ known: this.known.has(run.value) });
+    return { known: this.known.has(run.value) };
   };
 
-  cancelIfQueued = (run: RunId) => {
+  cancelIfQueued = async (run: RunId) => {
     if (!this.known.has(run.value)) {
-      return Promise.resolve({ outcome: 'unknown' } as const);
+      return { outcome: 'unknown' } as const;
     }
     if (this.queued.outcome === 'cancelled') {
       this.queuedRuns.delete(run.value);
     }
-    return Promise.resolve(this.queued);
+    return this.queued;
   };
 
-  statuses = (runs: readonly RunId[]): Promise<RunStatus[]> =>
-    Promise.resolve(
-      runs
-        .filter((each) => this.known.has(each.value))
-        .map((each) => ({
-          run: each,
-          requester: ReplaysRequester.replayOf(each),
-          state: 'queued',
-          askedAPerson: false,
-          started: false,
-          queuedAt: new Date(0),
-          endedAt: null,
-        })),
-    );
+  statuses = async (runs: readonly RunId[]): Promise<RunStatus[]> =>
+    runs
+      .filter((each) => this.known.has(each.value))
+      .map((each) => ({
+        run: each,
+        requester: ReplaysRequester.replayOf(each),
+        state: 'queued',
+        askedAPerson: false,
+        started: false,
+        queuedAt: new Date(0),
+        endedAt: null,
+      }));
 
-  leasedBy = () => Promise.resolve(null);
+  leasedBy = async () => null;
 
   agentProblem = () => null;
 }
@@ -154,7 +151,7 @@ beforeEach(() => {
   replayKept = true;
   dispatch = new ReplayRunDispatch(
     decisions,
-    { find: () => Promise.resolve(replayKept ? partial<Replay>({}) : null) },
+    { find: async () => (replayKept ? partial<Replay>({}) : null) },
     trials,
     runs,
   );
@@ -344,8 +341,8 @@ describe('ReplayRunDispatch', () => {
     });
 
     it('stops a run an earlier dispatch queued when the replay is gone at the next try', async () => {
-      runs.onEnqueue = () => {
-        return Promise.reject(new Error('the process stopped'));
+      runs.onEnqueue = async () => {
+        throw new Error('the process stopped');
       };
       await expect(dispatch.dispatch(ORDER)).rejects.toThrow(
         'the process stopped',
@@ -423,8 +420,8 @@ describe('ReplayRunDispatch', () => {
     });
 
     it('withdraws a trial Work stored when the run was never enqueued', async () => {
-      runs.onEnqueue = () => {
-        return Promise.reject(new Error('the process stopped'));
+      runs.onEnqueue = async () => {
+        throw new Error('the process stopped');
       };
       await expect(dispatch.dispatch(ORDER)).rejects.toThrow(
         'the process stopped',

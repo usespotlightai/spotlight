@@ -1,9 +1,7 @@
-import type { ReactElement } from 'react';
-
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
 import { TICKS } from '@/lib/trace';
 
-export function TraceGrid(): ReactElement {
+export function TraceGrid() {
   return (
     <div
       aria-hidden

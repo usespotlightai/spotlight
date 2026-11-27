@@ -4,6 +4,7 @@ import type {
   FailureCauseKind,
 } from '@replays/domain/value-objects/failure-cause.vo';
 import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const MAX_POINTS = 20;
 
@@ -64,7 +65,7 @@ const pointOf =
       throw new Error('a config change fixes this cause');
     }
 
-    const lead = `${title !== undefined && title !== '' ? `“${clipped(title, MAX_TITLE)}”` : UNTITLED}: the cause is ${CAUSES[kind]}.`;
+    const lead = `${nonEmpty(title) ? `“${clipped(title, MAX_TITLE)}”` : UNTITLED}: the cause is ${CAUSES[kind]}.`;
     const fix = FIXES[kind];
     const room = MAX_POINT - lead.length - fix.length - 2;
 

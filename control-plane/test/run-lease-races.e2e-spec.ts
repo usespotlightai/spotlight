@@ -96,8 +96,8 @@ beforeAll(async () => {
   database = await openDatabase('run_lease_races');
   context = new DrizzleContext(database.db);
   runs = new DrizzleRunRepository(context, {
-    dispatch: (events) =>
-      Promise.resolve(context.afterCommit(() => committed.push(...events))),
+    dispatch: async (events) =>
+      context.afterCommit(() => committed.push(...events)),
   });
 }, 60_000);
 
@@ -111,15 +111,13 @@ const clockAt = (at: number): ClockPort => ({
 });
 
 const claimants: RunnerClaimantsPort = {
-  registeredClaimantOf: () => Promise.resolve(null),
-  claimantOf: () =>
-    Promise.resolve(
-      partial<RegisteredClaimant>({
-        harnesses: [],
-        claims: 'nothing',
-        source: null,
-      }),
-    ),
+  registeredClaimantOf: async () => null,
+  claimantOf: async () =>
+    partial<RegisteredClaimant>({
+      harnesses: [],
+      claims: 'nothing',
+      source: null,
+    }),
 };
 
 const claimedRun = async (by: Requester): Promise<string> => {

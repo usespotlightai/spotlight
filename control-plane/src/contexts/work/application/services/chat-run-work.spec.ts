@@ -32,7 +32,7 @@ const chat = Chat.start({
   newId: () => 'chat_1',
 });
 
-const onBranch = vi.fn(() => Promise.resolve(null));
+const onBranch = vi.fn(async () => null);
 
 const work = new ChatRunWork(
   partial<LeasedRunFacts>({}),
@@ -64,7 +64,7 @@ describe('the work of a chat run', () => {
   });
 
   it('lets the probe before a large push through without asking GitHub', async () => {
-    const asked = vi.fn(() => Promise.resolve('main'));
+    const asked = vi.fn(async () => 'main');
     const probing = new ChatRunWork(
       partial<LeasedRunFacts>({}),
       chat,
@@ -86,8 +86,8 @@ describe('the work of a chat run', () => {
       partial<ChatRepository>({}),
       partial<TaskRepository>({ onBranch }),
       partial<RepositorySettingsPort>({
-        defaultBranchNameOf: () => {
-          return Promise.reject(new Error('rate limited'));
+        defaultBranchNameOf: async () => {
+          throw new Error('rate limited');
         },
       }),
     );

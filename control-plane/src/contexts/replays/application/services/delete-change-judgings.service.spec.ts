@@ -37,8 +37,8 @@ class LeasedWhileListed extends InMemoryChangeJudgings {
 }
 
 class GoneOnceListed extends InMemoryChangeJudgings {
-  override of(): Promise<ChangeJudging | null> {
-    return Promise.resolve(null);
+  override async of(): Promise<ChangeJudging | null> {
+    return null;
   }
 }
 

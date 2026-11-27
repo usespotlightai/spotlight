@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   DescribedMemory,
   MemoryUseWindow,
@@ -11,6 +10,8 @@ import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, count, desc, eq, gte, inArray, lt } from 'drizzle-orm';
 
@@ -48,10 +49,12 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
       eq(memory.workspaceId, window.workspaceId),
       eq(memory.teamId, window.teamId),
     );
-    const active = firstOf(await this.context.db
-      .select({ memories: count() })
-      .from(memory)
-      .where(and(ofTeam, eq(memory.status, 'active'))));
+    const active = firstOf(
+      await this.context.db
+        .select({ memories: count() })
+        .from(memory)
+        .where(and(ofTeam, eq(memory.status, 'active'))),
+    );
 
     const retired = await this.context.db
       .select({
@@ -82,9 +85,11 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
 
         const retirement = MemoryRetirement.rehydrate({
           at: row.at,
-          by: row.by !== null && row.by !== '' ? UserId.of(row.by) : null,
+          by: nonEmpty(row.by) ? UserId.of(row.by) : null,
           reason: row.reason,
-          supersededBy: row.supersededBy !== null && row.supersededBy !== '' ? MemoryId.of(row.supersededBy) : null,
+          supersededBy: nonEmpty(row.supersededBy)
+            ? MemoryId.of(row.supersededBy)
+            : null,
         });
 
         return retirement.flaggedWrong

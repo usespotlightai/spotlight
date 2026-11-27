@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 
 import { AgentText } from '@/components/features/agent/AgentText';
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
@@ -70,7 +70,7 @@ export function ChatThread({
   journals,
   runs,
   footer,
-}: ChatThreadProps): ReactElement {
+}: ChatThreadProps) {
   const resting = runs.filter(
     (run) => chat.progress !== 'in-progress' || run.runId !== chat.runId,
   );

@@ -1,4 +1,5 @@
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 const segmentsOf = (path: string): readonly (string | undefined)[] =>
@@ -29,10 +30,8 @@ export class PullRequestUrl {
     const [owner, name, kind, number] = segmentsOf(path);
 
     if (
-      owner === undefined ||
-      owner === '' ||
-      name === undefined ||
-      name === '' ||
+      !nonEmpty(owner) ||
+      !nonEmpty(name) ||
       kind !== 'pull' ||
       !/^\d+$/.test(number ?? '')
     ) {

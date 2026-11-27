@@ -30,7 +30,7 @@ import {
   defineExtension,
   type EditorThemeClasses,
 } from 'lexical';
-import { useState, type ReactElement } from 'react';
+import { useState } from 'react';
 
 import { useShownMarkdown } from '@/hooks/useShownMarkdown';
 import { MARKDOWN } from '@/lib/markdown-table';
@@ -147,12 +147,12 @@ export function MarkdownEditor({
   className,
   placeholderClassName,
   size = 'sm',
-}: MarkdownEditorProps): ReactElement {
+}: MarkdownEditorProps) {
   const [extension] = useState(() =>
     defineExtension({
       name: '@spotlight/markdown',
       namespace: 'markdown',
-      editable: readOnly !== true,
+      editable: !readOnly,
       nodes: NODES,
       theme: THEMES[size],
       dependencies: [
@@ -165,7 +165,7 @@ export function MarkdownEditor({
         configExtension(TableExtension, {
           hasCellMerge: false,
           hasCellBackgroundColor: false,
-          hasTabHandler: readOnly !== true,
+          hasTabHandler: !readOnly,
         }),
       ],
       $initialEditorState: () =>
@@ -174,7 +174,7 @@ export function MarkdownEditor({
           MARKDOWN,
           undefined,
           false,
-          readOnly === true && keepLineBreaks !== true,
+          readOnly === true && !keepLineBreaks,
         ),
       onError: (error) => {
         throw error;
@@ -208,10 +208,7 @@ export function MarkdownEditor({
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
 
         {readOnly === true && (
-          <ShownText
-            value={initialValue}
-            shortLines={keepLineBreaks !== true}
-          />
+          <ShownText value={initialValue} shortLines={!keepLineBreaks} />
         )}
 
         {onChange && (

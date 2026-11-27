@@ -36,49 +36,43 @@ const policies = new InMemoryPersonToolPolicies();
 const listing = (membership: Partial<TeamWorkspaceMembership> | null) =>
   new ListIntegrationConnectionsHandler(
     partial<WorkspaceAccessPort>({
-      inWorkspaceOfTeam: vi.fn(() =>
-        Promise.resolve(
-          membership === null
-            ? null
-            : partial<TeamWorkspaceMembership>(membership),
-        ),
+      inWorkspaceOfTeam: vi.fn(async () =>
+        membership === null
+          ? null
+          : partial<TeamWorkspaceMembership>(membership),
       ),
     }),
     {
-      ofTeam: () =>
-        Promise.resolve([
-          {
-            integration: IntegrationKey.of('linear'),
-            personId: UserId.of('user_1'),
-            linkedAccount: '@me',
-            connectedAt: AT,
-          },
-          {
-            integration: IntegrationKey.of('linear'),
-            personId: UserId.of('user_2'),
-            linkedAccount: '@bob',
-            connectedAt: AT,
-          },
-        ]),
+      ofTeam: async () => [
+        {
+          integration: IntegrationKey.of('linear'),
+          personId: UserId.of('user_1'),
+          linkedAccount: '@me',
+          connectedAt: AT,
+        },
+        {
+          integration: IntegrationKey.of('linear'),
+          personId: UserId.of('user_2'),
+          linkedAccount: '@bob',
+          connectedAt: AT,
+        },
+      ],
     } satisfies IntegrationConnectionRosterPort,
     {
       find: vi.fn(),
-      findMany: () =>
-        Promise.resolve(
-          new Map([
-            ['user_1', { id: UserId.of('user_1'), name: 'Me', image: null }],
-            ['user_2', { id: UserId.of('user_2'), name: 'Bob', image: null }],
-          ]),
-        ),
+      findMany: async () =>
+        new Map([
+          ['user_1', { id: UserId.of('user_1'), name: 'Me', image: null }],
+          ['user_2', { id: UserId.of('user_2'), name: 'Bob', image: null }],
+        ]),
     } satisfies PersonReaderPort,
     partial<DefinedIntegrationsPort>({
-      ofTeam: () =>
-        Promise.resolve([
-          partial<DefinedIntegration>({
-            integration: 'linear',
-            tools: ['linear.comment', 'linear.issue-create'],
-          }),
-        ]),
+      ofTeam: async () => [
+        partial<DefinedIntegration>({
+          integration: 'linear',
+          tools: ['linear.comment', 'linear.issue-create'],
+        }),
+      ],
     }),
     policies,
     partial<IntegrationRuntimePort>({

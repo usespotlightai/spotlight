@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -24,6 +23,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -115,7 +115,9 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
   }
 
   async locked(id: ReplaySetId): Promise<ReplaySet | null> {
-    const found = firstOf(await this.withEntries(eq(replaySet.id, id.value), true));
+    const found = firstOf(
+      await this.withEntries(eq(replaySet.id, id.value), true),
+    );
 
     return found ?? null;
   }
@@ -125,9 +127,9 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
   }
 
   async ofStation(stationId: StationId): Promise<ReplaySet | null> {
-    const found = firstOf(await this.withEntries(
-      eq(replaySet.stationId, stationId.value),
-    ));
+    const found = firstOf(
+      await this.withEntries(eq(replaySet.stationId, stationId.value)),
+    );
 
     return found ?? null;
   }

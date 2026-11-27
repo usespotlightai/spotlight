@@ -21,6 +21,7 @@ import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
 import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
@@ -94,7 +95,7 @@ const COMMENTED = Happening.of('github.pull_request.commented');
 const sends = (to: string, from?: string) =>
   Reaction.of({
     happening: COMMENTED,
-    from: from !== undefined && from !== '' ? StationId.of(from) : null,
+    from: nonEmpty(from) ? StationId.of(from) : null,
     to: StationId.of(to),
   });
 

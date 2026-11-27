@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Navigate } from 'react-router';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -6,7 +5,7 @@ import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 import { failed, loading } from '@/lib/query';
 import { workspacePath } from '@/lib/workspace';
 
-export function DefaultWorkspace(): ReactElement | null {
+export function DefaultWorkspace() {
   const workspaces = useWorkspaces();
 
   if (failed(workspaces)) {

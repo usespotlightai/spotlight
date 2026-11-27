@@ -33,7 +33,7 @@ describe('StationConfigs', () => {
 
   it('has no live config when the line no longer has the station', async () => {
     const configs = configsWith((lines) => {
-      lines.stationSettings = () => Promise.resolve(null);
+      lines.stationSettings = async () => null;
     });
 
     expect(await configs.live(STATION.lineId, STATION.stationId)).toBeNull();
@@ -54,10 +54,10 @@ describe('StationConfigs', () => {
   it('passes on the problems Work found without asking the line', async () => {
     let asked = false;
     const configs = configsWith((lines, candidates) => {
-      candidates.validate = () => Promise.resolve({ ok: false, problems: [] });
-      lines.candidateBlock = () => {
+      candidates.validate = async () => ({ ok: false, problems: [] });
+      lines.candidateBlock = async () => {
         asked = true;
-        return Promise.resolve(null);
+        return null;
       };
     });
 

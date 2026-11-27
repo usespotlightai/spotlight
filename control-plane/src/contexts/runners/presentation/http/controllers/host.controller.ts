@@ -35,6 +35,7 @@ import type {
 } from '@runners/application/dto/host-heartbeat.dto';
 import { HostHeartbeatRequestDto } from '@runners/presentation/http/dto/host-heartbeat.request.dto';
 import { HostHeartbeatResponseDto } from '@runners/presentation/http/dto/host-heartbeat.response.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const UNAUTHORIZED =
   'Pool token is missing, rotated or unknown, or no trust accepts this workload.';
@@ -127,18 +128,13 @@ export class HostController {
             harnesses: (each.harnesses ?? []).map((harness) => ({
               id: harness.id,
               models: harness.models ?? [],
-              ...(harness.version !== undefined && harness.version !== ''
+              ...(nonEmpty(harness.version)
                 ? { version: harness.version }
                 : {}),
             })),
-            ...(each.digest !== undefined && each.digest !== ''
-              ? { digest: each.digest }
-              : {}),
-            ...(each.release !== undefined && each.release !== ''
-              ? { release: each.release }
-              : {}),
-            ...(each.unavailableReason !== undefined &&
-            each.unavailableReason !== ''
+            ...(nonEmpty(each.digest) ? { digest: each.digest } : {}),
+            ...(nonEmpty(each.release) ? { release: each.release } : {}),
+            ...(nonEmpty(each.unavailableReason)
               ? { unavailableReason: each.unavailableReason }
               : {}),
           })),

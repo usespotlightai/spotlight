@@ -20,6 +20,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -44,14 +45,12 @@ interface Opened {
 const openedOf = (opened: Opened | undefined): OpenedPullRequestDto | null => {
   const repository = opened?.base?.repo?.full_name;
 
-  return opened?.html_url !== undefined &&
-    opened.html_url !== '' &&
+  return nonEmpty(opened?.html_url) &&
     opened.number !== undefined &&
     opened.number !== 0 &&
     opened.id !== undefined &&
     opened.id !== 0 &&
-    repository !== undefined &&
-    repository !== ''
+    nonEmpty(repository)
     ? {
         url: opened.html_url,
         number: opened.number,
@@ -62,7 +61,7 @@ const openedOf = (opened: Opened | undefined): OpenedPullRequestDto | null => {
 };
 
 const dateOf = (raw: string | null | undefined): Date | null =>
-  raw !== null && raw !== undefined && raw !== '' ? new Date(raw) : null;
+  nonEmpty(raw) ? new Date(raw) : null;
 
 interface Associated {
   readonly number?: number;
@@ -72,10 +71,7 @@ interface Associated {
 }
 
 const associatedOf = (found: Associated): CommitPullRequestDto[] =>
-  found.number !== undefined &&
-  found.number !== 0 &&
-  found.html_url !== undefined &&
-  found.html_url !== ''
+  found.number !== undefined && found.number !== 0 && nonEmpty(found.html_url)
     ? [
         {
           number: found.number,
@@ -274,7 +270,7 @@ export class GitHubPullRequests implements PullRequestPort {
       const before = changed.size;
 
       for (const file of files) {
-        if (file.filename !== undefined && file.filename !== '') {
+        if (nonEmpty(file.filename)) {
           changed.add(file.filename);
         }
       }

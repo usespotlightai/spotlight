@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { COVERAGE_PARTS, formatPercent, type JudgeCoverage } from '@/lib/judge';
 
 const INKS: Record<(typeof COVERAGE_PARTS)[number]['key'], string> = {
@@ -9,11 +7,7 @@ const INKS: Record<(typeof COVERAGE_PARTS)[number]['key'], string> = {
   neither: 'var(--judge-neither)',
 };
 
-export function JudgeCoverageBar({
-  coverage,
-}: {
-  coverage: JudgeCoverage;
-}): ReactElement {
+export function JudgeCoverageBar({ coverage }: { coverage: JudgeCoverage }) {
   const shown = COVERAGE_PARTS.filter((part) => coverage[part.key] > 0);
 
   return (

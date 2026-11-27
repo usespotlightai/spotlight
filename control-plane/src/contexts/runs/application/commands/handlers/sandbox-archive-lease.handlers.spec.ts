@@ -63,12 +63,12 @@ const setUp = (input: {
     key: 'requester/subject-task_1',
   };
   const port = {
-    authenticate: (token: string | undefined) =>
-      Promise.resolve(token === TOKEN ? sandbox : null),
-    holdArchive: vi.fn(() => Promise.resolve(input.holds ?? true)),
-    renewArchive: vi.fn(() => Promise.resolve(input.holds ?? true)),
+    authenticate: async (token: string | undefined) =>
+      token === TOKEN ? sandbox : null,
+    holdArchive: vi.fn(async () => input.holds ?? true),
+    renewArchive: vi.fn(async () => input.holds ?? true),
     releaseArchive: vi.fn(async () => {}),
-    archivedAttemptOf: vi.fn(() => Promise.resolve(input.archived ?? null)),
+    archivedAttemptOf: vi.fn(async () => input.archived ?? null),
   };
   const sandboxes = new SandboxArchives(partial<SandboxesPort>(port));
   const appended: { attempt: RunAttempt; entries: readonly JournalEntry[] }[] =
@@ -76,10 +76,10 @@ const setUp = (input: {
   const published: string[] = [];
   const appends = new RunJournalAppends(
     {
-      append: (attempt, entries) =>
-        Promise.resolve(void appended.push({ attempt, entries })),
-      appendControlPlaneEntry: () => {
-        return Promise.reject(new Error('not used'));
+      append: async (attempt, entries) =>
+        void appended.push({ attempt, entries }),
+      appendControlPlaneEntry: async () => {
+        throw new Error('not used');
       },
     },
     partial<RunStreamPort>({

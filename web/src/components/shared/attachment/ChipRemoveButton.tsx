@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -8,10 +7,7 @@ type ChipRemoveButtonProps = {
   onRemove: () => void;
 };
 
-export function ChipRemoveButton({
-  label,
-  onRemove,
-}: ChipRemoveButtonProps): ReactElement {
+export function ChipRemoveButton({ label, onRemove }: ChipRemoveButtonProps) {
   return (
     <Button
       type="button"

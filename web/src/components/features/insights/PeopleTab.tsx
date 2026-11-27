@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
@@ -47,11 +45,7 @@ type PeopleTabProps = {
   period: InsightsPeriod;
 };
 
-export function PeopleTab({
-  slug,
-  teamId,
-  period,
-}: PeopleTabProps): ReactElement {
+export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
   const people = useInsightsPeople(teamId, period);
 
   if (loading(people)) {

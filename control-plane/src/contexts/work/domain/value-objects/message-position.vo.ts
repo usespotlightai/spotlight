@@ -1,7 +1,7 @@
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 
 export class MessagePosition {
-  private readonly kind: string = 'message-position';
+  private readonly kind = 'message-position';
 
   private constructor(readonly value: number) {}
 
@@ -20,6 +20,6 @@ export class MessagePosition {
   }
 
   equals(other: MessagePosition): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MessagePosition && this.value === other.value;
   }
 }

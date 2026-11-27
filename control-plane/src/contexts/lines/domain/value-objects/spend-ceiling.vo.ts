@@ -1,4 +1,5 @@
 import { InvalidSpendCeilingError } from '@lines/domain/exceptions/invalid-spend-ceiling.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const MAX_SPEND_CEILING = 1_000;
 
@@ -34,7 +35,7 @@ export class SpendCeiling {
     const problem = spendAmountProblem(amount, most);
     const counted = currency.trim().toUpperCase();
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InvalidSpendCeilingError('amount', problem);
     }
     if (!CURRENCY.test(counted)) {

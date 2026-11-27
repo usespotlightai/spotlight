@@ -12,7 +12,7 @@ export function useSendOnEnter(send: () => void, blank = false): void {
       editor.registerCommand(
         KEY_ENTER_COMMAND,
         (event) => {
-          if (event?.shiftKey === true) {
+          if (event?.shiftKey) {
             return false;
           }
           const leavesToPage =

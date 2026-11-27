@@ -66,10 +66,8 @@ beforeAll(async () => {
   database = await openDatabase('replay_searches');
   const context = new DrizzleContext(database.db);
   const dispatcher = {
-    dispatch: (events: readonly DomainEvent[]) => {
+    dispatch: async (events: readonly DomainEvent[]) => {
       dispatched.push(...events);
-
-      return Promise.resolve();
     },
   };
 

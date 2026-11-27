@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode, ReactElement } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ export function EmptyState({
   action,
   className,
   children,
-}: EmptyStateProps): ReactElement {
+}: EmptyStateProps) {
   return (
     <div
       className={cn(

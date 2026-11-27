@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class OidcTrustKey {
-  private readonly kind: string = 'oidc-trust-key';
+  private readonly kind = 'oidc-trust-key';
 
   private constructor(readonly value: string) {}
 
@@ -23,7 +23,7 @@ export class OidcTrustKey {
   }
 
   equals(other: OidcTrustKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OidcTrustKey && this.value === other.value;
   }
 
   toString(): string {

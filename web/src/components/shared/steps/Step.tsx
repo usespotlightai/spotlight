@@ -1,4 +1,4 @@
-import { type ReactNode, useId, type ReactElement } from 'react';
+import { type ReactNode, useId } from 'react';
 
 import { Collapsible } from '@/components/shared/Collapsible';
 import { nonEmpty } from '@/lib/non-empty';
@@ -19,7 +19,7 @@ export function Step({
   open = true,
   onOpen,
   children,
-}: StepProps): ReactElement {
+}: StepProps) {
   const contentId = useId();
 
   return (

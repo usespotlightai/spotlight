@@ -45,18 +45,16 @@ const authorizing = (allowed: boolean, member = true) =>
     inWorkspace: vi.fn(),
     teamAccessIn: vi.fn(),
     teamAccessOfMembers: vi.fn(),
-    inWorkspaceOfTeam: vi.fn(() =>
-      Promise.resolve(
-        member
-          ? {
-              workspaceId: WorkspaceId.of('ws_1'),
-              slug: 'acme',
-              viewer: UserId.of('user_1'),
-              teamId: TeamId.of('team_1'),
-              isAdmin: allowed,
-            }
-          : null,
-      ),
+    inWorkspaceOfTeam: vi.fn(async () =>
+      member
+        ? {
+            workspaceId: WorkspaceId.of('ws_1'),
+            slug: 'acme',
+            viewer: UserId.of('user_1'),
+            teamId: TeamId.of('team_1'),
+            isAdmin: allowed,
+          }
+        : null,
     ),
     permissionsIn: vi.fn(),
     permissionsInSlug: vi.fn(),
@@ -85,13 +83,11 @@ describe('BeginOAuth2ConnectionHandler', () => {
       defined?: boolean;
     } = {},
   ) => {
-    const begin = vi.fn((): Promise<OAuth2Start | null> =>
-      Promise.resolve(STARTED),
-    );
+    const begin = vi.fn(async (): Promise<OAuth2Start | null> => STARTED);
     const scoped: string[] = [];
-    const clientFor = vi.fn(() => Promise.resolve(CLIENT));
-    const registrationFor = vi.fn((): Promise<OAuth2Registration | null> =>
-      Promise.resolve({
+    const clientFor = vi.fn(async () => CLIENT);
+    const registrationFor = vi.fn(
+      async (): Promise<OAuth2Registration | null> => ({
         endpoint: 'https://slack.com/register',
         server: null,
         own: null,
@@ -112,7 +108,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
       handler: new BeginOAuth2ConnectionHandler(
         authorizing(over.allowed ?? true, over.member ?? true),
         partial<DefinedIntegrationsPort>({
-          ofTeam: () => Promise.resolve([]),
+          ofTeam: async () => [],
         }),
         partial<IntegrationRuntimePort>({
           integrations: () => (over.defined === false ? [] : [integration]),
@@ -301,21 +297,18 @@ describe('FinishOAuth2ConnectionHandler', () => {
       connectsOver: 'oauth2',
       actsAs: over.actsAs ?? ActsAs.requester(),
     });
-    const dispatch = vi.fn((_events: readonly { kind: string }[]) =>
-      Promise.resolve(undefined),
+    const dispatch = vi.fn(
+      async (_events: readonly { kind: string }[]) => undefined,
     );
     const save = vi.fn(async (connection: IntegrationConnection) => {
       await dispatch(connection.pullEvents());
     });
-    const landingFor = vi.fn(() =>
-      Promise.resolve(
+    const landingFor = vi.fn(
+      async () =>
         'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
-      ),
     );
 
-    const returned = vi.fn(() =>
-      Promise.resolve(over.authorized ?? authorized),
-    );
+    const returned = vi.fn(async () => over.authorized ?? authorized);
     const logger = {
       debug: vi.fn(),
       info: vi.fn(),
@@ -330,12 +323,12 @@ describe('FinishOAuth2ConnectionHandler', () => {
       }),
       partial<IntegrationConnectionRepository>({
         save,
-        of: vi.fn(() => Promise.resolve(over.existing ?? null)),
+        of: vi.fn(async () => over.existing ?? null),
         expiringBefore: vi.fn(),
       }),
       authorizing(over.allowed ?? true, over.member ?? true),
       partial<DefinedIntegrationsPort>({
-        ofTeam: () => Promise.resolve([]),
+        ofTeam: async () => [],
       }),
       partial<IntegrationRuntimePort>({
         integrations: () => [integration],

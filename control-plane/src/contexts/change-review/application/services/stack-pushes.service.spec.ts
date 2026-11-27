@@ -170,29 +170,27 @@ const pushing = (
   let conflicts = over.conflictsOnSave ?? 0;
   let stackReads = 0;
   const prepare = vi.fn(
-    (source: StackSource, input: StackInput): Promise<PreparedStack> => {
+    async (source: StackSource, input: StackInput): Promise<PreparedStack> => {
       if (over.refusingToPrepare) {
-        return Promise.reject(over.refusingToPrepare);
+        throw over.refusingToPrepare;
       }
-      return Promise.resolve(
-        partial<PreparedStack>({
-          id: ChangeStackId.of('stack_new'),
-          source,
-          input,
-        }),
-      );
+      return partial<PreparedStack>({
+        id: ChangeStackId.of('stack_new'),
+        source,
+        input,
+      });
     },
   );
   const start = vi.fn(
-    (
+    async (
       _prepared: PreparedStack,
       _taskStacks: readonly ChangeStack[],
     ): Promise<ChangeStack> => {
       steps.push(inTransaction ? 'start in transaction' : 'start');
       if (over.refusing) {
-        return Promise.reject(over.refusing);
+        throw over.refusing;
       }
-      return Promise.resolve(partial<ChangeStack>({}));
+      return partial<ChangeStack>({});
     },
   );
   const locks: ChangeStackLocksPort = {
@@ -214,41 +212,35 @@ const pushing = (
   let generated = 0;
 
   const diffs = partial<PushDiffRepository>({
-    add: (diff: PushDiff) => {
+    add: async (diff: PushDiff) => {
       if (over.adding) {
-        return Promise.reject(over.adding);
+        throw over.adding;
       }
       added.push(diff);
       stored.set(diff.id.value, diff);
-      return Promise.resolve();
     },
-    save: (diff: PushDiff) => {
+    save: async (diff: PushDiff) => {
       steps.push(inTransaction ? 'save in transaction' : 'save');
       if (conflicts > 0) {
         conflicts -= 1;
-        return Promise.reject(new PushDiffVersionConflictError(diff.id));
+        throw new PushDiffVersionConflictError(diff.id);
       }
       saved.push(diff);
       stored.set(diff.id.value, diff);
-      return Promise.resolve();
     },
-    find: (id: PushDiffId) => {
+    find: async (id: PushDiffId) => {
       steps.push(inTransaction ? 'find in transaction' : 'find');
-      return Promise.resolve(stored.get(id.value) ?? null);
+      return stored.get(id.value) ?? null;
     },
-    ofTask: (taskId: TaskId) =>
-      Promise.resolve(
-        [...stored.values()].filter((each) => each.taskId.equals(taskId)),
-      ),
+    ofTask: async (taskId: TaskId) =>
+      [...stored.values()].filter((each) => each.taskId.equals(taskId)),
   });
 
   const work = partial<WorkPort>({
-    taskWithPullRequest: () => Promise.resolve(task),
-    task: () => Promise.resolve(task),
-    run: (id: RunId) =>
-      Promise.resolve(
-        (over.runs ?? []).find((each) => each.id.equals(id)) ?? null,
-      ),
+    taskWithPullRequest: async () => task,
+    task: async () => task,
+    run: async (id: RunId) =>
+      (over.runs ?? []).find((each) => each.id.equals(id)) ?? null,
   });
 
   return {
@@ -268,12 +260,10 @@ const pushing = (
     pushes: new StackPushes(
       diffs,
       partial<ChangeStackRepository>({
-        ofTask: () =>
-          Promise.resolve(
-            (stackReads += 1) > 1 && over.stacksAtStart
-              ? over.stacksAtStart
-              : (over.stacks ?? []),
-          ),
+        ofTask: async () =>
+          (stackReads += 1) > 1 && over.stacksAtStart
+            ? over.stacksAtStart
+            : (over.stacks ?? []),
       }),
       work,
       partial<GenerateChangeStack>({ prepare, start }),

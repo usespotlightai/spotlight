@@ -94,29 +94,26 @@ const reacting = (stack: ChangeStack | null, check: StackCheck | null) => {
   const savedStacks: ChangeStack[] = [];
 
   const stacks = partial<ChangeStackRepository>({
-    find: () => Promise.resolve(stack),
-    save: (each: ChangeStack) => {
+    find: async () => stack,
+    save: async (each: ChangeStack) => {
       savedStacks.push(each);
-      return Promise.resolve();
     },
   });
 
   const checks = partial<StackCheckRepository>({
-    find: () => Promise.resolve(check),
-    add: (each: StackCheck) => {
+    find: async () => check,
+    add: async (each: StackCheck) => {
       added.push(each);
-      return Promise.resolve();
     },
-    save: (each: StackCheck) => {
+    save: async (each: StackCheck) => {
       saved.push(each);
-      return Promise.resolve();
     },
   });
 
   return {
     reactions: new StackCheckReactions(checks, stacks, {
       now: () => LATER,
-      sleep: () => Promise.resolve(),
+      sleep: async () => {},
     }),
     added,
     saved,

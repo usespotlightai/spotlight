@@ -1,4 +1,5 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const COMMIT = /^[0-9a-f]{7,64}$/;
 
@@ -13,7 +14,7 @@ export class PlannedReference {
     pullRequest?: number | null;
   }): PlannedReference {
     const written = input.commit?.trim().toLowerCase();
-    const commit = written === undefined || written === '' ? null : written;
+    const commit = !nonEmpty(written) ? null : written;
     const pullRequest = input.pullRequest ?? null;
 
     if (commit !== null && !COMMIT.test(commit)) {

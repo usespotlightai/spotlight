@@ -127,41 +127,36 @@ const running = (
   );
   const service = new Runners(
     partial<RunnerPoolRepository>({
-      findForStart: vi.fn(() => Promise.resolve(pool)),
+      findForStart: vi.fn(async () => pool),
     }),
     partial<RunnerTrustRepository>({
-      find: vi.fn(() => Promise.resolve(input.trust ?? null)),
+      find: vi.fn(async () => input.trust ?? null),
     }),
     hosts,
     partial<RunnerRepository>({
-      aliveIn: vi.fn(() => Promise.resolve(input.alive ?? [])),
-      add: vi.fn((runner: Runner) => {
+      aliveIn: vi.fn(async () => input.alive ?? []),
+      add: vi.fn(async (runner: Runner) => {
         added.push(runner);
-        return Promise.resolve();
       }),
-      find: vi.fn(() =>
-        Promise.resolve(
+      find: vi.fn(
+        async () =>
           input.existing ?? (added.length > 0 ? added[added.length - 1] : null),
-        ),
       ),
-      save: vi.fn((runner: Runner) => {
+      save: vi.fn(async (runner: Runner) => {
         if (input.unsaved) {
-          return Promise.reject(input.unsaved);
+          throw input.unsaved;
         }
         saved.push(runner);
-        return Promise.resolve();
       }),
-      findByWork: vi.fn(() =>
-        Promise.resolve(input.existing ? [input.existing] : []),
-      ),
+      findByWork: vi.fn(async () => (input.existing ? [input.existing] : [])),
     }),
     sandboxes,
     placements,
     partial<EgressRepository>({
-      find: vi.fn(() => Promise.resolve(input.egress ?? null)),
+      find: vi.fn(async () => input.egress ?? null),
     }),
     partial<ProvisionCallsPort>({
-      call: vi.fn((call: ProvisionCall) => {
+      call: vi.fn(async (call: ProvisionCall) => {
         called.push(call);
         return Promise.resolve<ProvisionAnswer>(
           input.answer ?? { outcome: 'accepted' },
@@ -170,13 +165,11 @@ const running = (
     }),
     {
       encrypt: vi.fn(),
-      decrypt: vi.fn(() => {
-        if (input.decryptionFails === true) {
-          return Promise.reject(
-            new ProvisionSecretDecryptionFailedError(POOL_ID.value),
-          );
+      decrypt: vi.fn(async () => {
+        if (input.decryptionFails) {
+          throw new ProvisionSecretDecryptionFailedError(POOL_ID.value);
         }
-        return Promise.resolve(secretOf('s'));
+        return secretOf('s');
       }),
     } satisfies ProvisionSecretsPort,
     {

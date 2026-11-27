@@ -1,4 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   HANDOVER_TO_A_PERSON,
   HANDOVER_TO_FINISH,
@@ -14,7 +15,7 @@ const RESERVED: ReadonlyMap<string, string> = new Map([
 ]);
 
 export class StationKey {
-  private readonly kind: string = 'station-key';
+  private readonly kind = 'station-key';
 
   private constructor(readonly value: string) {}
 
@@ -30,7 +31,7 @@ export class StationKey {
 
     const reserved = RESERVED.get(named);
 
-    if (reserved !== undefined && reserved !== '') {
+    if (nonEmpty(reserved)) {
       throw new InvalidIdentifierError(
         'station key',
         `cannot be ${named}. A run names ${named} in its handover to ${reserved}`,
@@ -52,7 +53,7 @@ export class StationKey {
   }
 
   equals(other: StationKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof StationKey && this.value === other.value;
   }
 
   toString(): string {

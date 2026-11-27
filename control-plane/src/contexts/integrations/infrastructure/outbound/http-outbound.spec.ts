@@ -70,8 +70,8 @@ const actionOf = (
 };
 
 const replying = (body: unknown, status = 200) =>
-  vi.fn<typeof globalThis.fetch>(() =>
-    Promise.resolve(new Response(JSON.stringify(body), { status })),
+  vi.fn<typeof globalThis.fetch>(
+    async () => new Response(JSON.stringify(body), { status }),
   );
 
 const against = {
@@ -143,13 +143,12 @@ actions:
   it('refuses an answer larger than 4 MB', async () => {
     const out = new HttpOutbound(
       allowingOutbound(['slack.com']),
-      vi.fn(() =>
-        Promise.resolve(
+      vi.fn(
+        async () =>
           new Response('{}', {
             status: 200,
             headers: { 'content-length': String(5 * 1024 * 1024) },
           }),
-        ),
       ),
     );
 
@@ -220,9 +219,7 @@ actions:
       out.run(
         action(),
         against,
-        new SpotlightCredentials(injection, () =>
-          Promise.resolve(WorkspaceId.of('ws_1')),
-        ),
+        new SpotlightCredentials(injection, async () => WorkspaceId.of('ws_1')),
       ),
     ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(forSpotlight).not.toHaveBeenCalled();
@@ -239,9 +236,7 @@ actions:
     ).run(
       action(),
       against,
-      new SpotlightCredentials(injection, () =>
-        Promise.resolve(WorkspaceId.of('ws_1')),
-      ),
+      new SpotlightCredentials(injection, async () => WorkspaceId.of('ws_1')),
     );
 
     expect(forSpotlight).toHaveBeenCalledWith({
@@ -252,15 +247,13 @@ actions:
   });
 
   it('follows a redirect itself, and injects nothing for another host', async () => {
-    const fetch = vi.fn<typeof globalThis.fetch>((url) =>
-      Promise.resolve(
-        new URL(urlOf(url)).host === 'slack.com'
-          ? new Response(null, {
-              status: 307,
-              headers: { location: 'https://files.slack-edge.com/post' },
-            })
-          : new Response(JSON.stringify({ ok: true, ts: '1' })),
-      ),
+    const fetch = vi.fn<typeof globalThis.fetch>(async (url) =>
+      new URL(urlOf(url)).host === 'slack.com'
+        ? new Response(null, {
+            status: 307,
+            headers: { location: 'https://files.slack-edge.com/post' },
+          })
+        : new Response(JSON.stringify({ ok: true, ts: '1' })),
     );
 
     await new HttpOutbound(
@@ -278,13 +271,12 @@ actions:
   });
 
   it('checks every host a redirect sends it to', async () => {
-    const fetch = vi.fn(() =>
-      Promise.resolve(
+    const fetch = vi.fn(
+      async () =>
         new Response(null, {
           status: 302,
           headers: { location: 'https://169.254.169.254/latest' },
         }),
-      ),
     );
 
     await expect(
@@ -298,12 +290,11 @@ actions:
   });
 
   it('rejects an answer larger than it reads from a tool', async () => {
-    const fetch = vi.fn(() =>
-      Promise.resolve(
+    const fetch = vi.fn(
+      async () =>
         new Response('{}', {
           headers: { 'content-length': String(MAX_ANSWER_BYTES + 1) },
         }),
-      ),
     );
 
     await expect(
@@ -468,13 +459,12 @@ actions:
     });
 
     const answering = (body: BodyInit, type: string) =>
-      vi.fn<typeof globalThis.fetch>(() =>
-        Promise.resolve(
+      vi.fn<typeof globalThis.fetch>(
+        async () =>
           new Response(body, {
             status: 200,
             headers: { 'content-type': type },
           }),
-        ),
       );
 
     it('hands the bytes back whole, and injects the token', async () => {
@@ -506,8 +496,8 @@ actions:
     });
 
     it('refuses a file larger than 25 MB', async () => {
-      const fetch = vi.fn(() =>
-        Promise.resolve(
+      const fetch = vi.fn(
+        async () =>
           new Response(new Uint8Array([1]), {
             status: 200,
             headers: {
@@ -515,7 +505,6 @@ actions:
               'content-length': String(26 * 1024 * 1024),
             },
           }),
-        ),
       );
 
       await expect(
@@ -671,11 +660,9 @@ describe('HttpOutbound, a secret injected in the query', () => {
   });
 
   it('says why a call never arrived without the key in what it says', async () => {
-    const fetch = vi.fn((url: string | URL | Request) => {
-      return Promise.reject(
-        new TypeError(
-          `fetch failed for ${url instanceof Request ? url.url : url.toString()}`,
-        ),
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      throw new TypeError(
+        `fetch failed for ${url instanceof Request ? url.url : url.toString()}`,
       );
     });
     const out = new HttpOutbound(

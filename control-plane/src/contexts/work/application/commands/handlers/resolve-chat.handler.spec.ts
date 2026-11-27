@@ -38,11 +38,9 @@ const handling = (
   const saved: Chat[] = [];
   const debug = vi.fn();
   const chats = partial<ChatRepository>({
-    find: vi.fn(() => Promise.resolve(chat)),
-    save: vi.fn((each: Chat) => {
+    find: vi.fn(async () => chat),
+    save: vi.fn(async (each: Chat) => {
       saved.push(each);
-
-      return Promise.resolve();
     }),
   });
   const handler = new ResolveChatHandler(

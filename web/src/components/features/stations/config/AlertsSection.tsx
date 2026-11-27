@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TabSection } from '@/components/features/stations/TabSection';
 import { TABLE_HEAD, TABLE_ROW } from '@/components/shared/table-rows';
 import {
@@ -16,10 +14,7 @@ type AlertsSectionProps = {
   currency: string | null;
 };
 
-export function AlertsSection({
-  alerts,
-  currency,
-}: AlertsSectionProps): ReactElement {
+export function AlertsSection({ alerts, currency }: AlertsSectionProps) {
   return (
     <TabSection title="Alert rules">
       <div className="-mx-2">

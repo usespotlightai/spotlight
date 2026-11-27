@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { formatClaim } from '@/lib/judge';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ export function NumberedClaim({
   id,
   className,
   children,
-}: NumberedClaimProps): ReactElement {
+}: NumberedClaimProps) {
   return (
     <span
       id={id}

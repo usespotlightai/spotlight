@@ -18,7 +18,7 @@ describe('OutboundCalls', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     server = createServer((req, res) => {
-      res.statusCode = req.url?.startsWith('/busy') === true ? 429 : 200;
+      res.statusCode = req.url?.startsWith('/busy') ? 429 : 200;
       res.end();
     });
     await new Promise<void>((resolve) =>

@@ -163,12 +163,12 @@ const setUp = (
     runtime.written.mockImplementation(() => written);
   }
   const requests = {
-    sent: vi.fn((request: { step: HookStepName }) =>
-      Promise.resolve(answered(request.step)),
+    sent: vi.fn(async (request: { step: HookStepName }) =>
+      answered(request.step),
     ),
     resumed: vi.fn(
-      (request: { step: HookStepName }): Promise<StepResult | null> =>
-        Promise.resolve(answered(request.step)),
+      async (request: { step: HookStepName }): Promise<StepResult | null> =>
+        answered(request.step),
     ),
     unanswered: vi.fn((request: { step: HookStepName }): StepResult => ({
       outcome: {
@@ -195,15 +195,13 @@ const setUp = (
       }),
     ),
   } satisfies HookRequestsPort;
-  const tool = vi.fn(() => Promise.resolve(resolved));
-  const issued = vi.fn(() => Promise.resolve('callback_token'));
-  const callAuth = vi.fn(() =>
-    Promise.resolve(
-      partial<CallAuth>({
-        connection: null,
-        credentials: partial<Credentials>({}),
-      }),
-    ),
+  const tool = vi.fn(async () => resolved);
+  const issued = vi.fn(async () => 'callback_token');
+  const callAuth = vi.fn(async () =>
+    partial<CallAuth>({
+      connection: null,
+      credentials: partial<Credentials>({}),
+    }),
   );
   const record = vi.fn(async () => {});
 
@@ -218,7 +216,7 @@ const setUp = (
       runtime,
       requests,
       partial<DefinedIntegrationsPort>({
-        ofTeam: vi.fn(() => Promise.resolve([])),
+        ofTeam: vi.fn(async () => []),
       }),
       partial<IntegrationRuntimePort>({ tool }),
       partial<CallAuthResolver>({ of: callAuth }),
@@ -311,12 +309,10 @@ describe('HookSteps', () => {
 
   describe('calling a tool', () => {
     it('calls the tool with the inputs its step writes, tracing what went and came back', async () => {
-      const resolved = resolvedTool(() =>
-        Promise.resolve({
-          kind: 'answered',
-          output: { ok: true },
-        }),
-      );
+      const resolved = resolvedTool(async () => ({
+        kind: 'answered',
+        output: { ok: true },
+      }));
       const { steps, callAuth } = setUp(CALL, resolved);
 
       const stepResult = await steps.take(request('notify'));
@@ -348,7 +344,7 @@ describe('HookSteps', () => {
     it('fails a call that outlasts the hook', async () => {
       const { steps } = setUp(
         CALL,
-        resolvedTool(() => Promise.resolve({ kind: 'timed-out' })),
+        resolvedTool(async () => ({ kind: 'timed-out' })),
       );
 
       await expect(steps.take(request('notify'))).resolves.toMatchObject({
@@ -400,7 +396,7 @@ describe('HookSteps', () => {
     ])('reads a failed call %j as %s', async (attempt, code) => {
       const { steps } = setUp(
         CALL,
-        resolvedTool(() => Promise.resolve(attempt)),
+        resolvedTool(async () => attempt),
       );
 
       await expect(steps.take(request('notify'))).resolves.toMatchObject({
@@ -409,12 +405,9 @@ describe('HookSteps', () => {
     });
 
     it('does not call a tool that asks a person first', async () => {
-      const resolved = resolvedTool(
-        () => Promise.resolve({ kind: 'timed-out' }),
-        {
-          approval: { because: 'It posts publicly' },
-        },
-      );
+      const resolved = resolvedTool(async () => ({ kind: 'timed-out' }), {
+        approval: { because: 'It posts publicly' },
+      });
       const { steps } = setUp(CALL, resolved);
 
       await expect(steps.take(request('notify'))).resolves.toMatchObject({
@@ -428,12 +421,9 @@ describe('HookSteps', () => {
     });
 
     it('does not call a tool that acts as the person who started a task', async () => {
-      const resolved = resolvedTool(
-        () => Promise.resolve({ kind: 'timed-out' }),
-        {
-          actsAs: ActsAs.requester(),
-        },
-      );
+      const resolved = resolvedTool(async () => ({ kind: 'timed-out' }), {
+        actsAs: ActsAs.requester(),
+      });
       const { steps, callAuth } = setUp(CALL, resolved);
 
       await expect(steps.take(request('notify'))).resolves.toMatchObject({
@@ -461,9 +451,7 @@ describe('HookSteps', () => {
     });
 
     it('cannot write inputs the tool does not take', async () => {
-      const resolved = resolvedTool(() =>
-        Promise.resolve({ kind: 'timed-out' }),
-      );
+      const resolved = resolvedTool(async () => ({ kind: 'timed-out' }));
       const { steps } = setUp({ ...CALL, with: { channel: 'C1' } }, resolved);
 
       await expect(steps.take(request('notify'))).resolves.toMatchObject({

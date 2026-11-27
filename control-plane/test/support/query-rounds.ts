@@ -76,7 +76,7 @@ if (Reflect.get(globalThis, PATCHED) !== true) {
       first !== null &&
       typeof (first as { submit?: unknown }).submit === 'function';
 
-    if (current?.open !== true || submittable) {
+    if (!current?.open || submittable) {
       return query.apply(this, args);
     }
 

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   type SignalReading,
   signalPlace,
@@ -13,11 +11,7 @@ const TRACK = 8;
 const at = (reading: SignalReading, value: number): string =>
   `${(signalPlace(reading, value) * 100).toFixed(2)}%`;
 
-export function SignalDumbbell({
-  reading,
-}: {
-  reading: SignalReading;
-}): ReactElement {
+export function SignalDumbbell({ reading }: { reading: SignalReading }) {
   const now = at(reading, reading.now);
   const before = reading.before === null ? null : at(reading, reading.before);
   const team = reading.team === null ? null : at(reading, reading.team);

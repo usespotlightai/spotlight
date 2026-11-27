@@ -22,6 +22,7 @@ import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ListInsightsTracesHandler implements QueryHandlerPort<
@@ -76,7 +77,7 @@ export class ListInsightsTracesHandler implements QueryHandlerPort<
       );
       const ids = traces.flatMap((trace) =>
         trace.runs.flatMap((run) =>
-          run.openedBy !== null && run.openedBy !== '' ? [run.openedBy] : [],
+          nonEmpty(run.openedBy) ? [run.openedBy] : [],
         ),
       );
 

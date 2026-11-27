@@ -18,16 +18,14 @@ const deregistering = (authenticated: RunnerPool | RunnerTrust | null) => {
   const { stored, hosts } = storedHosts(aHost({ through: aPullPool() }));
   const handler = new DeregisterHostHandler(
     {
-      authenticate: vi.fn(() =>
-        Promise.resolve(
-          authenticated
-            ? {
-                source: CredentialSource.ofId(authenticated.id),
-                workspaceId: authenticated.workspaceId,
-                workingCopies: null,
-              }
-            : null,
-        ),
+      authenticate: vi.fn(async () =>
+        authenticated
+          ? {
+              source: CredentialSource.ofId(authenticated.id),
+              workspaceId: authenticated.workspaceId,
+              workingCopies: null,
+            }
+          : null,
       ),
     } satisfies RunnerAuthenticatorPort,
     hosts,
@@ -64,8 +62,8 @@ describe('DeregisterHostHandler', () => {
 
   it('removes a host that sent a heartbeat again while it deregistered', async () => {
     const { deregister, hosts, stored } = deregistering(aPullPool());
-    hosts.remove.mockImplementationOnce(() => {
-      return Promise.reject(new RunnerHostVersionConflictError(HOST_ID.value));
+    hosts.remove.mockImplementationOnce(async () => {
+      throw new RunnerHostVersionConflictError(HOST_ID.value);
     });
 
     await expect(deregister()).resolves.toEqual({ outcome: 'deregistered' });
@@ -75,9 +73,9 @@ describe('DeregisterHostHandler', () => {
 
   it('deregisters when the host was removed while it deregistered', async () => {
     const { deregister, hosts, stored } = deregistering(aPullPool());
-    hosts.remove.mockImplementationOnce(() => {
+    hosts.remove.mockImplementationOnce(async () => {
       stored.clear();
-      return Promise.reject(new RunnerHostVersionConflictError(HOST_ID.value));
+      throw new RunnerHostVersionConflictError(HOST_ID.value);
     });
 
     await expect(deregister()).resolves.toEqual({ outcome: 'deregistered' });

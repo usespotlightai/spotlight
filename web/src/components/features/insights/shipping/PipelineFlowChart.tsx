@@ -1,4 +1,4 @@
-import { type ReactElement, useId, useMemo, useRef } from 'react';
+import { useId, useMemo, useRef } from 'react';
 
 import { PipelineStageLabel } from '@/components/features/insights/shipping/PipelineStageLabel';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,7 +34,7 @@ export function PipelineFlowChart({
   focus,
   playing,
   label,
-}: PipelineFlowChartProps): ReactElement {
+}: PipelineFlowChartProps) {
   const gradientId = useId();
   const frame = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);

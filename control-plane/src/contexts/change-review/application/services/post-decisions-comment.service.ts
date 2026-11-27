@@ -9,6 +9,7 @@ import { keepsDecisions } from '@change-review/domain/services/decision-policy';
 import { sharedByPaths } from '@change-review/domain/services/pull-request-routing';
 import type { PullRequestCommentsPort } from '@github/application/ports/pull-request-comments.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export class PostDecisionsComment {
@@ -53,8 +54,7 @@ export class PostDecisionsComment {
     const slug = await this.workspaces.slugOf(task.workspaceId);
 
     if (
-      slug === null ||
-      slug === '' ||
+      !nonEmpty(slug) ||
       !(await this.connections.isConnected(task.workspaceId))
     ) {
       return;

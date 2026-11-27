@@ -13,7 +13,7 @@
   "bracketSpacing": true,
   "singleAttributePerLine": false,
   "ignorePatterns": [
-    "drizzle",
+    "/drizzle",
     "openapi*.json",
     "src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts",
     "dist"

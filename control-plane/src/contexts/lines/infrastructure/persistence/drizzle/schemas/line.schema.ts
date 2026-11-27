@@ -82,7 +82,6 @@ export interface StationAlertRow {
   readonly over: number;
 }
 
-
 export const stationKind = pgEnum('station_kind', STATION_KINDS);
 
 export const line = pgTable(

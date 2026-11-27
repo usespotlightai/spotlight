@@ -125,35 +125,32 @@ const DECLARED = {
 
 const handlers = (over: { permitted?: boolean } = {}) => {
   const access = partial<WorkspaceAccessPort>({
-    permissionsIn: vi.fn(() =>
-      Promise.resolve(
-        over.permitted === false
-          ? null
-          : partial<WorkspacePermissions>({
-              workspaceId: WORKSPACE,
-              slug: 'acme',
-              configures: false,
-              scopes: new Set(),
-              isAdmin: false,
-            }),
-      ),
+    permissionsIn: vi.fn(async () =>
+      over.permitted === false
+        ? null
+        : partial<WorkspacePermissions>({
+            workspaceId: WORKSPACE,
+            slug: 'acme',
+            configures: false,
+            scopes: new Set(),
+            isAdmin: false,
+          }),
     ),
   });
   const workspaces = partial<WorkspaceReaderPort>({
-    profileOf: vi.fn(() =>
-      Promise.resolve({
-        id: WORKSPACE.value,
-        name: 'Acme',
-        slug: 'acme',
-        outboundHosts: [],
-      }),
-    ),
+    profileOf: vi.fn(async () => ({
+      id: WORKSPACE.value,
+      name: 'Acme',
+      slug: 'acme',
+      outboundHosts: [],
+    })),
   });
   const teams = {
-    find: vi.fn((id: TeamId) =>
-      Promise.resolve([OPS, CORE].find((each) => each.id.equals(id)) ?? null),
+    find: vi.fn(
+      async (id: TeamId) =>
+        [OPS, CORE].find((each) => each.id.equals(id)) ?? null,
     ),
-    inWorkspace: vi.fn(() => Promise.resolve([OPS, CORE])),
+    inWorkspace: vi.fn(async () => [OPS, CORE]),
   } satisfies TeamDirectoryPort;
   const integrationOf = (
     id: string,
@@ -182,71 +179,59 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     },
   });
   const lines = {
-    withId: vi.fn((id: LineId) =>
-      Promise.resolve(
-        id.value === 'line_delivery' ? lineOf(CORE.id, 'delivery') : null,
-      ),
+    withId: vi.fn(async (id: LineId) =>
+      id.value === 'line_delivery' ? lineOf(CORE.id, 'delivery') : null,
     ),
-    at: vi.fn(() => Promise.resolve(null)),
-    ofTeam: vi.fn((teamId: TeamId) =>
-      Promise.resolve(
-        teamId.equals(CORE.id)
-          ? [lineOf(teamId, 'triage'), lineOf(teamId, 'delivery')]
-          : [],
-      ),
+    at: vi.fn(async () => null),
+    ofTeam: vi.fn(async (teamId: TeamId) =>
+      teamId.equals(CORE.id)
+        ? [lineOf(teamId, 'triage'), lineOf(teamId, 'delivery')]
+        : [],
     ),
-    ofTeams: vi.fn((teamIds: readonly TeamId[]) =>
-      Promise.resolve(
-        teamIds.some((each) => each.equals(CORE.id))
-          ? [lineOf(CORE.id, 'triage'), lineOf(CORE.id, 'delivery')]
-          : [],
-      ),
+    ofTeams: vi.fn(async (teamIds: readonly TeamId[]) =>
+      teamIds.some((each) => each.equals(CORE.id))
+        ? [lineOf(CORE.id, 'triage'), lineOf(CORE.id, 'delivery')]
+        : [],
     ),
   } satisfies LineResourcesPort;
   const skills = {
-    withId: vi.fn(() => Promise.resolve(null)),
-    at: vi.fn(() => Promise.resolve(null)),
-    ofTeam: vi.fn((teamId: TeamId) =>
-      Promise.resolve(
-        teamId.equals(OPS.id)
-          ? [
-              {
-                id: 'skill_1',
-                version: 1,
-                teamId,
-                key: 'grafana',
-                files: { 'SKILL.md': 'x' },
-              },
-            ]
-          : [],
-      ),
+    withId: vi.fn(async () => null),
+    at: vi.fn(async () => null),
+    ofTeam: vi.fn(async (teamId: TeamId) =>
+      teamId.equals(OPS.id)
+        ? [
+            {
+              id: 'skill_1',
+              version: 1,
+              teamId,
+              key: 'grafana',
+              files: { 'SKILL.md': 'x' },
+            },
+          ]
+        : [],
     ),
   } satisfies SkillResourcesPort;
   const integrations = {
-    withId: vi.fn((id: string) =>
-      Promise.resolve(
-        id === 'integration_linear'
-          ? integrationOf(id, OPS, 'linear', { integration: 'linear' })
-          : null,
-      ),
+    withId: vi.fn(async (id: string) =>
+      id === 'integration_linear'
+        ? integrationOf(id, OPS, 'linear', { integration: 'linear' })
+        : null,
     ),
-    ofTeam: vi.fn((teamId: TeamId) =>
-      Promise.resolve(
-        teamId.equals(CORE.id)
+    ofTeam: vi.fn(async (teamId: TeamId) =>
+      teamId.equals(CORE.id)
+        ? [
+            integrationOf('integration_slack', CORE, 'slack'),
+            integrationOf('integration_linear_core', CORE, 'linear'),
+          ]
+        : teamId.equals(OPS.id)
           ? [
-              integrationOf('integration_slack', CORE, 'slack'),
-              integrationOf('integration_linear_core', CORE, 'linear'),
+              integrationOf('integration_linear', OPS, 'linear', {
+                integration: 'linear',
+              }),
             ]
-          : teamId.equals(OPS.id)
-            ? [
-                integrationOf('integration_linear', OPS, 'linear', {
-                  integration: 'linear',
-                }),
-              ]
-            : [],
-      ),
+          : [],
     ),
-    toolsOnAnyMarkAsPlanned: vi.fn(() => Promise.resolve([])),
+    toolsOnAnyMarkAsPlanned: vi.fn(async () => []),
   } satisfies IntegrationConfigsPort;
   const hookOf = (id: string, team: TeamProfile, key: string): HookConfig => ({
     id,
@@ -263,15 +248,13 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     timeoutSeconds: 10,
   });
   const hooks = {
-    withId: vi.fn((id: string) =>
-      Promise.resolve(id === 'hook_audit' ? hookOf(id, CORE, 'audit') : null),
+    withId: vi.fn(async (id: string) =>
+      id === 'hook_audit' ? hookOf(id, CORE, 'audit') : null,
     ),
-    ofTeam: vi.fn((teamId: TeamId) =>
-      Promise.resolve(
-        teamId.equals(CORE.id) ? [hookOf('hook_audit', CORE, 'audit')] : [],
-      ),
+    ofTeam: vi.fn(async (teamId: TeamId) =>
+      teamId.equals(CORE.id) ? [hookOf('hook_audit', CORE, 'audit')] : [],
     ),
-    mayFireAt: vi.fn(() => Promise.resolve([])),
+    mayFireAt: vi.fn(async () => []),
   } satisfies HookConfigsPort;
   const profileOf = (id: string, key: string): HarnessProfileRecord => ({
     id,
@@ -287,21 +270,17 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     }),
   });
   const profiles = {
-    withId: vi.fn((id: HarnessProfileId) =>
-      Promise.resolve(
-        id.value === 'profile_careful' ? profileOf(id.value, 'careful') : null,
-      ),
+    withId: vi.fn(async (id: HarnessProfileId) =>
+      id.value === 'profile_careful' ? profileOf(id.value, 'careful') : null,
     ),
-    at: vi.fn(() => Promise.resolve(null)),
-    ofTeam: vi.fn((teamId: TeamId) =>
-      Promise.resolve(
-        teamId.equals(CORE.id)
-          ? [
-              profileOf('profile_quick', 'quick'),
-              profileOf('profile_careful', 'careful'),
-            ]
-          : [],
-      ),
+    at: vi.fn(async () => null),
+    ofTeam: vi.fn(async (teamId: TeamId) =>
+      teamId.equals(CORE.id)
+        ? [
+            profileOf('profile_quick', 'quick'),
+            profileOf('profile_careful', 'careful'),
+          ]
+        : [],
     ),
   } satisfies HarnessProfileResourcesPort;
   const profileViews = partial<HarnessProfileViews>({
@@ -321,42 +300,32 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     })),
   });
   const secrets = {
-    in: vi.fn(() =>
-      Promise.resolve([
-        secretOf('secret_2', 'SLACK_TOKEN'),
-        secretOf('secret_1', 'LINEAR_API_KEY'),
-      ]),
-    ),
-    withId: vi.fn((id: string) =>
-      Promise.resolve(
-        id === 'secret_1' ? secretOf('secret_1', 'LINEAR_API_KEY') : null,
-      ),
+    in: vi.fn(async () => [
+      secretOf('secret_2', 'SLACK_TOKEN'),
+      secretOf('secret_1', 'LINEAR_API_KEY'),
+    ]),
+    withId: vi.fn(async (id: string) =>
+      id === 'secret_1' ? secretOf('secret_1', 'LINEAR_API_KEY') : null,
     ),
   } satisfies SecretConfigurationPort;
   const runners = {
-    in: vi.fn(() =>
-      Promise.resolve({
-        trusts: [TRUST],
-        pools: [POOL],
-        egresses: [],
-        declared: DECLARED,
-      }),
-    ),
-    trustWithId: vi.fn((id: string) =>
-      Promise.resolve(id === TRUST.id ? TRUST : null),
-    ),
-    poolWithId: vi.fn((id: string) =>
-      Promise.resolve(id === POOL.id ? POOL : null),
-    ),
-    egressWithId: vi.fn(() => Promise.resolve(null)),
-    workspaceRunnersWithId: vi.fn((id: string) =>
-      Promise.resolve(id === DECLARED.id ? DECLARED : null),
+    in: vi.fn(async () => ({
+      trusts: [TRUST],
+      pools: [POOL],
+      egresses: [],
+      declared: DECLARED,
+    })),
+    trustWithId: vi.fn(async (id: string) => (id === TRUST.id ? TRUST : null)),
+    poolWithId: vi.fn(async (id: string) => (id === POOL.id ? POOL : null)),
+    egressWithId: vi.fn(async () => null),
+    workspaceRunnersWithId: vi.fn(async (id: string) =>
+      id === DECLARED.id ? DECLARED : null,
     ),
   } satisfies RunnerConfigurationPort;
   const oidcTrusts = {
-    in: vi.fn(() => Promise.resolve([OIDC_TRUST])),
-    withId: vi.fn((id: string) =>
-      Promise.resolve(id === OIDC_TRUST.id ? OIDC_TRUST : null),
+    in: vi.fn(async () => [OIDC_TRUST]),
+    withId: vi.fn(async (id: string) =>
+      id === OIDC_TRUST.id ? OIDC_TRUST : null,
     ),
   } satisfies OidcTrustConfigurationPort;
   const configurations = new ExportableConfigurations(

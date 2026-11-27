@@ -101,7 +101,7 @@ export class StationAlertState extends EventRecorder {
         ),
     );
 
-    return last?.cooling === true ? last : undefined;
+    return last?.cooling ? last : undefined;
   }
 
   check(

@@ -77,7 +77,7 @@ const NAMES: ReadonlySet<string> = new Set(HOOK_EVENTS);
 const isHookEvent = (name: string): name is HookEventName => NAMES.has(name);
 
 export class HookEvent {
-  private readonly kind: string = 'hook-event';
+  private readonly kind = 'hook-event';
 
   private constructor(readonly name: HookEventName) {}
 
@@ -117,7 +117,7 @@ export class HookEvent {
   }
 
   equals(other: HookEvent): boolean {
-    return this.kind === other.kind && this.name === other.name;
+    return other instanceof HookEvent && this.name === other.name;
   }
 
   toString(): string {

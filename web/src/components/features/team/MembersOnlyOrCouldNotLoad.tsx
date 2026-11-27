@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { notFound } from '@/lib/error';
@@ -18,7 +16,7 @@ export function MembersOnlyOrCouldNotLoad({
   membersOnly,
   what,
   query,
-}: MembersOnlyOrCouldNotLoadProps): ReactElement {
+}: MembersOnlyOrCouldNotLoadProps) {
   return notFound(query.error) ? (
     <MembersOnly title={membersOnly} />
   ) : (

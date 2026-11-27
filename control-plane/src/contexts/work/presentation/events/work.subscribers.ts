@@ -38,6 +38,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -325,9 +326,7 @@ export const workSubscribers = (reactions: {
       reactions.taskPullRequests.closed(
         WorkspaceId.of(event.workspaceId),
         PullRequestUrl.of(event.pullRequest),
-        event.closedAt !== null && event.closedAt !== ''
-          ? new Date(event.closedAt)
-          : null,
+        nonEmpty(event.closedAt) ? new Date(event.closedAt) : null,
         event.merged,
       ),
   ),

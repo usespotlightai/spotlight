@@ -2,6 +2,7 @@ import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const MEMORY_FOLDER = '.spotlight/memory';
 
@@ -45,11 +46,7 @@ export const handlesRead = (referenced: readonly string[]): MemoryHandle[] => {
     const within = each.slice(each.indexOf(MEMORY_FOLDER));
     const named = FILE.exec(within)?.[1];
 
-    if (
-      within.startsWith(MEMORY_FOLDER) &&
-      named !== undefined &&
-      named !== ''
-    ) {
+    if (within.startsWith(MEMORY_FOLDER) && nonEmpty(named)) {
       try {
         numbers.add(MemoryHandle.parse(named).number);
       } catch (error) {

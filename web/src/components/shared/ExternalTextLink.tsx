@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { TEXT_LINK } from '@/components/shared/text-link';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ export function ExternalTextLink({
   title,
   className,
   children,
-}: ExternalTextLinkProps): ReactElement {
+}: ExternalTextLinkProps) {
   return (
     <a
       href={href}

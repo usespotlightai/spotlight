@@ -19,16 +19,14 @@ const using = () => {
   const stored: WorkspaceToken[] = [];
   const saved: WorkspaceToken[] = [];
   const tokens = partial<WorkspaceTokenRepository>({
-    add: vi.fn((token: WorkspaceToken) => {
+    add: vi.fn(async (token: WorkspaceToken) => {
       stored.push(token);
-      return Promise.resolve();
     }),
-    save: vi.fn((token: WorkspaceToken) => {
+    save: vi.fn(async (token: WorkspaceToken) => {
       saved.push(token);
-      return Promise.resolve();
     }),
-    issuedForRun: vi.fn(() => Promise.resolve(stored)),
-    find: vi.fn(() => Promise.resolve(stored[0] ?? null)),
+    issuedForRun: vi.fn(async () => stored),
+    find: vi.fn(async () => stored[0] ?? null),
   });
   const service = new RunTokens(
     tokens,

@@ -61,27 +61,24 @@ const handler = (run: LeasedRun) => {
   const recording = new RecordDeliveryHandler(
     new RunnerMemoryLoader(
       partial<WorkPort>({
-        leasedBy: () => Promise.resolve(run),
+        leasedBy: async () => run,
       }),
     ),
     partial<MemoryRepository>({
-      withHandles: (teamId: TeamId, handles: readonly MemoryHandle[]) =>
-        Promise.resolve(
-          memories.filter(
-            (each) =>
-              each.isTeams(teamId) &&
-              handles.some((handle) => handle.equals(each.handle)),
-          ),
+      withHandles: async (teamId: TeamId, handles: readonly MemoryHandle[]) =>
+        memories.filter(
+          (each) =>
+            each.isTeams(teamId) &&
+            handles.some((handle) => handle.equals(each.handle)),
         ),
     }),
     new RecordMemoryUses(
       partial<MemoryUsesPort>({
-        record: (uses: MemoryUses) => {
+        record: async (uses: MemoryUses) => {
           recorded.push({
             via: uses.via,
             memories: uses.memories.map((each) => each.value),
           });
-          return Promise.resolve();
         },
       }),
       { inTransaction: (work) => work() },

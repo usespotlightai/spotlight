@@ -39,16 +39,14 @@ const compiler = new HarnessProfileCompiler({
 });
 
 const teams = {
-  find: vi.fn(() =>
-    Promise.resolve({
-      id: TEAM,
-      workspaceId: WorkspaceId.of('ws_1'),
-      key: 'core',
-      name: 'Core',
-      members: [],
-    }),
-  ),
-  inWorkspace: vi.fn(() => Promise.resolve([])),
+  find: vi.fn(async () => ({
+    id: TEAM,
+    workspaceId: WorkspaceId.of('ws_1'),
+    key: 'core',
+    name: 'Core',
+    members: [],
+  })),
+  inWorkspace: vi.fn(async () => []),
 } satisfies TeamDirectoryPort;
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -70,24 +68,21 @@ const stored = HarnessProfile.rehydrate({
 const setUp = (sandboxSecrets: readonly SecretName[]) => {
   const steps: string[] = [];
   const locks: SecretUseLocksPort = {
-    lock: vi.fn((teamId: TeamId) => {
+    lock: vi.fn(async (teamId: TeamId) => {
       steps.push(`locked ${teamId.value}`);
-      return Promise.resolve();
     }),
   };
   const secrets: SecretNamesPort = {
-    ofTeam: vi.fn(() => Promise.resolve([APP_KEY])),
-    known: vi.fn(() => {
+    ofTeam: vi.fn(async () => [APP_KEY]),
+    known: vi.fn(async () => {
       steps.push('read known secrets');
 
-      return Promise.resolve(
-        KnownSecrets.of({ existing: [APP_KEY], sandboxSecrets }),
-      );
+      return KnownSecrets.of({ existing: [APP_KEY], sandboxSecrets });
     }),
   };
   const profiles = {
-    withId: vi.fn(() => Promise.resolve(stored)),
-    ofTeam: vi.fn(() => Promise.resolve([])),
+    withId: vi.fn(async () => stored),
+    ofTeam: vi.fn(async () => []),
     save: vi.fn<HarnessProfileRepository['save']>(async () => {}),
   } satisfies HarnessProfileRepository;
 
@@ -105,7 +100,7 @@ describe('CreateHarnessProfileHandler', () => {
       locks,
       profiles,
       {
-        reserve: vi.fn(() => Promise.resolve({ kind: 'new' as const })),
+        reserve: vi.fn(async () => ({ kind: 'new' as const })),
         recordCreated: vi.fn(async () => {}),
       } satisfies IdempotentCreatesPort,
       { generate: () => 'profile_new' },

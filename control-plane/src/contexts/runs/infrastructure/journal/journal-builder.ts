@@ -68,6 +68,7 @@ import {
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const countOf = (value: unknown): number | null =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
@@ -187,21 +188,16 @@ const trimmedName = (call: ToolChanged): string | undefined => {
 };
 
 const subagentTitleOf = (changed: ChildChanged): string | undefined => {
-  if (changed.title !== undefined && changed.title !== '') {
+  if (nonEmpty(changed.title)) {
     return changed.title;
   }
-  return changed.description !== undefined && changed.description !== ''
-    ? changed.description
-    : undefined;
+  return nonEmpty(changed.description) ? changed.description : undefined;
 };
 
 const planned = (entries: readonly PlanEntry[]): string =>
   entries
     .map((each) => {
-      const status =
-        each.status !== undefined && each.status !== ''
-          ? `[${each.status}] `
-          : '';
+      const status = nonEmpty(each.status) ? `[${each.status}] ` : '';
       return `${status}${each.content}`.trim();
     })
     .filter(Boolean)
@@ -431,10 +427,9 @@ export class JournalBuilder {
     }
 
     const session = event.data.session;
-    const subagent =
-      session !== undefined && session !== ''
-        ? this.subagentOwning(session)
-        : undefined;
+    const subagent = nonEmpty(session)
+      ? this.subagentOwning(session)
+      : undefined;
     if (subagent) {
       subagent.journal.happened(event, at);
       const step = itemAt(this.#steps, subagent.at);
@@ -461,10 +456,7 @@ export class JournalBuilder {
         this.means(event.data.entries, at);
         break;
       case 'context.changed':
-        this.cost(
-          event.data,
-          session !== undefined && session !== '' ? session : this.#root,
-        );
+        this.cost(event.data, nonEmpty(session) ? session : this.#root);
         break;
       case 'turn.ended':
         this.used(event.data.usage);
@@ -754,10 +746,9 @@ export class JournalBuilder {
     const kind = message.role === 'thought' ? 'thought' : 'message';
 
     if (this.#textStep?.kind === kind && this.#textId === message.id) {
-      this.#textStep.text =
-        message.replace === true
-          ? message.text
-          : this.#textStep.text + message.text;
+      this.#textStep.text = message.replace
+        ? message.text
+        : this.#textStep.text + message.text;
       this.#textStep.endedAt = at;
       return;
     }
@@ -817,10 +808,9 @@ export class JournalBuilder {
       return;
     }
 
-    const printed =
-      output.replace === true
-        ? output.text
-        : `${this.#printed.get(output.id) ?? ''}${output.text}`;
+    const printed = output.replace
+      ? output.text
+      : `${this.#printed.get(output.id) ?? ''}${output.text}`;
     this.#printed.set(output.id, printed);
     step.detail = unfenced(printed).slice(0, DETAIL_LIMIT);
   }
@@ -874,14 +864,12 @@ export class JournalBuilder {
       return;
     }
 
-    const to =
-      message.to !== undefined && message.to !== ''
-        ? this.#subagents.get(message.to)
-        : undefined;
-    const from =
-      message.from !== undefined && message.from !== ''
-        ? this.#subagents.get(message.from)
-        : undefined;
+    const to = nonEmpty(message.to)
+      ? this.#subagents.get(message.to)
+      : undefined;
+    const from = nonEmpty(message.from)
+      ? this.#subagents.get(message.from)
+      : undefined;
     const toStep = to ? itemAt(this.#steps, to.at) : undefined;
     const fromStep = from ? itemAt(this.#steps, from.at) : undefined;
 

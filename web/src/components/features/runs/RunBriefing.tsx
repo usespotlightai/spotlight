@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
@@ -28,7 +28,7 @@ export function RunBriefing({
   closing,
   footer,
   pills,
-}: RunBriefingProps): ReactElement {
+}: RunBriefingProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
   const { sidePanel } = useRunSidePanel();
 

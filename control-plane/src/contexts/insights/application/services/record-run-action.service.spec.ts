@@ -28,26 +28,22 @@ type Ended =
   | [string, number, Parameters<typeof endedRecord>[1]];
 
 const workOfTeam = (teamId: string): WorkPort => ({
-  unfinishedRuns: () => Promise.resolve([]),
-  traced: () =>
-    Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
-  endedRun: (runId) =>
-    Promise.resolve(
-      partial<EndedRun>({
-        runId,
-        workspaceId: WorkspaceId.of('ws_1'),
-        teamId: TeamId.of(teamId),
-        taskId: TaskId.of('task_1'),
-      }),
-    ),
-  taskRunOf: (runId) =>
-    Promise.resolve({
+  unfinishedRuns: async () => [],
+  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+  endedRun: async (runId) =>
+    partial<EndedRun>({
       runId,
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of(teamId),
       taskId: TaskId.of('task_1'),
     }),
-  configsInOrder: () => Promise.resolve([]),
+  taskRunOf: async (runId) => ({
+    runId,
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of(teamId),
+    taskId: TaskId.of('task_1'),
+  }),
+  configsInOrder: async () => [],
 });
 
 const acting = async (...runs: Ended[]) => {
@@ -422,7 +418,7 @@ describe('recording how a run used its tools', () => {
     const records = new RunRecordsInMemory();
     const noTask: WorkPort = {
       ...workOfTeam('team_1'),
-      taskRunOf: () => Promise.resolve(null),
+      taskRunOf: async () => null,
     };
 
     await new RecordRunUsageSummary(

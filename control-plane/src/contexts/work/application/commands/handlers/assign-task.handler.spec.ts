@@ -90,32 +90,28 @@ let saved: Task | undefined;
 const tasks = (found: Task | null = task()) =>
   ({
     add: vi.fn(),
-    save: vi.fn((each: Task) => {
+    save: vi.fn(async (each: Task) => {
       saved = each;
-
-      return Promise.resolve();
     }),
-    find: vi.fn(() => Promise.resolve(found)),
+    find: vi.fn(async () => found),
     remove: vi.fn(),
-    placementsAt: vi.fn(() => Promise.resolve([])),
-    findByCorrelation: vi.fn(() => Promise.resolve([])),
-    owningPullRequest: vi.fn(() => Promise.resolve(null)),
-    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-    holdingMark: vi.fn(() => Promise.resolve([])),
-    settingUpFor: vi.fn(() => Promise.resolve(null)),
-    settingUpIn: vi.fn(() => Promise.resolve([])),
-    settingUp: vi.fn(() => Promise.resolve([])),
-    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-    awaitingConnection: vi.fn(() => Promise.resolve([])),
-    startingFrom: vi.fn(() => Promise.resolve([])),
-    onBranch: vi.fn(() => Promise.resolve(null)),
+    placementsAt: vi.fn(async () => []),
+    findByCorrelation: vi.fn(async () => []),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
+    holdingMark: vi.fn(async () => []),
+    settingUpFor: vi.fn(async () => null),
+    settingUpIn: vi.fn(async () => []),
+    settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
+    awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = (teamId = 'team_1') =>
   partial<LineMapsPort>({
-    findByStation: vi.fn(() =>
-      Promise.resolve(delivery('ws_1', 'station_1', teamId)),
-    ),
+    findByStation: vi.fn(async () => delivery('ws_1', 'station_1', teamId)),
   });
 
 const assign = (

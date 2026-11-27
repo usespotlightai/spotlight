@@ -85,33 +85,33 @@ class FakeConfigs implements ConfigRepositoryPort {
   failing: Error | null = null;
   hasFile = true;
 
-  fileAt(_workspace: unknown, _repository: unknown, path: string) {
+  async fileAt(_workspace: unknown, _repository: unknown, path: string) {
     if (this.failing) {
-      return Promise.reject(this.failing);
+      throw this.failing;
     }
 
-    return Promise.resolve(
-      this.hasFile
-        ? { path, content: 'resource "spotlight_line" "x" {}\n', commit: 'c1' }
-        : null,
+    return this.hasFile
+      ? { path, content: 'resource "spotlight_line" "x" {}\n', commit: 'c1' }
+      : null;
+  }
+
+  async filesUnder() {
+    return ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'].map(
+      (path) => ({ path, content: 'resource "spotlight_line" "x" {}\n' }),
     );
   }
 
-  filesUnder() {
-    return Promise.resolve(
-      ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'].map(
-        (path) => ({ path, content: 'resource "spotlight_line" "x" {}\n' }),
-      ),
-    );
-  }
-
-  committed(_workspace: unknown, _repository: unknown, commit: ConfigCommit) {
+  async committed(
+    _workspace: unknown,
+    _repository: unknown,
+    commit: ConfigCommit,
+  ) {
     this.commits.push(commit);
 
-    return Promise.resolve(`commit_${this.commits.length}`);
+    return `commit_${this.commits.length}`;
   }
 
-  opened(
+  async opened(
     _workspace: unknown,
     repository: { value: string },
     opening: ConfigPullRequestOpening,
@@ -126,45 +126,41 @@ class FakeConfigs implements ConfigRepositoryPort {
 
     const number = at < 0 ? this.openings.length : at + 1;
 
-    return Promise.resolve({
+    return {
       url: `https://github.com/${repository.value}/pull/${number}`,
       number,
       hostId: 100 + number,
       repository: 'Acme/Platform',
-    });
+    };
   }
 
-  statusOf(
+  async statusOf(
     _workspace: unknown,
     at: ConfigPullRequestAt,
   ): Promise<ConfigPullRequestStatus> {
     this.statusChecks.push(at.number);
 
     if (this.closeFailing) {
-      return Promise.reject(this.closeFailing);
+      throw this.closeFailing;
     }
 
-    return Promise.resolve(
-      this.statuses.get(at.number) ?? { state: 'open', closedAt: null },
-    );
+    return this.statuses.get(at.number) ?? { state: 'open', closedAt: null };
   }
 
-  closed(_workspace: unknown, at: ConfigPullRequestAt) {
+  async closed(_workspace: unknown, at: ConfigPullRequestAt) {
     if (this.closeFailing) {
-      return Promise.reject(this.closeFailing);
+      throw this.closeFailing;
     }
 
     this.closings.push(at.number);
-    return Promise.resolve();
   }
 
-  commented(_workspace: unknown, at: ConfigPullRequestAt, body: string) {
+  async commented(_workspace: unknown, at: ConfigPullRequestAt, body: string) {
     if (this.commentFailing) {
-      return Promise.reject(this.commentFailing);
+      throw this.commentFailing;
     }
 
     this.comments.push({ number: at.number, body });
-    return Promise.resolve();
   }
 }
 
@@ -176,10 +172,10 @@ class FakeEditor implements StationSourceEditorPort {
     unchecked: [],
   };
 
-  edited(edit: StationSourceEdit) {
+  async edited(edit: StationSourceEdit) {
     this.edits.push(edit);
 
-    return Promise.resolve(this.answer);
+    return this.answer;
   }
 }
 
@@ -507,12 +503,10 @@ describe('picking a search candidate', () => {
     configs.failing = null;
     await pick();
 
-    configs.opened = () => {
-      return Promise.reject(
-        new ConfigRepositoryError(
-          'github-error',
-          'Resource not accessible by integration',
-        ),
+    configs.opened = async () => {
+      throw new ConfigRepositoryError(
+        'github-error',
+        'Resource not accessible by integration',
       );
     };
     await opening().processDue();
@@ -572,8 +566,7 @@ describe('picking a search candidate', () => {
   });
 
   it('fails at once when the line names no source', async () => {
-    suppliers.lines.station = () =>
-      Promise.resolve({ ...STATION_VIEW, source: null });
+    suppliers.lines.station = async () => ({ ...STATION_VIEW, source: null });
     await pick();
     await opening().processDue();
 
@@ -827,9 +820,9 @@ describe('following a config pull request after it opened', () => {
     await opened();
     now = new Date(now.getTime() + 6 * 60 * 60_000 + 1);
     const checkedWhenAsked: (Date | null)[] = [];
-    configs.statusOf = () => {
+    configs.statusOf = async () => {
       checkedWhenAsked.push(only().checkedAt);
-      return Promise.reject(new Error('GitHub is down'));
+      throw new Error('GitHub is down');
     };
     await reconciling().processDue();
 

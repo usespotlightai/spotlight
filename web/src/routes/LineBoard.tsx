@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router';
 
 import { Board } from '@/components/features/board/Board';
@@ -30,7 +30,7 @@ const listLoading = (
   completed: Loadable,
 ): boolean => loading(tasks) || (view === 'completed' && loading(completed));
 
-export function LineBoard(): ReactElement | null {
+export function LineBoard() {
   const { slug, teamId, lineId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const lines = useLines(teamId);

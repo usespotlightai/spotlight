@@ -16,7 +16,7 @@ export function useInAppLinks(within: RefObject<HTMLElement | null>): void {
         event.target instanceof Element ? event.target.closest('a') : null;
       const href = anchor?.getAttribute('href');
 
-      if (href?.startsWith('/') !== true || event.metaKey || event.ctrlKey) {
+      if (!href?.startsWith('/') || event.metaKey || event.ctrlKey) {
         return;
       }
 

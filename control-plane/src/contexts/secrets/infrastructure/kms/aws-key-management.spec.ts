@@ -17,12 +17,10 @@ const BLOB = new Uint8Array([1, 2, 3]);
 const kmsAnswering = () => {
   const send = vi
     .fn()
-    .mockImplementation((command: unknown) =>
-      Promise.resolve(
-        command instanceof GenerateDataKeyCommand
-          ? { Plaintext: PLAIN, CiphertextBlob: BLOB }
-          : { Plaintext: PLAIN },
-      ),
+    .mockImplementation(async (command: unknown) =>
+      command instanceof GenerateDataKeyCommand
+        ? { Plaintext: PLAIN, CiphertextBlob: BLOB }
+        : { Plaintext: PLAIN },
     );
   const kms: Pick<KMSClient, 'send'> = { send };
 

@@ -25,20 +25,18 @@ const forgetting = (
   const { stored, hosts } = storedHosts(host);
   const handler = new DeleteHostHandler(
     partial<WorkspaceAccessPort>({
-      permissionsIn: vi.fn(() =>
-        Promise.resolve(
-          permissions === null
-            ? null
-            : {
-                workspaceId: host.workspaceId,
-                slug: '',
-                plans: false,
-                configures: false,
-                scopes: new Set<TokenScopeName>(),
-                isAdmin: false,
-                ...permissions,
-              },
-        ),
+      permissionsIn: vi.fn(async () =>
+        permissions === null
+          ? null
+          : {
+              workspaceId: host.workspaceId,
+              slug: '',
+              plans: false,
+              configures: false,
+              scopes: new Set<TokenScopeName>(),
+              isAdmin: false,
+              ...permissions,
+            },
       ),
     }),
     hosts,
@@ -64,8 +62,8 @@ describe('DeleteHostHandler', () => {
 
   it('deletes a host that reported again while it was deleted', async () => {
     const { forget, hosts, stored } = forgetting();
-    hosts.remove.mockImplementationOnce(() => {
-      return Promise.reject(new RunnerHostVersionConflictError(HOST_ID.value));
+    hosts.remove.mockImplementationOnce(async () => {
+      throw new RunnerHostVersionConflictError(HOST_ID.value);
     });
 
     await expect(forget()).resolves.toEqual({ outcome: 'deleted' });

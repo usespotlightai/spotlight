@@ -43,10 +43,9 @@ const reacting = (stored: readonly ReviewComment[] = []) => {
   const enqueue = vi.fn(async () => {});
   const reactions = new ReviewReactions(
     partial<ReviewCommentRepository>({
-      find: (id: ReviewCommentId) =>
-        Promise.resolve(comments.get(id.value) ?? null),
-      save: (comment: ReviewComment) =>
-        Promise.resolve(void comments.set(comment.id.value, comment)),
+      find: async (id: ReviewCommentId) => comments.get(id.value) ?? null,
+      save: async (comment: ReviewComment) =>
+        void comments.set(comment.id.value, comment),
     }),
     partial<ReviewDeliveriesPort>({ enqueue }),
     { generate: () => 'sync_1' },

@@ -11,6 +11,7 @@ import {
   suffixes,
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const STRINGS = new Set(['string', 'encapsed_string']);
@@ -158,9 +159,7 @@ export const PHP_GRAMMAR: Grammar = {
       .flatMap((clause): GrammarImport[] => {
         const target = clause ? named(clause)[0] : undefined;
         const specifier = (
-          group !== undefined && group !== ''
-            ? `${group}\\${target?.text}`
-            : (target?.text ?? '')
+          nonEmpty(group) ? `${group}\\${target?.text}` : (target?.text ?? '')
         ).replace(/^\\/, '');
         const imported = lastSegment(specifier);
         const local =

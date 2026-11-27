@@ -1,6 +1,6 @@
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { DrizzleSecretUseLocks } from '@secrets/infrastructure/persistence/drizzle/secret-use-locks';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 

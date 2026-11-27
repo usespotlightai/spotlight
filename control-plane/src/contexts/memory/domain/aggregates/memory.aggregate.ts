@@ -71,10 +71,9 @@ export class Memory extends EventRecorder {
   }): Memory {
     const { supersedes } = input;
 
-    const replacing =
-      supersedes?.supersedableIn(input.scope.teamId) === true
-        ? supersedes.id
-        : null;
+    const replacing = supersedes?.supersedableIn(input.scope.teamId)
+      ? supersedes.id
+      : null;
 
     return Memory.make(
       { ...input, supersedes: replacing },
@@ -162,7 +161,7 @@ export class Memory extends EventRecorder {
     input: NewMemory,
     creation: MemoryCreation = 'added',
   ): Memory {
-    if (input.supersedes?.equals(input.id) === true) {
+    if (input.supersedes?.equals(input.id)) {
       throw new InvalidMemoryError('cannot supersede itself');
     }
 
@@ -329,8 +328,8 @@ export class Memory extends EventRecorder {
   afterPredecessor(predecessor: Memory | null): Memory {
     if (
       !this.state.supersedes ||
-      predecessor?.isActive === true ||
-      predecessor?.retirement?.supersededBy?.equals(this.state.id) === true
+      predecessor?.isActive ||
+      predecessor?.retirement?.supersededBy?.equals(this.state.id)
     ) {
       return this;
     }

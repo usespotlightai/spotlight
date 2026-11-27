@@ -110,29 +110,27 @@ const world = (task: Task, at: LineMap = line) => {
     },
   );
   const tasks = partial<TaskRepository>({
-    find: vi.fn(() => Promise.resolve(task)),
-    save: vi.fn((each: Task) => {
+    find: vi.fn(async () => task),
+    save: vi.fn(async (each: Task) => {
       saved = each;
-
-      return Promise.resolve();
     }),
   });
   const lines = partial<LineMapsPort>({
-    findByStation: vi.fn(() => Promise.resolve(at)),
+    findByStation: vi.fn(async () => at),
   });
-  const dispatch: TaskDispatching = { runIdFor: () => Promise.resolve(starts) };
+  const dispatch: TaskDispatching = { runIdFor: async () => starts };
   const transaction = {
     inTransaction: (work) => work(),
   } satisfies TransactionPort;
   const files = partial<FilesLoader>({
-    handedOver: () => Promise.resolve([]),
-    takenIn: () => Promise.resolve(undefined),
+    handedOver: async () => [],
+    takenIn: async () => undefined,
   });
   const drafts = new DraftSending(
     access,
     {
-      writers: () => Promise.resolve([]),
-      sent: () => Promise.resolve(undefined),
+      writers: async () => [],
+      sent: async () => undefined,
     },
     partial<LoggerPort>({ warn: () => undefined }),
   );
@@ -154,7 +152,7 @@ const world = (task: Task, at: LineMap = line) => {
           files,
           access,
           drafts,
-          { of: () => Promise.resolve([]) },
+          { of: async () => [] },
           { generate: () => 'hold_1' },
         ),
       ).execute(new SendTaskMessageCommand('team_1', 'task_1', sentBy, body)),

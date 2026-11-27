@@ -21,7 +21,7 @@ const recording = () => {
   const records = new RunRecordsInMemory();
   const deletions = deletionsInMemory();
   const service = new RecordRunMemories(
-    partial<WorkPort>({ endedRun: () => Promise.resolve(null) }),
+    partial<WorkPort>({ endedRun: async () => null }),
     records,
     new FactRecorder(deletions),
     inTransaction,

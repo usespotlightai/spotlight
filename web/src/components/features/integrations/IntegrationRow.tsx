@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { IntegrationDetails } from '@/components/features/integrations/IntegrationDetails';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import { IntegrationNeed } from '@/components/features/integrations/IntegrationNeed';
@@ -26,7 +24,7 @@ export function IntegrationRow({
   admin,
   mine,
   joined,
-}: IntegrationRowProps): ReactElement {
+}: IntegrationRowProps) {
   return (
     <IntegrationRowFrame
       slot="integration"

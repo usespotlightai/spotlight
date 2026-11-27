@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { AddHostSteps } from '@/components/features/runners/AddHostSteps';
@@ -14,7 +13,7 @@ import { isAdmin } from '@/lib/role';
 import { runnersPath } from '@/lib/runner';
 import { useTrail } from '@/lib/trail';
 
-export function AddHost(): ReactElement | null {
+export function AddHost() {
   const { slug } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const base: BreadcrumbSegment[] = [

@@ -134,24 +134,20 @@ describe('sandbox editors (e2e)', () => {
   beforeAll(async () => {
     app = await openApp((module) =>
       module.overrideProvider(SESSION_READER).useValue({
-        read: (headers): Promise<AuthenticatedUser | null> => {
+        read: async (headers): Promise<AuthenticatedUser | null> => {
           const id = headers[TEST_USER_HEADER];
-          return Promise.resolve(
-            typeof id === 'string'
-              ? { id, email: `${id}@example.com`, name: id }
-              : null,
-          );
+          return typeof id === 'string'
+            ? { id, email: `${id}@example.com`, name: id }
+            : null;
         },
-        readBearer: (token): Promise<AuthenticatedUser | null> =>
-          Promise.resolve(
-            token === LOGIN && team !== undefined
-              ? {
-                  id: team.owner.value,
-                  email: 'ada@example.com',
-                  name: 'Ada',
-                }
-              : null,
-          ),
+        readBearer: async (token): Promise<AuthenticatedUser | null> =>
+          token === LOGIN && team !== undefined
+            ? {
+                id: team.owner.value,
+                email: 'ada@example.com',
+                name: 'Ada',
+              }
+            : null,
       } satisfies SessionReaderPort),
     );
     db = app.get<DrizzleDatabase>(DRIZZLE);

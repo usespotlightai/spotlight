@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router';
 
 import { TaskActions } from '@/components/features/board/task/TaskActions';
@@ -30,13 +29,7 @@ type TaskPageProps = {
   trail: readonly BreadcrumbSegment[];
 };
 
-export function TaskPage({
-  slug,
-  teamId,
-  task,
-  line,
-  trail,
-}: TaskPageProps): ReactElement {
+export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
   const hold = task.hold;

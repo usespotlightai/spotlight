@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -17,6 +16,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
@@ -26,9 +26,7 @@ const workspaceRunnersOf = (declared: WorkspaceRunners) => ({
 });
 
 @Injectable()
-export class DrizzleWorkspaceRunnersRepository
-  implements WorkspaceRunnersRepository
-{
+export class DrizzleWorkspaceRunnersRepository implements WorkspaceRunnersRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -90,11 +88,13 @@ export class DrizzleWorkspaceRunnersRepository
   }
 
   private async first(where: SQL): Promise<WorkspaceRunners | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(workspaceRunners)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(workspaceRunners)
+        .where(where)
+        .limit(1),
+    );
 
     return found
       ? WorkspaceRunners.rehydrate({

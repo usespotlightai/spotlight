@@ -1,5 +1,4 @@
 import { ChevronsUpDown } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   DropdownMenu,
@@ -25,7 +24,7 @@ export function MemberRole({
   onOffer,
   onChange,
   pending,
-}: MemberRoleProps): ReactElement {
+}: MemberRoleProps) {
   if (onOffer.length === 0) {
     return (
       <span className="shrink-0 px-2 text-muted-foreground text-sm">

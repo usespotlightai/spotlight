@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ClaimVerdicts } from '@/components/features/runs/judge/ClaimVerdicts';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
@@ -78,10 +76,7 @@ type RunJudgeScoreProps = {
   runId: string;
 };
 
-export function RunJudgeScore({
-  teamId,
-  runId,
-}: RunJudgeScoreProps): ReactElement | null {
+export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
   const query = useRunScores(teamId, runId);
 
   if (loading(query)) {
@@ -105,7 +100,7 @@ export function RunJudgeScore({
 
   const scores = query.data;
 
-  if (scores?.judged !== true) {
+  if (!scores?.judged) {
     return null;
   }
 

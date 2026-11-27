@@ -119,8 +119,8 @@ const harnessKeys = (held: readonly string[] = []) =>
       ],
     }),
     {
-      namesIn: () => Promise.resolve(held),
-      sandboxSecrets: () => Promise.resolve([]),
+      namesIn: async () => held,
+      sandboxSecrets: async () => [],
     },
   );
 
@@ -137,17 +137,15 @@ const storedRun = (stored: ReadonlyMap<string, Run>, id: string): Run => {
 const inMemory = (held: readonly string[] = []) => {
   const stored = new Map<string, Run>();
   const runs = partial<RunRepository>({
-    findById: (id: RunId) => Promise.resolve(stored.get(id.value) ?? null),
-    add: (run: Run) => {
+    findById: async (id: RunId) => stored.get(id.value) ?? null,
+    add: async (run: Run) => {
       if (stored.has(run.id.value)) {
-        return Promise.reject(new RunAlreadyExistsError(run.id.value));
+        throw new RunAlreadyExistsError(run.id.value);
       }
       stored.set(run.id.value, run);
-      return Promise.resolve();
     },
-    save: (run: Run) => {
+    save: async (run: Run) => {
       stored.set(run.id.value, run);
-      return Promise.resolve();
     },
   });
 
@@ -188,16 +186,15 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     };
     const [warm] = await new LinesWarmLines(
       partial<LinesPort>({
-        keepingWarmSandboxes: () =>
-          Promise.resolve([
-            lineViewOf({
-              runners: ['gpu'],
-              repositories: [
-                { repository: 'acme/api', setup: null },
-                { repository: 'acme/widgets', setup: 'npm ci' },
-              ],
-            }),
-          ]),
+        keepingWarmSandboxes: async () => [
+          lineViewOf({
+            runners: ['gpu'],
+            repositories: [
+              { repository: 'acme/api', setup: null },
+              { repository: 'acme/widgets', setup: 'npm ci' },
+            ],
+          }),
+        ],
       }),
     ).keepingWarmSandboxes();
 
@@ -440,13 +437,12 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     let reads = 0;
     const racing = new Runs(
       partial<RunRepository>({
-        findById: () => Promise.resolve(reads++ === 0 ? queued : claimed),
-        save: (run: Run) => {
+        findById: async () => (reads++ === 0 ? queued : claimed),
+        save: async (run: Run) => {
           if (run.state === 'cancelled') {
-            return Promise.reject(new RunVersionConflictError(run.id.value));
+            throw new RunVersionConflictError(run.id.value);
           }
           stored.set(run.id.value, run);
-          return Promise.resolve();
         },
       }),
       { sha256: (text) => text },
@@ -469,9 +465,9 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     let reads = 0;
     const racing = new Runs(
       partial<RunRepository>({
-        findById: () => Promise.resolve(reads++ === 0 ? queued : claimed),
-        save: (run: Run) => {
-          return Promise.reject(new RunVersionConflictError(run.id.value));
+        findById: async () => (reads++ === 0 ? queued : claimed),
+        save: async (run: Run) => {
+          throw new RunVersionConflictError(run.id.value);
         },
       }),
       { sha256: (text) => text },

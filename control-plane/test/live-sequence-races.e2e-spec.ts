@@ -122,7 +122,7 @@ const wiredTo = (feed: RecordingFeed): EventOutbox => {
     notices,
     new LiveNotices(feed, log, logger),
     { generate: () => randomUUID() },
-    { now: () => new Date(), sleep: () => Promise.resolve(undefined) },
+    { now: () => new Date(), sleep: async () => undefined },
     new CauseCarrier(),
     logger,
     telemetryInMemory(),

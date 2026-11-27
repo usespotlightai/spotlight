@@ -1,5 +1,6 @@
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import type { LabelSource } from '@insights/domain/value-objects/label-source';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const DECIDING_ACTIONS = [
@@ -77,7 +78,7 @@ export class PersonAction {
   }
 
   dismissalOf(acted: ActedOnTool): Dismissal | null {
-    return this.kind === 'dismissed' && acted.tool !== null && acted.tool !== ''
+    return this.kind === 'dismissed' && nonEmpty(acted.tool)
       ? Dismissal.of({ tool: acted.tool, server: acted.server, at: this.at })
       : null;
   }

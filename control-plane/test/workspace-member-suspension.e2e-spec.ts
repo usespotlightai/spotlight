@@ -54,10 +54,8 @@ describe('suspending and leaving a workspace (e2e)', () => {
   beforeAll(async () => {
     app = await openApp((module) =>
       module.overrideProvider(MEMBER_MAIL).useValue({
-        send: (mail: MemberMailToSend) => {
+        send: async (mail: MemberMailToSend) => {
           sent.push(mail);
-
-          return Promise.resolve();
         },
       }),
     );
@@ -139,7 +137,7 @@ describe('suspending and leaving a workspace (e2e)', () => {
   });
 
   it('emails the suspended person, and clears them as the default assignee of a line', async () => {
-    await eventually(() => Promise.resolve(sent.length > 0));
+    await eventually(async () => sent.length > 0);
 
     expect(sent[0]).toMatchObject({
       kind: 'suspended',
@@ -184,8 +182,8 @@ describe('suspending and leaving a workspace (e2e)', () => {
       suspendedAt: null,
       teams: [{ id: workspaceId }],
     });
-    await eventually(() =>
-      Promise.resolve(sent.some((each) => each.kind === 'unsuspended')),
+    await eventually(async () =>
+      sent.some((each) => each.kind === 'unsuspended'),
     );
   });
 
@@ -196,9 +194,7 @@ describe('suspending and leaving a workspace (e2e)', () => {
     expect(await memberNamed(seat.owner, seat.member)).toMatchObject({
       suspendedAt: expect.any(String) as unknown,
     });
-    await eventually(() =>
-      Promise.resolve(sent.some((each) => each.kind === 'left')),
-    );
+    await eventually(async () => sent.some((each) => each.kind === 'left'));
 
     await as(seat.owner).delete(suspension(seat.member)).expect(204);
     await as(seat.member).get(workspace).expect(200);

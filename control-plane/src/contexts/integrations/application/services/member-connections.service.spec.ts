@@ -12,7 +12,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const ADA = UserId.of('user_ada');
 
 const disconnecting = (owned: readonly IntegrationConnection[]) => {
-  const ofPerson = vi.fn(() => Promise.resolve(owned));
+  const ofPerson = vi.fn(async () => owned);
   const remove = vi.fn(async () => {});
   const warn = vi.fn();
   const connections = new MemberConnections(

@@ -1,5 +1,4 @@
 import { ShieldCheck } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { RowIcon } from '@/components/shared/RowIcon';
@@ -11,7 +10,7 @@ type OidcTrustRowProps = {
   trust: OidcTrust;
 };
 
-export function OidcTrustRow({ trust }: OidcTrustRowProps): ReactElement {
+export function OidcTrustRow({ trust }: OidcTrustRowProps) {
   return (
     <div data-slot="oidc-trust-row">
       <SettingsRow

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { Modified } from '@/components/features/inbox/conversation/approval/Modified';
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -13,11 +11,7 @@ import {
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
-export function ApprovalAction({
-  approval,
-}: {
-  approval: Approval;
-}): ReactElement {
+export function ApprovalAction({ approval }: { approval: Approval }) {
   const changed = changedNames(approval);
 
   return (

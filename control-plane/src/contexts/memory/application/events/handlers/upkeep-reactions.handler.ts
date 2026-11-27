@@ -19,6 +19,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class UpkeepReactions {
   constructor(
@@ -31,13 +32,13 @@ export class UpkeepReactions {
   ) {}
 
   async onSwept(event: MemoryUpkeepSwept): Promise<void> {
-    if ((await this.upkeeps.find(event.upkeepId))?.awaitsDecision !== true) {
+    if (!(await this.upkeeps.find(event.upkeepId))?.awaitsDecision) {
       return;
     }
 
     await this.notices.swept(event);
 
-    if ((await this.upkeeps.find(event.upkeepId))?.awaitsDecision !== true) {
+    if (!(await this.upkeeps.find(event.upkeepId))?.awaitsDecision) {
       await this.notices.settled(event.upkeepId, event.teamId);
     }
   }
@@ -71,21 +72,20 @@ export class UpkeepReactions {
       ]);
       const merged = locked.find((each) => each.id.equals(event.memoryId));
 
-      if (merged?.isActive !== true) {
+      if (!merged?.isActive) {
         return;
       }
 
       const replaced = locked.filter((each) => !each.id.equals(event.memoryId));
       const reason = whyMergeNoLongerApplies(
         event.replaces.filter(
-          (id) =>
-            replaced.find((each) => each.id.equals(id))?.isActive !== true,
+          (id) => !replaced.find((each) => each.id.equals(id))?.isActive,
         ),
         replaced,
         event.memoryId,
       );
 
-      if (reason !== null && reason !== '') {
+      if (nonEmpty(reason)) {
         await this.memories.save(
           merged.retire({
             by: event.decision.by,
@@ -160,7 +160,7 @@ export class UpkeepReactions {
         by: event.decision.by,
         reason: event.reason,
         at: event.decision.at,
-      }) === true
+      })
     ) {
       return true;
     }

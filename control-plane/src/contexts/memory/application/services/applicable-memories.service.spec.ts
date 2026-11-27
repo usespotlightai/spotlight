@@ -9,6 +9,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -41,10 +42,7 @@ const approved = (
     body: MemoryBody.of(`Memory ${id}.`),
     scope: MemoryScope.of({
       teamId: scope.teamId ?? TEAM,
-      lineId:
-        scope.lineId !== undefined && scope.lineId !== ''
-          ? LineId.of(scope.lineId)
-          : null,
+      lineId: nonEmpty(scope.lineId) ? LineId.of(scope.lineId) : null,
     }),
     provenance: null,
     by: BY,
@@ -58,7 +56,7 @@ const correcting = (old: Memory, id: number, lineId: string | null = null) =>
     body: MemoryBody.of(`Memory ${id}.`),
     scope: MemoryScope.of({
       teamId: old.scope.teamId,
-      lineId: lineId !== null && lineId !== '' ? LineId.of(lineId) : null,
+      lineId: nonEmpty(lineId) ? LineId.of(lineId) : null,
     }),
     by: BY,
   });
@@ -70,22 +68,18 @@ const applicable = (input: {
   recalled?: readonly MemoryId[];
 }) => {
   const stored = input.stored ?? input.mayApply ?? [];
-  const recall = vi.fn(() => Promise.resolve(input.recalled ?? []));
+  const recall = vi.fn(async () => input.recalled ?? []);
 
   return {
     recall,
     memories: new ApplicableMemories(
       partial<MemoryRepository>({
-        mayApplyAt: () => Promise.resolve(input.mayApply ?? []),
-        findAll: (ids: readonly MemoryId[]) =>
-          Promise.resolve(
-            ids.flatMap((id) => stored.filter((each) => each.id.equals(id))),
-          ),
-        successorsOf: (ids: readonly MemoryId[]) =>
-          Promise.resolve(
-            (input.successors ?? []).filter((each) =>
-              ids.some((id) => each.supersedes?.equals(id) === true),
-            ),
+        mayApplyAt: async () => input.mayApply ?? [],
+        findAll: async (ids: readonly MemoryId[]) =>
+          ids.flatMap((id) => stored.filter((each) => each.id.equals(id))),
+        successorsOf: async (ids: readonly MemoryId[]) =>
+          (input.successors ?? []).filter((each) =>
+            ids.some((id) => each.supersedes?.equals(id) === true),
           ),
       }),
       partial<MemoryRelevancePort>({ recall }),

@@ -1,5 +1,6 @@
 import type { EventType, PayloadTypes } from '@platform/events/payload-types';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { isSecret } from '@shared-kernel/domain/value-objects/secret';
 
 const TYPE = '$type';
@@ -80,7 +81,7 @@ export class EventCodec {
 
     const name = this.types.nameOf(type);
 
-    if (name === null || name === '') {
+    if (!nonEmpty(name)) {
       throw new Error(
         `${type.name} travels in an event but was never registered as an event type`,
       );

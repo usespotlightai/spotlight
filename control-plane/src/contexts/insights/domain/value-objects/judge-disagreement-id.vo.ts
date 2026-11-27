@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class JudgeDisagreementId {
-  private readonly kind: string = 'judge-disagreement';
+  private readonly kind = 'judge-disagreement';
 
   private constructor(readonly value: string) {}
 
@@ -13,7 +13,7 @@ export class JudgeDisagreementId {
   }
 
   equals(other: JudgeDisagreementId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof JudgeDisagreementId && this.value === other.value;
   }
 
   toString(): string {

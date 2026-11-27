@@ -53,9 +53,9 @@ export class HarnessCatalogueHandler implements QueryHandlerPort<
 > {
   constructor(private readonly launch: HarnessLaunchPort) {}
 
-  execute(): Promise<HarnessDto[]> {
-    return Promise.resolve(
-      this.launch.catalogue().map((entry) => HarnessMapper.toDto(entry, [])),
-    );
+  async execute(): Promise<HarnessDto[]> {
+    return this.launch
+      .catalogue()
+      .map((entry) => HarnessMapper.toDto(entry, []));
   }
 }

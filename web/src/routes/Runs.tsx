@@ -1,11 +1,10 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { TeamRuns } from '@/components/features/runs/TeamRuns';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { nonEmpty } from '@/lib/non-empty';
 
-export function Runs(): ReactElement | null {
+export function Runs() {
   const { slug, teamId } = useParams();
 
   if (!nonEmpty(slug) || !nonEmpty(teamId)) {

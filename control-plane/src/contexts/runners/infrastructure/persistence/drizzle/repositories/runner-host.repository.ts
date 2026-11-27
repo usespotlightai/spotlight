@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -22,6 +21,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, lte } from 'drizzle-orm';
 
@@ -75,22 +76,20 @@ const columnsOf = (host: RunnerHost) => ({
   containerRuntime: host.report.containerRuntime,
   capacity: host.report.capacity,
   running: host.report.running.map((each) => each.value),
-  images: host.report.images.map(
-    (each): HostImageRecord => ({
-      image: each.image.value,
-      isDefault: each.isDefault,
-      harnesses: each.harnesses.map((harness) => ({
-        id: harness.id.value,
-        models: harness.models.map((model) => model.value),
-        ...(harness.version ? { version: harness.version.value } : {}),
-      })),
-      ...(each.digest ? { digest: each.digest.value } : {}),
-      ...(each.release !== null && each.release !== '' ? { release: each.release } : {}),
-      ...(each.unavailableReason !== null && each.unavailableReason !== ''
-        ? { unavailableReason: each.unavailableReason }
-        : {}),
-    }),
-  ),
+  images: host.report.images.map((each): HostImageRecord => ({
+    image: each.image.value,
+    isDefault: each.isDefault,
+    harnesses: each.harnesses.map((harness) => ({
+      id: harness.id.value,
+      models: harness.models.map((model) => model.value),
+      ...(harness.version ? { version: harness.version.value } : {}),
+    })),
+    ...(each.digest ? { digest: each.digest.value } : {}),
+    ...(nonEmpty(each.release) ? { release: each.release } : {}),
+    ...(nonEmpty(each.unavailableReason)
+      ? { unavailableReason: each.unavailableReason }
+      : {}),
+  })),
   sandboxes: host.sandboxes.sandboxes.map((each) => each.value),
   stopping: host.sandboxes.stopping,
   firstHeartbeatAt: host.firstHeartbeatAt,
@@ -107,11 +106,13 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   ) {}
 
   async find(id: HostId): Promise<RunnerHost | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(runnerHost)
-      .where(eq(runnerHost.id, id.value))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(runnerHost)
+        .where(eq(runnerHost.id, id.value))
+        .limit(1),
+    );
 
     return found ? toHost(found) : null;
   }

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
@@ -67,7 +65,7 @@ export function RunComposer({
   yourMessage,
   onSent,
   ...target
-}: RunComposerProps): ReactElement {
+}: RunComposerProps) {
   const { runId, taskId } = target;
   const send = useSendMessage();
   const sendToTask = useSendTaskMessage();

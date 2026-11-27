@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useId, useRef } from 'react';
+import { type ReactNode, useId, useRef } from 'react';
 
 import { Collapsible } from '@/components/shared/Collapsible';
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
@@ -23,7 +23,7 @@ export function IntegrationRowFrame({
   summary,
   need,
   children,
-}: IntegrationRowFrameProps): ReactElement {
+}: IntegrationRowFrameProps) {
   const details = useId();
   const head = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);

@@ -17,9 +17,7 @@ export const tokenTakenBy = (
 ): TokenHash | null => {
   const current = bearer.isDeleted ? null : bearer.tokenHash;
 
-  return current && before?.tokenHash?.equals(current) !== true
-    ? current
-    : null;
+  return current && !before?.tokenHash?.equals(current) ? current : null;
 };
 
 export const assertTokenFree = (

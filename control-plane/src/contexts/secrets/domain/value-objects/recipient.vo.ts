@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class Recipient {
-  private readonly kind: string = 'recipient';
+  private readonly kind = 'recipient';
 
   private constructor(readonly key: string) {}
 
@@ -14,6 +14,6 @@ export class Recipient {
   }
 
   equals(other: Recipient): boolean {
-    return this.kind === other.kind && this.key === other.key;
+    return other instanceof Recipient && this.key === other.key;
   }
 }

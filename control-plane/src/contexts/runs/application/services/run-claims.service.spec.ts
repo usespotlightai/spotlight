@@ -54,11 +54,9 @@ const claimsOver = (waiting: readonly Run[]) => {
   };
   const logger = { warn: vi.fn() };
   const runs = {
-    claimCandidates: vi.fn(() =>
-      Promise.resolve({ waiting, leasedRequesters: [] }),
-    ),
+    claimCandidates: vi.fn(async () => ({ waiting, leasedRequesters: [] })),
     save: vi.fn(async () => {}),
-    leasedAmong: vi.fn(() => Promise.resolve([])),
+    leasedAmong: vi.fn(async () => []),
   };
   const claims = new RunClaims(
     partial<RunRepository>(runs),
@@ -68,7 +66,7 @@ const claimsOver = (waiting: readonly Run[]) => {
       claimingFor: <T>(_requester: unknown, claim: () => Promise<T>) => claim(),
     }),
     partial<WorkingCopyArchiveRepository>({
-      completedKeysAmong: vi.fn(() => Promise.resolve([])),
+      completedKeysAmong: vi.fn(async () => []),
     }),
     waits,
     partial<LoggerPort>(logger),

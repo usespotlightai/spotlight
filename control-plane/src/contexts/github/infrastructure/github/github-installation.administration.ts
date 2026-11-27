@@ -7,6 +7,7 @@ import { appJwt } from '@github/infrastructure/github/app-jwt';
 import { call } from '@github/infrastructure/github/github.rest';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import type { Env } from '@platform/config/env.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { z } from 'zod';
 
@@ -37,7 +38,7 @@ export class GitHubInstallationAdministration implements InstallationAdministrat
   ): Promise<InstallationAdministration> {
     const token = await this.accounts.tokenFor(userId, 'github');
 
-    if (token === null || token === '') {
+    if (!nonEmpty(token)) {
       return 'unknown';
     }
 

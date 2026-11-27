@@ -1,5 +1,4 @@
 import { Wrench } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -13,7 +12,7 @@ type NoToolsUsedProps = {
   teamId: string;
 };
 
-export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps): ReactElement {
+export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
   return (
     <EmptyFrame>
       <EmptyState

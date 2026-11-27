@@ -163,8 +163,7 @@ const launch: HarnessLaunchPort = {
 let teamProfiles: Record<string, HarnessProfileShape> = {};
 
 const profiles = {
-  named: (_teamId: TeamId, key: string) =>
-    Promise.resolve(teamProfiles[key] ?? null),
+  named: async (_teamId: TeamId, key: string) => teamProfiles[key] ?? null,
 };
 
 const at = (
@@ -214,9 +213,9 @@ let queued: RunOrderContract[] = [];
 let ordered: OrderedRun[] = [];
 
 const runs = recordingRuns({
-  enqueue: (order) => {
+  enqueue: async (order) => {
     queued.push(order);
-    return Promise.resolve({ outcome: 'enqueued' });
+    return { outcome: 'enqueued' };
   },
 });
 
@@ -289,26 +288,22 @@ let providedRequested: string[] = [];
 let toolsOnMarks: Record<string, string[]> = {};
 
 const integrations = partial<TeamIntegrations>({
-  provided: (_line: unknown, tools: readonly Tool[]) => {
+  provided: async (_line: unknown, tools: readonly Tool[]) => {
     providedRequested = tools.map((each) => each.value);
-    return Promise.resolve(providedTools);
+    return providedTools;
   },
-  toolsOnMarks: (_line: unknown, marks: readonly Mark[]) =>
-    Promise.resolve(
-      marks.flatMap((each) =>
-        (toolsOnMarks[each.kind] ?? []).map((tool) => Tool.of(tool)),
-      ),
+  toolsOnMarks: async (_line: unknown, marks: readonly Mark[]) =>
+    marks.flatMap((each) =>
+      (toolsOnMarks[each.kind] ?? []).map((tool) => Tool.of(tool)),
     ),
 });
 
 let readySkills: ReadySkillFolder[] = [];
 
 const teamSkills = partial<StationSkills>({
-  readyAt: (_line: LineMap, station: Station) =>
-    Promise.resolve(
-      readySkills.filter((each) =>
-        station.skills.some((key) => key.value === each.skill.key),
-      ),
+  readyAt: async (_line: LineMap, station: Station) =>
+    readySkills.filter((each) =>
+      station.skills.some((key) => key.value === each.skill.key),
     ),
 });
 
@@ -328,11 +323,11 @@ let resolvedItems: ResolvedItems = { tools: [], skills: [], denied: [] };
 let catalogRequested: CatalogRequest[] = [];
 
 const catalog = new RunCatalog({
-  resolve: (named) => {
+  resolve: async (named) => {
     catalogRequested.push(named);
-    return Promise.resolve(resolvedItems);
+    return resolvedItems;
   },
-  call: () => Promise.resolve({ kind: 'answered', output: null }),
+  call: async () => ({ kind: 'answered', output: null }),
 });
 
 const WEB_SEARCH = {
@@ -370,19 +365,19 @@ const dispatch = async (
     BUILT_IN,
     teamSkills,
     integrations,
-    { ofTask: () => Promise.resolve([]) },
+    { ofTask: async () => [] },
     catalog,
     profiles,
     {
-      forBriefing: (place: BriefingContext) => {
+      forBriefing: async (place: BriefingContext) => {
         briefedAt.push(place);
         if (memoryFails) {
-          return Promise.reject(new Error('memory is down'));
+          throw new Error('memory is down');
         }
-        return Promise.resolve(remembered);
+        return remembered;
       },
     },
-    partial<TouchedFiles>({ onTask: () => Promise.resolve(touchedOnTask) }),
+    partial<TouchedFiles>({ onTask: async () => touchedOnTask }),
     {
       debug: () => undefined,
       info: () => undefined,
@@ -392,15 +387,13 @@ const dispatch = async (
     { inSavepoint: (work) => work() },
     new Sha256ContentHash(),
     {
-      boundIn: (_workspace, names) =>
-        Promise.resolve(
-          names.map((name) => ({
-            name,
-            bindings: [],
-            awaitingValue: awaitingValue.includes(name),
-            allowsSandbox: !sandboxNotAllowed.includes(name),
-          })),
-        ),
+      boundIn: async (_workspace, names) =>
+        names.map((name) => ({
+          name,
+          bindings: [],
+          awaitingValue: awaitingValue.includes(name),
+          allowsSandbox: !sandboxNotAllowed.includes(name),
+        })),
     },
   );
   const working = existing ?? task(station.id.value);

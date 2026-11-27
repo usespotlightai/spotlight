@@ -65,7 +65,7 @@ export class MemoryProposal {
     supersedes: MemoryId | null;
     recordedAt: Date;
   }): MemoryProposal {
-    if (input.supersedes?.equals(input.id) === true) {
+    if (input.supersedes?.equals(input.id)) {
       throw new InvalidMemoryError('cannot supersede itself');
     }
 

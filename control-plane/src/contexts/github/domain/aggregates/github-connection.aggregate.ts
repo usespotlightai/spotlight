@@ -76,7 +76,7 @@ export class GitHubConnection extends EventRecorder {
   }
 
   disconnectFrom(installation: GitHubInstallation): GitHubConnection {
-    if (this.installation?.equals(installation) !== true) {
+    if (!this.installation?.equals(installation)) {
       return this;
     }
 

@@ -5,7 +5,6 @@ import {
   GitPullRequestDraft,
   type LucideIcon,
 } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import type { PullRequestState } from '@/lib/pull-request-state';
 import { cn } from '@/lib/utils';
@@ -30,7 +29,7 @@ export function TaskPullRequestStateIcon({
 }: {
   state: PullRequestState | null;
   className?: string;
-}): ReactElement {
+}) {
   const Icon = state ? ICONS[state] : GitPullRequest;
 
   return (

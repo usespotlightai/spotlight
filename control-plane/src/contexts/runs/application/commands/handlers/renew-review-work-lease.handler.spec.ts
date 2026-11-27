@@ -19,31 +19,29 @@ const NOW = new Date('2026-09-28T09:00:00.000Z');
 const renewing = (
   options: { known?: boolean; answer?: ReviewWorkLeaseRenewal | Error } = {},
 ) => {
-  const seen = vi.fn(() =>
-    Promise.resolve(
-      options.known === false
-        ? null
-        : {
-            workspaceId: WorkspaceId.of('ws_1'),
-            harnesses: [HarnessId.of('claude-code')],
-            offer: RunnerOffer.none(),
-            claims: 'nothing' as const,
-            source: null,
-          },
-    ),
+  const seen = vi.fn(async () =>
+    options.known === false
+      ? null
+      : {
+          workspaceId: WorkspaceId.of('ws_1'),
+          harnesses: [HarnessId.of('claude-code')],
+          offer: RunnerOffer.none(),
+          claims: 'nothing' as const,
+          source: null,
+        },
   );
-  const renewLease = vi.fn((): Promise<ReviewWorkLeaseRenewal> => {
+  const renewLease = vi.fn(async (): Promise<ReviewWorkLeaseRenewal> => {
     if (options.answer instanceof Error) {
-      return Promise.reject(options.answer);
+      throw options.answer;
     }
-    return Promise.resolve(options.answer ?? 'renewed');
+    return options.answer ?? 'renewed';
   });
 
   const handler = new RenewReviewWorkLeaseHandler(
     partial<ReviewWorkPort>({ renewLease }),
     {
       claimantOf: seen,
-      registeredClaimantOf: () => Promise.resolve(null),
+      registeredClaimantOf: async () => null,
     } satisfies RunnerClaimantsPort,
     partial<ClockPort>({ now: () => NOW }),
   );

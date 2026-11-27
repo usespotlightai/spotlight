@@ -384,12 +384,12 @@ const raceSubscribers = (): readonly DomainEventSubscriber[] => [
     FLAKY,
     false,
     (plan) => plan.flaky,
-    (rang, plan, call) => {
+    async (rang, plan, call) => {
       if (call > plan.flaky) {
         heardInTransaction(FLAKY, rang.marker);
       }
 
-      return Promise.resolve([new Answered(rang.marker, FLAKY)]);
+      return [new Answered(rang.marker, FLAKY)];
     },
   ),
   hearing(
@@ -417,9 +417,9 @@ const raceSubscribers = (): readonly DomainEventSubscriber[] => [
     name: HEAR_ANSWER,
     kinds: [ANSWERED],
     callsOut: false,
-    handle: (event) => {
+    handle: async (event) => {
       if (!(event instanceof Answered)) {
-        return Promise.reject(new Error(`${HEAR_ANSWER} heard ${event.kind}`));
+        throw new Error(`${HEAR_ANSWER} heard ${event.kind}`);
       }
 
       const holding = held(HEAR_ANSWER, `${event.by} ${event.marker}`, true);
@@ -428,7 +428,7 @@ const raceSubscribers = (): readonly DomainEventSubscriber[] => [
       );
       holding.release();
 
-      return Promise.resolve([]);
+      return [];
     },
   },
 ];
@@ -675,12 +675,10 @@ beforeAll(async () => {
     new LiveNotices(
       new InMemoryLiveFeed(),
       {
-        append: (notices) =>
-          Promise.resolve(
-            notices.map((notice) => ({ ...notice, sequence: null })),
-          ),
-        logs: () => Promise.resolve(new Map()),
-        prune: () => Promise.resolve(0),
+        append: async (notices) =>
+          notices.map((notice) => ({ ...notice, sequence: null })),
+        logs: async () => new Map(),
+        prune: async () => 0,
       },
       logger,
     ),

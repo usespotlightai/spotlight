@@ -71,7 +71,7 @@ class TickingClock implements ClockPort {
 
   now = () => this.at;
 
-  sleep = () => Promise.resolve(undefined);
+  sleep = async () => undefined;
 }
 
 const turning = (
@@ -89,54 +89,48 @@ const turning = (
 ) => {
   const take = vi.fn(async (): Promise<void> => {
     await over.taking?.();
-    if (over.takeFails === true) {
+    if (over.takeFails) {
       throw new Error('Runs unavailable');
     }
   });
   const clock = over.clock ?? new TickingClock();
-  const resume = vi.fn(() => Promise.resolve('resumed' as const));
+  const resume = vi.fn(async () => 'resumed' as const);
   const dispatches = partial<DispatchRepository>({
-    find: () =>
-      Promise.resolve(
-        partial<Dispatch>({
-          subject: {
-            kind: 'task',
-            taskId: TaskId.of('task_1'),
-            revision: TaskRevision.of(0),
-            stationId: StationId.of('station_1'),
-            driver: 'line' as const,
-          },
-        }),
-      ),
+    find: async () =>
+      partial<Dispatch>({
+        subject: {
+          kind: 'task',
+          taskId: TaskId.of('task_1'),
+          revision: TaskRevision.of(0),
+          stationId: StationId.of('station_1'),
+          driver: 'line' as const,
+        },
+      }),
   });
-  const cancel = vi.fn(() =>
-    Promise.resolve({
-      was: 'suspended' as const,
-      started: true,
-    }),
-  );
+  const cancel = vi.fn(async () => ({
+    was: 'suspended' as const,
+    started: true,
+  }));
   const count = vi.fn();
-  const forget = vi.fn(() => Promise.resolve(undefined));
+  const forget = vi.fn(async () => undefined);
   const error = vi.fn();
   const stored = over.retakes ?? new Map<string, StoredRetake>();
   const key = (runId: RunId, suspendedAt: Date) =>
     `${runId.value}@${suspendedAt.getTime()}`;
   const turns = new Turns(
     {
-      turnOf: () => Promise.resolve(null),
-      olderThan: (_owner, _state, before) =>
-        Promise.resolve(
-          (over.turns ?? []).filter((each) => each.suspendedAt < before),
-        ),
+      turnOf: async () => null,
+      olderThan: async (_owner, _state, before) =>
+        (over.turns ?? []).filter((each) => each.suspendedAt < before),
     } satisfies RunTurnsPort,
     {
-      checkedAt: (runId, suspendedAt) =>
-        Promise.resolve(stored.get(key(runId, suspendedAt))?.checkedAt ?? null),
-      claim: ({ runId, suspendedAt, attempt, from, to, retakes }) => {
+      checkedAt: async (runId, suspendedAt) =>
+        stored.get(key(runId, suspendedAt))?.checkedAt ?? null,
+      claim: async ({ runId, suspendedAt, attempt, from, to, retakes }) => {
         const was = stored.get(key(runId, suspendedAt));
 
         if ((was?.checkedAt ?? null) !== from) {
-          return Promise.resolve(false);
+          return false;
         }
         stored.set(key(runId, suspendedAt), {
           runId,
@@ -148,11 +142,11 @@ const turning = (
           leasedUntil: retakes ? null : (was?.leasedUntil ?? null),
           leaseToken: retakes ? null : (was?.leaseToken ?? null),
         });
-        return Promise.resolve(true);
+        return true;
       },
-      leaseNextDue: ({ token, now, leasedUntil, maxTries }) => {
-        if (over.crashesBeforeRetaking === true) {
-          return Promise.reject(new Error('The process stopped'));
+      leaseNextDue: async ({ token, now, leasedUntil, maxTries }) => {
+        if (over.crashesBeforeRetaking) {
+          throw new Error('The process stopped');
         }
         const due = firstOf(
           [...stored.values()]
@@ -166,7 +160,7 @@ const turning = (
         );
 
         if (!due) {
-          return Promise.resolve(null);
+          return null;
         }
 
         const leased = {
@@ -176,15 +170,15 @@ const turning = (
           leaseToken: token,
         };
         stored.set(key(due.runId, due.suspendedAt), leased);
-        return Promise.resolve({
+        return {
           runId: leased.runId,
           suspendedAt: leased.suspendedAt,
           attempt: leased.attempt,
           tries: leased.tries,
           leaseToken: token,
-        });
+        };
       },
-      retaken: (retake) => {
+      retaken: async (retake) => {
         const was = stored.get(key(retake.runId, retake.suspendedAt));
 
         if (was && was.leaseToken === retake.leaseToken) {
@@ -195,10 +189,8 @@ const turning = (
             leaseToken: null,
           });
         }
-
-        return Promise.resolve();
       },
-      retakeFailed: (retake, retryAt) => {
+      retakeFailed: async (retake, retryAt) => {
         const was = stored.get(key(retake.runId, retake.suspendedAt));
 
         if (was && was.leaseToken === retake.leaseToken) {
@@ -208,24 +200,20 @@ const turning = (
             leaseToken: null,
           });
         }
-
-        return Promise.resolve();
       },
       forgetSuspendedBefore: forget,
     } satisfies TurnRetakesPort,
-    { of: () => Promise.resolve(over.facts ?? []) },
+    { of: async () => over.facts ?? [] },
     partial<RunsPort>({ resume, cancel }),
     dispatches,
     partial<TaskRepository>({
-      withTurnAnsweredBetween: () => Promise.resolve(over.tasks ?? []),
-      find: () =>
-        Promise.resolve(
-          partial<Task>({
-            hasCurrentRun: () => over.holds ?? true,
-          }),
-        ),
+      withTurnAnsweredBetween: async () => over.tasks ?? [],
+      find: async () =>
+        partial<Task>({
+          hasCurrentRun: () => over.holds ?? true,
+        }),
     }),
-    partial<LineMapsPort>({ findByStation: () => Promise.resolve(null) }),
+    partial<LineMapsPort>({ findByStation: async () => null }),
     partial<TakeTurn>({ take }),
     clock,
     { generate: () => randomUUID() },
@@ -309,10 +297,8 @@ describe('Turns', () => {
       turns: [turnAged(45 * MINUTE + 30_000)],
       takeFails: true,
       clock,
-      taking: () => {
+      taking: async () => {
         clock.at = new Date(clock.at.getTime() + 10 * MINUTE);
-
-        return Promise.resolve();
       },
     });
 

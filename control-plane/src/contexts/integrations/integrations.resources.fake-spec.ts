@@ -96,25 +96,21 @@ export const access = (isAdmin = true): WorkspaceAccessPort =>
   teamAccess(TEAM, isAdmin);
 
 export const teams = (): TeamDirectoryPort => ({
-  find: vi.fn(() =>
-    Promise.resolve({
-      id: TEAM,
-      workspaceId: WorkspaceId.of('ws_1'),
-      key: 'core',
-      name: 'Core',
-      members: [],
-    }),
-  ),
-  inWorkspace: vi.fn(() => Promise.resolve([])),
+  find: vi.fn(async () => ({
+    id: TEAM,
+    workspaceId: WorkspaceId.of('ws_1'),
+    key: 'core',
+    name: 'Core',
+    members: [],
+  })),
+  inWorkspace: vi.fn(async () => []),
 });
 
 export const specs = new IntegrationSpecs(
   compiler,
   documentsContaining(),
   {
-    read: vi.fn(() =>
-      Promise.resolve({ kind: 'unread' as const, problem: 'unread' }),
-    ),
+    read: vi.fn(async () => ({ kind: 'unread' as const, problem: 'unread' })),
   },
   partial<CallAuthResolver>({}),
   { now: () => new Date('2026-10-05T12:00:00.000Z'), sleep: async () => {} },
@@ -124,11 +120,9 @@ export const creates = (
   reservation: IdempotentReservation = { kind: 'new' },
 ): Mocked<IdempotentCreatesPort> =>
   ({
-    reserve: vi.fn<IdempotentCreatesPort['reserve']>(() =>
-      Promise.resolve(reservation),
-    ),
-    recordCreated: vi.fn<IdempotentCreatesPort['recordCreated']>(() =>
-      Promise.resolve(),
+    reserve: vi.fn<IdempotentCreatesPort['reserve']>(async () => reservation),
+    recordCreated: vi.fn<IdempotentCreatesPort['recordCreated']>(
+      async () => {},
     ),
   }) satisfies IdempotentCreatesPort;
 
@@ -136,14 +130,12 @@ export const lookups = (
   lookup: IdempotentLookup = { kind: 'new' },
 ): Mocked<IdempotentLookupsPort> =>
   ({
-    lookup: vi.fn<IdempotentLookupsPort['lookup']>(() =>
-      Promise.resolve(lookup),
-    ),
+    lookup: vi.fn<IdempotentLookupsPort['lookup']>(async () => lookup),
   }) satisfies IdempotentLookupsPort;
 
 export const enabledTools = (enabled = ToolUses.none()): EnabledTools =>
   partial<EnabledTools>({
-    onTeam: vi.fn(() => Promise.resolve(enabled)),
+    onTeam: vi.fn(async () => enabled),
   });
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -160,19 +152,17 @@ export const definitions = (
   readonly ofTeam: Mock<() => Promise<IntegrationDefinition[]>>;
   readonly save: Mock<IntegrationDefinitionRepository['save']>;
 } => {
-  const read = vi.fn(() => Promise.resolve(over.stored ?? null));
+  const read = vi.fn(async () => over.stored ?? null);
 
   return {
     withId: read,
     of: read,
-    ofTeam: vi.fn(() => Promise.resolve(over.stored ? [over.stored] : [])),
-    save: vi.fn<IntegrationDefinitionRepository['save']>(() => {
+    ofTeam: vi.fn(async () => (over.stored ? [over.stored] : [])),
+    save: vi.fn<IntegrationDefinitionRepository['save']>(async () => {
       if (over.failing) {
         read.mockResolvedValue(over.thenAt ?? null);
-        return Promise.reject(over.failing);
+        throw over.failing;
       }
-
-      return Promise.resolve();
     }),
   } satisfies IntegrationDefinitionRepository;
 };

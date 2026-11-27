@@ -13,10 +13,10 @@ describe('DependentsRegistry', () => {
     const registry = new DependentsRegistry<TeamId>();
 
     registry.register({
-      dependentsOf: () => Promise.resolve([{ kind: 'line', key: 'delivery' }]),
+      dependentsOf: async () => [{ kind: 'line', key: 'delivery' }],
     });
     registry.register({
-      dependentsOf: () => Promise.resolve([{ kind: 'skill', key: 'grafana' }]),
+      dependentsOf: async () => [{ kind: 'skill', key: 'grafana' }],
     });
 
     expect(await registry.of(TeamId.of('team_1'))).toEqual([

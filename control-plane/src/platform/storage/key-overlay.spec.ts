@@ -4,15 +4,13 @@ import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const bucketWith = (keys: readonly string[]) => {
-  const send = vi.fn((command: HeadObjectCommand) => {
+  const send = vi.fn(async (command: HeadObjectCommand) => {
     if (keys.includes(command.input.Key ?? '')) {
-      return Promise.resolve({ ContentLength: 1 });
+      return { ContentLength: 1 };
     }
-    return Promise.reject(
-      Object.assign(new Error('NotFound'), {
-        $metadata: { httpStatusCode: 404 },
-      }),
-    );
+    throw Object.assign(new Error('NotFound'), {
+      $metadata: { httpStatusCode: 404 },
+    });
   });
 
   return { send, client: partial<S3Client>({ send }) };

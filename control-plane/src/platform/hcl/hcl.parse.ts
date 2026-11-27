@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Language, type Node, Parser } from '@vscode/tree-sitter-wasm';
 
 interface HclSpan {
@@ -273,7 +274,7 @@ const fileOf = (node: Node): ParsedValue | null => {
   const named = args ? namedOf(args) : [];
   const [only] = partsOf(named);
 
-  if (!only || named.length !== 1 || args?.text.includes('...') === true) {
+  if (!only || named.length !== 1 || args?.text.includes('...')) {
     return null;
   }
 
@@ -318,12 +319,9 @@ const traversalOf = (
 
   return node.type === 'expression' &&
     named.length === 3 &&
-    type !== null &&
-    type !== '' &&
-    resource !== null &&
-    resource !== '' &&
-    field !== null &&
-    field !== ''
+    nonEmpty(type) &&
+    nonEmpty(resource) &&
+    nonEmpty(field)
     ? { type, name: resource, attribute: field }
     : null;
 };
@@ -426,7 +424,7 @@ function readOf(node: Node, text: string): ParsedValue {
 
   return items?.every(
     (each) => each.read.kind === 'literal' || each.read.kind === 'reference',
-  ) === true
+  )
     ? { kind: 'list', items }
     : { kind: 'computed' };
 }

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { RunMemories } from '@/components/features/runs/memories/RunMemories';
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { IconAction } from '@/components/shared/IconAction';
@@ -20,7 +18,7 @@ export function RunActions({
   runId,
   thread,
   at,
-}: RunActionsProps): ReactElement {
+}: RunActionsProps) {
   const { copied, copy } = useCopied();
 
   return (

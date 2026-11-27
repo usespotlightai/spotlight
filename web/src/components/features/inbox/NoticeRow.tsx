@@ -1,5 +1,4 @@
 import { Lightbulb } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { useResolveAction } from '@/hooks/useResolveAction';
@@ -10,7 +9,7 @@ type NoticeRowProps = {
   notice: InboxNotice;
 };
 
-export function NoticeRow({ slug, notice }: NoticeRowProps): ReactElement {
+export function NoticeRow({ slug, notice }: NoticeRowProps) {
   const resolve = useResolveAction(slug, notice);
   return (
     <InboxRowFrame

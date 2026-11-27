@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { FlowTab } from '@/components/features/insights/FlowTab';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
@@ -27,7 +25,7 @@ export function ProductivityTab({
   view,
   names,
   onView,
-}: ProductivityTabProps): ReactElement {
+}: ProductivityTabProps) {
   const queries = [
     useInsightsFlow(teamId, view.period),
     useInsightsShipping(teamId, view.period),

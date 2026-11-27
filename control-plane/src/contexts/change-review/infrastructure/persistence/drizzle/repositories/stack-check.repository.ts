@@ -1,14 +1,13 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
-import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
-import { parseStoredSkip } from '@change-review/domain/value-objects/stack-check.vo';
+import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import { parseStoredSkip } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   checkedStepOf,
   entryOf,
@@ -20,6 +19,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -37,9 +38,9 @@ type Row = typeof stackCheck.$inferSelect;
 export const toStackCheck = (row: Row): StackCheck =>
   StackCheck.rehydrate({
     id: StackCheckId.of(ChangeStackId.of(row.stackId), row.recheck),
-    runId: row.runId !== null && row.runId !== '' ? RunId.of(row.runId) : null,
-    taskId: row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
-    teamId: row.teamId !== null && row.teamId !== '' ? TeamId.of(row.teamId) : null,
+    runId: nonEmpty(row.runId) ? RunId.of(row.runId) : null,
+    taskId: nonEmpty(row.taskId) ? TaskId.of(row.taskId) : null,
+    teamId: nonEmpty(row.teamId) ? TeamId.of(row.teamId) : null,
     trial: row.trial,
     workspaceId: WorkspaceId.of(row.workspaceId),
     request: CheckRequest.of(
@@ -47,7 +48,9 @@ export const toStackCheck = (row: Row): StackCheck =>
       row.setup,
       RunnerPlacement.ofLabelGroups(
         row.placement,
-        row.placementImage !== null && row.placementImage !== '' ? RunnerImage.of(row.placementImage) : null,
+        nonEmpty(row.placementImage)
+          ? RunnerImage.of(row.placementImage)
+          : null,
       ),
     ),
     stack: RepositoryStack.of({
@@ -71,16 +74,16 @@ export const toStackCheck = (row: Row): StackCheck =>
       checkedAt: new Date(row.outcome.checkedAt),
     },
     claim: RunnerClaim.rehydrate({
-      claimedBy: row.claimedBy !== null && row.claimedBy !== '' ? RunnerId.of(row.claimedBy) : null,
+      claimedBy: nonEmpty(row.claimedBy) ? RunnerId.of(row.claimedBy) : null,
       attempts: row.attempts,
       leaseExpiresAt: row.leaseExpiresAt,
       claimedAt: row.claimedAt,
     }),
     waitingSince: row.waitingSince,
     reservation:
-      row.reservedFor !== null &&
-      row.reservedFor !== '' &&
-      row.reservedPool !== null && row.reservedPool !== '' && row.reservedUntil
+      nonEmpty(row.reservedFor) &&
+      nonEmpty(row.reservedPool) &&
+      row.reservedUntil
         ? RunnerReservation.of(
             RunnerId.of(row.reservedFor),
             PoolId.of(row.reservedPool),
@@ -175,16 +178,18 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
   }
 
   async find(id: StackCheckId): Promise<StackCheck | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(stackCheck)
-      .where(
-        and(
-          eq(stackCheck.stackId, id.stackId.value),
-          eq(stackCheck.recheck, id.recheck),
-        ),
-      )
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(stackCheck)
+        .where(
+          and(
+            eq(stackCheck.stackId, id.stackId.value),
+            eq(stackCheck.recheck, id.recheck),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toStackCheck(row) : null;
   }

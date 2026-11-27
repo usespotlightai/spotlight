@@ -1,5 +1,4 @@
 import { ChevronDown } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { AgentEffortMenu } from '@/components/features/stations/AgentEffortMenu';
 import { AgentHarnessMenu } from '@/components/features/stations/AgentHarnessMenu';
@@ -30,7 +29,7 @@ export function AgentPicker({
   onHarness,
   onModel,
   onEffort,
-}: AgentPickerProps): ReactElement {
+}: AgentPickerProps) {
   const { data: harnesses } = useHarnesses();
   const readOnly = !onHarness && !onModel && !onEffort;
 

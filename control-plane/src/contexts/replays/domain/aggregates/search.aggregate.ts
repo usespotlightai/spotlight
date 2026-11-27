@@ -475,7 +475,7 @@ export class Search extends EventRecorder {
   get requestIteration(): number {
     const last = this.lastIteration;
 
-    return last?.awaitsRequests === true
+    return last?.awaitsRequests
       ? last.number
       : this.state.iterations.length + 1;
   }
@@ -538,7 +538,7 @@ export class Search extends EventRecorder {
   get activeRun(): RunId | null {
     const last = this.lastIteration;
 
-    return last?.ownsActiveRun === true ? last.runId : null;
+    return last?.ownsActiveRun ? last.runId : null;
   }
 
   get budgetLeft(): Money {
@@ -723,7 +723,7 @@ export class Search extends EventRecorder {
   ): Search {
     const last = this.lastIteration;
 
-    if (!this.isActive || last?.awaitsRequests !== true) {
+    if (!this.isActive || !last?.awaitsRequests) {
       throw new InvalidSearchError(
         'takes requested candidates only into an iteration that waits for them',
       );
@@ -759,7 +759,7 @@ export class Search extends EventRecorder {
   ): Search {
     const iteration = this.iterationOf(run);
 
-    if (iteration?.reflects !== true || iteration.current !== 'wanted') {
+    if (!iteration?.reflects || iteration.current !== 'wanted') {
       throw new InvalidSearchError(
         'can look into failing tasks only in a pending reflection',
       );
@@ -795,7 +795,7 @@ export class Search extends EventRecorder {
   recordCause(run: RunId, input: CauseInput, at: Date): Search {
     const iteration = this.iterationOf(run);
 
-    if (this.state.state !== 'searching' || iteration?.ownsActiveRun !== true) {
+    if (this.state.state !== 'searching' || !iteration?.ownsActiveRun) {
       throw new SearchIterationClosedError(run.value);
     }
     if (!iteration.reflects) {
@@ -1097,7 +1097,7 @@ export class Search extends EventRecorder {
   private advancedAt(at: Date, runIds: () => RunId): Search {
     const last = this.lastIteration;
 
-    if (this.state.state !== 'searching' || last?.isClosed !== true) {
+    if (this.state.state !== 'searching' || !last?.isClosed) {
       return this;
     }
     if (last.reflects) {

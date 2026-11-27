@@ -4,7 +4,7 @@ import type {
   SelectedLineRange,
 } from '@pierre/diffs';
 import { PatchDiff } from '@pierre/diffs/react';
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHighlighterReady } from '@/hooks/useHighlighterReady';
@@ -34,7 +34,7 @@ export function PatchCodeDiff<T>({
   selected,
   onSelecting,
   onSelected,
-}: PatchCodeDiffProps<T>): ReactElement {
+}: PatchCodeDiffProps<T>) {
   const ready = useHighlighterReady(path);
 
   return (

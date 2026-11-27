@@ -25,13 +25,11 @@ const EXPIRED = HookCallbackToken.rehydrate({
 const setUp = (expired: HookCallbackToken[] = []) => {
   const added: HookCallbackToken[] = [];
   const repository = {
-    add: vi.fn((callbackToken: HookCallbackToken) => {
+    add: vi.fn(async (callbackToken: HookCallbackToken) => {
       added.push(callbackToken);
-
-      return Promise.resolve();
     }),
-    withToken: vi.fn(() => Promise.resolve(null)),
-    expiredBefore: vi.fn(() => Promise.resolve(expired)),
+    withToken: vi.fn(async () => null),
+    expiredBefore: vi.fn(async () => expired),
     remove: vi.fn(async () => {}),
   } satisfies HookCallbackTokenRepository;
   const callbackTokens = new HookCallbackTokens(

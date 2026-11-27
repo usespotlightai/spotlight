@@ -1,5 +1,4 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { RowActionsTrigger } from '@/components/shared/RowActionsTrigger';
 import {
@@ -24,7 +23,7 @@ export function RowActions({
   label,
   actions,
   disabled = false,
-}: RowActionsProps): ReactElement {
+}: RowActionsProps) {
   return (
     <DropdownMenu>
       <RowActionsTrigger label={label} disabled={disabled} />

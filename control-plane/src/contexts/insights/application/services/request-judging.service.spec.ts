@@ -39,33 +39,30 @@ const requesting = (
   const deletions = deletionsInMemory();
   const service = new RequestJudging(
     {
-      unfinishedRuns: () => Promise.resolve([]),
-      traced: () =>
-        Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
-      taskRunOf: () => Promise.resolve(null),
-      endedRun: () => Promise.resolve(ENDED),
-      configsInOrder: () => Promise.resolve([]),
+      unfinishedRuns: async () => [],
+      traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+      taskRunOf: async () => null,
+      endedRun: async () => ENDED,
+      configsInOrder: async () => [],
     },
     {
-      hasTask: () => Promise.resolve(change.hasEvidence ?? true),
-      of: () => Promise.resolve(null),
+      hasTask: async () => change.hasEvidence ?? true,
+      of: async () => null,
     },
     {
-      judgesOnTeam: () => Promise.resolve(new Map()),
-      judgeAt: () =>
-        Promise.resolve(
-          change.judged === false
-            ? null
-            : {
-                teamId: TeamId.of('team_1'),
-                lineId: LineId.of('line_1'),
-                rubricVersion: RUBRIC_VERSION,
-                claims: change.claims ?? ['It retries the upload.'],
-                passThreshold: 1,
-                sample: change.sample ?? 1,
-                minAgreement: 0.6,
-              },
-        ),
+      judgesOnTeam: async () => new Map(),
+      judgeAt: async () =>
+        change.judged === false
+          ? null
+          : {
+              teamId: TeamId.of('team_1'),
+              lineId: LineId.of('line_1'),
+              rubricVersion: RUBRIC_VERSION,
+              claims: change.claims ?? ['It retries the upload.'],
+              passThreshold: 1,
+              sample: change.sample ?? 1,
+              minAgreement: 0.6,
+            },
     },
     judgings,
     new FactRecorder(deletions),

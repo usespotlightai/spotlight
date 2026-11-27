@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ArrivalLedger } from '@notifications/domain/aggregates/arrival-ledger.aggregate';
+import { ArrivalLedgerVersionConflictError } from '@notifications/domain/exceptions/arrival-ledger-version-conflict.error';
+import type { ArrivalLedgerRepository } from '@notifications/domain/repositories/arrival-ledger.repository';
+import { arrivalLedger } from '@notifications/infrastructure/persistence/drizzle/schemas/arrival-ledger.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -6,10 +10,6 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { ArrivalLedger } from '@notifications/domain/aggregates/arrival-ledger.aggregate';
-import { ArrivalLedgerVersionConflictError } from '@notifications/domain/exceptions/arrival-ledger-version-conflict.error';
-import type { ArrivalLedgerRepository } from '@notifications/domain/repositories/arrival-ledger.repository';
-import { arrivalLedger } from '@notifications/infrastructure/persistence/drizzle/schemas/arrival-ledger.schema';
 import { and, asc, eq, isNotNull, isNull, lte, or } from 'drizzle-orm';
 
 type Row = typeof arrivalLedger.$inferSelect;

@@ -27,6 +27,7 @@ import type { IntegrationKey } from '@integrations/domain/value-objects/integrat
 import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const clientOf = (registration: OAuth2ClientRegistration): OAuth2Client => ({
@@ -79,8 +80,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
     const existing = await this.registrations.of(teamId, integration);
 
-    return existing?.liveAt(this.clock.now()) === true &&
-      existing.servedBy(server)
+    return existing?.liveAt(this.clock.now()) && existing.servedBy(server)
       ? clientOf(existing)
       : null;
   }
@@ -106,7 +106,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       return { id: configured.id, secret: configured.secret };
     }
 
-    if (registration === null || registration === '') {
+    if (!nonEmpty(registration)) {
       throw this.missing(integration, null);
     }
 
@@ -117,7 +117,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     };
     const existing = await this.registrations.of(teamId, integration);
 
-    if (existing?.fits(wanted, this.clock.now()) === true) {
+    if (existing?.fits(wanted, this.clock.now())) {
       return clientOf(existing);
     }
 
@@ -156,7 +156,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
       const winner = await this.registrations.of(teamId, integration);
 
-      if (winner?.servedBy(server) !== true) {
+      if (!winner?.servedBy(server)) {
         throw new OAuth2ServerUnavailableError(
           integration.value,
           'registration-failed',

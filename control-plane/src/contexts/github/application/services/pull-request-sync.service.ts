@@ -293,7 +293,7 @@ export class PullRequestSync {
     snapshot: PullRequestSnapshot | null,
     change: (pullRequest: PullRequest) => PullRequest,
   ): Promise<void> {
-    const matching = snapshot?.url.equals(url) === true ? snapshot : null;
+    const matching = snapshot?.url.equals(url) ? snapshot : null;
     const { workspaceId } = from;
 
     return this.retrying(() =>
@@ -301,7 +301,7 @@ export class PullRequestSync {
         const connectedWorkspace =
           await this.connections.lockedConnectedWorkspaceOf(from.installation);
 
-        if (connectedWorkspace?.equals(workspaceId) !== true) {
+        if (!connectedWorkspace?.equals(workspaceId)) {
           return;
         }
 

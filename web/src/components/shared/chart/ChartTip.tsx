@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties } from 'react';
 
 import { TooltipNoteContent } from '@/components/shared/TooltipNoteContent';
 import type { TipPlacement } from '@/hooks/useCursorTooltip';
@@ -11,11 +11,7 @@ type ChartTipProps = {
   note: TooltipNote;
 };
 
-export function ChartTip({
-  placement,
-  style,
-  note,
-}: ChartTipProps): ReactElement {
+export function ChartTip({ placement, style, note }: ChartTipProps) {
   return (
     <div
       style={style}

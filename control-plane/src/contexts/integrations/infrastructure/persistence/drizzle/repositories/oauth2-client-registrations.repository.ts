@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
@@ -11,6 +10,8 @@ import { oauth2ClientRegistration } from '@integrations/infrastructure/persisten
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
@@ -20,9 +21,7 @@ type Row = typeof oauth2ClientRegistration.$inferSelect;
 const labelFor = (teamId: string, integration: string): string =>
   ['oauth2-client', teamId, integration, 'secret'].join(':');
 
-export class DrizzleOAuth2ClientRegistrations
-  implements OAuth2ClientRegistrationRepository
-{
+export class DrizzleOAuth2ClientRegistrations implements OAuth2ClientRegistrationRepository {
   constructor(
     private readonly context: DrizzleContext,
     private readonly encryption: CredentialEncryptionPort,
@@ -32,16 +31,18 @@ export class DrizzleOAuth2ClientRegistrations
     teamId: TeamId,
     integration: IntegrationKey,
   ): Promise<OAuth2ClientRegistration | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(oauth2ClientRegistration)
-      .where(
-        and(
-          eq(oauth2ClientRegistration.teamId, teamId.value),
-          eq(oauth2ClientRegistration.integration, integration.value),
-        ),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(oauth2ClientRegistration)
+        .where(
+          and(
+            eq(oauth2ClientRegistration.teamId, teamId.value),
+            eq(oauth2ClientRegistration.integration, integration.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return found ? this.rehydrate(found) : null;
   }
@@ -140,7 +141,9 @@ export class DrizzleOAuth2ClientRegistrations
       registrationEndpoint: OAuth2Endpoint.rehydrate(row.registrationEndpoint),
       redirectUri: OAuth2Endpoint.rehydrate(row.redirectUri),
       server:
-        (row.issuer !== null && row.issuer !== '') && (row.authorizeEndpoint !== null && row.authorizeEndpoint !== '') && (row.tokenEndpoint !== null && row.tokenEndpoint !== '')
+        nonEmpty(row.issuer) &&
+        nonEmpty(row.authorizeEndpoint) &&
+        nonEmpty(row.tokenEndpoint)
           ? AuthorizationServer.of({
               issuer: row.issuer,
               authorize: row.authorizeEndpoint,
@@ -148,7 +151,7 @@ export class DrizzleOAuth2ClientRegistrations
             })
           : null,
       clientId: OAuth2ClientId.rehydrate(row.clientId),
-      clientSecret: (row.clientSecret !== null && row.clientSecret !== '')
+      clientSecret: nonEmpty(row.clientSecret)
         ? ClientSecret.rehydrate(
             (
               await this.encryption.decrypt(

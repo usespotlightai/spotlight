@@ -30,9 +30,7 @@ const onboardingQuery = (teamId: string | undefined) =>
         return provisioning;
       }
 
-      return onboarding?.steps.every((step) => step.done) === true
-        ? false
-        : POLL_MS;
+      return onboarding?.steps.every((step) => step.done) ? false : POLL_MS;
     },
     queryFn: async () => {
       const { data } = await readOnboarding({

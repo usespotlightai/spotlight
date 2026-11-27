@@ -5,6 +5,7 @@ import {
 } from '@replays/domain/value-objects/check-skip';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const STACK_STATES = [
   'generating',
@@ -54,9 +55,7 @@ const isChecksState = (raw: string): raw is ChecksState =>
   (CHECKS_STATES as readonly string[]).includes(raw);
 
 const named = (stack: StackStatus, name: string, many: boolean): string =>
-  many && stack.repository !== null && stack.repository !== ''
-    ? `${stack.repository}: ${name}`
-    : name;
+  many && nonEmpty(stack.repository) ? `${stack.repository}: ${name}` : name;
 
 export class ChangeChecks {
   private constructor(

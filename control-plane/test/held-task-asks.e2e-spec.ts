@@ -61,7 +61,7 @@ beforeAll(async () => {
   tasks = new DrizzleTaskRepository(context, { dispatch: async () => {} });
   reader = new DrizzleInboxReader(
     database.db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     new RunReadModel(new DrizzleRunFactsReader(context)),
   );
 

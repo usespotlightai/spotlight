@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { nonEmpty } from '@/lib/non-empty';
 import type { SentRequest } from '@/lib/request-failure';
 
@@ -8,10 +6,7 @@ type FailureDetailProps = {
   sent: SentRequest | null;
 };
 
-export function FailureDetail({
-  message,
-  sent,
-}: FailureDetailProps): ReactElement {
+export function FailureDetail({ message, sent }: FailureDetailProps) {
   return (
     <span className="flex flex-col gap-1">
       {nonEmpty(message) && <span className="break-words">{message}</span>}

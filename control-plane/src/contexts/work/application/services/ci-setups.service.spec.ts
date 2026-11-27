@@ -8,26 +8,22 @@ import { describe, expect, it, vi } from 'vitest';
 
 const settingUp = (variables: 'written' | 'not-permitted' = 'written') => {
   const settings = {
-    defaultBranchOf: vi.fn(() =>
-      Promise.resolve({
-        name: 'trunk',
-        protected: false,
-        repositoryId: '101',
-        ownerId: '7',
-      }),
-    ),
-    defaultBranchNameOf: vi.fn(() => Promise.resolve('trunk')),
-    oidcSubjectPrefixOf: vi.fn(() => Promise.resolve('repo:acme@7/infra@101')),
-    visibilityOf: vi.fn(() => Promise.resolve('public' as const)),
-    putVariables: vi.fn(() => Promise.resolve(variables)),
+    defaultBranchOf: vi.fn(async () => ({
+      name: 'trunk',
+      protected: false,
+      repositoryId: '101',
+      ownerId: '7',
+    })),
+    defaultBranchNameOf: vi.fn(async () => 'trunk'),
+    oidcSubjectPrefixOf: vi.fn(async () => 'repo:acme@7/infra@101'),
+    visibilityOf: vi.fn(async () => 'public' as const),
+    putVariables: vi.fn(async () => variables),
   } satisfies RepositorySettingsPort;
   const trusts = {
-    trust: vi.fn(() =>
-      Promise.resolve({
-        pullRequests: { id: 'trust_plan', key: 'github-pull-requests' },
-        defaultBranch: { id: 'trust_apply', key: 'github-apply' },
-      }),
-    ),
+    trust: vi.fn(async () => ({
+      pullRequests: { id: 'trust_plan', key: 'github-pull-requests' },
+      defaultBranch: { id: 'trust_apply', key: 'github-apply' },
+    })),
   } satisfies GitHubActionsTrustsPort;
 
   return {

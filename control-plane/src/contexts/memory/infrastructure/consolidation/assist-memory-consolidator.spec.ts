@@ -46,9 +46,9 @@ const REQUEST: MemoryConsolidationRequest = {
 const consolidating = (state: AssistState) => {
   const orders: AssistOrder[] = [];
   const sessions: AssistSessionsPort = {
-    request: (order) => {
+    request: async (order) => {
       orders.push(order);
-      return Promise.resolve(state);
+      return state;
     },
   };
 

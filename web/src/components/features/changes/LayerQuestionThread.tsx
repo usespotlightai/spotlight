@@ -1,5 +1,4 @@
 import { CircleDashed } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { CitedPlaces } from '@/components/features/changes/CitedPlaces';
 import { QuestionAnswerForm } from '@/components/features/changes/QuestionAnswerForm';
@@ -48,7 +47,7 @@ export function LayerQuestionThread({
   stack,
   question,
   onReveal,
-}: LayerQuestionThreadProps): ReactElement {
+}: LayerQuestionThreadProps) {
   const visitor = useStackVisitor();
   const me = useMe();
   const { answered } = question;

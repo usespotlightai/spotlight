@@ -1,5 +1,4 @@
 import { MousePointer2 } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { PillLink } from '@/components/shared/PillLink';
 import type { TargetStation } from '@/lib/chat';
@@ -27,7 +26,7 @@ export function ImproveStationLink({
   variant,
   size,
   className,
-}: ImproveStationLinkProps): ReactElement {
+}: ImproveStationLinkProps) {
   return (
     <PillLink
       to={teamSectionPath(slug, teamId, 'agent')}

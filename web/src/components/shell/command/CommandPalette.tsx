@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
@@ -49,7 +48,7 @@ export function CommandPalette({
   open,
   pick,
   onOpenChange,
-}: CommandPaletteProps): ReactElement {
+}: CommandPaletteProps) {
   const section = pick?.section;
   const navigate = useNavigate();
   const sections = useCommandSections(slug, workspace, open);
@@ -73,7 +72,7 @@ export function CommandPalette({
       <Command filter={commandMatch}>
         <CommandInput
           placeholder={
-            pick?.creating === true
+            pick?.creating
               ? 'Create a task on a line…'
               : section
                 ? PLACEHOLDERS[section]
@@ -109,9 +108,8 @@ export function CommandPalette({
                       close();
                       void navigate(
                         target.to,
-                        pick?.creating === true
-                          ? { state: creatingState() }
-                          : undefined,
+
+                        pick?.creating ? { state: creatingState() } : undefined,
                       );
                     }}
                   >

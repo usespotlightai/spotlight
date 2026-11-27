@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatDurationOrNone } from '@/lib/insights';
 import {
@@ -19,7 +17,7 @@ export function PipelineStageLabel({
   x: number;
   top: number;
   worst: boolean;
-}): ReactElement {
+}) {
   const parts = stage.parts;
   const text = (
     <span className="flex flex-col items-center gap-0.5">

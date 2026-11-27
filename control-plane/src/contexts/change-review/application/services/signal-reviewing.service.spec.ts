@@ -53,41 +53,37 @@ const signalling = (
 ) => {
   const reactions: string[] = [];
   const locked: string[] = [];
-  const recording = (what: string) => (on: ReactedTo, reaction: string) => {
-    const done = `${what} ${reaction} on ${on.pullRequest.value}`;
-    reactions.push(done);
-    over.reacting?.(done);
-    return Promise.resolve();
-  };
+  const recording =
+    (what: string) => async (on: ReactedTo, reaction: string) => {
+      const done = `${what} ${reaction} on ${on.pullRequest.value}`;
+      reactions.push(done);
+      over.reacting?.(done);
+    };
 
   const signal = new SignalReviewing(
     partial<WorkPort>({
-      task: () =>
-        Promise.resolve(
-          over.task === null
-            ? null
-            : {
-                id: TASK,
-                workspaceId: WorkspaceId.of('ws_1'),
-                teamId: null,
-                pullRequests: [],
-                openPullRequests: [],
-                reviewedPullRequest: PULL,
-                reviewing: true,
-                currentRunId: RUN,
-                ...over.task,
-              },
-        ),
-      run: (runId: RunId) =>
-        Promise.resolve(
-          runFor(
-            runId,
-            over.working?.() ?? true,
-            over.runTask === undefined ? TASK : over.runTask,
-          ),
+      task: async () =>
+        over.task === null
+          ? null
+          : {
+              id: TASK,
+              workspaceId: WorkspaceId.of('ws_1'),
+              teamId: null,
+              pullRequests: [],
+              openPullRequests: [],
+              reviewedPullRequest: PULL,
+              reviewing: true,
+              currentRunId: RUN,
+              ...over.task,
+            },
+      run: async (runId: RunId) =>
+        runFor(
+          runId,
+          over.working?.() ?? true,
+          over.runTask === undefined ? TASK : over.runTask,
         ),
     }),
-    { isConnected: () => Promise.resolve(over.connected ?? true) },
+    { isConnected: async () => over.connected ?? true },
     {
       react: recording('react'),
       remove: recording('remove'),

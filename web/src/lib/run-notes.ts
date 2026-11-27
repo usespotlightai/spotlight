@@ -95,10 +95,7 @@ export const withMessagesInFlight = (
       ...conversation.notes,
       ...messages.map((message, at) => ({
         position: after + 1 + at,
-        kind:
-          message.answers === true
-            ? ('answered' as const)
-            : ('message' as const),
+        kind: message.answers ? ('answered' as const) : ('message' as const),
         form: 'words' as const,
         voice: 'person' as const,
         station: conversation.station?.name ?? '',

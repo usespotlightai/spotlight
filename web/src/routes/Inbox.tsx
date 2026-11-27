@@ -1,5 +1,5 @@
 import { DndContext } from '@dnd-kit/core';
-import { type ReactElement, type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { useMatch, useParams, useResolvedPath } from 'react-router';
 
 import { InboxDragOverlay } from '@/components/features/inbox/InboxDragOverlay';
@@ -54,7 +54,7 @@ const resolvedCount = (
   return resolved.data && `${shown}${resolved.more.available ? '+' : ''}`;
 };
 
-export function Inbox(): ReactElement | null {
+export function Inbox() {
   const { slug } = useParams();
   const listing = useMatch(useResolvedPath('.').pathname);
   const inbox = useInbox(slug);

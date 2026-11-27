@@ -12,7 +12,7 @@ describe('DeleteTeamChats', () => {
     const chat = (name: string) =>
       partial<Chat>({ deleted: () => gone(`${name} deleted`) });
     const remove = vi.fn<(chat: Chat) => Promise<void>>(async () => {});
-    const ofTeam = vi.fn(() => Promise.resolve([chat('one'), chat('two')]));
+    const ofTeam = vi.fn(async () => [chat('one'), chat('two')]);
 
     await new DeleteTeamChats(
       partial<ChatRepository>({

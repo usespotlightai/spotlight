@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   Tooltip,
   TooltipContent,
@@ -15,11 +13,7 @@ import {
 } from '@/lib/run-network';
 import { cn } from '@/lib/utils';
 
-export function ConnectionRow({
-  group,
-}: {
-  group: ConnectionGroup;
-}): ReactElement {
+export function ConnectionRow({ group }: { group: ConnectionGroup }) {
   const shown = group.error
     ? ERROR_LABELS[group.error]
     : CONNECTION_OUTCOME_LABELS[group.outcome];

@@ -32,7 +32,7 @@ const integrationsOf = (
   new TeamIntegrations(
     new ProvidedTools(
       partial<DefinedIntegrationsPort>({
-        ofTeam: () => Promise.resolve([]),
+        ofTeam: async () => [],
       }),
       declarations,
       schemas,
@@ -55,7 +55,7 @@ const providing = async (declarations: readonly ToolDeclaration[]) => {
 
   return integrationsOf(
     {
-      declared: () => Promise.resolve(declarations),
+      declared: async () => declarations,
       enabledOnMarks: () => [],
       enabledOnAnyMark: () => [],
     },
@@ -88,7 +88,7 @@ describe('TeamIntegrations', () => {
     let asked: readonly MarkKind[] = [];
 
     const tools = await integrationsOf({
-      declared: () => Promise.resolve([]),
+      declared: async () => [],
       enabledOnAnyMark: () => [],
       enabledOnMarks: (_definitions, kinds) => {
         asked = kinds;
@@ -103,7 +103,7 @@ describe('TeamIntegrations', () => {
   it('names the tools enabled on any mark', async () => {
     expect(
       await integrationsOf({
-        declared: () => Promise.resolve([]),
+        declared: async () => [],
         enabledOnMarks: () => [],
         enabledOnAnyMark: () => [ToolName.of('sentry.get-issue')],
       }).toolsOnAnyMark(TEAM),

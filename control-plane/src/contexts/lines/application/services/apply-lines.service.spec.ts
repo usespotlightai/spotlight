@@ -112,27 +112,25 @@ const applying = (
   } = {},
 ) => {
   const existing = over.existing ?? line();
-  const save = vi.fn<LineRepository['save']>(() => Promise.resolve());
-  const add = vi.fn<LineRepository['add']>(() => Promise.resolve());
+  const save = vi.fn<LineRepository['save']>(async () => {});
+  const add = vi.fn<LineRepository['add']>(async () => {});
 
   const lines = partial<LineRepository>({
-    ofTeam: vi.fn(() => Promise.resolve(over.teamLines ?? [existing])),
+    ofTeam: vi.fn(async () => over.teamLines ?? [existing]),
     save,
     add,
     find: vi.fn(),
   });
 
-  const tally = (_save: LineSave, stationIds: readonly StationId[]) =>
-    Promise.resolve(
-      stationIds.map((stationId) => ({
-        stationId,
-        tasks:
-          over.tasks?.[
-            existing.stations.find((each) => each.id.equals(stationId))?.key
-              .value ?? ''
-          ] ?? 0,
-      })),
-    );
+  const tally = async (_save: LineSave, stationIds: readonly StationId[]) =>
+    stationIds.map((stationId) => ({
+      stationId,
+      tasks:
+        over.tasks?.[
+          existing.stations.find((each) => each.id.equals(stationId))?.key
+            .value ?? ''
+        ] ?? 0,
+    }));
 
   const tallies = {
     lockedTaskCountsAt: vi.fn(tally),
@@ -293,7 +291,7 @@ describe('ApplyLines', () => {
     const { add } = applying(asPlan(existing), { existing });
     const applier = new ApplyLines(
       partial<LineRepository>({
-        ofTeam: vi.fn(() => Promise.resolve([existing])),
+        ofTeam: vi.fn(async () => [existing]),
         add,
       }),
       partial<StationDeletionGuardPort>({}),

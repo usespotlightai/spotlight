@@ -1,5 +1,4 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { RunPage } from '@/components/features/runs/RunPage';
@@ -38,7 +37,7 @@ const lostOf = (found: Query, conversation: Query) => {
   return Boolean(found.data) && failed(conversation) ? conversation : null;
 };
 
-export function Run(): ReactElement | null {
+export function Run() {
   const { slug, teamId, runId } = useParams();
   const found = useTeamRun(teamId, runId);
   const run = found.data;

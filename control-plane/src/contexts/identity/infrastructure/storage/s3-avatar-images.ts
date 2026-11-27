@@ -18,6 +18,7 @@ import type { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
 import { missing } from '@platform/storage/s3-objects';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -119,7 +120,7 @@ export class S3AvatarImages implements AvatarImagesPort {
         }),
       );
       const keys = (listed.Contents ?? []).flatMap(({ Key }) =>
-        Key !== undefined && Key !== '' ? [{ Key }] : [],
+        nonEmpty(Key) ? [{ Key }] : [],
       );
 
       if (keys.length > 0) {
@@ -131,8 +132,7 @@ export class S3AvatarImages implements AvatarImagesPort {
         );
       }
 
-      token =
-        listed.IsTruncated === true ? listed.NextContinuationToken : undefined;
-    } while (token !== undefined && token !== '');
+      token = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+    } while (nonEmpty(token));
   }
 }

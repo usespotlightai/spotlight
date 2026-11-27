@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -22,7 +22,7 @@ export function RadioRow({
   onChange,
   children,
   description,
-}: RadioRowProps): ReactElement {
+}: RadioRowProps) {
   return (
     <label
       data-slot="radio-row"

@@ -21,9 +21,9 @@ const RUN = RunId.of('run_trial');
 const runsWith = (enqueued: RunOrderContract[], command = true) =>
   new Runs(
     partial<RunQueuePort>({
-      enqueue: (order: RunOrderContract) => {
+      enqueue: async (order: RunOrderContract) => {
         enqueued.push(order);
-        return Promise.resolve({ outcome: 'enqueued' });
+        return { outcome: 'enqueued' };
       },
     }),
     partial<RunFactsPort>({}),

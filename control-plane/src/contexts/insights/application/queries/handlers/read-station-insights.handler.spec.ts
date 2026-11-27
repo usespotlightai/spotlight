@@ -60,51 +60,46 @@ const CONFIGS: Record<string, StationConfigView> = {
   [THIRD_CONFIG]: configOf('haiku'),
 };
 
-const reading = (member = true) => {
+const reading = async (member = true) => {
   const records = new RunRecordsInMemory();
   const pullRequestRecords = new PullRequestRecordsInMemory();
   const pullRequests = stationConfigPullRequestsInMemory();
   const failures = new TaskFailuresInMemory();
   const requested: string[][] = [];
   const work: WorkPort = {
-    unfinishedRuns: () => Promise.resolve([]),
-    traced: () =>
-      Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
-    taskRunOf: () => Promise.resolve(null),
-    endedRun: () => Promise.resolve(null),
-    configsInOrder: (fingerprints) => {
+    unfinishedRuns: async () => [],
+    traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+    taskRunOf: async () => null,
+    endedRun: async () => null,
+    configsInOrder: async (fingerprints) => {
       requested.push([...fingerprints]);
       const known = fingerprints.filter((each) => each in CONFIGS);
 
-      return Promise.resolve(
-        known.map((fingerprint, index): ConfigInOrder => ({
-          fingerprint,
-          config: CONFIGS[fingerprint],
-          changes:
-            index === 0 || known[index - 1] === fingerprint
-              ? []
-              : [
-                  {
-                    part: 'model',
-                    name: null,
-                    kind: 'changed',
-                    was: CONFIGS[known[index - 1] ?? '']?.model ?? null,
-                    now: CONFIGS[fingerprint]?.model ?? null,
-                  },
-                ],
-        })),
-      );
+      return known.map((fingerprint, index): ConfigInOrder => ({
+        fingerprint,
+        config: CONFIGS[fingerprint],
+        changes:
+          index === 0 || known[index - 1] === fingerprint
+            ? []
+            : [
+                {
+                  part: 'model',
+                  name: null,
+                  kind: 'changed',
+                  was: CONFIGS[known[index - 1] ?? '']?.model ?? null,
+                  now: CONFIGS[fingerprint]?.model ?? null,
+                },
+              ],
+      }));
     },
   };
   const access = new InsightsAccess({
     ...NOBODY_ELSE,
-    viewerOf: () =>
-      Promise.resolve(
-        member ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
-      ),
+    viewerOf: async () =>
+      member ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
   });
 
-  return Promise.resolve({
+  return {
     records,
     pullRequestRecords,
     pullRequests,
@@ -128,7 +123,7 @@ const reading = (member = true) => {
           last,
         ),
       ),
-  });
+  };
 };
 
 describe('reading how a station’s runs turned out', () => {

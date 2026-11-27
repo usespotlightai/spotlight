@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 
@@ -28,17 +29,10 @@ export class Anchor {
           path,
           input.from ?? null,
           input.to ?? null,
-          input.reviewComment !== null &&
-            input.reviewComment !== undefined &&
-            input.reviewComment !== ''
+          nonEmpty(input.reviewComment)
             ? ReviewComment.of(input.reviewComment)
             : null,
-          input.reviewComment !== null &&
-            input.reviewComment !== undefined &&
-            input.reviewComment !== '' &&
-            input.pullRequest !== null &&
-            input.pullRequest !== undefined &&
-            input.pullRequest !== ''
+          nonEmpty(input.reviewComment) && nonEmpty(input.pullRequest)
             ? PullRequestUrl.of(input.pullRequest)
             : null,
         )
@@ -79,7 +73,7 @@ export class Anchor {
   }
 
   get place(): string | null {
-    if (this.path === null || this.path === '') {
+    if (!nonEmpty(this.path)) {
       return null;
     }
 

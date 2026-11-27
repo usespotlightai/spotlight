@@ -1,5 +1,4 @@
 import { Spool } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { IconAction } from '@/components/shared/IconAction';
 import { useRunMemories } from '@/hooks/api/useRunMemories';
@@ -13,11 +12,7 @@ type RunMemoriesProps = {
   runId: string;
 };
 
-export function RunMemories({
-  slug,
-  teamId,
-  runId,
-}: RunMemoriesProps): ReactElement | null {
+export function RunMemories({ slug, teamId, runId }: RunMemoriesProps) {
   const query = useRunMemories(teamId, runId);
   const panel = useRunSidePanel();
 

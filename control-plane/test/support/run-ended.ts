@@ -3,6 +3,7 @@ import {
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@runs/domain/value-objects/run-state';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 import { requestedBySpec, requestedByTask } from './runs';
 import * as schema from './schema';
@@ -47,7 +48,7 @@ export const aRunOf = async (
     id: run.id,
     workspaceId: run.workspaceId,
     harness: 'dev',
-    ...(run.taskId !== null && run.taskId !== undefined && run.taskId !== ''
+    ...(nonEmpty(run.taskId)
       ? requestedByTask(run.taskId)
       : requestedBySpec(run.id)),
     state,

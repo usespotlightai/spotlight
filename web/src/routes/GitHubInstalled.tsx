@@ -1,5 +1,4 @@
 import { ArrowLeft } from 'lucide-react';
-import type { ReactElement } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 
 import { useConnectGitHub } from '@/hooks/api/useConnectGitHub';
@@ -7,7 +6,7 @@ import { whenceFrom } from '@/lib/github';
 import { failed } from '@/lib/query';
 import { teamSettingsPath } from '@/lib/settings';
 
-export function GitHubInstalled(): ReactElement {
+export function GitHubInstalled() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 

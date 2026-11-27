@@ -61,8 +61,7 @@ export class DrizzleRunChangeChecksReader implements RunChangeChecksPort {
 
     return stacks
       .filter(
-        (stack) =>
-          !rechecks || checkOf(stack.id, false)?.recheckable === true,
+        (stack) => !rechecks || checkOf(stack.id, false)?.recheckable === true,
       )
       .map((stack) => {
         const check = checkOf(stack.id, rechecks);

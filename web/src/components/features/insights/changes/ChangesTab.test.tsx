@@ -850,7 +850,7 @@ describe('the Changes tab render cost', () => {
 });
 
 describe('the panel actions', () => {
-  it('keep their identity while the shown change changes', () => {
+  it('keep their identity while the shown change changes', async () => {
     const { result, rerender } = renderHook(() => useBeforeAfterActions(), {
       wrapper: ({ children }) => (
         <BeforeAfterHost slug="acme" teamId="team_1" period="30d" names={NAMES}>

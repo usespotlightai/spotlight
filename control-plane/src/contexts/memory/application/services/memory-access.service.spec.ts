@@ -25,18 +25,14 @@ const access = (input: {
 }) =>
   new MemoryAccess(
     partial<PeoplePort>({
-      viewerOf: () =>
-        Promise.resolve(
-          (input.member ?? true)
-            ? { workspaceId: WorkspaceId.of('ws_1'), by: UserId.of('user_ada') }
-            : null,
-        ),
+      viewerOf: async () =>
+        (input.member ?? true)
+          ? { workspaceId: WorkspaceId.of('ws_1'), by: UserId.of('user_ada') }
+          : null,
     }),
     partial<WorkPort>({
-      task: () =>
-        Promise.resolve(
-          input.task === null ? null : { ...TASK, ...input.task },
-        ),
+      task: async () =>
+        input.task === null ? null : { ...TASK, ...input.task },
     }),
   ).ofTask(TeamId.of('team_1'), TaskId.of('task_1'), UserId.of('user_ada'));
 

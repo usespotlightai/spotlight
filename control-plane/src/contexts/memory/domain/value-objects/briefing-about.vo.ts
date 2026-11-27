@@ -1,5 +1,5 @@
 export class BriefingAbout {
-  private readonly kind: string = 'briefing-about';
+  private readonly kind = 'briefing-about';
 
   private constructor(readonly value: string) {}
 
@@ -12,6 +12,6 @@ export class BriefingAbout {
   }
 
   equals(other: BriefingAbout): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof BriefingAbout && this.value === other.value;
   }
 }

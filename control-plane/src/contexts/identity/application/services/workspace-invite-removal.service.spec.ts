@@ -45,16 +45,15 @@ const deleted = new WorkspaceDeleted(
 
 describe('WorkspaceInviteRemoval', () => {
   it('removes each invite of a deleted workspace on its own, at the version it was read', async () => {
-    const remove = vi.fn((removed: WorkspaceInvite) => {
+    const remove = vi.fn(async (removed: WorkspaceInvite) => {
       if (removed.id.value === 'first') {
-        return Promise.reject(new InviteVersionConflictError(removed.id.value));
+        throw new InviteVersionConflictError(removed.id.value);
       }
-      return Promise.resolve();
     });
 
     await new WorkspaceInviteRemoval(
       partial<WorkspaceInviteRepository>({
-        ofWorkspace: () => Promise.resolve([invite('first'), invite('second')]),
+        ofWorkspace: async () => [invite('first'), invite('second')],
         remove,
       }),
     ).removeOf(deleted);

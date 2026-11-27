@@ -64,12 +64,11 @@ const rechecking = (stored: StackCheck[]) => {
   const added: StackCheck[] = [];
   const all = () => [...stored, ...added];
   const checks = partial<StackCheckRepository>({
-    ofRun: () => Promise.resolve(all()),
-    find: (id: StackCheckId) =>
-      Promise.resolve(all().find((each) => each.id.equals(id)) ?? null),
-    add: (check: StackCheck) => {
+    ofRun: async () => all(),
+    find: async (id: StackCheckId) =>
+      all().find((each) => each.id.equals(id)) ?? null,
+    add: async (check: StackCheck) => {
       added.push(check);
-      return Promise.resolve();
     },
   });
 
@@ -78,7 +77,7 @@ const rechecking = (stored: StackCheck[]) => {
     service: new RecheckTrialChanges(
       checks,
       { inTransaction: (work) => work() },
-      { now: () => NOW, sleep: () => Promise.resolve() },
+      { now: () => NOW, sleep: async () => {} },
     ),
   };
 };

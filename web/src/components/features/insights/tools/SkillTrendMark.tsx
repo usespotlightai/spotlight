@@ -1,5 +1,4 @@
 import { Triangle } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatShare } from '@/lib/insights';
@@ -24,7 +23,7 @@ export function SkillTrendMark({
   used,
   runs,
   trend,
-}: SkillTrendMarkProps): ReactElement {
+}: SkillTrendMarkProps) {
   const moving = trend === 'rising' || trend === 'falling';
 
   return (

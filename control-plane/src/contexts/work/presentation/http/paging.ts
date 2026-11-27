@@ -11,6 +11,7 @@ import {
   PAGE_LIMIT,
 } from '@shared-kernel/application/dto/page.dto';
 import type { Page } from '@shared-kernel/application/dto/page.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PageRequest } from '@work/application/dto/page.dto';
 
 export const ApiPageQuery = (): ReturnType<typeof applyDecorators> =>
@@ -39,7 +40,7 @@ export const pageRequestOf = (
   before: string | undefined,
   limit: string | undefined,
 ): PageRequest => ({
-  before: before === undefined || before === '' ? null : before,
+  before: !nonEmpty(before) ? null : before,
   limit: pageLimitOf(limit),
 });
 

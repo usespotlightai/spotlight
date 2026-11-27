@@ -1,4 +1,5 @@
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -30,9 +31,7 @@ export class HistoryAccesses {
     );
     const team =
       leased?.team ??
-      (leased?.requester.team !== undefined &&
-      leased.requester.team !== null &&
-      leased.requester.team !== ''
+      (nonEmpty(leased?.requester.team)
         ? TeamId.of(leased.requester.team)
         : null);
 

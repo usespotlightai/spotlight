@@ -9,6 +9,7 @@ import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision
 import { ClaimsRevisionRound } from '@insights/domain/value-objects/claims-revision-round.vo';
 import { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const JUDGE_PURPOSE = 'insights.judge';
@@ -102,11 +103,7 @@ const judgingRoundOf = (key: string): JudgeRound | null => {
   const rubricVersion = RubricVersion.readable(version ?? '');
   const tried = attemptOf(attempt);
 
-  return run !== undefined &&
-    run !== '' &&
-    rubricVersion &&
-    tried !== null &&
-    tried !== 0
+  return nonEmpty(run) && rubricVersion && tried !== null && tried !== 0
     ? {
         of: 'judging',
         round: JudgingRound.of({
@@ -124,12 +121,10 @@ const candidateRoundOf = (key: string): JudgeRound | null => {
   const tried = attemptOf(attempt);
   const at = Number(candidate);
 
-  return revision !== undefined &&
-    revision !== '' &&
+  return nonEmpty(revision) &&
     tried !== null &&
     tried !== 0 &&
-    run !== undefined &&
-    run !== '' &&
+    nonEmpty(run) &&
     /^\d+$/.test(candidate ?? '')
     ? {
         of: 'candidate',
@@ -148,8 +143,7 @@ const changeRoundOf = (key: string): JudgeRound | null => {
   const judged = attemptOf(judging);
   const tried = attemptOf(attempt);
   const round: ChangeJudgmentRound | null =
-    run !== undefined &&
-    run !== '' &&
+    nonEmpty(run) &&
     judged !== null &&
     judged !== 0 &&
     tried !== null &&
@@ -194,10 +188,8 @@ export const pairRoundOf = (
           partsOf(session.key, 'pair-judging', 4) ?? [];
         const tried = attemptOf(attempt);
 
-        return run !== undefined &&
-          run !== '' &&
-          other !== undefined &&
-          other !== '' &&
+        return nonEmpty(run) &&
+          nonEmpty(other) &&
           tried !== null &&
           tried !== 0 &&
           PASSES.some((each) => each === pass)
@@ -228,10 +220,7 @@ export const draftingRoundOf = (
           partsOf(session.key, 'claims-revision', 2) ?? [];
         const tried = attemptOf(attempt);
 
-        return revision !== undefined &&
-          revision !== '' &&
-          tried !== null &&
-          tried !== 0
+        return nonEmpty(revision) && tried !== null && tried !== 0
           ? ClaimsRevisionRound.of({
               revisionId: ClaimsRevisionId.of(revision),
               attempt: tried,

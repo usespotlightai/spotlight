@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 
 import { PublicChangeStackPage } from '@/components/features/changes/ChangeStackPage';
@@ -16,7 +15,7 @@ import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
-export function PublicChangeStack(): ReactElement {
+export function PublicChangeStack() {
   const { data: session } = useSession();
   const signedIn = Boolean(session?.user);
   const { taskId, runId } = useParams();

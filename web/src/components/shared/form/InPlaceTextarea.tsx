@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps } from 'react';
 
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { cn } from '@/lib/utils';
@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 export function InPlaceTextarea({
   className,
   ...props
-}: ComponentProps<typeof AutoGrowTextarea>): ReactElement {
+}: ComponentProps<typeof AutoGrowTextarea>) {
   return (
     <AutoGrowTextarea
       className={cn(

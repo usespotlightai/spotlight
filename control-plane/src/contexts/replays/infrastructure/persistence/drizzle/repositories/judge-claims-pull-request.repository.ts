@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { JudgeClaimsPullRequest } from '@replays/domain/aggregates/judge-claims-pull-request.aggregate';
@@ -10,6 +9,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -44,7 +45,7 @@ const toPullRequest = (row: Row): JudgeClaimsPullRequest =>
           waitingSince: row.waitingSince,
         })
       : null,
-    lastCommit: row.lastCommit !== null && row.lastCommit !== '' ? CommitSha.of(row.lastCommit) : null,
+    lastCommit: nonEmpty(row.lastCommit) ? CommitSha.of(row.lastCommit) : null,
     url: row.url,
     reason: row.reason,
     requestedAt: row.requestedAt,
@@ -65,9 +66,7 @@ const columnsOf = (stored: JudgeClaimsPullRequest) => ({
 });
 
 @Injectable()
-export class DrizzleJudgeClaimsPullRequestRepository
-  implements JudgeClaimsPullRequestRepository
-{
+export class DrizzleJudgeClaimsPullRequestRepository implements JudgeClaimsPullRequestRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -137,11 +136,13 @@ export class DrizzleJudgeClaimsPullRequestRepository
   }
 
   async find(revisionId: string): Promise<JudgeClaimsPullRequest | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(judgeClaimsPullRequest)
-      .where(eq(judgeClaimsPullRequest.revisionId, revisionId))
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(judgeClaimsPullRequest)
+        .where(eq(judgeClaimsPullRequest.revisionId, revisionId))
+        .limit(1),
+    );
 
     return row ? toPullRequest(row) : null;
   }
@@ -156,21 +157,23 @@ export class DrizzleJudgeClaimsPullRequestRepository
   }
 
   async nextDueJob(now: Date): Promise<JudgeClaimsPullRequest | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(judgeClaimsPullRequest)
-      .where(
-        and(
-          eq(judgeClaimsPullRequest.pending, true),
-          or(
-            isNull(judgeClaimsPullRequest.jobDueAt),
-            lte(judgeClaimsPullRequest.jobDueAt, now),
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(judgeClaimsPullRequest)
+        .where(
+          and(
+            eq(judgeClaimsPullRequest.pending, true),
+            or(
+              isNull(judgeClaimsPullRequest.jobDueAt),
+              lte(judgeClaimsPullRequest.jobDueAt, now),
+            ),
           ),
-        ),
-      )
-      .orderBy(asc(judgeClaimsPullRequest.requestedAt))
-      .limit(1)
-      .for('update', { skipLocked: true }));
+        )
+        .orderBy(asc(judgeClaimsPullRequest.requestedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toPullRequest(row) : null;
   }

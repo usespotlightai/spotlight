@@ -52,32 +52,31 @@ const stored = (latest: number) =>
 
 const writing = (input: { latest: number; save?: () => Promise<void> }) => {
   const states = partial<TerraformStateRepository>({
-    save: vi.fn(input.save ?? (() => Promise.resolve(undefined))),
+    save: vi.fn(input.save ?? (async () => undefined)),
   });
   const bodies = partial<TerraformStateBodiesPort>({
-    put: vi.fn(() => Promise.resolve(undefined)),
-    remove: vi.fn(() => Promise.resolve(undefined)),
+    put: vi.fn(async () => undefined),
+    remove: vi.fn(async () => undefined),
   });
   let next = 0;
   const handler = new WriteTerraformStateHandler(
     partial<WorkspaceAccessPort>({
-      permissionsInSlug: () =>
-        Promise.resolve({
-          workspaceId: WORKSPACE,
-          slug: 'acme',
-          plans: true,
-          configures: true,
-          scopes: new Set(),
-          isAdmin: false,
-        }),
+      permissionsInSlug: async () => ({
+        workspaceId: WORKSPACE,
+        slug: 'acme',
+        plans: true,
+        configures: true,
+        scopes: new Set(),
+        isAdmin: false,
+      }),
     }),
     partial<TerraformStates>({
-      named: () => Promise.resolve(stored(input.latest)),
+      named: async () => stored(input.latest),
     }),
     states,
     bodies,
     { generate: () => `id_${++next}` },
-    { now: () => AT, sleep: () => Promise.resolve(undefined) },
+    { now: () => AT, sleep: async () => undefined },
   );
 
   return { handler, states, bodies };
@@ -96,8 +95,8 @@ describe('WriteTerraformStateHandler', () => {
   it('removes the body it stored when the save fails', async () => {
     const { handler, bodies } = writing({
       latest: 1,
-      save: () => {
-        return Promise.reject(new Error('database down'));
+      save: async () => {
+        throw new Error('database down');
       },
     });
 

@@ -20,45 +20,41 @@ export const workAccessSeeing = (
   const actsOnTeam = (teamId: TeamId, viewer: UserId): boolean =>
     sees(teamId, viewer) && (over.onTeam?.(teamId, viewer) ?? true);
 
-  const seenTeam = (teamId: TeamId, viewer: UserId): Promise<SeenTeam | null> =>
-    Promise.resolve(
-      sees(teamId, viewer)
-        ? {
-            workspaceId: WorkspaceId.of('ws_1'),
-            teamId,
-            teamKey: 'platform',
-            slug: 'acme',
-            origin: 'configuration',
-          }
-        : null,
-    );
+  const seenTeam = async (
+    teamId: TeamId,
+    viewer: UserId,
+  ): Promise<SeenTeam | null> =>
+    sees(teamId, viewer)
+      ? {
+          workspaceId: WorkspaceId.of('ws_1'),
+          teamId,
+          teamKey: 'platform',
+          slug: 'acme',
+          origin: 'configuration',
+        }
+      : null;
 
   return partial<WorkAccess>({
     seenTeam,
     seesTeam: async (teamId: TeamId, viewer: UserId) =>
       (await seenTeam(teamId, viewer)) !== null,
-    standingOn: (teamId: TeamId, viewer: UserId) =>
-      Promise.resolve(
-        TeamStanding.of({
-          seesTeam: sees(teamId, viewer),
-          actsOnTeam: actsOnTeam(teamId, viewer),
-          memberOfTeam:
-            actsOnTeam(teamId, viewer) &&
-            (over.members ?? []).some((each) => each.equals(viewer)),
-        }),
-      ),
-    seesWorkspace: () => Promise.resolve(true),
-    seesWorkspaceOfTeam: () => Promise.resolve(true),
-    memberWorkspaceAt: () => Promise.resolve(WorkspaceId.of('ws_1')),
-    opensChat: (
+    standingOn: async (teamId: TeamId, viewer: UserId) =>
+      TeamStanding.of({
+        seesTeam: sees(teamId, viewer),
+        actsOnTeam: actsOnTeam(teamId, viewer),
+        memberOfTeam:
+          actsOnTeam(teamId, viewer) &&
+          (over.members ?? []).some((each) => each.equals(viewer)),
+      }),
+    seesWorkspace: async () => true,
+    seesWorkspaceOfTeam: async () => true,
+    memberWorkspaceAt: async () => WorkspaceId.of('ws_1'),
+    opensChat: async (
       chat: { readonly startedBy: UserId; readonly teamId: TeamId },
       viewer: UserId,
-    ) =>
-      Promise.resolve(
-        chat.startedBy.equals(viewer) && sees(chat.teamId, viewer),
-      ),
-    isAdminOf: () => Promise.resolve(over.admin ?? false),
-    membersOf: () => Promise.resolve(TeamMembers.of(over.members ?? [])),
-    inboxOf: () => Promise.resolve(null),
+    ) => chat.startedBy.equals(viewer) && sees(chat.teamId, viewer),
+    isAdminOf: async () => over.admin ?? false,
+    membersOf: async () => TeamMembers.of(over.members ?? []),
+    inboxOf: async () => null,
   });
 };

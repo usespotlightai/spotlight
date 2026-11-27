@@ -80,23 +80,19 @@ const briefingStored = async (
   const added: Dispatch[] = [];
 
   await new OrderChatRun(
-    partial<ChatRepository>({ find: () => Promise.resolve(chat) }),
+    partial<ChatRepository>({ find: async () => chat }),
     partial<DispatchRepository>({
-      find: () => Promise.resolve(null),
-      add: (each: Dispatch) => {
+      find: async () => null,
+      add: async (each: Dispatch) => {
         added.push(each);
-
-        return Promise.resolve();
       },
     }),
     partial<DispatchChat>({
-      ordered: () =>
-        Promise.resolve(
-          partial<OrderedRun>({
-            order: order(resume),
-            briefedMemories: BriefedMemories.none(),
-          }),
-        ),
+      ordered: async () =>
+        partial<OrderedRun>({
+          order: order(resume),
+          briefedMemories: BriefedMemories.none(),
+        }),
     }),
     { now: () => NOW, sleep: async () => {} },
   ).on(new ChatRunAssigned(chat.id, chat.workspaceId, chat.startedBy, RUN, []));

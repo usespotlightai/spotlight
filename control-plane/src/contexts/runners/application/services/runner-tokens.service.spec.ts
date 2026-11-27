@@ -14,8 +14,8 @@ import { describe, expect, it, vi } from 'vitest';
 const tokensAt = (now: Date) =>
   new RunnerTokens(
     partial<RunnerRepository>({
-      findByTokenHash: vi.fn((hash: TokenHash) =>
-        Promise.resolve(hash.equals(hashOf('b')) ? aRunner() : null),
+      findByTokenHash: vi.fn(async (hash: TokenHash) =>
+        hash.equals(hashOf('b')) ? aRunner() : null,
       ),
     }),
     partial<TokenIssuer>({ hash: () => hashOf('b').value }),

@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -17,7 +17,7 @@ export function DisclosureToggle({
   disabled = false,
   className,
   children,
-}: DisclosureToggleProps): ReactElement {
+}: DisclosureToggleProps) {
   return (
     <button
       type="button"

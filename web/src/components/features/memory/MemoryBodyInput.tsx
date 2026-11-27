@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactElement } from 'react';
+import type { KeyboardEvent } from 'react';
 
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { MAX_MEMORY_BODY } from '@/lib/memory';
@@ -15,7 +15,7 @@ export function MemoryBodyInput({
   onChange,
   onSave,
   onCancel,
-}: MemoryBodyInputProps): ReactElement {
+}: MemoryBodyInputProps) {
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       onSave();

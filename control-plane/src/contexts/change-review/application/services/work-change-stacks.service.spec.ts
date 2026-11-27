@@ -136,23 +136,20 @@ const working = (
   const generate = vi.fn(answer);
 
   const stacks = partial<ChangeStackRepository>({
-    find: () => Promise.resolve(stored),
-    ofTask: () => Promise.resolve([stored]),
-    save: (stack: ChangeStack) => {
+    find: async () => stored,
+    ofTask: async () => [stored],
+    save: async (stack: ChangeStack) => {
       stored = stack;
-      return Promise.resolve();
     },
-    nextDueJob: (at: Date) =>
-      Promise.resolve(
-        stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
-      ),
+    nextDueJob: async (at: Date) =>
+      stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
   });
   const generator: ChangeStackGeneratorPort = { generate };
-  const clock = { now: () => now, sleep: () => Promise.resolve() };
+  const clock = { now: () => now, sleep: async () => {} };
 
   const checks = partial<StackCheckRepository>({
-    find: () => Promise.resolve(null),
-    save: () => Promise.resolve(),
+    find: async () => null,
+    save: async () => {},
   });
 
   const service = new WorkChangeStacks(
@@ -189,12 +186,10 @@ const working = (
 describe('WorkChangeStacks', () => {
   it('fails a stack as not generated at once when no harness can draft it, or its run is in another workspace', async () => {
     for (const reason of ['no-harness', 'base-run-elsewhere'] as const) {
-      const worked = working(generating(), () =>
-        Promise.resolve({
-          status: 'failed',
-          failure: SessionFailure.of(reason),
-        }),
-      );
+      const worked = working(generating(), async () => ({
+        status: 'failed',
+        failure: SessionFailure.of(reason),
+      }));
 
       await worked.tick(NOW);
 
@@ -236,12 +231,10 @@ describe('WorkChangeStacks', () => {
   });
 
   it('retries a session that gave no stack later, in a new round, then dead-letters it', async () => {
-    const worked = working(generating(), () =>
-      Promise.resolve({
-        status: 'failed',
-        failure: SessionFailure.of('run-failed'),
-      }),
-    );
+    const worked = working(generating(), async () => ({
+      status: 'failed',
+      failure: SessionFailure.of('run-failed'),
+    }));
 
     await worked.tick(NOW);
     await worked.tick(NOW);

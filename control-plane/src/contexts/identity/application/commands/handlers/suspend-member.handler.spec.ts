@@ -41,14 +41,13 @@ const acme = () =>
 
 const handling = (workspace: Workspace | null = acme()) => {
   const dispatched: DomainEvent[] = [];
-  const save = vi.fn((saved: Workspace) => {
+  const save = vi.fn(async (saved: Workspace) => {
     dispatched.push(...saved.pullEvents());
-    return Promise.resolve();
   });
   const info = vi.fn();
   const handler = new SuspendMemberHandler(
     partial<WorkspaceRepository>({
-      findBySlug: () => Promise.resolve(workspace),
+      findBySlug: async () => workspace,
       save,
     }),
     { now: () => NOW, sleep: async () => {} },

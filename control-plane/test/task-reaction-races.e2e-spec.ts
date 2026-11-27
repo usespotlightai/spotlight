@@ -114,15 +114,16 @@ const committed: DomainEvent[] = [];
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 
 const dispatch: TaskDispatching = {
-  runIdFor: () => Promise.resolve(RunId.of(randomUUID())),
+  runIdFor: async () => RunId.of(randomUUID()),
 };
 
 const placements: TaskPlacementsPort = {
-  placementsAt: () => Promise.resolve([]),
+  placementsAt: async () => [],
 };
 
-const unused = (): Promise<never> =>
-  Promise.reject(new Error('a happening without files touches no attachment'));
+const unused = async (): Promise<never> => {
+  throw new Error('a happening without files touches no attachment');
+};
 
 const files: AttachmentStorePort = {
   grant: unused,
@@ -137,10 +138,10 @@ const files: AttachmentStorePort = {
 };
 
 const lines: LineMapsPort = {
-  find: () => Promise.resolve(line),
-  findByStation: () => Promise.resolve(line),
-  ofTeam: () => Promise.resolve([line]),
-  ofWorkspace: () => Promise.resolve([line]),
+  find: async () => line,
+  findByStation: async () => line,
+  ofTeam: async () => [line],
+  ofWorkspace: async () => [line],
   candidate: unused,
 };
 
@@ -160,16 +161,16 @@ const reactions = (): ReactToHappenings =>
     context,
     clock,
     { generate: () => randomUUID() },
-    { byEmail: () => Promise.resolve(null) },
+    { byEmail: async () => null },
     files,
     processedEventsInMemory(),
     silent,
     partial<ChannelChats>({
-      reached: () => Promise.resolve(null),
+      reached: async () => null,
       answer: async () => {},
     }),
-    { of: () => Promise.resolve([]) },
-    { membersOf: () => Promise.resolve(TeamMembers.of([owner])) },
+    { of: async () => [] },
+    { membersOf: async () => TeamMembers.of([owner]) },
   );
 
 const stationAt = (key: string): Station => {
@@ -186,8 +187,8 @@ beforeAll(async () => {
   database = await openDatabase('task_reaction_races');
   context = new DrizzleContext(database.db);
   tasks = new DrizzleTaskRepository(context, {
-    dispatch: (events) =>
-      Promise.resolve(context.afterCommit(() => committed.push(...events))),
+    dispatch: async (events) =>
+      context.afterCommit(() => committed.push(...events)),
   });
 
   const team = await createTeam(

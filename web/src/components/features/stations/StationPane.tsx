@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { STATION_COLUMN } from '@/components/features/stations/station-column';
 import { PaneScroller } from '@/components/shared/PaneScroller';
@@ -9,10 +9,7 @@ type StationPaneProps = {
   children: ReactNode;
 };
 
-export function StationPane({
-  heading,
-  children,
-}: StationPaneProps): ReactElement {
+export function StationPane({ heading, children }: StationPaneProps) {
   return (
     <PaneScroller>
       {heading}

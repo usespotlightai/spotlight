@@ -97,18 +97,14 @@ export const injecting = (
       );
     });
 
-  const grant = vi.fn<Port['grant']>((runGrant: RunGrant) => {
+  const grant = vi.fn<Port['grant']>(async (runGrant: RunGrant) => {
     for (const name of runGrant.secrets) {
       if (bound[name] === undefined) {
-        return Promise.reject(
-          new Error(`Secret ${name} not found. Please create it first.`),
-        );
+        throw new Error(`Secret ${name} not found. Please create it first.`);
       }
 
       granted.add(`${runGrant.runId}:${name}`);
     }
-
-    return Promise.resolve();
   });
   const forRun = vi.fn<Port['forRun']>((request: RunRequest) =>
     injected(request, request.runId),
@@ -125,21 +121,19 @@ export const injecting = (
   );
 
   const forVerifying = vi.fn<Port['forVerifying']>(
-    (request: VerifyingRequest) => {
+    async (request: VerifyingRequest) => {
       const secret = bound[request.secret];
 
       if (secret === undefined) {
-        return Promise.reject(
-          Object.assign(
-            new Error(
-              `Secret ${request.secret} not found. Please create it first.`,
-            ),
-            { kind: 'conflict' as const },
+        throw Object.assign(
+          new Error(
+            `Secret ${request.secret} not found. Please create it first.`,
           ),
+          { kind: 'conflict' as const },
         );
       }
 
-      return Promise.resolve(VerifyingSecret.of(secret.value));
+      return VerifyingSecret.of(secret.value);
     },
   );
 
@@ -166,8 +160,8 @@ export const injecting = (
 export const credentialsFor = (
   bound: Readonly<Partial<Record<string, Bound>>> = {},
 ): Credentials =>
-  new SpotlightCredentials(injecting(bound).injection, () =>
-    Promise.resolve(WorkspaceId.of('ws_1')),
+  new SpotlightCredentials(injecting(bound).injection, async () =>
+    WorkspaceId.of('ws_1'),
   );
 
 export const signingFor = (
@@ -190,25 +184,24 @@ export const callAuthFor = (
 ): CallAuthResolver =>
   new CallAuthResolver(
     partial<IntegrationConnectionRepository>({
-      of: () => Promise.resolve(null),
+      of: async () => null,
     }),
     {
-      find: (id) =>
-        Promise.resolve({
-          id,
-          workspaceId: WorkspaceId.of('ws_1'),
-          key: 'platform',
-          name: 'Platform',
-          members: [],
-        }),
-      inWorkspace: () => Promise.resolve([]),
+      find: async (id) => ({
+        id,
+        workspaceId: WorkspaceId.of('ws_1'),
+        key: 'platform',
+        name: 'Platform',
+        members: [],
+      }),
+      inWorkspace: async () => [],
     } satisfies TeamDirectoryPort,
     partial<WorkspaceAccessPort>({
-      inWorkspaceOfTeam: () => Promise.resolve(null),
+      inWorkspaceOfTeam: async () => null,
     }),
     injection,
     new InjectedCallCredentials(injection),
     partial<ConnectionRefresh>({
-      afterUnauthorized: () => Promise.resolve(null),
+      afterUnauthorized: async () => null,
     }),
   );

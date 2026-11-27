@@ -4,11 +4,11 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type {
   OpenTaskReaderPort,
   OpenTaskReading,
 } from '@work/application/ports/open-task-reader.port';
+import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import {
   task,
   taskNote,

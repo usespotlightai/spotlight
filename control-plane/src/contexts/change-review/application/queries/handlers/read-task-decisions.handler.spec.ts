@@ -44,30 +44,27 @@ const reading = (
 ) =>
   new ReadTaskDecisionsHandler(
     partial<TeamWorkAccess>({
-      task: () =>
-        Promise.resolve(
-          over.allowed === false
-            ? null
-            : {
-                task: partial<ReviewedTask>({
-                  id: TaskId.of('task_1'),
-                  workspaceId: WorkspaceId.of('ws_1'),
-                  teamId: null,
-                  reviewing: false,
-                  currentRunId: null,
-                }),
-                by: UserId.of('user_1'),
-              },
-        ),
+      task: async () =>
+        over.allowed === false
+          ? null
+          : {
+              task: partial<ReviewedTask>({
+                id: TaskId.of('task_1'),
+                workspaceId: WorkspaceId.of('ws_1'),
+                teamId: null,
+                reviewing: false,
+                currentRunId: null,
+              }),
+              by: UserId.of('user_1'),
+            },
     }),
     partial<DecisionReaderPort>({
-      ofTask: () =>
-        Promise.resolve(over.stored === undefined ? STORED : over.stored),
+      ofTask: async () => (over.stored === undefined ? STORED : over.stored),
     }),
     {
-      find: () => Promise.resolve({ name: 'Maya Chen', image: null }),
-      viewerOf: () => Promise.resolve(null),
-      actsOnTeam: () => Promise.resolve(false),
+      find: async () => ({ name: 'Maya Chen', image: null }),
+      viewerOf: async () => null,
+      actsOnTeam: async () => false,
     },
   ).execute(new ReadTaskDecisionsQuery('team_1', 'task_1', 'user_1'));
 

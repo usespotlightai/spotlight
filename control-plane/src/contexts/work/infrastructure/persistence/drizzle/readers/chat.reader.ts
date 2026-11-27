@@ -10,14 +10,15 @@ import {
   pageOf,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
+import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
 import {
   RUN_PROGRESS,
   type RunProgressPort,
 } from '@runs/application/ports/run-progress.port';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import type { PageRequest } from '@work/application/dto/page.dto';
 import type {
   ChatOwnership,
@@ -26,6 +27,7 @@ import type {
   ChatView,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
+import { chatPullRequestState } from '@work/application/read-models/chat-pull-request-state';
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import {
   chatInboxStanding,
@@ -33,13 +35,11 @@ import {
 } from '@work/domain/services/chat-inbox';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { RunProgressReading } from '@work/domain/value-objects/progress';
-import { chatPullRequestState } from '@work/application/read-models/chat-pull-request-state';
 import {
   chatInboxFacts,
   chatInboxFactsOf,
 } from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
 import { currentRunReadings } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
-import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
@@ -325,12 +325,14 @@ export class DrizzleChatReader implements ChatReaderPort {
             taskId: pullRequest.taskId,
             url: pullRequest.url,
             state: chatPullRequestState(
-              opened ? {
-                finished: opened.finishedAt !== null,
-                heldForChat: heldForChat.some(
-                  (each) => each.taskId === opened.id,
-                ),
-              } : null,
+              opened
+                ? {
+                    finished: opened.finishedAt !== null,
+                    heldForChat: heldForChat.some(
+                      (each) => each.taskId === opened.id,
+                    ),
+                  }
+                : null,
             ),
             lineName: openedAt?.lineName ?? null,
             stationName: openedAt?.name ?? null,

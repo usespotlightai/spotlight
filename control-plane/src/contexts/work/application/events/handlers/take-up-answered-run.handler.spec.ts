@@ -23,20 +23,18 @@ const TASK = TaskId.of('task_1');
 const takingUp = (takesUp = true) => {
   const runs = recordingRuns();
   const dispatches = partial<DispatchRepository>({
-    find: () => Promise.resolve(null),
+    find: async () => null,
   });
   const handler = new TakeUpAnsweredRun(
     partial<TaskRepository>({
-      find: () =>
-        Promise.resolve(
-          partial<Task>({
-            takesUp: () => takesUp,
-            stationId: StationId.of('station_1'),
-          }),
-        ),
+      find: async () =>
+        partial<Task>({
+          takesUp: () => takesUp,
+          stationId: StationId.of('station_1'),
+        }),
     }),
     dispatches,
-    partial<LineMapsPort>({ findByStation: () => Promise.resolve(null) }),
+    partial<LineMapsPort>({ findByStation: async () => null }),
     resumingWith(runs, dispatches),
   );
 

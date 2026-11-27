@@ -1,10 +1,4 @@
-import {
-  type ReactNode,
-  Suspense,
-  use,
-  useMemo,
-  type ReactElement,
-} from 'react';
+import { type ReactNode, Suspense, use, useMemo } from 'react';
 import {
   createPath,
   type Navigator,
@@ -46,7 +40,7 @@ export function TabPane({
   onFocus,
   onVisit,
   onTitle,
-}: TabPaneProps): ReactElement {
+}: TabPaneProps) {
   const windowNavigator = use(UNSAFE_NavigationContext).navigator;
   const inPane = useMemo<Navigator>(() => {
     const visit = (to: To, state?: unknown) =>

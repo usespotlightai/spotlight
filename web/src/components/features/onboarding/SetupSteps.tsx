@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react';
-import { type ReactElement, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
@@ -121,12 +121,7 @@ function Step({ step, action, disabled }: StepProps) {
   );
 }
 
-export function SetupSteps({
-  teamId,
-  body,
-  about,
-  resolved,
-}: SetupStepsProps): ReactElement {
+export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
   const query = useOnboarding(teamId);
   const onboarding = query.data;

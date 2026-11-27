@@ -1,5 +1,4 @@
 import { Binoculars } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
@@ -11,11 +10,7 @@ type TaskTraceLinkProps = {
   taskId: string;
 };
 
-export function TaskTraceLink({
-  slug,
-  teamId,
-  taskId,
-}: TaskTraceLinkProps): ReactElement | null {
+export function TaskTraceLink({ slug, teamId, taskId }: TaskTraceLinkProps) {
   const runs = useTaskRuns(teamId, taskId);
 
   if (runs.data === undefined || runs.data.length === 0) {

@@ -12,6 +12,7 @@ import {
   type RunJournalsPort,
 } from '@runs/application/ports/run-journals.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
@@ -112,7 +113,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     ]);
     const run = facts.get(row.runId);
 
-    if (run?.ended !== true || !run.endedAt) {
+    if (!run?.ended || !run.endedAt) {
       return null;
     }
 
@@ -194,7 +195,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .where(inArray(dispatch.stationFingerprint, [...fingerprints]));
 
     return rows.flatMap((row) =>
-      row.fingerprint !== null && row.fingerprint !== '' && row.parts
+      nonEmpty(row.fingerprint) && row.parts
         ? [{ fingerprint: row.fingerprint, parts: row.parts }]
         : [],
     );
@@ -286,7 +287,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     return rows.flatMap(({ superseded, ...row }) => {
       const run = facts.get(row.runId);
 
-      return run?.ended === true && run.endedAt
+      return run?.ended && run.endedAt
         ? [
             {
               ...row,

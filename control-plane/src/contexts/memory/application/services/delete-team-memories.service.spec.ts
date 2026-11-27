@@ -50,39 +50,34 @@ const deleting = (
   const upkeepsLeft = ['upkeep_1', 'upkeep_2'];
   let scheduleLeft = true;
   const upkeeps = partial<MemoryUpkeepRepository>({
-    ofTeam: () =>
-      Promise.resolve(
-        upkeepsLeft.map((id) =>
-          partial<MemoryUpkeep>({ id: MemoryUpkeepId.of(id) }),
-        ),
+    ofTeam: async () =>
+      upkeepsLeft.map((id) =>
+        partial<MemoryUpkeep>({ id: MemoryUpkeepId.of(id) }),
       ),
-    remove: (upkeep: MemoryUpkeep) => {
+    remove: async (upkeep: MemoryUpkeep) => {
       removed.push(upkeep.id.value);
       upkeepsLeft.splice(upkeepsLeft.indexOf(upkeep.id.value), 1);
-      return Promise.resolve();
     },
   });
   const schedules = partial<MemoryUpkeepScheduleRepository>({
-    ofTeam: () =>
-      Promise.resolve(scheduleLeft ? partial<MemoryUpkeepSchedule>({}) : null),
-    remove: () => {
+    ofTeam: async () =>
+      scheduleLeft ? partial<MemoryUpkeepSchedule>({}) : null,
+    remove: async () => {
       removed.push('schedule');
       scheduleLeft = false;
-      return Promise.resolve();
     },
   });
   const memories = partial<MemoryRepository>({
-    ofTeam: () => Promise.resolve([...stored.values()]),
-    save: (memory: Memory) => {
+    ofTeam: async () => [...stored.values()],
+    save: async (memory: Memory) => {
       if (!memory.isDeleted || changedMeanwhile.has(memory.id.value)) {
-        return Promise.reject(new MemoryVersionConflictError(memory.id.value));
+        throw new MemoryVersionConflictError(memory.id.value);
       }
       stored.delete(memory.id.value);
       if (toAdd) {
         stored.set(toAdd.id.value, toAdd);
         toAdd = null;
       }
-      return Promise.resolve();
     },
   });
   const service = new DeleteTeamMemories(

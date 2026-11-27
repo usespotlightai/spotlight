@@ -84,40 +84,36 @@ let calls: string[];
 let refuseOrder: boolean;
 
 const dispatches: DispatchRepository = {
-  find: () => Promise.resolve(stored),
-  add: () => Promise.resolve(undefined),
-  save: (saved) => {
+  find: async () => stored,
+  add: async () => undefined,
+  save: async (saved) => {
     calls.push(
       `save:${saved.enqueued ? 'enqueued' : (saved.refusedBecause ?? 'ordered')}${saved.detachedAt ? ':detached' : ''}`,
     );
     saved.pullEvents();
     stored = saved;
-
-    return Promise.resolve();
   },
 };
 
 const tasks = partial<TaskRepository>({
-  find: () => {
+  find: async () => {
     const held = holds.shift() ?? false;
 
-    return Promise.resolve(partial<Task>({ hasCurrentRun: () => held }));
+    return partial<Task>({ hasCurrentRun: () => held });
   },
 });
 
 const runs = partial<RunsPort>({
-  enqueue: vi.fn(() => {
+  enqueue: vi.fn(async () => {
     calls.push('enqueue');
 
-    return Promise.resolve(
-      refuseOrder
-        ? { outcome: 'refused' as const, reason: 'it names no harness' }
-        : { outcome: 'enqueued' as const },
-    );
+    return refuseOrder
+      ? { outcome: 'refused' as const, reason: 'it names no harness' }
+      : { outcome: 'enqueued' as const };
   }),
-  cancel: vi.fn(() => {
+  cancel: vi.fn(async () => {
     calls.push('cancel');
-    return Promise.resolve({ was: 'unknown' as const, started: false });
+    return { was: 'unknown' as const, started: false };
   }),
 });
 

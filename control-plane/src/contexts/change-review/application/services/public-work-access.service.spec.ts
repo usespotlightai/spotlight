@@ -38,31 +38,26 @@ const setup = (
   const stacks = (over.stacks ?? ['acme/api']).map(stackIn);
   const visible = over.visible ?? (() => true);
   const work = partial<WorkPort>({
-    task: vi.fn(() =>
-      Promise.resolve(
-        over.known === false
-          ? null
-          : partial<ReviewedTask>({ workspaceId: WORKSPACE }),
-      ),
+    task: vi.fn(async () =>
+      over.known === false
+        ? null
+        : partial<ReviewedTask>({ workspaceId: WORKSPACE }),
     ),
-    run: vi.fn(() =>
-      Promise.resolve(
-        over.known === false
-          ? null
-          : partial<RunForReview>({ workspaceId: WORKSPACE }),
-      ),
+    run: vi.fn(async () =>
+      over.known === false
+        ? null
+        : partial<RunForReview>({ workspaceId: WORKSPACE }),
     ),
   });
   const reader = partial<ChangeStackReaderPort>({
-    publicOfTask: vi.fn(() => Promise.resolve(stacks)),
-    publicOfRun: vi.fn(() => Promise.resolve(stacks)),
+    publicOfTask: vi.fn(async () => stacks),
+    publicOfRun: vi.fn(async () => stacks),
   });
   const visibility: RepositoryVisibilityPort = {
-    arePublic: vi.fn((_: WorkspaceId, repositories: readonly Repository[]) =>
-      Promise.resolve(
+    arePublic: vi.fn(
+      async (_: WorkspaceId, repositories: readonly Repository[]) =>
         repositories.length > 0 &&
-          repositories.every((each) => visible(each.value)),
-      ),
+        repositories.every((each) => visible(each.value)),
     ),
   };
   const telemetry = telemetryInMemory();

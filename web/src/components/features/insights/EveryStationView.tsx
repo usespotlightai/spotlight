@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { EveryStationSkeleton } from '@/components/features/insights/EveryStationSkeleton';
@@ -21,7 +19,7 @@ type EveryStationViewProps = {
   names: StationNames;
 };
 
-export function EveryStationView(shared: EveryStationViewProps): ReactElement {
+export function EveryStationView(shared: EveryStationViewProps) {
   const { teamId, period, names } = shared;
   const queries = [
     useInsightsStations(teamId, period),

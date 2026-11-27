@@ -1,5 +1,4 @@
 import { CircleArrowRight, CircleSlash, type LucideIcon } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
@@ -39,7 +38,7 @@ export function RunRow({
   gutter,
   onHold,
   onIntent,
-}: RunRowProps): ReactElement {
+}: RunRowProps) {
   const intent = useOpenIntent(onIntent);
   const stop = useStopRunAction(teamId, run.id, stoppable(run));
   const menu = useMenuActions(stop ? [stop] : []);
@@ -52,7 +51,8 @@ export function RunRow({
       {...intent}
       className={cn(
         'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
-        gutter === true ? 'px-3' : 'px-2',
+
+        gutter ? 'px-3' : 'px-2',
       )}
     >
       {gutter === true && <span className="w-4 shrink-0" aria-hidden />}

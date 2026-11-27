@@ -39,20 +39,19 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
   const written: Record<string, string>[] = [];
 
   const settings: RepositorySettingsPort = {
-    defaultBranchOf: () =>
-      Promise.resolve({
-        name: 'main',
-        protected: protectedBranch,
-        repositoryId: '101',
-        ownerId: '7',
-      }),
-    defaultBranchNameOf: () => Promise.resolve('main'),
-    oidcSubjectPrefixOf: (_, repository) =>
-      Promise.resolve(subjectPrefix ?? `repo:${repository.value}`),
-    visibilityOf: () => Promise.resolve('public'),
-    putVariables: (_, __, put) => {
+    defaultBranchOf: async () => ({
+      name: 'main',
+      protected: protectedBranch,
+      repositoryId: '101',
+      ownerId: '7',
+    }),
+    defaultBranchNameOf: async () => 'main',
+    oidcSubjectPrefixOf: async (_, repository) =>
+      subjectPrefix ?? `repo:${repository.value}`,
+    visibilityOf: async () => 'public',
+    putVariables: async (_, __, put) => {
       written.push({ ...put });
-      return Promise.resolve(variables);
+      return variables;
     },
   };
 
@@ -86,7 +85,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
         .overrideProvider(REPOSITORY_SETTINGS)
         .useValue(settings)
         .overrideProvider(ACCESSIBLE_REPOSITORIES)
-        .useValue({ isAccessible: () => Promise.resolve(true) }),
+        .useValue({ isAccessible: async () => true }),
     );
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });

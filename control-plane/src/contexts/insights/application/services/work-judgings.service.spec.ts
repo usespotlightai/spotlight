@@ -79,8 +79,8 @@ const workOn = (
   new WorkJudgings(
     judgings,
     {
-      hasTask: () => Promise.resolve(true),
-      of: () => Promise.resolve(evidence),
+      hasTask: async () => true,
+      of: async () => evidence,
     },
     judge,
     { now, sleep: async () => {} },
@@ -149,14 +149,12 @@ const everyClaim = (
 
 describe('WorkJudgings', () => {
   it('judges the run on its claims, steps and hunks, and records the grounded verdict', async () => {
-    const { requests, judging, judgings } = await working(() =>
-      Promise.resolve(
-        everyClaim(true, {
-          text: 'It retries.',
-          steps: [2],
-          hunks: ['api/src/uploads.ts#1'],
-        }),
-      ),
+    const { requests, judging, judgings } = await working(async () =>
+      everyClaim(true, {
+        text: 'It retries.',
+        steps: [2],
+        hunks: ['api/src/uploads.ts#1'],
+      }),
     );
 
     expect(requests[0]?.claims).toEqual(CLAIMS);
@@ -182,7 +180,7 @@ describe('WorkJudgings', () => {
 
   it('fails where the run’s evidence is gone', async () => {
     const { requests, judging } = await working(
-      () => Promise.resolve({ claims: [] }),
+      async () => ({ claims: [] }),
       null,
     );
 
@@ -191,12 +189,10 @@ describe('WorkJudgings', () => {
   });
 
   it('retries later when the request to the provider fails', async () => {
-    const { judging } = await working(() =>
-      Promise.resolve({
-        status: 'failed',
-        failure: 'request-failed',
-      }),
-    );
+    const { judging } = await working(async () => ({
+      status: 'failed',
+      failure: 'request-failed',
+    }));
 
     expect(judging?.hasPendingJob).toBe(true);
     expect(judging?.job?.nextAttemptAt?.getTime()).toBeGreaterThan(
@@ -205,9 +201,7 @@ describe('WorkJudgings', () => {
   });
 
   it('waits for the judging session without spending the attempt, and asks for the same session again', async () => {
-    const { judging, requests } = await working(() =>
-      Promise.resolve(SESSION_WAITING),
-    );
+    const { judging, requests } = await working(async () => SESSION_WAITING);
 
     expect(judging?.hasPendingJob).toBe(true);
     expect(judging?.job?.attempts).toBe(0);
@@ -218,22 +212,18 @@ describe('WorkJudgings', () => {
   });
 
   it('fails for good when there is no harness to judge on', async () => {
-    const { judging } = await working(() =>
-      Promise.resolve({
-        status: 'failed',
-        failure: 'unavailable',
-      }),
-    );
+    const { judging } = await working(async () => ({
+      status: 'failed',
+      failure: 'unavailable',
+    }));
 
     expect(judging?.hasPendingJob).toBe(false);
     expect(judging?.failure?.code).toBe('unavailable');
   });
 
   it('retries later when no reason cites what the judge read', async () => {
-    const { judging, judgings } = await working(() =>
-      Promise.resolve(
-        everyClaim(false, { text: 'Made up.', steps: [40], hunks: [] }),
-      ),
+    const { judging, judgings } = await working(async () =>
+      everyClaim(false, { text: 'Made up.', steps: [40], hunks: [] }),
     );
 
     expect(judging?.hasPendingJob).toBe(true);

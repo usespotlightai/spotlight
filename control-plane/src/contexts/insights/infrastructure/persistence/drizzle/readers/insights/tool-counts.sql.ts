@@ -209,43 +209,35 @@ export const toolCountsIn = async (
   const dismissals = await dismissalsIn(db, team);
 
   return {
-    runs: runs.map(
-      (row): RunCount => ({
-        stationId: row.station_id,
-        week: row.week,
-        runs: row.runs,
-      }),
-    ),
+    runs: runs.map((row): RunCount => ({
+      stationId: row.station_id,
+      week: row.week,
+      runs: row.runs,
+    })),
     stations: stations.map((row) => ({
       lineId: row.line_id,
       stationId: row.station_id,
     })),
-    skills: skills.map(
-      (row): SkillUseCount => ({
-        key: row.key,
-        stationId: row.station_id,
-        week: row.week,
-        enabled: row.enabled,
-        used: row.used,
-      }),
-    ),
-    servers: servers.map(
-      (row): ServerCounts => ({
-        server: row.server,
-        runs: row.runs,
-        calls: row.calls,
-        failedCalls: row.failed_calls,
-        latency: row.latency,
-        failingRuns: row.failing_runs,
-        dismissed: row.dismissed,
-      }),
-    ),
-    dismissals: dismissals.map(
-      (row): ToolDismissals => ({
-        tool: row.tool,
-        server: row.server,
-        dismissed: row.dismissed,
-      }),
-    ),
+    skills: skills.map((row): SkillUseCount => ({
+      key: row.key,
+      stationId: row.station_id,
+      week: row.week,
+      enabled: row.enabled,
+      used: row.used,
+    })),
+    servers: servers.map((row): ServerCounts => ({
+      server: row.server,
+      runs: row.runs,
+      calls: row.calls,
+      failedCalls: row.failed_calls,
+      latency: row.latency,
+      failingRuns: row.failing_runs,
+      dismissed: row.dismissed,
+    })),
+    dismissals: dismissals.map((row): ToolDismissals => ({
+      tool: row.tool,
+      server: row.server,
+      dismissed: row.dismissed,
+    })),
   };
 };

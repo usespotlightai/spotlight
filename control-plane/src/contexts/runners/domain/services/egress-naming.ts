@@ -31,7 +31,7 @@ export const egressAvailability = (
   return named &&
     !named.isDeleted &&
     named.belongsTo(candidate.workspaceId) &&
-    reference.egressId?.equals(named.id) === true
+    reference.egressId?.equals(named.id)
     ? 'available'
     : 'not-in-workspace';
 };

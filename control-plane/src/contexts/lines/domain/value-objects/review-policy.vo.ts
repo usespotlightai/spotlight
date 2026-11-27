@@ -26,7 +26,7 @@ export interface ReviewSkips {
 }
 
 export class ReviewPolicy {
-  private readonly kind: string = 'review-policy';
+  private readonly kind = 'review-policy';
 
   private constructor(
     readonly start: ReviewStart,
@@ -78,7 +78,7 @@ export class ReviewPolicy {
 
   equals(other: ReviewPolicy): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof ReviewPolicy &&
       this.start === other.start &&
       this.mention === other.mention &&
       this.label === other.label &&

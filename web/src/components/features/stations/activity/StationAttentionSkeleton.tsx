@@ -1,12 +1,10 @@
-import type { ReactElement } from 'react';
-
 import { ATTENTION_TITLE } from '@/components/features/stations/activity/attention';
 import { FAILURES_TITLE } from '@/components/features/stations/activity/StationFailureReasons';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function StationAttentionSkeleton(): ReactElement {
+export function StationAttentionSkeleton() {
   return (
     <TabSection title={ATTENTION_TITLE}>
       <Skeleton className="h-[5.5rem] w-full rounded-md" />

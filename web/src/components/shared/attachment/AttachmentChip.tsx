@@ -1,5 +1,5 @@
 import { FileIcon } from 'lucide-react';
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -17,7 +17,7 @@ export function AttachmentChip({
   lead,
   trailing,
   className,
-}: AttachmentChipProps): ReactElement {
+}: AttachmentChipProps) {
   return (
     <span
       className={cn(

@@ -122,7 +122,7 @@ export class TerraformState extends EventRecorder {
   lockAs(lock: StateLock): TerraformState {
     const held = this.state.lock;
 
-    if (held?.sameAs(lock) === true) {
+    if (held?.sameAs(lock)) {
       return this;
     }
 

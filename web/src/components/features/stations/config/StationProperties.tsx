@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { AgentProperties } from '@/components/features/stations/config/AgentProperties';
 import { ImprovementProperties } from '@/components/features/stations/config/ImprovementProperties';
 import { LineProperties } from '@/components/features/stations/config/LineProperties';
@@ -20,7 +18,7 @@ export function StationProperties({
   teamId,
   line,
   station,
-}: StationPropertiesProps): ReactElement {
+}: StationPropertiesProps) {
   return (
     <aside
       aria-label="Properties"

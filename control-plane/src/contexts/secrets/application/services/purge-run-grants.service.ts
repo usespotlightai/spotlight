@@ -52,7 +52,7 @@ export class PurgeRunGrants {
   private async purgeRun(runId: RunId, now: Date): Promise<boolean> {
     const existing = await this.readable(runId);
 
-    if (existing?.isPastRetention(now) !== true) {
+    if (!existing?.isPastRetention(now)) {
       return false;
     }
 

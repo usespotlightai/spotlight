@@ -3,6 +3,7 @@ import {
   OPENING_PULL_REQUESTS,
   USING_TOOLS,
 } from '@shared-kernel/domain/built-in-skills';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
@@ -34,7 +35,7 @@ const station = (
     harness: HarnessId.of('dev'),
     tools: tools.map((each) => Tool.of(each)),
     skills: skills.map((each) => SkillKey.of(each)),
-    profile: profile !== null && profile !== '' ? ProfileKey.of(profile) : null,
+    profile: nonEmpty(profile) ? ProfileKey.of(profile) : null,
   });
 
 const skill = (key: string, tools: string[] = []) => ({

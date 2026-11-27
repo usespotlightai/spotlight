@@ -95,48 +95,42 @@ const resuming = ({
   const warned: string[] = [];
   let open = false;
   const runs = recordingRuns({
-    resume: () => {
+    resume: async () => {
       steps.push(open ? 'resume in transaction' : 'resume');
-      return Promise.resolve(resumption);
+      return resumption;
     },
   });
   const dispatches: DispatchRepository = {
-    find: () => {
+    find: async () => {
       steps.push(open ? 'read in transaction' : 'read');
       reads += 1;
-      return Promise.resolve(dispatchedWith(before));
+      return dispatchedWith(before);
     },
-    add: () => Promise.resolve(undefined),
-    save: (each) => {
+    add: async () => undefined,
+    save: async (each) => {
       steps.push(open ? 'save in transaction' : 'save');
       if (conflicts > 0) {
         conflicts -= 1;
-        return Promise.reject(new DispatchVersionConflictError(RUN.value));
+        throw new DispatchVersionConflictError(RUN.value);
       }
       saved.push(each);
-
-      return Promise.resolve();
     },
   };
   const service = new ResumeTaskRun(
     runs,
     dispatches,
     new TeamIntegrations({
-      provided: (_team, tools) =>
-        Promise.resolve(
-          tools
-            .filter((each) => !undescribed.some((tool) => tool.value === each))
-            .map((each) => declared(Tool.of(each))),
-        ),
-      toolsOnAnyMark: () => Promise.resolve([]),
-      toolsOnMarks: (_team, kinds) => {
+      provided: async (_team, tools) =>
+        tools
+          .filter((each) => !undescribed.some((tool) => tool.value === each))
+          .map((each) => declared(Tool.of(each))),
+      toolsOnAnyMark: async () => [],
+      toolsOnMarks: async (_team, kinds) => {
         if (lookupFails) {
-          return Promise.reject(new Error('Integrations unavailable'));
+          throw new Error('Integrations unavailable');
         }
         asked.push([...kinds]);
-        return Promise.resolve(
-          [...onMarks, ...undescribed].map((each) => each.value),
-        );
+        return [...onMarks, ...undescribed].map((each) => each.value);
       },
     }),
     {

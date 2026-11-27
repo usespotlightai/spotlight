@@ -1,4 +1,5 @@
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -137,10 +138,9 @@ export class BriefedTask {
       stationId: StationId.of(parts.stationId),
       title: parts.title,
       description: parts.description,
-      reviewing:
-        parts.reviewing !== null && parts.reviewing !== ''
-          ? Repository.of(parts.reviewing)
-          : null,
+      reviewing: nonEmpty(parts.reviewing)
+        ? Repository.of(parts.reviewing)
+        : null,
       attachments: parts.attachments.map(Attachment.rehydrate),
       notes: parts.notes.map((each) => ({
         station: each.station,

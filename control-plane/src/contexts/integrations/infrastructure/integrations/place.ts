@@ -10,6 +10,7 @@ import {
 } from '@integrations/infrastructure/integrations/expression-positions';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import type { Scope } from '@platform/expressions/scope';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   ANY_SEGMENT,
   FieldPath,
@@ -130,10 +131,9 @@ export class Place {
 
     return {
       type: checked.type,
-      errors:
-        problem !== null && problem !== ''
-          ? [{ message: problem, span: extentOf(source), suggestion: null }]
-          : [],
+      errors: nonEmpty(problem)
+        ? [{ message: problem, span: extentOf(source), suggestion: null }]
+        : [],
     };
   }
 

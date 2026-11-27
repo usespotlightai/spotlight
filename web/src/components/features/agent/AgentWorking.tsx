@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { useElapsed } from '@/hooks/useElapsed';
 import type { AgentPhase } from '@/lib/chat';
@@ -46,11 +44,7 @@ function AgentDoing({ phase }: { phase: AgentPhase }) {
   );
 }
 
-export function AgentWorking({
-  harness,
-  progress,
-  phase,
-}: AgentWorkingProps): ReactElement {
+export function AgentWorking({ harness, progress, phase }: AgentWorkingProps) {
   return (
     <div className="flex items-center gap-1.5 px-1 text-xs leading-6">
       <span className="flex size-6 shrink-0 items-center justify-center">

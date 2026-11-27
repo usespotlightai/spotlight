@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useParams } from 'react-router';
 
 import {
@@ -30,7 +30,7 @@ export function TeamSectionPage({
   bordered,
   crumbs = [],
   children,
-}: TeamSectionPageProps): ReactElement {
+}: TeamSectionPageProps) {
   const { slug, teamId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);

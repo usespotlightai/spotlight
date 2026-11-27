@@ -1,12 +1,10 @@
-import type { ReactElement } from 'react';
-
 import { cn } from '@/lib/utils';
 
 type DropIndicatorProps = {
   edge: 'top' | 'bottom';
 };
 
-export function DropIndicator({ edge }: DropIndicatorProps): ReactElement {
+export function DropIndicator({ edge }: DropIndicatorProps) {
   return (
     <span
       data-slot="drop-indicator"

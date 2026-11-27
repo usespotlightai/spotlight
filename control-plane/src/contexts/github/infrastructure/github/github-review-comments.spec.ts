@@ -9,7 +9,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const access = {
-  credential: () => Promise.resolve({ username: 'x', password: 'token' }),
+  credential: async () => ({ username: 'x', password: 'token' }),
 };
 
 const replying = (
@@ -41,16 +41,14 @@ let requests: { url: string; body: unknown }[] = [];
 let replies: unknown[] = [];
 
 const fetching = () =>
-  vi.fn((url: string, init?: { body?: string }) => {
+  vi.fn(async (url: string, init?: { body?: string }) => {
     requests.push({ url, body: JSON.parse(init?.body ?? '{}') });
 
-    return Promise.resolve(
-      partial<Response>({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(replies.shift() ?? { data: {} }),
-      }),
-    );
+    return partial<Response>({
+      ok: true,
+      status: 200,
+      json: async () => replies.shift() ?? { data: {} },
+    });
   });
 
 const queried = () =>

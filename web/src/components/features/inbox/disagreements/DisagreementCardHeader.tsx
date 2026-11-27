@@ -1,5 +1,4 @@
 import { Binoculars } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
@@ -27,7 +26,7 @@ export function DisagreementCardHeader({
   sending,
   at,
   trace,
-}: DisagreementCardHeaderProps): ReactElement {
+}: DisagreementCardHeaderProps) {
   return (
     <DecisionHeader
       title={

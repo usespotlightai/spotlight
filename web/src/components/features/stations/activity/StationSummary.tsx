@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
@@ -45,10 +43,7 @@ type StationSummaryProps = {
   period: ActivityPeriod;
 };
 
-export function StationSummary({
-  period,
-  ...at
-}: StationSummaryProps): ReactElement {
+export function StationSummary({ period, ...at }: StationSummaryProps) {
   return period === LIVE_CONFIG ? (
     <LiveSummary {...at} />
   ) : (

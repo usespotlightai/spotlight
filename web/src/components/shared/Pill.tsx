@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
@@ -11,13 +11,7 @@ type PillProps = {
   className?: string;
 };
 
-export function Pill({
-  children,
-  lead,
-  title,
-  href,
-  className,
-}: PillProps): ReactElement {
+export function Pill({ children, lead, title, href, className }: PillProps) {
   const led = Boolean(lead);
   const classes = cn(
     'flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card py-1 font-medium text-muted-foreground text-xs',

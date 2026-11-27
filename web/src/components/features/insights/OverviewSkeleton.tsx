@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import { OUTPUT_CHART_HEIGHT } from '@/components/features/insights/OutputAgainstCost';
@@ -24,7 +22,7 @@ const TILES: readonly TileBones[] = [
   { label: 'Active people', delta: true },
 ];
 
-export function OverviewSkeleton(): ReactElement {
+export function OverviewSkeleton() {
   return (
     <div
       role="status"

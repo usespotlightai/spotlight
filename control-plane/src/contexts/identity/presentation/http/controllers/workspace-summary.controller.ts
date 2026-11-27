@@ -24,6 +24,7 @@ import {
   LONGEST_PAGE,
   PAGE_LIMIT,
 } from '@shared-kernel/application/dto/page.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const WORKSPACE = ApiParam({
   name: 'workspaceId',
@@ -82,9 +83,9 @@ export class WorkspaceSummaryController {
       Page<WorkspaceSummaryDto>
     >(
       new ListWorkspaceSummariesQuery(
-        after !== undefined && after !== '' ? after : null,
+        nonEmpty(after) ? after : null,
         pageLimitOf(limit),
-        since !== undefined && since !== '' ? isoTimeOf('since', since) : null,
+        nonEmpty(since) ? isoTimeOf('since', since) : null,
       ),
     );
 

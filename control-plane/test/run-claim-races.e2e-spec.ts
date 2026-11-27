@@ -9,6 +9,7 @@ import { DrizzleRunWaits } from '@runs/infrastructure/persistence/drizzle/ledger
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -158,9 +159,7 @@ const stored = async (id: string): Promise<Run> => {
 
 const taskRunsOf = (setUp: Queued): readonly string[] => [
   ...setUp.taskRuns,
-  ...(setUp.leasedTaskRun !== null && setUp.leasedTaskRun !== ''
-    ? [setUp.leasedTaskRun]
-    : []),
+  ...(nonEmpty(setUp.leasedTaskRun) ? [setUp.leasedTaskRun] : []),
 ];
 
 const raced = async (input: Queue): Promise<Raced> => {
@@ -237,10 +236,7 @@ describe('runners claiming from one queue at the same moment', () => {
       race(({ input, queued: setUp, handed }) => {
         const claimable =
           setUp.specRuns.length +
-          (setUp.taskRuns.length > 0 &&
-          (setUp.leasedTaskRun === null || setUp.leasedTaskRun === '')
-            ? 1
-            : 0);
+          (setUp.taskRuns.length > 0 && !nonEmpty(setUp.leasedTaskRun) ? 1 : 0);
 
         return handed.length === Math.min(claimable, input.runners);
       }),

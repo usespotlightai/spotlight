@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { SeeLinks } from '@/components/shared/SeeLinks';
 import type { CitedPlace } from '@/lib/change-stack';
 
@@ -10,10 +8,7 @@ type CitedPlacesProps = {
 
 const nameOf = (path: string): string => path.split('/').pop() ?? path;
 
-export function CitedPlaces({
-  places,
-  onReveal,
-}: CitedPlacesProps): ReactElement {
+export function CitedPlaces({ places, onReveal }: CitedPlacesProps) {
   return (
     <SeeLinks
       links={places.map((place) => ({

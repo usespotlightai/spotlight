@@ -113,9 +113,8 @@ describe('CustomSettingsPage', () => {
     show();
     await screen.findByRole('heading', { name: 'Handbook' });
 
-    await act(() => {
+    await act(async () => {
       document.documentElement.classList.add('dark');
-      return Promise.resolve();
     });
 
     expect(shownElement().getAttribute('theme')).toBe('dark');

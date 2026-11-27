@@ -5,6 +5,7 @@ import {
   type GrammarRoute,
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const MAPPINGS: Readonly<Record<string, string>> = {
@@ -77,9 +78,7 @@ export const JAVA_GRAMMAR: Grammar = {
         ?.text ?? '';
     const local = specifier.split('.').pop();
 
-    return local !== undefined && local !== ''
-      ? [{ local, imported: local, specifier }]
-      : [];
+    return nonEmpty(local) ? [{ local, imported: local, specifier }] : [];
   },
   resolve: (specifier, _from, paths) => {
     const parts = specifier.split('.');

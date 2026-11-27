@@ -1,7 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { type LucideIcon, X } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { TAB_SLIDE, tabFrame } from '@/components/shell/tabs/app-tab-look';
 import { type AppTab, NEW_TAB_TITLE } from '@/lib/app-tabs';
@@ -25,7 +24,7 @@ export function AppTabItem({
   closable,
   onSelect,
   onClose,
-}: AppTabItemProps): ReactElement {
+}: AppTabItemProps) {
   const title = tab.title ?? NEW_TAB_TITLE;
   const { setNodeRef, listeners, transform, transition, isDragging } =
     useSortable({ id: tab.id, transition: TAB_SLIDE });

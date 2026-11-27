@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ClearSelection } from '@/components/shared/ClearSelection';
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
@@ -22,7 +20,7 @@ export function SelectionBar({
   moveTo,
   onMove,
   onClear,
-}: SelectionBarProps): ReactElement | null {
+}: SelectionBarProps) {
   if (count === 0) {
     return null;
   }

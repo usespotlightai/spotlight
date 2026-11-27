@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { formatDate } from '@/lib/date-format';
 import { nonEmpty } from '@/lib/non-empty';
 import { type Run, waitReason } from '@/lib/run';
@@ -9,9 +7,7 @@ type RunRunnerNoticeProps = {
   run: Pick<Run, 'state' | 'waiting'>;
 };
 
-export function RunRunnerNotice({
-  run,
-}: RunRunnerNoticeProps): ReactElement | null {
+export function RunRunnerNotice({ run }: RunRunnerNoticeProps) {
   const reason = waitReason(run);
 
   if (nonEmpty(reason) && run.waiting) {

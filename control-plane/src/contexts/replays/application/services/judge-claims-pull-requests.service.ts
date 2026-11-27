@@ -21,6 +21,7 @@ import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-j
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const REVISION_PREFIX = 8;
@@ -162,7 +163,7 @@ export class OpenJudgeClaimsPullRequests implements PendingJobsPort {
       this.sources.people.teamKey(at.teamId),
     ]);
 
-    if (!station || !settings || teamKey === null || teamKey === '') {
+    if (!station || !settings || !nonEmpty(teamKey)) {
       return failed('The station is gone from its line.');
     }
     if (!station.source) {

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { PillButton } from '@/components/shared/PillButton';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
 import type { Integration } from '@/lib/integration';
@@ -12,7 +10,7 @@ type TeamAccountButtonProps = {
 export function TeamAccountButton({
   integration,
   teamId,
-}: TeamAccountButtonProps): ReactElement {
+}: TeamAccountButtonProps) {
   const connect = useConnectIntegration(teamId);
 
   return (

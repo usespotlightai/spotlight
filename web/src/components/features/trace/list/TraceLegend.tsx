@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { cn } from '@/lib/utils';
 
 const LEGEND = [
@@ -7,7 +5,7 @@ const LEGEND = [
   { name: 'Errors', swatch: 'bg-destructive' },
 ] as const;
 
-export function TraceLegend(): ReactElement {
+export function TraceLegend() {
   return (
     <div className="flex items-center justify-end gap-3 pr-2 pb-1">
       {LEGEND.map((each) => (

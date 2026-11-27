@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class HarnessProfileId {
-  private readonly kind: string = 'harness-profile';
+  private readonly kind = 'harness-profile';
 
   private constructor(readonly value: string) {}
 
@@ -14,7 +14,7 @@ export class HarnessProfileId {
   }
 
   equals(other: HarnessProfileId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HarnessProfileId && this.value === other.value;
   }
 
   toString(): string {

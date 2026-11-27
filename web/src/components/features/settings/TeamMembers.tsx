@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { InviteDialog } from '@/components/features/members/InviteDialog';
 import { AddTeamMember } from '@/components/features/settings/AddTeamMember';
@@ -19,12 +19,7 @@ type TeamMembersProps = {
   teams: readonly Team[];
 };
 
-export function TeamMembers({
-  slug,
-  teamId,
-  admin,
-  teams,
-}: TeamMembersProps): ReactElement {
+export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
   const members = useMembers(teamId);
   const changeRole = useChangeMemberRole(slug);
   const [inviting, setInviting] = useState(false);

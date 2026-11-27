@@ -8,6 +8,7 @@ import {
   toolWordsOf,
 } from '@integrations/infrastructure/specs/operation-record';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Properties = Readonly<Record<string, unknown>>;
 
@@ -31,7 +32,7 @@ const recordOf = (tool: Tool): OperationRecord | string => {
     return `skips ${tool.name}. It has no name that a tool can take`;
   }
 
-  if (unnameable !== undefined && unnameable !== '') {
+  if (nonEmpty(unnameable)) {
     return `skips ${tool.name}. It takes ${unnameable}, which a tool cannot take`;
   }
 

@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -11,7 +11,7 @@ type NotFoundProps = {
   children: ReactNode;
 };
 
-export function NotFound({ title, to, children }: NotFoundProps): ReactElement {
+export function NotFound({ title, to, children }: NotFoundProps) {
   return (
     <PageNotice title={title}>
       <div className="flex flex-col items-center gap-3">

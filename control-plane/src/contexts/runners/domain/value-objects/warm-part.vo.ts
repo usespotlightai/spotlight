@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -50,7 +51,7 @@ export class WarmPart {
         const setup = each.setup?.trim();
         return {
           path: each.path.trim(),
-          setup: setup === undefined || setup === '' ? null : setup,
+          setup: !nonEmpty(setup) ? null : setup,
         };
       }),
       input.fingerprint,

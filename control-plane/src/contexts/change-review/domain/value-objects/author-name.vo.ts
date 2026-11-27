@@ -1,4 +1,4 @@
-import { nonEmpty } from '@change-review/domain/services/non-empty';
+import { textOrNull } from '@change-review/domain/services/text-or-null';
 const ANYONE = 'Someone';
 
 const ANYONE_ON_GITHUB = 'Someone on GitHub';
@@ -9,7 +9,7 @@ export class AuthorName {
   private constructor(readonly value: string) {}
 
   static of(raw: string | null): AuthorName {
-    return new AuthorName(nonEmpty(raw?.trim()) ?? ANYONE);
+    return new AuthorName(textOrNull(raw?.trim()) ?? ANYONE);
   }
 
   static spotlight(): AuthorName {
@@ -17,7 +17,7 @@ export class AuthorName {
   }
 
   static onGitHub(login: string | null): AuthorName {
-    return new AuthorName(nonEmpty(login?.trim()) ?? ANYONE_ON_GITHUB);
+    return new AuthorName(textOrNull(login?.trim()) ?? ANYONE_ON_GITHUB);
   }
 
   equals(other: AuthorName): boolean {

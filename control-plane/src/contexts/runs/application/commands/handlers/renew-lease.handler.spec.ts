@@ -43,19 +43,17 @@ const renewing = (reads: Run[], conflictsFirst = false) => {
 
   const handler = new RenewLeaseHandler(
     partial<RunRepository>({
-      findById: () =>
-        Promise.resolve(reads[Math.min(read++, reads.length - 1)]),
-      save: (run: Run) => {
+      findById: async () => reads[Math.min(read++, reads.length - 1)],
+      save: async (run: Run) => {
         if (!conflicted) {
           conflicted = true;
-          return Promise.reject(new RunVersionConflictError(run.id.value));
+          throw new RunVersionConflictError(run.id.value);
         }
         saved.push(run);
-        return Promise.resolve();
       },
     }),
     partial<RunnerClaimantsPort>({
-      claimantOf: () => Promise.resolve(partial<RunnerClaimant>({})),
+      claimantOf: async () => partial<RunnerClaimant>({}),
     }),
     { now: () => NOW, sleep: async () => {} },
   );

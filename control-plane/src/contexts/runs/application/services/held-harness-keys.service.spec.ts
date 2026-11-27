@@ -28,13 +28,13 @@ const launch = partial<HarnessLaunchPort>({
 });
 
 const held = (names: readonly string[]) => {
-  const namesIn = vi.fn(() => Promise.resolve(names));
+  const namesIn = vi.fn(async () => names);
 
   return {
     namesIn,
     subject: new HeldHarnessKeys(launch, {
       namesIn,
-      sandboxSecrets: () => Promise.resolve([]),
+      sandboxSecrets: async () => [],
     }),
   };
 };

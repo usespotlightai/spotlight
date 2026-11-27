@@ -1,5 +1,5 @@
 import { useDroppable } from '@dnd-kit/core';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import type { InboxDrop } from '@/hooks/useInboxDrag';
 import { cn } from '@/lib/utils';
@@ -10,11 +10,7 @@ type InboxDropZoneProps = {
   children: ReactNode;
 };
 
-export function InboxDropZone({
-  id,
-  className,
-  children,
-}: InboxDropZoneProps): ReactElement {
+export function InboxDropZone({ id, className, children }: InboxDropZoneProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (

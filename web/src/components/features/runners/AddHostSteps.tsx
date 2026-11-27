@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { CreatePoolForm } from '@/components/features/runners/CreatePoolForm';
 import { HostConnection } from '@/components/features/runners/HostConnection';
@@ -18,10 +18,7 @@ type AddHostStepsProps = {
   workspaceId: string;
 };
 
-export function AddHostSteps({
-  slug,
-  workspaceId,
-}: AddHostStepsProps): ReactElement {
+export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
   const creating = useCreateRunnerPool(workspaceId);
   const created = creating.data;
   const pools = useRunnerPools(workspaceId);

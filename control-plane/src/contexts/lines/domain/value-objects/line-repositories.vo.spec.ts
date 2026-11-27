@@ -3,6 +3,7 @@ import { MixedRunnerImagesError } from '@lines/domain/exceptions/mixed-runner-im
 import { LineRepositories } from '@lines/domain/value-objects/line-repositories.vo';
 import { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { RepositorySetup } from '@lines/domain/value-objects/repository-setup.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { describe, expect, it } from 'vitest';
@@ -14,9 +15,8 @@ const of = (...named: string[]) =>
 
 const repositoryConfig = (name: string, image?: string, setup?: string) =>
   LineRepositoryConfig.of(Repository.of(name), {
-    image: image !== undefined && image !== '' ? RunnerImage.of(image) : null,
-    setup:
-      setup !== undefined && setup !== '' ? RepositorySetup.of(setup) : null,
+    image: nonEmpty(image) ? RunnerImage.of(image) : null,
+    setup: nonEmpty(setup) ? RepositorySetup.of(setup) : null,
   });
 
 describe('LineRepositories', () => {

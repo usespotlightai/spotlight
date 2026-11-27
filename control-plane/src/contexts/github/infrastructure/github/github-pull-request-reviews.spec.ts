@@ -29,7 +29,7 @@ const answering = (
 
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string, init: RequestInit = {}) => {
+    vi.fn(async (url: string, init: RequestInit = {}) => {
       const request: SentRequest = {
         url,
         method: init.method ?? 'GET',
@@ -45,7 +45,7 @@ const answering = (
       requests.push(request);
       const { status, body } = reply(request);
 
-      return Promise.resolve(new Response(JSON.stringify(body), { status }));
+      return new Response(JSON.stringify(body), { status });
     }),
   );
 
@@ -55,10 +55,9 @@ const answering = (
 const reviews = (personal: string | null) =>
   new GitHubPullRequestReviews(
     {
-      credential: () =>
-        Promise.resolve({ username: 'x-access-token', password: 'app' }),
+      credential: async () => ({ username: 'x-access-token', password: 'app' }),
     },
-    { tokenFor: () => Promise.resolve(personal) },
+    { tokenFor: async () => personal },
   );
 
 afterEach(() => {
@@ -94,7 +93,7 @@ const isFiles = (url: string) => url.includes('/files');
 
 describe('GitHubPullRequestReviews', () => {
   it('submits an agent’s review as the app, without a byline, requesting no token from anyone', async () => {
-    const tokenFor = vi.fn(() => Promise.resolve('personal'));
+    const tokenFor = vi.fn(async () => 'personal');
     const requests = answering(({ url, method }) =>
       method === 'GET' && url.endsWith('/pulls/7')
         ? { status: 200, body: { head: { sha: 'abc123' } } }
@@ -105,11 +104,10 @@ describe('GitHubPullRequestReviews', () => {
 
     await new GitHubPullRequestReviews(
       {
-        credential: () =>
-          Promise.resolve({
-            username: 'x-access-token',
-            password: 'app',
-          }),
+        credential: async () => ({
+          username: 'x-access-token',
+          password: 'app',
+        }),
       },
       { tokenFor },
     ).submit({

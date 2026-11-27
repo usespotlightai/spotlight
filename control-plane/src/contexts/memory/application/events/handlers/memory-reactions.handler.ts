@@ -39,7 +39,7 @@ export class MemoryReactions {
     return this.transaction.inTransaction(async () => {
       const set = await this.sets.forTaskLocked(taskId);
 
-      await (set?.awaitsReviewIn(runId) === true
+      await (set?.awaitsReviewIn(runId)
         ? this.reviews.reopen(taskId, runId)
         : this.reviews.resolve(taskId, runId));
     });
@@ -81,7 +81,7 @@ export class MemoryReactions {
         at: event.decision.at,
       };
 
-      if (found?.retiredAs(retiring) === true) {
+      if (found?.retiredAs(retiring)) {
         return true;
       }
 
@@ -120,7 +120,7 @@ export class MemoryReactions {
     await this.transaction.inTransaction(async () => {
       const superseded = await this.memories.find(supersedes);
 
-      if (superseded?.isActive === true) {
+      if (superseded?.isActive) {
         await this.memories.save(
           superseded.supersedeWith(event.memoryId, this.clock.now()),
         );

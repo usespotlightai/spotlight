@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { nonEmpty } from '@/lib/non-empty';
@@ -13,7 +11,7 @@ type RunEmptyProps = {
   run: TeamRun;
 };
 
-export function RunEmpty({ slug, teamId, run }: RunEmptyProps): ReactElement {
+export function RunEmpty({ slug, teamId, run }: RunEmptyProps) {
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       <p className="text-muted-foreground text-sm">{idleNoteOf(run)}</p>

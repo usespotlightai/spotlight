@@ -1,9 +1,8 @@
-import type { ReactElement } from 'react';
 import { Link, type LinkProps } from 'react-router';
 
 import { useForwardTrail } from '@/lib/trail';
 
-export function TrailLink({ state, ...props }: LinkProps): ReactElement {
+export function TrailLink({ state, ...props }: LinkProps) {
   const trail = useForwardTrail();
   const given: unknown = state;
   const carried = typeof given === 'object' ? given : null;

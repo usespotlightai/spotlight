@@ -10,7 +10,6 @@ import {
   movedGroups,
   withMovedCodeTogether,
 } from '@change-review/domain/services/moved-code';
-import { nonEmpty } from '@change-review/domain/services/non-empty';
 import { PreviousStack } from '@change-review/domain/services/previous-stack';
 import { keptQuestions } from '@change-review/domain/services/shown-questions';
 import {
@@ -20,6 +19,7 @@ import {
 } from '@change-review/domain/services/stack-checks';
 import { stackPartsOf } from '@change-review/domain/services/stack-part';
 import { withTestsBesideTheirCode } from '@change-review/domain/services/test-placement';
+import { textOrNull } from '@change-review/domain/services/text-or-null';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
   type LayerDependency,
@@ -73,7 +73,7 @@ const numbered = (
       kind: cohort.kind,
       title: cohort.title.trim(),
       intent: cohort.intent.trim(),
-      joinedBecause: nonEmpty(cohort.joinedBecause?.trim()),
+      joinedBecause: textOrNull(cohort.joinedBecause?.trim()),
       layers: cohort.layers.map((layer, l) => {
         const layerId = LayerId.in(cohortId, l + 1);
 

@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts';
 
 import { BEST_VALUE } from '@/components/features/insights/BestValueMark';
@@ -45,7 +44,7 @@ const TipContent = ({
 }) => {
   const point = payload?.[0]?.payload;
 
-  if (active !== true || !point) {
+  if (!active || !point) {
     return null;
   }
 
@@ -93,7 +92,7 @@ export function AgentConfigScatter({
   replayed,
   measure,
   currency,
-}: AgentConfigScatterProps): ReactElement {
+}: AgentConfigScatterProps) {
   const cursor = useCursorTooltip();
   const hover = useDotHover();
   const frontier = frontierOf(points);

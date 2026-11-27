@@ -5,6 +5,7 @@ import { fieldOf } from '@platform/json/field-of';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import { isAddress, unreachable } from '@platform/outbound/reachable-addresses';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { Agent, buildConnector, type Dispatcher, fetch } from 'undici';
 
@@ -142,7 +143,7 @@ export class OutboundGuard implements OnApplicationShutdown {
         this.loopbackAllowed,
       );
 
-      return reason !== null && reason !== ''
+      return nonEmpty(reason)
         ? new OutboundBlockedError(host, `The address ${reason}`)
         : null;
     }
@@ -166,7 +167,7 @@ export class OutboundGuard implements OnApplicationShutdown {
       for (const each of addresses) {
         const reason = unreachable(each.address, named, this.loopbackAllowed);
 
-        if (reason !== null && reason !== '') {
+        if (nonEmpty(reason)) {
           done(
             new OutboundBlockedError(
               hostname.toLowerCase(),
@@ -180,7 +181,7 @@ export class OutboundGuard implements OnApplicationShutdown {
 
       const first = firstOf(addresses);
 
-      if (options.all === true) {
+      if (options.all) {
         done(null, addresses);
       } else if (first !== undefined) {
         done(null, first.address, first.family);

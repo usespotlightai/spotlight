@@ -20,25 +20,19 @@ const reading = (
   } = {},
 ) => {
   const connections = {
-    isConnected: vi.fn(() => Promise.resolve(over.connected ?? false)),
+    isConnected: vi.fn(async () => over.connected ?? false),
   } satisfies WorkspaceConnectionsPort;
 
   const handler = new ReadGitHubHandler(
     partial<WorkspaceReaderPort>({
-      findForMember: vi.fn(() =>
-        Promise.resolve(
-          over.member === false
-            ? null
-            : partial<WorkspaceDetail>({ id: 'ws_1' }),
-        ),
+      findForMember: vi.fn(async () =>
+        over.member === false ? null : partial<WorkspaceDetail>({ id: 'ws_1' }),
       ),
     }),
     connections,
     {
-      installUrl: vi.fn(() =>
-        Promise.resolve(
-          over.installUrl === undefined ? INSTALL : over.installUrl,
-        ),
+      installUrl: vi.fn(async () =>
+        over.installUrl === undefined ? INSTALL : over.installUrl,
       ),
     } satisfies GitHubAppPort,
   );

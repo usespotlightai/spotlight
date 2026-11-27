@@ -12,6 +12,7 @@ import { LONGEST_PAGE } from '@shared-kernel/application/dto/page.dto';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -161,7 +162,7 @@ export class PlatformPools {
 
       open.push(...page.items.map((each) => each.id));
       after = page.next;
-    } while (after !== null && after !== '');
+    } while (nonEmpty(after));
 
     return open;
   }

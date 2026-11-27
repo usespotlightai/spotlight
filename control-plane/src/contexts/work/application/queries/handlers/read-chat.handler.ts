@@ -23,7 +23,7 @@ export class ReadChatHandler implements QueryHandlerPort<
       const chatId = ChatId.of(query.chatId);
       const ownership = await this.chats.ownershipOf(chatId);
 
-      return ownership?.teamId.equals(teamId) === true &&
+      return ownership?.teamId.equals(teamId) &&
         (await this.access.opensChat(ownership, UserId.of(query.viewerId)))
         ? await this.chats.read(teamId, chatId)
         : null;

@@ -17,8 +17,8 @@ const calling = (id: string) => ({
 });
 
 const catalogCalls = (
-  answering: (tool: CatalogTool) => Promise<unknown> = () =>
-    Promise.resolve('Three pages.'),
+  answering: (tool: CatalogTool) => Promise<unknown> = async () =>
+    'Three pages.',
 ) => {
   const called: { tool: string; workspaceId: string; runId: string }[] = [];
 

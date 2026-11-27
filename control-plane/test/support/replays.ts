@@ -37,6 +37,7 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -60,11 +61,11 @@ export const plannedCandidate = async (
       .get(StationConfigs)
       .validate(LineId.of(lineId), station.stationId, block));
   const address =
-    station && teamKey !== null && teamKey !== ''
+    station && nonEmpty(teamKey)
       ? StationPath.of(teamKey, station.lineKey, station.key)
       : null;
 
-  if (!station || !address || validated?.ok !== true) {
+  if (!station || !address || !validated?.ok) {
     throw new Error(`Station ${stationKey} cannot replay the planned block.`);
   }
 

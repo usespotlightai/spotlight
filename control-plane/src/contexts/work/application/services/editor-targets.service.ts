@@ -44,7 +44,7 @@ export class EditorTargets {
         viewer,
       );
 
-      if (workspaceId?.equals(found.workspaceId) !== true) {
+      if (!workspaceId?.equals(found.workspaceId)) {
         return null;
       }
     }

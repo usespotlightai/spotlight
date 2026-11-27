@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   GitAnswerDto,
   GitCallDto,
@@ -57,13 +58,13 @@ const once = (bytes: Uint8Array): AsyncIterable<Uint8Array> => ({
     let sent = false;
 
     return {
-      next: (): Promise<IteratorResult<Uint8Array>> => {
+      next: async (): Promise<IteratorResult<Uint8Array>> => {
         const result: IteratorResult<Uint8Array> = sent
           ? { done: true, value: undefined }
           : { done: false, value: bytes };
         sent = true;
 
-        return Promise.resolve(result);
+        return result;
       },
     };
   },
@@ -152,7 +153,7 @@ const commandsIn = async (
 
     const next = await rest.next();
 
-    if (next.done === true) {
+    if (next.done) {
       return null;
     }
 
@@ -180,7 +181,7 @@ const drained = async (rest: AsyncIterator<Uint8Array>): Promise<void> => {
     for (;;) {
       const next = await Promise.race([rest.next(), late]);
 
-      if (next === 'late' || next.done === true) {
+      if (next === 'late' || next.done) {
         return;
       }
     }
@@ -261,7 +262,7 @@ const reportOf = (
     capabilities.includes(each),
   );
 
-  if (band === undefined || band === '') {
+  if (!nonEmpty(band)) {
     return status;
   }
 
@@ -281,10 +282,7 @@ export class GitReceivePack implements ReceivePackPort {
   async read(call: GitCallDto): Promise<PushRead> {
     const encoding = headerOf(call.headers, 'content-encoding');
 
-    if (
-      !call.body ||
-      (encoding !== undefined && encoding !== '' && encoding !== 'identity')
-    ) {
+    if (!call.body || (nonEmpty(encoding) && encoding !== 'identity')) {
       return {
         kind: 'unreadable',
         answer: textAnswer(400, 'Spotlight reads only uncompressed pushes.'),
@@ -327,7 +325,7 @@ export class GitReceivePack implements ReceivePackPort {
               yield read;
               for (
                 let next = await rest.next();
-                next.done !== true;
+                !next.done;
                 next = await rest.next()
               ) {
                 yield next.value;

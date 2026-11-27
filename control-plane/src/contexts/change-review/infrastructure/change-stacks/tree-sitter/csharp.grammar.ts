@@ -8,6 +8,7 @@ import {
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const STRINGS = new Set([
@@ -72,7 +73,7 @@ const callRoute = (node: Node): GrammarRoute | null => {
 
   return MAP_CALL.test(verb) &&
     path &&
-    ((method !== undefined && method !== '') || literal.startsWith('/'))
+    (nonEmpty(method) || literal.startsWith('/'))
     ? { method: method?.toUpperCase() ?? 'ANY', path: literal }
     : null;
 };
@@ -167,7 +168,7 @@ export const CSHARP_GRAMMAR: Grammar = {
       named(node).find((child) => child.id !== alias?.id)?.text ?? '';
     const imported = specifier.split('.').pop();
 
-    return alias && imported !== undefined && imported !== ''
+    return alias && nonEmpty(imported)
       ? [{ local: alias.text, imported, specifier }]
       : [];
   },

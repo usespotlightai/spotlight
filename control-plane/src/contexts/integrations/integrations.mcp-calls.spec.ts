@@ -35,6 +35,7 @@ import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -138,15 +139,13 @@ const callAuthAs = (
   token: string,
   refreshed: string | null = null,
 ): CallAuth & { unauthorized: ReturnType<typeof vi.fn> } => {
-  const unauthorized = vi.fn(() =>
-    Promise.resolve(
-      refreshed !== null && refreshed !== '' ? AccessToken.of(refreshed) : null,
-    ),
+  const unauthorized = vi.fn(async () =>
+    nonEmpty(refreshed) ? AccessToken.of(refreshed) : null,
   );
 
   return {
     unauthorized,
-    workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
+    workspace: async () => WorkspaceId.of('ws_1'),
     connection: {
       token: AccessToken.of(token),
       owner: ConnectionOwner.person(UserId.of('ada')),
@@ -159,11 +158,9 @@ const callAuthAs = (
 
 describe('a tool an MCP server offers', () => {
   it('calls the server’s own tool with the inputs, in a session of the person’s own', async () => {
-    const call = vi.fn(() =>
-      Promise.resolve({
-        content: [{ type: 'text' as const, text: '{"deleted":"ENG-1"}' }],
-      }),
-    );
+    const call = vi.fn(async () => ({
+      content: [{ type: 'text' as const, text: '{"deleted":"ENG-1"}' }],
+    }));
     const resolved = await resolving(call);
 
     await expect(
@@ -202,8 +199,8 @@ describe('a tool an MCP server offers', () => {
   });
 
   it('fails when the connection cannot be refreshed', async () => {
-    const resolved = await resolving(() => {
-      return Promise.reject(new McpUnauthorizedError(SERVER));
+    const resolved = await resolving(async () => {
+      throw new McpUnauthorizedError(SERVER);
     });
 
     await expect(
@@ -214,8 +211,8 @@ describe('a tool an MCP server offers', () => {
   });
 
   it('fails a call the server asked a question in the middle of, typed as such', async () => {
-    const resolved = await resolving(() => {
-      return Promise.reject(new McpQuestionUnsupportedError());
+    const resolved = await resolving(async () => {
+      throw new McpQuestionUnsupportedError();
     });
 
     await expect(
@@ -225,14 +222,14 @@ describe('a tool an MCP server offers', () => {
 
   it('calls the server within the workspace list, so each request it makes honours it', async () => {
     const allowed: boolean[] = [];
-    const resolved = await resolving(() => {
+    const resolved = await resolving(async () => {
       allowed.push(
         OutboundScope.allows('mcp.tracker.example'),
         OutboundScope.allows('elsewhere.example'),
       );
-      return Promise.resolve({
+      return {
         content: [{ type: 'text' as const, text: 'done' }],
-      });
+      };
     }, scopedTo('mcp.tracker.example'));
 
     await answerOf(resolved.attempt({}, callAuthAs('ada-token'), null));
@@ -243,8 +240,7 @@ describe('a tool an MCP server offers', () => {
   it('calls within the cached workspace list, never a fresh read', async () => {
     const recorder = scopeRecorder();
     const resolved = await resolving(
-      () =>
-        Promise.resolve({ content: [{ type: 'text' as const, text: 'done' }] }),
+      async () => ({ content: [{ type: 'text' as const, text: 'done' }] }),
       recorder.scope,
     );
 
@@ -258,8 +254,8 @@ describe('a tool an MCP server offers', () => {
       'mcp.tracker.example',
       'Host is not on the allowed list.',
     );
-    const resolved = await resolving(() => {
-      return Promise.reject(blocked);
+    const resolved = await resolving(async () => {
+      throw blocked;
     });
 
     await expect(

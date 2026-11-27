@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import type { Approval } from '@/lib/approval';
@@ -20,7 +18,7 @@ export function ApprovalDismissal({
   onReason,
   onDismiss,
   onCancel,
-}: ApprovalDismissalProps): ReactElement {
+}: ApprovalDismissalProps) {
   return (
     <form
       className="flex items-center gap-1"

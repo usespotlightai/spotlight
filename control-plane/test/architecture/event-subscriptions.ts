@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import { reachableFrom } from './context-dependencies';
@@ -164,7 +165,7 @@ const registrationViolations = (
 ): Violation[] => {
   const context = contextOf(file.path);
 
-  if (context === null || context === '') {
+  if (!nonEmpty(context)) {
     return [];
   }
 

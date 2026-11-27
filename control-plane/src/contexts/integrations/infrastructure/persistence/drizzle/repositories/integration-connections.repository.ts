@@ -1,12 +1,11 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { IntegrationConnectionVersionConflictError } from '@integrations/domain/exceptions/integration-connection-version-conflict.error';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
-import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { integrationConnection } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
@@ -22,6 +21,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -51,9 +52,7 @@ const inPlace = (connection: IntegrationConnection) =>
   );
 
 @Injectable()
-export class DrizzleIntegrationConnections
-  implements IntegrationConnectionRepository
-{
+export class DrizzleIntegrationConnections implements IntegrationConnectionRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -66,17 +65,19 @@ export class DrizzleIntegrationConnections
     integration: IntegrationKey,
     owner: ConnectionOwner,
   ): Promise<IntegrationConnection | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(integrationConnection)
-      .where(
-        and(
-          eq(integrationConnection.teamId, teamId.value),
-          eq(integrationConnection.integration, integration.value),
-          eq(integrationConnection.owner, owner.key),
-        ),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(integrationConnection)
+        .where(
+          and(
+            eq(integrationConnection.teamId, teamId.value),
+            eq(integrationConnection.integration, integration.value),
+            eq(integrationConnection.owner, owner.key),
+          ),
+        )
+        .limit(1),
+    );
 
     return found ? this.rehydrate(found) : null;
   }
@@ -247,7 +248,7 @@ export class DrizzleIntegrationConnections
       accessToken: AccessToken.of(
         await this.decrypted(row, 'access', row.accessToken),
       ),
-      refreshToken: (row.refreshToken !== null && row.refreshToken !== '')
+      refreshToken: nonEmpty(row.refreshToken)
         ? RefreshToken.rehydrate(
             await this.decrypted(row, 'refresh', row.refreshToken),
           )

@@ -241,7 +241,7 @@ const checksOf = (calibration: ReplayOutcome): CheckConsistency | null => {
     rechecked: requested.filter((each) => each.checksFlipped !== null).length,
     pending: requested.filter((each) => each.recheck?.pending === true).length,
     flaky: requested.flatMap((each) =>
-      each.checksFlipped === true && each.run && each.checks && each.recheck
+      each.checksFlipped && each.run && each.checks && each.recheck
         ? [
             {
               taskId: each.taskId,
@@ -340,8 +340,7 @@ export const setHealthOf = (
       newest.flatMap((each) => {
         const candidate = candidateOf(each, candidates);
 
-        return candidate?.isOracle === true &&
-          candidate.basedOn.equals(liveFingerprint)
+        return candidate?.isOracle && candidate.basedOn.equals(liveFingerprint)
           ? [{ replay: each, candidate }]
           : [];
       }),

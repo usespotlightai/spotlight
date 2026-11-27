@@ -1,5 +1,4 @@
 import { Hand } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { Pill } from '@/components/shared/Pill';
 import { WithTooltip } from '@/components/shared/WithTooltip';
@@ -14,7 +13,7 @@ type OnHoldPillProps = {
   to?: string;
 };
 
-export function OnHoldPill({ hold, to }: OnHoldPillProps): ReactElement {
+export function OnHoldPill({ hold, to }: OnHoldPillProps) {
   const me = useMe();
   const pill = (
     <Pill lead={<Hand className="size-3.5 shrink-0" aria-hidden />}>

@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { useCollapsible } from '@/hooks/useCollapsible';
 
@@ -12,7 +12,7 @@ export function CollapsibleRows({
   open,
   label,
   children,
-}: CollapsibleRowsProps): ReactElement | null {
+}: CollapsibleRowsProps) {
   const { rows, shown } = useCollapsible(open);
 
   if (!shown) {

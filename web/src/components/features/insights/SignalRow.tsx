@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { SignalDumbbell } from '@/components/features/insights/SignalDumbbell';
 import {
@@ -32,11 +32,7 @@ type SignalRowProps = {
   action?: ReactNode;
 };
 
-export function SignalRow({
-  reading,
-  nested = true,
-  action,
-}: SignalRowProps): ReactElement {
+export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
   const acted = Boolean(action);
   const pictured = acted
     ? {}

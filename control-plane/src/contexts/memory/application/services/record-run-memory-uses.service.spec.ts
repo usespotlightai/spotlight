@@ -65,8 +65,12 @@ const recording = (
 ) => {
   const dispatched: DomainEvent[] = [];
   const record = vi.fn(
-    (runId: RunId, via: string, memories: readonly MemoryId[], at: Date) =>
-      Promise.resolve({ runId, via, memories, at }),
+    async (
+      runId: RunId,
+      via: string,
+      memories: readonly MemoryId[],
+      at: Date,
+    ) => ({ runId, via, memories, at }),
   );
   const lookedUp: { teamId: TeamId; handles: string[] }[] = [];
   const service = new RecordRunMemoryUses(
@@ -79,29 +83,26 @@ const recording = (
         },
       }),
       { inTransaction: (work) => work() },
-      { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+      { now: () => NOW, sleep: async () => undefined },
     ),
     partial<WorkPort>({
-      contextOfRun: () =>
-        Promise.resolve({
-          teamId: TEAM,
-          lineId: LineId.of('line_1'),
-          stationId: StationId.of('station_1'),
-          repositories: [API],
-        }),
-      memoryFilesRead: () => Promise.resolve(referenced),
+      contextOfRun: async () => ({
+        teamId: TEAM,
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_1'),
+        repositories: [API],
+      }),
+      memoryFilesRead: async () => referenced,
     }),
     partial<MemoryRepository>({
-      withHandles: (teamId: TeamId, handles: MemoryHandle[]) => {
+      withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {
         lookedUp.push({ teamId, handles: handles.map((each) => each.value) });
-        return Promise.resolve(
-          handles.map((each) =>
-            storedMemory(
-              each,
-              isActive(each.value),
-              applies(each.value),
-              about(each.value),
-            ),
+        return handles.map((each) =>
+          storedMemory(
+            each,
+            isActive(each.value),
+            applies(each.value),
+            about(each.value),
           ),
         );
       },

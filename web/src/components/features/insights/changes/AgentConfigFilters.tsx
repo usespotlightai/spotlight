@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MenuPicker, type PickerOption } from '@/components/shared/MenuPicker';
 import type { StationNames } from '@/lib/insights';
 import {
@@ -37,7 +35,7 @@ export function AgentConfigFilters({
   sizes,
   onNarrow,
   onMeasure,
-}: AgentConfigFiltersProps): ReactElement {
+}: AgentConfigFiltersProps) {
   const measures = OUTCOME_MEASURES.filter(
     (each) => each.id !== 'judge' || judged,
   ).map((each) => ({ id: each.id, label: each.label }));

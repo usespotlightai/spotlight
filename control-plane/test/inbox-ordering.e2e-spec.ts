@@ -4,6 +4,7 @@ import type { PersonReaderPort } from '@identity/application/ports/person-reader
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -33,7 +34,7 @@ beforeAll(async () => {
   notices = new DrizzleNoticeRepository(context, { dispatch: async () => {} });
   reader = new DrizzleInboxReader(
     database.db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     new RunReadModel(new DrizzleRunFactsReader(context)),
   );
 }, 60_000);
@@ -134,7 +135,7 @@ describe('the order of inbox notices', () => {
 
       seen.push(...idsOf(page.items));
       before = page.next;
-    } while (before !== null && before !== '');
+    } while (nonEmpty(before));
 
     expect(seen).toEqual(
       [...resolveOrder].reverse().map((place) => raised[place]?.id.value),

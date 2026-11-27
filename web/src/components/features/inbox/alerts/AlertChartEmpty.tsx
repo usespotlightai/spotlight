@@ -1,8 +1,6 @@
-import type { ReactElement } from 'react';
-
 import { ALERT_CHART_HEIGHT } from '@/components/features/inbox/alerts/AlertChart';
 
-export function AlertChartEmpty(): ReactElement {
+export function AlertChartEmpty() {
   return (
     <p
       data-slot="alert-chart-empty"

@@ -79,9 +79,7 @@ const splitEntriesOf = (stored: readonly StoredSplitEntry[]) =>
   }));
 
 @Injectable()
-export class DrizzleReplayedCandidatesReader
-  implements ReplayedCandidatesReaderPort
-{
+export class DrizzleReplayedCandidatesReader implements ReplayedCandidatesReaderPort {
   constructor(
     private readonly context: DrizzleContext,
     private readonly projection: DrizzleReplayOutcomes,
@@ -300,7 +298,9 @@ export class DrizzleReplayedCandidatesReader
     }));
   }
 
-  private async outcomesWhere(where: SQL | undefined): Promise<readonly ReplayOutcome[]> {
+  private async outcomesWhere(
+    where: SQL | undefined,
+  ): Promise<readonly ReplayOutcome[]> {
     const rows = await this.context.db
       .select()
       .from(replayOutcome)

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
@@ -15,7 +13,7 @@ export function InsightsTileSkeleton({
   delta,
   detail,
   trend,
-}: TileBones): ReactElement {
+}: TileBones) {
   return (
     <SkeletonBlock className="@max-xl/pane:odd:last:col-span-2">
       <div
@@ -33,10 +31,7 @@ export function InsightsTileSkeleton({
         <dd className="flex flex-1 flex-col">
           <span className="flex flex-col items-start gap-0.5">
             <SkeletonLine
-              className={cn(
-                wide === true ? 'w-20' : 'w-12',
-                'text-xl leading-7',
-              )}
+              className={cn(wide ? 'w-20' : 'w-12', 'text-xl leading-7')}
             />
             {delta === true && (
               <SkeletonLine className="w-12 text-sm leading-5" />

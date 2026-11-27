@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
 import { useAddTask } from '@/hooks/api/useAddTask';
 import type { LineResponseDto } from '@/lib/api';
@@ -19,7 +17,7 @@ export function AddTaskDialog({
   line,
   stationId,
   onClose,
-}: AddTaskDialogProps): ReactElement {
+}: AddTaskDialogProps) {
   const addTask = useAddTask();
 
   return (

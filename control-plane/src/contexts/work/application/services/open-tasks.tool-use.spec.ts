@@ -96,10 +96,10 @@ const using = (
   found: readonly OpenTaskReading[],
 ) => {
   const lines = partial<LineMapsPort>({
-    findByStation: vi.fn(() => Promise.resolve(line)),
+    findByStation: vi.fn(async () => line),
   });
   const tasks = {
-    newest: vi.fn<OpenTaskReaderPort['newest']>(() => Promise.resolve(found)),
+    newest: vi.fn<OpenTaskReaderPort['newest']>(async () => found),
   } satisfies OpenTaskReaderPort;
 
   return { tasks, tool: new OpenTasksToolUse(lines, tasks) };

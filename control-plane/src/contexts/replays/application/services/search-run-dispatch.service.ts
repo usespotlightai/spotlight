@@ -89,7 +89,7 @@ export class SearchRunDispatch implements SearchRunDispatching {
       order.stationId,
     );
 
-    if (station?.runsAnAgent !== true) {
+    if (!station?.runsAnAgent) {
       return { queued: false };
     }
 
@@ -154,7 +154,7 @@ export class SearchRunDispatch implements SearchRunDispatching {
       return false;
     }
 
-    if (known.requester?.equals(requesterOf(order)) !== true) {
+    if (!known.requester?.equals(requesterOf(order))) {
       throw new InconsistentStateError(
         'run',
         `${order.run.value} is already a run of something other than iteration ${order.iteration} of search ${order.searchId.value}`,

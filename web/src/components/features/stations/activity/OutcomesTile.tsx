@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TONE_FILL } from '@/components/shared/outcome-tones';
 import { formatShare, type ShownDelta } from '@/lib/insights';
@@ -29,10 +27,7 @@ const runsOf = (count: number): string =>
 const tasksOf = (count: number): string =>
   `${count} ${count === 1 ? 'task' : 'tasks'}`;
 
-export function OutcomesTile({
-  tally,
-  changes,
-}: OutcomesTileProps): ReactElement {
+export function OutcomesTile({ tally, changes }: OutcomesTileProps) {
   const parts = outcomePartsOf(tally);
   const accepted = parts.at(0);
   const rest = parts.slice(1);

@@ -83,30 +83,26 @@ const pushing = (...refs: readonly string[]): ReceivePackPort => {
   );
 
   return {
-    read: vi.fn((): Promise<PushRead> =>
-      Promise.resolve({
-        kind: 'read',
-        push: {
-          updates,
-          call: forwarded,
-          reported: (answer, accepted) => ({
-            ...answer,
-            body: {
-              async *[Symbol.asyncIterator]() {
-                yield new Uint8Array();
-                await accepted(updates);
-              },
+    read: vi.fn(async (): Promise<PushRead> => ({
+      kind: 'read',
+      push: {
+        updates,
+        call: forwarded,
+        reported: (answer, accepted) => ({
+          ...answer,
+          body: {
+            async *[Symbol.asyncIterator]() {
+              yield new Uint8Array();
+              await accepted(updates);
             },
-          }),
-          refused: vi.fn((reason: string) =>
-            Promise.resolve({
-              ...REFUSED,
-              headers: { reason },
-            }),
-          ),
-        },
-      }),
-    ),
+          },
+        }),
+        refused: vi.fn(async (reason: string) => ({
+          ...REFUSED,
+          headers: { reason },
+        })),
+      },
+    })),
   };
 };
 
@@ -267,17 +263,15 @@ const carrying = (
   receivePack: ReceivePackPort = pushing('refs/heads/fix/icons'),
 ) => {
   const git = {
-    call: vi.fn(() =>
-      Promise.resolve({ status: 200, headers: {}, body: null }),
-    ),
+    call: vi.fn(async () => ({ status: 200, headers: {}, body: null })),
   };
-  const checks = { leasedWork: vi.fn(() => Promise.resolve(checking)) };
-  const leases = { leaseOf: vi.fn(() => Promise.resolve(held)) };
+  const checks = { leasedWork: vi.fn(async () => checking) };
+  const leases = { leaseOf: vi.fn(async () => held) };
   const tasks = {
-    find: vi.fn(() => Promise.resolve(existing)),
-    startingFrom: vi.fn(() => Promise.resolve([])),
-    onBranch: vi.fn(() => Promise.resolve(null)),
-    save: vi.fn((_task: Task) => Promise.resolve()),
+    find: vi.fn(async () => existing),
+    startingFrom: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
+    save: vi.fn(async (_task: Task) => {}),
   };
 
   const service = new CarryGitCall(
@@ -285,10 +279,10 @@ const carrying = (
       runLeasesOver(() => claimed?.run ?? null),
       partial<TaskRepository>(tasks),
       partial<ChatRepository>({
-        find: vi.fn(() => Promise.resolve(chat())),
+        find: vi.fn(async () => chat()),
       }),
       partial<LineMapsPort>({
-        findByStation: vi.fn(() => Promise.resolve(lineWorking(repositories))),
+        findByStation: vi.fn(async () => lineWorking(repositories)),
       }),
       dispatchesOf(
         ...[claimed && dispatchOf(claimed.requested)].filter(
@@ -298,7 +292,7 @@ const carrying = (
       { now: () => new Date(), sleep: async () => {} },
     ),
     {
-      isConnected: vi.fn(() => Promise.resolve(true)),
+      isConnected: vi.fn(async () => true),
     },
     git,
     checks,
@@ -415,7 +409,7 @@ describe('CarryGitCall', () => {
       null,
       null,
       {
-        read: () => Promise.resolve({ kind: 'unreadable', answer: unreadable }),
+        read: async () => ({ kind: 'unreadable', answer: unreadable }),
       },
     );
 

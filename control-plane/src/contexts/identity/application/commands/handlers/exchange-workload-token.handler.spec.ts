@@ -58,25 +58,22 @@ const exchanging = (
     adding?: Error;
   } = {},
 ) => {
-  const add = vi.fn(() => {
+  const add = vi.fn(async () => {
     if (over.adding) {
-      return Promise.reject(over.adding);
+      throw over.adding;
     }
-    return Promise.resolve();
   });
   const recorder = scopeRecorder();
   const verifiedIn: (string | null)[] = [];
-  const verify = vi.fn(() => {
+  const verify = vi.fn(async () => {
     verifiedIn.push(recorder.current());
-    return Promise.resolve(over.claims === undefined ? CLAIMS : over.claims);
+    return over.claims === undefined ? CLAIMS : over.claims;
   });
   const handler = new ExchangeWorkloadTokenHandler(
     partial<OidcTrustRepository>({
-      find: vi.fn(() =>
-        Promise.resolve(over.trust === undefined ? TRUST : over.trust),
-      ),
-      findLocked: vi.fn(() =>
-        Promise.resolve(over.locked === undefined ? TRUST : over.locked),
+      find: vi.fn(async () => (over.trust === undefined ? TRUST : over.trust)),
+      findLocked: vi.fn(async () =>
+        over.locked === undefined ? TRUST : over.locked,
       ),
     }),
     partial<WorkspaceTokenRepository>({ add }),

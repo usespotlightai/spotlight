@@ -81,19 +81,17 @@ const setUp = (
   const steps = stepsOf(step);
   const inMemory = firingsInMemory(stored);
   const history = {
-    recentRepeats: vi.fn(() => Promise.resolve(repeats)),
-    chainOf: vi.fn(() => Promise.resolve(null)),
+    recentRepeats: vi.fn(async () => repeats),
+    chainOf: vi.fn(async () => null),
   };
   const tasks = {
-    of: vi.fn(() => Promise.resolve(task)),
-    ofPullRequest: vi.fn(() => Promise.resolve(task)),
+    of: vi.fn(async () => task),
+    ofPullRequest: vi.fn(async () => task),
   } satisfies TasksForHooksPort;
   const notes = {
-    noted: vi.fn(() => Promise.resolve(true)),
-    failed: vi.fn((_report: HookFailureReport) => Promise.resolve(notice)),
-    movedOn: vi.fn((_taskId: string, _stationKey: string) =>
-      Promise.resolve(movedOn),
-    ),
+    noted: vi.fn(async () => true),
+    failed: vi.fn(async (_report: HookFailureReport) => notice),
+    movedOn: vi.fn(async (_taskId: string, _stationKey: string) => movedOn),
   } satisfies TaskNotesFromHooksPort;
   const taskNotes = {
     loopNotice: async (report: LoopNoticeReport): Promise<LoopNotice> => {
@@ -120,7 +118,7 @@ const setUp = (
       notes.movedOn(taskId.value, stationKey.value),
   } satisfies HookTaskNotesPort;
   const causation = causationInMemory();
-  const changedIn = vi.fn(() => Promise.resolve(['db/migrations/1.sql']));
+  const changedIn = vi.fn(async () => ['db/migrations/1.sql']);
 
   return {
     runtime,

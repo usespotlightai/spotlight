@@ -15,16 +15,14 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const authenticator: RunnerAuthenticatorPort = {
-  authenticate: (credential: HostCredentials) =>
-    Promise.resolve(
-      credential.bearer === 'pool-token'
-        ? {
-            source: { kind: 'pool', id: 'pool_1' },
-            workspaceId: WorkspaceId.of('ws_1'),
-            workingCopies: null,
-          }
-        : null,
-    ),
+  authenticate: async (credential: HostCredentials) =>
+    credential.bearer === 'pool-token'
+      ? {
+          source: { kind: 'pool', id: 'pool_1' },
+          workspaceId: WorkspaceId.of('ws_1'),
+          workingCopies: null,
+        }
+      : null,
 };
 
 const launch = partial<HarnessLaunchPort>({
@@ -43,39 +41,34 @@ const launch = partial<HarnessLaunchPort>({
 const POOL = { bearer: 'pool-token', trust: undefined };
 
 const handler = () => {
-  const sealedForHost = vi.fn((request: HostSecretFetch) =>
-    Promise.resolve({
-      secrets: request.secrets
-        .filter((each) => each !== 'OPENAI_API_KEY')
-        .map((each) => ({
-          secret: each,
-          host:
-            each === 'ANTHROPIC_API_KEY'
-              ? 'api.anthropic.com'
-              : 'api.openai.com',
-          location: 'header',
-          name: 'authorization',
-          prefix: 'Bearer ',
-          sealed: `sealed(${each})`,
-        })),
-      denied: request.secrets
-        .filter((each) => each === 'OPENAI_API_KEY')
-        .map((secret) => ({ secret, reason: 'not bound to any host' })),
-    }),
-  );
+  const sealedForHost = vi.fn(async (request: HostSecretFetch) => ({
+    secrets: request.secrets
+      .filter((each) => each !== 'OPENAI_API_KEY')
+      .map((each) => ({
+        secret: each,
+        host:
+          each === 'ANTHROPIC_API_KEY' ? 'api.anthropic.com' : 'api.openai.com',
+        location: 'header',
+        name: 'authorization',
+        prefix: 'Bearer ',
+        sealed: `sealed(${each})`,
+      })),
+    denied: request.secrets
+      .filter((each) => each === 'OPENAI_API_KEY')
+      .map((secret) => ({ secret, reason: 'not bound to any host' })),
+  }));
 
   return {
     sealedForHost,
     subject: new HarnessKeysHandler(
       authenticator,
       new HeldHarnessKeys(launch, {
-        sandboxSecrets: () => Promise.resolve([]),
-        namesIn: () =>
-          Promise.resolve([
-            'ANTHROPIC_API_KEY',
-            'LINEAR_API_KEY',
-            'OPENAI_API_KEY',
-          ]),
+        sandboxSecrets: async () => [],
+        namesIn: async () => [
+          'ANTHROPIC_API_KEY',
+          'LINEAR_API_KEY',
+          'OPENAI_API_KEY',
+        ],
       }),
       { sealedForHost },
     ),

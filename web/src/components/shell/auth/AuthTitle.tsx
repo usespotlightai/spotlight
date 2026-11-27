@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -8,11 +8,7 @@ type AuthTitleProps = {
   children: ReactNode;
 };
 
-export function AuthTitle({
-  title,
-  large = false,
-  children,
-}: AuthTitleProps): ReactElement {
+export function AuthTitle({ title, large = false, children }: AuthTitleProps) {
   return (
     <div
       className={cn(

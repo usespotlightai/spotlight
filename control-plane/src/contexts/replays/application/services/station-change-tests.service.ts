@@ -57,6 +57,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -120,7 +121,7 @@ export class StationChangeTests {
     const station = await this.lines.station(lineId, stationId);
 
     if (
-      station?.workspaceId.equals(request.workspaceId) !== true ||
+      !station?.workspaceId.equals(request.workspaceId) ||
       !station.teamId.equals(request.teamId)
     ) {
       return this.refused('station-gone');
@@ -131,7 +132,7 @@ export class StationChangeTests {
     if (!live) {
       return this.refused('not-replayable');
     }
-    if (live.search?.enabled !== true) {
+    if (!live.search?.enabled) {
       return this.refused('search-off');
     }
 
@@ -324,10 +325,7 @@ export class StationChangeTests {
       const outcome = await this.transaction.inTransaction(async () => {
         const search = await this.searches.locked(seen.id);
 
-        if (
-          search?.takesRequests !== true ||
-          search.requestIteration !== iteration
-        ) {
+        if (!search?.takesRequests || search.requestIteration !== iteration) {
           return this.refused('search-running');
         }
 
@@ -401,7 +399,7 @@ export class StationChangeTests {
       return null;
     }
 
-    return search.openingRequest?.equals(earlier.id) === true
+    return search.openingRequest?.equals(earlier.id)
       ? { outcome: 'started', ...scopeOf(search) }
       : {
           outcome: 'joined',
@@ -423,10 +421,9 @@ export class StationChangeTests {
         ? seed.overlaidWith(request.fields)
         : request.fields,
     );
-    const address =
-      teamKey !== null && teamKey !== ''
-        ? StationPath.of(teamKey, station.lineKey, station.key)
-        : null;
+    const address = nonEmpty(teamKey)
+      ? StationPath.of(teamKey, station.lineKey, station.key)
+      : null;
 
     if (!validated || !address) {
       return { ok: false, outcome: this.refused('station-gone') };

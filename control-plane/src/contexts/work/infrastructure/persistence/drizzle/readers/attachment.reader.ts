@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   AttachmentHolder,
   AttachmentReaderPort,
@@ -43,8 +44,7 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
       : found !== undefined &&
           found.chatStartedById !== null &&
           found.chatStartedById !== '' &&
-          found.chatTeamId !== null &&
-          found.chatTeamId !== ''
+          nonEmpty(found.chatTeamId)
         ? {
             kind: 'chat',
             startedById: found.chatStartedById,

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ImageGallery } from '@/components/shared/attachment/ImageGallery';
 import { PendingAttachmentChip } from '@/components/shared/attachment/PendingAttachmentChip';
 import { useLeaving } from '@/hooks/useLeaving';
@@ -18,7 +16,7 @@ export function PendingAttachments({
   attachments,
   onRemove,
   className,
-}: PendingAttachmentsProps): ReactElement | null {
+}: PendingAttachmentsProps) {
   const { leaving, leave } = useLeaving(LEAVING_MS, onRemove);
 
   if (attachments.length === 0) {

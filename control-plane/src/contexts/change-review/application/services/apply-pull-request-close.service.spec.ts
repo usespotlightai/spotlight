@@ -64,33 +64,29 @@ const applying = (
     over.stored === undefined ? decided() : over.stored;
 
   const work = partial<WorkPort>({
-    taskWithPullRequest: (): Promise<ReviewedTask | null> =>
-      Promise.resolve(
-        over.task === null
-          ? null
-          : {
-              id: TASK,
-              workspaceId: WORKSPACE,
-              teamId: null,
-              pullRequests: [MERGED.pullRequest],
-              openPullRequests: [MERGED.pullRequest],
-              reviewedPullRequest: null,
-              reviewing: false,
-              currentRunId: null,
-              ...over.task,
-            },
-      ),
+    taskWithPullRequest: async (): Promise<ReviewedTask | null> =>
+      over.task === null
+        ? null
+        : {
+            id: TASK,
+            workspaceId: WORKSPACE,
+            teamId: null,
+            pullRequests: [MERGED.pullRequest],
+            openPullRequests: [MERGED.pullRequest],
+            reviewedPullRequest: null,
+            reviewing: false,
+            currentRunId: null,
+            ...over.task,
+          },
   });
 
   const sets = partial<DecisionSetRepository>({
-    forTask: () => Promise.resolve(stored),
-    save: (set: DecisionSet) => {
+    forTask: async () => stored,
+    save: async (set: DecisionSet) => {
       stored = set;
-      return Promise.resolve();
     },
-    remove: () => {
+    remove: async () => {
       stored = null;
-      return Promise.resolve();
     },
   });
 
@@ -98,7 +94,7 @@ const applying = (
     work,
     sets,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => NOW, sleep: () => Promise.resolve() },
+    { now: () => NOW, sleep: async () => {} },
   );
 
   return { service, stored: () => stored };

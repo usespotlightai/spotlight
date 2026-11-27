@@ -58,9 +58,9 @@ const adapting = ({
   const chosen: unknown[] = [];
   const restoredFrom: RunId[] = [];
   const runs = partial<RunQueuePort>({
-    enqueue: (order: RunOrderContract) => {
+    enqueue: async (order: RunOrderContract) => {
       enqueued.push(order);
-      return Promise.resolve({ outcome: 'enqueued' as const });
+      return { outcome: 'enqueued' as const };
     },
   });
   const commands: HarnessCommandsPort = {
@@ -74,16 +74,16 @@ const adapting = ({
   };
   const adapter = new Runs(
     runs,
-    { of: () => Promise.resolve(facts) },
+    { of: async () => facts },
     {
-      restorableFor: (run: RunId) => {
+      restorableFor: async (run: RunId) => {
         restoredFrom.push(run);
-        return Promise.resolve(restorable);
+        return restorable;
       },
     },
-    partial<RunLeasesPort>({ leasedBy: () => Promise.resolve(null) }),
+    partial<RunLeasesPort>({ leasedBy: async () => null }),
     partial<StationRunsPort>({
-      harnessChoiceOf: () => Promise.resolve(choice),
+      harnessChoiceOf: async () => choice,
     }),
     commands,
   );

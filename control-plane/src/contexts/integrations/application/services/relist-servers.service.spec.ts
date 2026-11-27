@@ -52,18 +52,15 @@ const relisting = (
     listed(each.integration.value, new Date('2026-10-05T09:00:00.000Z')),
   ),
 ) => {
-  const listedBefore = vi.fn(() => Promise.resolve(candidates));
+  const listedBefore = vi.fn(async () => candidates);
   const saved: IntegrationDefinition[] = [];
   const definitions = partial<IntegrationDefinitionRepository>({
-    of: vi.fn((_teamId: TeamId, integration: IntegrationKey) =>
-      Promise.resolve(
+    of: vi.fn(
+      async (_teamId: TeamId, integration: IntegrationKey) =>
         stored.find((each) => each.integration.equals(integration)) ?? null,
-      ),
     ),
-    save: vi.fn((definition: IntegrationDefinition) => {
+    save: vi.fn(async (definition: IntegrationDefinition) => {
       saved.push(definition);
-
-      return Promise.resolve();
     }),
   });
   const execute = vi.fn(async (_command: RefreshIntegrationSpecCommand) => {});

@@ -1,4 +1,4 @@
-import type { Ref, ReactElement } from 'react';
+import type { Ref } from 'react';
 
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export function SidebarToggle({
   controls,
   disabled,
   onToggle,
-}: SidebarToggleProps): ReactElement {
+}: SidebarToggleProps) {
   const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
   const command = useActiveCommand({ id: 'sidebar.toggle' });
   const button = (
@@ -78,7 +78,7 @@ export function SidebarToggle({
     </Button>
   );
 
-  if (!command || disabled === true) {
+  if (!command || disabled) {
     return button;
   }
 

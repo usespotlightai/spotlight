@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class EgressId {
-  private readonly kind: string = 'egress';
+  private readonly kind = 'egress';
 
   private constructor(readonly value: string) {}
 
@@ -14,7 +14,7 @@ export class EgressId {
   }
 
   equals(other: EgressId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressId && this.value === other.value;
   }
 
   toString(): string {

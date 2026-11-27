@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AvatarSetting } from '@/components/features/settings/AvatarSetting';
@@ -15,7 +14,7 @@ import { failed } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
-export function WorkspaceGeneral(): ReactElement | null {
+export function WorkspaceGeneral() {
   const { slug } = useParams();
   const workspace = useWorkspace(slug);
   const change = useWorkspaceAvatar(slug);

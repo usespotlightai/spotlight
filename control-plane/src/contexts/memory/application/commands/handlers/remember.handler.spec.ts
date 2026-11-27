@@ -44,29 +44,26 @@ const remembering = (run: LeasedRun | null = LEASED) => {
   const added: MemoryProposalSet[] = [];
   let ids = 0;
   const work = partial<WorkPort>({
-    leasedBy: () => Promise.resolve(run),
-    task: () =>
-      Promise.resolve({
-        id: TASK,
-        workspaceId: WORKSPACE,
-        teamId: TEAM,
-        fromOutside: false,
-      }),
-    stationContextOf: () =>
-      Promise.resolve({
-        teamId: TEAM,
-        lineId: LineId.of('line_1'),
-        lineName: 'Delivery',
-        stationId: StationId.of('station_1'),
-        stationName: 'Build',
-        repositories: [Repository.of('acme/api')],
-      }),
-    reasoning: () =>
-      Promise.resolve([
-        { index: 4, kind: 'remember', text: 'spotlight remember' },
-      ]),
-    notesOf: () => Promise.resolve([]),
-    harnessOf: () => Promise.resolve('claude-code'),
+    leasedBy: async () => run,
+    task: async () => ({
+      id: TASK,
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      fromOutside: false,
+    }),
+    stationContextOf: async () => ({
+      teamId: TEAM,
+      lineId: LineId.of('line_1'),
+      lineName: 'Delivery',
+      stationId: StationId.of('station_1'),
+      stationName: 'Build',
+      repositories: [Repository.of('acme/api')],
+    }),
+    reasoning: async () => [
+      { index: 4, kind: 'remember', text: 'spotlight remember' },
+    ],
+    notesOf: async () => [],
+    harnessOf: async () => 'claude-code',
   });
 
   const handler = new RememberHandler(
@@ -74,10 +71,9 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       new RunnerMemoryLoader(work),
       work,
       partial<MemoryProposalSetRepository>({
-        forTask: () => Promise.resolve(null),
-        add: (set: MemoryProposalSet) => {
+        forTask: async () => null,
+        add: async (set: MemoryProposalSet) => {
           added.push(set);
-          return Promise.resolve();
         },
       }),
       { inTransaction: <T>(each: () => Promise<T>) => each() },
@@ -87,7 +83,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
           return `id_${ids}`;
         },
       },
-      { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+      { now: () => NOW, sleep: async () => undefined },
     ),
     partial<MemoryRepository>({}),
   );
@@ -95,12 +91,12 @@ const remembering = (run: LeasedRun | null = LEASED) => {
   const reading = new ReadProposedMemoryHandler(
     new RunnerMemoryLoader(work),
     partial<MemoryProposalSetRepository>({
-      forTask: () => Promise.resolve(added[added.length - 1] ?? null),
+      forTask: async () => added[added.length - 1] ?? null,
     }),
     new MemoryReviews(
       work,
-      partial<PeoplePort>({ find: () => Promise.resolve(null) }),
-      partial<MemoryRepository>({ findAll: () => Promise.resolve([]) }),
+      partial<PeoplePort>({ find: async () => null }),
+      partial<MemoryRepository>({ findAll: async () => [] }),
     ),
   );
 

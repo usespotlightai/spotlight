@@ -33,8 +33,8 @@ beforeAll(async () => {
   chats = new DrizzleChatRepository(context, { dispatch: async () => {} });
   reader = new DrizzleChatReader(
     database.db,
-    partial<PersonReaderPort>({ find: () => Promise.resolve(null) }),
-    { progressOf: () => Promise.resolve([]) },
+    partial<PersonReaderPort>({ find: async () => null }),
+    { progressOf: async () => [] },
   );
 }, 60_000);
 

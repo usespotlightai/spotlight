@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { StationFailures } from '@/components/features/insights/StationFailures';
 import { TabSection } from '@/components/features/stations/TabSection';
@@ -25,7 +25,7 @@ type StationFailureReasonsProps = {
 export function StationFailureReasons({
   period,
   ...at
-}: StationFailureReasonsProps): ReactElement {
+}: StationFailureReasonsProps) {
   return period === LIVE_CONFIG ? (
     <LiveFailureReasons {...at} />
   ) : (

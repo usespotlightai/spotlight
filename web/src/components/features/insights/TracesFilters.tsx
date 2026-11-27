@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { RunsFilters } from '@/components/features/insights/RunsFilters';
@@ -6,7 +5,7 @@ import { useInsightsTraces } from '@/hooks/api/useInsightsTraces';
 import { useLines } from '@/hooks/api/useLines';
 import { paramsOf, stationNamesOf, viewOf } from '@/lib/insights';
 
-export function TracesFilters({ teamId }: { teamId: string }): ReactElement {
+export function TracesFilters({ teamId }: { teamId: string }) {
   const [params, setParams] = useSearchParams();
   const view = viewOf(params);
   const lines = useLines(teamId).data ?? [];

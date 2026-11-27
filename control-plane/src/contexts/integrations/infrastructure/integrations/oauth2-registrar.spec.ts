@@ -14,7 +14,7 @@ const CALLBACK = OAuth2Endpoint.of(
 );
 
 const registering = (reply: Response) => {
-  const fetch = vi.fn<typeof globalThis.fetch>(() => Promise.resolve(reply));
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => reply);
   const logger = {
     debug: vi.fn(),
     info: vi.fn(),

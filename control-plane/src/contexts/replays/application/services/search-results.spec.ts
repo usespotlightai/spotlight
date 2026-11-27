@@ -41,6 +41,7 @@ import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -55,13 +56,11 @@ let noticed: SearchNotice[];
 let advised: StationNotice[];
 
 const notices = {
-  notify: (notice: SearchNotice) => {
+  notify: async (notice: SearchNotice) => {
     noticed.push(notice);
-    return Promise.resolve();
   },
-  advise: (notice: StationNotice) => {
+  advise: async (notice: StationNotice) => {
     advised.push(notice);
-    return Promise.resolve();
   },
 };
 
@@ -102,7 +101,7 @@ const picking = () =>
 const finishedWithNothing = (requestedBy?: string): Search =>
   aSearch({
     set: aSet(10),
-    ...(requestedBy !== undefined && requestedBy !== '' ? { requestedBy } : {}),
+    ...(nonEmpty(requestedBy) ? { requestedBy } : {}),
   }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'ceiling-reached',
@@ -213,7 +212,7 @@ describe('PickSearchCandidates', () => {
     const search = finishedWithNothing();
 
     await memory.searchRepository.add(search);
-    suppliers.lines.station = () => Promise.resolve(null);
+    suppliers.lines.station = async () => null;
     await picking().searchEnded(ended(search, 'finished'));
 
     expect(memory.searches.get(search.id.value)?.pick).toEqual({

@@ -124,18 +124,18 @@ const ordering = (
 ) => {
   const task = over.task ?? Task.rehydrate({ ...added(), currentRunId: RUN });
   const added_ = vi.fn<(dispatch: Dispatch) => Promise<void>>(async () => {});
-  const order = vi.fn(() =>
-    Promise.resolve(over.ordered === undefined ? ORDERED : over.ordered),
+  const order = vi.fn(async () =>
+    over.ordered === undefined ? ORDERED : over.ordered,
   );
   const handler = new OrderTaskRun(
-    partial<TaskRepository>({ find: () => Promise.resolve(task) }),
+    partial<TaskRepository>({ find: async () => task }),
     partial<LineMapsPort>({
-      findByStation: () => Promise.resolve(delivery()),
+      findByStation: async () => delivery(),
     }),
     {
-      find: () => Promise.resolve(over.existing ?? null),
+      find: async () => over.existing ?? null,
       add: added_,
-      save: () => Promise.resolve(undefined),
+      save: async () => undefined,
     } satisfies DispatchRepository,
     partial<DispatchTask>({ ordered: order }),
     { now: () => NOW, sleep: async () => {} },

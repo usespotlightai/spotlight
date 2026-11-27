@@ -29,7 +29,7 @@ const TASK: TaskViewDto = {
 };
 
 const setUp = (decide = vi.fn()) => {
-  const on = vi.fn(() => Promise.resolve(true));
+  const on = vi.fn(async () => true);
   const toolUsed = vi.fn(async () => {});
 
   return {

@@ -41,11 +41,9 @@ const NOW = new Date('2026-10-05T10:00:00.000Z');
 const LINEAR = IntegrationKey.of('linear');
 
 const labelled: CredentialEncryptionPort = {
-  encrypt: (_workspaceId, label, credential) =>
-    Promise.resolve(
-      Buffer.from(`${label}\n${credential.revealed()}`).toString('base64'),
-    ),
-  decrypt: (_workspaceId, label, ciphertext) => {
+  encrypt: async (_workspaceId, label, credential) =>
+    Buffer.from(`${label}\n${credential.revealed()}`).toString('base64'),
+  decrypt: async (_workspaceId, label, ciphertext) => {
     const parts = Buffer.from(ciphertext, 'base64')
       .toString('utf8')
       .split('\n');
@@ -53,12 +51,10 @@ const labelled: CredentialEncryptionPort = {
     const plain = itemAt(parts, 1);
 
     if (encryptedFor !== label) {
-      return Promise.reject(
-        new Error(`encrypted for ${encryptedFor}, decrypted as ${label}`),
-      );
+      throw new Error(`encrypted for ${encryptedFor}, decrypted as ${label}`);
     }
 
-    return Promise.resolve(Credential.of(plain ?? ''));
+    return Credential.of(plain ?? '');
   },
 };
 

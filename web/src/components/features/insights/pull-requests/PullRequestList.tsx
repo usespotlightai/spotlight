@@ -1,4 +1,4 @@
-import { type ReactElement, useRef } from 'react';
+import { useRef } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
@@ -31,7 +31,7 @@ export function PullRequestList({
   view,
   repositories,
   onView,
-}: PullRequestListProps): ReactElement {
+}: PullRequestListProps) {
   const list = useInsightsPullRequestList(
     teamId,
     view.period,

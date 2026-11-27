@@ -1,5 +1,4 @@
 import { ChevronDown } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   DropdownMenu,
@@ -20,10 +19,7 @@ type PercentilePickerProps = {
   onChange: (percentile: Percentile) => void;
 };
 
-export function PercentilePicker({
-  value,
-  onChange,
-}: PercentilePickerProps): ReactElement {
+export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

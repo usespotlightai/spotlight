@@ -29,7 +29,7 @@ const outputOf = (result: CallToolResult): string =>
   (textOf(result) ?? asJson(result.content)).slice(0, MAX_OUTPUT_CHARS);
 
 export const mcpOutput = (result: CallToolResult, tool: string): ToolOutput => {
-  if (result.isError === true) {
+  if (result.isError) {
     throw new UpstreamError(
       `using ${tool}`,
       `the MCP server answered with an error: ${outputOf(result)}`,

@@ -24,7 +24,7 @@ describe('ExpressionFailures', () => {
   let now = 0;
   const failures = new ExpressionFailures(logger, {
     now: () => new Date(now),
-    sleep: () => Promise.resolve(undefined),
+    sleep: async () => undefined,
   });
 
   afterEach(() => failures.onModuleDestroy());

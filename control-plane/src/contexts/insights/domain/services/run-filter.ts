@@ -20,6 +20,7 @@ import {
   RUN_RESOLUTIONS,
   type RunResolution,
 } from '@insights/domain/value-objects/run-resolution';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const MAX_FILTERED_TASKS = 200;
 
@@ -90,7 +91,7 @@ const oneOf = <T extends string>(
 
   const found = values.find((each) => each === query);
 
-  if (found === undefined || found === '') {
+  if (!nonEmpty(found)) {
     throw new InvalidRunFilterError(
       `${what} must be one of ${values.join(', ')}, not ${query}`,
     );

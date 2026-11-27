@@ -27,6 +27,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -39,8 +40,7 @@ const toRecord = (row: RecordRow): RunRecord =>
   RunRecord.rehydrate({
     runId: RunId.of(row.runId),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    taskId:
-      row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
+    taskId: nonEmpty(row.taskId) ? TaskId.of(row.taskId) : null,
     end: endOf(row, 'run record'),
     supersededAt: row.supersededAt,
     asked: row.asked,

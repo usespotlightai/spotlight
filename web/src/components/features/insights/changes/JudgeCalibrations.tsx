@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { formatStation, type StationNames } from '@/lib/insights';
 import type { StationJudgeCalibration } from '@/lib/insights-changes';
@@ -17,7 +15,7 @@ export function JudgeCalibrations({
   teamId,
   judges,
   names,
-}: JudgeCalibrationsProps): ReactElement | null {
+}: JudgeCalibrationsProps) {
   if (judges.length === 0) {
     return null;
   }

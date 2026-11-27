@@ -71,9 +71,7 @@ const serving = (
   const reported =
     input.reported ?? (input.known ?? []).map((each) => each.id.value);
   const heardAt = (host: string) =>
-    input.silentHosts?.includes(host) === true
-      ? later(-10 * 60_000)
-      : STARTED_AT;
+    input.silentHosts?.includes(host) ? later(-10 * 60_000) : STARTED_AT;
   const { stored: hostsStored, hosts } = storedHosts(
     aHost({
       id: HostId.of(HOST),

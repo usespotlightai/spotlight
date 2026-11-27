@@ -5,13 +5,12 @@ import type {
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { configPullRequest } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleStationConfigPullRequests
-  implements StationConfigPullRequestsPort
-{
+export class DrizzleStationConfigPullRequests implements StationConfigPullRequestsPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async newestFor(
@@ -45,7 +44,7 @@ export class DrizzleStationConfigPullRequests
 
     return new Map(
       rows.flatMap((row) =>
-        row.fingerprint !== null && row.fingerprint !== '' && row.url !== null && row.url !== ''
+        nonEmpty(row.fingerprint) && nonEmpty(row.url)
           ? [[row.fingerprint, PullRequestUrl.of(row.url)] as const]
           : [],
       ),

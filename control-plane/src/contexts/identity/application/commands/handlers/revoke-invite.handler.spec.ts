@@ -59,13 +59,11 @@ const revoking = (
   const handler = new RevokeInviteHandler(
     new WorkspaceAdministration(
       partial<WorkspaceRepository>({
-        findBySlug: () =>
-          Promise.resolve(workspace(over.role ?? WorkspaceRole.admin)),
+        findBySlug: async () => workspace(over.role ?? WorkspaceRole.admin),
       }),
     ),
     partial<WorkspaceInviteRepository>({
-      find: () =>
-        Promise.resolve(over.invite === undefined ? created() : over.invite),
+      find: async () => (over.invite === undefined ? created() : over.invite),
       save,
     }),
     partial<ClockPort>({ now: () => NOW }),
@@ -122,8 +120,8 @@ describe('RevokeInviteHandler', () => {
 
   it('fails with a conflict where the invite was accepted while it was being revoked', async () => {
     const { handler, save } = revoking();
-    save.mockImplementationOnce(() => {
-      return Promise.reject(new InviteVersionConflictError('invite_1'));
+    save.mockImplementationOnce(async () => {
+      throw new InviteVersionConflictError('invite_1');
     });
 
     await expect(handler.execute(revoke)).rejects.toMatchObject({

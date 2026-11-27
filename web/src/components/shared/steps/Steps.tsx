@@ -1,5 +1,5 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
-export function Steps({ children }: { children: ReactNode }): ReactElement {
+export function Steps({ children }: { children: ReactNode }) {
   return <ol className="flex flex-col [counter-reset:step]">{children}</ol>;
 }

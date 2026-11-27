@@ -1,4 +1,4 @@
-import { type ReactElement, type SubmitEvent, useId, useState } from 'react';
+import { type SubmitEvent, useId, useState } from 'react';
 
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { RadioRow } from '@/components/shared/form/RadioRow';
@@ -48,7 +48,7 @@ export function ResumeDialog({
   held,
   working,
   turn,
-}: ResumeDialogProps): ReactElement {
+}: ResumeDialogProps) {
   const id = useId();
   const resume = useResumeLine();
   const stop = useStopRun();

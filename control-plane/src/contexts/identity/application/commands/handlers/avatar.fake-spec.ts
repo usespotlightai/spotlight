@@ -27,17 +27,15 @@ export const storedAvatar = (digest: AvatarDigest, version = 1): Avatar =>
 
 export const ownersWith = (access: 'none' | 'member' | 'admin'): AvatarOwners =>
   partial<AvatarOwners>({
-    of: () =>
-      Promise.resolve(
-        access === 'none'
-          ? null
-          : partial<OwnedAvatar>({
-              owner: OWNER,
-              permissions: partial<OwnedAvatar['permissions']>({
-                configures: access === 'admin',
-              }),
+    of: async () =>
+      access === 'none'
+        ? null
+        : partial<OwnedAvatar>({
+            owner: OWNER,
+            permissions: partial<OwnedAvatar['permissions']>({
+              configures: access === 'admin',
             }),
-      ),
+          }),
   });
 
 interface AvatarsHolding {
@@ -59,8 +57,8 @@ export const avatarsHolding = (found: Avatar | null = null): AvatarsHolding => {
   const add = vi.fn<(avatar: Avatar) => Promise<void>>(async () => {});
   const save = vi.fn<(avatar: Avatar) => Promise<void>>(async () => {});
   const avatars: AvatarRepository = {
-    find: () => Promise.resolve(found),
-    ofWorkspace: () => Promise.resolve(found ? [found] : []),
+    find: async () => found,
+    ofWorkspace: async () => (found ? [found] : []),
     add,
     save,
   };
@@ -70,12 +68,10 @@ export const avatarsHolding = (found: Avatar | null = null): AvatarsHolding => {
 
 export const imagesHolding = (): ImagesHolding => {
   const put = vi.fn<AvatarImagesPort['put']>(async () => {});
-  const read = vi.fn<AvatarImagesPort['read']>(() =>
-    Promise.resolve({
-      bytes: new Uint8Array([1]),
-      contentType: 'image/png',
-    }),
-  );
+  const read = vi.fn<AvatarImagesPort['read']>(async () => ({
+    bytes: new Uint8Array([1]),
+    contentType: 'image/png',
+  }));
   const remove = vi.fn<AvatarImagesPort['remove']>(async () => {});
   const removeAllOfTeam = vi.fn<AvatarImagesPort['removeAllOfTeam']>(
     async () => {},

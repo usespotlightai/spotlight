@@ -1,9 +1,7 @@
-import type { ReactElement } from 'react';
-
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function InboxRowSkeleton(): ReactElement {
+export function InboxRowSkeleton() {
   return (
     <div className="flex flex-col gap-0.5 px-2 py-2">
       <span className="flex min-w-0 items-center gap-2">

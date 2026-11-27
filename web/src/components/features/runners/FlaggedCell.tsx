@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   Tooltip,
@@ -11,10 +11,7 @@ type FlaggedCellProps = {
   children: ReactNode;
 };
 
-export function FlaggedCell({
-  reason,
-  children,
-}: FlaggedCellProps): ReactElement {
+export function FlaggedCell({ reason, children }: FlaggedCellProps) {
   return (
     <Tooltip>
       <TooltipTrigger

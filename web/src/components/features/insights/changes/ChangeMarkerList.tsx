@@ -1,4 +1,4 @@
-import { type ReactElement, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { ChangeMarkerRow } from '@/components/features/insights/changes/ChangeMarkerRow';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
@@ -24,7 +24,7 @@ export function ChangeMarkerList({
   teamId,
   markers,
   names,
-}: ChangeMarkerListProps): ReactElement {
+}: ChangeMarkerListProps) {
   const shown = useBeforeAfterShown();
   const shownKey = shown && changeKey(shown);
   const latestFirst = useMemo(() => [...markers].reverse(), [markers]);

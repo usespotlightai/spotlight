@@ -1,4 +1,4 @@
-import type { ReactNode, Ref, ReactElement } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { SHOWN_FIRST, SKIPPED_OFF_SCREEN } from '@/lib/turns';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,7 @@ export function Turn({
   shownFirst = false,
   ref,
   children,
-}: TurnProps): ReactElement {
+}: TurnProps) {
   return (
     <section
       ref={ref}

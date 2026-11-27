@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatShare } from '@/lib/insights';
 import {
@@ -36,11 +34,7 @@ type SkillWeeksChartProps = {
   onWeek: (week: string) => void;
 };
 
-export function SkillWeeksChart({
-  weeks,
-  max,
-  onWeek,
-}: SkillWeeksChartProps): ReactElement {
+export function SkillWeeksChart({ weeks, max, onWeek }: SkillWeeksChartProps) {
   return (
     <span
       data-slot="skill-weeks-chart"

@@ -10,29 +10,28 @@ import { describe, expect, it } from 'vitest';
 describe('WatchedWorkspacesHandler', () => {
   it('watches only the workspaces the person may view, checked in one lookup', async () => {
     const workspaces = partial<WorkspaceReaderPort>({
-      listForMember: () =>
-        Promise.resolve([
-          {
-            id: 'ws_1',
-            name: 'Acme',
-            slug: 'acme',
-            avatarDigest: null,
-            role: 'member',
-          },
-          {
-            id: 'ws_2',
-            name: 'Gone',
-            slug: 'gone',
-            avatarDigest: null,
-            role: 'member',
-          },
-        ]),
+      listForMember: async () => [
+        {
+          id: 'ws_1',
+          name: 'Acme',
+          slug: 'acme',
+          avatarDigest: null,
+          role: 'member',
+        },
+        {
+          id: 'ws_2',
+          name: 'Gone',
+          slug: 'gone',
+          avatarDigest: null,
+          role: 'member',
+        },
+      ],
     });
     const asked: string[][] = [];
     const access = partial<WorkspaceAccessPort>({
-      viewableOf: (_viewer: UserId, ids: readonly WorkspaceId[]) => {
+      viewableOf: async (_viewer: UserId, ids: readonly WorkspaceId[]) => {
         asked.push(ids.map((each) => each.value));
-        return Promise.resolve(ids.filter((each) => each.value === 'ws_1'));
+        return ids.filter((each) => each.value === 'ws_1');
       },
     });
 

@@ -24,9 +24,7 @@ const leasedRun = (isolated: boolean): LeasedRun => ({
 });
 
 const loader = (run: LeasedRun) =>
-  new RunnerMemoryLoader(
-    partial<WorkPort>({ leasedBy: () => Promise.resolve(run) }),
-  );
+  new RunnerMemoryLoader(partial<WorkPort>({ leasedBy: async () => run }));
 
 describe('a run that recalls memories', () => {
   it('is not allowed in a search, which may not recall them at all', async () => {

@@ -1,5 +1,4 @@
 import { ChevronRight, MessageSquarePlus } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { DiffStat } from '@/components/shared/DiffStat';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,7 @@ export function LayerFileHeader({
   open,
   onToggle,
   onComment,
-}: LayerFileHeaderProps): ReactElement {
+}: LayerFileHeaderProps) {
   const status = STATUS[file.status];
 
   return (

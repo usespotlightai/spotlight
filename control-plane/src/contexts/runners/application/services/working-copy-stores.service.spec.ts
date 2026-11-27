@@ -26,34 +26,26 @@ const stores = (input: {
 }) =>
   new WorkingCopyStores(
     partial<RunnerRepository>({
-      find: () =>
-        Promise.resolve(
-          input.runner ? partial<Runner>({ source: input.runner }) : null,
-        ),
+      find: async () =>
+        input.runner ? partial<Runner>({ source: input.runner }) : null,
     }),
     partial<SandboxRepository>({
-      find: () =>
-        Promise.resolve(
-          input.sandbox === undefined
-            ? null
-            : partial<Sandbox>({ source: input.sandbox }),
-        ),
+      find: async () =>
+        input.sandbox === undefined
+          ? null
+          : partial<Sandbox>({ source: input.sandbox }),
     }),
     partial<RunnerPoolRepository>({
-      find: () =>
-        Promise.resolve(
-          input.pool
-            ? partial<RunnerPool>({ isDeleted: false, ...input.pool })
-            : null,
-        ),
+      find: async () =>
+        input.pool
+          ? partial<RunnerPool>({ isDeleted: false, ...input.pool })
+          : null,
     }),
     partial<RunnerTrustRepository>({
-      find: () =>
-        Promise.resolve(
-          input.trust
-            ? partial<RunnerTrust>({ isDeleted: false, ...input.trust })
-            : null,
-        ),
+      find: async () =>
+        input.trust
+          ? partial<RunnerTrust>({ isDeleted: false, ...input.trust })
+          : null,
     }),
   );
 

@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement, type ReactNode, useState } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 
 import { RetireReply } from '@/components/features/memory/RetireReply';
 import { ThisWasWrong } from '@/components/features/runs/memories/ThisWasWrong';
@@ -21,7 +21,7 @@ export function MemoryCard({
   retirable,
   action,
   footer,
-}: MemoryCardProps): ReactElement {
+}: MemoryCardProps) {
   const [retiring, setRetiring] = useState(false);
   return (
     <li

@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
@@ -26,7 +26,7 @@ export function WarningTooltip({
   tone,
   className,
   ...marks
-}: WarningTooltipProps): ReactElement {
+}: WarningTooltipProps) {
   return (
     <WithTooltip tooltip={tooltip} named={label}>
       <span

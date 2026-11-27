@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { CopyBlock } from '@/components/shared/CopyBlock';
 import { Button } from '@/components/ui/button';
 
@@ -9,11 +7,7 @@ type TokenCreatedProps = {
   onDone: () => void;
 };
 
-export function TokenCreated({
-  name,
-  token,
-  onDone,
-}: TokenCreatedProps): ReactElement {
+export function TokenCreated({ name, token, onDone }: TokenCreatedProps) {
   return (
     <section
       aria-label={`The ${name} token`}

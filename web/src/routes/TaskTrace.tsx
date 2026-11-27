@@ -1,5 +1,4 @@
 import { Activity } from 'lucide-react';
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { TraceView } from '@/components/features/trace/view/TraceView';
@@ -25,7 +24,7 @@ import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
-export function TaskTrace(): ReactElement | null {
+export function TaskTrace() {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const found = useTask(teamId, taskId);

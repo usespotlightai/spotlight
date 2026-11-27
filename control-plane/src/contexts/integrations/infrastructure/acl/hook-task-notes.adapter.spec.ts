@@ -22,8 +22,8 @@ const REPORT = {
 const noticesFailingWith = (error: Error) =>
   new HookTaskNotes({
     noted: vi.fn(),
-    failed: vi.fn(() => {
-      return Promise.reject(error);
+    failed: vi.fn(async () => {
+      throw error;
     }),
     movedOn: vi.fn(),
   } satisfies TaskNotesFromHooksPort);
@@ -32,7 +32,7 @@ describe('HookTaskNotes', () => {
   it('reports how Work took the notice', async () => {
     const notices = new HookTaskNotes({
       noted: vi.fn(),
-      failed: vi.fn(() => Promise.resolve('superseded' as const)),
+      failed: vi.fn(async () => 'superseded' as const),
       movedOn: vi.fn(),
     });
 

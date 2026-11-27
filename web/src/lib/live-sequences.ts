@@ -80,10 +80,7 @@ export class LiveSequences {
       return true;
     }
 
-    if (
-      sequence <= applied ||
-      this.#ahead.get(channel)?.has(sequence) === true
-    ) {
+    if (sequence <= applied || this.#ahead.get(channel)?.has(sequence)) {
       return false;
     }
 

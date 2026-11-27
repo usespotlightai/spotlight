@@ -13,6 +13,7 @@ import type {
 import type { EntryOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
 const MAX_REASON = 200;
@@ -110,7 +111,7 @@ const lookup = (
 const detailOf = (reason: EntryReason): string | null => {
   const { detail } = reason;
 
-  if (detail === null || detail === '') {
+  if (!nonEmpty(detail)) {
     return null;
   }
 
@@ -147,10 +148,9 @@ const oneLine = (text: string): string => {
 
 const sentenceOf = (reason: EntryReason): string => {
   const detail = detailOf(reason);
-  const text =
-    detail !== null && detail !== ''
-      ? `${REASONS[reason.code]}: ${detail}`
-      : REASONS[reason.code];
+  const text = nonEmpty(detail)
+    ? `${REASONS[reason.code]}: ${detail}`
+    : REASONS[reason.code];
 
   return oneLine(/[.!?…]$/.test(text) ? text : `${text}.`);
 };

@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import type { LinkProps } from 'react-router';
 
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -14,7 +13,7 @@ export function PillLink({
   size = 'small',
   className,
   ...props
-}: PillLinkProps): ReactElement {
+}: PillLinkProps) {
   return (
     <TrailLink className={pillClass(variant, className, size)} {...props} />
   );

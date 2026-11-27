@@ -3,7 +3,7 @@ import { subscribing } from '@shared-kernel/application/ports/domain-event-subsc
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { describe, expect, it } from 'vitest';
 
-const heard = () => Promise.resolve([]);
+const heard = async () => [];
 
 const subscribers = new EventSubscribers();
 subscribers.register([

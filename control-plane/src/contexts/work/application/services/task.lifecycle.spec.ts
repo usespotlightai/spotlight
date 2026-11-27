@@ -346,14 +346,14 @@ interface World {
 const RANK = TaskRank.of('i');
 
 const placements: TaskPlacementsPort = {
-  placementsAt: () => Promise.resolve([]),
+  placementsAt: async () => [],
 };
-const facts: RunFactsPort = { of: () => Promise.resolve([]) };
+const facts: RunFactsPort = { of: async () => [] };
 
 const servicesOf = (world: World) => {
   const clock: ClockPort = { now: () => world.now, sleep: async () => {} };
   const dispatch: TaskDispatching = {
-    runIdFor: () => Promise.resolve(RunId.of(`run_${++world.runs}`)),
+    runIdFor: async () => RunId.of(`run_${++world.runs}`),
   };
 
   return {
@@ -384,7 +384,7 @@ const handoverOf = (task: Task, ending: Ending, choice: number) => {
 
   switch (ending) {
     case 'done':
-      return here?.ends === true
+      return here?.ends
         ? ResolvedHandover.done(body)
         : ResolvedHandover.review(body);
     case 'review':
@@ -485,12 +485,11 @@ const answered = async (
 ): Promise<Task> => {
   const task = world.task;
   const from = openFrom(task);
-  const decision =
-    task.openAsk?.approval?.open === true
-      ? each.approve
-        ? 'approved'
-        : 'dismissed'
-      : null;
+  const decision = task.openAsk?.approval?.open
+    ? each.approve
+      ? 'approved'
+      : 'dismissed'
+    : null;
 
   return handedToRun(
     services.dispatch,
@@ -1211,7 +1210,7 @@ describe('a task under any order of runs, people and happenings on its line', ()
           : undefined;
         const connection = ask?.connectionAsk;
 
-        if (ask?.approval?.open === true) {
+        if (ask?.approval?.open) {
           return Object.values(PEOPLE).some((each) =>
             gives(() =>
               after.answerAs(

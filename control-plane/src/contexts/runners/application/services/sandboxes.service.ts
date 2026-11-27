@@ -34,6 +34,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -90,7 +91,7 @@ export class Sandboxes
           ? await this.sandboxes.openFor(workspaceId, key)
           : null;
 
-        if (open?.isRequested === true) {
+        if (open?.isRequested) {
           const placed = open
             .placeOn(host, tokenHash, at)
             .holdRun(RunId.of(run.runId), at);
@@ -348,12 +349,11 @@ export class Sandboxes
     at: Date,
   ): Promise<StartedSandbox | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
-    const host =
-      found?.isRequested === true
-        ? await this.hosts.find(HostId.of(hostId))
-        : null;
+    const host = found?.isRequested
+      ? await this.hosts.find(HostId.of(hostId))
+      : null;
 
-    if (found?.isRequested !== true || !host) {
+    if (!found?.isRequested || !host) {
       return null;
     }
 
@@ -387,10 +387,9 @@ export class Sandboxes
     at: Date,
   ): Promise<StartedWarmSandbox | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
-    const host =
-      found?.warmFits(offer) === true
-        ? await this.hosts.find(HostId.of(hostId))
-        : null;
+    const host = found?.warmFits(offer)
+      ? await this.hosts.find(HostId.of(hostId))
+      : null;
 
     if (!found?.warm || !host) {
       return null;
@@ -549,7 +548,7 @@ export class Sandboxes
   ): Promise<EditorSandbox | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
 
-    if (found?.isOpen !== true) {
+    if (!found?.isOpen) {
       return null;
     }
 
@@ -558,7 +557,7 @@ export class Sandboxes
       sandbox.holdEditor(editor, at),
     );
 
-    return held?.holdsEditor(editor) === true
+    return held?.holdsEditor(editor)
       ? editorSandboxOf(held, await this.hostOf(held), at)
       : null;
   }
@@ -622,7 +621,7 @@ export class Sandboxes
 
     const host = found ? await this.hostOf(found) : null;
 
-    return found?.isReadyOn(host, this.clock.now()) === true && host
+    return found?.isReadyOn(host, this.clock.now()) && host
       ? host.id.value
       : null;
   }
@@ -630,7 +629,7 @@ export class Sandboxes
   async authenticate(
     token: string | undefined,
   ): Promise<AuthenticatedSandbox | null> {
-    if (token === undefined || token === '') {
+    if (!nonEmpty(token)) {
       return null;
     }
 

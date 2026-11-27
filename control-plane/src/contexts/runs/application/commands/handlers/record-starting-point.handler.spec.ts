@@ -40,11 +40,9 @@ const setUp = async (
 ) => {
   const stored = new Map<string, Run>([[run.id.value, run]]);
   const runs = partial<RunRepository>({
-    findById: (id: { value: string }) =>
-      Promise.resolve(stored.get(id.value) ?? null),
-    save: (saved: Run) => {
+    findById: async (id: { value: string }) => stored.get(id.value) ?? null,
+    save: async (saved: Run) => {
       stored.set(saved.id.value, saved);
-      return Promise.resolve();
     },
   });
   const archives = new InMemoryArchives();
@@ -59,19 +57,17 @@ const setUp = async (
       runs,
       archives,
       {
-        registeredClaimantOf: () => Promise.resolve(null),
-        claimantOf: () =>
-          Promise.resolve(
-            known
-              ? {
-                  workspaceId: WorkspaceId.of('ws_1'),
-                  harnesses: [],
-                  offer: RunnerOffer.none(),
-                  claims: 'nothing' as const,
-                  source: null,
-                }
-              : null,
-          ),
+        registeredClaimantOf: async () => null,
+        claimantOf: async () =>
+          known
+            ? {
+                workspaceId: WorkspaceId.of('ws_1'),
+                harnesses: [],
+                offer: RunnerOffer.none(),
+                claims: 'nothing' as const,
+                source: null,
+              }
+            : null,
       },
       { now: () => GRANTED_AT, sleep: async () => {} },
       {

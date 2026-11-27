@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const VERSIONED =
   /^(terraform-provider|cli)\/([0-9A-Za-z][0-9A-Za-z.+-]{0,63})$/;
 
@@ -31,8 +32,6 @@ export class Client {
   }
 
   toString(): string {
-    return this.version !== null && this.version !== ''
-      ? `${this.kind}/${this.version}`
-      : this.kind;
+    return nonEmpty(this.version) ? `${this.kind}/${this.version}` : this.kind;
   }
 }

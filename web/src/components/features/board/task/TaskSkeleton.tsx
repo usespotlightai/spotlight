@@ -1,5 +1,4 @@
 import { MoreHorizontal } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import {
@@ -22,7 +21,7 @@ export function TaskSkeleton({
   known,
 }: {
   known: readonly BreadcrumbSegment[];
-}): ReactElement {
+}) {
   return (
     <div
       role="status"

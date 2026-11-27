@@ -3,6 +3,7 @@ import {
   isClaimPlace,
   noteOf,
 } from '@insights/domain/value-objects/disagreement-note';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class NotMetAnswer {
@@ -29,7 +30,7 @@ export class NotMetAnswer {
         'must name the claim that should have failed by its place, from 0',
       );
     }
-    if (input.shouldHaveFailed === null && (note === null || note === '')) {
+    if (input.shouldHaveFailed === null && !nonEmpty(note)) {
       throw new InvalidJudgeDisagreementError(
         'where the judge passed the run and no claim covers it, must say what was wrong',
       );

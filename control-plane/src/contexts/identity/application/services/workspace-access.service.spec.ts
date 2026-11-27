@@ -59,11 +59,10 @@ const billing = teamOf('billing', ['owner_1']);
 
 const accessIn = (workspace: Workspace | null) => {
   const teams = {
-    ofWorkspace: vi.fn(() => Promise.resolve([platform, billing])),
-    find: vi.fn((id: TeamId) =>
-      Promise.resolve(
+    ofWorkspace: vi.fn(async () => [platform, billing]),
+    find: vi.fn(
+      async (id: TeamId) =>
         [platform, billing].find((each) => each.id.equals(id)) ?? null,
-      ),
     ),
   };
 
@@ -72,8 +71,8 @@ const accessIn = (workspace: Workspace | null) => {
     access: new WorkspaceAccess(
       partial<WorkspaceRolesPort>({}),
       partial<WorkspaceRepository>({
-        findBySlug: vi.fn(() => Promise.resolve(workspace)),
-        find: vi.fn(() => Promise.resolve(workspace)),
+        findBySlug: vi.fn(async () => workspace),
+        find: vi.fn(async () => workspace),
       }),
       partial<TeamRepository>(teams),
     ),

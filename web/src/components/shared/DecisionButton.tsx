@@ -1,4 +1,4 @@
-import { type ComponentProps, use, type ReactElement } from 'react';
+import { type ComponentProps, use } from 'react';
 
 import { PillButton } from '@/components/shared/PillButton';
 import { DockedContext } from '@/lib/decision-tray';
@@ -8,7 +8,7 @@ export function DecisionButton({
   className,
   variant = 'outline',
   ...props
-}: ComponentProps<typeof PillButton>): ReactElement {
+}: ComponentProps<typeof PillButton>) {
   const docked = use(DockedContext) !== null;
   const quiet = docked && variant === 'outline';
 

@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { ReviewCommentState } from '@/components/features/review/ReviewCommentState';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
@@ -25,7 +25,7 @@ export function ReviewCommentItem({
   comment,
   first,
   onLeaving,
-}: ReviewCommentItemProps): ReactElement | null {
+}: ReviewCommentItemProps) {
   const reviewing = useReviewing();
   const [editing, setEditing] = useState(false);
   const [leaving, setLeaving] = useState(false);

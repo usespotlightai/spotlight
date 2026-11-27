@@ -6,6 +6,7 @@ import type {
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
@@ -289,10 +290,9 @@ export class StationTrials implements StationTrialsPort {
       boundSecrets: order.boundSecrets,
       sandboxEnv: [],
     });
-    const briefing =
-      followedUp !== null && followedUp !== ''
-        ? `${briefed}\n\n${followedUp}`
-        : briefed;
+    const briefing = nonEmpty(followedUp)
+      ? `${briefed}\n\n${followedUp}`
+      : briefed;
     const configuredAs = this.ordering.configuredAs(laidOut, candidate);
     const ordering = {
       outcome: 'ordered' as const,
@@ -317,10 +317,9 @@ export class StationTrials implements StationTrialsPort {
             ? { manifest: described.map(toolManifestOf) }
             : {}),
         },
-        restore:
-          original.trial.archive !== null && original.trial.archive !== ''
-            ? { archive: original.trial.archive }
-            : null,
+        restore: nonEmpty(original.trial.archive)
+          ? { archive: original.trial.archive }
+          : null,
         refusal:
           order.refusals.length > 0
             ? order.refusals.map((each) => ({ description: each.description }))

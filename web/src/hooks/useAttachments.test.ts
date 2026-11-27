@@ -100,9 +100,8 @@ describe('useAttachments', () => {
       result.current.add([text()]);
     });
     act(() => result.current.clear());
-    await act(() => {
+    await act(async () => {
       land({ id: 'att_1' });
-      return Promise.resolve();
     });
 
     expect(result.current.attachments).toEqual([]);

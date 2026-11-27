@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -31,6 +30,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -116,9 +116,7 @@ const columnsOf = (aggregate: ConfigPullRequest) => ({
 });
 
 @Injectable()
-export class DrizzleConfigPullRequestRepository
-  implements ConfigPullRequestRepository
-{
+export class DrizzleConfigPullRequestRepository implements ConfigPullRequestRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -135,12 +133,14 @@ export class DrizzleConfigPullRequestRepository
     searchId: SearchId,
     candidateId: CandidateId,
   ): Promise<ConfigPullRequest | null> {
-    const found = firstOf(await this.where(
-      and(
-        eq(configPullRequest.searchId, searchId.value),
-        eq(configPullRequest.candidateId, candidateId.value),
+    const found = firstOf(
+      await this.where(
+        and(
+          eq(configPullRequest.searchId, searchId.value),
+          eq(configPullRequest.candidateId, candidateId.value),
+        ),
       ),
-    ));
+    );
 
     return found ?? null;
   }
@@ -200,20 +200,22 @@ export class DrizzleConfigPullRequestRepository
     workspaceId: WorkspaceId,
     pullRequest: HostPullRequestKey,
   ): Promise<ConfigPullRequest | null> {
-    const found = firstOf(await this.where(
-      and(
-        eq(configPullRequest.workspaceId, workspaceId.value),
-        pullRequest.hostId === null
-          ? and(
-              eq(
-                sql`lower(${configPullRequest.repository})`,
-                pullRequest.repository.toLowerCase(),
-              ),
-              eq(configPullRequest.number, pullRequest.number),
-            )
-          : eq(configPullRequest.hostId, pullRequest.hostId),
+    const found = firstOf(
+      await this.where(
+        and(
+          eq(configPullRequest.workspaceId, workspaceId.value),
+          pullRequest.hostId === null
+            ? and(
+                eq(
+                  sql`lower(${configPullRequest.repository})`,
+                  pullRequest.repository.toLowerCase(),
+                ),
+                eq(configPullRequest.number, pullRequest.number),
+              )
+            : eq(configPullRequest.hostId, pullRequest.hostId),
+        ),
       ),
-    ));
+    );
 
     return found ?? null;
   }
@@ -304,7 +306,9 @@ export class DrizzleConfigPullRequestRepository
     });
   }
 
-  private async where(where: SQL | undefined): Promise<readonly ConfigPullRequest[]> {
+  private async where(
+    where: SQL | undefined,
+  ): Promise<readonly ConfigPullRequest[]> {
     return (
       await this.context.db
         .select()

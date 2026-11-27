@@ -1,5 +1,6 @@
 import type { DatabaseEnv, Env } from '@platform/config/env.schema';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolConfig } from 'pg';
 
@@ -42,14 +43,17 @@ export const createReadPool = (
   pool: Pool,
   logger: LoggerPort,
 ): Pool =>
-  env.DATABASE_READ_URL !== undefined && env.DATABASE_READ_URL !== ''
+  nonEmpty(env.DATABASE_READ_URL)
     ? openPool(env, env.DATABASE_READ_URL, logPoolError(logger))
     : pool;
 
 export const createDatabase = (pool: Pool): DrizzleDatabase =>
   drizzle({ client: pool });
 
-export const createRelationalDatabase = <Schema extends Record<string, unknown>>(
+export const createRelationalDatabase = <
+  Schema extends Record<string, unknown>,
+>(
   pool: Pool,
   schema: Schema,
-): NodePgDatabase<Schema> & { $client: Pool } => drizzle({ client: pool, schema });
+): NodePgDatabase<Schema> & { $client: Pool } =>
+  drizzle({ client: pool, schema });

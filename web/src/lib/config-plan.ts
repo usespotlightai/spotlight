@@ -128,7 +128,7 @@ export const planTextLines = (
   if (plannedTexts.size >= PLANNED_TEXTS) {
     const oldest = plannedTexts.keys().next();
 
-    if (oldest.done !== true) {
+    if (!oldest.done) {
       plannedTexts.delete(oldest.value);
     }
   }

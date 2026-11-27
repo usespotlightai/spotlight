@@ -54,7 +54,7 @@ const connecting = (
     await events.dispatch(connection.pullEvents());
   });
   const administration = {
-    of: vi.fn(() => Promise.resolve(over.administration ?? 'admin')),
+    of: vi.fn(async () => over.administration ?? 'admin'),
   } satisfies InstallationAdministrationPort;
 
   const handler = new ConnectGitHubHandler(
@@ -64,10 +64,8 @@ const connecting = (
       teamAccessIn: vi.fn(),
       teamAccessOfMembers: vi.fn(),
       inWorkspaceOfTeam: vi.fn(),
-      inWorkspace: vi.fn(() =>
-        Promise.resolve(
-          over.membership === undefined ? membership() : over.membership,
-        ),
+      inWorkspace: vi.fn(async () =>
+        over.membership === undefined ? membership() : over.membership,
       ),
       permissionsIn: vi.fn(),
       permissionsInSlug: vi.fn(),
@@ -77,14 +75,10 @@ const connecting = (
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {
-      of: vi.fn((id: WorkspaceId) =>
-        Promise.resolve(GitHubConnection.none(id)),
-      ),
-      connectedWorkspaceOf: vi.fn(() =>
-        Promise.resolve(over.connectedWorkspace ?? null),
-      ),
-      lockedConnectedWorkspaceOf: vi.fn(() =>
-        Promise.resolve(over.connectedWorkspace ?? null),
+      of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
+      connectedWorkspaceOf: vi.fn(async () => over.connectedWorkspace ?? null),
+      lockedConnectedWorkspaceOf: vi.fn(
+        async () => over.connectedWorkspace ?? null,
       ),
       save,
     } satisfies GitHubConnectionRepository,

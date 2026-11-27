@@ -1,5 +1,4 @@
 import { SquareMousePointer } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { OneLine } from '@/components/shared/OneLine';
@@ -14,7 +13,7 @@ export function TeamSkillRow({
 }: {
   skill: TeamSkillResponseDto;
   pointed?: boolean;
-}): ReactElement {
+}) {
   return (
     <div
       id={skillAnchor(skill.key)}

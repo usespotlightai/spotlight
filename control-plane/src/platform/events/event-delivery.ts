@@ -33,6 +33,7 @@ import {
 } from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import {
   and,
@@ -194,9 +195,7 @@ export class EventDelivery {
             isNull(eventDelivery.deliveredAt),
             isNotNull(eventDelivery.deadLetteredAt),
             gte(eventOutbox.recordedAt, since),
-            after !== null && after !== ''
-              ? gt(eventDelivery.eventId, after)
-              : undefined,
+            nonEmpty(after) ? gt(eventDelivery.eventId, after) : undefined,
           ),
         )
         .orderBy(asc(eventDelivery.eventId))
@@ -307,7 +306,7 @@ export class EventDelivery {
           return null;
         }
 
-        if (this.subscribers.named(due.subscriber)?.callsOut === true) {
+        if (this.subscribers.named(due.subscriber)?.callsOut) {
           return { due, lease: await this.leased(due) };
         }
 

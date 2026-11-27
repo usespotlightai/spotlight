@@ -1,4 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { SECRET_NAME_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SHAPE = new RegExp(`^${SECRET_NAME_SHAPE}$`);
@@ -32,7 +33,7 @@ export class SecretName {
   static referencedBy(written: string): SecretName | null {
     const named = REFERENCE.exec(written.trim())?.[1];
 
-    return named !== undefined && named !== '' ? new SecretName(named) : null;
+    return nonEmpty(named) ? new SecretName(named) : null;
   }
 
   get standIn(): string {

@@ -12,12 +12,10 @@ import { z } from 'zod';
 const JSON_OBJECT = z.record(z.string(), z.unknown());
 
 const access = partial<RepositoryAccessPort>({
-  credential: vi.fn(() =>
-    Promise.resolve({
-      username: 'x-access-token',
-      password: 'tok_1',
-    }),
-  ),
+  credential: vi.fn(async () => ({
+    username: 'x-access-token',
+    password: 'tok_1',
+  })),
 });
 
 const WORKSPACE = WorkspaceId.of('ws_1');
@@ -35,7 +33,7 @@ let sent: Sent[] = [];
 const answering = (status: number, body: unknown) => ({
   status,
   ok: status >= 200 && status < 300,
-  json: () => Promise.resolve(body),
+  json: async () => body,
 });
 
 const github = (
@@ -48,7 +46,7 @@ const github = (
     forbidden?: { remaining: string };
   } = {},
 ) =>
-  vi.stubGlobal('fetch', (url: string, init: RequestInit = {}) => {
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     const method = init.method ?? 'GET';
 
     sent.push({
@@ -61,112 +59,92 @@ const github = (
     });
 
     if (url.endsWith('/commits/trunk') && over.forbidden) {
-      return Promise.resolve({
+      return {
         ...answering(403, { message: 'Forbidden' }),
         headers: new Headers({
           'x-ratelimit-remaining': over.forbidden.remaining,
         }),
-      });
+      };
     }
     if (url.endsWith('/repos/acme/platform')) {
-      return Promise.resolve(
-        over.unreachable === true
-          ? answering(404, { message: 'Not Found' })
-          : answering(200, { default_branch: 'trunk' }),
-      );
+      return over.unreachable
+        ? answering(404, { message: 'Not Found' })
+        : answering(200, { default_branch: 'trunk' });
     }
     if (url.endsWith('/commits/trunk')) {
-      return Promise.resolve(answering(200, { sha: 'commit_1' }));
+      return answering(200, { sha: 'commit_1' });
     }
     if (url.includes('/contents/teams/core/delivery.tf?ref=commit_1')) {
-      return Promise.resolve(
-        answering(
-          200,
-          over.large === true
-            ? { type: 'file', encoding: 'none', content: '', sha: 'blob_1' }
-            : {
-                type: 'file',
-                path:
-                  over.linked === true
-                    ? 'elsewhere.tf'
-                    : 'teams/core/delivery.tf',
-                encoding: 'base64',
-                content: Buffer.from('key = "delivery"\n').toString('base64'),
-                sha: 'blob_1',
-              },
-        ),
+      return answering(
+        200,
+
+        over.large
+          ? { type: 'file', encoding: 'none', content: '', sha: 'blob_1' }
+          : {
+              type: 'file',
+              path: over.linked ? 'elsewhere.tf' : 'teams/core/delivery.tf',
+              encoding: 'base64',
+              content: Buffer.from('key = "delivery"\n').toString('base64'),
+              sha: 'blob_1',
+            },
       );
     }
     if (url.endsWith('/git/blobs/blob_1')) {
-      return Promise.resolve(
-        answering(200, {
-          content: Buffer.from('big = true\n').toString('base64'),
-        }),
-      );
+      return answering(200, {
+        content: Buffer.from('big = true\n').toString('base64'),
+      });
     }
     if (url.includes('/contents/')) {
-      return Promise.resolve(answering(404, { message: 'Not Found' }));
+      return answering(404, { message: 'Not Found' });
     }
     if (url.endsWith('/git/commits/commit_1')) {
-      return Promise.resolve(answering(200, { tree: { sha: 'tree_1' } }));
+      return answering(200, { tree: { sha: 'tree_1' } });
     }
     if (url.endsWith('/git/blobs') && method === 'POST') {
-      return Promise.resolve(answering(201, { sha: `blob_${sent.length}` }));
+      return answering(201, { sha: `blob_${sent.length}` });
     }
     if (url.endsWith('/git/trees/tree_1')) {
-      return Promise.resolve(
-        answering(200, {
-          tree: [
-            { path: 'teams', type: 'tree', mode: '040000', sha: 'tree_teams' },
-          ],
-        }),
-      );
+      return answering(200, {
+        tree: [
+          { path: 'teams', type: 'tree', mode: '040000', sha: 'tree_teams' },
+        ],
+      });
     }
     if (url.endsWith('/git/trees/tree_teams')) {
-      return Promise.resolve(
-        answering(200, {
-          tree: [
-            { path: 'core', type: 'tree', mode: '040000', sha: 'tree_core' },
-          ],
-        }),
-      );
+      return answering(200, {
+        tree: [
+          { path: 'core', type: 'tree', mode: '040000', sha: 'tree_core' },
+        ],
+      });
     }
     if (url.endsWith('/git/trees/tree_core')) {
-      return Promise.resolve(
-        answering(200, {
-          tree: [
-            { path: 'delivery.tf', type: 'blob', mode: '100644', sha: 'b1' },
-            { path: 'run.sh', type: 'blob', mode: '100755', sha: 'b2' },
-            { path: 'linked.tf', type: 'blob', mode: '120000', sha: 'b3' },
-          ],
-        }),
-      );
+      return answering(200, {
+        tree: [
+          { path: 'delivery.tf', type: 'blob', mode: '100644', sha: 'b1' },
+          { path: 'run.sh', type: 'blob', mode: '100755', sha: 'b2' },
+          { path: 'linked.tf', type: 'blob', mode: '120000', sha: 'b3' },
+        ],
+      });
     }
     if (url.endsWith('/git/trees')) {
-      return Promise.resolve(answering(201, { sha: 'tree_2' }));
+      return answering(201, { sha: 'tree_2' });
     }
     if (url.endsWith('/git/commits') && method === 'POST') {
-      return Promise.resolve(answering(201, { sha: 'commit_2' }));
+      return answering(201, { sha: 'commit_2' });
     }
     if (url.endsWith('/git/refs') && method === 'POST') {
-      return Promise.resolve(
-        over.branchTaken === true
-          ? answering(422, { message: 'Reference already exists' })
-          : answering(201, { ref: 'refs/heads/x' }),
-      );
+      return over.branchTaken
+        ? answering(422, { message: 'Reference already exists' })
+        : answering(201, { ref: 'refs/heads/x' });
     }
     if (url.includes('/git/ref/heads/')) {
-      return Promise.resolve(
-        answering(200, { object: { sha: over.head ?? 'commit_9' } }),
-      );
+      return answering(200, { object: { sha: over.head ?? 'commit_9' } });
     }
     if (url.includes('/git/refs/heads/') && method === 'PATCH') {
-      return Promise.resolve(answering(200, { ref: 'refs/heads/x' }));
+      return answering(200, { ref: 'refs/heads/x' });
     }
 
-    return Promise.resolve(
-      answering(500, { message: `unrouted ${method} ${url}` }),
-    );
+    return answering(500, { message: `unrouted ${method} ${url}` });
   });
 
 const contents = () => new GitHubRepositoryContents(access);

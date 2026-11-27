@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import {
   HOOK_FIRING_SKIPS,
   HookFiring,
@@ -34,6 +33,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -277,11 +277,13 @@ export class DrizzleHookFirings implements HookFiringRepository {
   }
 
   async withId(id: HookFiringId): Promise<HookFiring | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(hookFiring)
-      .where(eq(hookFiring.id, id.value))
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(hookFiring)
+        .where(eq(hookFiring.id, id.value))
+        .limit(1),
+    );
 
     return row ? toFiring(row) : null;
   }

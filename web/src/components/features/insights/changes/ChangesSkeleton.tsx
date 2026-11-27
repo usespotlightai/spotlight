@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { AgentConfigFilters } from '@/components/features/insights/changes/AgentConfigFilters';
 import { AGENT_CONFIG_SCATTER_HEIGHT } from '@/components/features/insights/changes/AgentConfigScatter';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
@@ -16,11 +14,7 @@ import {
 } from '@/lib/insights-changes';
 import { ignore } from '@/lib/utils';
 
-export function ChangesSkeleton({
-  names,
-}: {
-  names: StationNames;
-}): ReactElement {
+export function ChangesSkeleton({ names }: { names: StationNames }) {
   return (
     <div
       role="status"

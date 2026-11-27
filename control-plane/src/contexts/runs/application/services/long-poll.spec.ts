@@ -5,9 +5,8 @@ const polling = () => {
   let now = new Date('2026-11-01T12:00:00Z');
   const clock = {
     now: () => now,
-    sleep: (ms: number) => {
+    sleep: async (ms: number) => {
       now = new Date(now.getTime() + ms);
-      return Promise.resolve();
     },
   };
 
@@ -28,7 +27,7 @@ describe('LongPoll', () => {
 
   it('gives nothing once the window ends', async () => {
     const poll = polling();
-    const attempt = vi.fn(() => Promise.resolve(null));
+    const attempt = vi.fn(async () => null);
 
     await expect(poll.polled(attempt)).resolves.toBeNull();
     expect(attempt).toHaveBeenCalledTimes(5);
@@ -36,7 +35,7 @@ describe('LongPoll', () => {
 
   it('claims nothing after it stops', async () => {
     const poll = polling();
-    const attempt = vi.fn(() => Promise.resolve('run_1'));
+    const attempt = vi.fn(async () => 'run_1');
 
     poll.stop();
 
@@ -46,9 +45,9 @@ describe('LongPoll', () => {
 
   it('ends a poll that waits when it stops', async () => {
     const poll = polling();
-    const attempt = vi.fn(() => {
+    const attempt = vi.fn(async () => {
       poll.stop();
-      return Promise.resolve(null);
+      return null;
     });
 
     await expect(poll.polled(attempt)).resolves.toBeNull();

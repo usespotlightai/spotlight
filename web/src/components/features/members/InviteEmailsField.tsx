@@ -1,4 +1,4 @@
-import { type ReactElement, useId } from 'react';
+import { useId } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ export function InviteEmailsField({
   onBlur,
   invalid,
   disabled,
-}: InviteEmailsFieldProps): ReactElement {
+}: InviteEmailsFieldProps) {
   const fieldId = useId();
   const hintId = useId();
 

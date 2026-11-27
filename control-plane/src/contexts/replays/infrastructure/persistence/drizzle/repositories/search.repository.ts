@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -50,6 +49,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -176,7 +177,7 @@ const toIteration = (row: IterationRow, currency: string): SearchIteration =>
     ),
     attempts: row.attempts,
     agentSpent: optionalModelSpentOf(row.agentSpent),
-    incumbent: row.incumbent !== null && row.incumbent !== '' ? CandidateId.of(row.incumbent) : null,
+    incumbent: nonEmpty(row.incumbent) ? CandidateId.of(row.incumbent) : null,
     result: row.result,
     reflectedOn: row.reflectedOn.map(reflectedTaskOf),
     causes: row.causes.map(causeOf),
@@ -275,16 +276,17 @@ export class DrizzleSearchRepository implements SearchRepository {
   ) {}
 
   async find(id: SearchId): Promise<Search | null> {
-    const found = firstOf(await this.withIterations(eq(replaySearch.id, id.value)));
+    const found = firstOf(
+      await this.withIterations(eq(replaySearch.id, id.value)),
+    );
 
     return found ?? null;
   }
 
   async locked(id: SearchId): Promise<Search | null> {
-    const found = firstOf(await this.withIterations(
-      eq(replaySearch.id, id.value),
-      true,
-    ));
+    const found = firstOf(
+      await this.withIterations(eq(replaySearch.id, id.value), true),
+    );
 
     return found ?? null;
   }
@@ -309,27 +311,31 @@ export class DrizzleSearchRepository implements SearchRepository {
   }
 
   async ranAs(run: RunId): Promise<Search | null> {
-    const found = firstOf(await this.withIterations(
-      exists(
-        this.context.db
-          .select({ one: replaySearchIteration.number })
-          .from(replaySearchIteration)
-          .where(
-            and(
-              eq(replaySearchIteration.searchId, replaySearch.id),
-              eq(replaySearchIteration.runId, run.value),
+    const found = firstOf(
+      await this.withIterations(
+        exists(
+          this.context.db
+            .select({ one: replaySearchIteration.number })
+            .from(replaySearchIteration)
+            .where(
+              and(
+                eq(replaySearchIteration.searchId, replaySearch.id),
+                eq(replaySearchIteration.runId, run.value),
+              ),
             ),
-          ),
+        ),
       ),
-    ));
+    );
 
     return found ?? null;
   }
 
   async activeAtStation(stationId: StationId): Promise<Search | null> {
-    const found = firstOf(await this.withIterations(
-      and(eq(replaySearch.stationId, stationId.value), active),
-    ));
+    const found = firstOf(
+      await this.withIterations(
+        and(eq(replaySearch.stationId, stationId.value), active),
+      ),
+    );
 
     return found ?? null;
   }
@@ -353,9 +359,11 @@ export class DrizzleSearchRepository implements SearchRepository {
   }
 
   async activeOfSet(setId: ReplaySetId): Promise<Search | null> {
-    const found = firstOf(await this.withIterations(
-      and(eq(replaySearch.setId, setId.value), active),
-    ));
+    const found = firstOf(
+      await this.withIterations(
+        and(eq(replaySearch.setId, setId.value), active),
+      ),
+    );
 
     return found ?? null;
   }

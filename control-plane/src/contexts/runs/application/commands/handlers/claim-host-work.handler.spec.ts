@@ -108,9 +108,8 @@ const pulling = (
   let now = NOW;
   const clock = {
     now: () => now,
-    sleep: (ms: number) => {
+    sleep: async (ms: number) => {
       now = new Date(now.getTime() + ms);
-      return Promise.resolve();
     },
   };
   const answers: StartedRunner[] = [
@@ -122,134 +121,121 @@ const pulling = (
     },
   ].flat();
   const runners = {
-    start: vi.fn((): Promise<StartedRunner> => {
+    start: vi.fn(async (): Promise<StartedRunner> => {
       const answer = answers.length > 1 ? answers.shift() : answers[0];
 
-      return answer === undefined
-        ? Promise.reject(new Error('no runner left to start'))
-        : Promise.resolve(answer);
-    }),
-    claim: vi.fn(() => {
-      if (over.tookFails === true) {
-        return Promise.reject(new Error('pooled_1 is spent'));
+      if (answer === undefined) {
+        throw new Error('no runner left to start');
       }
-      return Promise.resolve();
+
+      return answer;
+    }),
+    claim: vi.fn(async () => {
+      if (over.tookFails) {
+        throw new Error('pooled_1 is spent');
+      }
     }),
     release: vi.fn(async () => {}),
   };
-  const claimNext = vi.fn(() =>
-    Promise.resolve(over.run === undefined ? null : over.run),
+  const claimNext = vi.fn(async () =>
+    over.run === undefined ? null : over.run,
   );
-  const claimCheck = vi.fn(() => Promise.resolve(over.check ?? null));
-  const mayStart = vi.fn((): Promise<RunStart> =>
-    Promise.resolve(over.starts ?? 'starts'),
+  const claimCheck = vi.fn(async () => over.check ?? null);
+  const mayStart = vi.fn(
+    async (): Promise<RunStart> => over.starts ?? 'starts',
   );
   const authenticator = {
-    authenticate: vi.fn((credential: HostCredentials) =>
-      Promise.resolve(
-        credential.bearer !== 'pool-token'
-          ? null
-          : {
-              source: { kind: 'pool' as const, id: 'pool_1' },
-              workspaceId: WorkspaceId.of('ws_1'),
-              workingCopies: null,
-            },
-      ),
+    authenticate: vi.fn(async (credential: HostCredentials) =>
+      credential.bearer !== 'pool-token'
+        ? null
+        : {
+            source: { kind: 'pool' as const, id: 'pool_1' },
+            workspaceId: WorkspaceId.of('ws_1'),
+            workingCopies: null,
+          },
     ),
   };
   const heartbeats = {
-    claimantOf: () => Promise.resolve(null),
-    registeredClaimantOf: vi.fn(() =>
-      Promise.resolve({
-        workspaceId: WorkspaceId.of('ws_1'),
-        harnesses: [HarnessId.of('claude-code')],
-        offer: RunnerOffer.of(['linux']),
-        claims: 'reserved' as const,
-        source: { kind: 'trust' as const, key: 'ci', platform: false },
-      }),
-    ),
+    claimantOf: async () => null,
+    registeredClaimantOf: vi.fn(async () => ({
+      workspaceId: WorkspaceId.of('ws_1'),
+      harnesses: [HarnessId.of('claude-code')],
+      offer: RunnerOffer.of(['linux']),
+      claims: 'reserved' as const,
+      source: { kind: 'trust' as const, key: 'ci', platform: false },
+    })),
   };
   const saved: Run[] = [];
   const runs = partial<RunRepository>({
-    newestWithKey: vi.fn(() => Promise.resolve(over.newest ?? null)),
-    queuedWithKey: vi.fn(() => Promise.resolve(over.queuedForKey ?? [])),
+    newestWithKey: vi.fn(async () => over.newest ?? null),
+    queuedWithKey: vi.fn(async () => over.queuedForKey ?? []),
     queuedFirstRuns: vi.fn(
-      (
+      async (
         _in: WorkspaceId,
         page: { readonly avoiding: readonly WorkingCopyKey[] },
-      ) =>
-        Promise.resolve({
-          waiting: (over.firstRuns ?? [])
-            .filter(
-              (each) =>
-                !page.avoiding.some(
-                  (key) => each.workingCopyKey?.equals(key) ?? false,
-                ),
-            )
-            .slice(0, over.firstRunsPerPage),
-          leasedRequesters: [],
-        }),
+      ) => ({
+        waiting: (over.firstRuns ?? [])
+          .filter(
+            (each) =>
+              !page.avoiding.some(
+                (key) => each.workingCopyKey?.equals(key) ?? false,
+              ),
+          )
+          .slice(0, over.firstRunsPerPage),
+        leasedRequesters: [],
+      }),
     ),
-    findById: vi.fn(() => Promise.resolve(over.run ?? null)),
-    save: vi.fn((run: Run) => {
+    findById: vi.fn(async () => over.run ?? null),
+    save: vi.fn(async (run: Run) => {
       saved.push(run);
-      return Promise.resolve();
     }),
   });
   const unclaim = vi.fn(async () => {});
   const checks = {
     claimNext: claimCheck,
-    claimReserved: vi.fn(() => Promise.resolve(null)),
+    claimReserved: vi.fn(async () => null),
     unclaim,
-    renewLease: vi.fn(() => Promise.resolve('renewed' as const)),
-    isLeasedBy: vi.fn(() => Promise.resolve(false)),
-    waitingPlacements: vi.fn(() => Promise.resolve([])),
+    renewLease: vi.fn(async () => 'renewed' as const),
+    isLeasedBy: vi.fn(async () => false),
+    waitingPlacements: vi.fn(async () => []),
   };
   const sandboxes = {
-    holdForRun: vi.fn(() =>
-      Promise.resolve({
-        id: 'sandbox_1',
-        token: 'sandbox-token',
-      }),
-    ),
-    takingRuns: vi.fn(() => Promise.resolve(over.taking ?? null)),
-    holdInSandbox: vi.fn(() => Promise.resolve(over.holds ?? true)),
-    liveKeysIn: vi.fn(() => Promise.resolve(over.liveKeys ?? [])),
+    holdForRun: vi.fn(async () => ({
+      id: 'sandbox_1',
+      token: 'sandbox-token',
+    })),
+    takingRuns: vi.fn(async () => over.taking ?? null),
+    holdInSandbox: vi.fn(async () => over.holds ?? true),
+    liveKeysIn: vi.fn(async () => over.liveKeys ?? []),
     releaseRun: vi.fn(async () => {}),
     retireRun: vi.fn(async () => {}),
-    open: vi.fn(() =>
-      Promise.resolve({ id: 'sandbox_1', state: 'starting' as const }),
-    ),
-    requestedIn: vi.fn(() => Promise.resolve(over.requested ?? [])),
-    startRequested: vi.fn((id: string) =>
-      Promise.resolve(
-        over.startsRequested === undefined
-          ? { id, token: 'requested-token' }
-          : over.startsRequested,
-      ),
+    open: vi.fn(async () => ({ id: 'sandbox_1', state: 'starting' as const })),
+    requestedIn: vi.fn(async () => over.requested ?? []),
+    startRequested: vi.fn(async (id: string) =>
+      over.startsRequested === undefined
+        ? { id, token: 'requested-token' }
+        : over.startsRequested,
     ),
     drain: vi.fn(async () => {}),
-    requestedWarmIn: vi.fn(() => Promise.resolve(over.requestedWarm ?? [])),
-    startWarm: vi.fn(() => Promise.resolve(over.startsWarm ?? null)),
-    readyWarmIn: vi.fn(() => Promise.resolve(over.readyWarm ?? [])),
-    adoptForRun: vi.fn(() => Promise.resolve(over.adopts ?? true)),
-    authenticate: vi.fn(() => Promise.resolve(null)),
-    holdArchive: vi.fn(() => Promise.resolve(true)),
+    requestedWarmIn: vi.fn(async () => over.requestedWarm ?? []),
+    startWarm: vi.fn(async () => over.startsWarm ?? null),
+    readyWarmIn: vi.fn(async () => over.readyWarm ?? []),
+    adoptForRun: vi.fn(async () => over.adopts ?? true),
+    authenticate: vi.fn(async () => null),
+    holdArchive: vi.fn(async () => true),
     releaseArchive: vi.fn(async () => {}),
-    renewArchive: vi.fn(() => Promise.resolve(true)),
-    archivedAttemptOf: vi.fn(() => Promise.resolve(null)),
+    renewArchive: vi.fn(async () => true),
+    archivedAttemptOf: vi.fn(async () => null),
   } satisfies SandboxesPort;
   const archives = partial<WorkingCopyArchiveRepository>({
     completedKeysAmong: vi.fn(
-      (_: WorkspaceId, keys: readonly WorkingCopyKey[]) =>
-        Promise.resolve(
-          keys.filter(
-            (key) => over.archived?.some((each) => each.equals(key)) === true,
-          ),
+      async (_: WorkspaceId, keys: readonly WorkingCopyKey[]) =>
+        keys.filter(
+          (key) => over.archived?.some((each) => each.equals(key)) === true,
         ),
     ),
   });
-  const waitsFor = vi.fn(() => Promise.resolve(over.waits ?? false));
+  const waitsFor = vi.fn(async () => over.waits ?? false);
   const drained: boolean[] = [];
   const roomForWarmOn = vi.fn(
     (_: string, __: Date) => over.roomForWarm ?? true,

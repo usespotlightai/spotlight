@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import {
   type InsightsColumn,
@@ -35,11 +33,7 @@ const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
   },
 ];
 
-export function ReviewBots({
-  bots,
-}: {
-  bots: readonly ReviewBot[];
-}): ReactElement {
+export function ReviewBots({ bots }: { bots: readonly ReviewBot[] }) {
   return (
     <InsightsCard
       flat

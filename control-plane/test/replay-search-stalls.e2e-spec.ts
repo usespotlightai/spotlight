@@ -5,6 +5,7 @@ import { AdvanceSearches } from '@replays/application/services/advance-searches.
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { eq, inArray } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
@@ -100,9 +101,7 @@ describe('a search for a better station config, when it stalls or loses its stat
           taskId,
           cause,
           evidence: `The replay of ${taskId} shows the ${cause} at fault.`,
-          ...(suggestion !== undefined && suggestion !== ''
-            ? { suggestion }
-            : {}),
+          ...(nonEmpty(suggestion) ? { suggestion } : {}),
         },
       );
 

@@ -1,5 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
@@ -42,7 +42,7 @@ export function StationSelect({
   value,
   held,
   onChange,
-}: StationSelectProps): ReactElement {
+}: StationSelectProps) {
   const shareOf = (stationId: string) =>
     stationShare(
       stations.findIndex((each) => each.id === stationId),

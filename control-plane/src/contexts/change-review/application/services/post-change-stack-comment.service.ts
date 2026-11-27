@@ -11,6 +11,7 @@ import type { PullRequestCommentsPort } from '@github/application/ports/pull-req
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -61,8 +62,7 @@ export class PostChangeStackComment implements StickyCommentPosterPort {
     const slug = await this.workspaces.slugOf(task.workspaceId);
 
     if (
-      slug === null ||
-      slug === '' ||
+      !nonEmpty(slug) ||
       !(await this.connections.isConnected(task.workspaceId))
     ) {
       return;

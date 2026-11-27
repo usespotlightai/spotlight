@@ -122,12 +122,12 @@ const refreshing = (
     connections.add(each);
   }
   const allowedWhileRefreshing: boolean[] = [];
-  const refresh = vi.fn(() => {
+  const refresh = vi.fn(async () => {
     allowedWhileRefreshing.push(
       OutboundScope.allows('slack.com'),
       OutboundScope.allows('elsewhere.example'),
     );
-    return Promise.resolve(tokens);
+    return tokens;
   });
   const clock = partial<ClockPort>({ now: () => NOW });
   const warn = vi.fn();
@@ -138,7 +138,7 @@ const refreshing = (
     new ConnectionRefresh(
       connections,
       partial<DefinedIntegrationsPort>({
-        ofTeam: () => Promise.resolve(config()),
+        ofTeam: async () => config(),
       }),
       runtimeWith(
         {},

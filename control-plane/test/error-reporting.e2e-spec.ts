@@ -79,11 +79,11 @@ describe('error reporting', () => {
         defaultIntegrations: false,
         integrations: [httpIntegration(), requestDataIntegration()],
         transport: () => ({
-          send: (envelope) => {
+          send: async (envelope) => {
             envelopes.push(envelope);
-            return Promise.resolve({});
+            return {};
           },
-          flush: () => Promise.resolve(true),
+          flush: async () => true,
         }),
       });
 

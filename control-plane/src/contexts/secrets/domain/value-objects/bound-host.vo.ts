@@ -5,7 +5,7 @@ const LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?';
 const HOST = new RegExp(`^(?=.{1,253}$)${LABEL}(?:\\.${LABEL})+$`);
 
 export class BoundHost {
-  private readonly kind: string = 'bound-host';
+  private readonly kind = 'bound-host';
 
   private constructor(readonly value: string) {}
 
@@ -27,6 +27,6 @@ export class BoundHost {
   }
 
   equals(other: BoundHost): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof BoundHost && this.value === other.value;
   }
 }

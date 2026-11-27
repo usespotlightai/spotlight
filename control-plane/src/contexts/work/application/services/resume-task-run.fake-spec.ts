@@ -12,9 +12,9 @@ export const resumingWith = (
   runs: Pick<RunsPort, 'resume'>,
   dispatches: DispatchRepository,
   integrations: TeamIntegrationsPort = {
-    provided: () => Promise.resolve([]),
-    toolsOnMarks: () => Promise.resolve([]),
-    toolsOnAnyMark: () => Promise.resolve([]),
+    provided: async () => [],
+    toolsOnMarks: async () => [],
+    toolsOnAnyMark: async () => [],
   },
   logger: LoggerPort = {
     debug: () => undefined,

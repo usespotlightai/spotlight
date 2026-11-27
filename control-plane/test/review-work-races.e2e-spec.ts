@@ -101,8 +101,8 @@ beforeAll(async () => {
   context = new DrizzleContext(database.db);
 
   const dispatcher = {
-    dispatch: (events: readonly DomainEvent[]) =>
-      Promise.resolve(context.afterCommit(() => committed.push(...events))),
+    dispatch: async (events: readonly DomainEvent[]) =>
+      context.afterCommit(() => committed.push(...events)),
   };
 
   checks = new DrizzleStackCheckRepository(context, dispatcher);
@@ -139,15 +139,13 @@ const recordingLogger: LoggerPort = {
 };
 
 const claimants: RunnerClaimantsPort = {
-  registeredClaimantOf: () => Promise.resolve(null),
-  claimantOf: () =>
-    Promise.resolve(
-      partial<RegisteredClaimant>({
-        harnesses: [],
-        claims: 'nothing',
-        source: null,
-      }),
-    ),
+  registeredClaimantOf: async () => null,
+  claimantOf: async () =>
+    partial<RegisteredClaimant>({
+      harnesses: [],
+      claims: 'nothing',
+      source: null,
+    }),
 };
 
 const sha = (digit: string): CommitSha => {
@@ -793,7 +791,7 @@ describe('a leased push diff raced by its runner, another runner, the sweeper an
     new StackPushes(
       diffs,
       stacks,
-      { ...partial<WorkPort>({}), task: () => Promise.resolve(null) },
+      { ...partial<WorkPort>({}), task: async () => null },
       partial<GenerateChangeStack>({}),
       { stackingFor: async (_, work) => work() },
       { generate: () => randomUUID() },

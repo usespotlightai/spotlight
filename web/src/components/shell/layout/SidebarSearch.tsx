@@ -1,5 +1,4 @@
 import { Search } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 
@@ -7,7 +6,7 @@ type SidebarSearchProps = {
   onOpen: () => void;
 };
 
-export function SidebarSearch({ onOpen }: SidebarSearchProps): ReactElement {
+export function SidebarSearch({ onOpen }: SidebarSearchProps) {
   return (
     <button
       type="button"

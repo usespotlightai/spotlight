@@ -39,6 +39,7 @@ import {
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -87,61 +88,54 @@ const CLAIMS = [
 ];
 
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  stored: () => Promise.resolve(true),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+  received: async () => [],
+  stored: async () => true,
+  taken: async () => undefined,
+  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 });
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
 const generator: ChangeStackGeneratorPort = {
-  generate: ({ diff }) =>
-    Promise.resolve({
-      status: 'drafted' as const,
-      usage: {
-        inputTokens: 1_000,
-        outputTokens: 100,
-        cost: { amount: 0.02, currency: 'USD' },
+  generate: async ({ diff }) => ({
+    status: 'drafted' as const,
+    usage: {
+      inputTokens: 1_000,
+      outputTokens: 100,
+      cost: { amount: 0.02, currency: 'USD' },
+    },
+    cohorts: [
+      {
+        kind: 'change',
+        title: 'Drain the queue',
+        intent: 'Drain it in order',
+        layers: [
+          {
+            title: 'Drain in order',
+            summary: 'Drains the queue oldest first',
+            dependsOn: [],
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
+            notes: [
+              ...new Set(
+                diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
+              ),
+            ].map((path) => ({ path, note: 'Drains the queue' })),
+            questions: [],
+          },
+        ],
       },
-      cohorts: [
-        {
-          kind: 'change',
-          title: 'Drain the queue',
-          intent: 'Drain it in order',
-          layers: [
-            {
-              title: 'Drain in order',
-              summary: 'Drains the queue oldest first',
-              dependsOn: [],
-              hunks: diff.hunks.map((each) => ({ hunk: each.id })),
-              notes: [
-                ...new Set(
-                  diff.hunks.flatMap(
-                    (each) => diff.fileOf(each.id)?.path ?? [],
-                  ),
-                ),
-              ].map((path) => ({ path, note: 'Drains the queue' })),
-              questions: [],
-            },
-          ],
-        },
-      ],
-    }),
+    ],
+  }),
 };
 
 const SCORED = /score\((\d)\)/;
@@ -150,12 +144,12 @@ const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   roundOf: () => null,
-  judge: (request) => {
+  judge: async (request) => {
     requests.push(request);
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
-    return Promise.resolve({
+    return {
       status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
@@ -172,7 +166,7 @@ const judge: JudgePort = {
           ],
         })),
       },
-    });
+    };
   },
 };
 
@@ -610,9 +604,7 @@ describe('a replay at a station that checks and judges', () => {
           .select({ runId: schema.replayEntry.runId })
           .from(schema.replayEntry)
           .where(inArray(schema.replayEntry.replayId, both))
-      ).flatMap((each) =>
-        each.runId !== null && each.runId !== '' ? [each.runId] : [],
-      );
+      ).flatMap((each) => (nonEmpty(each.runId) ? [each.runId] : []));
 
     const workWaiting = async () => {
       const runs = await replayRunIds();
@@ -758,9 +750,7 @@ describe('a replay at a station that checks and judges', () => {
         .select({ runId: schema.replayEntry.runId })
         .from(schema.replayEntry)
         .where(inArray(schema.replayEntry.replayId, [id, baselineId]))
-    ).flatMap((each) =>
-      each.runId !== null && each.runId !== '' ? [each.runId] : [],
-    );
+    ).flatMap((each) => (nonEmpty(each.runId) ? [each.runId] : []));
 
     expect(replayRuns).toHaveLength(4);
     expect(

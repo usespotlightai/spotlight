@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   IdentityResourcesPort,
   OidcTrustRecord,
@@ -18,6 +17,7 @@ import {
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -224,31 +224,37 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
   private async oidcTrust(
     where: SQL | undefined,
   ): Promise<OidcTrustRecord | null> {
-    const found = firstOf(await this.context.db
-      .select(TRUST_COLUMNS)
-      .from(oidcTrust)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select(TRUST_COLUMNS)
+        .from(oidcTrust)
+        .where(where)
+        .limit(1),
+    );
 
     return found ? trustRecordOf(found) : null;
   }
 
   private async workspace(where: SQL): Promise<WorkspaceRecord | null> {
-    const found = firstOf(await this.context.db
-      .select(WORKSPACE_COLUMNS)
-      .from(workspace)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select(WORKSPACE_COLUMNS)
+        .from(workspace)
+        .where(where)
+        .limit(1),
+    );
 
     return found ? workspaceRecordOf(found) : null;
   }
 
   private async team(where: SQL | undefined): Promise<TeamRecord | null> {
-    const found = firstOf(await this.context.db
-      .select(TEAM_COLUMNS)
-      .from(team)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select(TEAM_COLUMNS)
+        .from(team)
+        .where(where)
+        .limit(1),
+    );
 
     return found ? teamRecordOf(found) : null;
   }

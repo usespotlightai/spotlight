@@ -33,20 +33,18 @@ const calling = (
   let now = NOW;
   const clock: ClockPort = {
     now: () => now,
-    sleep: (ms) => {
+    sleep: async (ms) => {
       now = new Date(now.getTime() + ms);
-      return Promise.resolve();
     },
   };
   let stored: NetworkCall | null = null;
   const reads: Date[] = [];
   let saves = 0;
   const repository = partial<NetworkCallRepository>({
-    add: (call: NetworkCall) => {
+    add: async (call: NetworkCall) => {
       stored = call;
-      return Promise.resolve();
     },
-    find: () => {
+    find: async () => {
       reads.push(now);
       if (
         stored &&
@@ -59,21 +57,16 @@ const calling = (
           ? claimed
           : claimed.recordResponse(HOST, response, now);
       }
-      return Promise.resolve(stored);
+      return stored;
     },
-    save: (call: NetworkCall) => {
+    save: async (call: NetworkCall) => {
       saves += 1;
       stored = call.isDiscarded ? null : call;
-      return Promise.resolve();
     },
-    expiringBy: (at: Date) =>
-      Promise.resolve(
-        stored && stored.expiresAt <= at && !stored.isCompleted ? [stored] : [],
-      ),
-    completedBy: (at: Date) =>
-      Promise.resolve(
-        stored?.completedAt && stored.completedAt <= at ? [stored] : [],
-      ),
+    expiringBy: async (at: Date) =>
+      stored && stored.expiresAt <= at && !stored.isCompleted ? [stored] : [],
+    completedBy: async (at: Date) =>
+      stored?.completedAt && stored.completedAt <= at ? [stored] : [],
   });
 
   return {

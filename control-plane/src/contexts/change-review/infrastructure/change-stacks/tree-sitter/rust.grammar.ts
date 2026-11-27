@@ -5,6 +5,7 @@ import {
   type GrammarImport,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const flattened = (node: Node | null, prefix: string): GrammarImport[] => {
@@ -20,16 +21,14 @@ const flattened = (node: Node | null, prefix: string): GrammarImport[] => {
     case 'scoped_identifier': {
       const name = field(node, 'name')?.text;
       const path = field(node, 'path')?.text ?? '';
-      return name !== undefined && name !== ''
+      return nonEmpty(name)
         ? [{ local: name, imported: name, specifier: joined(path) }]
         : [];
     }
     case 'use_as_clause': {
       const inner = firstOf(flattened(field(node, 'path'), prefix));
       const alias = field(node, 'alias')?.text;
-      return inner && alias !== undefined && alias !== ''
-        ? [{ ...inner, local: alias }]
-        : [];
+      return inner && nonEmpty(alias) ? [{ ...inner, local: alias }] : [];
     }
     case 'scoped_use_list':
       return flattened(

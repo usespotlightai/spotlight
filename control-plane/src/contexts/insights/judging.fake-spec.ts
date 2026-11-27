@@ -104,16 +104,12 @@ export class JudgingsInMemory implements JudgingRepository {
   readonly stored = new Map<string, Judging>();
   readonly events: DomainEvent[] = [];
 
-  add(judging: Judging): Promise<void> {
+  async add(judging: Judging): Promise<void> {
     if (this.stored.has(judging.runId.value)) {
-      return Promise.reject(
-        new JudgingVersionConflictError(judging.runId.value),
-      );
+      throw new JudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
     this.stored.set(judging.runId.value, judging);
-
-    return Promise.resolve();
   }
 
   async save(judging: Judging): Promise<void> {
@@ -133,42 +129,41 @@ export class JudgingsInMemory implements JudgingRepository {
     );
   }
 
-  of(runId: RunId): Promise<Judging | null> {
-    return Promise.resolve(this.stored.get(runId.value) ?? null);
+  async of(runId: RunId): Promise<Judging | null> {
+    return this.stored.get(runId.value) ?? null;
   }
 
-  nextDueJob(now: Date): Promise<Judging | null> {
-    return Promise.resolve(
+  async nextDueJob(now: Date): Promise<Judging | null> {
+    return (
       [...this.stored.values()]
         .filter((each) => each.job?.isDue(now) === true)
-        .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime())[0] ?? null,
+        .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime())[0] ?? null
     );
   }
 
-  ofScope(scope: DeletionScope, max: number): Promise<readonly Judging[]> {
-    return Promise.resolve(
-      inScope(
-        this.stored,
-        scope,
-        (each) => ({
-          workspaceId: each.workspaceId,
-          teamId: each.location.teamId,
-          taskId: each.location.taskId,
-        }),
-        max,
-      ),
+  async ofScope(
+    scope: DeletionScope,
+    max: number,
+  ): Promise<readonly Judging[]> {
+    return inScope(
+      this.stored,
+      scope,
+      (each) => ({
+        workspaceId: each.workspaceId,
+        teamId: each.location.teamId,
+        taskId: each.location.taskId,
+      }),
+      max,
     );
   }
 
-  private removed(removed: Judging): Promise<void> {
+  private async removed(removed: Judging): Promise<void> {
     removeVersioned(
       this.stored,
       removed.runId.value,
       removed,
       () => new JudgingVersionConflictError(removed.runId.value),
     );
-
-    return Promise.resolve();
   }
 }
 
@@ -176,7 +171,7 @@ export class ScoresInMemory implements ScoreRepository {
   readonly stored = new Map<string, Score>();
   readonly events: DomainEvent[] = [];
 
-  add(score: Score): Promise<void> {
+  async add(score: Score): Promise<void> {
     const twin = [...this.stored.values()].find(
       (each) =>
         each.runId.equals(score.runId) &&
@@ -184,12 +179,10 @@ export class ScoresInMemory implements ScoreRepository {
     );
 
     if (this.stored.has(score.id.value) || twin) {
-      return Promise.reject(new ScoreVersionConflictError(score.id.value));
+      throw new ScoreVersionConflictError(score.id.value);
     }
     this.events.push(...score.pullEvents());
     this.stored.set(score.id.value, score);
-
-    return Promise.resolve();
   }
 
   async save(score: Score): Promise<void> {
@@ -198,38 +191,34 @@ export class ScoresInMemory implements ScoreRepository {
     }
   }
 
-  of(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null> {
-    return Promise.resolve(
+  async of(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null> {
+    return (
       [...this.stored.values()].find(
         (each) =>
           each.runId.equals(runId) && each.rubricVersion === rubricVersion,
-      ) ?? null,
+      ) ?? null
     );
   }
 
-  ofScope(scope: DeletionScope, max: number): Promise<readonly Score[]> {
-    return Promise.resolve(
-      inScope(
-        this.stored,
-        scope,
-        (each) => ({
-          workspaceId: each.workspaceId,
-          teamId: each.location.teamId,
-          taskId: each.location.taskId,
-        }),
-        max,
-      ),
+  async ofScope(scope: DeletionScope, max: number): Promise<readonly Score[]> {
+    return inScope(
+      this.stored,
+      scope,
+      (each) => ({
+        workspaceId: each.workspaceId,
+        teamId: each.location.teamId,
+        taskId: each.location.taskId,
+      }),
+      max,
     );
   }
 
-  private removed(removed: Score): Promise<void> {
+  private async removed(removed: Score): Promise<void> {
     removeVersioned(
       this.stored,
       removed.id.value,
       removed,
       () => new ScoreVersionConflictError(removed.id.value),
     );
-
-    return Promise.resolve();
   }
 }

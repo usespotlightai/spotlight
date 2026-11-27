@@ -1,5 +1,4 @@
 import { Send, Undo2 } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { RowActions } from '@/components/shared/RowActions';
 import { useResendInvite } from '@/hooks/api/useResendInvite';
@@ -14,10 +13,7 @@ type InviteActionsProps = {
   invite: WorkspaceInvite;
 };
 
-export function InviteActions({
-  slug,
-  invite,
-}: InviteActionsProps): ReactElement {
+export function InviteActions({ slug, invite }: InviteActionsProps) {
   const resend = useResendInvite(slug);
   const revoke = useRevokeInvite(slug);
   const { isSuccess: resent, reset: resetResent } = resend;

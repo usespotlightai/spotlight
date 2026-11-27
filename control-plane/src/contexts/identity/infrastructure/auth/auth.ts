@@ -20,7 +20,7 @@ const fieldOf = (body: unknown, field: string): unknown =>
     ? Reflect.get(body, field)
     : undefined;
 
-const refusesClientChosenFields = createAuthMiddleware((ctx) => {
+const refusesClientChosenFields = createAuthMiddleware(async (ctx) => {
   const body: unknown = ctx.body;
 
   if (
@@ -28,14 +28,11 @@ const refusesClientChosenFields = createAuthMiddleware((ctx) => {
     (fieldOf(body, 'user_id') !== undefined ||
       fieldOf(body, 'scope') !== undefined)
   ) {
-    return Promise.reject(
-      new APIError('BAD_REQUEST', {
-        error: 'invalid_request',
-        error_description: 'A device code takes only client_id.',
-      }),
-    );
+    throw new APIError('BAD_REQUEST', {
+      error: 'invalid_request',
+      error_description: 'A device code takes only client_id.',
+    });
   }
-  return Promise.resolve();
 });
 
 const authFor = (env: Env, pool: Pool, rateLimit: RateLimitStorage | null) =>

@@ -11,9 +11,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq, ne } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleIntegrationConnectionRoster
-  implements IntegrationConnectionRosterPort
-{
+export class DrizzleIntegrationConnectionRoster implements IntegrationConnectionRosterPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async ofTeam(teamId: TeamId): Promise<readonly PersonConnection[]> {

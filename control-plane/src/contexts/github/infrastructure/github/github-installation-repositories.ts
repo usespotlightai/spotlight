@@ -8,6 +8,7 @@ import {
 } from '@github/application/ports/repository-access.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { z } from 'zod';
 
@@ -38,7 +39,7 @@ export class GitHubInstallationRepositories implements InstallationRepositoriesP
 
       found.push(
         ...listed.flatMap((name) =>
-          name !== undefined && name !== '' ? [{ fullName: name }] : [],
+          nonEmpty(name) ? [{ fullName: name }] : [],
         ),
       );
 

@@ -1,13 +1,7 @@
-import type { ReactElement } from 'react';
-
 import { SPRING, SPRING_EASE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
-export function SidebarWindowChrome({
-  floating,
-}: {
-  floating: boolean;
-}): ReactElement {
+export function SidebarWindowChrome({ floating }: { floating: boolean }) {
   return (
     <>
       <div

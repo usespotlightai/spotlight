@@ -6,7 +6,6 @@ import {
   type Ref,
   useRef,
   useState,
-  type ReactElement,
 } from 'react';
 
 import { CollapsibleSidebar } from '@/components/shell/layout/CollapsibleSidebar';
@@ -99,7 +98,7 @@ export function DashboardLayout({
   focused = 'main',
   onCollapse,
   children,
-}: DashboardLayoutProps): ReactElement {
+}: DashboardLayoutProps) {
   const collapsed = useSidebarCollapsedSetting();
   const desktop = framesWindow();
   const shellSpacing: CSSProperties & Record<`--${string}`, string> = {
@@ -135,7 +134,7 @@ export function DashboardLayout({
   const close = (section: SectionName) => {
     const at = section === 'main' ? 0 : 1;
     const row = paneRef.current;
-    if (row?.children[at]?.contains(document.activeElement) === true) {
+    if (row?.children[at]?.contains(document.activeElement)) {
       row.children[1 - at]?.querySelector('section')?.focus();
     }
 

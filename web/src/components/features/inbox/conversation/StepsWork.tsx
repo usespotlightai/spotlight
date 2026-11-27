@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StepsDisclosure } from '@/components/features/inbox/conversation/StepsDisclosure';
 import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
 import type { JournalStep } from '@/lib/inbox';
@@ -18,7 +16,7 @@ const stepsLabel = (verb: string, count: number) => (
   </span>
 );
 
-export function StepsWork({ steps, live }: StepsWorkProps): ReactElement {
+export function StepsWork({ steps, live }: StepsWorkProps) {
   return (
     <StepsDisclosure
       steps={steps}
@@ -28,7 +26,7 @@ export function StepsWork({ steps, live }: StepsWorkProps): ReactElement {
   );
 }
 
-export function StepsWorkPending({ count }: { count: number }): ReactElement {
+export function StepsWorkPending({ count }: { count: number }) {
   return (
     <div className="py-1.5" aria-busy="true">
       <DisclosureToggle

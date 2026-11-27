@@ -18,8 +18,8 @@ const TEAM = TeamId.of('team_1');
 const configsOver = (integration: string) =>
   new IntegrationConfigs(
     partial<IntegrationResourcesPort>({
-      withId: () =>
-        Promise.resolve({
+      withId: async () =>
+        ({
           id: 'definition_1',
           version: 1,
           integration,
@@ -28,10 +28,10 @@ const configsOver = (integration: string) =>
           generatedFrom: null,
           reading: null,
           teamId: TEAM,
-        } satisfies IntegrationRecord),
+        }) satisfies IntegrationRecord,
     }),
     partial<TeamDirectoryPort>({
-      find: () => Promise.resolve(partial<TeamProfile>({ key: 'acme' })),
+      find: async () => partial<TeamProfile>({ key: 'acme' }),
     }),
     partial<IntegrationReader>({ secretReferencesOf: () => [] }),
   );

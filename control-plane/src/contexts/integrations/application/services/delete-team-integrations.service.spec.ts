@@ -32,21 +32,21 @@ const setUp = () => {
   const registration = partial<OAuth2ClientRegistration>({});
   const hooks = {
     withId: vi.fn(),
-    ofTeam: vi.fn(() => Promise.resolve([hook, hook])),
+    ofTeam: vi.fn(async () => [hook, hook]),
     save: vi.fn(async () => {}),
   } satisfies HookDefinitionRepository;
   const definitions = {
     withId: vi.fn(),
     of: vi.fn(),
-    ofTeam: vi.fn(() => Promise.resolve([integration])),
+    ofTeam: vi.fn(async () => [integration]),
     save: vi.fn(async () => {}),
   } satisfies IntegrationDefinitionRepository;
   const connections = partial<IntegrationConnectionRepository>({
-    ofTeam: vi.fn(() => Promise.resolve([connection])),
+    ofTeam: vi.fn(async () => [connection]),
     remove: vi.fn(async () => {}),
   });
   const registrations = partial<OAuth2ClientRegistrationRepository>({
-    ofTeam: vi.fn(() => Promise.resolve([registration])),
+    ofTeam: vi.fn(async () => [registration]),
     remove: vi.fn(async () => {}),
   });
 

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { type CandidatesSet, replayedTasksOf } from '@/lib/insights-candidates';
@@ -25,7 +23,7 @@ const warningNote = (warnings: readonly HealthReading[]): TooltipNote => {
       };
 };
 
-export function SetSummary({ set }: SetSummaryProps): ReactElement {
+export function SetSummary({ set }: SetSummaryProps) {
   const readings = healthReadingsOf(set.health, set.health.minGain);
   const warnings = readings.filter((each) => each.tone === 'bad');
   const first = warnings.at(0);

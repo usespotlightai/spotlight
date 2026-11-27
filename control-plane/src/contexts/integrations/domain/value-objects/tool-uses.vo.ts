@@ -6,7 +6,7 @@ export interface ToolUse {
 }
 
 export class ToolUses {
-  private readonly kind: string = 'tool-uses';
+  private readonly kind = 'tool-uses';
 
   private constructor(readonly uses: readonly ToolUse[]) {}
 
@@ -30,7 +30,7 @@ export class ToolUses {
 
   equals(other: ToolUses): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof ToolUses &&
       this.uses.length === other.uses.length &&
       this.uses.every(
         (each, index) =>

@@ -86,18 +86,17 @@ const starting = (
   const hookCalls: BeforeHookEvent[] = [];
   const untils: (Date | undefined)[] = [];
   const logged: string[] = [];
-  const of = vi.fn((taskId: string, runId: string | null) =>
-    Promise.resolve(over.viewed === false ? null : { taskId, runId }),
+  const of = vi.fn(async (taskId: string, runId: string | null) =>
+    over.viewed === false ? null : { taskId, runId },
   );
   const runs = {
-    findById: vi.fn(() => Promise.resolve(current)),
-    save: vi.fn((run: Run) => {
+    findById: vi.fn(async () => current),
+    save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
-        return Promise.reject(new RunVersionConflictError(run.id.value));
+        throw new RunVersionConflictError(run.id.value);
       }
       current = run;
-      return Promise.resolve();
     }),
   };
 
@@ -123,18 +122,16 @@ const starting = (
       },
     );
 
-    if (over.ungated !== true) {
+    if (!over.ungated) {
       claims.register(
         new TaskGate(of, {
-          before: (_task, event, until) => {
-            if (over.unreachable === true) {
-              return Promise.reject(
-                new StartGateUnavailableError('connect ECONNREFUSED'),
-              );
+          before: async (_task, event, until) => {
+            if (over.unreachable) {
+              throw new StartGateUnavailableError('connect ECONNREFUSED');
             }
             hookCalls.push(event);
             untils.push(until);
-            return Promise.resolve(over.decision ?? { kind: 'allowed' });
+            return over.decision ?? { kind: 'allowed' };
           },
         }),
       );
@@ -230,8 +227,8 @@ describe('ClaimGate', () => {
     const { hooks, current } = starting({ ungated: true });
     hooks.register({
       owner: 'requester',
-      mayStart: () => {
-        return Promise.reject(new TypeError('not a function'));
+      mayStart: async () => {
+        throw new TypeError('not a function');
       },
     });
 

@@ -38,17 +38,17 @@ const trust = RunnerTrust.rehydrate({
 const dependents = (declared: WorkspaceRunners | null) =>
   new RunnerDependents(
     partial<RunnerTrustRepository>({
-      inWorkspace: () => Promise.resolve([trust]),
+      inWorkspace: async () => [trust],
     }),
     partial<WorkspaceRunnersRepository>({
-      ofWorkspace: () => Promise.resolve(declared),
+      ofWorkspace: async () => declared,
     }),
     partial<RunnerPoolRepository>({
-      inWorkspace: () => Promise.resolve([aPullPool(), aPlatformPool()]),
-      ownedIn: () => Promise.resolve([aPullPool()]),
+      inWorkspace: async () => [aPullPool(), aPlatformPool()],
+      ownedIn: async () => [aPullPool()],
     }),
     partial<EgressRepository>({
-      inWorkspace: () => Promise.resolve([anEgress()]),
+      inWorkspace: async () => [anEgress()],
     }),
   );
 

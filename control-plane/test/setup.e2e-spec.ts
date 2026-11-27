@@ -176,7 +176,7 @@ describe('the inbox item of a setup list', () => {
   const inbox = (state: 'open' | 'resolved' = 'open') =>
     new ListInboxHandler(
       new DrizzleInboxReader(db, new DrizzlePersonReader(db), {
-        progressOf: () => Promise.resolve([]),
+        progressOf: async () => [],
       }),
       new WorkAccess(
         access(db),

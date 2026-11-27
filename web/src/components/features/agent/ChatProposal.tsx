@@ -1,4 +1,4 @@
-import { type ReactElement, type RefObject, useRef } from 'react';
+import { type RefObject, useRef } from 'react';
 
 import { ProposedTaskCard } from '@/components/features/agent/ProposedTaskCard';
 import { useAcceptProposal } from '@/hooks/api/useAcceptProposal';
@@ -27,7 +27,7 @@ export function ChatProposal({
   proposal,
   attachments,
   awaiting,
-}: ChatProposalProps): ReactElement {
+}: ChatProposalProps) {
   const accept = useAcceptProposal();
   const dismiss = useDismissProposal();
   const restore = useRestoreProposal();

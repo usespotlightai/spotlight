@@ -1,5 +1,6 @@
 import type { CommentedStack } from '@change-review/application/ports/comment-bodies.port';
 import { checkReasonText } from '@change-review/application/rendering/check-reason.text';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const CHANGE_STACK_MARKER = '<!-- spotlight:change-stack -->';
 
@@ -35,7 +36,7 @@ export const ChangeStackComment = {
         ? `Incidental: ${incidental.map((each) => each.title).join(', ')}.`
         : null,
       stack.check
-        ? `Each layer is checked on its own with \`${stack.check.command}\`.${reason !== null && reason !== '' ? ` ${reason}` : ''}`
+        ? `Each layer is checked on its own with \`${stack.check.command}\`.${nonEmpty(reason) ? ` ${reason}` : ''}`
         : null,
     ]
       .filter(Boolean)

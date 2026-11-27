@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   EDGE_INDENT,
   LEAD_CELL,
@@ -28,7 +26,7 @@ export function NestedTableSkeleton({
   compact = false,
   trailing = false,
   rowClassName,
-}: NestedTableSkeletonProps): ReactElement {
+}: NestedTableSkeletonProps) {
   const lead = headings.at(0);
   const rest = headings.slice(1);
 

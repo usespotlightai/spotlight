@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TASK_PROPERTIES } from '@/components/features/board/task/TaskLayout';
@@ -25,7 +23,7 @@ export function TaskProperties({
   teamId,
   task,
   line,
-}: TaskPropertiesProps): ReactElement {
+}: TaskPropertiesProps) {
   const moveTask = useMoveTask();
   const station = line?.stations.find((each) => each.id === task.stationId);
   const linked = nonEmpty(slug) && nonEmpty(teamId) ? { slug, teamId } : null;

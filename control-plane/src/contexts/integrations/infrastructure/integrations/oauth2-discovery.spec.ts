@@ -34,44 +34,38 @@ const answering = (
     issuer?: string;
   } = {},
 ) =>
-  vi.fn((url: string | URL | Request) => {
+  vi.fn(async (url: string | URL | Request) => {
     const requested = urlOf(url);
 
     if (requested === SERVER) {
-      return Promise.resolve(
-        new Response(null, {
-          status: 401,
-          headers: {
-            'www-authenticate': `Bearer resource_metadata="${METADATA}"`,
-          },
-        }),
-      );
+      return new Response(null, {
+        status: 401,
+        headers: {
+          'www-authenticate': `Bearer resource_metadata="${METADATA}"`,
+        },
+      });
     }
 
     if (requested === METADATA) {
-      return Promise.resolve(
-        json({
-          resource: over.resource ?? SERVER,
-          authorization_servers: [ISSUER],
-          scopes_supported: ['read', 'write'],
-        }),
-      );
+      return json({
+        resource: over.resource ?? SERVER,
+        authorization_servers: [ISSUER],
+        scopes_supported: ['read', 'write'],
+      });
     }
 
     if (requested === `${ISSUER}/.well-known/oauth-authorization-server`) {
-      return Promise.resolve(
-        json({
-          issuer: over.issuer ?? ISSUER,
-          authorization_endpoint: `${ISSUER}/authorize`,
-          token_endpoint: `${ISSUER}/token`,
-          registration_endpoint: `${ISSUER}/register`,
-          response_types_supported: ['code'],
-          code_challenge_methods_supported: over.methods ?? ['S256'],
-        }),
-      );
+      return json({
+        issuer: over.issuer ?? ISSUER,
+        authorization_endpoint: `${ISSUER}/authorize`,
+        token_endpoint: `${ISSUER}/token`,
+        registration_endpoint: `${ISSUER}/register`,
+        response_types_supported: ['code'],
+        code_challenge_methods_supported: over.methods ?? ['S256'],
+      });
     }
 
-    return Promise.resolve(new Response(null, { status: 404 }));
+    return new Response(null, { status: 404 });
   });
 
 const clock = partial<ClockPort>({

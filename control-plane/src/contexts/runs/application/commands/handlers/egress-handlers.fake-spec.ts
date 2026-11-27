@@ -18,17 +18,13 @@ export const sharedEgress = (
   authorized: Record<string, SharedEgressAuthentication>,
   recording: Record<string, SharedEgressAuthentication> = authorized,
 ): RunnerEgressPort => ({
-  authenticate: () => Promise.resolve(null),
-  sharedWith: (token) =>
-    Promise.resolve(token === SHARED_TOKEN ? { egressId: 'egress_1' } : null),
-  authorizeRunner: (egress, credential) =>
-    Promise.resolve(
-      egress.egressId === 'egress_1' ? (authorized[credential] ?? null) : null,
-    ),
-  runnerForConnectionRecords: (egress, credential) =>
-    Promise.resolve(
-      egress.egressId === 'egress_1' ? (recording[credential] ?? null) : null,
-    ),
+  authenticate: async () => null,
+  sharedWith: async (token) =>
+    token === SHARED_TOKEN ? { egressId: 'egress_1' } : null,
+  authorizeRunner: async (egress, credential) =>
+    egress.egressId === 'egress_1' ? (authorized[credential] ?? null) : null,
+  runnerForConnectionRecords: async (egress, credential) =>
+    egress.egressId === 'egress_1' ? (recording[credential] ?? null) : null,
 });
 
 export const runOf = (
@@ -49,16 +45,12 @@ export const leasing = (
   leased: readonly string[],
   claimed: readonly string[] = leased,
 ): Pick<EgressSecretFetches, 'leasedBy' | 'attemptClaimedBy'> => ({
-  leasedBy: (runId: RunId): Promise<RunLeasedByRunner | null> =>
-    Promise.resolve(
-      leased.includes(runId.value)
-        ? partial<RunLeasedByRunner>({
-            attempt: RunAttempt.of(RunId.of(runId.value), 1),
-          })
-        : null,
-    ),
-  attemptClaimedBy: (runId: RunId): Promise<RunAttempt | null> =>
-    Promise.resolve(
-      claimed.includes(runId.value) ? RunAttempt.of(runId, 1) : null,
-    ),
+  leasedBy: async (runId: RunId): Promise<RunLeasedByRunner | null> =>
+    leased.includes(runId.value)
+      ? partial<RunLeasedByRunner>({
+          attempt: RunAttempt.of(RunId.of(runId.value), 1),
+        })
+      : null,
+  attemptClaimedBy: async (runId: RunId): Promise<RunAttempt | null> =>
+    claimed.includes(runId.value) ? RunAttempt.of(runId, 1) : null,
 });

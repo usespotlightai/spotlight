@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { cn } from '@/lib/utils';
 
 type ModelEffortSummaryProps = {
@@ -14,7 +12,7 @@ export function ModelEffortSummary({
   modelName,
   effort,
   offersEffort,
-}: ModelEffortSummaryProps): ReactElement {
+}: ModelEffortSummaryProps) {
   const allDefault = !model && !(offersEffort && effort);
 
   if (allDefault) {

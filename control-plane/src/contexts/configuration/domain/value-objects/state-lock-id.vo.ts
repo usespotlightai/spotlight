@@ -3,7 +3,7 @@ import { InvalidTerraformStateError } from '@configuration/domain/exceptions/inv
 const MAX_LENGTH = 256;
 
 export class StateLockId {
-  private readonly kind: string = 'state-lock-id';
+  private readonly kind = 'state-lock-id';
 
   private constructor(readonly value: string) {}
 
@@ -22,7 +22,7 @@ export class StateLockId {
   }
 
   equals(other: StateLockId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof StateLockId && this.value === other.value;
   }
 
   toString(): string {

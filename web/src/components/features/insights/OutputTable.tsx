@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
@@ -32,7 +30,7 @@ export function OutputTable({
   days,
   currency,
   names,
-}: OutputTableProps): ReactElement {
+}: OutputTableProps) {
   const columns: InsightsColumn<DayOutput>[] = [
     {
       id: 'day',

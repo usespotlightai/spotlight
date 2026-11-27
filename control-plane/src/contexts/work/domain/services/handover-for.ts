@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
@@ -65,7 +66,7 @@ export const HandoverFor = {
     }
 
     if (handover.isDone()) {
-      return line?.endsAt(currentStation) === true
+      return line?.endsAt(currentStation)
         ? ResolvedHandover.done(
             bodyOf(handover, 'The work is done.'),
             ownWords(handover),
@@ -124,7 +125,7 @@ export const HandoverFor = {
     if (outcome.failure) {
       return ResolvedHandover.failed(
         TaskNoteBody.of(
-          outcome.message !== null && outcome.message !== ''
+          nonEmpty(outcome.message)
             ? `The run failed: ${outcome.message}`
             : `The run failed. Exit code: ${outcome.exitCode}`,
         ),

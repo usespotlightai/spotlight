@@ -39,17 +39,16 @@ const journalling = () => {
   const published: string[] = [];
 
   const handler = new AppendRunJournalHandler(
-    partial<RunRepository>({ findById: () => Promise.resolve(leased) }),
+    partial<RunRepository>({ findById: async () => leased }),
     new RunJournalAppends(
       {
-        append: (attempt, entries) =>
-          Promise.resolve(void appended.push({ attempt, entries })),
-        appendControlPlaneEntry: (_, entry) =>
-          Promise.resolve({
-            seq: -1_000_000,
-            type: entry.type,
-            at: entry.at,
-          }),
+        append: async (attempt, entries) =>
+          void appended.push({ attempt, entries }),
+        appendControlPlaneEntry: async (_, entry) => ({
+          seq: -1_000_000,
+          type: entry.type,
+          at: entry.at,
+        }),
       },
       partial<RunStreamPort>({
         publish: (runId: string) => void published.push(runId),

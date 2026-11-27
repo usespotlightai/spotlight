@@ -45,28 +45,26 @@ const taking = (
   let clashes = over.clashes ?? 0;
   const warn = vi.fn();
   const runs = partial<RunRepository>({
-    findById: vi.fn(() =>
-      Promise.resolve(over.stored === undefined ? claimed() : over.stored),
+    findById: vi.fn(async () =>
+      over.stored === undefined ? claimed() : over.stored,
     ),
-    save: vi.fn((run: Run) => {
-      if (over.saveFails === true) {
-        return Promise.reject(new Error('the database is down'));
+    save: vi.fn(async (run: Run) => {
+      if (over.saveFails) {
+        throw new Error('the database is down');
       }
       if (clashes > 0) {
         clashes -= 1;
-        return Promise.reject(new RunVersionConflictError(run.id.value));
+        throw new RunVersionConflictError(run.id.value);
       }
       saved.push(run);
-      return Promise.resolve();
     }),
   });
   const checks = { unclaim: vi.fn(async () => {}) };
   const runners = {
-    claim: vi.fn(() => {
-      if (over.tookFails === true) {
-        return Promise.reject(new Error('pooled_1 is spent'));
+    claim: vi.fn(async () => {
+      if (over.tookFails) {
+        throw new Error('pooled_1 is spent');
       }
-      return Promise.resolve();
     }),
   };
 

@@ -33,18 +33,14 @@ const resolving = (configured = '{}') => {
       clientSecret: null;
       secretExpiresAt: null;
     } | null>
-  >(() =>
-    Promise.resolve({
-      clientId: OAuth2ClientId.of(`client-${(registered += 1)}`),
-      clientSecret: null,
-      secretExpiresAt: null,
-    }),
-  );
+  >(async () => ({
+    clientId: OAuth2ClientId.of(`client-${(registered += 1)}`),
+    clientSecret: null,
+    secretExpiresAt: null,
+  }));
   const sentTo = vi.fn(
-    (_workspace: WorkspaceId, secret: SecretName, _url: string) =>
-      Promise.resolve(
-        secret.value === 'TRACKER_CLIENT_SECRET' ? 'own-secret' : 'other',
-      ),
+    async (_workspace: WorkspaceId, secret: SecretName, _url: string) =>
+      secret.value === 'TRACKER_CLIENT_SECRET' ? 'own-secret' : 'other',
   );
   const logger = {
     debug: vi.fn(),
@@ -55,26 +51,23 @@ const resolving = (configured = '{}') => {
   const clients = new OAuth2ClientResolution(
     OAuth2Clients.from(configured),
     {
-      of: () => Promise.resolve(stored),
-      save: (registration: OAuth2ClientRegistration) => {
+      of: async () => stored,
+      save: async (registration: OAuth2ClientRegistration) => {
         stored = registration;
-
-        return Promise.resolve();
       },
-      ofTeam: () => Promise.resolve([]),
+      ofTeam: async () => [],
       remove: async () => {},
     },
     { register },
     {
-      find: (id: TeamId) =>
-        Promise.resolve({
-          id,
-          workspaceId: WorkspaceId.of('ws_1'),
-          key: 'platform',
-          name: 'Platform',
-          members: [],
-        }),
-      inWorkspace: () => Promise.resolve([]),
+      find: async (id: TeamId) => ({
+        id,
+        workspaceId: WorkspaceId.of('ws_1'),
+        key: 'platform',
+        name: 'Platform',
+        members: [],
+      }),
+      inWorkspace: async () => [],
     } satisfies TeamDirectoryPort,
     partial<ClockPort>({ now: () => new Date('2026-10-05T10:00:00.000Z') }),
     'https://app.example/api/integrations/oauth/callback',

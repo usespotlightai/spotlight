@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import type { AttachmentUploadDto } from '@work/application/dto/attachment.dto';
 import { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
@@ -114,7 +115,7 @@ export class AttachmentController {
       ),
     );
 
-    if (url === null || url === '') {
+    if (!nonEmpty(url)) {
       throw new NotFoundException();
     }
 

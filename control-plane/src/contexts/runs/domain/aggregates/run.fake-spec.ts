@@ -10,6 +10,7 @@ import {
   RunWorkingCopy,
   WorkingCopyKey,
 } from '@runs/domain/value-objects/working-copy-key.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -112,14 +113,13 @@ export const orderedFor = {
       }),
       policy: SPEC_POLICY,
       now: ORDERED_AT,
-      workingCopy:
-        key !== null && key !== ''
-          ? RunWorkingCopy.of({
-              key: WorkingCopyKey.of('workspace', key),
-              rejoinable: false,
-              restores: 'when-continuing',
-            })
-          : null,
+      workingCopy: nonEmpty(key)
+        ? RunWorkingCopy.of({
+            key: WorkingCopyKey.of('workspace', key),
+            rejoinable: false,
+            restores: 'when-continuing',
+          })
+        : null,
     };
   },
 

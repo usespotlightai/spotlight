@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { DiffStat } from '@/components/shared/DiffStat';
 import {
   Tooltip,
@@ -27,7 +25,7 @@ export function StackNavLayer({
   tally,
   active,
   onPick,
-}: StackNavLayerProps): ReactElement {
+}: StackNavLayerProps) {
   const revised = revisionMarkOf(located.layer);
 
   return (

@@ -91,7 +91,7 @@ const integrationToolCalls = (
   );
 
 const NO_LINKS = partial<InboxLinksPort>({
-  task: () => Promise.resolve('https://app.example/tasks/task_1'),
+  task: async () => 'https://app.example/tasks/task_1',
 });
 
 const expressions = new CelExpressionEngine();
@@ -172,14 +172,14 @@ const using = (
     limits?: OutboundLimitsPort;
   } = {},
 ) => {
-  const run = vi.fn((_action: unknown, _against: Record<string, unknown>) =>
-    Promise.resolve(reply),
+  const run = vi.fn(
+    async (_action: unknown, _against: Record<string, unknown>) => reply,
   );
   const schemas = over.schemas ?? new InMemoryInferredOutputSchemas();
 
   const tools = integrationToolCalls(
     partial<DefinedIntegrationsPort>({
-      ofTeam: vi.fn(() => Promise.resolve([defined(over.file ?? LINEAR)])),
+      ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
     }),
     runtimeWith({ run }, undefined, undefined, over.limits),
     callAuthFor(),
@@ -259,7 +259,7 @@ describe('IntegrationToolCalls', () => {
 
   it('sends nothing when the workspace calls other services too often, and says so', async () => {
     const { comment, run } = using(undefined, {
-      limits: { perSecond: 50, take: () => Promise.resolve(false) },
+      limits: { perSecond: 50, take: async () => false },
     });
 
     await expect(
@@ -280,17 +280,16 @@ describe('IntegrationToolCalls', () => {
       bound: Parameters<typeof injecting>[0],
       allowed: readonly string[] = ['api.linear.app'],
     ) => {
-      const fetch = vi.fn<typeof globalThis.fetch>(() =>
-        Promise.resolve(
+      const fetch = vi.fn<typeof globalThis.fetch>(
+        async () =>
           new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
             status: 200,
           }),
-        ),
       );
       const secrets = injecting(bound);
       const tools = integrationToolCalls(
         partial<DefinedIntegrationsPort>({
-          ofTeam: vi.fn(() => Promise.resolve([defined(INJECTS_A_SECRET)])),
+          ofTeam: vi.fn(async () => [defined(INJECTS_A_SECRET)]),
         }),
         runtimeWith(new HttpOutbound(allowingOutbound(allowed), fetch)),
         callAuthFor(secrets.injection),
@@ -552,7 +551,7 @@ graphql:
       answering: Response,
       hosts: WorkspaceOutboundScopePort = unscoped,
     ) => {
-      const fetch = vi.fn(() => Promise.resolve(answering));
+      const fetch = vi.fn(async () => answering);
       const secrets = injecting({
         PETSTORE_KEY: {
           host: 'petstore3.swagger.io',
@@ -563,14 +562,12 @@ graphql:
       const integration = String(fieldOf(parseYaml(text), 'integration'));
       const tools = integrationToolCalls(
         partial<DefinedIntegrationsPort>({
-          ofTeam: vi.fn(() =>
-            Promise.resolve([
-              defined(text, {
-                hash: HASH.value,
-                tools: [`${integration}.${operation.name}`],
-              }),
-            ]),
-          ),
+          ofTeam: vi.fn(async () => [
+            defined(text, {
+              hash: HASH.value,
+              tools: [`${integration}.${operation.name}`],
+            }),
+          ]),
         }),
         new CompiledIntegrationRuntime(
           new IntegrationReader(

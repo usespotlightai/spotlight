@@ -14,7 +14,7 @@ export function useMarkReadOnView(
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!nonEmpty(slug) || item?.unread !== true || followed(item)) {
+    if (!nonEmpty(slug) || !item?.unread || followed(item)) {
       return;
     }
 

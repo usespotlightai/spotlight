@@ -1,5 +1,5 @@
 import { LoaderCircle, Pencil } from 'lucide-react';
-import { type ReactElement, type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
@@ -54,7 +54,7 @@ export function AvatarSetting({
   avatarUrl,
   editable,
   change,
-}: AvatarSettingProps): ReactElement {
+}: AvatarSettingProps) {
   const picker = useRef<HTMLInputElement>(null);
 
   const send = (next: AvatarChange) => {

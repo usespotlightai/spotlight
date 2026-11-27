@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ACTIVITY_LAYOUT } from '@/components/features/stations/activity/StationActivity';
 import { StationActivitySkeleton } from '@/components/features/stations/activity/StationActivitySkeleton';
 import { StationConfigSkeleton } from '@/components/features/stations/config/StationConfigSkeleton';
@@ -29,7 +27,7 @@ export function StationTabSkeleton({
   tab,
   line,
   station,
-}: StationTabSkeletonProps): ReactElement {
+}: StationTabSkeletonProps) {
   const label = STATION_TABS.find((each) => each.id === tab)?.label ?? '';
   const Body = BODIES[tab];
 

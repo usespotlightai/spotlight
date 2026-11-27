@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { BeforeAfter } from '@/components/features/insights/changes/BeforeAfter';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
@@ -40,7 +39,7 @@ export function BeforeAfterPanel({
   names,
   open,
   onClose,
-}: BeforeAfterPanelProps): ReactElement {
+}: BeforeAfterPanelProps) {
   return (
     <SidePane pane={BEFORE_AFTER_PANE} open={open}>
       <aside

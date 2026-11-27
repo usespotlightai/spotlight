@@ -61,24 +61,24 @@ webhook:
 
 const policy = allowingOutbound([]);
 
-const sending = () => {
+const sending = async () => {
   policy.allow('https://api.tracker.example/users');
-  return Promise.resolve({ ok: true, status: 200, response: {}, capture: {} });
+  return { ok: true, status: 200, response: {}, capture: {} };
 };
 
 const runtimeFor = (...hosts: string[]) => {
   const keysWithin: boolean[] = [];
   const jwks: JwksResolver = {
-    keys: () => {
+    keys: async () => {
       keysWithin.push(OutboundScope.allows('issuer.example'));
-      return Promise.resolve(new Map());
+      return new Map();
     },
   };
   const outbound = partial<HttpOutbound>({
     run: sending,
-    bytes: () => {
+    bytes: async () => {
       policy.allow('https://files.tracker.example/download');
-      return Promise.resolve(new Uint8Array());
+      return new Uint8Array();
     },
   });
 
@@ -94,7 +94,7 @@ const runtimeFor = (...hosts: string[]) => {
       credentialsFor(),
       unlimited,
       scopedTo(...hosts),
-      () => Promise.resolve(null),
+      async () => null,
     ),
   };
 };

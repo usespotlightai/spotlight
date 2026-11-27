@@ -1,5 +1,4 @@
 import { ArrowUpRight } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   Property,
@@ -24,7 +23,7 @@ export function VersionProperties({
   teamId,
   lineId,
   stationId,
-}: VersionPropertiesProps): ReactElement {
+}: VersionPropertiesProps) {
   const outcomes = useStationInsights(teamId, lineId, stationId);
   const live = configFingerprint(outcomes.data?.groups ?? []);
 

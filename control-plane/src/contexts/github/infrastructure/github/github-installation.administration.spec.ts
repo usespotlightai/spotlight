@@ -33,15 +33,15 @@ const PERSONAL = {
 };
 
 const github = (routes: Record<string, Answer>) => {
-  const fetching = vi.fn((url: string, _init?: RequestInit) => {
+  const fetching = vi.fn(async (url: string, _init?: RequestInit) => {
     const path = url.replace('https://api.github.com', '');
     const answer = routes[path] ?? { status: 404, body: {} };
 
-    return Promise.resolve({
+    return {
       ok: answer.status >= 200 && answer.status < 300,
       status: answer.status,
-      json: () => Promise.resolve(answer.body),
-    });
+      json: async () => answer.body,
+    };
   });
   vi.stubGlobal('fetch', fetching);
 
@@ -50,7 +50,7 @@ const github = (routes: Record<string, Answer>) => {
 
 const administration = (token: string | null = 'gho_live') =>
   new GitHubInstallationAdministration(env, {
-    tokenFor: vi.fn(() => Promise.resolve(token)),
+    tokenFor: vi.fn(async () => token),
   });
 
 afterEach(() => {

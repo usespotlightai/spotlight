@@ -6,6 +6,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
@@ -29,6 +30,6 @@ export class DrizzleLineImages implements LineImagesPort {
       .orderBy(asc(lineRepository.image))
       .limit(MAX_NAMED);
 
-    return rows.flatMap((row) => (row.image !== null && row.image !== '' ? [row.image] : []));
+    return rows.flatMap((row) => (nonEmpty(row.image) ? [row.image] : []));
   }
 }

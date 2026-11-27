@@ -101,9 +101,9 @@ const working = () =>
 const dispatched: Task[] = [];
 
 const dispatch: TaskDispatching = {
-  runIdFor: ({ task }) => {
+  runIdFor: async ({ task }) => {
     dispatched.push(task);
-    return Promise.resolve(RunId.of('run_2'));
+    return RunId.of('run_2');
   },
 };
 
@@ -120,27 +120,25 @@ const viewing = (
   const searched: CorrelationKeys[] = [];
   const owned: PullRequestUrl[] = [];
   const tasks = {
-    find: vi.fn(() => Promise.resolve(current)),
+    find: vi.fn(async () => current),
     owningPullRequest: vi.fn(
-      (_workspace: WorkspaceId, pullRequest: PullRequestUrl) => {
+      async (_workspace: WorkspaceId, pullRequest: PullRequestUrl) => {
         owned.push(pullRequest);
-        return Promise.resolve(current);
+        return current;
       },
     ),
     findByCorrelation: vi.fn(
-      (_workspace: WorkspaceId, correlationKeys: CorrelationKeys) => {
+      async (_workspace: WorkspaceId, correlationKeys: CorrelationKeys) => {
         searched.push(correlationKeys);
-        return Promise.resolve(current ? [current] : []);
+        return current ? [current] : [];
       },
     ),
-    save: vi.fn((task: Task) => {
+    save: vi.fn(async (task: Task) => {
       if (clashes > 0) {
         clashes -= 1;
-        return Promise.reject(new TaskVersionConflictError(task.id.value));
+        throw new TaskVersionConflictError(task.id.value);
       }
       current = task;
-
-      return Promise.resolve();
     }),
   };
 
@@ -159,28 +157,27 @@ const viewing = (
     views: new TaskViews(
       partial<TaskRepository>(tasks),
       partial<LineMapsPort>({
-        findByStation: () => Promise.resolve(DELIVERY),
+        findByStation: async () => DELIVERY,
       }),
       partial<WorkspaceReaderPort>({
-        slugOf: () =>
-          Promise.resolve(over.slug === undefined ? 'acme' : over.slug),
+        slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
       }),
       new WebTaskLinks('https://spotlight.acme.dev/'),
-      partial<DispatchRepository>({ find: () => Promise.resolve(null) }),
+      partial<DispatchRepository>({ find: async () => null }),
       new IntegrationTaskViews(
         partial<LineMapsPort>({
-          findByStation: () => Promise.resolve(DELIVERY),
+          findByStation: async () => DELIVERY,
         }),
-        { ambientOf: () => Promise.resolve(over.ambient ?? []) },
+        { ambientOf: async () => over.ambient ?? [] },
       ),
     ),
     hooks: new TaskNotesFromHooks(
       partial<TaskRepository>(tasks),
       partial<LineMapsPort>({
-        findByStation: () => Promise.resolve(DELIVERY),
+        findByStation: async () => DELIVERY,
       }),
       processedEventsInMemory(),
-      { placementsAt: () => Promise.resolve([]) },
+      { placementsAt: async () => [] },
       dispatch,
       { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => {} },

@@ -303,7 +303,7 @@ export class ReplaySet extends EventRecorder {
       );
     }
 
-    if (replayable.stationId?.equals(this.state.station.stationId) !== true) {
+    if (!replayable.stationId?.equals(this.state.station.stationId)) {
       throw new ReplaySetEntryElsewhereError(run.value);
     }
 

@@ -48,7 +48,7 @@ const working = (
   queued: InboundDelivery[],
   react: (
     command: ReadDeliveryCommand,
-  ) => Promise<DeliveryFailure | null> = () => Promise.resolve(null),
+  ) => Promise<DeliveryFailure | null> = async () => null,
   { reclaimedMeanwhile = false } = {},
 ) => {
   const pending = [...queued];
@@ -65,17 +65,16 @@ const working = (
   const claimed = new Map<string, InboundDelivery>();
 
   const deliveries = {
-    add: vi.fn(() => Promise.resolve(true)),
-    claimCandidates: vi.fn((_now: Date, _max: number) =>
-      Promise.resolve([...pending]),
+    add: vi.fn(async () => true),
+    claimCandidates: vi.fn(async (_now: Date, _max: number) => [...pending]),
+    current: vi.fn(
+      async (delivery: InboundDelivery) =>
+        claimed.get(delivery.id.value) ?? null,
     ),
-    current: vi.fn((delivery: InboundDelivery) =>
-      Promise.resolve(claimed.get(delivery.id.value) ?? null),
-    ),
-    addressedTo: vi.fn(() => Promise.resolve([])),
-    finishedBefore: vi.fn(() => Promise.resolve([])),
+    addressedTo: vi.fn(async () => []),
+    finishedBefore: vi.fn(async () => []),
     remove: vi.fn(async () => {}),
-    save: vi.fn((delivery: InboundDelivery) => {
+    save: vi.fn(async (delivery: InboundDelivery) => {
       const { progress } = delivery;
 
       if (progress.kind === 'working') {
@@ -84,13 +83,11 @@ const working = (
           1,
         );
         claimed.set(delivery.id.value, delivery);
-        return Promise.resolve();
+        return;
       }
 
       if (reclaimedMeanwhile) {
-        return Promise.reject(
-          new InboundDeliveryVersionConflictError(delivery.id.value),
-        );
+        throw new InboundDeliveryVersionConflictError(delivery.id.value);
       }
 
       if (progress.kind === 'done') {
@@ -104,8 +101,6 @@ const working = (
           at: progress.dueAt,
         });
       }
-
-      return Promise.resolve();
     }),
   } satisfies InboundDeliveryRepository;
 
@@ -179,8 +174,9 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('puts a delivery that would not be read back to wait, and says why', async () => {
-    const { service, done, failed, retried } = working([waiting('d_1')], () =>
-      Promise.resolve(DeliveryFailure.transient('the line was read in pieces')),
+    const { service, done, failed, retried } = working(
+      [waiting('d_1')],
+      async () => DeliveryFailure.transient('the line was read in pieces'),
     );
 
     expect(await service.workOne()).toBe(true);
@@ -196,8 +192,8 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('waits longer each time the same delivery fails', async () => {
-    const { service, retried } = working([waiting('d_1', 3)], () =>
-      Promise.resolve(DeliveryFailure.transient('nope')),
+    const { service, retried } = working([waiting('d_1', 3)], async () =>
+      DeliveryFailure.transient('nope'),
     );
 
     await service.workOne();
@@ -208,7 +204,7 @@ describe('ProcessDueDeliveries', () => {
   it('gives a delivery up once it has had its attempts', async () => {
     const { service, failed, retried } = working(
       [waiting('d_1', DELIVERING.maxAttempts - 1)],
-      () => Promise.resolve(DeliveryFailure.transient('still nope')),
+      async () => DeliveryFailure.transient('still nope'),
     );
 
     await service.workOne();
@@ -218,10 +214,8 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('gives a delivery up at once when no retry would mend it', async () => {
-    const { service, failed, retried } = working([waiting('d_1')], () =>
-      Promise.resolve(
-        DeliveryFailure.permanent('names neither a branch nor a pull request'),
-      ),
+    const { service, failed, retried } = working([waiting('d_1')], async () =>
+      DeliveryFailure.permanent('names neither a branch nor a pull request'),
     );
 
     await service.workOne();
@@ -235,8 +229,8 @@ describe('ProcessDueDeliveries', () => {
   it('gives a delivery up at once when Spotlight itself fails on it', async () => {
     const { service, failed, retried, logger } = working(
       [waiting('d_1')],
-      () => {
-        return Promise.reject(new Error('a bug'));
+      async () => {
+        throw new Error('a bug');
       },
     );
 
@@ -254,12 +248,10 @@ describe('ProcessDueDeliveries', () => {
     let seen = 0;
     const { service, done, retried } = working(
       [waiting('d_1'), waiting('d_2')],
-      () => {
+      async () => {
         seen += 1;
 
-        return Promise.resolve(
-          seen === 1 ? DeliveryFailure.transient('nope') : null,
-        );
+        return seen === 1 ? DeliveryFailure.transient('nope') : null;
       },
     );
 
@@ -269,13 +261,9 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('leaves a delivery to the worker that claimed it again after the lease ran out', async () => {
-    const { service, logger } = working(
-      [waiting('d_1')],
-      () => Promise.resolve(null),
-      {
-        reclaimedMeanwhile: true,
-      },
-    );
+    const { service, logger } = working([waiting('d_1')], async () => null, {
+      reclaimedMeanwhile: true,
+    });
 
     expect(await service.workOne()).toBe(true);
     expect(logger.warn).toHaveBeenCalledWith(

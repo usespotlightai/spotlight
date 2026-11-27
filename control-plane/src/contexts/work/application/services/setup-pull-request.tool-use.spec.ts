@@ -51,17 +51,13 @@ const using = (options: { setup?: boolean } = {}) => {
   chat.pullEvents();
 
   const events: unknown[] = [];
-  const save = vi.fn((saved: Chat) => {
+  const save = vi.fn(async (saved: Chat) => {
     events.push(...saved.pullEvents());
     chat = saved;
-
-    return Promise.resolve();
   });
-  const open = vi.fn(() =>
-    Promise.resolve(partial<OpenedPullRequestDto>({ url: URL })),
-  );
+  const open = vi.fn(async () => partial<OpenedPullRequestDto>({ url: URL }));
   const tool = new SetupPullRequestToolUse(
-    partial<ChatRepository>({ find: () => Promise.resolve(chat), save }),
+    partial<ChatRepository>({ find: async () => chat, save }),
     partial<PullRequestPort>({ open }),
     partial<TransactionPort>({
       inTransaction: <T>(work: () => Promise<T>) => work(),

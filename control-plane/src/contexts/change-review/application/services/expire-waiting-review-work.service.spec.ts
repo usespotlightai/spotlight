@@ -46,7 +46,7 @@ const waiting = (stack: string) =>
   });
 
 const NO_DIFFS = partial<PushDiffRepository>({
-  waiting: () => Promise.resolve([]),
+  waiting: async () => [],
 });
 
 const pushDiff = (id: string, at: Date) =>
@@ -70,14 +70,13 @@ const expiring = (
   conflicting: readonly string[] = [],
 ) => {
   const saved: StackCheck[] = [];
-  const save = vi.fn((check: StackCheck) => {
+  const save = vi.fn(async (check: StackCheck) => {
     if (conflicting.includes(check.stackId.value)) {
-      return Promise.reject(new StackCheckVersionConflictError(check.id));
+      throw new StackCheckVersionConflictError(check.id);
     }
     saved.push(check);
-    return Promise.resolve();
   });
-  const listed = vi.fn(() => Promise.resolve(expired));
+  const listed = vi.fn(async () => expired);
   const logged = vi.fn();
 
   return {
@@ -186,14 +185,12 @@ describe('ExpireWaitingReviewWork', () => {
     const logged = vi.fn();
     const expire = new ExpireWaitingReviewWork(
       partial<StackCheckRepository>({
-        waiting: () =>
-          Promise.resolve([waiting('stack_1'), waiting('stack_2')]),
-        save: (check: StackCheck) => {
+        waiting: async () => [waiting('stack_1'), waiting('stack_2')],
+        save: async (check: StackCheck) => {
           if (check.stackId.value === 'stack_1') {
-            return Promise.reject(new Error('the database went away'));
+            throw new Error('the database went away');
           }
           saved.push(check.stackId.value);
-          return Promise.resolve();
         },
       }),
       NO_DIFFS,
@@ -212,12 +209,11 @@ describe('ExpireWaitingReviewWork', () => {
     const stale = pushDiff('diff_1', BEGAN);
     const fresh = pushDiff('diff_2', NOW);
     const expire = new ExpireWaitingReviewWork(
-      partial<StackCheckRepository>({ waiting: () => Promise.resolve([]) }),
+      partial<StackCheckRepository>({ waiting: async () => [] }),
       partial<PushDiffRepository>({
-        waiting: () => Promise.resolve([stale, fresh]),
-        save: (diff: PushDiff) => {
+        waiting: async () => [stale, fresh],
+        save: async (diff: PushDiff) => {
           saved.push(diff);
-          return Promise.resolve();
         },
       }),
       { now: () => NOW, sleep: async () => {} },
@@ -235,11 +231,11 @@ describe('ExpireWaitingReviewWork', () => {
   it('takes a push diff another writer changed first as handled', async () => {
     const logged = vi.fn();
     const expire = new ExpireWaitingReviewWork(
-      partial<StackCheckRepository>({ waiting: () => Promise.resolve([]) }),
+      partial<StackCheckRepository>({ waiting: async () => [] }),
       partial<PushDiffRepository>({
-        waiting: () => Promise.resolve([pushDiff('diff_1', BEGAN)]),
-        save: (diff: PushDiff) => {
-          return Promise.reject(new PushDiffVersionConflictError(diff.id));
+        waiting: async () => [pushDiff('diff_1', BEGAN)],
+        save: async (diff: PushDiff) => {
+          throw new PushDiffVersionConflictError(diff.id);
         },
       }),
       { now: () => NOW, sleep: async () => {} },

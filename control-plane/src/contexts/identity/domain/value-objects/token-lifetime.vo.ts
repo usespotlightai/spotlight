@@ -3,7 +3,7 @@ import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-
 const MINUTE_MS = 60_000;
 
 export class TokenLifetime {
-  private readonly kind: string = 'token-lifetime';
+  private readonly kind = 'token-lifetime';
 
   static readonly LONGEST_MINUTES = 60;
 
@@ -31,6 +31,6 @@ export class TokenLifetime {
   }
 
   equals(other: TokenLifetime): boolean {
-    return this.kind === other.kind && this.minutes === other.minutes;
+    return other instanceof TokenLifetime && this.minutes === other.minutes;
   }
 }

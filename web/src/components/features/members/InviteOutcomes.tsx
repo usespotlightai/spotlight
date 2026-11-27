@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { Button } from '@/components/ui/button';
 import {
   DialogClose,
@@ -18,9 +16,7 @@ type InviteOutcomesProps = {
   outcomes: readonly InviteOutcome[];
 };
 
-export function InviteOutcomes({
-  outcomes,
-}: InviteOutcomesProps): ReactElement {
+export function InviteOutcomes({ outcomes }: InviteOutcomesProps) {
   return (
     <>
       <DialogHeader>

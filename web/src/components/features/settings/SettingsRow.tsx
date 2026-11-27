@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,7 @@ export function SettingsRow({
   leading,
   stack = false,
   children,
-}: SettingsRowProps): ReactElement {
+}: SettingsRowProps) {
   return (
     <div className="flex min-h-12 items-center gap-3 px-4 py-2">
       {leading}

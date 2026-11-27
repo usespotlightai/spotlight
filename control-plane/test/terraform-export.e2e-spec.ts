@@ -12,6 +12,7 @@ import {
 } from '@platform/hcl/terraform-cli.fake-spec';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -674,8 +675,7 @@ const resourceBodyOf = (
                 url: resource.provision.url,
                 secret: PROVISION_SECRET,
                 secretVersion: resource.provision.secretVersion,
-                ...(resource.provision.egress !== null &&
-                resource.provision.egress !== ''
+                ...(nonEmpty(resource.provision.egress)
                   ? {
                       egress:
                         egresses.get(resource.provision.egress) ??

@@ -3,6 +3,7 @@ import {
   decoded,
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const HARNESS_EVENTS_VERSION = 1;
 
@@ -196,7 +197,7 @@ const isObject = (value: unknown): value is Data =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const parsed = (data: string | null): Data | null => {
-  if (data === null || data === '') {
+  if (!nonEmpty(data)) {
     return null;
   }
   try {

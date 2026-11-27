@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
@@ -19,7 +17,7 @@ export function PersonAvatar({
   person,
   size = 'sm',
   className,
-}: PersonAvatarProps): ReactElement {
+}: PersonAvatarProps) {
   const [initial] = Array.from(person.name.trim());
 
   return (

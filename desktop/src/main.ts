@@ -247,13 +247,13 @@ const createMain = () => {
   const window = spotlightWindow(saved?.bounds ?? DEFAULT_SIZE, false);
 
   window.once('ready-to-show', () => {
-    if (saved?.maximized === true) {
+    if (saved?.maximized) {
       window.maximize();
     }
 
     window.show();
 
-    if (saved?.fullScreen === true) {
+    if (saved?.fullScreen) {
       window.setFullScreen(true);
     }
   });

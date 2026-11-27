@@ -45,7 +45,7 @@ beforeAll(async () => {
     dispatch: async () => {},
   });
   board = new DrizzleTaskReader(db, new DrizzlePersonReader(db), {
-    progressOf: () => Promise.resolve([]),
+    progressOf: async () => [],
   });
 }, 60_000);
 

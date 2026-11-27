@@ -1,5 +1,4 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { tabFrame } from '@/components/shell/tabs/app-tab-look';
 import { type AppTab, NEW_TAB_TITLE } from '@/lib/app-tabs';
@@ -11,11 +10,7 @@ type AppTabGhostProps = {
   active: boolean;
 };
 
-export function AppTabGhost({
-  tab,
-  icon: Icon,
-  active,
-}: AppTabGhostProps): ReactElement {
+export function AppTabGhost({ tab, icon: Icon, active }: AppTabGhostProps) {
   return (
     <div
       aria-hidden

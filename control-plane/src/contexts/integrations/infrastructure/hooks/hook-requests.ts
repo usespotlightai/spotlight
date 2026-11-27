@@ -24,6 +24,7 @@ import type {
   NetworkResponse,
 } from '@runs/application/ports/network-calls.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 type Fetch = typeof globalThis.fetch;
@@ -64,7 +65,7 @@ const described = (error: unknown): string => {
   const code = fieldOf(cause, 'code');
   const plainly = typeof code === 'string' ? PLAINLY[code] : undefined;
 
-  if (plainly !== undefined && plainly !== '') {
+  if (nonEmpty(plainly)) {
     return plainly;
   }
 
@@ -397,10 +398,9 @@ export class HookRequests implements HookRequestsPort {
     ended: Date,
   ): StepResult {
     const { reply } = answered;
-    const reason =
-      answered.error !== null && answered.error !== ''
-        ? `could not reach ${request.url}: ${answered.error}`
-        : `was answered ${reply.status} by ${request.url}`;
+    const reason = nonEmpty(answered.error)
+      ? `could not reach ${request.url}: ${answered.error}`
+      : `was answered ${reply.status} by ${request.url}`;
     const failure = reply.failure(reason);
     const shown = Object.fromEntries(
       Object.entries(headers).filter(

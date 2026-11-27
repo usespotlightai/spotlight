@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { cn } from '@/lib/utils';
 
 const percent = (value: number): string =>
@@ -17,7 +15,7 @@ export function MeterBar({
   marker = null,
   failing = false,
   className,
-}: MeterBarProps): ReactElement {
+}: MeterBarProps) {
   return (
     <span
       aria-hidden

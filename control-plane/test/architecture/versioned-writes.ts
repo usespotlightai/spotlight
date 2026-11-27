@@ -1,4 +1,5 @@
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import {
@@ -249,16 +250,14 @@ const namedRawWrites = (
   ...[...text.matchAll(RAW_WRITE)].flatMap(([, keyword, name]) => {
     const table = tableNamed(name);
 
-    return table?.versioned === true
+    return table?.versioned
       ? [violation(file, node, rawWriteOf(keyword), table)]
       : [];
   }),
   ...[...text.matchAll(RAW_UPSERT)].flatMap(([, name]) => {
     const table = tableNamed(name);
 
-    return table?.versioned === true
-      ? [violation(file, node, 'upsert', table)]
-      : [];
+    return table?.versioned ? [violation(file, node, 'upsert', table)] : [];
   }),
 ];
 
@@ -278,7 +277,7 @@ const interpolatedRawWrites = (
       ? tables.get(span.expression.getText())
       : undefined;
 
-    return keyword !== undefined && keyword !== '' && table?.versioned === true
+    return nonEmpty(keyword) && table?.versioned
       ? [violation(file, template, rawWriteOf(keyword), table)]
       : [];
   });

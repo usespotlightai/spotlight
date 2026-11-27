@@ -1,16 +1,16 @@
-import { partial } from '@shared-kernel/domain/partial.fake-spec';
-import type { Env } from "@platform/config/env.schema";
+import type { Env } from '@platform/config/env.schema';
 import {
   createPool,
   createReadPool,
-} from "@platform/persistence/drizzle/drizzle.client";
-import { Pool } from "pg";
-import type { LoggerPort } from "@shared-kernel/application/ports/logger.port";
-import { afterEach, describe, expect, it, vi } from "vitest";
+} from '@platform/persistence/drizzle/drizzle.client';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { Pool } from 'pg';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const env = partial<Env>({
-  DATABASE_URL: "postgres://localhost/main",
-  DATABASE_READ_URL: "postgres://localhost/read",
+  DATABASE_URL: 'postgres://localhost/main',
+  DATABASE_READ_URL: 'postgres://localhost/read',
   DATABASE_POOL_MAX: 7,
   DATABASE_CONNECTION_TIMEOUT_MS: 1_234,
   DATABASE_IDLE_TIMEOUT_MS: 5_678,
@@ -29,8 +29,8 @@ const optionsOf = (pool: Pool) => {
   return pool.options;
 };
 
-describe("database pools", () => {
-  it("limits the main pool from the environment", () => {
+describe('database pools', () => {
+  it('limits the main pool from the environment', () => {
     expect(optionsOf(createPool(env, logger))).toMatchObject({
       max: 7,
       connectionTimeoutMillis: 1_234,
@@ -38,7 +38,7 @@ describe("database pools", () => {
     });
   });
 
-  it("limits the read pool from the environment", () => {
+  it('limits the read pool from the environment', () => {
     const main = createPool(env, logger);
     pools.push(main);
 
@@ -50,16 +50,16 @@ describe("database pools", () => {
     });
   });
 
-  it("logs an idle client error instead of ending the process", () => {
-    const error = new Error("terminated");
+  it('logs an idle client error instead of ending the process', () => {
+    const error = new Error('terminated');
     const pool = createPool(env, logger);
     pools.push(pool);
 
-    pool.emit("error", error);
+    pool.emit('error', error);
 
     expect(logger.error).toHaveBeenCalledWith(
       { err: error },
-      "Database pool error",
+      'Database pool error',
     );
   });
 });

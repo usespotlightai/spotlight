@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class EncryptedProvisionSecret {
-  private readonly kind: string = 'encrypted-provision-secret';
+  private readonly kind = 'encrypted-provision-secret';
 
   private constructor(readonly value: string) {}
 
@@ -17,6 +17,8 @@ export class EncryptedProvisionSecret {
   }
 
   equals(other: EncryptedProvisionSecret): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return (
+      other instanceof EncryptedProvisionSecret && this.value === other.value
+    );
   }
 }

@@ -14,7 +14,7 @@ const linking = (
   const getToken = vi.fn(getAccessToken);
   const auth: LinkedAccountsAuth = {
     $context: Promise.resolve({
-      internalAdapter: { findAccounts: vi.fn(() => Promise.resolve(accounts)) },
+      internalAdapter: { findAccounts: vi.fn(async () => accounts) },
     }),
     api: { getAccessToken: getToken },
   };
@@ -40,7 +40,7 @@ describe('BetterAuthLinkedAccounts', () => {
         { id: 'acc_other', providerId: 'google' },
         { id: 'acc_gh', providerId: 'github' },
       ],
-      () => Promise.resolve({ accessToken: 'gho_live' }),
+      async () => ({ accessToken: 'gho_live' }),
     );
 
     expect(await linked.tokenFor(LEON, 'github')).toBe('gho_live');
@@ -50,11 +50,9 @@ describe('BetterAuthLinkedAccounts', () => {
   });
 
   it('has nothing for somebody who never linked that provider', async () => {
-    const { linked, getToken } = linking([], () =>
-      Promise.resolve({
-        accessToken: 'x',
-      }),
-    );
+    const { linked, getToken } = linking([], async () => ({
+      accessToken: 'x',
+    }));
 
     expect(await linked.tokenFor(LEON, 'github')).toBeNull();
     expect(getToken).not.toHaveBeenCalled();

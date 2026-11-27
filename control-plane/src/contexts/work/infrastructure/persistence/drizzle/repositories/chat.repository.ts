@@ -9,6 +9,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -33,9 +34,11 @@ import { ChatMarkTakenError } from '@work/domain/exceptions/chat-mark-taken.erro
 import { ChatVersionConflictError } from '@work/domain/exceptions/chat-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -46,7 +49,6 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
-import { Branch } from '@work/domain/value-objects/branch.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attachment-claims';
@@ -59,7 +61,6 @@ import {
   type ProposalRow,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { and, asc, eq, or } from 'drizzle-orm';
-import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 
 type Row = typeof chat.$inferSelect;
 type MessageRow = typeof chatMessage.$inferSelect;
@@ -78,20 +79,13 @@ const toProposal = (
           stationId: StationId.of(row.stationId),
         }),
         title: TaskTitle.of(row.title),
-        description:
-          row.description !== null && row.description !== ''
-            ? TaskDescription.of(row.description)
-            : null,
-        base: row.base !== null && row.base !== '' ? Branch.of(row.base) : null,
+        description: nonEmpty(row.description)
+          ? TaskDescription.of(row.description)
+          : null,
+        base: nonEmpty(row.base) ? Branch.of(row.base) : null,
         state: row.state,
-        taskId:
-          row.taskId !== null && row.taskId !== ''
-            ? TaskId.of(row.taskId)
-            : null,
-        decidedAt:
-          row.decidedAt !== null && row.decidedAt !== ''
-            ? new Date(row.decidedAt)
-            : null,
+        taskId: nonEmpty(row.taskId) ? TaskId.of(row.taskId) : null,
+        decidedAt: nonEmpty(row.decidedAt) ? new Date(row.decidedAt) : null,
       })
     : null;
 
@@ -120,11 +114,8 @@ const toMessage = (
     kind: row.kind,
     body: ChatMessageBody.of(row.body),
     at: row.at,
-    author:
-      row.authorId !== null && row.authorId !== ''
-        ? UserId.of(row.authorId)
-        : null,
-    runId: row.runId !== null && row.runId !== '' ? RunId.of(row.runId) : null,
+    author: nonEmpty(row.authorId) ? UserId.of(row.authorId) : null,
+    runId: nonEmpty(row.runId) ? RunId.of(row.runId) : null,
     attachments: attachments
       .filter((each) => each.messagePosition === row.position)
       .sort((a, b) => a.place - b.place)
@@ -144,10 +135,9 @@ const toMessage = (
         })
       : null,
     acknowledgedAt: row.acknowledgedAt,
-    acknowledgedBy:
-      row.acknowledgedByRunId !== null && row.acknowledgedByRunId !== ''
-        ? RunId.of(row.acknowledgedByRunId)
-        : null,
+    acknowledgedBy: nonEmpty(row.acknowledgedByRunId)
+      ? RunId.of(row.acknowledgedByRunId)
+      : null,
   });
 };
 
@@ -182,12 +172,8 @@ const toChat = (
     startedBy: UserId.of(row.startedById),
     title: ChatTitle.of(row.title),
     harness: HarnessId.of(row.harness),
-    model:
-      row.model !== null && row.model !== ''
-        ? HarnessModel.of(row.model)
-        : null,
-    effort:
-      row.effort !== null && row.effort !== '' ? Effort.of(row.effort) : null,
+    model: nonEmpty(row.model) ? HarnessModel.of(row.model) : null,
+    effort: nonEmpty(row.effort) ? Effort.of(row.effort) : null,
     repositories: row.repositories.map((each) => Repository.of(each)),
     targetStation: row.targetStation
       ? TargetStation.rehydrate({
@@ -204,10 +190,9 @@ const toChat = (
       ? ConfigFolder.rehydrate({
           repository: Repository.of(row.setup.repository),
           folder: row.setup.folder,
-          pullRequest:
-            row.setup.pullRequest !== null && row.setup.pullRequest !== ''
-              ? PullRequestUrl.of(row.setup.pullRequest)
-              : null,
+          pullRequest: nonEmpty(row.setup.pullRequest)
+            ? PullRequestUrl.of(row.setup.pullRequest)
+            : null,
           ci: row.setup.ci ? CiSetup.of(row.setup.ci) : null,
         })
       : null,
@@ -215,18 +200,11 @@ const toChat = (
     marks: marks.map((each) =>
       ChatMark.of(Mark.of(each.kind, each.value), each.finds),
     ),
-    currentRunId:
-      row.currentRunId !== null && row.currentRunId !== ''
-        ? RunId.of(row.currentRunId)
-        : null,
-    session:
-      row.sessionId !== null && row.sessionId !== ''
-        ? HarnessSession.of(row.sessionId)
-        : null,
-    claimedBy:
-      row.runnerId !== null && row.runnerId !== ''
-        ? RunnerId.of(row.runnerId)
-        : null,
+    currentRunId: nonEmpty(row.currentRunId)
+      ? RunId.of(row.currentRunId)
+      : null,
+    session: nonEmpty(row.sessionId) ? HarnessSession.of(row.sessionId) : null,
+    claimedBy: nonEmpty(row.runnerId) ? RunnerId.of(row.runnerId) : null,
     createdAt: row.createdAt,
     resolvedAt: row.resolvedAt,
     readAt: row.readAt,

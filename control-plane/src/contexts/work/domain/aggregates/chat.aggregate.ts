@@ -599,7 +599,7 @@ export class Chat extends EventRecorder {
   openSetup(runId: RunId, pullRequest: PullRequestUrl, at: Date): Chat {
     const setup = this.mayOpenSetupFrom(runId);
 
-    if (pullRequest.repository?.equals(setup.repository) !== true) {
+    if (!pullRequest.repository?.equals(setup.repository)) {
       throw new InvalidChatTransitionError(
         `Pull request ${pullRequest.value} is not in ${setup.repository.value}.`,
       );
@@ -743,7 +743,7 @@ export class Chat extends EventRecorder {
   }
 
   private endRun(runId: RunId): Chat {
-    return this.currentRunId?.equals(runId) === true
+    return this.currentRunId?.equals(runId)
       ? this.with({ currentRunId: null })
       : this;
   }
@@ -875,7 +875,7 @@ export class Chat extends EventRecorder {
   }
 
   proposalPositionFor(runId: RunId): MessagePosition {
-    if (this.currentRunId?.equals(runId) !== true) {
+    if (!this.currentRunId?.equals(runId)) {
       throw new InvalidChatTransitionError(
         `Only the run working chat ${this.id.value} can propose tasks.`,
       );

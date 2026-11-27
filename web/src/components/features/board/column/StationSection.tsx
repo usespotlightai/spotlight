@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { ChevronDown, Plus } from 'lucide-react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { DropIndicator } from '@/components/features/board/task/DropIndicator';
@@ -45,7 +45,7 @@ export function StationSection({
   entry = false,
   landing,
   children,
-}: StationSectionProps): ReactElement {
+}: StationSectionProps) {
   const { setNodeRef } = useDroppable({ id, data: { kind: 'station' } });
 
   return (

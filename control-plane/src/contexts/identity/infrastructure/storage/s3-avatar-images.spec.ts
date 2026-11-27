@@ -13,6 +13,7 @@ import { S3AvatarImages } from '@identity/infrastructure/storage/s3-avatar-image
 import { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -34,57 +35,54 @@ const notThere = () =>
 
 const bucket = (prefix?: string) => {
   const objects = new Map<string, Stored>();
-  const send = (command: unknown): Promise<unknown> => {
+  const send = async (command: unknown): Promise<unknown> => {
     if (command instanceof PutObjectCommand) {
       const body = command.input.Body;
 
       if (!(body instanceof Uint8Array)) {
-        return Promise.reject(new Error('Expected the image bytes'));
+        throw new Error('Expected the image bytes');
       }
       objects.set(command.input.Key ?? '', {
         body,
         contentType: command.input.ContentType,
       });
-      return Promise.resolve({});
+      return {};
     }
     if (command instanceof GetObjectCommand) {
       const found = objects.get(command.input.Key ?? '');
       if (!found) {
-        return Promise.reject(notThere());
+        throw notThere();
       }
-      return Promise.resolve({
+      return {
         ContentType: found.contentType,
-        Body: { transformToByteArray: () => Promise.resolve(found.body) },
-      });
+        Body: { transformToByteArray: async () => found.body },
+      };
     }
     if (command instanceof DeleteObjectCommand) {
       objects.delete(command.input.Key ?? '');
-      return Promise.resolve({});
+      return {};
     }
     if (command instanceof ListObjectsV2Command) {
       const keys = [...objects.keys()]
         .filter((key) => key.startsWith(command.input.Prefix ?? ''))
         .sort();
       const after = command.input.ContinuationToken;
-      const rest =
-        after !== undefined && after !== ''
-          ? keys.filter((key) => key > after)
-          : keys;
+      const rest = nonEmpty(after) ? keys.filter((key) => key > after) : keys;
       const page = rest.slice(0, PAGE);
       const truncated = rest.length > PAGE;
-      return Promise.resolve({
+      return {
         Contents: page.map((Key) => ({ Key })),
         IsTruncated: truncated,
         NextContinuationToken: truncated ? page[page.length - 1] : undefined,
-      });
+      };
     }
     if (command instanceof DeleteObjectsCommand) {
       for (const { Key } of command.input.Delete?.Objects ?? []) {
         objects.delete(Key ?? '');
       }
-      return Promise.resolve({});
+      return {};
     }
-    return Promise.reject(new Error('Unexpected S3 command'));
+    throw new Error('Unexpected S3 command');
   };
   const store = partial<S3Client>({ send });
 

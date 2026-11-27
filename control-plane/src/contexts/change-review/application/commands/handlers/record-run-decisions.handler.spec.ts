@@ -46,62 +46,57 @@ const recording = (
   let next = 0;
 
   const work = {
-    run: (): Promise<RunForReview> =>
-      Promise.resolve({
-        id: RunId.of(RUN),
-        workspaceId: WorkspaceId.of('ws_1'),
-        taskId: TASK,
-        checking: null,
-        working: true,
-        attempt: 1,
-        orderedAt: null,
-        decisions: true,
-        trial: false,
-        isolated: false,
-        checkouts: 1,
-        placement: RunnerPlacement.anywhere(),
-        ...over.run,
-      }),
-    teamOfRun: () => Promise.resolve(null),
-    task: (): Promise<ReviewedTask> =>
-      Promise.resolve({
-        id: TASK,
-        workspaceId: WorkspaceId.of('ws_1'),
-        teamId: null,
-        pullRequests: [],
-        openPullRequests: [],
-        reviewedPullRequest: null,
-        reviewing: false,
-        currentRunId: RunId.of(RUN),
-        ...over.task,
-      }),
-    taskWithPullRequest: () => Promise.resolve(null),
-    repositoriesOfRun: () => Promise.resolve([]),
+    run: async (): Promise<RunForReview> => ({
+      id: RunId.of(RUN),
+      workspaceId: WorkspaceId.of('ws_1'),
+      taskId: TASK,
+      checking: null,
+      working: true,
+      attempt: 1,
+      orderedAt: null,
+      decisions: true,
+      trial: false,
+      isolated: false,
+      checkouts: 1,
+      placement: RunnerPlacement.anywhere(),
+      ...over.run,
+    }),
+    teamOfRun: async () => null,
+    task: async (): Promise<ReviewedTask> => ({
+      id: TASK,
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: null,
+      pullRequests: [],
+      openPullRequests: [],
+      reviewedPullRequest: null,
+      reviewing: false,
+      currentRunId: RunId.of(RUN),
+      ...over.task,
+    }),
+    taskWithPullRequest: async () => null,
+    repositoriesOfRun: async () => [],
   } satisfies WorkPort;
 
-  const write = (set: DecisionSet) => {
+  const write = async (set: DecisionSet) => {
     if (conflicts > 0) {
       conflicts -= 1;
-      return Promise.reject(new DecisionSetVersionConflictError(set.id.value));
+      throw new DecisionSetVersionConflictError(set.id.value);
     }
     stored = set;
-    return Promise.resolve();
   };
   const sets = {
-    forTask: () => Promise.resolve(stored),
+    forTask: async () => stored,
     add: write,
     save: write,
-    remove: () => Promise.resolve(),
+    remove: async () => {},
   } satisfies DecisionSetRepository;
 
   return {
     handler: new RecordRunDecisionsHandler(
       work,
       partial<RunLeasesPort>({
-        leasedBy: () =>
-          Promise.resolve(
-            over.leased === false ? null : partial<LeasedRunFacts>({}),
-          ),
+        leasedBy: async () =>
+          over.leased === false ? null : partial<LeasedRunFacts>({}),
       }),
       sets,
       { inTransaction: (work) => work() },

@@ -3,7 +3,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 const MAX_PATH = 500;
 
 export class MemoryPath {
-  private readonly kind: string = 'memory-path';
+  private readonly kind = 'memory-path';
 
   private constructor(readonly value: string) {}
 
@@ -31,7 +31,7 @@ export class MemoryPath {
   }
 
   equals(other: MemoryPath): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MemoryPath && this.value === other.value;
   }
 
   toString(): string {

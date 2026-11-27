@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   ACTIVITY_LAYOUT,
   StationActivity,
@@ -31,7 +29,7 @@ export function StationBody({
   line,
   station,
   tab,
-}: StationBodyProps): ReactElement {
+}: StationBodyProps) {
   if (station.kind !== 'work') {
     return (
       <p className="text-muted-foreground text-sm leading-6">

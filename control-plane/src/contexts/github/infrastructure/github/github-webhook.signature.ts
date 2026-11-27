@@ -12,10 +12,7 @@ export class GitHubWebhookSignature implements WebhookSignaturePort {
   constructor(@Inject(ENV) private readonly env: Env) {}
 
   signs(payload: Uint8Array, signature: string | undefined): boolean {
-    if (
-      !this.env.GITHUB_WEBHOOK_SECRET ||
-      signature?.startsWith(PREFIX) !== true
-    ) {
+    if (!this.env.GITHUB_WEBHOOK_SECRET || !signature?.startsWith(PREFIX)) {
       return false;
     }
 

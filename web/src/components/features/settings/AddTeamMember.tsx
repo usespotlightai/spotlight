@@ -1,5 +1,4 @@
 import { RotateCw, UserPlus } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { SectionButton } from '@/components/shared/SectionButton';
@@ -24,11 +23,7 @@ type AddTeamMemberProps = {
   onInvite: () => void;
 };
 
-export function AddTeamMember({
-  slug,
-  teamId,
-  onInvite,
-}: AddTeamMemberProps): ReactElement {
+export function AddTeamMember({ slug, teamId, onInvite }: AddTeamMemberProps) {
   const members = useWorkspaceMembers(slug);
   const add = useAddTeamMember(slug, teamId);
   const addable = (members.data ?? []).filter(

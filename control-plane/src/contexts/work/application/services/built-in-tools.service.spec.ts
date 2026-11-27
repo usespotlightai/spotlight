@@ -50,16 +50,15 @@ const IN_CHAT: ChatToolContext = {
 
 const answering: BuiltInToolUse<TaskToolContext> = {
   tool: PULL_REQUEST,
-  call: (context, inputs) =>
-    Promise.resolve({
-      task: context.taskId.value,
-      title: inputs.text('title'),
-    }),
+  call: async (context, inputs) => ({
+    task: context.taskId.value,
+    title: inputs.text('title'),
+  }),
 };
 
 const proposing: BuiltInToolUse<ChatToolContext> = {
   tool: PROPOSE_TASK,
-  call: () => Promise.resolve('proposed'),
+  call: async () => 'proposed',
 };
 
 const reviewing: BuiltInToolUse<TaskToolContext>[] = [
@@ -69,11 +68,11 @@ const reviewing: BuiltInToolUse<TaskToolContext>[] = [
   OPEN_PULL_REQUEST,
   CHECKS,
   OPEN_TASKS,
-].map((tool) => ({ tool, call: () => Promise.resolve(null) }));
+].map((tool) => ({ tool, call: async () => null }));
 
 const NO_EXTENSIONS = new ChatToolExtensions(
   partial<ChatRepository>({
-    find: () => Promise.resolve(null),
+    find: async () => null,
   }),
 );
 
@@ -128,10 +127,10 @@ describe('BuiltInTools', () => {
     expect(tools.resolve(Tool.of('linear.comment'), ON_TASK)).toBeNull();
   });
 
-  it('resolves a tool a chat tool extension declares, for chats only', () => {
+  it('resolves a tool a chat tool extension declares, for chats only', async () => {
     const extensions = new ChatToolExtensions(
       partial<ChatRepository>({
-        find: () => Promise.resolve(null),
+        find: async () => null,
       }),
     );
     const tools = new BuiltInTools(
@@ -144,8 +143,8 @@ describe('BuiltInTools', () => {
         description: 'Measure a change to the station.',
         inputs: [],
       },
-      offerFor: () => Promise.resolve({ offered: true, briefing: null }),
-      call: () => Promise.resolve('tested'),
+      offerFor: async () => ({ offered: true, briefing: null }),
+      call: async () => 'tested',
     };
 
     extensions.register(extension);
@@ -155,7 +154,5 @@ describe('BuiltInTools', () => {
         .value,
     ).toBe('test-station-change');
     expect(tools.resolve(Tool.of('test-station-change'), ON_TASK)).toBeNull();
-
-    return Promise.resolve();
   });
 });

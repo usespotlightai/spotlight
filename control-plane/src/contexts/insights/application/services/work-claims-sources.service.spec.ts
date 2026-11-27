@@ -46,13 +46,13 @@ const answering = (
 
   return {
     asked,
-    of: (workspaceId, commit) => {
+    of: async (workspaceId, commit) => {
       asked.push(`${workspaceId.value} ${commit.toString()}`);
       const answer = answers.shift() ?? [];
       if (answer instanceof Error) {
-        return Promise.reject(answer);
+        throw answer;
       }
-      return Promise.resolve(answer);
+      return answer;
     },
   };
 };

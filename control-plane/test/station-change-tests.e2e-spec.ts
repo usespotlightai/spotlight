@@ -4,6 +4,7 @@ import { fieldOf } from '@platform/json/field-of';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -66,8 +67,7 @@ const STATIONS: Readonly<Record<string, { key: string; name: string }>> = {
 };
 
 const improving = async (stationId: string | null): Promise<ChatId> => {
-  const station =
-    stationId !== null && stationId !== '' ? STATIONS[stationId] : undefined;
+  const station = nonEmpty(stationId) ? STATIONS[stationId] : undefined;
   const chat = Chat.start({
     lines: [],
     workspaceId: team.workspaceId,
@@ -76,7 +76,7 @@ const improving = async (stationId: string | null): Promise<ChatId> => {
     harness: HarnessId.of('claude-code'),
     body: ChatMessageBody.fromInput('Improve this station.'),
     targetStation:
-      stationId !== null && stationId !== '' && station
+      nonEmpty(stationId) && station
         ? TargetStation.rehydrate({
             teamId: team.teamId,
             lineId: LineId.of(DELIVERY),

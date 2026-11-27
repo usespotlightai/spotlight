@@ -25,8 +25,7 @@ const setUp = (
   const asked: SandboxEnvReveal[] = [];
   const stored = new Map<string, Run>([[run.id.value, run]]);
   const runs = partial<RunRepository>({
-    findById: (id: { value: string }) =>
-      Promise.resolve(stored.get(id.value) ?? null),
+    findById: async (id: { value: string }) => stored.get(id.value) ?? null,
   });
 
   return {
@@ -35,31 +34,29 @@ const setUp = (
     reveal: new RevealSandboxEnvHandler(
       runs,
       {
-        registeredClaimantOf: () => Promise.resolve(null),
-        claimantOf: () =>
-          Promise.resolve(
-            over.claimant === false
-              ? null
-              : {
-                  workspaceId: WorkspaceId.of('ws_1'),
-                  harnesses: [],
-                  offer: RunnerOffer.none(),
-                  claims: 'nothing' as const,
-                  source: null,
-                },
-          ),
+        registeredClaimantOf: async () => null,
+        claimantOf: async () =>
+          over.claimant === false
+            ? null
+            : {
+                workspaceId: WorkspaceId.of('ws_1'),
+                harnesses: [],
+                offer: RunnerOffer.none(),
+                claims: 'nothing' as const,
+                source: null,
+              },
       },
       {
-        reveal: (request) => {
+        reveal: async (request) => {
           asked.push(request);
           over.duringReveal?.(stored);
-          return Promise.resolve({
+          return {
             variables: request.sandboxEnv.map((each) => ({
               name: each.variable,
               value: Credential.of('key-value'),
             })),
             denied: [],
-          });
+          };
         },
       },
       { now: () => new Date(), sleep: async () => {} },

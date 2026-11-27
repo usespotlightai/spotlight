@@ -13,9 +13,7 @@ const accessible = (listed: () => Promise<{ fullName: string }[]>) =>
 
 describe('GitHubAccessibleRepositories', () => {
   it('can access a repository the GitHub App lists', async () => {
-    const repositories = accessible(() =>
-      Promise.resolve([{ fullName: 'acme/infra' }]),
-    );
+    const repositories = accessible(async () => [{ fullName: 'acme/infra' }]);
 
     await expect(
       repositories.isAccessible(WORKSPACE, Repository.of('acme/infra')),
@@ -23,9 +21,7 @@ describe('GitHubAccessibleRepositories', () => {
   });
 
   it('cannot access a repository the GitHub App leaves out', async () => {
-    const repositories = accessible(() =>
-      Promise.resolve([{ fullName: 'acme/infra' }]),
-    );
+    const repositories = accessible(async () => [{ fullName: 'acme/infra' }]);
 
     await expect(
       repositories.isAccessible(WORKSPACE, Repository.of('acme/example')),
@@ -33,8 +29,8 @@ describe('GitHubAccessibleRepositories', () => {
   });
 
   it('can access nothing where the workspace has no GitHub App', async () => {
-    const repositories = accessible(() => {
-      return Promise.reject(new NoGitHubInstallationError());
+    const repositories = accessible(async () => {
+      throw new NoGitHubInstallationError();
     });
 
     await expect(
@@ -43,8 +39,8 @@ describe('GitHubAccessibleRepositories', () => {
   });
 
   it('lets any other failure through', async () => {
-    const repositories = accessible(() => {
-      return Promise.reject(new Error('GitHub is down'));
+    const repositories = accessible(async () => {
+      throw new Error('GitHub is down');
     });
 
     await expect(

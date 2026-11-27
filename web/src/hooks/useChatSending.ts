@@ -12,8 +12,7 @@ const forwardSend = (
   latestGeneration: { readonly current: number | undefined },
   restore: () => void,
 ) => {
-  const sentGeneration =
-    shared?.synced === true ? shared.generation : undefined;
+  const sentGeneration = shared?.synced ? shared.generation : undefined;
 
   onSend(
     shared

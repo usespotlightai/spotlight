@@ -230,7 +230,7 @@ export class RaiseJudgeDisagreements {
       await this.transaction.inTransaction(() =>
         this.recorder.record(this.disagreements, {
           owner: this.ownerOf(input.workspaceId, live.location),
-          load: () => Promise.resolve(null),
+          load: async () => null,
           deleted: (existing) => existing.delete(),
           created: () =>
             JudgeDisagreement.open({

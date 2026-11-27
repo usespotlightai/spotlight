@@ -30,7 +30,8 @@ export const rowOf = (operation: SpecOperation): OperationRow => ({
   call: operation.call,
 });
 
-export const operationOf = (name: string, row: OperationRow): SpecOperation => SpecOperation.of({
+export const operationOf = (name: string, row: OperationRow): SpecOperation =>
+  SpecOperation.of({
     name,
     upstream: row.upstream,
     description: row.description,

@@ -1,5 +1,6 @@
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/dto/git-call.dto';
@@ -53,15 +54,13 @@ export class ChatRunWork implements RunWork {
     );
   }
 
-  repositoryNamed(
+  async repositoryNamed(
     name: string,
     service: GitService,
   ): Promise<Repository | null> {
-    return Promise.resolve(
-      service === 'git-receive-pack'
-        ? this.chat.pushableNamed(name)
-        : this.chat.repositoryNamed(name),
-    );
+    return service === 'git-receive-pack'
+      ? this.chat.pushableNamed(name)
+      : this.chat.repositoryNamed(name);
   }
 
   readonly limitsPushes = true;
@@ -78,7 +77,7 @@ export class ChatRunWork implements RunWork {
       .defaultBranchNameOf(this.chat.workspaceId, repository)
       .catch(() => null);
 
-    if (named === null || named === '') {
+    if (!nonEmpty(named)) {
       return `Spotlight could not read the default branch of ${repository.value} from GitHub, so it cannot check this push. Push again in a minute.`;
     }
 
@@ -105,40 +104,38 @@ export class ChatRunWork implements RunWork {
 
   async pushed(): Promise<void> {}
 
-  clearFor(declared: DeclaredTool): Promise<Cleared> {
+  async clearFor(declared: DeclaredTool): Promise<Cleared> {
     const refusal = this.chat.toolRefusal(declared);
 
-    return Promise.resolve(
-      refusal
-        ? { kind: 'dismissed', reason: ChatRefused.text(refusal) }
-        : { kind: 'approved', edited: null, returned: async () => {} },
-    );
+    return refusal
+      ? { kind: 'dismissed', reason: ChatRefused.text(refusal) }
+      : { kind: 'approved', edited: null, returned: async () => {} };
   }
 
-  askToConnect(
+  async askToConnect(
     _declared: DeclaredTool,
     missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
-    return Promise.resolve({
+    return {
       kind: 'denied',
       reason: ChatRefused.text(
         this.chat.connectionAskRefusal(missing.integrationName),
       ),
-    });
+    };
   }
 
-  clearPermission(): Promise<PermissionCleared> {
-    return Promise.resolve('dismissed');
+  async clearPermission(): Promise<PermissionCleared> {
+    return 'dismissed';
   }
 
-  toolContext(): Promise<ChatToolContext> {
-    return Promise.resolve({
+  async toolContext(): Promise<ChatToolContext> {
+    return {
       kind: 'chat',
       runId: this.run.runId,
       workspaceId: this.chat.workspaceId,
       chatId: this.chat.id,
       teamId: this.chat.teamId,
       requester: this.chat.startedBy,
-    });
+    };
   }
 }

@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class LineKey {
-  private readonly kind: string = 'line-key';
+  private readonly kind = 'line-key';
 
   private constructor(readonly value: string) {}
 
@@ -23,7 +23,7 @@ export class LineKey {
   }
 
   equals(other: LineKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof LineKey && this.value === other.value;
   }
 
   compare(other: LineKey): number {

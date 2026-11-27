@@ -70,7 +70,7 @@ const fromNetworkProblems = (fields: ActionFields): ActionProblem[] => [
 ];
 
 const uploadProblems = (fields: ActionFields): ActionProblem[] =>
-  fields.uploads?.sendsBody === true
+  fields.uploads?.sendsBody
     ? [
         {
           at: at('uploads', 'send', 'body'),

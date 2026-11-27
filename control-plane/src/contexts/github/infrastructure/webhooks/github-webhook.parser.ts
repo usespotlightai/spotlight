@@ -28,6 +28,7 @@ import type { RepositoryVisibility } from '@github/domain/value-objects/reposito
 import type { ReviewState } from '@github/domain/value-objects/review-state.vo';
 import { stripByline } from '@github/infrastructure/github/byline';
 import { pullRequestActivityOf } from '@github/infrastructure/webhooks/pull-request-activity.translation';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
@@ -174,7 +175,7 @@ const detailsOf = (
 ): PullRequestDetails | null => {
   const title = text(pull?.title);
 
-  return pull && title !== null && title !== ''
+  return pull && nonEmpty(title)
     ? {
         title: title.trim(),
         body: text(pull.body)?.trim() ?? null,
@@ -271,14 +272,11 @@ const snapshotOf = (payload: Payload): PullRequestSnapshot | null => {
 
   if (
     !pull ||
-    html === null ||
-    html === '' ||
-    fullName === null ||
-    fullName === '' ||
+    !nonEmpty(html) ||
+    !nonEmpty(fullName) ||
     number === null ||
     number === 0 ||
-    title === null ||
-    title === '' ||
+    !nonEmpty(title) ||
     !openedAt
   ) {
     return null;
@@ -345,14 +343,11 @@ const reviewComment = (payload: Payload): WebhookEvent[] => {
   if (
     !comment ||
     !action ||
-    pullRequest === null ||
-    pullRequest === '' ||
+    !nonEmpty(pullRequest) ||
     id === null ||
     id === 0 ||
-    url === null ||
-    url === '' ||
-    path === null ||
-    path === ''
+    !nonEmpty(url) ||
+    !nonEmpty(path)
   ) {
     return [];
   }
@@ -401,8 +396,7 @@ const conversationComment = (payload: Payload): WebhookEvent[] => {
   if (
     !comment ||
     !action ||
-    pullRequest === null ||
-    pullRequest === '' ||
+    !nonEmpty(pullRequest) ||
     id === null ||
     id === 0
   ) {
@@ -430,8 +424,7 @@ const reviewThread = (payload: Payload): WebhookEvent[] => {
   const firstComment = payload.thread?.comments?.[0];
 
   if (
-    pullRequest === null ||
-    pullRequest === '' ||
+    !nonEmpty(pullRequest) ||
     resolved === undefined ||
     id === null ||
     id === ''
@@ -463,10 +456,8 @@ const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
   if (
     payload.action !== 'closed' ||
     !pull ||
-    pullRequest === null ||
-    pullRequest === '' ||
-    repository === null ||
-    repository === ''
+    !nonEmpty(pullRequest) ||
+    !nonEmpty(repository)
   ) {
     return [];
   }
@@ -497,10 +488,8 @@ const pullRequestReopened = (payload: Payload): WebhookEvent[] => {
   if (
     payload.action !== 'reopened' ||
     !pull ||
-    pullRequest === null ||
-    pullRequest === '' ||
-    repository === null ||
-    repository === ''
+    !nonEmpty(pullRequest) ||
+    !nonEmpty(repository)
   ) {
     return [];
   }
@@ -526,14 +515,10 @@ const pullRequestPushed = (payload: Payload): WebhookEvent[] => {
 
   if (
     payload.action !== 'synchronize' ||
-    pullRequest === null ||
-    pullRequest === '' ||
-    repository === null ||
-    repository === '' ||
-    head === null ||
-    head === '' ||
-    baseTip === null ||
-    baseTip === '' ||
+    !nonEmpty(pullRequest) ||
+    !nonEmpty(repository) ||
+    !nonEmpty(head) ||
+    !nonEmpty(baseTip) ||
     !pushedAt
   ) {
     return [];
@@ -573,8 +558,7 @@ const pullRequestReviewed = (payload: Payload): WebhookEvent[] => {
   if (
     payload.action !== 'submitted' ||
     !review ||
-    pullRequest === null ||
-    pullRequest === '' ||
+    !nonEmpty(pullRequest) ||
     !state
   ) {
     return [];
@@ -598,12 +582,7 @@ const reviewDismissed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.pull_request?.html_url);
   const id = at(payload.review?.id);
 
-  if (
-    payload.action !== 'dismissed' ||
-    pullRequest === null ||
-    pullRequest === '' ||
-    id === null
-  ) {
+  if (payload.action !== 'dismissed' || !nonEmpty(pullRequest) || id === null) {
     return [];
   }
 
@@ -626,7 +605,7 @@ const repositoryVisibility = (payload: Payload): WebhookEvent[] => {
   const visibility = VISIBILITY_ACTIONS.get(payload.action);
   const repository = text(payload.repository?.full_name);
 
-  return visibility && repository !== null && repository !== ''
+  return visibility && nonEmpty(repository)
     ? [{ kind: 'repository-visibility', repository, visibility }]
     : [];
 };

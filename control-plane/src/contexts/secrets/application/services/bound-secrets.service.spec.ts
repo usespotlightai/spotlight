@@ -52,21 +52,17 @@ const RECORDS = [
 ];
 
 const bound = new BoundSecrets({
-  withId: () => Promise.resolve(null),
-  named: (workspaceId, name) =>
-    Promise.resolve(
-      RECORDS.find(
-        (each) => each.workspaceId.equals(workspaceId) && each.name === name,
-      ) ?? null,
+  withId: async () => null,
+  named: async (workspaceId, name) =>
+    RECORDS.find(
+      (each) => each.workspaceId.equals(workspaceId) && each.name === name,
+    ) ?? null,
+  namedIn: async (workspaceId, names) =>
+    RECORDS.filter(
+      (each) =>
+        each.workspaceId.equals(workspaceId) && names.includes(each.name),
     ),
-  namedIn: (workspaceId, names) =>
-    Promise.resolve(
-      RECORDS.filter(
-        (each) =>
-          each.workspaceId.equals(workspaceId) && names.includes(each.name),
-      ),
-    ),
-  secretsIn: () => Promise.resolve(RECORDS),
+  secretsIn: async () => RECORDS,
 });
 
 describe('BoundSecrets', () => {

@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { context } from '@opentelemetry/api';
 import { getRPCMetadata, RPCType } from '@opentelemetry/core';
 import { withRoutePath } from '@platform/telemetry/span-urls';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Routed = IncomingMessage & { route?: { path?: unknown } };
 
@@ -18,7 +19,7 @@ export function routeOfRequest(
       const path = (req as Routed).route?.path;
       const route = typeof path === 'string' ? path : undefined;
 
-      if (route !== undefined && route !== '') {
+      if (nonEmpty(route)) {
         metadata.route = route;
       }
 

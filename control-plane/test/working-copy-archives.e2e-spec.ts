@@ -25,6 +25,7 @@ import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/d
 import { DrizzleSnapshotRemovals } from '@runs/infrastructure/persistence/drizzle/ledgers/snapshot-removals.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
@@ -147,8 +148,7 @@ const aChat = async (
     title: 'Planning',
     harness: 'dev',
     sessionId,
-    workingCopyReleasedAt:
-      sessionId !== null && sessionId !== '' ? null : updatedAt,
+    workingCopyReleasedAt: nonEmpty(sessionId) ? null : updatedAt,
     createdAt: updatedAt,
     updatedAt,
   });
@@ -173,13 +173,12 @@ const archived = async (
     workingCopyKey: key,
     held: true,
     grantee: ArchiveGrantee.run(RunId.of(grantee)),
-    location:
-      times.store !== undefined && times.store !== ''
-        ? StoreSnapshot.of(
-            WorkingCopyStoreName.of(times.store),
-            SnapshotName.of('base-v1'),
-          )
-        : SpotlightStorage.of(STORED.size, STORED.digest),
+    location: nonEmpty(times.store)
+      ? StoreSnapshot.of(
+          WorkingCopyStoreName.of(times.store),
+          SnapshotName.of('base-v1'),
+        )
+      : SpotlightStorage.of(STORED.size, STORED.digest),
     at: times.grantedAt,
   });
 
@@ -224,7 +223,7 @@ const dueNow = async () => {
   for (const [id, each] of facts) {
     const archive = await archives.find(WorkingCopyArchiveId.of(id));
 
-    if (archive?.removableAt(NOW, each) === true) {
+    if (archive?.removableAt(NOW, each)) {
       due.set(id, each);
     }
   }
@@ -471,14 +470,15 @@ describe('storing working copy archives', () => {
     const removedFromStore: string[] = [];
     const failures: unknown[] = [];
     const store: WorkingCopyArchiveStorePort = {
-      grantUpload: () => Promise.reject(new Error('nothing is uploaded here')),
-      stored: () => Promise.resolve(null),
-      grantDownload: () =>
-        Promise.reject(new Error('nothing is downloaded here')),
-      remove: (archive) => {
+      grantUpload: async () => {
+        throw new Error('nothing is uploaded here');
+      },
+      stored: async () => null,
+      grantDownload: async () => {
+        throw new Error('nothing is downloaded here');
+      },
+      remove: async (archive) => {
         removedFromStore.push(archive.id.value);
-
-        return Promise.resolve();
       },
     };
     const removal = new RemoveReleasedArchives(
@@ -518,12 +518,16 @@ describe('storing working copy archives', () => {
 
   describe('removing the snapshot of an archive kept in a store of the hosts', () => {
     const storageless: WorkingCopyArchiveStorePort = {
-      grantUpload: () => Promise.reject(new Error('nothing is uploaded here')),
-      stored: () => Promise.resolve(null),
-      grantDownload: () =>
-        Promise.reject(new Error('nothing is downloaded here')),
-      remove: () =>
-        Promise.reject(new Error('a snapshot is not in Spotlight’s storage')),
+      grantUpload: async () => {
+        throw new Error('nothing is uploaded here');
+      },
+      stored: async () => null,
+      grantDownload: async () => {
+        throw new Error('nothing is downloaded here');
+      },
+      remove: async () => {
+        throw new Error('a snapshot is not in Spotlight’s storage');
+      },
     };
     const quiet = {
       debug: () => {},
@@ -582,9 +586,11 @@ describe('storing working copy archives', () => {
     it('keeps the archive when its snapshot cannot be queued, so the snapshot is never left behind', async () => {
       const finished = await finishedSnapshot();
       const failing: SnapshotRemovalsPort = {
-        queue: () => Promise.reject(new Error('the queue is gone')),
-        due: () => Promise.resolve([]),
-        forget: () => Promise.resolve(false),
+        queue: async () => {
+          throw new Error('the queue is gone');
+        },
+        due: async () => [],
+        forget: async () => false,
       };
 
       await removalWith(() => failing).processDue();
@@ -595,10 +601,9 @@ describe('storing working copy archives', () => {
     it('queues nothing when the archive cannot be removed, as both are written in one transaction', async () => {
       const finished = await finishedSnapshot();
       const conflicting = overriding(archives, {
-        save: () =>
-          Promise.reject(
-            new WorkingCopyArchiveVersionConflictError(finished.id.value),
-          ),
+        save: async () => {
+          throw new WorkingCopyArchiveVersionConflictError(finished.id.value);
+        },
       });
 
       await removalWith(ledger, conflicting).processDue();

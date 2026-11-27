@@ -38,6 +38,7 @@ import type {
   ResourceDeleted,
   ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
@@ -153,7 +154,7 @@ export class WorkspaceTokenResourceController {
 
     const token = issued?.token;
 
-    if (token !== null && token !== undefined && token !== '') {
+    if (nonEmpty(token)) {
       httpResponse.setHeader(WORKSPACE_TOKEN_HEADER, token);
     }
 

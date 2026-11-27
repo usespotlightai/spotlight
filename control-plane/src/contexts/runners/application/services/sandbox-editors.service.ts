@@ -10,6 +10,7 @@ import type { SandboxTunnelsPort } from '@runners/application/ports/sandbox-tunn
 import { SandboxDrainedError } from '@runners/domain/exceptions/sandbox-drained.error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const ATTEMPTS = 3;
 
@@ -75,7 +76,7 @@ export class SandboxEditors implements EditorSessionsPort {
   async stream(connection: EditorConnectionDto): Promise<Duplex | null> {
     const hostId = await this.sandboxes.readyOn(connection.sandboxId);
 
-    return hostId !== null && hostId !== ''
+    return nonEmpty(hostId)
       ? this.tunnels.open(hostId, connection.sandboxId)
       : null;
   }

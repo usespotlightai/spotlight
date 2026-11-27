@@ -33,52 +33,47 @@ const reading = (
 ) =>
   new TeamIntegrationsHandler(
     partial<WorkspaceAccessPort>({
-      inWorkspaceOfTeam: vi.fn(() =>
-        Promise.resolve(over.workspace === null ? null : TEAM),
+      inWorkspaceOfTeam: vi.fn(async () =>
+        over.workspace === null ? null : TEAM,
       ),
     }),
     {
-      ofTeam: vi.fn((): Promise<readonly TeamIntegrationReading[]> =>
-        Promise.resolve(
-          over.defined === false
-            ? []
-            : [
-                {
-                  integration: 'linear',
-                  name: 'Linear',
-                  logo: 'https://example.com/linear.svg',
-                  path: 'integrations/linear',
-                  requiresConnection: over.requiresConnection ?? false,
-                  ownClient: over.ownClient ?? null,
-                  actsAs: 'team',
-                  spec:
-                    over.spec === true
-                      ? {
-                          kind: 'openapi',
-                          tools: 19,
-                          readAt: new Date('2026-10-05T12:00:00.000Z'),
-                          problem: null,
-                        }
-                      : null,
-                },
-              ],
-        ),
+      ofTeam: vi.fn(async (): Promise<readonly TeamIntegrationReading[]> =>
+        over.defined === false
+          ? []
+          : [
+              {
+                integration: 'linear',
+                name: 'Linear',
+                logo: 'https://example.com/linear.svg',
+                path: 'integrations/linear',
+                requiresConnection: over.requiresConnection ?? false,
+                ownClient: over.ownClient ?? null,
+                actsAs: 'team',
+                spec: over.spec
+                  ? {
+                      kind: 'openapi',
+                      tools: 19,
+                      readAt: new Date('2026-10-05T12:00:00.000Z'),
+                      problem: null,
+                    }
+                  : null,
+              },
+            ],
       ),
     } satisfies TeamIntegrationReadingsPort,
     {
-      ofTeam: vi.fn(() =>
-        Promise.resolve(
-          over.linkedAccount === undefined
-            ? []
-            : [
-                {
-                  integration: 'linear',
-                  linkedAccount: over.linkedAccount,
-                  client: over.client ?? 'client_1',
-                  refreshFailedAt: over.refreshFailedAt ?? null,
-                },
-              ],
-        ),
+      ofTeam: vi.fn(async () =>
+        over.linkedAccount === undefined
+          ? []
+          : [
+              {
+                integration: 'linear',
+                linkedAccount: over.linkedAccount,
+                client: over.client ?? 'client_1',
+                refreshFailedAt: over.refreshFailedAt ?? null,
+              },
+            ],
       ),
     } satisfies ConnectedIntegrationsPort,
   );

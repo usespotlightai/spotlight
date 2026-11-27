@@ -12,13 +12,12 @@ import type { JudgeDisagreementRepository } from '@insights/domain/repositories/
 import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const notesOf = (disagreement: JudgeDisagreement): DisagreementRunNote[] => {
   const { notMet } = disagreement;
   const answered = disagreement.claimAnswers.flatMap((each) =>
-    each.note !== null && each.note !== ''
-      ? [{ claim: each.claim, text: each.note }]
-      : [],
+    nonEmpty(each.note) ? [{ claim: each.claim, text: each.note }] : [],
   );
 
   return notMet !== null && notMet.note !== null && notMet.note !== ''
@@ -52,7 +51,7 @@ export class ProposeClaimsRevisions implements ClaimsRevisionPullRequestsPort {
 
   async picked(event: ClaimsRevisionPicked): Promise<void> {
     const revision = await this.revisions.find(event.revisionId);
-    const pick = revision?.awaitsPullRequest === true ? revision.pick : null;
+    const pick = revision?.awaitsPullRequest ? revision.pick : null;
 
     if (!revision || !pick) {
       return;

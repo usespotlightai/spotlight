@@ -48,16 +48,14 @@ const word = (wakes: boolean, body = 'Checks failed on web.') =>
 
 const using = (chat: Chat | null) => {
   const saved: Chat[] = [];
-  const takenUp = vi.fn((each: Chat) =>
-    Promise.resolve(each.assignRun(RunId.of('run_2'), NOW)),
+  const takenUp = vi.fn(async (each: Chat) =>
+    each.assignRun(RunId.of('run_2'), NOW),
   );
   const handler = new TellChatOfTask(
     partial<ChatRepository>({
-      find: () => Promise.resolve(chat),
-      save: (each: Chat) => {
+      find: async () => chat,
+      save: async (each: Chat) => {
         saved.push(each);
-
-        return Promise.resolve();
       },
     }),
     { takenUp },

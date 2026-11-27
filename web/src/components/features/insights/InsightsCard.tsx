@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { type ReactElement, type ReactNode, useId, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 
 import { CardTitle } from '@/components/features/insights/CardHeading';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
@@ -39,7 +39,7 @@ export function InsightsCard({
   chartIcon,
   className,
   children,
-}: InsightsCardProps): ReactElement {
+}: InsightsCardProps) {
   const titleId = useId();
   const [tabled, setTabled] = useState(false);
   const tabling = Boolean(table) && tabled;

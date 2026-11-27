@@ -79,11 +79,10 @@ const owning = <T>(found: readonly T[]) => {
   return {
     removed,
     repository: {
-      ofTask: vi.fn(() => Promise.resolve([...found])),
-      forTask: vi.fn(() => Promise.resolve(found[0] ?? null)),
-      remove: vi.fn((each: T) => {
+      ofTask: vi.fn(async () => [...found]),
+      forTask: vi.fn(async () => found[0] ?? null),
+      remove: vi.fn(async (each: T) => {
         removed.push(each);
-        return Promise.resolve();
       }),
     },
   };
@@ -125,10 +124,9 @@ const deleting = (found: {
   const dropTask = vi.fn(async () => {});
   const removedDiffs: string[] = [];
   const diffs = {
-    ofTask: vi.fn(() => Promise.resolve(found.diffs ?? [])),
-    remove: vi.fn((diff: PushDiff) => {
+    ofTask: vi.fn(async () => found.diffs ?? []),
+    remove: vi.fn(async (diff: PushDiff) => {
       removedDiffs.push(diff.id.value);
-      return Promise.resolve();
     }),
   };
 

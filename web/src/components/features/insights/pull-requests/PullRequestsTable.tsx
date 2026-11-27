@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { type ReactElement, useRef } from 'react';
+import { useRef } from 'react';
 
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
@@ -51,7 +51,7 @@ export function PullRequestsTable({
   slug,
   teamId,
   pullRequests,
-}: PullRequestsTableProps): ReactElement {
+}: PullRequestsTableProps) {
   const frame = useRef<HTMLDivElement>(null);
   const roomy = useElementWidth(frame) >= ROOMY_WIDTH;
 

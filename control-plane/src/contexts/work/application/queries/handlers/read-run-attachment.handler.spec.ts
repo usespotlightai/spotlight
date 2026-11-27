@@ -20,20 +20,18 @@ const CONTENT = { bytes: new Uint8Array([1]), contentType: 'image/png' };
 const reading = (leases: Record<string, string>) => {
   const opened: string[] = [];
   const works = partial<RunWorks>({
-    workLeasedBy: (runId: string, runnerId: string) =>
-      Promise.resolve(
-        leases[runId] === runnerId
-          ? partial<RunWork>({
-              workspaceId: WorkspaceId.of('ws_1'),
-              attachment: (id: string) => (id === 'att_1' ? SCREEN : null),
-            })
-          : null,
-      ),
+    workLeasedBy: async (runId: string, runnerId: string) =>
+      leases[runId] === runnerId
+        ? partial<RunWork>({
+            workspaceId: WorkspaceId.of('ws_1'),
+            attachment: (id: string) => (id === 'att_1' ? SCREEN : null),
+          })
+        : null,
   });
   const files = partial<AttachmentStorePort>({
-    open: (workspaceId: WorkspaceId, file: Attachment) => {
+    open: async (workspaceId: WorkspaceId, file: Attachment) => {
       opened.push(`${workspaceId.value}/${file.id.value}`);
-      return Promise.resolve(CONTENT);
+      return CONTENT;
     },
   });
 

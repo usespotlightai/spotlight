@@ -1,5 +1,4 @@
 import { ChartNoAxesColumn, type LucideIcon, Table2 } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { Segmented } from '@/components/shared/Segmented';
 
@@ -13,7 +12,7 @@ export function ChartTableSwitch({
   tabled,
   onTabled,
   chartIcon = ChartNoAxesColumn,
-}: ChartTableSwitchProps): ReactElement {
+}: ChartTableSwitchProps) {
   return (
     <Segmented
       label="Show as"

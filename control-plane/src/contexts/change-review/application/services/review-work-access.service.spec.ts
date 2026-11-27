@@ -60,13 +60,11 @@ const access = (
   diffs: readonly PushDiff[],
   stackRepository: string | null = null,
 ) => {
-  const ofStack = vi.fn(() => Promise.resolve(checks));
-  const find = vi.fn((id: PushDiffId) =>
-    Promise.resolve(diffs.find((each) => each.id.equals(id)) ?? null),
+  const ofStack = vi.fn(async () => checks);
+  const find = vi.fn(
+    async (id: PushDiffId) => diffs.find((each) => each.id.equals(id)) ?? null,
   );
-  const repositoryOf = vi.fn(() =>
-    Promise.resolve({ repository: stackRepository }),
-  );
+  const repositoryOf = vi.fn(async () => ({ repository: stackRepository }));
 
   return {
     ofStack,

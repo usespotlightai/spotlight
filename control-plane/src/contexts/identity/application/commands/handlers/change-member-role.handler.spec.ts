@@ -33,14 +33,13 @@ const staffed = () =>
 
 const changing = (workspace: Workspace | null = staffed()) => {
   const dispatched: DomainEvent[] = [];
-  const save = vi.fn((saved: Workspace) => {
+  const save = vi.fn(async (saved: Workspace) => {
     dispatched.push(...saved.pullEvents());
-    return Promise.resolve();
   });
 
   const handler = new ChangeMemberRoleHandler(
     partial<WorkspaceRepository>({
-      findBySlug: () => Promise.resolve(workspace),
+      findBySlug: async () => workspace,
       save,
     }),
   );

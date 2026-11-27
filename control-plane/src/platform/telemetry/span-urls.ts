@@ -6,6 +6,7 @@ import {
   ATTR_URL_QUERY,
 } from '@opentelemetry/semantic-conventions';
 import { fieldOf } from '@platform/json/field-of';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const attributesOf = (span: unknown): object | undefined => {
   const attributes = fieldOf(span, 'attributes');
@@ -36,7 +37,7 @@ export function withoutOutboundPath(span: unknown): void {
   const full = fieldOf(attributes, ATTR_URL_FULL);
   const origin = typeof full === 'string' ? originOf(full) : undefined;
 
-  if (origin !== undefined && origin !== '') {
+  if (nonEmpty(origin)) {
     Reflect.set(attributes, ATTR_URL_FULL, origin);
   } else {
     Reflect.deleteProperty(attributes, ATTR_URL_FULL);
@@ -58,7 +59,7 @@ export function withRoutePath(span: unknown, route: string | undefined): void {
     return;
   }
 
-  if (route !== undefined && route !== '') {
+  if (nonEmpty(route)) {
     Reflect.set(attributes, ATTR_URL_PATH, route);
   } else {
     Reflect.deleteProperty(attributes, ATTR_URL_PATH);

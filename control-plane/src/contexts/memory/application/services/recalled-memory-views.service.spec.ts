@@ -39,28 +39,26 @@ const remembered = (provenance: MemoryProvenance | null) =>
 const recalling = (memory: Memory) => {
   const lookedUp: string[] = [];
   const people: PeoplePort = {
-    viewerOf: () => Promise.resolve(null),
-    find: (id) => {
+    viewerOf: async () => null,
+    find: async (id) => {
       lookedUp.push(id.value);
-      return Promise.resolve({ name: 'Maya Chen', image: null });
+      return { name: 'Maya Chen', image: null };
     },
   };
   const work = partial<WorkPort>({
-    reasoning: () =>
-      Promise.resolve([
-        { index: 1, kind: 'thought', text: 'A queue needs a worker.' },
-        { index: 2, kind: 'message', text: 'Retrying in the request.' },
-      ]),
-    notesOf: () =>
-      Promise.resolve([
-        { position: 1, by: 'person', author: MAYA, text: 'Never queue it.' },
-        { position: 2, by: 'world', author: null, text: 'FYI.' },
-      ]),
+    reasoning: async () => [
+      { index: 1, kind: 'thought', text: 'A queue needs a worker.' },
+      { index: 2, kind: 'message', text: 'Retrying in the request.' },
+    ],
+    notesOf: async () => [
+      { position: 1, by: 'person', author: MAYA, text: 'Never queue it.' },
+      { position: 2, by: 'world', author: null, text: 'FYI.' },
+    ],
   });
   const views = new TeamMemoryViews(
-    partial<MemoryRepository>({ find: () => Promise.resolve(null) }),
+    partial<MemoryRepository>({ find: async () => null }),
     people,
-    partial<MemoryUsesPort>({ runsUsing: () => Promise.resolve(new Map()) }),
+    partial<MemoryUsesPort>({ runsUsing: async () => new Map() }),
   );
 
   return {

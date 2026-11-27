@@ -187,40 +187,35 @@ const hunksIn = vi.fn(() => [HUNK]);
 const evidences = () =>
   new RunEvidences(
     partial<RunFactsPort>({
-      of: (ids: readonly RunId[]) => {
+      of: async (ids: readonly RunId[]) => {
         const id = firstOf(ids);
 
-        return Promise.resolve(
-          [TASK_RUN, REPLAY].filter(
-            (each) => id !== undefined && each.runId.equals(id),
-          ),
+        return [TASK_RUN, REPLAY].filter(
+          (each) => id !== undefined && each.runId.equals(id),
         );
       },
     }),
     partial<TaskRepository>({
-      find: () =>
-        Promise.resolve(
-          partial<Task>({
-            id: TaskId.of('task_1'),
-            title: TaskTitle.of('Retry uploads'),
-            description: TaskDescription.of('They fail on a flaky network.'),
-          }),
-        ),
+      find: async () =>
+        partial<Task>({
+          id: TaskId.of('task_1'),
+          title: TaskTitle.of('Retry uploads'),
+          description: TaskDescription.of('They fail on a flaky network.'),
+        }),
     }),
     partial<RunJournalReaderPort>({
-      attemptsOfRun: () =>
-        Promise.resolve([
-          { ...journal, steps: journal.steps.slice(0, 2) },
-          {
-            ...journal,
-            attempt: 2,
-            firstStep: 1_000_000,
-            steps: journal.steps.slice(2),
-          },
-        ]),
+      attemptsOfRun: async () => [
+        { ...journal, steps: journal.steps.slice(0, 2) },
+        {
+          ...journal,
+          attempt: 2,
+          firstStep: 1_000_000,
+          steps: journal.steps.slice(2),
+        },
+      ],
     }),
     partial<DispatchRepository>({
-      find: (id: RunId) => Promise.resolve(DISPATCHES.get(id.value) ?? null),
+      find: async (id: RunId) => DISPATCHES.get(id.value) ?? null,
     }),
     runJournalReadings({ hunksIn }),
   );

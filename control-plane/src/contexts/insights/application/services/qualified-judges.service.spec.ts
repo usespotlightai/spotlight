@@ -30,10 +30,10 @@ describe('QualifiedJudges', () => {
   it('gives each station its own calibration, whatever order the calibrations come in', async () => {
     const requested: unknown[] = [];
     const judges = new QualifiedJudges({
-      calibrationsOf: (team, stations) => {
+      calibrationsOf: async (team, stations) => {
         requested.push({ team, stations });
 
-        return Promise.resolve([
+        return [
           shapeOf('station_c', {}),
           shapeOf('station_b', {
             rubricVersion: RubricVersion.of('b'.repeat(64)),
@@ -50,7 +50,7 @@ describe('QualifiedJudges', () => {
             minAgreement: 0.5,
             hiddenReason: null,
           }),
-        ]);
+        ];
       },
     });
 

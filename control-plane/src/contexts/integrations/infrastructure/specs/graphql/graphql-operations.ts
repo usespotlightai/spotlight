@@ -9,6 +9,7 @@ import {
   toolWordsOf,
 } from '@integrations/infrastructure/specs/operation-record';
 import { SchemaBudget } from '@integrations/infrastructure/specs/schema-budget';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   buildClientSchema,
   buildSchema,
@@ -68,11 +69,7 @@ const inputSchemaOf = (
     return {
       type: 'string',
       enum: type.getValues().map((each) => each.name),
-      ...(type.description !== undefined &&
-      type.description !== null &&
-      type.description !== ''
-        ? { description: type.description }
-        : {}),
+      ...(nonEmpty(type.description) ? { description: type.description } : {}),
     };
   }
 
@@ -89,19 +86,13 @@ const inputSchemaOf = (
 
   return {
     type: 'object',
-    ...(type.description !== undefined &&
-    type.description !== null &&
-    type.description !== ''
-      ? { description: type.description }
-      : {}),
+    ...(nonEmpty(type.description) ? { description: type.description } : {}),
     properties: Object.fromEntries(
       fields.map((field) => [
         field.name,
         {
           ...inputSchemaOf(field.type, depth + 1, within, budget),
-          ...(field.description !== undefined &&
-          field.description !== null &&
-          field.description !== ''
+          ...(nonEmpty(field.description)
             ? { description: field.description }
             : {}),
         },
@@ -246,7 +237,7 @@ const isIntrospection = (data: unknown): data is IntrospectionQuery =>
 const trimmedOrNull = (text: string | null | undefined): string | null => {
   const trimmed = text?.trim();
 
-  return trimmed === undefined || trimmed === '' ? null : trimmed;
+  return !nonEmpty(trimmed) ? null : trimmed;
 };
 
 const introspected = (text: string): IntrospectionQuery | null => {

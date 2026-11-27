@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { nonEmpty } from '@/lib/non-empty';
@@ -14,7 +14,7 @@ export function SkeletonBlock({
   label,
   className,
   children,
-}: SkeletonBlockProps): ReactElement {
+}: SkeletonBlockProps) {
   const classes = cn('relative flex min-w-0 flex-col', className);
   const block = (
     <>

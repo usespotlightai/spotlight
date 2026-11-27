@@ -73,16 +73,14 @@ const lineAt = (version: number): Line => {
 const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 const teams = {
-  find: vi.fn(() =>
-    Promise.resolve({
-      id: TEAM,
-      workspaceId: WorkspaceId.of('ws_1'),
-      key: 'core',
-      name: 'Core',
-      members: [],
-    }),
-  ),
-  inWorkspace: vi.fn(() => Promise.resolve([])),
+  find: vi.fn(async () => ({
+    id: TEAM,
+    workspaceId: WorkspaceId.of('ws_1'),
+    key: 'core',
+    name: 'Core',
+    members: [],
+  })),
+  inWorkspace: vi.fn(async () => []),
 } satisfies TeamDirectoryPort;
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -92,20 +90,19 @@ const KNOWN = ['catalog.web-search@1.1.0', 'catalog.research@1.0.0'];
 const UNKNOWN = (id: string) => `Catalog has no item ${id}.`;
 
 const catalog = new CatalogDenials({
-  resolve: (named) =>
-    Promise.resolve({
-      tools: [],
-      skills: [],
-      denied: [...named.tools, ...named.skills]
-        .filter((each) => !KNOWN.includes(each))
-        .map((id) => ({
-          id,
-          reason: 'unknown' as const,
-          because: UNKNOWN(id),
-        })),
-    }),
-  call: () => {
-    return Promise.reject(new Error('not called here'));
+  resolve: async (named) => ({
+    tools: [],
+    skills: [],
+    denied: [...named.tools, ...named.skills]
+      .filter((each) => !KNOWN.includes(each))
+      .map((id) => ({
+        id,
+        reason: 'unknown' as const,
+        because: UNKNOWN(id),
+      })),
+  }),
+  call: async () => {
+    throw new Error('not called here');
   },
 });
 
@@ -118,18 +115,17 @@ const enabling = (tools: string[], skills: string[] = []) => ({
 
 const creates = () =>
   ({
-    reserve: vi.fn(() => Promise.resolve({ kind: 'new' as const })),
+    reserve: vi.fn(async () => ({ kind: 'new' as const })),
     recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
 const lines = (existing: Line | null, thenAt: Line | null = existing) => {
-  const find = vi.fn(() => Promise.resolve(existing));
-  const save = vi.fn((saved: Line) => {
+  const find = vi.fn(async () => existing);
+  const save = vi.fn(async (saved: Line) => {
     if (saved.isDeleted && !thenAt) {
-      return Promise.resolve();
+      return;
     }
     find.mockResolvedValue(thenAt);
-    return Promise.resolve();
   });
 
   return { ...partial<LineRepository>({ find, save }), find, save };
@@ -137,12 +133,12 @@ const lines = (existing: Line | null, thenAt: Line | null = existing) => {
 
 describe('CreateLineHandler', () => {
   const creating = (over: { isAdmin?: boolean; throwing?: Error } = {}) => {
-    const apply = vi.fn(() => {
+    const apply = vi.fn(async () => {
       if (over.throwing) {
-        return Promise.reject(over.throwing);
+        throw over.throwing;
       }
 
-      return Promise.resolve(lineAt(0));
+      return lineAt(0);
     });
     const handler = new CreateLineHandler(
       access(over.isAdmin),
@@ -271,13 +267,13 @@ describe('UpdateLineHandler', () => {
     over: { isAdmin?: boolean; throwing?: Error; thenAt?: Line } = {},
   ) => {
     const stored = lines(lineAt(3));
-    const reconcile = vi.fn((line: Line) => {
+    const reconcile = vi.fn(async (line: Line) => {
       if (over.throwing) {
         stored.find.mockResolvedValue(over.thenAt ?? line);
-        return Promise.reject(over.throwing);
+        throw over.throwing;
       }
 
-      return Promise.resolve(line);
+      return line;
     });
     const handler = new UpdateLineHandler(
       access(over.isAdmin),
@@ -367,13 +363,11 @@ describe('DeleteLineHandler', () => {
     const stored = lines(existing, null);
     const guard = {
       release: vi.fn(async () => {}),
-      lockedTaskCountsAt: vi.fn(() =>
-        Promise.resolve(
-          existing.stations.map((each) => ({
-            stationId: each.id,
-            tasks: tasks[each.key.value] ?? 0,
-          })),
-        ),
+      lockedTaskCountsAt: vi.fn(async () =>
+        existing.stations.map((each) => ({
+          stationId: each.id,
+          tasks: tasks[each.key.value] ?? 0,
+        })),
       ),
     } satisfies StationDeletionGuardPort;
     const handler = new DeleteLineHandler(

@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ export function FilterRow({
   htmlFor,
   compact = false,
   children,
-}: FilterRowProps): ReactElement {
+}: FilterRowProps) {
   const shown = cn('text-muted-foreground', compact ? 'text-xs' : 'text-sm');
 
   return (

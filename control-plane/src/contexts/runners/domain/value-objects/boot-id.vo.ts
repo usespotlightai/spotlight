@@ -3,7 +3,7 @@ import { InvalidHostReportError } from '@runners/domain/exceptions/invalid-host-
 const MOST = 64;
 
 export class BootId {
-  private readonly kind: string = 'boot-id';
+  private readonly kind = 'boot-id';
 
   private constructor(readonly value: string) {}
 
@@ -21,7 +21,7 @@ export class BootId {
   }
 
   equals(other: BootId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof BootId && this.value === other.value;
   }
 
   toString(): string {

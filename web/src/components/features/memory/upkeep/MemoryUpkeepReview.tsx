@@ -1,5 +1,4 @@
 import { SearchX } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { MemoryUpkeepSkeleton } from '@/components/features/memory/upkeep/MemoryUpkeepSkeleton';
 import { UpkeepProposalCard } from '@/components/features/memory/upkeep/UpkeepProposalCard';
@@ -23,7 +22,7 @@ export function MemoryUpkeepReview({
   slug,
   teamId,
   upkeepId,
-}: MemoryUpkeepReviewProps): ReactElement {
+}: MemoryUpkeepReviewProps) {
   const found = useMemoryUpkeep(teamId, upkeepId);
   const decide = useDecideUpkeepProposal();
   const upkeep = found.data;

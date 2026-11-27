@@ -1,5 +1,4 @@
 import { Box } from 'lucide-react';
-import type { ReactElement } from 'react';
 import { siClaude, siCursor, siGooglegemini, siOpencode } from 'simple-icons';
 
 import { OPENAI_PATH } from '@/components/features/stations/openai-mark';
@@ -24,10 +23,7 @@ type HarnessLogoProps = {
   className?: string;
 };
 
-export function HarnessLogo({
-  harness,
-  className,
-}: HarnessLogoProps): ReactElement {
+export function HarnessLogo({ harness, className }: HarnessLogoProps) {
   const mark = nonEmpty(harness) ? marks[harness] : undefined;
 
   if (!mark) {

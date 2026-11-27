@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -54,21 +55,19 @@ export class DrizzleTaskLookupReader implements TaskLookupReaderPort {
           id: TaskId.of(row.id),
           workspaceId: WorkspaceId.of(row.workspaceId),
           stationId: StationId.of(row.stationId),
-          reviewedPullRequest:
-            row.reviewedPullRequest !== null && row.reviewedPullRequest !== ''
-              ? ReviewedPullRequest.of(
-                  PullRequestUrl.of(row.reviewedPullRequest),
-                  { outside: row.reviewFromOutside },
-                )
-              : null,
+          reviewedPullRequest: nonEmpty(row.reviewedPullRequest)
+            ? ReviewedPullRequest.of(
+                PullRequestUrl.of(row.reviewedPullRequest),
+                { outside: row.reviewFromOutside },
+              )
+            : null,
           pullRequests: owned.map((each) => PullRequestUrl.of(each.url)),
           openPullRequests: owned
             .filter((each) => each.closedAt === null)
             .map((each) => PullRequestUrl.of(each.url)),
-          currentRunId:
-            row.currentRunId !== null && row.currentRunId !== ''
-              ? RunId.of(row.currentRunId)
-              : null,
+          currentRunId: nonEmpty(row.currentRunId)
+            ? RunId.of(row.currentRunId)
+            : null,
         }
       : null;
   }

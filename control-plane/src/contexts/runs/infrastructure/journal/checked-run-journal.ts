@@ -19,6 +19,7 @@ import { decoded } from '@runs/infrastructure/journal/journalled';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const SPAN = 'span';
 
@@ -63,12 +64,7 @@ export class CheckedRunJournal implements RunJournalPort {
     await this.journal.append(attempt, entries);
 
     for (const entry of entries) {
-      if (
-        entry.data !== undefined &&
-        entry.data !== '' &&
-        carriesJson(entry) &&
-        !readable(entry.data)
-      ) {
+      if (nonEmpty(entry.data) && carriesJson(entry) && !readable(entry.data)) {
         this.unread(attempt, entry);
       }
     }

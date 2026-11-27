@@ -165,7 +165,7 @@ const editOf = (
   fields: fieldsOf(BUILD, desired),
   blocks: [JUDGE],
   module: [],
-  read: (path) => Promise.resolve(files[path] ?? null),
+  read: async (path) => files[path] ?? null,
   ...more,
 });
 

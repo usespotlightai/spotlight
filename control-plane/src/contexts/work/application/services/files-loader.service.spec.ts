@@ -11,20 +11,18 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const store = () =>
   ({
     grant: vi.fn(),
-    received: vi.fn((_at, ids: readonly AttachmentId[]) =>
-      Promise.resolve(
-        ids.map((id) =>
-          Attachment.of({
-            id: id.value,
-            name: 'queue.png',
-            contentType: 'image/png',
-            size: 4096,
-          }),
-        ),
+    received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
+      ids.map((id) =>
+        Attachment.of({
+          id: id.value,
+          name: 'queue.png',
+          contentType: 'image/png',
+          size: 4096,
+        }),
       ),
     ),
     save: vi.fn(),
-    stored: vi.fn(() => Promise.resolve(true)),
+    stored: vi.fn(async () => true),
     taken: vi.fn(),
     copy: vi.fn(),
     link: vi.fn(),

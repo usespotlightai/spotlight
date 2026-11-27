@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import type { InboxItem } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
@@ -8,10 +6,7 @@ type FailureCountProps = {
   className?: string;
 };
 
-export function FailureCount({
-  failure,
-  className,
-}: FailureCountProps): ReactElement | null {
+export function FailureCount({ failure, className }: FailureCountProps) {
   if (!failure || failure.occurrences < 2) {
     return null;
   }

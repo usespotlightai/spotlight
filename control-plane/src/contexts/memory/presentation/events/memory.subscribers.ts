@@ -38,6 +38,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -91,10 +92,7 @@ export const memorySubscribers = (
         {
           id: RunId.of(event.runId),
           workspaceId: WorkspaceId.of(event.workspaceId),
-          taskId:
-            event.taskId !== null && event.taskId !== ''
-              ? TaskId.of(event.taskId)
-              : null,
+          taskId: nonEmpty(event.taskId) ? TaskId.of(event.taskId) : null,
         },
         event.memories,
         event.driver === 'person',
@@ -139,10 +137,7 @@ export const memorySubscribers = (
         {
           id: RunId.of(event.runId),
           workspaceId: WorkspaceId.of(event.workspaceId),
-          taskId:
-            event.taskId !== null && event.taskId !== ''
-              ? TaskId.of(event.taskId)
-              : null,
+          taskId: nonEmpty(event.taskId) ? TaskId.of(event.taskId) : null,
         },
         event.driver === 'person',
       ),

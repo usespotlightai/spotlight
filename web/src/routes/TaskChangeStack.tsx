@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { ChangeStackPage } from '@/components/features/changes/ChangeStackPage';
@@ -18,7 +17,7 @@ import { taskPath } from '@/lib/task';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { PublicChangeStack } from '@/routes/PublicChangeStack';
 
-export function TaskChangeStack(): ReactElement | null {
+export function TaskChangeStack() {
   const { slug, teamId, taskId } = useParams();
   const stacks = useTaskChangeStacks(teamId, taskId);
   const found = useTask(teamId, taskId);

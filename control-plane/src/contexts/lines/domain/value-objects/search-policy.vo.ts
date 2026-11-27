@@ -10,6 +10,7 @@ import {
   SpendCeiling,
   spendAmountProblem,
 } from '@lines/domain/value-objects/spend-ceiling.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -147,7 +148,7 @@ export class StationSearchOverride {
     const ceiling = optional(input.ceiling, (value) => {
       const problem = spendAmountProblem(value);
 
-      if (problem !== null && problem !== '') {
+      if (nonEmpty(problem)) {
         throw new InvalidSearchPolicyError('ceiling', problem);
       }
 

@@ -10,13 +10,13 @@ import { resolveItems } from '@catalog/domain/services/catalog-resolution';
 export class CatalogResolutions implements CatalogResolutionsPort {
   constructor(private readonly catalog: CatalogItems) {}
 
-  resolve(request: CatalogRequest): Promise<ResolvedItems> {
+  async resolve(request: CatalogRequest): Promise<ResolvedItems> {
     const resolved = resolveItems(request, this.catalog);
 
-    return Promise.resolve({
+    return {
       tools: resolved.tools.map(CatalogShapeMapper.toTool),
       skills: resolved.skills.map(CatalogShapeMapper.toSkill),
       denied: resolved.denied.map(CatalogShapeMapper.toDenial),
-    });
+    };
   }
 }

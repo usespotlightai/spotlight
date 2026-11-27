@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { InviteForm } from '@/components/features/members/InviteForm';
 import { InviteOutcomes } from '@/components/features/members/InviteOutcomes';
@@ -25,7 +25,7 @@ export function InviteDialog({
   slug,
   teams,
   teamIds = NO_TEAMS,
-}: InviteDialogProps): ReactElement {
+}: InviteDialogProps) {
   const invite = useInviteToWorkspace(slug);
   const [sent, setSent] = useState<InviteOutcome[] | null>(null);
   const [round, setRound] = useState(0);

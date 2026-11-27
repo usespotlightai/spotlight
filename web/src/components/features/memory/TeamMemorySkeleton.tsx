@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
 import { TeamMemoryTable } from '@/components/features/memory/TeamMemoryTable';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -9,7 +7,7 @@ const WIDE = 'hidden @4xl/pane:flex';
 
 const BODY_WIDTHS = ['w-3/5', 'w-2/5', 'w-4/5', 'w-1/2'] as const;
 
-export function TeamMemorySkeleton(): ReactElement {
+export function TeamMemorySkeleton() {
   return (
     <div
       role="status"

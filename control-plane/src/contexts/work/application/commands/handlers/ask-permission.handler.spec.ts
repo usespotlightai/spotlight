@@ -121,36 +121,30 @@ const asking = (start: Task, inChat = false) => {
     runWorksOver(
       runLeasesOver(() => run),
       partial<TaskRepository>({
-        find: () => Promise.resolve(current),
-        save: (saved: Task) => {
+        find: async () => current,
+        save: async (saved: Task) => {
           current = saved;
-
-          return Promise.resolve();
         },
       }),
       partial<ChatRepository>({
-        find: () =>
-          Promise.resolve(
-            Chat.start({
-              lines: [],
-              workspaceId: WorkspaceId.of('ws_1'),
-              teamId: TeamId.of('team_1'),
-              startedBy: UserId.of('user_1'),
-              harness: HarnessId.of('claude-code'),
-              body: ChatMessageBody.of('Plan the queue.'),
-              now: NOW,
-              newId: () => 'chat_1',
-            }).assignRun(RunId.of('run_1'), NOW),
-          ),
+        find: async () =>
+          Chat.start({
+            lines: [],
+            workspaceId: WorkspaceId.of('ws_1'),
+            teamId: TeamId.of('team_1'),
+            startedBy: UserId.of('user_1'),
+            harness: HarnessId.of('claude-code'),
+            body: ChatMessageBody.of('Plan the queue.'),
+            now: NOW,
+            newId: () => 'chat_1',
+          }).assignRun(RunId.of('run_1'), NOW),
       }),
-      partial<LineMapsPort>({ findByStation: () => Promise.resolve(LINE) }),
+      partial<LineMapsPort>({ findByStation: async () => LINE }),
       partial<DispatchRepository>({
-        find: (id: RunId) =>
-          Promise.resolve(
-            inChat
-              ? aChatDispatch(id, ChatId.of('chat_1'))
-              : aTaskDispatch(id, TaskId.of('task_1'), IMPLEMENTING),
-          ),
+        find: async (id: RunId) =>
+          inChat
+            ? aChatDispatch(id, ChatId.of('chat_1'))
+            : aTaskDispatch(id, TaskId.of('task_1'), IMPLEMENTING),
       }),
       { now: () => NOW, sleep: async () => {} },
     ),

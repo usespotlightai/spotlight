@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useScrollEdges } from '@/hooks/useScrollEdges';
@@ -13,7 +13,7 @@ export function FadingScroll({
   className?: string;
   contentClassName?: string;
   children: ReactNode;
-}): ReactElement {
+}) {
   const { viewport, edges, measure } = useScrollEdges();
 
   const top = edges.up ? 'transparent' : '#000';

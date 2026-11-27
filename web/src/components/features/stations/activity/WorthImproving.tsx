@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { SignalRow } from '@/components/features/insights/SignalRow';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -28,7 +28,7 @@ export function WorthImproving({
   period,
   action,
   actionFor,
-}: WorthImprovingProps): ReactElement {
+}: WorthImprovingProps) {
   const overview = useInsightsOverview(teamId, period);
   const flagged = overview.data?.worthImproving.find(
     (each) => each.stationId === stationId,

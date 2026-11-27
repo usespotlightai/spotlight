@@ -19,48 +19,37 @@ const NOW = new Date('2026-10-01T09:00:00.000Z');
 class InMemoryNotices implements NoticeRepository {
   readonly stored = new Map<string, Notice>();
 
-  add = (notice: Notice) => {
+  add = async (notice: Notice) => {
     this.stored.set(notice.id.value, notice);
-
-    return Promise.resolve();
   };
 
-  save = (notice: Notice) => {
+  save = async (notice: Notice) => {
     this.stored.set(notice.id.value, notice);
-
-    return Promise.resolve();
   };
 
-  find = (id: { value: string }) =>
-    Promise.resolve(this.stored.get(id.value) ?? null);
+  find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
-  about = (
+  about = async (
     teamId: TeamId,
     addressee: UserId | null,
     form: string,
     subject: NoticeSubject,
   ) =>
-    Promise.resolve(
-      [...this.stored.values()].find(
-        (each) =>
-          each.teamId.equals(teamId) &&
-          (each.addressee === null || addressee === null
-            ? each.addressee === addressee
-            : each.addressee.equals(addressee)) &&
-          each.form === form &&
-          each.subject.equals(subject),
-      ) ?? null,
-    );
+    [...this.stored.values()].find(
+      (each) =>
+        each.teamId.equals(teamId) &&
+        (each.addressee === null || addressee === null
+          ? each.addressee === addressee
+          : each.addressee.equals(addressee)) &&
+        each.form === form &&
+        each.subject.equals(subject),
+    ) ?? null;
 
-  ofTeam = (teamId: TeamId) =>
-    Promise.resolve(
-      [...this.stored.values()].filter((each) => each.teamId.equals(teamId)),
-    );
+  ofTeam = async (teamId: TeamId) =>
+    [...this.stored.values()].filter((each) => each.teamId.equals(teamId));
 
-  remove = (notice: Notice) => {
+  remove = async (notice: Notice) => {
     this.stored.delete(notice.id.value);
-
-    return Promise.resolve();
   };
 }
 
@@ -176,7 +165,7 @@ describe('Notices', () => {
     const memory = new InMemoryNotices();
     const gone = partial<typeof access>({
       ...access,
-      membersOf: () => Promise.resolve(null),
+      membersOf: async () => null,
     });
 
     await new Notices(

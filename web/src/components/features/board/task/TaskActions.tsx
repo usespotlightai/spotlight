@@ -1,5 +1,5 @@
 import { MoreHorizontal, Trash } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,7 @@ type TaskActionsProps = {
   onDelete: () => void;
 };
 
-export function TaskActions({
-  title,
-  onDelete,
-}: TaskActionsProps): ReactElement {
+export function TaskActions({ title, onDelete }: TaskActionsProps) {
   const [confirming, setConfirming] = useState(false);
   useCommands([{ id: 'task.delete', run: () => setConfirming(true) }]);
 

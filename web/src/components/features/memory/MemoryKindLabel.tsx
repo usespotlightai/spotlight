@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   Tooltip,
   TooltipContent,
@@ -7,7 +5,7 @@ import {
 } from '@/components/ui/tooltip';
 import { KIND_DESCRIPTIONS, KIND_LABELS, type MemoryKind } from '@/lib/memory';
 
-export function MemoryKindLabel({ kind }: { kind: MemoryKind }): ReactElement {
+export function MemoryKindLabel({ kind }: { kind: MemoryKind }) {
   return (
     <Tooltip>
       <TooltipTrigger render={<span title={KIND_LABELS[kind]} />}>

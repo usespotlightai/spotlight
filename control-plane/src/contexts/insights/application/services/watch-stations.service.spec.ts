@@ -41,8 +41,8 @@ const watching = (initially: readonly AlertRule[] | null) => {
   const deletions = deletionsInMemory();
   let next = 0;
   const lines: LineSettingsPort = {
-    teamRepositories: () => Promise.resolve([]),
-    alertsAt: () => Promise.resolve(alerts),
+    teamRepositories: async () => [],
+    alertsAt: async () => alerts,
   };
   const service = new WatchStations(
     lines,

@@ -34,37 +34,34 @@ const reading = (
 ) => {
   const read: number[] = [];
   const runs = partial<RunViewing>({
-    watchedBy: (runId: RunId) =>
-      Promise.resolve(
-        visible
-          ? partial<WatchedRun>({
-              runId,
-              attempt: 2,
-              requester: {
-                owner: 'work',
-                kind: 'task',
-                id: 'task_1',
-                token: null,
-                team,
-              },
-            })
-          : null,
-      ),
+    watchedBy: async (runId: RunId) =>
+      visible
+        ? partial<WatchedRun>({
+            runId,
+            attempt: 2,
+            requester: {
+              owner: 'work',
+              kind: 'task',
+              id: 'task_1',
+              token: null,
+              team,
+            },
+          })
+        : null,
   });
   const events = {
-    entriesSince: () => Promise.resolve([]),
-    egressEnforcementOf: (_runId: RunId, attempt: number) => {
+    entriesSince: async () => [],
+    egressEnforcementOf: async (_runId: RunId, attempt: number) => {
       read.push(attempt);
-      return Promise.resolve(checked);
+      return checked;
     },
   } satisfies RunJournalEntryReaderPort;
   const connections = {
-    of: () =>
-      Promise.resolve([
-        { attempt: 1, connection: connection('old.example.com') },
-        { attempt: 2, connection: connection('registry.npmjs.org') },
-      ]),
-    errorsIn: () => Promise.resolve([]),
+    of: async () => [
+      { attempt: 1, connection: connection('old.example.com') },
+      { attempt: 2, connection: connection('registry.npmjs.org') },
+    ],
+    errorsIn: async () => [],
   } satisfies RunConnectionsPort;
 
   return {

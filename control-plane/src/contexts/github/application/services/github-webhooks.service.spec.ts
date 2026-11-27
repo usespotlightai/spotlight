@@ -84,22 +84,18 @@ const hooks = (
 ) => {
   const connected = over.connected ?? true;
   const connections = {
-    connectedWorkspaceOf: vi.fn(() =>
-      Promise.resolve(connected ? WORKSPACE : null),
+    connectedWorkspaceOf: vi.fn(async () => (connected ? WORKSPACE : null)),
+    of: vi.fn(async (id: WorkspaceId) =>
+      connected
+        ? GitHubConnection.rehydrate({
+            workspaceId: id,
+            installation: INSTALLED,
+            version: 1,
+          })
+        : GitHubConnection.none(id),
     ),
-    of: vi.fn((id: WorkspaceId) =>
-      Promise.resolve(
-        connected
-          ? GitHubConnection.rehydrate({
-              workspaceId: id,
-              installation: INSTALLED,
-              version: 1,
-            })
-          : GitHubConnection.none(id),
-      ),
-    ),
-    lockedConnectedWorkspaceOf: vi.fn(() =>
-      Promise.resolve(connected ? WORKSPACE : null),
+    lockedConnectedWorkspaceOf: vi.fn(async () =>
+      connected ? WORKSPACE : null,
     ),
     save: vi.fn<GitHubConnectionRepository['save']>(async () => {}),
   } satisfies GitHubConnectionRepository;
@@ -111,9 +107,7 @@ const hooks = (
   });
   const checkRuns = {
     failedOn: vi.fn(),
-    failedInSuite: vi.fn(
-      over.failedInSuite ?? (() => Promise.resolve([BUILD_FAILED])),
-    ),
+    failedInSuite: vi.fn(over.failedInSuite ?? (async () => [BUILD_FAILED])),
   } satisfies CheckRunsPort;
   const visibilities = { record: vi.fn(async () => {}) };
   const sync = {
@@ -125,7 +119,7 @@ const hooks = (
     closed: vi.fn(over.closed ?? (async () => {})),
     reopened: vi.fn(async () => {}),
     pushed: vi.fn(async () => {}),
-    uninstalled: vi.fn(() => Promise.resolve(0)),
+    uninstalled: vi.fn(async () => 0),
   };
 
   return {
@@ -244,10 +238,8 @@ describe('GitHubWebhooks', () => {
       const { service, logger } = hooks(
         { installation: '158876513', events: [FAILED] },
         {
-          failedInSuite: () => {
-            return Promise.reject(
-              new Error('Resource not accessible by integration'),
-            );
+          failedInSuite: async () => {
+            throw new Error('Resource not accessible by integration');
           },
         },
       );
@@ -714,8 +706,8 @@ describe('GitHubWebhooks', () => {
           events: [CLOSED],
         },
         {
-          closed: () => {
-            return Promise.reject(new Error('the outbox is down'));
+          closed: async () => {
+            throw new Error('the outbox is down');
           },
         },
       );

@@ -45,13 +45,11 @@ const linesWith = (lines: readonly LineView[]) => {
     error: () => undefined,
   };
   const port = partial<LinesPort>({
-    findByStation: (stationId: { value: string }) =>
-      Promise.resolve(
-        lines.find((line) =>
-          line.stations.some((each) => each.id === stationId.value),
-        ) ?? null,
-      ),
-    ofTeam: () => Promise.resolve(lines),
+    findByStation: async (stationId: { value: string }) =>
+      lines.find((line) =>
+        line.stations.some((each) => each.id === stationId.value),
+      ) ?? null,
+    ofTeam: async () => lines,
   });
 
   return { adapter: new Lines(port, logger), warned };

@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -8,10 +8,7 @@ type SectionButtonProps = Omit<
   'variant' | 'size'
 >;
 
-export function SectionButton({
-  className,
-  ...props
-}: SectionButtonProps): ReactElement {
+export function SectionButton({ className, ...props }: SectionButtonProps) {
   return (
     <Button
       variant="outline"

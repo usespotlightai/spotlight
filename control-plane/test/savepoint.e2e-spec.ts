@@ -62,15 +62,13 @@ describe('work in a savepoint inside a transaction', () => {
 
     await context.inTransaction(async () => {
       await context
-        .inSavepoint(() => {
+        .inSavepoint(async () => {
           context.afterCommit(() => ran.push('rolled back'));
-          return Promise.reject(new Error('the savepoint work failed'));
+          throw new Error('the savepoint work failed');
         })
         .catch(() => null);
-      await context.inSavepoint(() => {
+      await context.inSavepoint(async () => {
         context.afterCommit(() => ran.push('kept'));
-
-        return Promise.resolve();
       });
     });
 
@@ -83,10 +81,8 @@ describe('work in a savepoint inside a transaction', () => {
     await context.inTransaction(async () => {
       await context
         .inSavepoint(async () => {
-          await context.inSavepoint(() => {
+          await context.inSavepoint(async () => {
             context.afterCommit(() => ran.push('inner'));
-
-            return Promise.resolve();
           });
           throw new Error('the outer savepoint work failed');
         })

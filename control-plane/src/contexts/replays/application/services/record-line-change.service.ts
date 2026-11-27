@@ -93,7 +93,7 @@ export class RecordLineChange {
 
       const oracle = await this.replays.find(oracleId);
 
-      if (oracle?.isStoppable === true) {
+      if (oracle?.isStoppable) {
         await this.replays.save(
           oracle.stop(
             this.clock.now(),

@@ -4,6 +4,7 @@ import type {
 } from '@identity/application/ports/linked-accounts.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const FAILED_FOR_MS = 10 * 60_000;
@@ -51,9 +52,7 @@ export class BetterAuthLinkedAccounts implements LinkedAccountsPort {
         body: { accountId: linked.id, userId: userId.value },
       });
 
-      return accessToken !== undefined && accessToken !== ''
-        ? accessToken
-        : null;
+      return nonEmpty(accessToken) ? accessToken : null;
     } catch (error) {
       if (this.#failed.due(`${userId.value}\n${provider}`, new Date())) {
         this.logger.warn(

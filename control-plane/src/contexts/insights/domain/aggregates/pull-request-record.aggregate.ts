@@ -171,7 +171,7 @@ export class PullRequestRecord extends EventRecorder {
 
   assignOwner(owner: PullRequestOwner): PullRequestRecord {
     if (
-      this.owner?.taskId.equals(owner.taskId) === true &&
+      this.owner?.taskId.equals(owner.taskId) &&
       this.owner.teamId.equals(owner.teamId)
     ) {
       return this;
@@ -293,8 +293,7 @@ export class PullRequestRecord extends EventRecorder {
   }
 
   private withoutTeam(teamId: TeamId): PullRequestRecord | null {
-    const owned =
-      this.owner?.teamId.equals(teamId) === true ? this.owner : null;
+    const owned = this.owner?.teamId.equals(teamId) ? this.owner : null;
     const reviewing = this.reviewTasks.filter((each) =>
       each.teamId.equals(teamId),
     );

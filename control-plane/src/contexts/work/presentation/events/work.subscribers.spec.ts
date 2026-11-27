@@ -21,7 +21,7 @@ type Reactions = Parameters<typeof workSubscribers>[0];
 
 describe('workSubscribers', () => {
   it('reconciles the setup list of the team whose setup chat opened its pull request', async () => {
-    const forTeam = vi.fn(() => Promise.resolve(undefined));
+    const forTeam = vi.fn(async () => undefined);
     const reconciling = workSubscribers(
       partial<Reactions>({
         setup: partial<Reactions['setup']>({ forTeam }),

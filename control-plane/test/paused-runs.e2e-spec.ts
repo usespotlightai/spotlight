@@ -65,17 +65,14 @@ const DEPLOY = randomUUID();
 const SHA256 = 'a'.repeat(64);
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 

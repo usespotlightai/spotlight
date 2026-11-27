@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { ICON_ACTION } from '@/components/shared/icon-action';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -15,12 +15,7 @@ type IconLinkProps = {
   children: ReactNode;
 };
 
-export function IconLink({
-  label,
-  tip,
-  to,
-  children,
-}: IconLinkProps): ReactElement {
+export function IconLink({ label, tip, to, children }: IconLinkProps) {
   return (
     <Tooltip>
       <TooltipTrigger

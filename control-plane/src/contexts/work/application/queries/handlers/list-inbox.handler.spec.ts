@@ -106,7 +106,7 @@ const SCOPE: InboxScope = {
 };
 
 const access = (scope: InboxScope | null = SCOPE): WorkAccess =>
-  partial<WorkAccess>({ inboxOf: vi.fn(() => Promise.resolve(scope)) });
+  partial<WorkAccess>({ inboxOf: vi.fn(async () => scope) });
 
 const handle = (inbox: InboxReaderPort, seen = access()) =>
   new ListInboxHandler(inbox, seen).execute(

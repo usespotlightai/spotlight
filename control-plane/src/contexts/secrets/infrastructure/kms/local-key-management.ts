@@ -27,7 +27,7 @@ export class LocalKeyManagement implements KeyManagement {
     this.key = decoded;
   }
 
-  issue(context: KeyContext): Promise<IssuedDataKey> {
+  async issue(context: KeyContext): Promise<IssuedDataKey> {
     return new Promise((resolve) => {
       const plain = randomBytes(KEY_BYTES);
 
@@ -38,7 +38,7 @@ export class LocalKeyManagement implements KeyManagement {
     });
   }
 
-  unwrap(wrapped: string, context: KeyContext): Promise<Uint8Array> {
+  async unwrap(wrapped: string, context: KeyContext): Promise<Uint8Array> {
     return new Promise((resolve) => {
       resolve(new Uint8Array(decrypt(this.key, wrapped, aadFor(context))));
     });

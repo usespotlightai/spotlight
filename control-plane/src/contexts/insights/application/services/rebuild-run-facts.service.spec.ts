@@ -8,16 +8,16 @@ import { describe, expect, it } from 'vitest';
 const factsOf = (workspaces: readonly string[]) => {
   const rebuilt: string[] = [];
   const facts: RunFactsMaintenance = {
-    repairEndedSince: () => Promise.resolve({ checked: 0, repaired: [] }),
-    rebuild: (owner) => {
+    repairEndedSince: async () => ({ checked: 0, repaired: [] }),
+    rebuild: async (owner) => {
       rebuilt.push(
         owner.kind === 'team'
           ? `${owner.workspaceId.value} ${owner.teamId.value}`
           : owner.workspaceId.value,
       );
-      return Promise.resolve(2);
+      return 2;
     },
-    workspaces: () => Promise.resolve(workspaces),
+    workspaces: async () => workspaces,
   };
 
   return { facts, rebuilt };

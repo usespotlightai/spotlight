@@ -1,4 +1,5 @@
 import type { ToolManifestShape } from '@runs/application/contracts/run-spec.contract';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 
@@ -28,9 +29,7 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
     ...declared.inputs.map((each) => ({
       name: each.name,
       schema: each.schema.written,
-      ...(each.description !== null && each.description !== ''
-        ? { description: each.description }
-        : {}),
+      ...(nonEmpty(each.description) ? { description: each.description } : {}),
       required: each.required,
       defaulted: each.defaulted,
       stdin: each.stdin,
@@ -38,7 +37,7 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
     ...(declared.approval ? [INTENT] : []),
   ],
   approval: declared.approval ? { because: declared.approval.because } : null,
-  ...(declared.providedBy !== null && declared.providedBy !== ''
+  ...(nonEmpty(declared.providedBy)
     ? { integration: declared.providedBy }
     : {}),
   ...(declared.inferredOutput ? { output: declared.inferredOutput } : {}),

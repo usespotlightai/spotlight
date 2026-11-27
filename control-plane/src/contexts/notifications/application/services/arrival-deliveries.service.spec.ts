@@ -47,20 +47,20 @@ const deliveriesWith = (input: {
     published
       .filter((each) => each.personId === personId)
       .map((each) => each.notification);
-  const send = vi.fn<WebPushPort['send']>(() =>
-    Promise.resolve(input.outcome ?? 'delivered'),
+  const send = vi.fn<WebPushPort['send']>(
+    async () => input.outcome ?? 'delivered',
   );
-  const remove = vi.fn(() => Promise.resolve());
+  const remove = vi.fn(async () => {});
   const push: WebPushPort = {
     publicKey: input.publicKey === undefined ? 'key' : input.publicKey,
     send,
   };
   const subscriptions = partial<PushSubscriptionRepository>({
-    ofPerson: () => Promise.resolve(input.subscriptions ?? []),
+    ofPerson: async () => input.subscriptions ?? [],
     remove,
   });
   const workspaces = partial<WorkspaceReaderPort>({
-    slugOf: () => Promise.resolve('acme'),
+    slugOf: async () => 'acme',
   });
   const logger = partial<LoggerPort>({
     info: () => {},

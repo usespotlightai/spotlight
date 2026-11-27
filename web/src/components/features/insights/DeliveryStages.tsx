@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TileGroup } from '@/components/features/insights/TileGroup';
 import {
@@ -16,9 +14,7 @@ type DeliveryStagesProps = {
   delivery: Flow['delivery'];
 };
 
-export function DeliveryStages({
-  delivery,
-}: DeliveryStagesProps): ReactElement {
+export function DeliveryStages({ delivery }: DeliveryStagesProps) {
   return (
     <TileGroup title="Past the last station" tooltip={DELIVERY_NOTE}>
       <InsightsTile

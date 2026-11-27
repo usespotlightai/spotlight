@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Link } from 'react-router';
 
 import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
@@ -12,10 +11,7 @@ type TaskStateProps = {
   stateTo?: string;
 };
 
-export function TaskState({
-  task,
-  stateTo,
-}: TaskStateProps): ReactElement | null {
+export function TaskState({ task, stateTo }: TaskStateProps) {
   if (task.hold) {
     return <OnHoldPill hold={task.hold} to={stateTo} />;
   }

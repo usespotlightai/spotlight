@@ -13,6 +13,7 @@ import type {
   IdempotentLookupsPort,
 } from '@shared-kernel/application/ports/idempotent-lookups.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { and, eq, type SQL, sql } from 'drizzle-orm';
 
 const RETENTION = '24 hours';
@@ -57,7 +58,7 @@ export class DrizzleIdempotentCreates
       return { kind: 'key-reused' };
     }
 
-    return existing.createdId !== null && existing.createdId !== ''
+    return nonEmpty(existing.createdId)
       ? { kind: 'already-created', createdId: existing.createdId }
       : { kind: 'new' };
   }
@@ -82,9 +83,7 @@ export class DrizzleIdempotentCreates
 
     const existing = await this.find(matching(create));
 
-    return existing?.fingerprint === fingerprint &&
-      existing.createdId !== null &&
-      existing.createdId !== ''
+    return existing?.fingerprint === fingerprint && nonEmpty(existing.createdId)
       ? { kind: 'already-created', createdId: existing.createdId }
       : { kind: 'key-reused' };
   }

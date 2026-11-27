@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import { useDisputeDecision } from '@/hooks/api/useDisputeDecision';
 import { useTaskDecisions } from '@/hooks/api/useTaskDecisions';
@@ -19,7 +19,7 @@ export function DecisionsProvider({
   teamId,
   taskId,
   children,
-}: DecisionsProviderProps): ReactElement {
+}: DecisionsProviderProps) {
   const { data: found } = useTaskDecisions(teamId, taskId ?? undefined);
   const disputeDecision = useDisputeDecision();
   const { isPending, mutateAsync } = disputeDecision;

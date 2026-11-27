@@ -32,17 +32,15 @@ const profile = (
 
 const uses = new ProfileSecretUses(
   partial<TeamDirectoryPort>({
-    inWorkspace: () =>
-      Promise.resolve([
-        partial<TeamProfile>({ id: TeamId.of('team_core'), key: 'core' }),
-      ]),
+    inWorkspace: async () => [
+      partial<TeamProfile>({ id: TeamId.of('team_core'), key: 'core' }),
+    ],
   }),
   partial<HarnessProfileResourcesPort>({
-    ofTeam: () =>
-      Promise.resolve([
-        profile('careful', { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' }),
-        profile('plain', { LINEAR_API_KEY: 'LINEAR_API_KEY' }),
-      ]),
+    ofTeam: async () => [
+      profile('careful', { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' }),
+      profile('plain', { LINEAR_API_KEY: 'LINEAR_API_KEY' }),
+    ],
   }),
 );
 

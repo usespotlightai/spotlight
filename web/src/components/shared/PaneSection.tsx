@@ -1,4 +1,4 @@
-import { type ReactNode, useId, type ReactElement } from 'react';
+import { type ReactNode, useId } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ export function PaneSection({
   action,
   className,
   children,
-}: PaneSectionProps): ReactElement {
+}: PaneSectionProps) {
   const titleId = useId();
 
   return (

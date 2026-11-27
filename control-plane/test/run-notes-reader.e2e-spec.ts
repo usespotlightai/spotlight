@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -34,7 +35,7 @@ beforeAll(async () => {
   const facts = runFactsOver(db);
   reader = new DrizzleRunReader(
     db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     facts,
     facts,
   );
@@ -98,8 +99,8 @@ const taskOnLine = async (...names: string[]) => {
       stationId: at.stationId,
       body,
       at: new Date('2026-10-20T09:00:00.000Z'),
-      voice: runId !== null && runId !== '' ? 'station' : 'person',
-      authorId: runId !== null && runId !== '' ? null : 'user_1',
+      voice: nonEmpty(runId) ? 'station' : 'person',
+      authorId: nonEmpty(runId) ? null : 'user_1',
       runId,
       kind,
       ...from,

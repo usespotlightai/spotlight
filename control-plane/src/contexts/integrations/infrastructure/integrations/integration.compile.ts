@@ -89,6 +89,7 @@ import { ExpressionError } from '@platform/expressions/expression.errors';
 import type { NamedType, SchemaFields } from '@platform/expressions/scope';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -372,7 +373,7 @@ const uncompiled = (source: string, place: Place): Expression => ({
 });
 
 const doubted = (error: ExpressionErrorDto): string =>
-  error.suggestion !== null && error.suggestion !== ''
+  nonEmpty(error.suggestion)
     ? `does not check: ${error.message}. Did you mean ${error.suggestion}?`
     : `does not check: ${error.message}`;
 
@@ -407,12 +408,9 @@ class Compiler {
   }
 
   sendsTokenTo(url: string | null | undefined): void {
-    const host =
-      url !== undefined && url !== null && url !== ''
-        ? writtenHostOf(url)
-        : null;
+    const host = nonEmpty(url) ? writtenHostOf(url) : null;
 
-    if (host !== null && host !== '' && !this.tokenHosts.includes(host)) {
+    if (nonEmpty(host) && !this.tokenHosts.includes(host)) {
       this.tokenHosts.push(host);
     }
   }
@@ -628,10 +626,9 @@ class Compiler {
         kind: 'hmac',
         algorithm: auth.hmac.algorithm,
         secret,
-        signed:
-          auth.hmac.signed !== undefined && auth.hmac.signed !== ''
-            ? this.expression(auth.hmac.signed, place.to('hmac.signed'))
-            : null,
+        signed: nonEmpty(auth.hmac.signed)
+          ? this.expression(auth.hmac.signed, place.to('hmac.signed'))
+          : null,
         encoding: auth.hmac.encoding,
         prefix: auth.hmac.prefix,
         header: auth.hmac.header ?? null,
@@ -672,13 +669,12 @@ class Compiler {
         kind: 'asymmetric',
         algorithm: auth.asymmetric.algorithm,
         key: this.templated(auth.asymmetric.key, place.to('asymmetric.key')),
-        signed:
-          auth.asymmetric.signed !== undefined && auth.asymmetric.signed !== ''
-            ? this.expression(
-                auth.asymmetric.signed,
-                place.to('asymmetric.signed'),
-              )
-            : null,
+        signed: nonEmpty(auth.asymmetric.signed)
+          ? this.expression(
+              auth.asymmetric.signed,
+              place.to('asymmetric.signed'),
+            )
+          : null,
         encoding: auth.asymmetric.encoding,
         header: auth.asymmetric.header ?? null,
         freshness: this.freshness(
@@ -728,14 +724,12 @@ class Compiler {
       auth: request.auth ? this.auth(request.auth, place.to('auth')) : null,
       expect: request.expect
         ? {
-            success:
-              request.expect.success !== undefined &&
-              request.expect.success !== ''
-                ? this.expression(
-                    request.expect.success,
-                    place.to('expect.success'),
-                  )
-                : null,
+            success: nonEmpty(request.expect.success)
+              ? this.expression(
+                  request.expect.success,
+                  place.to('expect.success'),
+                )
+              : null,
             status: request.expect.status ?? null,
           }
         : null,
@@ -800,9 +794,7 @@ class Compiler {
 
   event(event: EventFile, place: Place): EventIR {
     const each = place.adding(
-      event.forEach !== undefined && event.forEach !== ''
-        ? { iterates: true }
-        : {},
+      nonEmpty(event.forEach) ? { iterates: true } : {},
     );
     const captured = Object.keys(event.lookup?.capture ?? {}).map((name) => ({
       name,
@@ -810,10 +802,9 @@ class Compiler {
     }));
 
     return {
-      forEach:
-        event.forEach !== undefined && event.forEach !== ''
-          ? this.expression(event.forEach, place.to('forEach'))
-          : null,
+      forEach: nonEmpty(event.forEach)
+        ? this.expression(event.forEach, place.to('forEach'))
+        : null,
       when: this.required(event.when, each.to('when')),
       lookup: event.lookup
         ? {
@@ -843,10 +834,9 @@ class Compiler {
     return {
       happening: raise.happening,
       answers: raise.answers,
-      message:
-        raise.message !== undefined && raise.message !== ''
-          ? this.expression(raise.message, place.to('message'))
-          : null,
+      message: nonEmpty(raise.message)
+        ? this.expression(raise.message, place.to('message'))
+        : null,
       author: raise.author
         ? {
             email: this.required(raise.author.email, place.to('author.email')),
@@ -857,13 +847,12 @@ class Compiler {
             lineRole: opens.lineRole,
             station: opens.station ?? null,
             title: this.required(opens.title, place.to('opens.title')),
-            description:
-              opens.description !== undefined && opens.description !== ''
-                ? this.expression(
-                    opens.description,
-                    place.to('opens.description'),
-                  )
-                : null,
+            description: nonEmpty(opens.description)
+              ? this.expression(
+                  opens.description,
+                  place.to('opens.description'),
+                )
+              : null,
             assignBy: opens.assignBy
               ? {
                   email: this.required(
@@ -885,10 +874,9 @@ class Compiler {
             harness: chat.harness ?? null,
           }
         : null,
-      branch:
-        raise.branch !== undefined && raise.branch !== ''
-          ? this.expression(raise.branch, place.to('branch'))
-          : null,
+      branch: nonEmpty(raise.branch)
+        ? this.expression(raise.branch, place.to('branch'))
+        : null,
       marks: raise.marks.map((mark, index) => ({
         kind: MarkKind.of(mark.kind),
         value: this.required(
@@ -907,22 +895,18 @@ class Compiler {
               raise.attachments.name,
               place.to('attachments.name'),
             ),
-            type:
-              raise.attachments.type !== undefined &&
-              raise.attachments.type !== ''
-                ? this.expression(
-                    raise.attachments.type,
-                    place.to('attachments.type'),
-                  )
-                : null,
-            size:
-              raise.attachments.size !== undefined &&
-              raise.attachments.size !== ''
-                ? this.expression(
-                    raise.attachments.size,
-                    place.to('attachments.size'),
-                  )
-                : null,
+            type: nonEmpty(raise.attachments.type)
+              ? this.expression(
+                  raise.attachments.type,
+                  place.to('attachments.type'),
+                )
+              : null,
+            size: nonEmpty(raise.attachments.size)
+              ? this.expression(
+                  raise.attachments.size,
+                  place.to('attachments.size'),
+                )
+              : null,
             fetch: this.request(
               raise.attachments.fetch,
               place.to('attachments.fetch'),
@@ -1028,9 +1012,7 @@ const oauth2Of = (
 const inputSchemaOf = (input: ToolInputFile): InputSchema =>
   input.schema
     ? InputSchema.of(
-        input.description !== undefined &&
-          input.description !== '' &&
-          !('description' in input.schema)
+        nonEmpty(input.description) && !('description' in input.schema)
           ? { ...input.schema, description: input.description }
           : input.schema,
       )
@@ -1132,22 +1114,19 @@ export const compileIntegration = (
               ),
             }
           : null,
-        ignoreWhen:
-          file.webhook.ignoreWhen !== undefined &&
-          file.webhook.ignoreWhen !== ''
-            ? compiler.expression(
-                file.webhook.ignoreWhen,
-                hooked.to('ignoreWhen'),
-              )
-            : null,
+        ignoreWhen: nonEmpty(file.webhook.ignoreWhen)
+          ? compiler.expression(
+              file.webhook.ignoreWhen,
+              hooked.to('ignoreWhen'),
+            )
+          : null,
         route: file.webhook.route
           ? compiler.expression(file.webhook.route.by, hooked.to('route.by'))
           : null,
         parse: file.webhook.parse,
-        delivery:
-          file.webhook.delivery !== undefined && file.webhook.delivery !== ''
-            ? compiler.expression(file.webhook.delivery, hooked.to('delivery'))
-            : null,
+        delivery: nonEmpty(file.webhook.delivery)
+          ? compiler.expression(file.webhook.delivery, hooked.to('delivery'))
+          : null,
         events: file.webhook.events.map((event, at) =>
           compiler.event(event, hooked.to('events').each(at)),
         ),
@@ -1157,10 +1136,9 @@ export const compileIntegration = (
   const poll: PollIR | null = file.poll
     ? {
         request: compiler.request(file.poll.request, polled.to('request')),
-        cursor:
-          file.poll.cursor !== undefined && file.poll.cursor !== ''
-            ? compiler.expression(file.poll.cursor, polled.to('cursor'))
-            : null,
+        cursor: nonEmpty(file.poll.cursor)
+          ? compiler.expression(file.poll.cursor, polled.to('cursor'))
+          : null,
         events: file.poll.events.map((event, at) =>
           compiler.event(event, polled.to('events').each(at)),
         ),
@@ -1263,15 +1241,14 @@ export const compileIntegration = (
               )
             : null,
       })),
-      output:
-        tool.output !== undefined && tool.output !== ''
-          ? compiler.expression(
-              tool.output,
-              placed
-                .to('output')
-                .adding({ inputs: inputsOf.get(tool.action) ?? {} }),
-            )
-          : null,
+      output: nonEmpty(tool.output)
+        ? compiler.expression(
+            tool.output,
+            placed
+              .to('output')
+              .adding({ inputs: inputsOf.get(tool.action) ?? {} }),
+          )
+        : null,
     });
   }
 
@@ -1287,7 +1264,7 @@ export const compileIntegration = (
               oauth2Of(
                 oauth2File,
                 file.mcp?.url ?? null,
-                oauth2File.identity !== undefined && oauth2File.identity !== ''
+                nonEmpty(oauth2File.identity)
                   ? compiler.expression(
                       oauth2File.identity,
                       root.to('connection.oauth2.identity'),
@@ -1297,19 +1274,17 @@ export const compileIntegration = (
                   ? null
                   : {
                       id: oauth2File.client.id,
-                      secret:
-                        oauth2File.client.secret !== undefined &&
-                        oauth2File.client.secret !== ''
-                          ? compiler.referenced(
-                              oauth2File.client.secret,
-                              FieldPath.of([
-                                'connection',
-                                'oauth2',
-                                'client',
-                                'secret',
-                              ]),
-                            )
-                          : null,
+                      secret: nonEmpty(oauth2File.client.secret)
+                        ? compiler.referenced(
+                            oauth2File.client.secret,
+                            FieldPath.of([
+                              'connection',
+                              'oauth2',
+                              'client',
+                              'secret',
+                            ]),
+                          )
+                        : null,
                     },
               ),
             )
@@ -1456,11 +1431,7 @@ export const compileIntegration = (
   ]);
 
   for (const [name, tool] of Object.entries(file.tools)) {
-    if (
-      tool.enabledOnMark !== undefined &&
-      tool.enabledOnMark !== '' &&
-      !raisedMarks.has(tool.enabledOnMark)
-    ) {
+    if (nonEmpty(tool.enabledOnMark) && !raisedMarks.has(tool.enabledOnMark)) {
       compiler.warn(
         FieldPath.of(['tools', name, 'enabledOnMark']),
         `names ${tool.enabledOnMark}, but no event or binding of the integration marks a task with it`,
@@ -1496,8 +1467,7 @@ export const compileIntegration = (
       ? compiler.part(FieldPath.of([written.kind, 'tools']), () =>
           generatedTools({
             integration: key,
-            integrationName:
-              named === undefined || named === '' ? key.value : named,
+            integrationName: !nonEmpty(named) ? key.value : named,
             spec: apiSpecIR.spec,
             hash: specOperations.hash,
             operations: specOperations.operations,
@@ -1533,10 +1503,7 @@ export const compileIntegration = (
     const integration = Integration.of({
       key,
       name: file.name,
-      logo:
-        file.logo !== undefined && file.logo !== ''
-          ? IntegrationLogo.of(file.logo)
-          : null,
+      logo: nonEmpty(file.logo) ? IntegrationLogo.of(file.logo) : null,
       webhook: file.webhook
         ? Webhook.of({ declares: webhookDeclares.filter(isPresent) })
         : null,
@@ -1606,7 +1573,7 @@ export const compileIntegration = (
 const isPresent = <T>(each: T | null): each is T => each !== null;
 
 const enabledOnMarkOf = (written: string | undefined): MarkKind | null =>
-  written !== undefined && written !== '' ? MarkKind.of(written) : null;
+  nonEmpty(written) ? MarkKind.of(written) : null;
 
 const shapeAt = (shape: Shape, at: FieldPath): [Shape, FieldPath] => [
   shape,
@@ -1656,7 +1623,7 @@ const hintProblemsOf = (
 
   return [
     ...problems,
-    ...(cycle !== null && cycle !== ''
+    ...(nonEmpty(cycle)
       ? [
           {
             at: FieldPath.of(['types', cycle]),

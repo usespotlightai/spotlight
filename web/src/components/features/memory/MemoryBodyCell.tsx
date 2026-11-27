@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MemoryBodyInput } from '@/components/features/memory/MemoryBodyInput';
 import type { useMemoryDraft } from '@/hooks/useMemoryDraft';
 
@@ -21,7 +19,7 @@ export function MemoryBodyCell({
   onToggle,
   onSave,
   onCancel,
-}: MemoryBodyCellProps): ReactElement {
+}: MemoryBodyCellProps) {
   if (changing) {
     return (
       <MemoryBodyInput

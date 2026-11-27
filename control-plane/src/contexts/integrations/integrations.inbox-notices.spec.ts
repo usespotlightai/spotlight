@@ -141,14 +141,14 @@ const raised = (input: Partial<TeamNoticeDto> = {}): TeamNoticeDto => ({
   ...input,
 });
 
-const UNLINKABLE = (): Promise<string | null> => {
-  return Promise.reject(new Error('database is down'));
+const UNLINKABLE = async (): Promise<string | null> => {
+  throw new Error('database is down');
 };
 
 const linksOf = (linked: boolean): WebInboxLinks => {
   const links = new WebInboxLinks(
     partial<WorkspaceReaderPort>({
-      slugOf: vi.fn(() => Promise.resolve('acme')),
+      slugOf: vi.fn(async () => 'acme'),
     }),
     taskLinks,
   );
@@ -163,21 +163,20 @@ const linksOf = (linked: boolean): WebInboxLinks => {
 
 const notifying = (definition = SLACK, linked = true) => {
   const run = vi.fn(
-    (
+    async (
       _action: unknown,
       _against: Record<string, unknown>,
-    ): Promise<OutboundResult> =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        response: { ok: true, ts: '1700.2' },
-        capture: { thread: '1700.2' },
-      }),
+    ): Promise<OutboundResult> => ({
+      ok: true,
+      status: 200,
+      response: { ok: true, ts: '1700.2' },
+      capture: { thread: '1700.2' },
+    }),
   );
   const warn = vi.fn();
   const args = [
     partial<DefinedIntegrationsPort>({
-      ofTeam: vi.fn(() => Promise.resolve([defined(definition)])),
+      ofTeam: vi.fn(async () => [defined(definition)]),
     }),
     runtimeWith({ run }),
     callAuthFor(injecting().injection),

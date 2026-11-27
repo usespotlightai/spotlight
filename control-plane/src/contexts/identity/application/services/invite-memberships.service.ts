@@ -39,7 +39,7 @@ export class InviteMemberships {
     for (const teamId of accepted.spec.teams) {
       const team = await this.teams.find(teamId);
 
-      if (team?.workspaceId.equals(workspace.id) !== true) {
+      if (!team?.workspaceId.equals(workspace.id)) {
         continue;
       }
 

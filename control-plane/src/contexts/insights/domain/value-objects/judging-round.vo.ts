@@ -7,7 +7,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
  * is a new round, so it orders a new judging session; the same round reads its session back.
  */
 export class JudgingRound {
-  private readonly kind: string = 'judging-round';
+  private readonly kind = 'judging-round';
 
   private constructor(
     readonly runId: RunId,
@@ -31,7 +31,7 @@ export class JudgingRound {
 
   equals(other: JudgingRound): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof JudgingRound &&
       this.runId.equals(other.runId) &&
       this.rubricVersion === other.rubricVersion &&
       this.attempt === other.attempt

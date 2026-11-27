@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { FoldedVisitRow } from '@/components/features/inbox/conversation/FoldedVisitRow';
 import type { ConversationItem, FoldedVisit, RunJournal } from '@/lib/inbox';
 
@@ -9,11 +7,7 @@ type FoldedVisitsProps = {
   worked: readonly RunJournal[];
 };
 
-export function FoldedVisits({
-  visits,
-  item,
-  worked,
-}: FoldedVisitsProps): ReactElement {
+export function FoldedVisits({ visits, item, worked }: FoldedVisitsProps) {
   return (
     <div
       aria-label="Other station visits"

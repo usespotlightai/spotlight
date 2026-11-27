@@ -4,6 +4,7 @@ import type { PersonReaderPort } from '@identity/application/ports/person-reader
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { InvalidPageCursorError } from '@shared-kernel/application/errors/invalid-page-cursor.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -103,7 +104,7 @@ const aLine = async () => {
       rank: input.rank ?? 'i',
       assigneeId: viewer,
       finishedAt: input.finishedAt ?? null,
-      currentRunId: input.running === true ? randomUUID() : null,
+      currentRunId: input.running ? randomUUID() : null,
     });
 
     return taskId;
@@ -131,7 +132,7 @@ const aLine = async () => {
         unreadAsk: anyUnread(
           kinds.map((each) => ({
             kind: each.kind,
-            readAt: each.unseen === true ? null : each.at,
+            readAt: each.unseen ? null : each.at,
           })),
         ),
       })
@@ -149,7 +150,7 @@ const aLine = async () => {
           (each.kind === 'asked' ? ('station' as const) : ('person' as const)),
         kind: each.kind,
         form: each.form ?? ('words' as const),
-        readAt: each.unseen === true ? null : each.at,
+        readAt: each.unseen ? null : each.at,
         closesConversation: closing.has(position),
       })),
     );
@@ -191,7 +192,7 @@ const aLine = async () => {
 const inboxOf = (workspaceId: string, teamId: string) => {
   const reader = new DrizzleInboxReader(
     db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     runFactsOver(db),
   );
   const scope = (viewer: UserId) => ({
@@ -218,7 +219,7 @@ const inboxOf = (workspaceId: string, teamId: string) => {
 const boardOf = (_workspaceId: string) => {
   const reader = new DrizzleTaskReader(
     db,
-    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+    partial<PersonReaderPort>({ findMany: async () => new Map() }),
     runFactsOver(db),
   );
 
@@ -406,7 +407,7 @@ describe('the inbox, open and resolved', () => {
 
       seen.push(...page.items.map((each) => each.id));
       before = page.next ?? null;
-    } while (before !== null && before !== '');
+    } while (nonEmpty(before));
 
     expect([...seen].sort()).toEqual([...requests].sort());
     expect(new Set(seen).size).toBe(requests.length);
@@ -672,7 +673,7 @@ describe('the runs of a team', () => {
     const facts = runFactsOver(db);
     const runs = new DrizzleRunReader(
       db,
-      partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
+      partial<PersonReaderPort>({ findMany: async () => new Map() }),
       facts,
       facts,
     );

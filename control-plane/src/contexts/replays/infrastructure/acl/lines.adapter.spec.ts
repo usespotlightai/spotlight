@@ -61,22 +61,20 @@ const lineWith = (search: SearchPolicyView | null): LineView =>
 
 const settings = (search: SearchPolicyView | null) =>
   new Lines(
-    partial<LinesPort>({ find: () => Promise.resolve(lineWith(search)) }),
+    partial<LinesPort>({ find: async () => lineWith(search) }),
     partial<LineResourcesPort>({
-      withId: () =>
-        Promise.resolve(
-          partial<LineRecord>({
-            definition: partial<LineDefinition>({
-              stations: [
-                partial<LineDefinitionStation>({
-                  key: 'build',
-                  name: 'Build',
-                  kind: 'work',
-                }),
-              ],
-            }),
+      withId: async () =>
+        partial<LineRecord>({
+          definition: partial<LineDefinition>({
+            stations: [
+              partial<LineDefinitionStation>({
+                key: 'build',
+                name: 'Build',
+                kind: 'work',
+              }),
+            ],
           }),
-        ),
+        }),
     }),
   ).stationSettings(LineId.of('line_1'), StationId.of('station_1'));
 

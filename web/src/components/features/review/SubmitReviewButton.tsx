@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { FieldTextarea } from '@/components/shared/form/FieldTextarea';
 import { RadioRow } from '@/components/shared/form/RadioRow';
@@ -26,7 +26,7 @@ const LANDS_ON: Record<PullRequestRoute, (comments: string) => string> = {
     'The task has more than one pull request. The review names no repository.',
 };
 
-export function SubmitReviewButton(): ReactElement | null {
+export function SubmitReviewButton() {
   const reviewing = useReviewing();
   const [open, setOpen] = useState(false);
   const [verdict, setVerdict] = useState<ReviewVerdict>('comment');

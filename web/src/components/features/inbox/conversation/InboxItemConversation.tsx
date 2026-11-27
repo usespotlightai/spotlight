@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { TaskPullRequestPills } from '@/components/features/board/task/TaskPullRequestPills';
@@ -48,7 +47,7 @@ export function InboxItemConversation({
   item,
   worked,
   trail,
-}: InboxItemConversationProps): ReactElement {
+}: InboxItemConversationProps) {
   const [params] = useSearchParams();
   const answer = useAnswerInboxItem();
   const ownsItsBriefing = carriesItsOwn(item);

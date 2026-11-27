@@ -18,6 +18,7 @@ import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-j
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const MAX_GRADES_AT_ONCE = 4;
 
@@ -95,7 +96,7 @@ export class WorkAnswerGrades implements PendingJobsPort {
         stack.taskId ? await this.stacks.ofTask(stack.taskId) : [],
       );
 
-    if (!stack || !basis || answer.reply === null || answer.reply === '') {
+    if (!stack || !basis || !nonEmpty(answer.reply)) {
       this.logger.warn(
         {
           questionAnswerId: answer.id.value,

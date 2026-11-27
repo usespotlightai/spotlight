@@ -38,7 +38,10 @@ const recording = () => {
   const recorded: { run: string; attempt: number; host: string }[] = [];
   const taken: RunConnection[] = [];
   const connections: RunConnectionLedgerPort = {
-    record: (attempt: RunAttempt, connections: readonly RunConnection[]) => {
+    record: async (
+      attempt: RunAttempt,
+      connections: readonly RunConnection[],
+    ) => {
       taken.push(...connections);
       recorded.push(
         ...connections.map((each) => ({
@@ -47,9 +50,8 @@ const recording = () => {
           host: each.host,
         })),
       );
-      return Promise.resolve();
     },
-    purgeBefore: () => Promise.resolve(0),
+    purgeBefore: async () => 0,
   };
   const handler = new RecordEgressConnectionsHandler(
     sharedEgress(

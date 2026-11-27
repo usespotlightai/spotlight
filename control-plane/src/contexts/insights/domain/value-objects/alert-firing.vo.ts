@@ -79,10 +79,7 @@ export class AlertFiring {
   }
 
   seenClear(through: RunId, at: Date): AlertFiring {
-    if (
-      !(this.open || this.cooling) ||
-      this.lastSeen?.equals(through) === true
-    ) {
+    if (!(this.open || this.cooling) || this.lastSeen?.equals(through)) {
       return this;
     }
 

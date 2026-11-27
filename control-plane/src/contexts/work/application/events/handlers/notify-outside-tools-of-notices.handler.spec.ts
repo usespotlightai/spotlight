@@ -47,7 +47,7 @@ const PULL_REQUEST = NoticeExternalLink.of({
 const notifying = (notice: Notice | null) => {
   const notify = vi.fn<TeamNoticesPort['notify']>(async () => {});
   const handler = new NotifyOutsideToolsOfNotices(
-    partial<NoticeRepository>({ find: () => Promise.resolve(notice) }),
+    partial<NoticeRepository>({ find: async () => notice }),
     { notify },
   );
 

@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 
 import { useSession } from '@/hooks/api/useSession';
@@ -16,7 +15,7 @@ const cameFrom = (state: unknown): string | undefined => {
   return typeof from.pathname === 'string' ? from.pathname : undefined;
 };
 
-export function RequireGuest(): ReactElement | null {
+export function RequireGuest() {
   const { data: session, isPending } = useSession();
   const location = useLocation();
 

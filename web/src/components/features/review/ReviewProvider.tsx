@@ -1,10 +1,4 @@
-import {
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { nonEmpty } from '@/lib/non-empty';
 import {
@@ -38,7 +32,7 @@ export function ReviewProvider({
   alone,
   review: ofRun,
   children,
-}: ReviewProviderProps): ReactElement {
+}: ReviewProviderProps) {
   const [composer, setComposer] = useState<Composer>(CLOSED);
   const review = useMemo(
     () => reviewOfStack(ofRun, repository, alone),

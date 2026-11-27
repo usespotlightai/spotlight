@@ -34,7 +34,7 @@ const waking = (
     roundOf: () => round,
   });
   const schedules = partial<MemoryUpkeepScheduleRepository>({
-    ofTeam: () => Promise.resolve(waiting),
+    ofTeam: async () => waiting,
     save: async (schedule: MemoryUpkeepSchedule) => {
       saved.push(schedule);
       await save(schedule);
@@ -47,7 +47,7 @@ const waking = (
       consolidator,
       schedules,
       { inTransaction: <T>(work: () => Promise<T>) => work() },
-      { now: () => SOON, sleep: () => Promise.resolve(undefined) },
+      { now: () => SOON, sleep: async () => undefined },
     ),
   };
 };
@@ -71,10 +71,8 @@ describe('waking a sweep once its consolidation session settles', () => {
   });
 
   it('wakes nothing when someone saved the schedule meanwhile', async () => {
-    const { wake } = waking(ROUND, () => {
-      return Promise.reject(
-        new MemoryUpkeepScheduleVersionConflictError('team_1'),
-      );
+    const { wake } = waking(ROUND, async () => {
+      throw new MemoryUpkeepScheduleVersionConflictError('team_1');
     });
 
     await expect(wake.settled(SESSION)).resolves.toBeUndefined();

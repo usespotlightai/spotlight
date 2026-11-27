@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { FlowSkeleton } from '@/components/features/insights/FlowSkeleton';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { PullRequestsSkeleton } from '@/components/features/insights/pull-requests/PullRequestsSkeleton';
@@ -20,7 +18,7 @@ export function ProductivitySkeleton({
   view,
   names,
   onView,
-}: ProductivitySkeletonProps): ReactElement {
+}: ProductivitySkeletonProps) {
   return (
     <div className="flex flex-col gap-3">
       <InsightsSection title="Where work waits">

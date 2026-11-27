@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 export type FieldSegment = string | number;
 
 const INDEX = /^\d+$/;
@@ -74,7 +75,7 @@ export class FieldPath {
   static parsed(written: string): FieldPath | null {
     const first = FIRST.exec(written)?.[0];
 
-    if (first === undefined || first === '') {
+    if (!nonEmpty(first)) {
       return null;
     }
 

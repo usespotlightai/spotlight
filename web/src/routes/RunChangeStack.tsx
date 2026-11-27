@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { ChangeStackPage } from '@/components/features/changes/ChangeStackPage';
@@ -17,7 +16,7 @@ import { runPath } from '@/lib/run';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { PublicChangeStack } from '@/routes/PublicChangeStack';
 
-export function RunChangeStack(): ReactElement | null {
+export function RunChangeStack() {
   const { slug, teamId, runId } = useParams();
   const stacks = useRunChangeStacks(teamId, runId);
   const found = useTeamRun(teamId, runId);

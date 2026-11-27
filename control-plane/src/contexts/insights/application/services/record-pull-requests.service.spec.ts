@@ -85,7 +85,7 @@ const RUN: TaskRun = {
   taskId: TASK,
 };
 
-const work = partial<WorkPort>({ taskRunOf: () => Promise.resolve(RUN) });
+const work = partial<WorkPort>({ taskRunOf: async () => RUN });
 
 const SHAPED = {
   runId: 'run_1',

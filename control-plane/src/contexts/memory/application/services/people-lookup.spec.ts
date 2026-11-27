@@ -5,13 +5,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 describe('lookUpOnce', () => {
   it('looks each teammate up once', async () => {
-    const find = vi.fn<PeoplePort['find']>(() =>
-      Promise.resolve({
-        name: 'Maya Chen',
-        image: null,
-      }),
-    );
-    const person = lookUpOnce({ viewerOf: () => Promise.resolve(null), find });
+    const find = vi.fn<PeoplePort['find']>(async () => ({
+      name: 'Maya Chen',
+      image: null,
+    }));
+    const person = lookUpOnce({ viewerOf: async () => null, find });
 
     await Promise.all([
       person(UserId.of('user_1')),
@@ -23,8 +21,8 @@ describe('lookUpOnce', () => {
 
   it('names no one it cannot find', async () => {
     const person = lookUpOnce({
-      viewerOf: () => Promise.resolve(null),
-      find: () => Promise.resolve(null),
+      viewerOf: async () => null,
+      find: async () => null,
     });
 
     await expect(person(UserId.of('user_9'))).resolves.toEqual({

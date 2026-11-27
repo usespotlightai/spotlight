@@ -14,6 +14,7 @@ import {
   sending,
 } from '@github/infrastructure/github/github.rest';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -67,7 +68,7 @@ const decoded = (base64: string): string =>
   Buffer.from(base64, 'base64').toString('utf8');
 
 const shaOf = (answer: Sha, operation: string): string => {
-  if (answer.sha === undefined || answer.sha === '') {
+  if (!nonEmpty(answer.sha)) {
     throw new UpstreamError(operation, 'GitHub answered without a sha');
   }
 
@@ -114,11 +115,11 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
 
     if (
       found.type === 'symlink' ||
-      (found.path !== undefined && found.path !== '' && found.path !== path)
+      (nonEmpty(found.path) && found.path !== path)
     ) {
       throw new RepositoryFileUnwritableError(path);
     }
-    if (found.type !== 'file' || found.sha === undefined || found.sha === '') {
+    if (found.type !== 'file' || !nonEmpty(found.sha)) {
       return null;
     }
 
@@ -156,9 +157,8 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       (found.tree ?? []).flatMap(({ type, mode, path, sha }) =>
         type === 'blob' &&
         mode === FILE_MODE &&
-        path?.startsWith(prefix) === true &&
-        sha !== undefined &&
-        sha !== ''
+        path?.startsWith(prefix) &&
+        nonEmpty(sha)
           ? [
               (async () => ({
                 path,
@@ -190,10 +190,10 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       `GitHub would not list the paths of ${repository.value} at ${ref}`,
     );
 
-    return found.truncated === true
+    return found.truncated
       ? null
       : (found.tree ?? []).flatMap((each) =>
-          each.path !== undefined && each.path !== '' ? [each.path] : [],
+          nonEmpty(each.path) ? [each.path] : [],
         );
   }
 
@@ -283,7 +283,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       );
       const entry = (listed.tree ?? []).find((each) => each.path === step);
 
-      if (entry?.sha === undefined || entry.sha === '') {
+      if (!nonEmpty(entry?.sha)) {
         return null;
       }
       if (at === steps.length - 1) {

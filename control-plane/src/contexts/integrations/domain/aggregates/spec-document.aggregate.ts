@@ -4,6 +4,7 @@ import type { ContentHash } from '@integrations/domain/value-objects/content-has
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { repeatedIn } from '@shared-kernel/domain/distinct';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface State {
   readonly hash: ContentHash;
@@ -20,7 +21,7 @@ interface Stored extends State {
 const guardDistinct = (input: State): void => {
   const twice = repeatedIn(input.operations.map((each) => each.name));
 
-  if (twice !== null && twice !== '') {
+  if (nonEmpty(twice)) {
     throw new InvalidIntegrationPartError(
       input.kind,
       `was read with two operations called ${twice}`,

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
 import {
   OUTER_DIVIDER,
@@ -28,7 +26,7 @@ export function AgentConfigRow({
   agentConfig,
   measure,
   judged,
-}: AgentConfigRowProps): ReactElement {
+}: AgentConfigRowProps) {
   return (
     <li
       data-slot="agent-config-row"

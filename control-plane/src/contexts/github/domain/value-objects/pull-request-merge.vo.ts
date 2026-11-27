@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 export interface PullRequestMerge {
   readonly commit: string;
 }
@@ -17,7 +18,7 @@ export const mergeOf = (
     return { outcome: 'unmerged' };
   }
 
-  return commit !== null && commit !== '' && COMMIT.test(commit)
+  return nonEmpty(commit) && COMMIT.test(commit)
     ? { outcome: 'merged', merge: { commit } }
     : { outcome: 'unproven' };
 };

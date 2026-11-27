@@ -7,6 +7,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -67,13 +68,13 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TEAMMATES = {
-  membersOf: () => Promise.resolve(TeamMembers.of([UserId.of('user_9')])),
+  membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
 };
 
-const NO_RUNS = partial<RunFactsPort>({ of: () => Promise.resolve([]) });
+const NO_RUNS = partial<RunFactsPort>({ of: async () => [] });
 
 const channels = partial<ChannelChats>({
-  reached: () => Promise.resolve(null),
+  reached: async () => null,
   answer: async () => {},
 });
 
@@ -82,19 +83,17 @@ const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { inTransaction: async (work) => work() };
 const ids: IdGeneratorPort = { generate: () => 'task_new' };
 const members: MemberDirectoryPort = {
-  byEmail: () => Promise.resolve(null),
+  byEmail: async () => null,
 };
 
 const stored: Attachment[] = [];
 const files = {
   grant: vi.fn(),
-  received: vi.fn(() => Promise.resolve([])),
-  stored: vi.fn(() => Promise.resolve(true)),
+  received: vi.fn(async () => []),
+  stored: vi.fn(async () => true),
   taken: vi.fn(),
-  save: vi.fn((_at, file: Attachment) => {
+  save: vi.fn(async (_at, file: Attachment) => {
     stored.push(file);
-
-    return Promise.resolve();
   }),
   copy: vi.fn(),
   link: vi.fn(),
@@ -133,7 +132,7 @@ const at = (
 const sends = (happening: Happening, to: string, from?: string) =>
   Reaction.of({
     happening,
-    from: from !== undefined && from !== '' ? StationId.of(from) : null,
+    from: nonEmpty(from) ? StationId.of(from) : null,
     to: StationId.of(to),
   });
 
@@ -198,40 +197,38 @@ const dispatched: Task[] = [];
 const tasks = (found: Task | null) =>
   ({
     add: vi.fn(),
-    save: vi.fn((each: Task) => {
+    save: vi.fn(async (each: Task) => {
       saved = each;
-
-      return Promise.resolve();
     }),
-    find: vi.fn(() => Promise.resolve(found)),
+    find: vi.fn(async () => found),
     remove: vi.fn(),
-    placementsAt: vi.fn(() => Promise.resolve([])),
-    findByCorrelation: vi.fn(() => Promise.resolve(found ? [found] : [])),
-    owningPullRequest: vi.fn(() => Promise.resolve(null)),
-    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-    holdingMark: vi.fn(() => Promise.resolve([])),
-    settingUpFor: vi.fn(() => Promise.resolve(null)),
-    settingUpIn: vi.fn(() => Promise.resolve([])),
-    settingUp: vi.fn(() => Promise.resolve([])),
-    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-    awaitingConnection: vi.fn(() => Promise.resolve([])),
-    startingFrom: vi.fn(() => Promise.resolve([])),
-    onBranch: vi.fn(() => Promise.resolve(null)),
+    placementsAt: vi.fn(async () => []),
+    findByCorrelation: vi.fn(async () => (found ? [found] : [])),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
+    holdingMark: vi.fn(async () => []),
+    settingUpFor: vi.fn(async () => null),
+    settingUpIn: vi.fn(async () => []),
+    settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
+    awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>
   ({
-    find: vi.fn(() => Promise.resolve(line())),
-    findByStation: vi.fn(() => Promise.resolve(line())),
-    ofWorkspace: vi.fn(() => Promise.resolve([])),
-    ofTeam: vi.fn(() => Promise.resolve([])),
+    find: vi.fn(async () => line()),
+    findByStation: vi.fn(async () => line()),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
     candidate: vi.fn(),
   }) satisfies LineMapsPort;
 
 const dispatch: TaskDispatching = {
-  runIdFor: ({ task }) => {
+  runIdFor: async ({ task }) => {
     dispatched.push(task);
-    return Promise.resolve(RunId.of('run_2'));
+    return RunId.of('run_2');
   },
 };
 
@@ -245,15 +242,14 @@ const news = (
   answers: happening.equals(COMMENTED) || happening.equals(CHANGES_REQUESTED),
   state: 'raised',
   correlationKeys: { branch: 'spotlight/task_1', marks: [] },
-  message:
-    message !== null && message !== ''
-      ? {
-          body: message,
-          path: 'compose.yml',
-          from: 22,
-          reviewComment: 'PRRC_kwDO',
-        }
-      : null,
+  message: nonEmpty(message)
+    ? {
+        body: message,
+        path: 'compose.yml',
+        from: 22,
+        reviewComment: 'PRRC_kwDO',
+      }
+    : null,
   ourOwn,
   opens: null,
 });
@@ -520,7 +516,7 @@ describe('ReactToHappenings', () => {
       },
       null,
     );
-    const byEmail = vi.fn(() => Promise.resolve(UserId.of('user_9')));
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
 
     await new ReactToHappenings(
       tasks(asked),
@@ -593,7 +589,7 @@ describe('ReactToHappenings', () => {
       transaction,
       clock,
       ids,
-      { byEmail: () => Promise.resolve(UserId.of('user_9')) },
+      { byEmail: async () => UserId.of('user_9') },
       files,
       processedEventsInMemory(),
       logger,
@@ -708,7 +704,7 @@ describe('ReactToHappenings', () => {
         branch: null,
         marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
       },
-      message: message !== null && message !== '' ? { body: message } : null,
+      message: nonEmpty(message) ? { body: message } : null,
       ourOwn: false,
       opens: null,
       attachments: [
@@ -735,9 +731,7 @@ describe('ReactToHappenings', () => {
       ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
-      await react(
-        replying(null, () => Promise.resolve(new Uint8Array([1, 2, 3, 4]))),
-      );
+      await react(replying(null, async () => new Uint8Array([1, 2, 3, 4])));
 
       expect(saved?.notes.map((each) => each.kind)).toEqual([
         'asked',
@@ -752,8 +746,8 @@ describe('ReactToHappenings', () => {
 
     it('leaves behind a file it cannot have, and still receives the words', async () => {
       await react(
-        replying('Still stuck.', () => {
-          return Promise.reject(new Error('files.slack.com answered 403'));
+        replying('Still stuck.', async () => {
+          throw new Error('files.slack.com answered 403');
         }),
       );
 
@@ -783,7 +777,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('looks for no author where no rule takes the happening', async () => {
-    const byEmail = vi.fn(() => Promise.resolve(UserId.of('user_9')));
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
 
     await new ReactToHappenings(
       tasks(taskAt()),
@@ -1230,33 +1224,31 @@ describe('ReactToHappenings', () => {
 
     let added: Task | undefined;
     const stored = {
-      add: vi.fn((each: Task) => {
+      add: vi.fn(async (each: Task) => {
         added = each;
-
-        return Promise.resolve();
       }),
       save: vi.fn(),
-      find: vi.fn(() => Promise.resolve(null)),
+      find: vi.fn(async () => null),
       remove: vi.fn(),
-      placementsAt: vi.fn(() => Promise.resolve([])),
-      findByCorrelation: vi.fn(() => Promise.resolve([])),
-      owningPullRequest: vi.fn(() => Promise.resolve(null)),
-      reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-      holdingMark: vi.fn(() => Promise.resolve([])),
-      settingUpFor: vi.fn(() => Promise.resolve(null)),
-      settingUpIn: vi.fn(() => Promise.resolve([])),
-      settingUp: vi.fn(() => Promise.resolve([])),
-      withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-      awaitingConnection: vi.fn(() => Promise.resolve([])),
-      startingFrom: vi.fn(() => Promise.resolve([])),
-      onBranch: vi.fn(() => Promise.resolve(null)),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
+      onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      find: vi.fn(() => Promise.resolve(opening)),
-      findByStation: vi.fn(() => Promise.resolve(opening)),
-      ofWorkspace: vi.fn(() => Promise.resolve([opening])),
-      ofTeam: vi.fn(() => Promise.resolve([])),
+      find: vi.fn(async () => opening),
+      findByStation: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
       candidate: vi.fn(),
     } satisfies LineMapsPort;
 
@@ -1318,37 +1310,35 @@ describe('ReactToHappenings', () => {
 
     let added: Task | undefined;
     const stored = {
-      add: vi.fn((each: Task) => {
+      add: vi.fn(async (each: Task) => {
         added = each;
-
-        return Promise.resolve();
       }),
       save: vi.fn(),
-      find: vi.fn(() => Promise.resolve(null)),
+      find: vi.fn(async () => null),
       remove: vi.fn(),
-      placementsAt: vi.fn(() => Promise.resolve([])),
-      findByCorrelation: vi.fn(() => Promise.resolve([])),
-      owningPullRequest: vi.fn(() => Promise.resolve(null)),
-      reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-      holdingMark: vi.fn(() => Promise.resolve([])),
-      settingUpFor: vi.fn(() => Promise.resolve(null)),
-      settingUpIn: vi.fn(() => Promise.resolve([])),
-      settingUp: vi.fn(() => Promise.resolve([])),
-      withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-      awaitingConnection: vi.fn(() => Promise.resolve([])),
-      startingFrom: vi.fn(() => Promise.resolve([])),
-      onBranch: vi.fn(() => Promise.resolve(null)),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
+      onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      find: vi.fn(() => Promise.resolve(opening)),
-      findByStation: vi.fn(() => Promise.resolve(opening)),
-      ofWorkspace: vi.fn(() => Promise.resolve([opening])),
-      ofTeam: vi.fn(() => Promise.resolve([])),
+      find: vi.fn(async () => opening),
+      findByStation: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
       candidate: vi.fn(),
     } satisfies LineMapsPort;
 
-    const byEmail = vi.fn(() => Promise.resolve(UserId.of('user_9')));
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
@@ -1405,37 +1395,35 @@ describe('ReactToHappenings', () => {
 
     let added: Task | undefined;
     const stored = {
-      add: vi.fn((each: Task) => {
+      add: vi.fn(async (each: Task) => {
         added = each;
-
-        return Promise.resolve();
       }),
       save: vi.fn(),
-      find: vi.fn(() => Promise.resolve(null)),
+      find: vi.fn(async () => null),
       remove: vi.fn(),
-      placementsAt: vi.fn(() => Promise.resolve([])),
-      findByCorrelation: vi.fn(() => Promise.resolve([])),
-      owningPullRequest: vi.fn(() => Promise.resolve(null)),
-      reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-      holdingMark: vi.fn(() => Promise.resolve([])),
-      settingUpFor: vi.fn(() => Promise.resolve(null)),
-      settingUpIn: vi.fn(() => Promise.resolve([])),
-      settingUp: vi.fn(() => Promise.resolve([])),
-      withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-      awaitingConnection: vi.fn(() => Promise.resolve([])),
-      startingFrom: vi.fn(() => Promise.resolve([])),
-      onBranch: vi.fn(() => Promise.resolve(null)),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
+      onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      find: vi.fn(() => Promise.resolve(opening)),
-      findByStation: vi.fn(() => Promise.resolve(opening)),
-      ofWorkspace: vi.fn(() => Promise.resolve([opening])),
-      ofTeam: vi.fn(() => Promise.resolve([])),
+      find: vi.fn(async () => opening),
+      findByStation: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
       candidate: vi.fn(),
     } satisfies LineMapsPort;
 
-    const byEmail = vi.fn(() => Promise.resolve(UserId.of('user_9')));
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
@@ -1469,7 +1457,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
-      { membersOf: () => Promise.resolve(TeamMembers.of([])) },
+      { membersOf: async () => TeamMembers.of([]) },
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -1492,33 +1480,31 @@ describe('ReactToHappenings', () => {
 
     let added: Task | undefined;
     const stored = {
-      add: vi.fn((each: Task) => {
+      add: vi.fn(async (each: Task) => {
         added = each;
-
-        return Promise.resolve();
       }),
       save: vi.fn(),
-      find: vi.fn(() => Promise.resolve(null)),
+      find: vi.fn(async () => null),
       remove: vi.fn(),
-      placementsAt: vi.fn(() => Promise.resolve([])),
-      findByCorrelation: vi.fn(() => Promise.resolve([])),
-      owningPullRequest: vi.fn(() => Promise.resolve(null)),
-      reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-      holdingMark: vi.fn(() => Promise.resolve([])),
-      settingUpFor: vi.fn(() => Promise.resolve(null)),
-      settingUpIn: vi.fn(() => Promise.resolve([])),
-      settingUp: vi.fn(() => Promise.resolve([])),
-      withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-      awaitingConnection: vi.fn(() => Promise.resolve([])),
-      startingFrom: vi.fn(() => Promise.resolve([])),
-      onBranch: vi.fn(() => Promise.resolve(null)),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
+      onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      find: vi.fn(() => Promise.resolve(opening)),
-      findByStation: vi.fn(() => Promise.resolve(opening)),
-      ofWorkspace: vi.fn(() => Promise.resolve([opening])),
-      ofTeam: vi.fn(() => Promise.resolve([])),
+      find: vi.fn(async () => opening),
+      findByStation: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
       candidate: vi.fn(),
     } satisfies LineMapsPort;
 
@@ -1548,7 +1534,7 @@ describe('ReactToHappenings', () => {
       transaction,
       clock,
       ids,
-      { byEmail: () => Promise.resolve(null) },
+      { byEmail: async () => null },
       files,
       processedEventsInMemory(),
       logger,
@@ -1580,33 +1566,31 @@ describe('ReactToHappenings', () => {
 
     const added: Task[] = [];
     const stored = {
-      add: vi.fn((each: Task) => {
+      add: vi.fn(async (each: Task) => {
         added.push(each);
-
-        return Promise.resolve();
       }),
       save: vi.fn(),
-      find: vi.fn(() => Promise.resolve(null)),
+      find: vi.fn(async () => null),
       remove: vi.fn(),
-      placementsAt: vi.fn(() => Promise.resolve([])),
-      findByCorrelation: vi.fn(() => Promise.resolve([])),
-      owningPullRequest: vi.fn(() => Promise.resolve(null)),
-      reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-      holdingMark: vi.fn(() => Promise.resolve([])),
-      settingUpFor: vi.fn(() => Promise.resolve(null)),
-      settingUpIn: vi.fn(() => Promise.resolve([])),
-      settingUp: vi.fn(() => Promise.resolve([])),
-      withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-      awaitingConnection: vi.fn(() => Promise.resolve([])),
-      startingFrom: vi.fn(() => Promise.resolve([])),
-      onBranch: vi.fn(() => Promise.resolve(null)),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
+      onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      find: vi.fn(() => Promise.resolve(first)),
-      findByStation: vi.fn(() => Promise.resolve(first)),
-      ofWorkspace: vi.fn(() => Promise.resolve([second, first])),
-      ofTeam: vi.fn(() => Promise.resolve([])),
+      find: vi.fn(async () => first),
+      findByStation: vi.fn(async () => first),
+      ofWorkspace: vi.fn(async () => [second, first]),
+      ofTeam: vi.fn(async () => []),
       candidate: vi.fn(),
     } satisfies LineMapsPort;
 
@@ -1671,33 +1655,31 @@ describe('ReactToHappenings assigning a task it opens', () => {
 
     let added: Task | undefined;
     const stored = {
-      add: vi.fn((each: Task) => {
+      add: vi.fn(async (each: Task) => {
         added = each;
-
-        return Promise.resolve();
       }),
       save: vi.fn(),
-      find: vi.fn(() => Promise.resolve(null)),
+      find: vi.fn(async () => null),
       remove: vi.fn(),
-      placementsAt: vi.fn(() => Promise.resolve([])),
-      findByCorrelation: vi.fn(() => Promise.resolve([])),
-      owningPullRequest: vi.fn(() => Promise.resolve(null)),
-      reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-      holdingMark: vi.fn(() => Promise.resolve([])),
-      settingUpFor: vi.fn(() => Promise.resolve(null)),
-      settingUpIn: vi.fn(() => Promise.resolve([])),
-      settingUp: vi.fn(() => Promise.resolve([])),
-      withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-      awaitingConnection: vi.fn(() => Promise.resolve([])),
-      startingFrom: vi.fn(() => Promise.resolve([])),
-      onBranch: vi.fn(() => Promise.resolve(null)),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      owningPullRequest: vi.fn(async () => null),
+      reviewingPullRequest: vi.fn(async () => null),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+      startingFrom: vi.fn(async () => []),
+      onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      find: vi.fn(() => Promise.resolve(onLine)),
-      findByStation: vi.fn(() => Promise.resolve(onLine)),
-      ofWorkspace: vi.fn(() => Promise.resolve([onLine])),
-      ofTeam: vi.fn(() => Promise.resolve([])),
+      find: vi.fn(async () => onLine),
+      findByStation: vi.fn(async () => onLine),
+      ofWorkspace: vi.fn(async () => [onLine]),
+      ofTeam: vi.fn(async () => []),
       candidate: vi.fn(),
     } satisfies LineMapsPort;
 
@@ -1730,10 +1712,10 @@ describe('ReactToHappenings assigning a task it opens', () => {
         clock,
         ids,
         {
-          byEmail: (_workspaceId, email) => {
+          byEmail: async (_workspaceId, email) => {
             const found = DIRECTORY[email];
 
-            return Promise.resolve(found ? UserId.of(found) : null);
+            return found ? UserId.of(found) : null;
           },
         },
         files,
@@ -1742,10 +1724,8 @@ describe('ReactToHappenings assigning a task it opens', () => {
         channels,
         NO_RUNS,
         {
-          membersOf: () =>
-            Promise.resolve(
-              TeamMembers.of([UserId.of('user_dev'), UserId.of('user_lead')]),
-            ),
+          membersOf: async () =>
+            TeamMembers.of([UserId.of('user_dev'), UserId.of('user_lead')]),
         },
       ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
@@ -1826,25 +1806,22 @@ describe('ReactToHappenings with a word for a chat', () => {
   ) => {
     const refusal = partial<ChannelAnswer>({ body: 'Sorry.' });
     const chatting = {
-      reached: vi.fn(() => Promise.resolve(refusal)),
-      answer: vi.fn(() => Promise.resolve(undefined)),
+      reached: vi.fn(async () => refusal),
+      answer: vi.fn(async () => undefined),
     };
     const ruled = line(
-      over.mentionedTo !== undefined && over.mentionedTo !== ''
-        ? [sends(MENTIONED, over.mentionedTo)]
-        : [],
+      nonEmpty(over.mentionedTo) ? [sends(MENTIONED, over.mentionedTo)] : [],
     );
     const reactions = new ReactToHappenings(
       tasks(found),
       tasks(found),
-      { ...lines(), findByStation: vi.fn(() => Promise.resolve(ruled)) },
+      { ...lines(), findByStation: vi.fn(async () => ruled) },
       dispatch,
       transaction,
       clock,
       ids,
       {
-        byEmail: () =>
-          Promise.resolve(over.member === false ? null : UserId.of('ada')),
+        byEmail: async () => (over.member === false ? null : UserId.of('ada')),
       },
       files,
       processedEventsInMemory(),
@@ -1969,14 +1946,13 @@ describe('ReactToHappenings with a word for a chat', () => {
 describe('a happening for a task whose run’s turn is still being decided (R18)', () => {
   const turnFor = (turn: 'pending' | 'kept', ageMs: number) =>
     partial<RunFactsPort>({
-      of: () =>
-        Promise.resolve([
-          partial<RunFacts>({
-            runId: RunId.of('run_1'),
-            turn,
-            suspendedAt: new Date(NOW.getTime() - ageMs),
-          }),
-        ]),
+      of: async () => [
+        partial<RunFacts>({
+          runId: RunId.of('run_1'),
+          turn,
+          suspendedAt: new Date(NOW.getTime() - ageMs),
+        }),
+      ],
     });
 
   const reacting = (runs: RunFactsPort) => {

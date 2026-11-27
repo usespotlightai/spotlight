@@ -47,6 +47,7 @@ import {
 } from '@platform/ordering/code-point-order';
 import { PLATFORM_EGRESS } from '@runners/application/ports/runner-configuration.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ALL_CLAIMS } from '@shared-kernel/domain/value-objects/claim-share';
 import {
   FieldPath,
@@ -262,9 +263,7 @@ const References = (moduleIndex: ModuleIndex) => ({
     const integration = named?.integration;
 
     return named &&
-      integration !== undefined &&
-      integration !== null &&
-      integration !== '' &&
+      nonEmpty(integration) &&
       moduleIndex.integrations.has(inTeam(teamKey, integration))
       ? HclExpression.template(
           referenceTo(
@@ -282,9 +281,7 @@ const References = (moduleIndex: ModuleIndex) => ({
     const integration = named?.integration;
 
     return named &&
-      integration !== undefined &&
-      integration !== null &&
-      integration !== '' &&
+      nonEmpty(integration) &&
       moduleIndex.integrations.has(inTeam(teamKey, integration))
       ? HclExpression.indexed(
           referenceTo('integration', nameOf(teamKey, integration), 'tools'),

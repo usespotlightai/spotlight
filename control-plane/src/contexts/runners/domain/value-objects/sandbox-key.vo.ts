@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class SandboxKey {
-  private readonly kind: string = 'sandbox-key';
+  private readonly kind = 'sandbox-key';
 
   private constructor(readonly value: string) {}
 
@@ -16,6 +16,6 @@ export class SandboxKey {
   }
 
   equals(other: SandboxKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof SandboxKey && this.value === other.value;
   }
 }

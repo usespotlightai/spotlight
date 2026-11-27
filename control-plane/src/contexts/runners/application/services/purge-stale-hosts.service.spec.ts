@@ -74,12 +74,12 @@ describe('PurgeStaleHosts', () => {
       at: new Date(NOW.getTime() - 25 * 3_600_000),
     });
     const { stored, hosts } = storedHosts(stale);
-    hosts.remove.mockImplementationOnce((host) => {
+    hosts.remove.mockImplementationOnce(async (host) => {
       stored.set(
         host.id.value,
         aHost({ id: THROUGH_POOL, at: new Date(NOW.getTime() - 1_000) }),
       );
-      return Promise.reject(new RunnerHostVersionConflictError(host.id.value));
+      throw new RunnerHostVersionConflictError(host.id.value);
     });
 
     await expect(

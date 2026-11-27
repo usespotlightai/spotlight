@@ -1,12 +1,6 @@
-import type { ReactElement } from 'react';
-
 import type { ChangeStack } from '@/lib/change-stack';
 
-export function StackNavRemoved({
-  stack,
-}: {
-  stack: ChangeStack;
-}): ReactElement | null {
+export function StackNavRemoved({ stack }: { stack: ChangeStack }) {
   if (stack.removed.length === 0) {
     return null;
   }

@@ -1,9 +1,10 @@
 import { InvalidStationNameError } from '@shared-kernel/domain/exceptions/invalid-station-name.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const MAX_LENGTH = 100;
 
 export class StationName {
-  private readonly kind: string = 'station-name';
+  private readonly kind = 'station-name';
 
   private constructor(readonly value: string) {}
 
@@ -23,12 +24,10 @@ export class StationName {
   }
 
   static maybe(raw: string | null | undefined): StationName | null {
-    return raw !== null && raw !== undefined && raw !== ''
-      ? StationName.of(raw)
-      : null;
+    return nonEmpty(raw) ? StationName.of(raw) : null;
   }
 
   equals(other: StationName): boolean {
-    return this.value === other.value && this.kind === other.kind;
+    return this.value === other.value && other instanceof StationName;
   }
 }

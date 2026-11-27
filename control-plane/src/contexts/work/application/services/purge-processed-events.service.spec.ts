@@ -8,7 +8,7 @@ const NOW = new Date('2026-09-26T12:00:00.000Z');
 describe('PurgeProcessedEvents', () => {
   it('purges what was processed over thirty days ago, a batch at a time until none is left', async () => {
     const batches = [1_000, 1_000, 12];
-    const purgeBefore = vi.fn(() => Promise.resolve(batches.shift() ?? 0));
+    const purgeBefore = vi.fn(async () => batches.shift() ?? 0);
     const purging = new PurgeProcessedEvents(
       partial<ProcessedEventsPort>({ purgeBefore }),
       { now: () => NOW, sleep: async () => {} },

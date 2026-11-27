@@ -46,7 +46,7 @@ export const fingerprintGroupsNewestFirst = (
     };
 
     if (record.end.ranAConfig && intended !== null) {
-      if (last?.ran === true && last.fingerprint === intended) {
+      if (last?.ran && last.fingerprint === intended) {
         last.records.push(record);
       } else {
         open(intended, true);
@@ -58,7 +58,7 @@ export const fingerprintGroupsNewestFirst = (
       } else {
         open(intended, false);
       }
-    } else if (last?.ran === true) {
+    } else if (last?.ran) {
       last.records.push(record);
     } else {
       open(running, true);

@@ -19,6 +19,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -45,10 +46,8 @@ const toRecord = (row: PullRequestRow): PullRequestRecord =>
     pullRequest: PullRequestUrl.of(row.pullRequest),
     seen: seenOfRow(row),
     owner:
-      row.ownerTaskId !== null &&
-      row.ownerTaskId !== '' &&
-      row.ownerTeamId !== null &&
-      row.ownerTeamId !== '' &&
+      nonEmpty(row.ownerTaskId) &&
+      nonEmpty(row.ownerTeamId) &&
       row.ownerOpenedAt
         ? {
             taskId: TaskId.of(row.ownerTaskId),

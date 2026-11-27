@@ -35,7 +35,7 @@ export class NotifyOutsideTools {
   async onInboxRequestOpened(event: InboxRequestOpened): Promise<void> {
     const request = await this.inboxRequests.find(event.inboxRequestId);
 
-    if (request?.open !== true) {
+    if (!request?.open) {
       return;
     }
 

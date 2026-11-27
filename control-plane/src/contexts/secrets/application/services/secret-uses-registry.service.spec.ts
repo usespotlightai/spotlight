@@ -5,21 +5,19 @@ describe('SecretUsesRegistry', () => {
   it('gathers every use each registered user knows of', async () => {
     const registry = new SecretUsesRegistry();
     registry.register({
-      usesOf: ({ name }) =>
-        Promise.resolve([
-          {
-            kind: 'integration',
-            key: `core/linear uses ${name}`,
-            exposes: false,
-          },
-        ]),
+      usesOf: async ({ name }) => [
+        {
+          kind: 'integration',
+          key: `core/linear uses ${name}`,
+          exposes: false,
+        },
+      ],
     });
-    registry.register({ usesOf: () => Promise.resolve([]) });
+    registry.register({ usesOf: async () => [] });
     registry.register({
-      usesOf: ({ workspaceId }) =>
-        Promise.resolve([
-          { kind: 'harness-profile', key: `in ${workspaceId}`, exposes: true },
-        ]),
+      usesOf: async ({ workspaceId }) => [
+        { kind: 'harness-profile', key: `in ${workspaceId}`, exposes: true },
+      ],
     });
 
     await expect(

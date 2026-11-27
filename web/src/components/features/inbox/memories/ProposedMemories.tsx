@@ -1,5 +1,5 @@
 import { Spool } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
 import { ProposedMemoriesSkeleton } from '@/components/features/inbox/memories/ProposedMemoriesSkeleton';
@@ -23,7 +23,7 @@ export function ProposedMemories({
   teamId,
   taskId,
   runId,
-}: ProposedMemoriesProps): ReactElement | null {
+}: ProposedMemoriesProps) {
   const [open, setOpen] = useState(true);
   const review = useMemoryReview({ teamId, taskId, runId });
   const { data: harnesses } = useHarnesses();

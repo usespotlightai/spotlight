@@ -118,7 +118,7 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     const workspace = await this.workspaces.findBySlug(WorkspaceSlug.of(slug));
     const principal = PersonPrincipal.of(viewer);
 
-    if (workspace?.permissionsFor(principal).reads !== true) {
+    if (!workspace?.permissionsFor(principal).reads) {
       return null;
     }
 

@@ -3,7 +3,7 @@ import { InvalidLineNameError } from '@shared-kernel/domain/exceptions/invalid-l
 const MAX_LENGTH = 100;
 
 export class LineName {
-  private readonly kind: string = 'line-name';
+  private readonly kind = 'line-name';
 
   private constructor(readonly value: string) {}
 
@@ -23,6 +23,6 @@ export class LineName {
   }
 
   equals(other: LineName): boolean {
-    return this.value === other.value && this.kind === other.kind;
+    return this.value === other.value && other instanceof LineName;
   }
 }

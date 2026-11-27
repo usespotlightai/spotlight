@@ -82,25 +82,23 @@ const proposing = () =>
 const subject = (chat: Chat) => requestedBy.chat(chat.id.value);
 
 const notifying = (chat: Chat) => {
-  const notify = vi.fn((_notice: ChannelNoticeDto, _event: BindableChatEvent) =>
-    Promise.resolve(undefined),
+  const notify = vi.fn(
+    async (_notice: ChannelNoticeDto, _event: BindableChatEvent) => undefined,
   );
   const handler = new NotifyChannel(
-    partial<ChatRepository>({ find: vi.fn(() => Promise.resolve(chat)) }),
+    partial<ChatRepository>({ find: vi.fn(async () => chat) }),
     partial<LineMapsPort>({
-      find: vi.fn(() =>
-        Promise.resolve(
-          partial<LineMap>({
-            name: LineName.of('Delivery'),
-            stationAt: () =>
-              partial<Station>({ name: StationName.of('Implementation') }),
-          }),
-        ),
+      find: vi.fn(async () =>
+        partial<LineMap>({
+          name: LineName.of('Delivery'),
+          stationAt: () =>
+            partial<Station>({ name: StationName.of('Implementation') }),
+        }),
       ),
     }),
     { notify } satisfies ChannelNoticesPort,
     partial<RunJournalReaderPort>({
-      attemptsOfRun: () => Promise.resolve([]),
+      attemptsOfRun: async () => [],
     }),
     runJournalReadings({ lastWordsIn: () => said }),
   );

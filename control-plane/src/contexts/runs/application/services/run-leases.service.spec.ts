@@ -33,16 +33,15 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
 const leasing = (stored: Run[], conflicting: string[] = []) => {
   const saved: Run[] = [];
   const runs = partial<RunRepository>({
-    expiredLeases: (now: Date) =>
-      Promise.resolve(stored.filter((each) => each.leaseExpired(now))),
-    claimedBy: (runner: RunnerId) =>
-      Promise.resolve(stored.filter((each) => each.wasClaimedBy(runner))),
-    save: (run: Run) => {
+    expiredLeases: async (now: Date) =>
+      stored.filter((each) => each.leaseExpired(now)),
+    claimedBy: async (runner: RunnerId) =>
+      stored.filter((each) => each.wasClaimedBy(runner)),
+    save: async (run: Run) => {
       if (conflicting.includes(run.id.value)) {
-        return Promise.reject(new RunVersionConflictError(run.id.value));
+        throw new RunVersionConflictError(run.id.value);
       }
       saved.push(run);
-      return Promise.resolve();
     },
   });
 

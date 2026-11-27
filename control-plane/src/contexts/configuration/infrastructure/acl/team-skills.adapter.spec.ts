@@ -62,15 +62,13 @@ const withSkills = (
   existing: readonly string[] = [],
 ) => {
   const secrets = {
-    ofTeam: vi.fn(() =>
-      Promise.resolve(existing.map((each) => SecretName.of(each))),
-    ),
+    ofTeam: vi.fn(async () => existing.map((each) => SecretName.of(each))),
     known: vi.fn(),
   } satisfies SecretNamesPort;
   return new TeamSkills(
     new ReadySkills(
       partial<TeamSkillReading>({
-        of: vi.fn(() => Promise.resolve(folders)),
+        of: vi.fn(async () => folders),
       }),
       secrets,
     ),

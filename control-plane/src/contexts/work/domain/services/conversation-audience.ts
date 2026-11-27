@@ -58,7 +58,7 @@ const answeringStandingOf = (
   assignee: UserId | null,
   reader: AnsweringReader,
 ): ConversationStanding | null => {
-  if (assignee?.equals(reader.person) === true) {
+  if (assignee?.equals(reader.person)) {
     return 'assignee';
   }
 

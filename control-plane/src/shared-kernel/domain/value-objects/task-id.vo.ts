@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class TaskId {
-  private readonly kind: string = 'task';
+  private readonly kind = 'task';
 
   private constructor(readonly value: string) {}
 
@@ -13,7 +13,7 @@ export class TaskId {
   }
 
   equals(other: TaskId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TaskId && this.value === other.value;
   }
 
   toString(): string {

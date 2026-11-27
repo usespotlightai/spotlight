@@ -98,11 +98,11 @@ const landedAt = (stationId: string) =>
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
 const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
-  runIdFor: ({ task, line }) => {
+  runIdFor: async ({ task, line }) => {
     const station = line.stationAt(task.stationId);
 
     if (!station?.harness) {
-      return Promise.resolve(null);
+      return null;
     }
     dispatched.push({
       harness: station.harness.value,
@@ -119,7 +119,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
         sandboxEnv: [],
       }),
     });
-    return Promise.resolve(runId === null ? null : RunId.of(runId));
+    return runId === null ? null : RunId.of(runId);
   },
 });
 
@@ -128,33 +128,31 @@ let saved: Task | undefined;
 const tasks = (found: Task | null = taskAt()) =>
   ({
     add: vi.fn(),
-    save: vi.fn((task: Task) => {
+    save: vi.fn(async (task: Task) => {
       saved = task;
-
-      return Promise.resolve();
     }),
-    find: vi.fn(() => Promise.resolve(found)),
+    find: vi.fn(async () => found),
     remove: vi.fn(),
-    placementsAt: vi.fn(() => Promise.resolve([])),
-    findByCorrelation: vi.fn(() => Promise.resolve([])),
-    owningPullRequest: vi.fn(() => Promise.resolve(null)),
-    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-    holdingMark: vi.fn(() => Promise.resolve([])),
-    settingUpFor: vi.fn(() => Promise.resolve(null)),
-    settingUpIn: vi.fn(() => Promise.resolve([])),
-    settingUp: vi.fn(() => Promise.resolve([])),
-    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-    awaitingConnection: vi.fn(() => Promise.resolve([])),
-    startingFrom: vi.fn(() => Promise.resolve([])),
-    onBranch: vi.fn(() => Promise.resolve(null)),
+    placementsAt: vi.fn(async () => []),
+    findByCorrelation: vi.fn(async () => []),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
+    holdingMark: vi.fn(async () => []),
+    settingUpFor: vi.fn(async () => null),
+    settingUpIn: vi.fn(async () => []),
+    settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
+    awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = (found: LineMap | null = line()) =>
   ({
-    find: vi.fn(() => Promise.resolve(found)),
-    findByStation: vi.fn(() => Promise.resolve(found)),
-    ofWorkspace: vi.fn(() => Promise.resolve([])),
-    ofTeam: vi.fn(() => Promise.resolve([])),
+    find: vi.fn(async () => found),
+    findByStation: vi.fn(async () => found),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
     candidate: vi.fn(),
   }) satisfies LineMapsPort;
 
@@ -181,12 +179,7 @@ const move = (
     transaction,
     dispatch(),
     clock,
-    new LineResuming(
-      stored,
-      { of: () => Promise.resolve([]) },
-      dispatch(),
-      clock,
-    ),
+    new LineResuming(stored, { of: async () => [] }, dispatch(), clock),
   ).execute(
     new MoveTaskCommand(
       teamId,

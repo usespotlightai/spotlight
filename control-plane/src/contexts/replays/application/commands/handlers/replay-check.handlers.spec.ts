@@ -106,12 +106,12 @@ const JUDGED = CandidateScoring.of({
 });
 
 const FRESH: IdempotentCreatesPort = {
-  reserve: () => Promise.resolve({ kind: 'new' }),
+  reserve: async () => ({ kind: 'new' }),
   recordCreated: async () => {},
 };
 
 const LOOKUPS: IdempotentLookupsPort = {
-  lookup: () => Promise.resolve({ kind: 'new' }),
+  lookup: async () => ({ kind: 'new' }),
 };
 
 const PLAN = {
@@ -159,17 +159,17 @@ const dependingOn = (block: unknown) => {
 };
 
 const factsOf: DependencyFactsPort = {
-  of: (station, names, hooks) => {
+  of: async (station, names, hooks) => {
     asked.push({
       station: `${station.teamKey}/${station.lineKey}/${station.stationKey}`,
       hooks,
     });
-    return Promise.resolve({
+    return {
       ...facts,
       secrets: facts.secrets.filter((each) =>
         names.some((name) => name.equals(each.secret)),
       ),
-    });
+    };
   },
 };
 
@@ -321,14 +321,13 @@ const startingBaselines = async () => {
   }
 };
 
-const finished = (replayId: ReplayId, succeeds = true) => {
+const finished = async (replayId: ReplayId, succeeds = true) => {
   const replay = present(memory.replays.get(replayId.value));
 
   memory.replays.set(
     replayId.value,
     replayedAs(replay, () => (succeeds ? 'completed' : 'failed')),
   );
-  return Promise.resolve();
 };
 
 beforeEach(() => {
@@ -339,27 +338,26 @@ beforeEach(() => {
   facts = { hooks: [], onMarksAsPlanned: [], secrets: [] };
   asked = [];
   suppliers.lines.threshold = threshold(1);
-  suppliers.configs.live = () =>
-    Promise.resolve({
-      lineKey: 'delivery',
-      block: StationBlock.of({
-        key: 'build',
-        name: 'Build',
-        kind: 'work',
-        prompt: 'Build it.',
-        check: 'npm test',
-        diffs: true,
-      }),
-      fingerprint: LIVE_FINGERPRINT,
-      scoring: CHECKED,
-      hashes: LIVE_HASHES,
-      threshold: suppliers.lines.threshold,
-      search: null,
-      agent: null,
-    });
-  suppliers.configs.validate = (_line, _station, block, line) => {
+  suppliers.configs.live = async () => ({
+    lineKey: 'delivery',
+    block: StationBlock.of({
+      key: 'build',
+      name: 'Build',
+      kind: 'work',
+      prompt: 'Build it.',
+      check: 'npm test',
+      diffs: true,
+    }),
+    fingerprint: LIVE_FINGERPRINT,
+    scoring: CHECKED,
+    hashes: LIVE_HASHES,
+    threshold: suppliers.lines.threshold,
+    search: null,
+    agent: null,
+  });
+  suppliers.configs.validate = async (_line, _station, block, line) => {
     validated.push({ block, line: line?.value ?? null });
-    return Promise.resolve({
+    return {
       ok: true,
       fingerprint: PLANNED,
       hashes: PLANNED_HASHES,
@@ -368,7 +366,7 @@ beforeEach(() => {
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
       ...dependingOn(block),
       block: StationBlock.of(block),
-    });
+    };
   };
 });
 
@@ -483,20 +481,19 @@ describe('StartReplayCheckHandler', () => {
   it('never points two checks at a baseline that will not exist: the second waits for the first one’s, and both compare against it', async () => {
     keptAtStation();
     const one = idOf(await start());
-    suppliers.configs.validate = (_line, _station, block) =>
-      Promise.resolve({
-        ok: true,
-        fingerprint: PLANNED,
-        hashes: StationHashes.of({
-          behaviour: '5'.repeat(64),
-          scoring: '6'.repeat(64),
-        }),
-        liveHashes: LIVE_HASHES,
-        scoring: CHECKED,
-        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-        ...dependingOn(block),
-        block: StationBlock.of(block),
-      });
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: PLANNED,
+      hashes: StationHashes.of({
+        behaviour: '5'.repeat(64),
+        scoring: '6'.repeat(64),
+      }),
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
+      block: StationBlock.of(block),
+    });
     const two = idOf(await start({ ...PLAN, prompt: 'Build it twice.' }));
 
     expect(wantedBaselines()).toHaveLength(2);
@@ -579,27 +576,25 @@ describe('StartReplayCheckHandler', () => {
       at: FieldPath.of(['station', 'effort']),
       reason: 'is low, medium, high, xhigh or max',
     });
-    suppliers.configs.validate = (_line, _station, block) =>
-      Promise.resolve({
-        ok: true,
-        fingerprint: LIVE_FINGERPRINT,
-        hashes: LIVE_HASHES,
-        liveHashes: LIVE_HASHES,
-        scoring: CHECKED,
-        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-        ...dependingOn(block),
-        block: StationBlock.of(block),
-      });
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: LIVE_FINGERPRINT,
+      hashes: LIVE_HASHES,
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
+      block: StationBlock.of(block),
+    });
 
     expect((await start()) as { outcome: string }).toMatchObject({
       outcome: 'unchanged',
     });
 
-    suppliers.configs.validate = () =>
-      Promise.resolve({
-        ok: false,
-        problems: [problem],
-      });
+    suppliers.configs.validate = async () => ({
+      ok: false,
+      problems: [problem],
+    });
 
     expect(await start()).toEqual({ outcome: 'invalid', problems: [problem] });
     expect(checks.stored.size).toBe(0);
@@ -623,28 +618,26 @@ describe('StartReplayCheckHandler', () => {
       at: FieldPath.of(['station', 'effort']),
       reason: 'is low, medium, high, xhigh or max',
     });
-    suppliers.configs.validate = () =>
-      Promise.resolve({
-        ok: false,
-        problems: [problem],
-      });
+    suppliers.configs.validate = async () => ({
+      ok: false,
+      problems: [problem],
+    });
 
     expect(await start()).toEqual({ outcome: 'invalid', problems: [problem] });
   });
 
   it('says there is nothing to replay when the plan changes nothing about how the station runs', async () => {
     keptAtStation();
-    suppliers.configs.validate = (_line, _station, block) =>
-      Promise.resolve({
-        ok: true,
-        fingerprint: LIVE_FINGERPRINT,
-        hashes: LIVE_HASHES,
-        liveHashes: LIVE_HASHES,
-        scoring: CHECKED,
-        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-        ...dependingOn(block),
-        block: StationBlock.of(block),
-      });
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: LIVE_FINGERPRINT,
+      hashes: LIVE_HASHES,
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
+      block: StationBlock.of(block),
+    });
 
     expect(await start()).toEqual({
       outcome: 'unchanged',
@@ -706,17 +699,16 @@ describe('StartReplayCheckHandler', () => {
 
   it('leaves a change undecided when the plan changes only what the unchanged station depends on', async () => {
     keptAtStation();
-    suppliers.configs.validate = (_line, _station, block) =>
-      Promise.resolve({
-        ok: true,
-        fingerprint: LIVE_FINGERPRINT,
-        hashes: LIVE_HASHES,
-        liveHashes: LIVE_HASHES,
-        scoring: CHECKED,
-        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-        ...dependingOn(block),
-        block: StationBlock.of(block),
-      });
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: LIVE_FINGERPRINT,
+      hashes: LIVE_HASHES,
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
+      block: StationBlock.of(block),
+    });
 
     expect(
       await start({ ...PLAN, profile: 'careful' }, true, undefined, CLOCK, {
@@ -791,14 +783,13 @@ describe('EnsureCheckBaselines', () => {
     keptAtStation();
     const id = idOf(await start());
     const live = await liveFrom(suppliers.configs)();
-    suppliers.configs.live = () =>
-      Promise.resolve({
-        ...live,
-        hashes: StationHashes.of({
-          behaviour: '7'.repeat(64),
-          scoring: '8'.repeat(64),
-        }),
-      });
+    suppliers.configs.live = async () => ({
+      ...live,
+      hashes: StationHashes.of({
+        behaviour: '7'.repeat(64),
+        scoring: '8'.repeat(64),
+      }),
+    });
 
     await ensuring();
     await finished(ownReplayOf(id));
@@ -959,17 +950,16 @@ describe('StopSupersededChecks', () => {
   };
 
   const plannedAs = (hashes: StationHashes) => {
-    suppliers.configs.validate = (_line, _station, block) =>
-      Promise.resolve({
-        ok: true,
-        fingerprint: PLANNED,
-        hashes,
-        liveHashes: LIVE_HASHES,
-        scoring: CHECKED,
-        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-        ...dependingOn(block),
-        block: StationBlock.of(block),
-      });
+    suppliers.configs.validate = async (_line, _station, block) => ({
+      ok: true,
+      fingerprint: PLANNED,
+      hashes,
+      liveHashes: LIVE_HASHES,
+      scoring: CHECKED,
+      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+      ...dependingOn(block),
+      block: StationBlock.of(block),
+    });
   };
 
   const stoppingSuperseded = async () => {
@@ -1068,7 +1058,7 @@ describe('StartReplayCheckHandler, after a search', () => {
     suppliers.configs.validate = async (...input) => {
       const found = await planned(...input);
 
-      return found?.ok === true ? { ...found, hashes: HASHES } : found;
+      return found?.ok ? { ...found, hashes: HASHES } : found;
     };
   };
 

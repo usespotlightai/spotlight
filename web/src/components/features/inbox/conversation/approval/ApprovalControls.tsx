@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ApprovalDecision } from '@/components/features/inbox/conversation/approval/ApprovalDecision';
 import { ApprovalDismissal } from '@/components/features/inbox/conversation/approval/ApprovalDismissal';
 import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
@@ -34,7 +32,7 @@ export function ApprovalControls({
   onApproveEdited,
   outdated = false,
   onDecide,
-}: ApprovalControlsProps): ReactElement | null {
+}: ApprovalControlsProps) {
   if (!onDecide) {
     return outdated ? (
       <p className="text-muted-foreground text-xs">

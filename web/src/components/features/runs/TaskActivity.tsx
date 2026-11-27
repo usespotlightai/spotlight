@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ReviewMarker } from '@/components/features/runs/ReviewMarker';
 import { RunRow } from '@/components/features/runs/RunRow';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
@@ -19,7 +17,7 @@ export function TaskActivity({
   teamId,
   taskId,
   hold,
-}: TaskActivityProps): ReactElement | null {
+}: TaskActivityProps) {
   const { data: runs } = useTaskRuns(teamId, taskId);
 
   const worked = runs ?? [];

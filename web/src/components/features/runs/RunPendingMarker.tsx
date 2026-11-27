@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Run } from '@/lib/run';
@@ -14,14 +12,14 @@ export function RunPendingMarker({
   run,
   reviewTo,
   inTrail,
-}: RunPendingMarkerProps): ReactElement | null {
-  if (!run.waitingForYou || (inTrail === true && run.review)) {
+}: RunPendingMarkerProps) {
+  if (!run.waitingForYou || (inTrail && run.review)) {
     return null;
   }
 
   const marker = <WaitingForYouPill />;
 
-  return run.review && inTrail !== true ? (
+  return run.review && !inTrail ? (
     <TrailLink to={reviewTo ?? ''} className="relative z-10 outline-none">
       {marker}
     </TrailLink>

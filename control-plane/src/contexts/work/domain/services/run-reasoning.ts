@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
 
 /** The commands of the spotlight CLI that a briefing tells the agent to run, and that its journal shows it ran. */
@@ -56,14 +57,8 @@ const commanded = (step: {
     return { kind: titled, text: step.text };
   }
 
-  const inputKind =
-    step.input !== null && step.input !== undefined && step.input !== ''
-      ? firstIn(step.input)
-      : null;
-  return inputKind &&
-    step.input !== null &&
-    step.input !== undefined &&
-    step.input !== ''
+  const inputKind = nonEmpty(step.input) ? firstIn(step.input) : null;
+  return inputKind && nonEmpty(step.input)
     ? { kind: inputKind, text: step.input }
     : null;
 };

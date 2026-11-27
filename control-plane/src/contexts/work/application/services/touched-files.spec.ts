@@ -36,10 +36,10 @@ const touching = (input: {
   const warn = vi.fn();
   const files = new TouchedFiles(
     partial<RunJournalReaderPort>({
-      changesOfTask: () => Promise.resolve(input.changes),
+      changesOfTask: async () => input.changes,
     }),
     partial<PullRequestPort>({
-      changedIn: input.changedIn ?? (() => Promise.resolve([])),
+      changedIn: input.changedIn ?? (async () => []),
     }),
     { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
     {
@@ -97,7 +97,7 @@ describe('TouchedFiles', () => {
     const { onTask } = touching({
       changes: [],
       pullRequests: [PULL],
-      changedIn: () => Promise.resolve(['docs/retries.md']),
+      changedIn: async () => ['docs/retries.md'],
     });
 
     expect(listed(await onTask())).toEqual(['acme/api:docs/retries.md']);
@@ -110,10 +110,8 @@ describe('TouchedFiles', () => {
         PULL,
         PullRequestUrl.of('https://github.com/acme/web/pull/2'),
       ],
-      changedIn: (_workspaceId, repository) =>
-        Promise.resolve(
-          repository.equals(API) ? ['src/retry.ts'] : ['src/Retry.tsx'],
-        ),
+      changedIn: async (_workspaceId, repository) =>
+        repository.equals(API) ? ['src/retry.ts'] : ['src/Retry.tsx'],
     });
 
     expect(listed(await onTask())).toEqual([
@@ -127,7 +125,7 @@ describe('TouchedFiles', () => {
     const { onTask } = touching({
       changes: [],
       pullRequests: [PULL],
-      changedIn: () => Promise.resolve(['docs/retries.md']),
+      changedIn: async () => ['docs/retries.md'],
       sleep: (_ms, cancelled) => {
         waiting = cancelled;
         return new Promise(() => {});
@@ -143,8 +141,8 @@ describe('TouchedFiles', () => {
     const { onTask, warn } = touching({
       changes: [changes('run_1', ['api/src/uploads.ts'])],
       pullRequests: [PULL],
-      changedIn: () => {
-        return Promise.reject(new Error('GitHub is down'));
+      changedIn: async () => {
+        throw new Error('GitHub is down');
       },
     });
 

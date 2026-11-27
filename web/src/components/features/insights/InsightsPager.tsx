@@ -1,5 +1,4 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -17,7 +16,7 @@ export function InsightsPager({
   page,
   lastPage,
   onPage,
-}: InsightsPagerProps): ReactElement {
+}: InsightsPagerProps) {
   return (
     <nav
       aria-label={label}

@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -15,14 +14,15 @@ import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { runnerTrust } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
-  DOMAIN_EVENT_DISPATCHER,
-  type DomainEventDispatcher,
-} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
   workingCopyStoreColumns,
   workingCopyStoreOf,
 } from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray } from 'drizzle-orm';
 
 type Row = typeof runnerTrust.$inferSelect;
@@ -106,11 +106,13 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
   }
 
   async find(id: RunnerTrustId): Promise<RunnerTrust | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(runnerTrust)
-      .where(eq(runnerTrust.id, id.value))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(runnerTrust)
+        .where(eq(runnerTrust.id, id.value))
+        .limit(1),
+    );
 
     return found ? toTrust(found) : null;
   }

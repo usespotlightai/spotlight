@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement, ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import {
   HOST_HEADINGS,
@@ -18,7 +18,7 @@ type HostTableProps = {
   children: ReactNode;
 };
 
-export function HostTable({ label, children }: HostTableProps): ReactElement {
+export function HostTable({ label, children }: HostTableProps) {
   const columns = useColumnWidths(HOST_HEADINGS.length);
   const hostColumns: CSSProperties & Record<`--${string}`, string> = {
     '--host-columns': columnTemplate(HOST_HEADINGS, columns.widths, false),

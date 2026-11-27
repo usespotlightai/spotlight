@@ -1,10 +1,11 @@
 import type { EgressEnforcement } from '@runs/application/contracts/run-journal.contract';
 import { decoded } from '@runs/infrastructure/journal/journalled';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const enforcementOf = (
   data: string | null | undefined,
 ): EgressEnforcement | null => {
-  if (data === null || data === undefined || data === '') {
+  if (!nonEmpty(data)) {
     return null;
   }
 

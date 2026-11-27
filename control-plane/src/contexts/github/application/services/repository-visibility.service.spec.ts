@@ -31,27 +31,26 @@ const setup = (
 ) => {
   const rows = new Map(Object.entries(stored));
   const store: RepositoryVisibilityStorePort = {
-    find: vi.fn(() => Promise.resolve(rows)),
+    find: vi.fn(async () => rows),
     save: vi.fn(
-      (
+      async (
         repository: Repository,
         visibility: RepositoryVisibility,
         checkedAt: Date,
       ) => {
         rows.set(keyOf(repository), { visibility, checkedAt });
-        return Promise.resolve();
       },
     ),
   };
   const settings = partial<RepositorySettingsPort>({
-    visibilityOf: vi.fn((_: WorkspaceId, repository: Repository) => {
+    visibilityOf: vi.fn(async (_: WorkspaceId, repository: Repository) => {
       const answer = github[keyOf(repository)];
 
       if (answer === undefined || answer instanceof Error) {
-        return Promise.reject(answer ?? new Error('GitHub did not answer'));
+        throw answer ?? new Error('GitHub did not answer');
       }
 
-      return Promise.resolve(answer);
+      return answer;
     }),
   });
   const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() };

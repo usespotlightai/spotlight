@@ -87,37 +87,31 @@ const provisioning = (
   const storedDiffs = new Map(pushDiffs.map((each) => [each.id.value, each]));
   const savedDiffs: PushDiff[] = [];
   const diffs = {
-    find: vi.fn((id: PushDiffId) =>
-      Promise.resolve(storedDiffs.get(id.value) ?? null),
-    ),
-    save: vi.fn((diff: PushDiff) => {
+    find: vi.fn(async (id: PushDiffId) => storedDiffs.get(id.value) ?? null),
+    save: vi.fn(async (diff: PushDiff) => {
       savedDiffs.push(diff);
       storedDiffs.set(diff.id.value, diff);
-      return Promise.resolve();
     }),
-    waitingIn: vi.fn(() => Promise.resolve(pushDiffs)),
-    reserved: vi.fn(() => Promise.resolve(pushDiffs)),
+    waitingIn: vi.fn(async () => pushDiffs),
+    reserved: vi.fn(async () => pushDiffs),
   };
   const stored = new Map(checks.map((each) => [each.id.toString(), each]));
   let conflicting = conflicts;
-  const find = vi.fn((id: StackCheckId) =>
-    Promise.resolve(stored.get(id.toString()) ?? null),
+  const find = vi.fn(
+    async (id: StackCheckId) => stored.get(id.toString()) ?? null,
   );
-  const ofStack = vi.fn((id: ChangeStackId) =>
-    Promise.resolve(
-      [...stored.values()].filter((each) => each.stackId.equals(id)),
-    ),
+  const ofStack = vi.fn(async (id: ChangeStackId) =>
+    [...stored.values()].filter((each) => each.stackId.equals(id)),
   );
-  const save = vi.fn((check: StackCheck) => {
+  const save = vi.fn(async (check: StackCheck) => {
     if (conflicting > 0) {
       conflicting -= 1;
-      return Promise.reject(new StackCheckVersionConflictError(check.id));
+      throw new StackCheckVersionConflictError(check.id);
     }
     stored.set(check.id.toString(), check);
-    return Promise.resolve();
   });
-  const waitingIn = vi.fn(() => Promise.resolve(listed));
-  const reserved = vi.fn(() => Promise.resolve(listed));
+  const waitingIn = vi.fn(async () => listed);
+  const reserved = vi.fn(async () => listed);
 
   return {
     find,

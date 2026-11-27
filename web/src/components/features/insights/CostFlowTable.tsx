@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement } from 'react';
+import { Fragment } from 'react';
 
 import {
   EDGE_INDENT,
@@ -24,10 +24,7 @@ type CostFlowTableProps = {
   currency: string;
 };
 
-export function CostFlowTable({
-  rows,
-  currency,
-}: CostFlowTableProps): ReactElement {
+export function CostFlowTable({ rows, currency }: CostFlowTableProps) {
   return (
     <NestedTable
       label="Spend from model to station to repository"

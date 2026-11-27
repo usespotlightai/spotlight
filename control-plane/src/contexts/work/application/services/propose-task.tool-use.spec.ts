@@ -98,16 +98,14 @@ const using = ({ proposed = false } = {}) => {
     : started;
   chat.pullEvents();
 
-  const dispatch = vi.fn((_events: readonly unknown[]) =>
-    Promise.resolve(undefined),
-  );
+  const dispatch = vi.fn(async (_events: readonly unknown[]) => undefined);
   const save = vi.fn(async (saved: Chat) => {
     await dispatch(saved.pullEvents());
   });
-  const copy = vi.fn(() => Promise.resolve(undefined));
+  const copy = vi.fn(async () => undefined);
   const tool = new ProposeTaskToolUse(
-    partial<ChatRepository>({ find: () => Promise.resolve(chat), save }),
-    partial<LineMapsPort>({ ofTeam: () => Promise.resolve([LINE]) }),
+    partial<ChatRepository>({ find: async () => chat, save }),
+    partial<LineMapsPort>({ ofTeam: async () => [LINE] }),
     new AttachmentCopies(partial<AttachmentStorePort>({ copy })),
     partial<ClockPort>({ now: () => NOW }),
   );

@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineView } from '@lines/application/contracts/line-view.contract';
 import { LineViewMapper } from '@lines/application/mappers/line-view.mapper';
 import {
@@ -16,6 +15,7 @@ import {
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -36,15 +36,17 @@ export class DrizzlePublishedLineViews implements PublishedLineViewsPort {
   }
 
   async atStation(stationId: StationId): Promise<LineView | null> {
-    const found = firstOf(await this.viewsWhere(
-      inArray(
-        line.id,
-        this.context.db
-          .select({ lineId: station.lineId })
-          .from(station)
-          .where(eq(station.id, stationId.value)),
+    const found = firstOf(
+      await this.viewsWhere(
+        inArray(
+          line.id,
+          this.context.db
+            .select({ lineId: station.lineId })
+            .from(station)
+            .where(eq(station.id, stationId.value)),
+        ),
       ),
-    ));
+    );
 
     return found ?? null;
   }

@@ -277,7 +277,7 @@ describe('reading what a task’s runs changed', () => {
 
     const touched = await new TouchedFiles(
       reader,
-      partial<PullRequestPort>({ changedIn: () => Promise.resolve([]) }),
+      partial<PullRequestPort>({ changedIn: async () => [] }),
       { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
       { now: () => new Date(), sleep: () => new Promise(() => {}) },
       runJournalReadings(),

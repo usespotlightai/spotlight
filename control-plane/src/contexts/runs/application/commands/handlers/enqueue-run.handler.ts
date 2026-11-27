@@ -15,6 +15,7 @@ import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -83,10 +84,7 @@ export class EnqueueRunHandler implements CommandHandlerPort<
           team: null,
         },
         policy: SPEC_POLICY,
-        workingCopy:
-          ordered.key !== null && ordered.key !== ''
-            ? workingCopyOf(ordered.key)
-            : null,
+        workingCopy: nonEmpty(ordered.key) ? workingCopyOf(ordered.key) : null,
         restore: null,
         extensions: {},
         apiGrant: null,

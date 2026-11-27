@@ -17,7 +17,7 @@ export class OrderChatRun {
   async on(event: ChatRunAssigned): Promise<void> {
     const chat = await this.chats.find(event.chatId);
 
-    if (chat?.hasCurrentRun(event.runId) !== true) {
+    if (!chat?.hasCurrentRun(event.runId)) {
       return;
     }
 

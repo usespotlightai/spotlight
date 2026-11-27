@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ActivityPeriodPicker } from '@/components/features/stations/activity/ActivityPeriodPicker';
 import { STATION_COLUMN } from '@/components/features/stations/station-column';
@@ -24,7 +22,7 @@ export function StationHeading({
   line,
   station,
   tab,
-}: StationHeadingProps): ReactElement {
+}: StationHeadingProps) {
   return (
     <>
       <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1 pt-3')}>

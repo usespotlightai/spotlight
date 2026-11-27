@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useId } from 'react';
+import { type ReactNode, useId } from 'react';
 
 import { SectionLevel } from '@/components/features/insights/section-level';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
@@ -16,7 +16,7 @@ export function InsightsSection({
   tooltip,
   aside,
   children,
-}: InsightsSectionProps): ReactElement {
+}: InsightsSectionProps) {
   const contentId = useId();
 
   return (

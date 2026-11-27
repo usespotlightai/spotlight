@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { DecideDevice } from '@/components/features/devices/DecideDevice';
@@ -17,7 +16,7 @@ const WIDTH = 'w-80';
 
 const TITLE = 'Log in to the Spotlight CLI';
 
-export function AuthorizeDevice(): ReactElement | null {
+export function AuthorizeDevice() {
   const [params] = useSearchParams();
   const userCode = params.get('user_code');
   const { data: session, isPending: reading } = useSession();

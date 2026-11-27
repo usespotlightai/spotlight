@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { CopyIconAction } from '@/components/shared/CopyIconAction';
 import {
   EDITOR_NAMES,
@@ -15,11 +13,7 @@ type EditorSetupProps = {
   origin: string;
 };
 
-export function EditorSetup({
-  app,
-  reason,
-  origin,
-}: EditorSetupProps): ReactElement {
+export function EditorSetup({ app, reason, origin }: EditorSetupProps) {
   const name = EDITOR_NAMES[app];
 
   return (

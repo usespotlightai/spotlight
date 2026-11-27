@@ -1242,7 +1242,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
               tool,
             ),
         ),
-        ...(seed.superseded === true ? [superseded] : []),
+        ...(seed.superseded ? [superseded] : []),
       ]);
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);

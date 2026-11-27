@@ -43,11 +43,11 @@ const lineAssignedTo = (email: string, source: ConfigSource | null = null) => {
 
 const clearing = (found: readonly Line[], emails = ['ada@example.com']) => {
   const save = vi.fn<(line: Line) => Promise<void>>(async () => {});
-  const withDefaultAssignee = vi.fn(() => Promise.resolve(found));
+  const withDefaultAssignee = vi.fn(async () => found);
   const warn = vi.fn();
   const clearer = new ClearDefaultAssignees(
     partial<LineRepository>({ withDefaultAssignee, save }),
-    partial<MemberLookupPort>({ emailsOf: () => Promise.resolve(emails) }),
+    partial<MemberLookupPort>({ emailsOf: async () => emails }),
     partial<LoggerPort>({ warn }),
   );
 

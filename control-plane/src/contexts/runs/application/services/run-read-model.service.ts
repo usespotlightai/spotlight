@@ -230,7 +230,7 @@ export class RunReadModel
 
     const newest = await this.reader.newestArchiveOf(run.id);
 
-    if (newest?.isAvailableIn(run.workspaceId) === true) {
+    if (newest?.isAvailableIn(run.workspaceId)) {
       return newest.id.value;
     }
 
@@ -276,7 +276,7 @@ export class RunReadModel
 
     return new Set(
       started.flatMap(({ archive, workspaceId }) =>
-        archives.get(archive.value)?.isAvailableIn(workspaceId) === true
+        archives.get(archive.value)?.isAvailableIn(workspaceId)
           ? [archive.value]
           : [],
       ),
@@ -289,7 +289,7 @@ export class RunReadModel
   ): Promise<LeasedRunFacts | null> {
     const run = await this.one(runId);
 
-    return run?.isLeasedBy(runner) === true
+    return run?.isLeasedBy(runner)
       ? leasedOf(run, runner, await this.storedArchives([run]))
       : null;
   }

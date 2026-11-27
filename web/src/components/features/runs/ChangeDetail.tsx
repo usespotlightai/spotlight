@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { CodeDiff } from '@/components/shared/CodeDiff';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
@@ -29,7 +28,7 @@ export function ChangeDetail({
   lines: LineRange | null;
   open: boolean;
   onClose: () => void;
-}): ReactElement {
+}) {
   const { added, removed } = tallyFile(file);
 
   return (

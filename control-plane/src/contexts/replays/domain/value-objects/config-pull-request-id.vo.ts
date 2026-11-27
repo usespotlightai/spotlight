@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class ConfigPullRequestId {
-  private readonly kind: string = 'config-pull-request';
+  private readonly kind = 'config-pull-request';
 
   private constructor(readonly value: string) {}
 
@@ -13,7 +13,7 @@ export class ConfigPullRequestId {
   }
 
   equals(other: ConfigPullRequestId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ConfigPullRequestId && this.value === other.value;
   }
 
   toString(): string {

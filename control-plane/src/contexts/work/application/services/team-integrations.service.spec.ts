@@ -19,11 +19,11 @@ const LINEAR: ToolDeclaration = {
   readOnly: false,
 };
 
-const nothing = () => Promise.resolve([]);
+const nothing = async () => [];
 
 describe('TeamIntegrations', () => {
   it('offers what the line’s team’s integrations offer, in Work’s own terms', async () => {
-    const provided = vi.fn(() => Promise.resolve([LINEAR]));
+    const provided = vi.fn(async () => [LINEAR]);
     const service = new TeamIntegrations({
       provided,
       toolsOnMarks: nothing,
@@ -44,7 +44,7 @@ describe('TeamIntegrations', () => {
   it('carries what a tool answered before', async () => {
     const inferredOutput = { type: 'string' };
     const service = new TeamIntegrations({
-      provided: vi.fn(() => Promise.resolve([{ ...LINEAR, inferredOutput }])),
+      provided: vi.fn(async () => [{ ...LINEAR, inferredOutput }]),
       toolsOnMarks: nothing,
       toolsOnAnyMark: nothing,
     });
@@ -59,7 +59,7 @@ describe('TeamIntegrations', () => {
   });
 
   it('requests nothing from the integrations when no enabled tool comes from one', async () => {
-    const provided = vi.fn(() => Promise.resolve([LINEAR]));
+    const provided = vi.fn(async () => [LINEAR]);
     const service = new TeamIntegrations({
       provided,
       toolsOnMarks: nothing,
@@ -75,7 +75,7 @@ describe('TeamIntegrations', () => {
   });
 
   it('enables each tool an integration enables on a mark the task carries', async () => {
-    const toolsOnMarks = vi.fn(() => Promise.resolve(['sentry.get-issue']));
+    const toolsOnMarks = vi.fn(async () => ['sentry.get-issue']);
     const service = new TeamIntegrations({
       provided: nothing,
       toolsOnMarks,
@@ -100,7 +100,7 @@ describe('TeamIntegrations', () => {
   });
 
   it('asks the integrations nothing for a task without marks', async () => {
-    const toolsOnMarks = vi.fn(() => Promise.resolve(['sentry.get-issue']));
+    const toolsOnMarks = vi.fn(async () => ['sentry.get-issue']);
     const service = new TeamIntegrations({
       provided: nothing,
       toolsOnMarks,
@@ -114,7 +114,7 @@ describe('TeamIntegrations', () => {
   });
 
   it('names each tool the line’s team’s integrations enable on any mark', async () => {
-    const toolsOnAnyMark = vi.fn(() => Promise.resolve(['sentry.get-issue']));
+    const toolsOnAnyMark = vi.fn(async () => ['sentry.get-issue']);
     const service = new TeamIntegrations({
       provided: nothing,
       toolsOnMarks: nothing,

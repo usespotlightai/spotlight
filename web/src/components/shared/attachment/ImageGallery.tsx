@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactElement,
 } from 'react';
 
 import {
@@ -173,11 +172,7 @@ const inDocumentOrder = (a: GalleryEntry, b: GalleryEntry) =>
     ? -1
     : 1;
 
-export function ImageGallery({
-  children,
-}: {
-  children: ReactNode;
-}): ReactElement {
+export function ImageGallery({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<readonly GalleryEntry[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [size, setSize] = useState<Size | null>(null);
@@ -259,7 +254,7 @@ export function ImageGallery({
     const { button } = stage.current;
 
     await Promise.all([
-      button?.isConnected === true && view.current
+      button?.isConnected && view.current
         ? play(
             view.current,
             [atView(view.current), atThumb(button, view.current)],

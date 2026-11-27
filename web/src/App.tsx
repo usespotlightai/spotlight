@@ -1,4 +1,4 @@
-import { type ReactElement, Suspense } from 'react';
+import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
 import { PublicStackGate } from './components/shell/auth/PublicStackGate.tsx';
@@ -46,7 +46,7 @@ const VerifyEmail = lazyPage(
   (module) => module.VerifyEmail,
 );
 
-export default function App(): ReactElement {
+export default function App() {
   return (
     <PageErrorBoundary>
       <Suspense fallback={null}>

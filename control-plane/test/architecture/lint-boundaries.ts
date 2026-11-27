@@ -1,3 +1,5 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+
 import { reachableFrom } from './context-dependencies';
 import {
   IMPORT_OVERRIDES,
@@ -23,7 +25,7 @@ export const lintBoundaryProblems = (): string[] =>
   IMPORT_OVERRIDES.flatMap((override) => {
     const context = contextOfOverride(override);
 
-    if (context === null || context === '') {
+    if (!nonEmpty(context)) {
       return [];
     }
 

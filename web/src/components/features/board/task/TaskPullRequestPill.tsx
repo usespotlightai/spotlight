@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TaskPullRequestCard } from '@/components/features/board/task/TaskPullRequestCard';
 import { TaskPullRequestStateIcon } from '@/components/features/board/task/TaskPullRequestStateIcon';
 import {
@@ -19,7 +17,7 @@ export function TaskPullRequestPill({
   pullRequest,
 }: {
   pullRequest: TaskPullRequest;
-}): ReactElement {
+}) {
   const { repository, number } = pullRequestOf(pullRequest.url);
   const { state } = pullRequest;
   const named = pullRequestStateName(state);

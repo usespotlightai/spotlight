@@ -16,6 +16,7 @@ import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/wo
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -80,7 +81,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   ): Promise<WorkspaceRunnersView | null> {
     const slug = await this.workspaces.slugOf(declared.workspaceId);
 
-    return slug !== null && slug !== ''
+    return nonEmpty(slug)
       ? RunnerResourceMapper.configuredWorkspaceRunners(declared, slug)
       : null;
   }

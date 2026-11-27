@@ -87,7 +87,7 @@ describe('LiveSequences', () => {
     expect(sequences.hasGap()).toBe(false);
   });
 
-  it('starts again from the heads after a stream that could not catch up, even when they went back', () => {
+  it('starts again from the heads after a stream that could not catch up, even when they went back', async () => {
     const sequences = new LiveSequences();
     sequences.reset({ 'workspace:ws_1': 50, 'person:user_1': 2 });
     sequences.received(at(4, 'person:user_1'));

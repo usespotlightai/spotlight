@@ -1,5 +1,4 @@
 import { Webhook } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
@@ -12,7 +11,7 @@ export function IntegrationLogo({
   logo: string | null;
   name: string;
   className?: string;
-}): ReactElement {
+}) {
   if (!nonEmpty(logo)) {
     return (
       <Webhook

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TaskRowSkeleton } from '@/components/features/board/task/TaskRowSkeleton';
 import { ShowMore } from '@/components/shared/ShowMore';
 import type { PagedList } from '@/hooks/api/usePagedList';
@@ -8,9 +6,7 @@ type CompletedTasksMoreProps = {
   list: PagedList<unknown>;
 };
 
-export function CompletedTasksMore({
-  list,
-}: CompletedTasksMoreProps): ReactElement {
+export function CompletedTasksMore({ list }: CompletedTasksMoreProps) {
   return (
     <ShowMore
       list={list}

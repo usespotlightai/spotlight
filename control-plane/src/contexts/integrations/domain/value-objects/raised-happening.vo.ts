@@ -2,6 +2,7 @@ import { UnplaceableHappeningError } from '@integrations/domain/exceptions/unpla
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import type { Opening } from '@integrations/domain/value-objects/opening.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface RaisedMark {
   readonly kind: MarkKind;
@@ -46,10 +47,7 @@ export class RaisedHappening {
     }
 
     const written = raised.opening?.title;
-    const title =
-      written === undefined || written === null || written === ''
-        ? null
-        : written;
+    const title = !nonEmpty(written) ? null : written;
 
     return new RaisedHappening(
       declared,

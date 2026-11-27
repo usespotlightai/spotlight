@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { Button } from '@/components/ui/button';
 import { useDecideDevice } from '@/hooks/api/useDecideDevice';
 import { shownUserCode } from '@/lib/device';
@@ -8,7 +6,7 @@ type DecideDeviceProps = {
   userCode: string;
 };
 
-export function DecideDevice({ userCode }: DecideDeviceProps): ReactElement {
+export function DecideDevice({ userCode }: DecideDeviceProps) {
   const decide = useDecideDevice(userCode);
 
   return (

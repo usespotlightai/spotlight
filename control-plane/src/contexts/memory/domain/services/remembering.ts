@@ -16,6 +16,7 @@ import {
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { StationContext } from '@memory/domain/value-objects/run-context';
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -97,9 +98,7 @@ const scopeOf = (
   runContext: StationContext,
 ): MemoryScope => {
   const scope = remembered.scope?.trim();
-  const level = parseMemoryScopeLevel(
-    scope === undefined || scope === '' ? DEFAULT_SCOPE : scope,
-  );
+  const level = parseMemoryScopeLevel(!nonEmpty(scope) ? DEFAULT_SCOPE : scope);
   const places = remembered.paths
     .filter((each) => each.trim())
     .map((each) => located(each, runContext));

@@ -1,6 +1,5 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
-import { MemoryUpkeep } from '@memory/domain/aggregates/memory-upkeep.aggregate';
 import { MemoryUpkeepSchedule } from '@memory/domain/aggregates/memory-upkeep-schedule.aggregate';
+import { MemoryUpkeep } from '@memory/domain/aggregates/memory-upkeep.aggregate';
 import { UpkeepProposal } from '@memory/domain/entities/upkeep-proposal.entity';
 import { MemoryUpkeepScheduleVersionConflictError } from '@memory/domain/exceptions/memory-upkeep-schedule-version-conflict.error';
 import { MemoryUpkeepVersionConflictError } from '@memory/domain/exceptions/memory-upkeep-version-conflict.error';
@@ -12,8 +11,8 @@ import type { UpkeepHistory } from '@memory/domain/services/held-back';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 import { MemoryUpkeepId } from '@memory/domain/value-objects/memory-upkeep-id.vo';
+import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 import {
   memoryUpkeep,
   memoryUpkeepProposal,
@@ -26,6 +25,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -44,7 +45,7 @@ const decisionOf = (row: ProposalRow): MemoryDecision | null => {
     );
   }
 
-  return row.decidedById !== null && row.decidedById !== '' && row.decidedAt
+  return nonEmpty(row.decidedById) && row.decidedAt
     ? MemoryDecision.of({ by: UserId.of(row.decidedById), at: row.decidedAt })
     : null;
 };
@@ -147,10 +148,12 @@ export class DrizzleMemoryUpkeepRepository implements MemoryUpkeepRepository {
   }
 
   async find(id: MemoryUpkeepId): Promise<MemoryUpkeep | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(memoryUpkeep)
-      .where(eq(memoryUpkeep.id, id.value)));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memoryUpkeep)
+        .where(eq(memoryUpkeep.id, id.value)),
+    );
 
     return row ? this.withProposals(row) : null;
   }
@@ -196,7 +199,10 @@ export class DrizzleMemoryUpkeepRepository implements MemoryUpkeepRepository {
         decidedAt: memoryUpkeepProposal.decidedAt,
       })
       .from(memoryUpkeepProposal)
-      .innerJoin(memoryUpkeep, eq(memoryUpkeep.id, memoryUpkeepProposal.upkeepId))
+      .innerJoin(
+        memoryUpkeep,
+        eq(memoryUpkeep.id, memoryUpkeepProposal.upkeepId),
+      )
       .where(
         and(
           eq(memoryUpkeep.teamId, teamId.value),
@@ -244,40 +250,44 @@ export class DrizzleMemoryUpkeepRepository implements MemoryUpkeepRepository {
 }
 
 @Injectable()
-export class DrizzleMemoryUpkeepScheduleRepository
-  implements MemoryUpkeepScheduleRepository
-{
+export class DrizzleMemoryUpkeepScheduleRepository implements MemoryUpkeepScheduleRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async ofTeam(teamId: TeamId): Promise<MemoryUpkeepSchedule | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(memoryUpkeepSchedule)
-      .where(eq(memoryUpkeepSchedule.teamId, teamId.value)));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memoryUpkeepSchedule)
+        .where(eq(memoryUpkeepSchedule.teamId, teamId.value)),
+    );
 
     return row ? scheduleOf(row) : null;
   }
 
   async ofTeamLocked(teamId: TeamId): Promise<MemoryUpkeepSchedule | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(memoryUpkeepSchedule)
-      .where(eq(memoryUpkeepSchedule.teamId, teamId.value))
-      .for('share'));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memoryUpkeepSchedule)
+        .where(eq(memoryUpkeepSchedule.teamId, teamId.value))
+        .for('share'),
+    );
 
     return row ? scheduleOf(row) : null;
   }
 
   async add(added: MemoryUpkeepSchedule): Promise<void> {
-    const inserted = firstOf(await this.context.db
-      .insert(memoryUpkeepSchedule)
-      .values({
-        teamId: added.teamId.value,
-        version: added.version,
-        ...scheduleColumns(added),
-      })
-      .onConflictDoNothing({ target: memoryUpkeepSchedule.teamId })
-      .returning({ teamId: memoryUpkeepSchedule.teamId }));
+    const inserted = firstOf(
+      await this.context.db
+        .insert(memoryUpkeepSchedule)
+        .values({
+          teamId: added.teamId.value,
+          version: added.version,
+          ...scheduleColumns(added),
+        })
+        .onConflictDoNothing({ target: memoryUpkeepSchedule.teamId })
+        .returning({ teamId: memoryUpkeepSchedule.teamId }),
+    );
 
     if (!inserted) {
       throw new MemoryUpkeepScheduleVersionConflictError(added.teamId.value);
@@ -318,21 +328,23 @@ export class DrizzleMemoryUpkeepScheduleRepository
   }
 
   async nextDue(now: Date): Promise<MemoryUpkeepSchedule | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(memoryUpkeepSchedule)
-      .where(
-        and(
-          lte(memoryUpkeepSchedule.dueAt, now),
-          or(
-            isNull(memoryUpkeepSchedule.jobDueAt),
-            lte(memoryUpkeepSchedule.jobDueAt, now),
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memoryUpkeepSchedule)
+        .where(
+          and(
+            lte(memoryUpkeepSchedule.dueAt, now),
+            or(
+              isNull(memoryUpkeepSchedule.jobDueAt),
+              lte(memoryUpkeepSchedule.jobDueAt, now),
+            ),
           ),
-        ),
-      )
-      .orderBy(asc(memoryUpkeepSchedule.dueAt))
-      .limit(1)
-      .for('update', { skipLocked: true }));
+        )
+        .orderBy(asc(memoryUpkeepSchedule.dueAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? scheduleOf(row) : null;
   }

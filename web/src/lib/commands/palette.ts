@@ -56,7 +56,7 @@ export const paletteActions = (
 
       return (
         shortcut.inPalette !== false &&
-        shortcut.focused !== true &&
+        !shortcut.focused &&
         !nonEmpty(command.to)
       );
     })

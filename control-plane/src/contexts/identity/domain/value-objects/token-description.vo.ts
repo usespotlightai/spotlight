@@ -4,7 +4,7 @@ import { trimmedWithin } from '@identity/domain/value-objects/trimmed-within';
 const LONGEST = 255;
 
 export class TokenDescription {
-  private readonly kind: string = 'token-description';
+  private readonly kind = 'token-description';
 
   private constructor(readonly value: string) {}
 
@@ -19,6 +19,6 @@ export class TokenDescription {
   }
 
   equals(other: TokenDescription): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TokenDescription && this.value === other.value;
   }
 }

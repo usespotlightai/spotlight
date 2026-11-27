@@ -86,19 +86,18 @@ export const workspaces = (
     taken?: boolean;
   } = {},
 ): WorkspacesFake => {
-  const find = vi.fn(() => Promise.resolve(over.existing ?? null));
+  const find = vi.fn(async () => over.existing ?? null);
 
   return {
     find,
     findBySlug: find,
-    isTaken: vi.fn(() => Promise.resolve(over.taken ?? false)),
+    isTaken: vi.fn(async () => over.taken ?? false),
     add: vi.fn<(workspace: Workspace) => Promise<void>>(async () => {}),
-    save: vi.fn<(workspace: Workspace) => Promise<void>>(() => {
+    save: vi.fn<(workspace: Workspace) => Promise<void>>(async () => {
       if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
-        return Promise.reject(over.throwing);
+        throw over.throwing;
       }
-      return Promise.resolve();
     }),
   } satisfies WorkspaceRepository;
 };
@@ -111,39 +110,35 @@ export const teams = (
     thenAt?: Team | null;
   } = {},
 ): TeamsFake => {
-  const find = vi.fn(() => Promise.resolve(over.existing ?? null));
+  const find = vi.fn(async () => over.existing ?? null);
 
   return {
     find,
     named: find,
-    ofWorkspace: vi.fn(() => Promise.resolve(over.inWorkspace ?? [])),
-    add: vi.fn<(team: Team) => Promise<void>>(() => {
+    ofWorkspace: vi.fn(async () => over.inWorkspace ?? []),
+    add: vi.fn<(team: Team) => Promise<void>>(async () => {
       if (over.throwing) {
-        return Promise.reject(over.throwing);
+        throw over.throwing;
       }
-      return Promise.resolve();
     }),
-    save: vi.fn<(team: Team) => Promise<void>>(() => {
+    save: vi.fn<(team: Team) => Promise<void>>(async () => {
       if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
-        return Promise.reject(over.throwing);
+        throw over.throwing;
       }
-      return Promise.resolve();
     }),
   } satisfies TeamRepository;
 };
 
 export const access = (isAdmin = true): WorkspaceAccessPort =>
   partial<WorkspaceAccessPort>({
-    permissionsIn: vi.fn(() =>
-      Promise.resolve(
-        partial<WorkspacePermissions>({
-          workspaceId: WORKSPACE,
-          slug: 'acme',
-          configures: isAdmin,
-          isAdmin,
-        }),
-      ),
+    permissionsIn: vi.fn(async () =>
+      partial<WorkspacePermissions>({
+        workspaceId: WORKSPACE,
+        slug: 'acme',
+        configures: isAdmin,
+        isAdmin,
+      }),
     ),
   });
 
@@ -222,13 +217,13 @@ export const dependents = (
   all: readonly Dependent[] = [],
 ): TeamDependentsPort => ({
   register: vi.fn(),
-  of: vi.fn(() => Promise.resolve(all)),
+  of: vi.fn(async () => all),
 });
 
 export const creates = (): CreatesFake => ({
-  reserve: vi.fn<IdempotentCreatesPort['reserve']>(() =>
-    Promise.resolve({ kind: 'new' }),
-  ),
+  reserve: vi.fn<IdempotentCreatesPort['reserve']>(async () => ({
+    kind: 'new',
+  })),
   recordCreated: vi.fn<IdempotentCreatesPort['recordCreated']>(async () => {}),
 });
 

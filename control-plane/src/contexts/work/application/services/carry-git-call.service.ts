@@ -4,6 +4,7 @@ import type { RunnerLeasesPort } from '@runners/application/ports/runner-leases.
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type {
@@ -69,9 +70,7 @@ export class CarryGitCall {
     }
 
     const checked =
-      service === PUSH &&
-      call.method === 'POST' &&
-      allowed.work?.limitsPushes === true
+      service === PUSH && call.method === 'POST' && allowed.work?.limitsPushes
         ? await this.checkedPush(allowed.work, allowed.repository, call)
         : { kind: 'carry' as const, call, push: null };
 
@@ -136,7 +135,7 @@ export class CarryGitCall {
 
     const refusal = await work.pushRefusal(repository, read.push.updates);
 
-    return refusal !== null && refusal !== ''
+    return nonEmpty(refusal)
       ? { kind: 'answer', answer: await read.push.refused(refusal) }
       : { kind: 'carry', call: read.push.call, push: read.push };
   }

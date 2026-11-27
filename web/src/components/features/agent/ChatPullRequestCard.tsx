@@ -1,5 +1,4 @@
 import { Hand } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { DecisionButton } from '@/components/shared/DecisionButton';
@@ -38,7 +37,7 @@ export function ChatPullRequestCard({
   pullRequest,
   pending,
   onHandToLine,
-}: ChatPullRequestCardProps): ReactElement {
+}: ChatPullRequestCardProps) {
   const station = pullRequestStationOf(pullRequest);
   const task = pullRequest.state !== 'gone';
 

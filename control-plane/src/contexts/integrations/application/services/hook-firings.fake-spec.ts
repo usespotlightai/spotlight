@@ -165,27 +165,23 @@ export const firingsInMemory = (
   );
   const saved: HookFiring[] = [];
   const firings = {
-    add: vi.fn<HookFiringRepository['add']>((_firing: HookFiring) =>
-      Promise.resolve(true),
+    add: vi.fn<HookFiringRepository['add']>(
+      async (_firing: HookFiring) => true,
     ),
-    withId: vi.fn<HookFiringRepository['withId']>((id: HookFiringId) =>
-      Promise.resolve(byId.get(id.value) ?? null),
+    withId: vi.fn<HookFiringRepository['withId']>(
+      async (id: HookFiringId) => byId.get(id.value) ?? null,
     ),
     claimCandidates: vi.fn<HookFiringRepository['claimCandidates']>(
-      (now: Date) =>
-        Promise.resolve(
-          [...byId.values()].filter(
-            (each) =>
-              each.progress.kind === 'pending' &&
-              each.progress.dueAt.getTime() <= now.getTime(),
-          ),
+      async (now: Date) =>
+        [...byId.values()].filter(
+          (each) =>
+            each.progress.kind === 'pending' &&
+            each.progress.dueAt.getTime() <= now.getTime(),
         ),
     ),
-    save: vi.fn<HookFiringRepository['save']>((firing: HookFiring) => {
+    save: vi.fn<HookFiringRepository['save']>(async (firing: HookFiring) => {
       if (byId.get(firing.id.value)?.version !== firing.version) {
-        return Promise.reject(
-          new HookFiringVersionConflictError(firing.id.value),
-        );
+        throw new HookFiringVersionConflictError(firing.id.value);
       }
 
       const claiming =
@@ -202,12 +198,9 @@ export const firingsInMemory = (
           version: firing.version + 1,
         }),
       );
-
-      return Promise.resolve();
     }),
     finishedBefore: vi.fn<HookFiringRepository['finishedBefore']>(
-      (_at: Date, _most: number): Promise<readonly HookFiring[]> =>
-        Promise.resolve([]),
+      async (_at: Date, _most: number): Promise<readonly HookFiring[]> => [],
     ),
   } satisfies HookFiringRepository;
 
@@ -223,11 +216,10 @@ export const runtimeOf = (
   whenHolds: () => boolean = () => true,
 ): Mocked<HookRuntimePort> =>
   ({
-    listening: vi.fn<HookRuntimePort['listening']>(() =>
-      Promise.resolve(hooks),
-    ),
-    hook: vi.fn<HookRuntimePort['hook']>((id: HookDefinitionId) =>
-      Promise.resolve(hooks.find((each) => each.id.equals(id)) ?? null),
+    listening: vi.fn<HookRuntimePort['listening']>(async () => hooks),
+    hook: vi.fn<HookRuntimePort['hook']>(
+      async (id: HookDefinitionId) =>
+        hooks.find((each) => each.id.equals(id)) ?? null,
     ),
     whenHolds: vi.fn<HookRuntimePort['whenHolds']>(whenHolds),
     written: vi.fn<HookRuntimePort['written']>((): WrittenStep => {

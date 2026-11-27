@@ -1,8 +1,6 @@
-import type { ReactElement } from 'react';
-
 import { openedAt } from '@/lib/inbox';
 
-export function TimeMarker({ at }: { at: string }): ReactElement {
+export function TimeMarker({ at }: { at: string }) {
   return (
     <time
       dateTime={at}

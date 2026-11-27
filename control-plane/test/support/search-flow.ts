@@ -88,35 +88,31 @@ export const WITHIN = 60_000;
 export const STUB_GUIDANCE = 'Keep the oldest job first after a restart.';
 
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  stored: () => Promise.resolve(true),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+  received: async () => [],
+  stored: async () => true,
+  taken: async () => undefined,
+  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 });
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
 const judge: JudgePort = {
   roundOf: () => null,
-  judge: (request) => {
+  judge: async (request) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
-    return Promise.resolve({
+    return {
       status: 'judged' as const,
       model: 'stub/judge',
       guidance: value <= 2 ? STUB_GUIDANCE : null,
@@ -133,7 +129,7 @@ const judge: JudgePort = {
           ],
         })),
       },
-    });
+    };
   },
 };
 
@@ -179,39 +175,35 @@ export const github = {
 export const GITHUB_ID_BASE = 1_000;
 
 const repositoryContents: RepositoryContentsPort = {
-  fileAt: (_workspace, repository, path) => {
+  fileAt: async (_workspace, repository, path) => {
     if (repository.value !== CONFIG) {
-      return Promise.reject(new RepositoryUnreachableError(repository.value));
+      throw new RepositoryUnreachableError(repository.value);
     }
 
     const content = github.files.get(path);
 
-    return Promise.resolve(
-      content === undefined
-        ? null
-        : {
-            content,
-            blobSha: 'blob_1',
-            commit: 'commit_1',
-            defaultBranch: 'main',
-          },
-    );
+    return content === undefined
+      ? null
+      : {
+          content,
+          blobSha: 'blob_1',
+          commit: 'commit_1',
+          defaultBranch: 'main',
+        };
   },
-  pathsAt: () => Promise.resolve([...github.files.keys()]),
-  filesUnder: (_workspace, _repository, directory) =>
-    Promise.resolve(
-      [...github.files.entries()]
-        .filter(([path]) => !directory || path.startsWith(`${directory}/`))
-        .map(([path, content]) => ({ path, content })),
-    ),
-  committed: (_workspace, _repository, commit) => {
+  pathsAt: async () => [...github.files.keys()],
+  filesUnder: async (_workspace, _repository, directory) =>
+    [...github.files.entries()]
+      .filter(([path]) => !directory || path.startsWith(`${directory}/`))
+      .map(([path, content]) => ({ path, content })),
+  committed: async (_workspace, _repository, commit) => {
     github.commits.push(commit);
-    return Promise.resolve(`commit_${github.commits.length + 1}`);
+    return `commit_${github.commits.length + 1}`;
   },
 };
 
 const pullRequests: PullRequestPort = {
-  open: (opening) => {
+  open: async (opening) => {
     const at = github.opened.findIndex(
       (each) => each.branch === opening.branch,
     );
@@ -222,46 +214,40 @@ const pullRequests: PullRequestPort = {
 
     const number = at < 0 ? github.opened.length : at + 1;
 
-    return Promise.resolve({
+    return {
       url: `https://github.com/${CONFIG}/pull/${number}`,
       number,
       id: GITHUB_ID_BASE + number,
       repository: CONFIG,
-    });
+    };
   },
   edit: async () => {},
-  statusOf: (at) => {
+  statusOf: async (at) => {
     if (github.failing) {
-      return Promise.reject(github.failing);
+      throw github.failing;
     }
 
-    return Promise.resolve(
-      github.statuses.get(at.number) ?? { state: 'open', closedAt: null },
-    );
+    return github.statuses.get(at.number) ?? { state: 'open', closedAt: null };
   },
   retarget: async () => {},
-  close: (at) => {
+  close: async (at) => {
     if (github.failing) {
-      return Promise.reject(github.failing);
+      throw github.failing;
     }
 
     github.closed.push(at);
     github.statuses.set(at.number, { state: 'closed', closedAt: new Date() });
-
-    return Promise.resolve();
   },
-  comment: (at, body) => {
+  comment: async (at, body) => {
     if (github.commentFailing) {
-      return Promise.reject(github.commentFailing);
+      throw github.commentFailing;
     }
 
     github.comments.push({ number: at.number, body });
-
-    return Promise.resolve();
   },
-  changedOn: () => Promise.resolve([]),
-  changedIn: () => Promise.resolve([]),
-  ofCommit: () => Promise.resolve([]),
+  changedOn: async () => [],
+  changedIn: async () => [],
+  ofCommit: async () => [],
 };
 
 // oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding

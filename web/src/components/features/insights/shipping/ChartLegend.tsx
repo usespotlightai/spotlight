@@ -1,14 +1,9 @@
-import type { ReactElement } from 'react';
 type LegendEntry = {
   readonly label: string;
   readonly color: string;
 };
 
-export function ChartLegend({
-  entries,
-}: {
-  entries: readonly LegendEntry[];
-}): ReactElement {
+export function ChartLegend({ entries }: { entries: readonly LegendEntry[] }) {
   return (
     <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
       {entries.map((entry) => (

@@ -19,6 +19,7 @@ import {
   type SessionOption,
 } from '@runs/domain/value-objects/run-spec.vo';
 import { isJsonObject, isJsonValue } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 type Json = Record<string, unknown>;
@@ -296,7 +297,7 @@ const parsedResume = (raw: unknown): RunResume => {
   return {
     ...(sessionId !== undefined ? { sessionId } : {}),
     ...(resumeSession ? { resumeSession } : {}),
-    ...(followUp !== undefined && followUp !== '' ? { followUp } : {}),
+    ...(nonEmpty(followUp) ? { followUp } : {}),
   };
 };
 
@@ -420,7 +421,7 @@ const read = (raw: unknown): RunSpec => {
     ...(injectedSecrets ? { injectedSecrets } : {}),
     ...(sandboxEnv ? { sandboxEnv } : {}),
     ...(harnessKeys ? { harnessKeys } : {}),
-    ...(spotlightApi === true ? { spotlightApi } : {}),
+    ...(spotlightApi ? { spotlightApi } : {}),
   });
 };
 

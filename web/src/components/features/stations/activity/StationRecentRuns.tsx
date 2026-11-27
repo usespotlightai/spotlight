@@ -1,5 +1,4 @@
 import { Play } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { RecentRunsSkeleton } from '@/components/features/stations/activity/RecentRunsSkeleton';
 import { OutcomeRow } from '@/components/features/stations/outcomes/OutcomeRow';
@@ -37,7 +36,7 @@ export function StationRecentRuns({
   lineId,
   stationId,
   period,
-}: StationRecentRunsProps): ReactElement {
+}: StationRecentRunsProps) {
   const outcomes = useStationInsights(teamId, lineId, stationId);
   const groups = outcomes.data?.groups ?? [];
   const runs = recentRuns(groups, SHOWN);

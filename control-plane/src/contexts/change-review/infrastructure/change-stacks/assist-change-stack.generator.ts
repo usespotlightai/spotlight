@@ -33,6 +33,7 @@ import {
   sessionFailureOf,
 } from '@change-review/infrastructure/assist/assist-rounds';
 import { JsonSchema } from '@platform/json/json-schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { z } from 'zod';
 
 const DIFF_FILE = 'diff.md';
@@ -187,12 +188,12 @@ const described = (diff: Diff, facts: DiffFacts): string => {
 
   return diff.files
     .filter((file) =>
-      file.hunks.some((hunk) => known.get(hunk.id)?.incidental !== true),
+      file.hunks.some((hunk) => !known.get(hunk.id)?.incidental),
     )
     .map((file) => {
       const heading = [
         `## ${file.path}`,
-        file.previousPath !== null && file.previousPath !== ''
+        nonEmpty(file.previousPath)
           ? `(renamed from ${file.previousPath})`
           : null,
         `[${[file.status, known.get(file.hunks[0]?.id ?? '')?.fileClass, file.binary ? 'binary' : null].filter(Boolean).join(', ')}]`,
@@ -201,7 +202,7 @@ const described = (diff: Diff, facts: DiffFacts): string => {
         .join(' ');
 
       const hunks = file.hunks
-        .filter((hunk) => known.get(hunk.id)?.incidental !== true)
+        .filter((hunk) => !known.get(hunk.id)?.incidental)
         .map((hunk) => {
           const defines = known.get(hunk.id)?.defines ?? [];
           const outside = known.get(hunk.id)?.outside ?? [];
@@ -370,9 +371,7 @@ const REMEDIES: Partial<Record<StackProblemCode, string>> = {
 export const describeProblem = (problem: StackProblem): string => {
   const remedy = REMEDIES[problem.code];
 
-  return remedy !== undefined && remedy !== ''
-    ? `${problem.message}; ${remedy}`
-    : problem.message;
+  return nonEmpty(remedy) ? `${problem.message}; ${remedy}` : problem.message;
 };
 
 const problemsFileOf = (problems: readonly StackProblem[]): string =>
@@ -389,9 +388,7 @@ const filesFor = (
   return {
     [DIFF_FILE]: diffFileOf(request),
     [SCHEMA_FILE]: `${JSON.stringify(CHANGE_STACK_RESULT.json, null, 2)}\n`,
-    ...(previous !== null && previous !== undefined && previous !== ''
-      ? { [PREVIOUS_FILE]: previous }
-      : {}),
+    ...(nonEmpty(previous) ? { [PREVIOUS_FILE]: previous } : {}),
     ...(request.redraft
       ? { [REDRAFT_FILE]: redraftFileOf(request.redraft) }
       : {}),

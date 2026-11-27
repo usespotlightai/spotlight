@@ -159,7 +159,7 @@ export class StationSearchSchedule extends EventRecorder {
     if (
       state.requests?.counted.some((each, at, all) =>
         all.slice(0, at).some((other) => other.equals(each)),
-      ) === true
+      )
     ) {
       throw new InconsistentStateError(
         'station search schedule',
@@ -316,10 +316,9 @@ export class StationSearchSchedule extends EventRecorder {
     against: StationFingerprint,
     at: Date,
   ): StationSearchSchedule {
-    const kept =
-      this.state.rejectedAgainst?.equals(against) === true
-        ? this.state.rejected
-        : [];
+    const kept = this.state.rejectedAgainst?.equals(against)
+      ? this.state.rejected
+      : [];
 
     return this.with({
       rejected: kept.some((each) => each.equals(fingerprint))
@@ -344,7 +343,7 @@ export class StationSearchSchedule extends EventRecorder {
   liveChanged(live: StationFingerprint | null): StationSearchSchedule {
     const { rejectedAgainst } = this.state;
 
-    return rejectedAgainst && live?.equals(rejectedAgainst) !== true
+    return rejectedAgainst && !live?.equals(rejectedAgainst)
       ? this.with({ rejected: [], rejectedAgainst: null })
       : this;
   }

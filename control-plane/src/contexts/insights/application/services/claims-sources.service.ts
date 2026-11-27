@@ -4,6 +4,7 @@ import type { ClaimsSourceRepository } from '@insights/domain/repositories/claim
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { SourceCommit } from '@shared-kernel/domain/value-objects/source-commit.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -42,9 +43,7 @@ export class ClaimsSources {
 
     for (const station of event.stations) {
       const rubricVersion =
-        station.claimsChanged &&
-        station.rubricVersion !== null &&
-        station.rubricVersion !== ''
+        station.claimsChanged && nonEmpty(station.rubricVersion)
           ? RubricVersion.readable(station.rubricVersion)
           : null;
 

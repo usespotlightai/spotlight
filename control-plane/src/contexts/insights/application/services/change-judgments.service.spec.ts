@@ -9,6 +9,7 @@ import {
 import { ChangeJudgments } from '@insights/application/services/change-judgments.service';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
 import type { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -70,8 +71,8 @@ const judging = async (
   };
   const judgments = new ChangeJudgments(
     {
-      hasTask: () => Promise.resolve(true),
-      of: (runId) => Promise.resolve(evidence[runId.value] ?? null),
+      hasTask: async () => true,
+      of: async (runId) => evidence[runId.value] ?? null,
     },
     {
       judge: async (request) => {
@@ -99,8 +100,7 @@ const judging = async (
     workspaceId: 'workspace_1',
     round: ROUND,
     criteria: options.criteria ?? CRITERIA,
-    reference:
-      reference !== null && reference !== '' ? RunId.of(reference) : null,
+    reference: nonEmpty(reference) ? RunId.of(reference) : null,
     guidanceRequested: options.guidanceRequested ?? true,
     effectsBlocked: options.effectsBlocked ?? true,
   });
@@ -126,20 +126,19 @@ const settled = (answer: ChangeJudgment | SessionWaiting): ChangeJudgment => {
 describe('ChangeJudgments', () => {
   it('judges a change claim by claim, saying which claims it met', async () => {
     const { requests, judgment } = await judging(
-      (request) =>
-        Promise.resolve({
-          claims: request.claims.map((_, index) => ({
-            index,
-            met: index === 0,
-            reasons: [
-              {
-                text: `Claim ${index}.`,
-                steps: [2],
-                hunks: ['api/src/queue.ts#1'],
-              },
-            ],
-          })),
-        }),
+      async (request) => ({
+        claims: request.claims.map((_, index) => ({
+          index,
+          met: index === 0,
+          reasons: [
+            {
+              text: `Claim ${index}.`,
+              steps: [2],
+              hunks: ['api/src/queue.ts#1'],
+            },
+          ],
+        })),
+      }),
       {
         criteria: JudgeCriteria.of({
           claims: ['It drains.', 'It keeps the order.'],
@@ -162,18 +161,16 @@ describe('ChangeJudgments', () => {
   });
 
   it('judges the change against the claims and the reference, citing only its own steps and hunks', async () => {
-    const { requests, judgment } = await judging(() =>
-      Promise.resolve(
-        oneClaim(true, [
-          { text: 'It drains.', steps: [2], hunks: ['api/src/queue.ts#1'] },
-          { text: 'It says how.', steps: [2], hunks: [] },
-          {
-            text: 'The accepted change kept the order.',
-            steps: [],
-            hunks: ['reference:api/src/queue.ts#1'],
-          },
-        ]),
-      ),
+    const { requests, judgment } = await judging(async () =>
+      oneClaim(true, [
+        { text: 'It drains.', steps: [2], hunks: ['api/src/queue.ts#1'] },
+        { text: 'It says how.', steps: [2], hunks: [] },
+        {
+          text: 'The accepted change kept the order.',
+          steps: [],
+          hunks: ['reference:api/src/queue.ts#1'],
+        },
+      ]),
     );
 
     expect(requests[0]?.reference?.hunks).toEqual([
@@ -195,10 +192,8 @@ describe('ChangeJudgments', () => {
   });
 
   it('passes on what to improve only when asked, and only when it avoids the claims', async () => {
-    const failing = () =>
-      Promise.resolve(
-        oneClaim(false, [{ text: 'It drops jobs.', steps: [2], hunks: [] }]),
-      );
+    const failing = async () =>
+      oneClaim(false, [{ text: 'It drops jobs.', steps: [2], hunks: [] }]);
     const kept = await judging(failing, {
       reference: null,
       guidance: 'Finish the jobs already taken before stopping the worker.',
@@ -223,10 +218,8 @@ describe('ChangeJudgments', () => {
   });
 
   it('tells the judge whether the run had its effects blocked, as the order says', async () => {
-    const passing = () =>
-      Promise.resolve(
-        oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]),
-      );
+    const passing = async () =>
+      oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]);
     const blocked = await judging(passing, { effectsBlocked: true });
     const open = await judging(passing, { effectsBlocked: false });
 
@@ -236,10 +229,8 @@ describe('ChangeJudgments', () => {
 
   it('judges on the claims alone without a reference, and says so', async () => {
     const { requests, judgment } = await judging(
-      () =>
-        Promise.resolve(
-          oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]),
-        ),
+      async () =>
+        oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]),
       { reference: null },
     );
 
@@ -248,17 +239,15 @@ describe('ChangeJudgments', () => {
   });
 
   it('asks for the judging session of the order’s round', async () => {
-    const { requests } = await judging(() =>
-      Promise.resolve(
-        oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]),
-      ),
+    const { requests } = await judging(async () =>
+      oneClaim(true, [{ text: 'It drains.', steps: [2], hunks: [] }]),
     );
 
     expect(requests[0]?.round).toEqual({ of: 'change', round: ROUND });
   });
 
   it('reads back only the rounds it judged for an asker', async () => {
-    const { judgments } = await judging(() => Promise.resolve(SESSION_WAITING));
+    const { judgments } = await judging(async () => SESSION_WAITING);
     const session = { workspaceId: 'workspace_1', purpose: 'insights.judge' };
 
     expect(judgments.roundOf({ ...session, key: 'mine' })).toEqual(ROUND);
@@ -266,39 +255,31 @@ describe('ChangeJudgments', () => {
   });
 
   it('answers waiting while the judging session runs, so the job waits', async () => {
-    const { answered } = await judging(() => Promise.resolve(SESSION_WAITING));
+    const { answered } = await judging(async () => SESSION_WAITING);
 
     expect(answered).toEqual(SESSION_WAITING);
   });
 
   it('says the judge is unavailable when there is no harness to judge on', async () => {
-    const { judgment } = await judging(() =>
-      Promise.resolve({
-        status: 'failed',
-        failure: 'unavailable',
-      }),
-    );
+    const { judgment } = await judging(async () => ({
+      status: 'failed',
+      failure: 'unavailable',
+    }));
 
     expect(judgment).toMatchObject({ judged: false, failure: 'unavailable' });
   });
 
   it('says why a judgment failed', async () => {
-    const failed = await judging(() =>
-      Promise.resolve({
-        status: 'failed',
-        failure: 'request-failed',
-      }),
-    );
-    const unreadable = await judging(() =>
-      Promise.resolve({
-        status: 'failed',
-        failure: 'unreadable',
-      }),
-    );
-    const ungrounded = await judging(() =>
-      Promise.resolve(
-        oneClaim(true, [{ text: 'It drains.', steps: [9], hunks: [] }]),
-      ),
+    const failed = await judging(async () => ({
+      status: 'failed',
+      failure: 'request-failed',
+    }));
+    const unreadable = await judging(async () => ({
+      status: 'failed',
+      failure: 'unreadable',
+    }));
+    const ungrounded = await judging(async () =>
+      oneClaim(true, [{ text: 'It drains.', steps: [9], hunks: [] }]),
     );
 
     expect(failed.judgment).toMatchObject({

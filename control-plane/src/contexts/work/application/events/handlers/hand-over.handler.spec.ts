@@ -1,6 +1,7 @@
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -161,38 +162,36 @@ let saved: Task | undefined;
 const tasks = (found: Task | null = task()) =>
   ({
     add: vi.fn(),
-    save: vi.fn((each: Task) => {
+    save: vi.fn(async (each: Task) => {
       saved = each;
-
-      return Promise.resolve();
     }),
-    find: vi.fn(() => Promise.resolve(found)),
+    find: vi.fn(async () => found),
     remove: vi.fn(),
-    placementsAt: vi.fn(() => Promise.resolve([])),
-    findByCorrelation: vi.fn(() => Promise.resolve([])),
-    owningPullRequest: vi.fn(() => Promise.resolve(null)),
-    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-    holdingMark: vi.fn(() => Promise.resolve([])),
-    settingUpFor: vi.fn(() => Promise.resolve(null)),
-    settingUpIn: vi.fn(() => Promise.resolve([])),
-    settingUp: vi.fn(() => Promise.resolve([])),
-    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-    awaitingConnection: vi.fn(() => Promise.resolve([])),
-    startingFrom: vi.fn(() => Promise.resolve([])),
-    onBranch: vi.fn(() => Promise.resolve(null)),
+    placementsAt: vi.fn(async () => []),
+    findByCorrelation: vi.fn(async () => []),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
+    holdingMark: vi.fn(async () => []),
+    settingUpFor: vi.fn(async () => null),
+    settingUpIn: vi.fn(async () => []),
+    settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
+    awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>
   ({
-    find: vi.fn(() => Promise.resolve(line())),
-    findByStation: vi.fn(() => Promise.resolve(line())),
-    ofWorkspace: vi.fn(() => Promise.resolve([])),
-    ofTeam: vi.fn(() => Promise.resolve([])),
+    find: vi.fn(async () => line()),
+    findByStation: vi.fn(async () => line()),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
     candidate: vi.fn(),
   }) satisfies LineMapsPort;
 
 const dispatch: TaskDispatching = {
-  runIdFor: () => Promise.resolve(RunId.of('run_2')),
+  runIdFor: async () => RunId.of('run_2'),
 };
 
 const handOver = async (
@@ -206,7 +205,7 @@ const handOver = async (
     lines(),
     routing,
     partial<RunJournalReaderPort>({
-      attemptsOfRun: () => Promise.resolve([]),
+      attemptsOfRun: async () => [],
     }),
     runJournalReadings({ lastWordsIn: () => lastWords }),
   );
@@ -227,7 +226,7 @@ const routedAsItsTurn = async (
   const taskId = WorkRequesters.taskOf(ended.requester);
   const task = taskId ? await stored.find(taskId) : null;
 
-  if (task?.hasCurrentRun(runId) !== true) {
+  if (!task?.hasCurrentRun(runId)) {
     return;
   }
 
@@ -244,9 +243,7 @@ const routedAsItsTurn = async (
     ? task.recordSession(
         runId,
         session,
-        ended.claimedBy !== null && ended.claimedBy !== ''
-          ? RunnerId.of(ended.claimedBy)
-          : null,
+        nonEmpty(ended.claimedBy) ? RunnerId.of(ended.claimedBy) : null,
       )
     : task;
 

@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class MemoryId {
-  private readonly kind: string = 'memory';
+  private readonly kind = 'memory';
 
   private constructor(readonly value: string) {}
 
@@ -13,7 +13,7 @@ export class MemoryId {
   }
 
   equals(other: MemoryId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MemoryId && this.value === other.value;
   }
 
   toString(): string {

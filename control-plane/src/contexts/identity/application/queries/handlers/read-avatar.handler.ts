@@ -30,7 +30,7 @@ export class ReadAvatarHandler implements QueryHandlerPort<
         : null;
       const avatar = owned ? await this.avatars.find(owned.owner) : null;
 
-      return digest && avatar?.shows(digest) === true
+      return digest && avatar?.shows(digest)
         ? await this.images.read(avatar.owner, avatar.image)
         : null;
     } catch (error) {

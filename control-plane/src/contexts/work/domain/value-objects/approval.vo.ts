@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -203,7 +204,7 @@ export class Approval {
 
     if (!('call' in edited)) {
       throw new InvalidApprovalAnswerError(
-        edited.problem !== null && edited.problem !== ''
+        nonEmpty(edited.problem)
           ? `The edited request cannot run. Problem: ${edited.problem}`
           : `Edits must fill every input of the call with a value of its kind. Inputs of the call: ${asked.writtenInputs.map((each) => each.name).join(', ') || 'none'}`,
       );

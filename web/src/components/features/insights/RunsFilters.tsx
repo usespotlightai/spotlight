@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { Pill } from '@/components/shared/Pill';
@@ -34,7 +33,7 @@ export function RunsFilters({
   lines,
   people,
   onChange,
-}: RunsFiltersProps): ReactElement {
+}: RunsFiltersProps) {
   const change = (key: RunFilterKey, value: string | null) =>
     onChange({ ...filter, [key]: value ?? undefined });
 

@@ -1,14 +1,9 @@
 import { Info } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
 
-export function InfoTooltip({
-  tooltip,
-}: {
-  tooltip: TooltipText;
-}): ReactElement {
+export function InfoTooltip({ tooltip }: { tooltip: TooltipText }) {
   return (
     <WithTooltip tooltip={tooltip}>
       <span className="relative inline-flex text-muted-foreground hover:text-foreground pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5">

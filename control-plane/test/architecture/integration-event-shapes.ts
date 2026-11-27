@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import { parsedAs } from '../support/body';
@@ -41,7 +42,7 @@ export const integrationEventShapes = (): Record<string, string> =>
         file.tree.statements.flatMap((statement) => {
           const name = nameOf(statement);
 
-          return name !== null && name !== ''
+          return nonEmpty(name)
             ? [
                 [
                   `${file.path.slice(INTEGRATION_EVENTS.length)}:${name}`,

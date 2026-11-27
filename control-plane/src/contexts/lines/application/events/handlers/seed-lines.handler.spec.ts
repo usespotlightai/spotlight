@@ -28,8 +28,8 @@ const seeding = (existing: Line[] = []) => {
   const seeded: Line[] = [...existing];
   const seeder = new SeedLines(
     partial<LineRepository>({
-      add: vi.fn((line: Line) => Promise.resolve(void seeded.push(line))),
-      ofTeam: vi.fn(() => Promise.resolve([...seeded])),
+      add: vi.fn(async (line: Line) => void seeded.push(line)),
+      ofTeam: vi.fn(async () => [...seeded]),
     }),
     ids(),
     HarnessId.of('claude-code'),

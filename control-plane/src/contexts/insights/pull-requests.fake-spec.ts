@@ -79,34 +79,28 @@ const keyOf = (workspaceId: WorkspaceId, pullRequest: PullRequestUrl) =>
 export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
   readonly stored = new Map<string, PullRequestRecord>();
 
-  at(
+  async at(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<PullRequestRecord | null> {
-    return Promise.resolve(
-      this.stored.get(keyOf(workspaceId, pullRequest)) ?? null,
+    return this.stored.get(keyOf(workspaceId, pullRequest)) ?? null;
+  }
+
+  async ownedBy(
+    taskIds: readonly TaskId[],
+  ): Promise<readonly PullRequestRecord[]> {
+    return [...this.stored.values()].filter((each) =>
+      taskIds.some((taskId) => each.owner?.taskId.equals(taskId) === true),
     );
   }
 
-  ownedBy(taskIds: readonly TaskId[]): Promise<readonly PullRequestRecord[]> {
-    return Promise.resolve(
-      [...this.stored.values()].filter((each) =>
-        taskIds.some((taskId) => each.owner?.taskId.equals(taskId) === true),
-      ),
-    );
-  }
-
-  add(record: PullRequestRecord): Promise<void> {
+  async add(record: PullRequestRecord): Promise<void> {
     const key = keyOf(record.workspaceId, record.pullRequest);
 
     if (this.stored.has(key)) {
-      return Promise.reject(
-        new PullRequestRecordVersionConflictError(record.pullRequest.value),
-      );
+      throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
     this.stored.set(key, record);
-
-    return Promise.resolve();
   }
 
   async save(record: PullRequestRecord): Promise<void> {
@@ -126,81 +120,69 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
     );
   }
 
-  private removed(record: PullRequestRecord): Promise<void> {
+  private async removed(record: PullRequestRecord): Promise<void> {
     const key = keyOf(record.workspaceId, record.pullRequest);
 
     if (this.stored.get(key)?.version !== record.version) {
-      return Promise.reject(
-        new PullRequestRecordVersionConflictError(record.pullRequest.value),
-      );
+      throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
     this.stored.delete(key);
-
-    return Promise.resolve();
   }
 
-  ofScope(
+  async ofScope(
     scope: DeletionScope,
     max: number,
   ): Promise<readonly PullRequestRecord[]> {
-    return Promise.resolve(
-      [...this.stored.values()]
-        .filter(
-          (each) =>
-            each.workspaceId.equals(scope.workspaceId) &&
-            (scope.kind === 'workspace' ||
-              (scope.kind === 'team' &&
-                ((each.owner?.teamId.equals(scope.teamId) ?? false) ||
-                  each.reviewTasks.some((task) =>
-                    task.teamId.equals(scope.teamId),
-                  ))) ||
-              (scope.kind === 'task' &&
-                ((each.owner?.taskId.equals(scope.taskId) ?? false) ||
-                  each.reviewTasks.some((task) =>
-                    task.taskId.equals(scope.taskId),
-                  )))),
-        )
-        .slice(0, max),
-    );
+    return [...this.stored.values()]
+      .filter(
+        (each) =>
+          each.workspaceId.equals(scope.workspaceId) &&
+          (scope.kind === 'workspace' ||
+            (scope.kind === 'team' &&
+              ((each.owner?.teamId.equals(scope.teamId) ?? false) ||
+                each.reviewTasks.some((task) =>
+                  task.teamId.equals(scope.teamId),
+                ))) ||
+            (scope.kind === 'task' &&
+              ((each.owner?.taskId.equals(scope.taskId) ?? false) ||
+                each.reviewTasks.some((task) =>
+                  task.taskId.equals(scope.taskId),
+                )))),
+      )
+      .slice(0, max);
   }
 
-  tombstonesBefore(
+  async tombstonesBefore(
     before: Date,
     max: number,
   ): Promise<readonly PullRequestRecord[]> {
-    return Promise.resolve(
-      [...this.stored.values()]
-        .filter((each) => each.tombstoneExpiredBefore(before))
-        .slice(0, max),
-    );
+    return [...this.stored.values()]
+      .filter((each) => each.tombstoneExpiredBefore(before))
+      .slice(0, max);
   }
 }
 
 export class TaskChangeShapesInMemory implements TaskChangeShapeRepository {
   readonly stored = new Map<string, TaskChangeShape>();
 
-  forTask(taskId: TaskId): Promise<TaskChangeShape | null> {
-    return Promise.resolve(this.stored.get(taskId.value) ?? null);
+  async forTask(taskId: TaskId): Promise<TaskChangeShape | null> {
+    return this.stored.get(taskId.value) ?? null;
   }
 
-  forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskChangeShape[]> {
-    return Promise.resolve(
-      taskIds.flatMap((each) => {
-        const existing = this.stored.get(each.value);
-        return existing ? [existing] : [];
-      }),
-    );
+  async forTasks(
+    taskIds: readonly TaskId[],
+  ): Promise<readonly TaskChangeShape[]> {
+    return taskIds.flatMap((each) => {
+      const existing = this.stored.get(each.value);
+      return existing ? [existing] : [];
+    });
   }
 
-  add(shape: TaskChangeShape): Promise<void> {
+  async add(shape: TaskChangeShape): Promise<void> {
     if (this.stored.has(shape.taskId.value)) {
-      return Promise.reject(
-        new TaskChangeShapeVersionConflictError(shape.taskId.value),
-      );
+      throw new TaskChangeShapeVersionConflictError(shape.taskId.value);
     }
     this.stored.set(shape.taskId.value, shape);
-
-    return Promise.resolve();
   }
 
   async save(shape: TaskChangeShape): Promise<void> {
@@ -219,32 +201,28 @@ export class TaskChangeShapesInMemory implements TaskChangeShapeRepository {
     );
   }
 
-  ofScope(
+  async ofScope(
     scope: DeletionScope,
     max: number,
   ): Promise<readonly TaskChangeShape[]> {
-    return Promise.resolve(
-      inScope(
-        this.stored,
-        scope,
-        (each) => ({
-          workspaceId: each.workspaceId,
-          teamId: each.teamId,
-          taskId: each.taskId,
-        }),
-        max,
-      ),
+    return inScope(
+      this.stored,
+      scope,
+      (each) => ({
+        workspaceId: each.workspaceId,
+        teamId: each.teamId,
+        taskId: each.taskId,
+      }),
+      max,
     );
   }
 
-  private removed(removed: TaskChangeShape): Promise<void> {
+  private async removed(removed: TaskChangeShape): Promise<void> {
     removeVersioned(
       this.stored,
       removed.taskId.value,
       removed,
       () => new TaskChangeShapeVersionConflictError(removed.taskId.value),
     );
-
-    return Promise.resolve();
   }
 }

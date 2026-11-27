@@ -37,8 +37,8 @@ const profile = (
 
 const setUp = (awaiting: readonly string[]) => {
   const awaitingValueIn = vi.fn(
-    (_workspace: WorkspaceId, names: readonly SecretName[]) =>
-      Promise.resolve(names.filter((each) => awaiting.includes(each.value))),
+    async (_workspace: WorkspaceId, names: readonly SecretName[]) =>
+      names.filter((each) => awaiting.includes(each.value)),
   );
   const views = new HarnessProfileViews(
     { find: vi.fn(), inWorkspace: vi.fn() } satisfies TeamDirectoryPort,

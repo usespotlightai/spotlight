@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
@@ -74,7 +74,7 @@ export function SkillRows({
   max,
   names,
   collapsibles,
-}: SkillRowsProps): ReactElement {
+}: SkillRowsProps) {
   const open = collapsibles.isOpen(skill.key);
   const navigate = useNavigate();
   const [params] = useSearchParams();

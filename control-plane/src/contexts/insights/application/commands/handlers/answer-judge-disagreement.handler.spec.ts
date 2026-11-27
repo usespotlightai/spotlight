@@ -42,12 +42,10 @@ const disagreeing = async (
   );
   const access = new InsightsAccess({
     ...NOBODY_ELSE,
-    viewerOf: (_teamId, principal) =>
-      Promise.resolve(
-        principal.userId.equals(UserId.of('user_stranger'))
-          ? null
-          : { workspaceId: WORKSPACE, by: principal.userId },
-      ),
+    viewerOf: async (_teamId, principal) =>
+      principal.userId.equals(UserId.of('user_stranger'))
+        ? null
+        : { workspaceId: WORKSPACE, by: principal.userId },
   });
   const onTeam = new TeamJudgeDisagreements(access, disagreements);
   const clock = {

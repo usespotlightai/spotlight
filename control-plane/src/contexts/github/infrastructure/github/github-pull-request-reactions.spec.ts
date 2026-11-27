@@ -21,7 +21,7 @@ const reacting = (
   answer: (request: SentRequest) => { status: number; body?: unknown },
 ) => {
   const requests: SentRequest[] = [];
-  const fetch = (url: string, init: RequestInit = {}) => {
+  const fetch = async (url: string, init: RequestInit = {}) => {
     const request = {
       url,
       method: init.method ?? 'GET',
@@ -33,17 +33,14 @@ const reacting = (
     requests.push(request);
     const { status, body } = answer(request);
 
-    return Promise.resolve(
-      new Response(body === undefined ? null : JSON.stringify(body), {
-        status,
-      }),
-    );
+    return new Response(body === undefined ? null : JSON.stringify(body), {
+      status,
+    });
   };
 
   const reactions = new GitHubPullRequestReactions(
     {
-      credential: () =>
-        Promise.resolve({ username: 'x-access-token', password: 'app' }),
+      credential: async () => ({ username: 'x-access-token', password: 'app' }),
     },
     fetch,
   );

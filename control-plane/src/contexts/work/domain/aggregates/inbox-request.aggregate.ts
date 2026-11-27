@@ -224,7 +224,7 @@ export class InboxRequest extends EventRecorder {
       return visibility.askedOf.equals(visibility.viewer) ? 'assignee' : null;
     }
 
-    if (visibility.assignee?.equals(visibility.viewer) === true) {
+    if (visibility.assignee?.equals(visibility.viewer)) {
       return 'assignee';
     }
 

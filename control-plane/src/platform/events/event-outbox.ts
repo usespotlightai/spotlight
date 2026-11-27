@@ -32,6 +32,7 @@ import {
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const EVENTS_METRIC = 'spotlight.events';
 
@@ -143,7 +144,7 @@ export class EventOutbox implements DomainEventDispatcher {
       subscribers: hearing.length,
     });
 
-    if (id === null || id === '') {
+    if (!nonEmpty(id)) {
       return;
     }
 

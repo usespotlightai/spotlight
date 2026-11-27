@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
 import { MovedOnFooter } from '@/components/features/runs/MovedOnFooter';
 import {
@@ -28,7 +26,7 @@ export function RunFooter({
   latest,
   conversation,
   onSent,
-}: RunFooterProps): ReactElement {
+}: RunFooterProps) {
   const { station: current, task } = useTaskStation(
     teamId,
     conversation?.taskId,

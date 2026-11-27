@@ -51,8 +51,8 @@ const oauth2 = (): OAuth2Endpoints => {
 };
 
 const replying = (body: unknown, status = 200) =>
-  vi.fn<typeof globalThis.fetch>(() =>
-    Promise.resolve(new Response(JSON.stringify(body), { status })),
+  vi.fn<typeof globalThis.fetch>(
+    async () => new Response(JSON.stringify(body), { status }),
   );
 
 const clock = partial<ClockPort>({ now: () => NOW });
@@ -251,13 +251,12 @@ describe('OAuth2Exchange', () => {
   });
 
   it('never follows a redirect from the token endpoint, and stores nothing from it', async () => {
-    const fetch = vi.fn<typeof globalThis.fetch>(() =>
-      Promise.resolve(
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
         new Response(null, {
           status: 307,
           headers: { location: 'https://elsewhere.example/token' },
         }),
-      ),
     );
     const exchange = new OAuth2Exchange(
       allowingOutbound(['slack.com']),

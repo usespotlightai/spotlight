@@ -1,10 +1,8 @@
-import type { ReactElement } from 'react';
-
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { ContinueWithGitHub } from '@/components/shell/auth/ContinueWithGitHub';
 import { useSignIn } from '@/hooks/api/useSignIn';
 
-export function Login(): ReactElement {
+export function Login() {
   const signIn = useSignIn();
 
   return (

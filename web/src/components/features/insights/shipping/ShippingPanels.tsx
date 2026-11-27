@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
@@ -20,9 +18,7 @@ type ShippingPanelsProps = {
   shipping: InsightsShipping;
 };
 
-export function ShippingPanels({
-  shipping,
-}: ShippingPanelsProps): ReactElement {
+export function ShippingPanels({ shipping }: ShippingPanelsProps) {
   return (
     <>
       <InsightsSection title="What the agents ship">

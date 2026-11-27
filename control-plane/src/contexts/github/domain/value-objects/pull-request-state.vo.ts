@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const PULL_REQUEST_STATES = ['open', 'merged', 'closed'] as const;
 
 export type PullRequestState = (typeof PULL_REQUEST_STATES)[number];
@@ -18,10 +19,7 @@ export interface ReportedPullRequestState {
 export const pullRequestStateOf = (
   reported: ReportedPullRequestState,
 ): PullRequestState => {
-  if (
-    reported.merged ||
-    (reported.mergedAt !== null && reported.mergedAt !== '')
-  ) {
+  if (reported.merged || nonEmpty(reported.mergedAt)) {
     return 'merged';
   }
 

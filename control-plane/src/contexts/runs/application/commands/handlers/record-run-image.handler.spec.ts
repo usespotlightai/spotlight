@@ -35,30 +35,28 @@ const claimed = () =>
 
 const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
   const save = vi.fn<(run: Run) => Promise<void>>(async () => {});
-  const seen = vi.fn(() =>
-    Promise.resolve(
-      options.known === false
-        ? null
-        : {
-            workspaceId: WorkspaceId.of('ws_1'),
-            harnesses: [HarnessId.of('claude-code')],
-            offer: RunnerOffer.none(),
-            claims: 'reserved' as const,
-            source: null,
-          },
-    ),
+  const seen = vi.fn(async () =>
+    options.known === false
+      ? null
+      : {
+          workspaceId: WorkspaceId.of('ws_1'),
+          harnesses: [HarnessId.of('claude-code')],
+          offer: RunnerOffer.none(),
+          claims: 'reserved' as const,
+          source: null,
+        },
   );
 
   const handler = new RecordRunImageHandler(
     partial<RunRepository>({
-      findById: vi.fn(() =>
-        Promise.resolve(options.run === undefined ? claimed() : options.run),
+      findById: vi.fn(async () =>
+        options.run === undefined ? claimed() : options.run,
       ),
       save,
     }),
     {
       claimantOf: seen,
-      registeredClaimantOf: () => Promise.resolve(null),
+      registeredClaimantOf: async () => null,
     } satisfies RunnerClaimantsPort,
     partial<ClockPort>({ now: () => NOW }),
   );

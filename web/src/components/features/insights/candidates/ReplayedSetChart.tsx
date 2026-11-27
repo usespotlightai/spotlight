@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ReplayedScatter } from '@/components/features/insights/candidates/ReplayedScatter';
 import { type CandidatesSet, replayedPoints } from '@/lib/insights-candidates';
 import { nonEmpty } from '@/lib/non-empty';
@@ -8,7 +6,7 @@ type ReplayedSetChartProps = {
   set: CandidatesSet;
 };
 
-export function ReplayedSetChart({ set }: ReplayedSetChartProps): ReactElement {
+export function ReplayedSetChart({ set }: ReplayedSetChartProps) {
   const currency = set.chartCurrency;
   const points = replayedPoints(set);
 

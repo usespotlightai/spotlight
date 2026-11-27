@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useLocation, useParams } from 'react-router';
 
 import { SettingsEmpty } from '@/components/features/settings/SettingsEmpty';
@@ -13,7 +12,7 @@ import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { pointedSkill } from '@/lib/skills';
 
-export function TeamSkills(): ReactElement | null {
+export function TeamSkills() {
   const { teamId } = useParams();
   const skills = useTeamSkills(teamId);
   const { hash } = useLocation();

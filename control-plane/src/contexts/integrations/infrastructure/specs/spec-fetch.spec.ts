@@ -29,14 +29,14 @@ const injection = (over: Partial<SpecInjection> = {}): SpecInjection => ({
 });
 
 const answering = (...replies: Response[]) => {
-  const fetch = vi.fn<typeof globalThis.fetch>(() => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => {
     const reply = replies.shift();
 
     if (!reply) {
-      return Promise.reject(new Error('called once too often'));
+      throw new Error('called once too often');
     }
 
-    return Promise.resolve(reply);
+    return reply;
   });
 
   return {
@@ -175,15 +175,16 @@ describe('SpecFetch', () => {
   });
 
   it('says it could not reach a host that refused the connection', async () => {
-    const fetching = new SpecFetch(allowingOutbound(['specs.example']), () => {
-      return Promise.reject(
-        Object.assign(new TypeError('fetch failed'), {
+    const fetching = new SpecFetch(
+      allowingOutbound(['specs.example']),
+      async () => {
+        throw Object.assign(new TypeError('fetch failed'), {
           cause: Object.assign(new Error('connect ECONNREFUSED'), {
             code: 'ECONNREFUSED',
           }),
-        }),
-      );
-    });
+        });
+      },
+    );
 
     await expect(fetching.text(GET, injection())).rejects.toThrow(
       'could not be read: specs.example: ECONNREFUSED',

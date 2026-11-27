@@ -25,9 +25,9 @@ describe('CommitPullRequests', () => {
     };
 
     await expect(
-      answering((workspaceId, repository, sha) => {
+      answering(async (workspaceId, repository, sha) => {
         asked.push(`${workspaceId.value} ${repository.value}@${sha}`);
-        return Promise.resolve([found]);
+        return [found];
       }).of(WorkspaceId.of('ws_1'), COMMIT),
     ).resolves.toEqual([found]);
     expect(asked).toEqual([`ws_1 acme/config@${SHA}`]);
@@ -41,7 +41,9 @@ describe('CommitPullRequests', () => {
     ],
   ])('finds none when %s', async (_why, error) => {
     await expect(
-      answering(() => Promise.reject(error)).of(WorkspaceId.of('ws_1'), COMMIT),
+      answering(async () => {
+        throw error;
+      }).of(WorkspaceId.of('ws_1'), COMMIT),
     ).resolves.toEqual([]);
   });
 
@@ -54,10 +56,9 @@ describe('CommitPullRequests', () => {
     );
 
     await expect(
-      answering(() => Promise.reject(failing)).of(
-        WorkspaceId.of('ws_1'),
-        COMMIT,
-      ),
+      answering(async () => {
+        throw failing;
+      }).of(WorkspaceId.of('ws_1'), COMMIT),
     ).rejects.toBe(failing);
   });
 });

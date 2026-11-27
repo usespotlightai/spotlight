@@ -13,7 +13,7 @@ const MAX_CLAIMS = 16;
 const OWNER_END = '/';
 
 export class WorkloadRule {
-  private readonly kind: string = 'workload-rule';
+  private readonly kind = 'workload-rule';
 
   private constructor(
     readonly issuer: OidcIssuer,
@@ -94,7 +94,7 @@ export class WorkloadRule {
 
   equals(other: WorkloadRule): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof WorkloadRule &&
       this.issuer.equals(other.issuer) &&
       this.audience.equals(other.audience) &&
       this.subject.equals(other.subject) &&

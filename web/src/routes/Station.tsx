@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { StationBody } from '@/components/features/stations/StationBody';
@@ -19,7 +18,7 @@ import { failed, loading } from '@/lib/query';
 import { DEFAULT_STATION_TAB, stationTab } from '@/lib/station';
 import { TrailContext, useTrail } from '@/lib/trail';
 
-export function Station(): ReactElement {
+export function Station() {
   const { slug, teamId, lineId, stationId, tab: shown } = useParams();
   const tab = stationTab(shown);
   const { lines, line, station } = useStation(teamId, lineId, stationId);

@@ -162,14 +162,12 @@ export const validSettings = (
     ? (saved.harness ?? fallbackHarness)
     : fallbackHarness;
   const offered = harnesses.find((each) => each.id === harness);
-  const model =
-    offered?.models.some((each) => each.id === saved.model) === true
-      ? (saved.model ?? '')
-      : '';
-  const effort =
-    offered?.efforts.includes(saved.effort ?? '') === true
-      ? (saved.effort ?? '')
-      : '';
+  const model = offered?.models.some((each) => each.id === saved.model)
+    ? (saved.model ?? '')
+    : '';
+  const effort = offered?.efforts.includes(saved.effort ?? '')
+    ? (saved.effort ?? '')
+    : '';
 
   return { harness, model, effort };
 };

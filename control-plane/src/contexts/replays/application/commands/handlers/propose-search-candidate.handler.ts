@@ -30,6 +30,7 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const textOf = (raw: unknown): string => (typeof raw === 'string' ? raw : '');
@@ -90,13 +91,7 @@ export class ProposeSearchCandidateHandler implements CommandHandlerPort<
         command.station,
       );
 
-      if (
-        !station ||
-        teamKey === null ||
-        teamKey === '' ||
-        !seed ||
-        !validated
-      ) {
+      if (!station || !nonEmpty(teamKey) || !seed || !validated) {
         throw new UnknownStationError(stationId.value);
       }
 

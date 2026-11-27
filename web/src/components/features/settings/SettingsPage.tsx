@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { PageTitle } from '@/components/shared/PageTitle';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,7 +14,7 @@ export function SettingsPage({
   title,
   description,
   children,
-}: SettingsPageProps): ReactElement {
+}: SettingsPageProps) {
   useTabTitle(title);
 
   return (

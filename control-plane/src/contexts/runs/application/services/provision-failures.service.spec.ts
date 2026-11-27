@@ -44,18 +44,20 @@ const failing = (stored: Run, conflicts = 0) => {
   let current = stored;
   let clashes = conflicts;
   const written: number[] = [];
-  const append = vi.fn((_: RunAttempt, entry: { type: string; at: Date }) => {
-    const seq = JournalSeq.firstControlPlane - written.length;
-    written.push(seq);
-    return Promise.resolve({ seq, type: entry.type, at: entry.at });
-  });
+  const append = vi.fn(
+    async (_: RunAttempt, entry: { type: string; at: Date }) => {
+      const seq = JournalSeq.firstControlPlane - written.length;
+      written.push(seq);
+      return { seq, type: entry.type, at: entry.at };
+    },
+  );
   const publish = vi.fn();
   const marks = new ProvisionFailureMarks(
     partial<RunJournalPort>({ appendControlPlaneEntry: append }),
     partial<RunStreamPort>({ publish }),
   );
   const runs = {
-    findById: vi.fn(() => Promise.resolve(current)),
+    findById: vi.fn(async () => current),
     save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;

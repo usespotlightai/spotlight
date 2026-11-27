@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   deferralIn,
   deferralWaitingIn,
@@ -7,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const message = (to: string | null) => ({
   kind: 'message' as const,
   approval: null,
-  deferredMove: to !== null && to !== '' ? { to } : null,
+  deferredMove: nonEmpty(to) ? { to } : null,
 });
 const passed = { kind: 'passed' as const, approval: null, deferredMove: null };
 const asked = { kind: 'asked' as const, approval: null, deferredMove: null };

@@ -39,7 +39,7 @@ const setUp = (managesSecrets = true) => {
   const creates = new InMemoryCreates();
   const as = { managesSecrets };
   const access = accessFor(() => as.managesSecrets);
-  const clock = { now: () => NOW, sleep: () => Promise.resolve() };
+  const clock = { now: () => NOW, sleep: async () => {} };
   const definitions = new SecretDefinitions();
 
   const creating = new CreateSecretHandler(
@@ -55,16 +55,14 @@ const setUp = (managesSecrets = true) => {
   const steps: string[] = [];
   const usesPort = {
     register: () => undefined,
-    of: () => {
+    of: async () => {
       steps.push('read uses');
-      return Promise.resolve(uses);
+      return uses;
     },
   };
   const locks = {
-    lock: (workspaceId: WorkspaceId) => {
+    lock: async (workspaceId: WorkspaceId) => {
       steps.push(`locked ${workspaceId.value}`);
-
-      return Promise.resolve();
     },
   };
   const updating = new UpdateSecretHandler(

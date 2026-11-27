@@ -27,6 +27,7 @@ import type {
 import { inThread } from '@platform/threads/in-thread';
 import { ThreadSlots } from '@platform/threads/thread-slots';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { getIntrospectionQuery } from 'graphql';
 
 const WORKER = join(__dirname, `spec.worker${extname(__filename)}`);
@@ -36,7 +37,7 @@ const SLOTS = new ThreadSlots(2);
 const TOO_SLOW = `took longer than ${READ_WITHIN_MS / 1000} seconds to make sense of`;
 
 const hostOf = (url: string | null): string | null =>
-  url !== null && url !== '' ? new URL(url).host.toLowerCase() : null;
+  nonEmpty(url) ? new URL(url).host.toLowerCase() : null;
 
 export class ThreadedSpecReader implements SpecReaderPort {
   constructor(private readonly fetching: SpecFetch) {}

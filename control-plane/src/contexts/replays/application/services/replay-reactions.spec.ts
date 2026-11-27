@@ -331,8 +331,8 @@ describe('DispatchReplayRuns when Work fails', () => {
 
   it('requests Work to cancel a run reserved for a replay stopped before it was queued, freeing its slot only once Work says it never was', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
-    suppliers.dispatch.dispatch = () => {
-      return Promise.reject(new Error('down'));
+    suppliers.dispatch.dispatch = async () => {
+      throw new Error('down');
     };
     await dispatching().processDue();
     const replay = memory.replays.get('replay_1');
@@ -357,8 +357,8 @@ describe('DispatchReplayRuns when Work fails', () => {
 
   it(`gives up on a run Work failed to queue ${MAX_QUEUE_ATTEMPTS} times only once Work says it never queued it, and keeps one it queued`, async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
-    suppliers.dispatch.dispatch = () => {
-      return Promise.reject(new Error('down'));
+    suppliers.dispatch.dispatch = async () => {
+      throw new Error('down');
     };
 
     for (let turn = 0; turn < MAX_QUEUE_ATTEMPTS; turn += 1) {
@@ -443,16 +443,14 @@ describe('RecordLineChange', () => {
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
 
     let calls = 0;
-    suppliers.lines.station = (lineId, stationId) => {
+    suppliers.lines.station = async (lineId, stationId) => {
       calls += 1;
-      return Promise.resolve(
-        calls === 1 ? null : { ...STATION_VIEW, lineId, stationId },
-      );
+      return calls === 1 ? null : { ...STATION_VIEW, lineId, stationId };
     };
     await lineChanges.stationsLeft(LineId.of('line_1'));
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
 
-    suppliers.lines.station = () => Promise.resolve(null);
+    suppliers.lines.station = async () => null;
     await lineChanges.stationsLeft(LineId.of('line_1'));
     await lineChanges.stationsLeft(LineId.of('line_1'));
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(true);
@@ -568,17 +566,16 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
     const run = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
     const repository = memory.replayRepository;
     let saves = 0;
-    repository.save = (replay) => {
+    repository.save = async (replay) => {
       saves += 1;
-      return Promise.reject(new ReplayVersionConflictError(replay.id.value));
+      throw new ReplayVersionConflictError(replay.id.value);
     };
 
     const pauses: number[] = [];
     const clock = {
       now: CLOCK.now,
-      sleep: (ms: number) => {
+      sleep: async (ms: number) => {
         pauses.push(ms);
-        return Promise.resolve();
       },
     };
 
@@ -601,9 +598,9 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
     const run = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
     const repository = memory.replayRepository;
     let saves = 0;
-    repository.save = () => {
+    repository.save = async () => {
       saves += 1;
-      return Promise.reject(new Error('the database is gone'));
+      throw new Error('the database is gone');
     };
 
     await expect(endingOf(repository).ended(endedOf(run))).rejects.toThrow(
@@ -776,7 +773,7 @@ describe('DeleteReplayRunDecisions', () => {
     await decisions.add(decidedIn('run_1', 'replay_1'));
     await decisions.add(decidedIn('run_2', 'replay_1'));
     const loaded = await decisions.ofReplay(ReplayId.of('replay_1'));
-    decisions.ofReplay = () => Promise.resolve(loaded);
+    decisions.ofReplay = async () => loaded;
     const [gone, changed] = loaded;
     await decisions.save(gone.delete());
     await decisions.save(changed.cancelled());

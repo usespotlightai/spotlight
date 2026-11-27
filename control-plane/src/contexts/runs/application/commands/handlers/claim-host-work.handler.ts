@@ -41,6 +41,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { distinct } from '@shared-kernel/domain/distinct';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -119,15 +120,14 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
 
       const until = this.polls.deadline();
       const { sandbox } = command;
-      const into =
-        sandbox !== null && sandbox !== ''
-          ? await this.polls.polled(
-              () => this.sandboxes.takingRuns(sandbox, command.host),
-              until,
-            )
-          : null;
+      const into = nonEmpty(sandbox)
+        ? await this.polls.polled(
+            () => this.sandboxes.takingRuns(sandbox, command.host),
+            until,
+          )
+        : null;
 
-      if (sandbox !== null && sandbox !== '' && !into) {
+      if (nonEmpty(sandbox) && !into) {
         return { outcome: 'nothing' };
       }
 

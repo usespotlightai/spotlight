@@ -49,25 +49,21 @@ const attaching = (owner = 'requester') => {
     owner,
     asked,
     taken,
-    uploadedBy: (
+    uploadedBy: async (
       run: RunId,
       workspaceId: WorkspaceId,
       ids: readonly string[],
     ) => {
       asked.push([`${run.value}@${workspaceId.value}`, ids]);
-      return Promise.resolve(
-        ids.map((id) => ({
-          id,
-          name: `${id.replace('file_', '')}.png`,
-          contentType: 'image/png',
-          size: 3,
-        })),
-      );
+      return ids.map((id) => ({
+        id,
+        name: `${id.replace('file_', '')}.png`,
+        contentType: 'image/png',
+        size: 3,
+      }));
     },
-    take: (workspaceId: WorkspaceId, files: readonly RunFileFacts[]) =>
-      Promise.resolve(
-        void taken.push([workspaceId.value, files.map((each) => each.id)]),
-      ),
+    take: async (workspaceId: WorkspaceId, files: readonly RunFileFacts[]) =>
+      void taken.push([workspaceId.value, files.map((each) => each.id)]),
   } as RunFileSource & {
     asked: [string, readonly string[]][];
     taken: [string, readonly string[]][];
@@ -80,7 +76,7 @@ const completing = (
 ) =>
   new CompleteRunHandler(
     partial<RunRepository>({
-      findById: () => Promise.resolve(stored.run ? stored.run() : leased()),
+      findById: async () => (stored.run ? stored.run() : leased()),
       save,
     }),
     partial<TransactionPort>({
@@ -123,7 +119,7 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching();
 
-    await completing((run) => Promise.resolve(void saved.push(run)), {
+    await completing(async (run) => void saved.push(run), {
       files,
     }).execute(reviewing);
 
@@ -150,7 +146,7 @@ describe('CompleteRunHandler', () => {
   it('keeps the run’s suggestion to close the task with its turn', async () => {
     const saved: Run[] = [];
 
-    await completing((run) => Promise.resolve(void saved.push(run))).execute(
+    await completing(async (run) => void saved.push(run)).execute(
       new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
         next: 'review',
         note: 'The retry already exists.',
@@ -164,9 +160,7 @@ describe('CompleteRunHandler', () => {
   it('suggests nothing where the run named no suggestion', async () => {
     const saved: Run[] = [];
 
-    await completing((run) => Promise.resolve(void saved.push(run))).execute(
-      reviewing,
-    );
+    await completing(async (run) => void saved.push(run)).execute(reviewing);
 
     expect(saved[0]?.turnAt(FIRST)?.report.handover?.suggest).toBe('');
   });
@@ -185,7 +179,7 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching('replays');
 
-    await completing((run) => Promise.resolve(void saved.push(run)), {
+    await completing(async (run) => void saved.push(run), {
       files,
     }).execute(reviewing);
 
@@ -201,7 +195,7 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching();
 
-    await completing((run) => Promise.resolve(void saved.push(run)), {
+    await completing(async (run) => void saved.push(run), {
       files,
     }).execute(
       new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
@@ -225,7 +219,7 @@ describe('CompleteRunHandler', () => {
       );
 
     await expect(
-      completing((run) => Promise.resolve(void saved.push(run)), {
+      completing(async (run) => void saved.push(run), {
         run: suspended,
       }).execute(reviewing),
     ).rejects.toThrow('Cannot hand over run run_1');
@@ -235,7 +229,7 @@ describe('CompleteRunHandler', () => {
   it('keeps whether the run was stopped on what it ended with', async () => {
     const saved: Run[] = [];
 
-    await completing((run) => Promise.resolve(void saved.push(run))).execute(
+    await completing(async (run) => void saved.push(run)).execute(
       new CompleteRunCommand(
         'run_1',
         'runner_1',
@@ -275,9 +269,7 @@ describe('CompleteRunHandler', () => {
     it('goes back on the queue, as a run whose lease expired does', async () => {
       const saved: Run[] = [];
 
-      await completing((run) => Promise.resolve(void saved.push(run))).execute(
-        timedOut,
-      );
+      await completing(async (run) => void saved.push(run)).execute(timedOut);
 
       expect(saved[0]?.state).toBe('queued');
     });
@@ -285,7 +277,7 @@ describe('CompleteRunHandler', () => {
     it('is exhausted as timed out at its last attempt', async () => {
       const saved: Run[] = [];
 
-      await completing((run) => Promise.resolve(void saved.push(run)), {
+      await completing(async (run) => void saved.push(run), {
         run: lastAttempt,
       }).execute(timedOut);
 
@@ -296,13 +288,12 @@ describe('CompleteRunHandler', () => {
       const saved: Run[] = [];
       let tries = 0;
 
-      await completing((run) => {
+      await completing(async (run) => {
         tries += 1;
         if (tries === 1) {
-          return Promise.reject(new RunVersionConflictError(run.id.value));
+          throw new RunVersionConflictError(run.id.value);
         }
         saved.push(run);
-        return Promise.resolve();
       }).execute(timedOut);
 
       expect(tries).toBe(2);
@@ -312,8 +303,8 @@ describe('CompleteRunHandler', () => {
 
   it('reports a run that changed while it was completing as a conflict', async () => {
     await expect(
-      completing((run) => {
-        return Promise.reject(new RunVersionConflictError(run.id.value));
+      completing(async (run) => {
+        throw new RunVersionConflictError(run.id.value);
       }).execute(new CompleteRunCommand('run_1', 'runner_1', 0, false)),
     ).rejects.toMatchObject({ kind: 'conflict' });
   });

@@ -64,10 +64,8 @@ describe('inviting people to a workspace (e2e)', () => {
   beforeAll(async () => {
     app = await openApp((module) =>
       module.overrideProvider(INVITE_MAIL).useValue({
-        send: (invite: InviteToSend) => {
+        send: async (invite: InviteToSend) => {
           sent.push(invite);
-
-          return Promise.resolve();
         },
       }),
     );

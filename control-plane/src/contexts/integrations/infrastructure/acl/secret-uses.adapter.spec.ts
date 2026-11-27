@@ -35,16 +35,15 @@ actions:
 
 const teams: TeamDirectoryPort = {
   find: vi.fn(),
-  inWorkspace: (workspaceId) =>
-    Promise.resolve([
-      {
-        id: TeamId.of('team_1'),
-        workspaceId,
-        key: 'core',
-        name: 'Core',
-        members: [],
-      },
-    ]),
+  inWorkspace: async (workspaceId) => [
+    {
+      id: TeamId.of('team_1'),
+      workspaceId,
+      key: 'core',
+      name: 'Core',
+      members: [],
+    },
+  ],
 };
 
 describe('IntegrationSecretUses', () => {
@@ -60,7 +59,7 @@ describe('IntegrationSecretUses', () => {
     new IntegrationsUsingSecret(
       teams,
       {
-        ofTeam: () => Promise.resolve([defined(LINEAR), defined(SENTRY)]),
+        ofTeam: async () => [defined(LINEAR), defined(SENTRY)],
         everywhere: vi.fn(),
       },
       runtime,

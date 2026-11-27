@@ -25,6 +25,7 @@ import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo'
 import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -130,11 +131,11 @@ export const aPlatformPool = (
     by: changeActorIn(),
   });
 
-  return input.disabled === true || input.allows !== undefined
+  return input.disabled || input.allows !== undefined
     ? created.configure(
         {
           ...input.allows,
-          ...(input.disabled === true ? { enabled: false } : {}),
+          ...(input.disabled ? { enabled: false } : {}),
         },
         changeActorIn(),
       )
@@ -188,10 +189,7 @@ export const aRunner = (
     id: RunnerId.of(input.id ?? 'pooled_1'),
     through: input.through ?? aPullPool(),
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
-    enters:
-      input.enters !== undefined && input.enters !== ''
-        ? SandboxId.of(input.enters)
-        : null,
+    enters: nonEmpty(input.enters) ? SandboxId.of(input.enters) : null,
     tokenHash: hashOf('b'),
     egressTokenHash: input.host === null ? null : hashOf('e'),
     proxyCredentialHash: input.proxyCredentialHash ?? null,
@@ -264,21 +262,16 @@ interface StoredHosts {
 export const storedHosts = (...known: RunnerHost[]): StoredHosts => {
   const stored = new Map(known.map((host) => [host.id.value, host]));
   const hosts = {
-    find: vi.fn((id: HostId) => Promise.resolve(stored.get(id.value) ?? null)),
-    add: vi.fn((host: RunnerHost) => {
+    find: vi.fn(async (id: HostId) => stored.get(id.value) ?? null),
+    add: vi.fn(async (host: RunnerHost) => {
       if (stored.has(host.id.value)) {
-        return Promise.reject(
-          new RunnerHostVersionConflictError(host.id.value),
-        );
+        throw new RunnerHostVersionConflictError(host.id.value);
       }
       stored.set(host.id.value, host);
-      return Promise.resolve();
     }),
-    save: vi.fn((host: RunnerHost) => {
+    save: vi.fn(async (host: RunnerHost) => {
       if (stored.get(host.id.value)?.version !== host.version) {
-        return Promise.reject(
-          new RunnerHostVersionConflictError(host.id.value),
-        );
+        throw new RunnerHostVersionConflictError(host.id.value);
       }
       stored.set(
         host.id.value,
@@ -295,31 +288,21 @@ export const storedHosts = (...known: RunnerHost[]): StoredHosts => {
           version: host.version + 1,
         }),
       );
-      return Promise.resolve();
     }),
-    remove: vi.fn((host: RunnerHost) => {
+    remove: vi.fn(async (host: RunnerHost) => {
       if (stored.get(host.id.value)?.version !== host.version) {
-        return Promise.reject(
-          new RunnerHostVersionConflictError(host.id.value),
-        );
+        throw new RunnerHostVersionConflictError(host.id.value);
       }
       stored.delete(host.id.value);
-      return Promise.resolve();
     }),
-    silentSince: vi.fn((cutoff: Date) =>
-      Promise.resolve(
-        [...stored.values()].filter((host) => host.lastHeartbeatAt <= cutoff),
-      ),
+    silentSince: vi.fn(async (cutoff: Date) =>
+      [...stored.values()].filter((host) => host.lastHeartbeatAt <= cutoff),
     ),
-    servingThrough: vi.fn((source: CredentialSource) =>
-      Promise.resolve(
-        [...stored.values()].filter((host) => host.hasSource(source)),
-      ),
+    servingThrough: vi.fn(async (source: CredentialSource) =>
+      [...stored.values()].filter((host) => host.hasSource(source)),
     ),
-    inWorkspace: vi.fn((workspaceId: WorkspaceId) =>
-      Promise.resolve(
-        [...stored.values()].filter((host) => host.belongsTo(workspaceId)),
-      ),
+    inWorkspace: vi.fn(async (workspaceId: WorkspaceId) =>
+      [...stored.values()].filter((host) => host.belongsTo(workspaceId)),
     ),
   } satisfies RunnerHostRepository;
 

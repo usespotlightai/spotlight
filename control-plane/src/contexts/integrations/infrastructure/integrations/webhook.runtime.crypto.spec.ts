@@ -46,7 +46,7 @@ const EVENT = `
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
 
-const NO_KEYS: JwksResolver = { keys: () => Promise.resolve(new Map()) };
+const NO_KEYS: JwksResolver = { keys: async () => new Map() };
 
 const runtimeOf = (
   readable: ReadableIntegration,
@@ -62,7 +62,7 @@ const runtimeOf = (
     credentialsFor(),
     unlimited,
     unscoped,
-    () => Promise.resolve(null),
+    async () => null,
   );
 
 describe('verifying an ed25519 signature', () => {
@@ -160,8 +160,7 @@ describe('verifying a JWT against a JWKS', () => {
   });
 
   const jwks: JwksResolver = {
-    keys: () =>
-      Promise.resolve(new Map<string, KeyObject>([['k1', publicKey]])),
+    keys: async () => new Map<string, KeyObject>([['k1', publicKey]]),
   };
 
   const JWT = `

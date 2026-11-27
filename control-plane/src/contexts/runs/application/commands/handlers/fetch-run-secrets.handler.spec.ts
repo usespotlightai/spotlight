@@ -60,24 +60,23 @@ const leasedRun = (
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    ...(over.spotlightApi === true
+    ...(over.spotlightApi
       ? orderedFor.conversing('chat_1')
       : orderedFor.spec()),
-    apiGrant:
-      over.spotlightApi === true
-        ? RunApiGrant.of({
-            actingFor: 'user_1',
-            scopes: ['plan'],
-            lifetimeMs: 60 * 60 * 1_000,
-          })
-        : null,
+    apiGrant: over.spotlightApi
+      ? RunApiGrant.of({
+          actingFor: 'user_1',
+          scopes: ['plan'],
+          lifetimeMs: 60 * 60 * 1_000,
+        })
+      : null,
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
       injectedSecrets: over.injectedSecrets ?? ['LINEAR_API_KEY', 'GONE'],
-      ...(over.spotlightApi === true ? { spotlightApi: true } : {}),
+      ...(over.spotlightApi ? { spotlightApi: true } : {}),
     }),
   }).claim(claimer(RunnerId.of(by), workspace), NOW);
 
@@ -99,53 +98,46 @@ const fetching = (
   const revoked: string[] = [];
   const found = [run, after];
   const egress: RunnerEgressPort = {
-    authenticate: (token) =>
-      Promise.resolve(token === 'egress-token' ? egressFor : null),
-    sharedWith: (token) =>
-      Promise.resolve(
-        token === 'shared-token' ? { egressId: 'egress_1' } : null,
-      ),
-    authorizeRunner: (through, credential) =>
-      Promise.resolve(
-        through.egressId === 'egress_1' && credential === 'proxy-credential'
-          ? shared
-          : null,
-      ),
-    runnerForConnectionRecords: () => Promise.resolve(null),
+    authenticate: async (token) =>
+      token === 'egress-token' ? egressFor : null,
+    sharedWith: async (token) =>
+      token === 'shared-token' ? { egressId: 'egress_1' } : null,
+    authorizeRunner: async (through, credential) =>
+      through.egressId === 'egress_1' && credential === 'proxy-credential'
+        ? shared
+        : null,
+    runnerForConnectionRecords: async () => null,
   };
   const fetches = new EgressSecretFetches(
     partial<RunRepository>({
-      findById: () =>
-        Promise.resolve((found.length > 1 ? found.shift() : found[0]) ?? null),
+      findById: async () =>
+        (found.length > 1 ? found.shift() : found[0]) ?? null,
     }),
     {
-      fetchSecrets: (wanted) => {
+      fetchSecrets: async (wanted) => {
         fetchesMade.push(wanted);
-        return Promise.resolve(FETCHED);
+        return FETCHED;
       },
       sealedFor: (sealed) =>
         `sealed(${sealed.name}=${sealed.value.revealed()})`,
     },
     {
-      leaseLost: (lease) => {
+      leaseLost: async (lease) => {
         lost.push(`${lease.workspaceId}/${lease.runId}#${lease.attempt}`);
-        return Promise.resolve();
       },
-      endedFor: () => Promise.resolve(),
+      endedFor: async () => {},
     },
     { hosts: () => ['storage.example.com'] },
     {
-      issueFor: (wanted) => {
+      issueFor: async (wanted) => {
         issued.push(wanted);
-        return Promise.resolve({ id: 'token_1', token: 'run-token' });
+        return { id: 'token_1', token: 'run-token' };
       },
-      revoke: (workspaceId, tokenId) => {
+      revoke: async (workspaceId, tokenId) => {
         revoked.push(`${workspaceId.value}/${tokenId}`);
-        return Promise.resolve();
       },
-      revokeFor: (workspaceId, runId, attempt) => {
+      revokeFor: async (workspaceId, runId, attempt) => {
         revoked.push(`${workspaceId.value}/${runId.value}#${String(attempt)}`);
-        return Promise.resolve();
       },
     },
     partial<ClockPort>({ now: () => NOW }),

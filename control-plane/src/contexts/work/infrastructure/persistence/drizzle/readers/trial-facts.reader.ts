@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   TaskRunFacts,
   TrialFactsPort,
@@ -41,10 +42,7 @@ export class DrizzleTrialFacts implements TrialFactsPort {
 
     return new Map(
       rows.flatMap((row) =>
-        row.taskId !== null &&
-        row.taskId !== '' &&
-        row.stationId !== null &&
-        row.stationId !== ''
+        nonEmpty(row.taskId) && nonEmpty(row.stationId)
           ? [
               [
                 row.runId,

@@ -51,10 +51,9 @@ const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
     now: over.sentAt ?? new Date('2026-09-12T09:00:00.000Z'),
   });
 
-  const invite =
-    over.revoked === true
-      ? created.revoke(UserId.of('user_leon'), NOW)
-      : created;
+  const invite = over.revoked
+    ? created.revoke(UserId.of('user_leon'), NOW)
+    : created;
 
   invite.pullEvents();
 
@@ -63,17 +62,16 @@ const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
 
 const accepting = (invite: WorkspaceInvite | null = sentInvite()) => {
   const dispatched: DomainEvent[] = [];
-  const save = vi.fn((saved: WorkspaceInvite) => {
+  const save = vi.fn(async (saved: WorkspaceInvite) => {
     dispatched.push(...saved.pullEvents());
-    return Promise.resolve();
   });
 
   const handler = new AcceptInviteHandler(
     partial<WorkspaceInviteRepository>({
-      withToken: () => Promise.resolve(invite),
+      withToken: async () => invite,
       save,
     }),
-    partial<WorkspaceRepository>({ find: () => Promise.resolve(workspace) }),
+    partial<WorkspaceRepository>({ find: async () => workspace }),
     partial<TokenIssuer>({ hash: () => 'a'.repeat(64) }),
     partial<ClockPort>({ now: () => NOW }),
   );
@@ -157,8 +155,8 @@ describe('AcceptInviteHandler', () => {
 
   it('fails with a conflict where the invite was revoked while it was being accepted', async () => {
     const { handler, save, dispatched } = accepting();
-    save.mockImplementationOnce(() => {
-      return Promise.reject(new InviteVersionConflictError('invite_1'));
+    save.mockImplementationOnce(async () => {
+      throw new InviteVersionConflictError('invite_1');
     });
 
     await expect(handler.execute(accept())).rejects.toMatchObject({

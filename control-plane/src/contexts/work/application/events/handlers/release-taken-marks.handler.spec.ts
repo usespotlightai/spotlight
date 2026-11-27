@@ -71,13 +71,11 @@ const releasing = (holders: readonly Task[]) => {
   const stored = new Map(holders.map((each) => [each.id.value, each]));
   const saved: Task[] = [];
   const tasks = partial<TaskRepository>({
-    holdingMark: vi.fn(() => Promise.resolve([...stored.values()])),
-    find: vi.fn((id: TaskId) => Promise.resolve(stored.get(id.value) ?? null)),
-    save: vi.fn((each: Task) => {
+    holdingMark: vi.fn(async () => [...stored.values()]),
+    find: vi.fn(async (id: TaskId) => stored.get(id.value) ?? null),
+    save: vi.fn(async (each: Task) => {
       saved.push(each);
       stored.set(each.id.value, each);
-
-      return Promise.resolve();
     }),
   });
 

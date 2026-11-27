@@ -44,19 +44,18 @@ const noticing = (
   const warn = vi.fn();
   const notices = new MemberNotices(
     partial<WorkspaceRepository>({
-      find: () =>
-        Promise.resolve(over.workspace === undefined ? acme() : over.workspace),
+      find: async () =>
+        over.workspace === undefined ? acme() : over.workspace,
     }),
     partial<MemberLookupPort>({
-      emailsOf: () => Promise.resolve(over.emails ?? ['ada@example.com']),
+      emailsOf: async () => over.emails ?? ['ada@example.com'],
     }),
     partial<PersonReaderPort>({
-      find: (id: UserId) =>
-        Promise.resolve({
-          id,
-          name: 'Leon Liang',
-          image: null,
-        }),
+      find: async (id: UserId) => ({
+        id,
+        name: 'Leon Liang',
+        image: null,
+      }),
     }),
     { send },
     partial<LoggerPort>({ warn }),
@@ -116,8 +115,8 @@ describe('MemberNotices', () => {
 
   it('warns and goes on where the mail fails, so the change stands', async () => {
     const { notices, warn } = noticing({
-      send: () => {
-        return Promise.reject(new Error('smtp down'));
+      send: async () => {
+        throw new Error('smtp down');
       },
     });
 

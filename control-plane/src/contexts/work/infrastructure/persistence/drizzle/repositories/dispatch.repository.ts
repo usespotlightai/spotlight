@@ -6,6 +6,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import {
   isRunFailureCode,
@@ -146,8 +147,7 @@ const toDispatch = (row: Row): Dispatch =>
   Dispatch.rehydrate({
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    teamId:
-      row.teamId !== null && row.teamId !== '' ? TeamId.of(row.teamId) : null,
+    teamId: nonEmpty(row.teamId) ? TeamId.of(row.teamId) : null,
     subject: subjectOf(row),
     order: row.order
       ? DispatchOrder.of({

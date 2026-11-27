@@ -14,6 +14,7 @@ import {
 } from '@change-review/domain/value-objects/session-failure.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 /** The purpose of the sessions that draft and redraft change stacks. */
 export const DRAFTING_PURPOSE = 'change-review.change-stack';
@@ -52,13 +53,13 @@ const draftingRoundOf = (key: string): DraftingRound | null => {
     itemAt(drafting, group),
   );
 
-  if (stack === undefined || stack === '' || attempt === undefined) {
+  if (!nonEmpty(stack) || attempt === undefined) {
     return null;
   }
 
   const stackId = ChangeStackId.of(stack);
 
-  return check !== undefined && check !== ''
+  return nonEmpty(check)
     ? DraftingRound.redraft(
         StackCheckId.of(stackId, check === 'recheck'),
         Number(attempt),
@@ -72,10 +73,7 @@ const gradingRoundOf = (key: string): GradingRound | null => {
     itemAt(grading, group),
   );
 
-  return answer !== undefined &&
-    answer !== '' &&
-    at !== undefined &&
-    attempt !== undefined
+  return nonEmpty(answer) && at !== undefined && attempt !== undefined
     ? GradingRound.of({
         answerId: QuestionAnswerId.of(answer),
         answeredAt: new Date(Number(at)),

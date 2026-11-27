@@ -58,16 +58,12 @@ const owning = (...pullRequests: PullRequestUrl[]) =>
 const tracking = (stored: readonly Task[]) => {
   const saved: Task[] = [];
   const tasks = partial<TaskRepository>({
-    owningPullRequest: (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
-      Promise.resolve(
-        stored.find((each) =>
-          each.pullRequests.some((owned) => owned.equals(pullRequest)),
-        ) ?? null,
-      ),
-    save: (each: Task) => {
+    owningPullRequest: async (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
+      stored.find((each) =>
+        each.pullRequests.some((owned) => owned.equals(pullRequest)),
+      ) ?? null,
+    save: async (each: Task) => {
       saved.push(each);
-
-      return Promise.resolve();
     },
   });
 
@@ -75,11 +71,11 @@ const tracking = (stored: readonly Task[]) => {
     saved,
     handler: new TrackTaskPullRequests(
       tasks,
-      { findByStation: () => Promise.resolve(line) },
-      { placementsAt: () => Promise.resolve([]) },
-      { runIdFor: () => Promise.resolve(RunId.of('run_9')) },
+      { findByStation: async () => line },
+      { placementsAt: async () => [] },
+      { runIdFor: async () => RunId.of('run_9') },
       { inTransaction: (work) => work() },
-      { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+      { now: () => NOW, sleep: async () => undefined },
     ),
   };
 };

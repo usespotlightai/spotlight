@@ -100,7 +100,7 @@ const scheduling = (
 ) =>
   new RunSchedules(
     partial<DefinedIntegrationsPort>({
-      everywhere: () => Promise.resolve([config(file)]),
+      everywhere: async () => [config(file)],
     }),
     runtimeWith({ run }),
     callAuthFor(injection),
@@ -115,7 +115,7 @@ const working = (
   now: Date = NOW,
   file = schedule(),
 ) => {
-  const run = vi.fn((_request: unknown) => Promise.resolve(OK));
+  const run = vi.fn(async (_request: unknown) => OK);
   const cursors = new FakeScheduleCursors();
 
   if (state.ranAt) {
@@ -175,8 +175,11 @@ describe('RunSchedules', () => {
       LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
     });
     const run = vi.fn(
-      (_request: unknown, _against: unknown, _credentials?: Credentials) =>
-        Promise.resolve(OK),
+      async (
+        _request: unknown,
+        _against: unknown,
+        _credentials?: Credentials,
+      ) => OK,
     );
 
     const cursors = new FakeScheduleCursors();
@@ -220,7 +223,7 @@ describe('RunSchedules', () => {
     cursors.setState(TEAM, KEY, {
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
     });
-    const run = vi.fn(() => Promise.resolve(OK));
+    const run = vi.fn(async () => OK);
 
     await Promise.all([
       scheduling(cursors, run).runDue(),

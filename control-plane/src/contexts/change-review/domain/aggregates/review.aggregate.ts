@@ -223,7 +223,7 @@ export class Review extends EventRecorder {
 
   postingPlan(comments: readonly (ReviewComment | null)[]): ReviewPostingPlan {
     const own = comments.flatMap((comment) =>
-      comment?.sending === true && comment.belongsTo(this.id) ? [comment] : [],
+      comment?.sending && comment.belongsTo(this.id) ? [comment] : [],
     );
     const sent = own.filter((comment) => comment.state === 'sending');
 

@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AgentChats } from '@/components/features/agent/AgentChats';
@@ -6,7 +5,7 @@ import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { nonEmpty } from '@/lib/non-empty';
 
-export function Agent(): ReactElement | null {
+export function Agent() {
   const { slug, teamId } = useParams();
 
   if (!nonEmpty(slug) || !nonEmpty(teamId)) {

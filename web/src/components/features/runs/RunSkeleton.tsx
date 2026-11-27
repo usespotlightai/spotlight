@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { OpenInEditorSkeleton } from '@/components/features/editor/OpenInEditorSkeleton';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
@@ -15,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { STICKY_AT_TOP } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-export function RunSkeleton(): ReactElement {
+export function RunSkeleton() {
   return (
     <div
       role="status"

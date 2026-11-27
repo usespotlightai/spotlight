@@ -7,6 +7,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { UpkeepChange } from '@memory/domain/value-objects/upkeep-change';
 import type { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface UpkeepSuggestion {
   readonly change: UpkeepChange;
@@ -28,7 +29,7 @@ const handleOf = (raw: string): number | null => {
 
 const bodyOf = (raw: string | null): MemoryBody | null => {
   try {
-    return raw !== null && raw !== '' ? MemoryBody.of(raw) : null;
+    return nonEmpty(raw) ? MemoryBody.of(raw) : null;
   } catch (error) {
     if (error instanceof InvalidMemoryError) {
       return null;

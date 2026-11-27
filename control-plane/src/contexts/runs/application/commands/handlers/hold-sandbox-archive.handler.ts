@@ -26,7 +26,7 @@ export class HoldSandboxArchiveHandler implements CommandHandlerPort<
         ? await this.runs.findById(RunId.of(command.runId))
         : null;
 
-      if (!sandbox || run?.workspaceId.equals(sandbox.workspaceId) !== true) {
+      if (!sandbox || !run?.workspaceId.equals(sandbox.workspaceId)) {
         return false;
       }
 

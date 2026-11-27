@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { TaskPullRequestPills } from '@/components/features/board/task/TaskPullRequestPills';
 import type { AfterRun } from '@/components/features/inbox/conversation/Conversation';
@@ -55,7 +55,7 @@ export function RunPage({
   conversation: reported,
   worked,
   journalFailed,
-}: RunPageProps): ReactElement {
+}: RunPageProps) {
   const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
   const {

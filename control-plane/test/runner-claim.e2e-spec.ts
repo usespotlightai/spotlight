@@ -464,10 +464,8 @@ describe('deleting the checks of a deleted task', () => {
   const dispatched: DomainEvent[] = [];
   const deleting = () =>
     new DrizzleStackCheckRepository(new DrizzleContext(db), {
-      dispatch: (events) => {
+      dispatch: async (events) => {
         dispatched.push(...events);
-
-        return Promise.resolve();
       },
     });
 

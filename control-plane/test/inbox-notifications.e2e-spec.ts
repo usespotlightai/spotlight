@@ -75,7 +75,7 @@ describe('notifications about new inbox items', () => {
     try {
       await noticeAbout('drift-1', 'The station drifted');
 
-      const notification = await eventually(() => Promise.resolve(seen[0]));
+      const notification = await eventually(async () => seen[0]);
 
       expect(notification).toMatchObject({
         kind: 'notice',
@@ -87,7 +87,7 @@ describe('notifications about new inbox items', () => {
       );
 
       await noticeAbout('drift-2', 'The station drifted again');
-      await eventually(() => Promise.resolve(seen.length === 2));
+      await eventually(async () => seen.length === 2);
 
       expect(seen.map((each) => each.title)).toEqual([
         'The station drifted',
@@ -123,7 +123,7 @@ describe('notifications about new inbox items', () => {
     try {
       await noticeAbout('drift-team', 'The team station drifted', null);
 
-      expect(await eventually(() => Promise.resolve(seen[0]))).toMatchObject({
+      expect(await eventually(async () => seen[0])).toMatchObject({
         kind: 'notice',
         title: 'The team station drifted',
       });

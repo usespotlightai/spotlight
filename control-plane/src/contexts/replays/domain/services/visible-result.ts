@@ -3,14 +3,13 @@ import {
   isVerifierReason,
 } from '@replays/domain/value-objects/entry-reason';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const DEFAULT_GUIDANCE =
   'The judge found the change falls short of what the task needed.';
 
 const visibleReasonOf = (reason: EntryReason): string =>
-  reason.detail !== null &&
-  reason.detail !== '' &&
-  !isVerifierReason(reason.code)
+  nonEmpty(reason.detail) && !isVerifierReason(reason.code)
     ? `${reason.code}: ${reason.detail}`
     : reason.code;
 

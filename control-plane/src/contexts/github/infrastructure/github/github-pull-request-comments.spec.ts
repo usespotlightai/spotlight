@@ -8,7 +8,7 @@ const MARKER = '<!-- spotlight:change-stack -->';
 
 const answering = (existing: { id: number; body: string }[]) => {
   const requests: { url: string; method: string; body: unknown }[] = [];
-  const fetch = (url: string, init: RequestInit = {}) => {
+  const fetch = async (url: string, init: RequestInit = {}) => {
     requests.push({
       url,
       method: init.method ?? 'GET',
@@ -17,17 +17,14 @@ const answering = (existing: { id: number; body: string }[]) => {
           ? (JSON.parse(init.body) as unknown)
           : null,
     });
-    return Promise.resolve(
-      (init.method ?? 'GET') === 'GET'
-        ? new Response(JSON.stringify(existing), { status: 200 })
-        : new Response('{}', { status: 201 }),
-    );
+    return (init.method ?? 'GET') === 'GET'
+      ? new Response(JSON.stringify(existing), { status: 200 })
+      : new Response('{}', { status: 201 });
   };
 
   const comments = new GitHubPullRequestComments(
     {
-      credential: () =>
-        Promise.resolve({ username: 'x-access-token', password: 'tok' }),
+      credential: async () => ({ username: 'x-access-token', password: 'tok' }),
     },
     fetch,
   );

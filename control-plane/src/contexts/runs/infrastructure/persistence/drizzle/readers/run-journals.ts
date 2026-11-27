@@ -8,12 +8,12 @@ import type {
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalsPort } from '@runs/application/ports/run-journals.port';
 import { stepNumber } from '@runs/domain/services/journal-step-numbers';
+import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
 import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
 import {
   CHANGED_PATHS_TYPES,
   ChangedPaths,
 } from '@runs/infrastructure/journal/changed-paths';
-import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
 import {
   HARNESS_FRAME,
   harnessConnectedOf,
@@ -27,16 +27,9 @@ import {
   runJournalEntry,
 } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import {
-  and,
-  asc,
-  eq,
-  inArray,
-  ne,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, type SQL, sql } from 'drizzle-orm';
 
 const idsOf = (runIds: readonly RunId[]): string[] => [
   ...new Set(runIds.map((each) => each.value)),
@@ -197,11 +190,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
         event?.type === 'message' &&
         event.data.role === 'agent' &&
         event.data.text.length > 0 &&
-        !(
-          event.data.session !== undefined &&
-          event.data.session !== '' &&
-          children.has(event.data.session)
-        );
+        !(nonEmpty(event.data.session) && children.has(event.data.session));
 
       if (toThePerson && (!latest || row.receivedAt > latest)) {
         latest = row.receivedAt;

@@ -68,7 +68,7 @@ class VersionedStore<S> {
 export class FakePollCursors implements PollCursorRepository {
   private readonly store = new VersionedStore<PollState>();
 
-  readonly ofTeam = (): Promise<readonly PollCursor[]> => Promise.resolve([]);
+  readonly ofTeam = async (): Promise<readonly PollCursor[]> => [];
 
   readonly remove = async (): Promise<void> => {};
 
@@ -93,7 +93,7 @@ export class FakePollCursors implements PollCursorRepository {
       : PollCursor.start(teamId, integration);
   }
 
-  save(cursor: PollCursor): Promise<void> {
+  async save(cursor: PollCursor): Promise<void> {
     const saved = this.store.saved(
       cursor.teamId,
       cursor.integration.value,
@@ -103,20 +103,15 @@ export class FakePollCursors implements PollCursorRepository {
     );
 
     if (!saved) {
-      return Promise.reject(
-        new PollCursorVersionConflictError(cursor.integration.value),
-      );
+      throw new PollCursorVersionConflictError(cursor.integration.value);
     }
-
-    return Promise.resolve();
   }
 }
 
 export class FakeScheduleCursors implements ScheduleCursorRepository {
   private readonly store = new VersionedStore<ScheduleState>();
 
-  readonly ofTeam = (): Promise<readonly ScheduleCursor[]> =>
-    Promise.resolve([]);
+  readonly ofTeam = async (): Promise<readonly ScheduleCursor[]> => [];
 
   readonly remove = async (): Promise<void> => {};
 
@@ -144,7 +139,7 @@ export class FakeScheduleCursors implements ScheduleCursorRepository {
       : ScheduleCursor.start(teamId, integration);
   }
 
-  save(cursor: ScheduleCursor): Promise<void> {
+  async save(cursor: ScheduleCursor): Promise<void> {
     const ranAt = cursor.ranAt;
     const saved =
       ranAt !== null &&
@@ -157,11 +152,7 @@ export class FakeScheduleCursors implements ScheduleCursorRepository {
       );
 
     if (!saved) {
-      return Promise.reject(
-        new ScheduleCursorVersionConflictError(cursor.integration.value),
-      );
+      throw new ScheduleCursorVersionConflictError(cursor.integration.value);
     }
-
-    return Promise.resolve();
   }
 }

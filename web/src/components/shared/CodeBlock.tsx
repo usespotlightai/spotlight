@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHighlightedShell } from '@/hooks/useHighlightedShell';
@@ -18,7 +18,7 @@ export function CodeBlock({
   output?: string;
   className?: string;
   trailing?: ReactNode;
-}): ReactElement {
+}) {
   const commandHtml = useHighlightedShell(command);
 
   return (

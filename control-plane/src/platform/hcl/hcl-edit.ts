@@ -18,6 +18,7 @@ import {
   parsedHcl,
 } from '@platform/hcl/hcl.parse';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface HclFile {
   readonly path: string;
@@ -614,10 +615,8 @@ class Editing {
       if (
         existing.read.kind === 'file' &&
         typeof field.desired === 'string' &&
-        field.freshFile !== undefined &&
-        field.freshFile !== '' &&
-        current.path !== undefined &&
-        current.path !== '' &&
+        nonEmpty(field.freshFile) &&
+        nonEmpty(current.path) &&
         typeof current.value === 'string'
       ) {
         const expected = current.value;
@@ -874,7 +873,7 @@ class Editing {
           )
         : null;
 
-      if (read?.ok !== true || !same(read.value, change.desired)) {
+      if (!read?.ok || !same(read.value, change.desired)) {
         fail(
           'edit-failed',
           `Spotlight's edit of \`${attribute}\` reads back with a different value. Please change it by hand.`,
@@ -917,7 +916,7 @@ const parsedOrFailed = async (
     if (error instanceof HclSyntaxError) {
       return fail(
         'unparsable',
-        `The file${path !== undefined && path !== '' ? ` ${quotedKey(path)}` : ''} ${error.message}.`,
+        `The file${nonEmpty(path) ? ` ${quotedKey(path)}` : ''} ${error.message}.`,
       );
     }
     throw error;

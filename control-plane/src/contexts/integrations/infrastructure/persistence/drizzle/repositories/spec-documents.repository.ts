@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -12,6 +11,7 @@ import {
 } from '@integrations/infrastructure/persistence/drizzle/spec-operation-rows';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { asc, eq } from 'drizzle-orm';
 
 const ROWS_PER_INSERT = 500;
@@ -21,11 +21,13 @@ export class DrizzleSpecDocuments implements SpecDocumentRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async withHash(hash: ContentHash): Promise<SpecDocument | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(specDocument)
-      .where(eq(specDocument.hash, hash.value))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(specDocument)
+        .where(eq(specDocument.hash, hash.value))
+        .limit(1),
+    );
 
     if (!found) {
       return null;

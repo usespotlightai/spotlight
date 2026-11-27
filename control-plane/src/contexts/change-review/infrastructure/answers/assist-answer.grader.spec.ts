@@ -40,9 +40,9 @@ const grading = (state: AssistState) => {
   return {
     orders,
     grader: new AssistAnswerGrader({
-      request: (order) => {
+      request: async (order) => {
         orders.push(order);
-        return Promise.resolve(state);
+        return state;
       },
     }),
   };

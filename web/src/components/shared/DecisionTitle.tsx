@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   type Stopped,
@@ -26,7 +26,7 @@ export function DecisionTitle({
   as: Heading = 'h3',
   children,
   ...marked
-}: DecisionTitleProps): ReactElement {
+}: DecisionTitleProps) {
   const Icon = marked.icon;
 
   return (

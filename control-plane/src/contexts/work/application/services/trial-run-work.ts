@@ -42,9 +42,9 @@ export class TrialRunWork implements RunWork {
     return this.run.workspaceId;
   }
 
-  acknowledgeUpTo(): Promise<void> {
-    return Promise.reject(
-      new NotAllowedForIsolatedRunError('acknowledge the messages of a person'),
+  async acknowledgeUpTo(): Promise<void> {
+    throw new NotAllowedForIsolatedRunError(
+      'acknowledge the messages of a person',
     );
   }
 
@@ -56,48 +56,44 @@ export class TrialRunWork implements RunWork {
     );
   }
 
-  repositoryNamed(
+  async repositoryNamed(
     name: string,
     service: GitService,
   ): Promise<Repository | null> {
     if (service !== 'git-upload-pack') {
-      return Promise.reject(
-        new NotAllowedForIsolatedRunError(`push to ${name}`),
-      );
+      throw new NotAllowedForIsolatedRunError(`push to ${name}`);
     }
 
-    return Promise.resolve(trialRepositoryNamed(this.trial.repositories, name));
+    return trialRepositoryNamed(this.trial.repositories, name);
   }
 
   readonly limitsPushes = false;
 
-  pushRefusal(): Promise<string | null> {
-    return Promise.resolve(null);
+  async pushRefusal(): Promise<string | null> {
+    return null;
   }
 
   async pushed(): Promise<void> {}
 
-  toolContext(): Promise<TaskToolContext> {
-    return Promise.resolve({
+  async toolContext(): Promise<TaskToolContext> {
+    return {
       kind: 'task',
       runId: this.run.runId,
       workspaceId: this.run.workspaceId,
       taskId: this.trial.taskId,
       stationId: this.trial.stationId,
       requester: null,
-    });
+    };
   }
 
-  clearFor(declared: DeclaredTool): Promise<Cleared> {
-    return Promise.resolve(
-      declared.callableInIsolatedRun
-        ? { kind: 'approved', edited: null, returned: async () => {} }
-        : { kind: 'dismissed', reason: NO_PERSON },
-    );
+  async clearFor(declared: DeclaredTool): Promise<Cleared> {
+    return declared.callableInIsolatedRun
+      ? { kind: 'approved', edited: null, returned: async () => {} }
+      : { kind: 'dismissed', reason: NO_PERSON };
   }
 
-  askToConnect(): Promise<ConnectionAsked> {
-    return Promise.resolve({ kind: 'denied', reason: NO_PERSON });
+  async askToConnect(): Promise<ConnectionAsked> {
+    return { kind: 'denied', reason: NO_PERSON };
   }
 
   async clearPermission(): Promise<PermissionCleared> {

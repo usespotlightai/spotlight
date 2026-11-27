@@ -3,7 +3,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 const MAX_CHARACTERS = 500;
 
 export class RecallWords {
-  private readonly kind: string = 'recall-words';
+  private readonly kind = 'recall-words';
 
   private constructor(readonly value: string) {}
 
@@ -20,7 +20,7 @@ export class RecallWords {
   }
 
   equals(other: RecallWords): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof RecallWords && this.value === other.value;
   }
 
   toString(): string {

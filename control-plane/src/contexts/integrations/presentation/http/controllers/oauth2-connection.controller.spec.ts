@@ -50,16 +50,14 @@ const sent = <C>(
 };
 
 const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
-  const execute = vi.fn((command: object) =>
-    Promise.resolve(
-      'state' in command
-        ? 'https://app.example/landing'
-        : {
-            url: 'https://slack.com/oauth',
-            nonce: 'n-1',
-            expiresAt: EXPIRES,
-          },
-    ),
+  const execute = vi.fn(async (command: object) =>
+    'state' in command
+      ? 'https://app.example/landing'
+      : {
+          url: 'https://slack.com/oauth',
+          nonce: 'n-1',
+          expiresAt: EXPIRES,
+        },
   );
 
   const logger = {

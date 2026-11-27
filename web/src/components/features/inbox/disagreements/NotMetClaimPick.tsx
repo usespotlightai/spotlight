@@ -1,4 +1,4 @@
-import { type ReactElement, useId } from 'react';
+import { useId } from 'react';
 
 import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
 import { FACT_LABEL, FactRow } from '@/components/shared/FactRow';
@@ -23,7 +23,7 @@ export function NotMetClaimPick({
   picked,
   pending,
   onPick,
-}: NotMetClaimPickProps): ReactElement {
+}: NotMetClaimPickProps) {
   const id = useId();
   const labelId = `${id}-label`;
   const name = `${id}-not-met`;

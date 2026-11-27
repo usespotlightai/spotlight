@@ -2,7 +2,6 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import type { ReactElement } from 'react';
 
 import { StationSection } from '@/components/features/board/column/StationSection';
 import { TaskRow } from '@/components/features/board/task/TaskRow';
@@ -43,7 +42,7 @@ export function BoardStation({
   onToggle,
   onAddTask,
   onSelect,
-}: BoardStationProps): ReactElement {
+}: BoardStationProps) {
   const here = tasksAt(tasks, station.id);
   const share = stationShare(place, line.stations.length);
   const picked = (candidate?: Task) =>

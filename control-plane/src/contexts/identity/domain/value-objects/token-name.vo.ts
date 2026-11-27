@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TokenName {
-  private readonly kind: string = 'token-name';
+  private readonly kind = 'token-name';
 
   private constructor(readonly value: string) {}
 
@@ -23,7 +23,7 @@ export class TokenName {
   }
 
   equals(other: TokenName): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TokenName && this.value === other.value;
   }
 
   toString(): string {

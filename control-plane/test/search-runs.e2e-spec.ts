@@ -261,10 +261,8 @@ beforeAll(async () => {
   app = await openApp();
   app.get<TraceScopesPort>(TRACE_SCOPES).register({
     owner: 'replays',
-    scopeOf: (requester) =>
-      Promise.resolve(
-        requester.kind === 'search' ? (scopes.get(requester.id) ?? null) : null,
-      ),
+    scopeOf: async (requester) =>
+      requester.kind === 'search' ? (scopes.get(requester.id) ?? null) : null,
   });
   db = app.get(DRIZZLE);
   team = await createTeam(

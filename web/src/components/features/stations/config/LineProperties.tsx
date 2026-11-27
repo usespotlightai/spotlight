@@ -1,5 +1,4 @@
 import { SquareMousePointer, Wrench } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   Property,
@@ -17,11 +16,7 @@ type LinePropertiesProps = {
   tools: readonly StationToolResponseDto[];
 };
 
-export function LineProperties({
-  line,
-  skills,
-  tools,
-}: LinePropertiesProps): ReactElement {
+export function LineProperties({ line, skills, tools }: LinePropertiesProps) {
   return (
     <TabSection level={3} title="Line">
       <PropertyList>

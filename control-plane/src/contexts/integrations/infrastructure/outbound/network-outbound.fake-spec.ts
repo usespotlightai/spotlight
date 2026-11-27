@@ -2,9 +2,7 @@ import type { NetworkOutbound } from '@integrations/infrastructure/outbound/netw
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 
 export const noNetwork = partial<NetworkOutbound>({
-  run: () => {
-    return Promise.reject(
-      new Error('This test sends nothing from the network.'),
-    );
+  run: async () => {
+    throw new Error('This test sends nothing from the network.');
   },
 });

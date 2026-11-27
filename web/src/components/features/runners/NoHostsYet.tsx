@@ -1,5 +1,4 @@
 import { Server } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { AddHostLink } from '@/components/features/runners/AddHostLink';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -10,7 +9,7 @@ type NoHostsYetProps = {
   adds: boolean;
 };
 
-export function NoHostsYet({ slug, adds }: NoHostsYetProps): ReactElement {
+export function NoHostsYet({ slug, adds }: NoHostsYetProps) {
   return (
     <Notice>
       <EmptyState

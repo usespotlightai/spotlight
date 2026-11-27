@@ -9,15 +9,11 @@ const NOW = new Date('2026-10-30T10:00:00.000Z');
 const setUp = (input: { held?: boolean[] } = {}) => {
   const held = [...(input.held ?? [true])];
   const sandboxes = {
-    open: vi.fn(() =>
-      Promise.resolve({ id: 'sandbox_1', state: 'starting' as const }),
+    open: vi.fn(async () => ({ id: 'sandbox_1', state: 'starting' as const })),
+    holdForEditor: vi.fn(async () =>
+      (held.shift() ?? true) ? { open: true, ready: false } : null,
     ),
-    holdForEditor: vi.fn(() =>
-      Promise.resolve(
-        (held.shift() ?? true) ? { open: true, ready: false } : null,
-      ),
-    ),
-    heldByAnEditor: vi.fn(() => Promise.resolve(true)),
+    heldByAnEditor: vi.fn(async () => true),
   };
   let next = 0;
   const editors = new SandboxEditors(

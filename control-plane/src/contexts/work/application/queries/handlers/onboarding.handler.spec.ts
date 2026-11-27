@@ -41,8 +41,9 @@ const handler = (options: Options = {}) => {
           },
     ),
     isAdminOf: vi.fn().mockResolvedValue(options.admin ?? true),
-    opensChat: vi.fn((chat: { readonly startedBy: UserId }, viewer: UserId) =>
-      Promise.resolve(chat.startedBy.equals(viewer)),
+    opensChat: vi.fn(
+      async (chat: { readonly startedBy: UserId }, viewer: UserId) =>
+        chat.startedBy.equals(viewer),
     ),
   });
 

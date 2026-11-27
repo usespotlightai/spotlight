@@ -19,12 +19,12 @@ const SPEC = ApiSpec.of({
 });
 
 const CALL_AUTH: CallAuth = {
-  workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
+  workspace: async () => WorkspaceId.of('ws_1'),
   connection: {
     token: AccessToken.of('the-token'),
     owner: ConnectionOwner.team(),
     linkedAccount: null,
-    unauthorized: () => Promise.resolve(null),
+    unauthorized: async () => null,
   },
   credentials: { injectedFor: vi.fn(), standInsFor: vi.fn() },
 };
@@ -40,7 +40,7 @@ const listing = (tools: () => Promise<readonly Tool[]>) =>
 
 describe('McpSpecReader', () => {
   it('lists the server’s tools with the team’s connection', async () => {
-    const tools = vi.fn(() => Promise.resolve([tool('one')]));
+    const tools = vi.fn(async () => [tool('one')]);
     const read = await new McpSpecReader(
       partial<McpSessions>({
         tools,
@@ -60,13 +60,15 @@ describe('McpSpecReader', () => {
   });
 
   it('hashes the same tools the same, in whatever order they are listed', async () => {
-    const one = await listing(() =>
-      Promise.resolve([tool('a'), tool('b')]),
-    ).read(SPEC, CALL_AUTH);
-    const other = await listing(() =>
-      Promise.resolve([tool('b'), tool('a')]),
-    ).read(SPEC, CALL_AUTH);
-    const changed = await listing(() => Promise.resolve([tool('a')])).read(
+    const one = await listing(async () => [tool('a'), tool('b')]).read(
+      SPEC,
+      CALL_AUTH,
+    );
+    const other = await listing(async () => [tool('b'), tool('a')]).read(
+      SPEC,
+      CALL_AUTH,
+    );
+    const changed = await listing(async () => [tool('a')]).read(
       SPEC,
       CALL_AUTH,
     );
@@ -82,8 +84,8 @@ describe('McpSpecReader', () => {
 
   it('says why the server could not be listed', async () => {
     await expect(
-      listing(() => {
-        return Promise.reject(new StreamableHTTPError(403, 'Forbidden'));
+      listing(async () => {
+        throw new StreamableHTTPError(403, 'Forbidden');
       }).read(SPEC, CALL_AUTH),
     ).resolves.toEqual({
       kind: 'unread',
@@ -92,7 +94,7 @@ describe('McpSpecReader', () => {
   });
 
   it('refreshes the team’s connection once when the server does not accept it, and lists with the new token', async () => {
-    const unauthorized = vi.fn(() => Promise.resolve(AccessToken.of('fresh')));
+    const unauthorized = vi.fn(async () => AccessToken.of('fresh'));
     const tools = vi
       .fn<McpSessions['tools']>()
       .mockRejectedValueOnce(new McpUnauthorizedError(SPEC.url ?? ''))
@@ -120,7 +122,7 @@ describe('McpSpecReader', () => {
   });
 
   it('sends no connection to a server it does not authenticate with by oauth2', async () => {
-    const tools = vi.fn(() => Promise.resolve([tool('one')]));
+    const tools = vi.fn(async () => [tool('one')]);
 
     await new McpSpecReader(partial<McpSessions>({ tools })).read(
       ApiSpec.of({

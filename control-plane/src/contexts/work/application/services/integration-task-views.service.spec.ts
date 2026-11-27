@@ -91,9 +91,9 @@ const taskViews = (
 ) =>
   new IntegrationTaskViews(
     partial<LineMapsPort>({
-      findByStation: () => Promise.resolve(found),
+      findByStation: async () => found,
     }),
-    { ambientOf: () => Promise.resolve(ambient) } satisfies ChatMarksPort,
+    { ambientOf: async () => ambient } satisfies ChatMarksPort,
   );
 
 describe('IntegrationTaskViews', () => {

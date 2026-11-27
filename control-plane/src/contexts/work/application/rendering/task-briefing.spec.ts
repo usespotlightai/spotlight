@@ -2,6 +2,7 @@ import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
 } from '@shared-kernel/domain/built-in-skills';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -660,15 +661,14 @@ describe('TaskBriefing', () => {
         body: TaskNoteBody.of(body),
         at: new Date('2026-08-31T12:00:00.000Z'),
         voice: Voice.world(),
-        anchor:
-          named !== null && named !== ''
-            ? Anchor.of({
-                body: 'pin this.',
-                path: 'compose.yml',
-                from: 22,
-                reviewComment: named,
-              })
-            : null,
+        anchor: nonEmpty(named)
+          ? Anchor.of({
+              body: 'pin this.',
+              path: 'compose.yml',
+              from: 22,
+              reviewComment: named,
+            })
+          : null,
         kind: 'message',
       });
 

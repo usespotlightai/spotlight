@@ -1,5 +1,4 @@
 import { CircleDashed, FileDiff } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { DiffStat } from '@/components/shared/DiffStat';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -16,7 +15,7 @@ export function ChangesRow({
   generating,
   added,
   removed,
-}: ChangesRowProps): ReactElement {
+}: ChangesRowProps) {
   const Icon = generating ? CircleDashed : FileDiff;
 
   return (

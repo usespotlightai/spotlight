@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { type SeeLink, SeeLinks } from '@/components/shared/SeeLinks';
 import {
   MISSING_FILE,
@@ -23,9 +21,7 @@ type JudgeReasonItemProps = {
   reason: JudgeReason;
 };
 
-export function JudgeReasonItem({
-  reason,
-}: JudgeReasonItemProps): ReactElement {
+export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
   const targets = useCitationTargets();
 
   const linkOf = (citation: Citation): SeeLink => {

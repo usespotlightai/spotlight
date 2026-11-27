@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -19,6 +18,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -42,7 +43,7 @@ const toStep = (stored: StoredPendingSearchStep): PendingSearchStep => ({
   replaced: stored.replaced && {
     lastStartedAt: dateOf(stored.replaced.lastStartedAt),
     lastSkip:
-      stored.replaced.lastSkipReason && stored.replaced.lastSkipAt !== null && stored.replaced.lastSkipAt !== ''
+      stored.replaced.lastSkipReason && nonEmpty(stored.replaced.lastSkipAt)
         ? {
             reason: stored.replaced.lastSkipReason,
             at: new Date(stored.replaced.lastSkipAt),
@@ -129,9 +130,7 @@ const columnsOf = (schedule: StationSearchSchedule) => ({
 });
 
 @Injectable()
-export class DrizzleStationSearchScheduleRepository
-  implements StationSearchScheduleRepository
-{
+export class DrizzleStationSearchScheduleRepository implements StationSearchScheduleRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -139,26 +138,28 @@ export class DrizzleStationSearchScheduleRepository
   ) {}
 
   async ofStation(stationId: StationId): Promise<StationSearchSchedule | null> {
-    const found = firstOf(await this.where(
-      eq(stationSearchSchedule.stationId, stationId.value),
-    ));
+    const found = firstOf(
+      await this.where(eq(stationSearchSchedule.stationId, stationId.value)),
+    );
 
     return found ?? null;
   }
 
   async locked(stationId: StationId): Promise<StationSearchSchedule | null> {
-    const found = firstOf(await this.where(
-      eq(stationSearchSchedule.stationId, stationId.value),
-      true,
-    ));
+    const found = firstOf(
+      await this.where(
+        eq(stationSearchSchedule.stationId, stationId.value),
+        true,
+      ),
+    );
 
     return found ?? null;
   }
 
   async ofSet(setId: ReplaySetId): Promise<StationSearchSchedule | null> {
-    const found = firstOf(await this.where(
-      eq(stationSearchSchedule.setId, setId.value),
-    ));
+    const found = firstOf(
+      await this.where(eq(stationSearchSchedule.setId, setId.value)),
+    );
 
     return found ?? null;
   }

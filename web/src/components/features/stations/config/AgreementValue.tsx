@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import {
@@ -20,7 +18,7 @@ export function AgreementValue({
   calibration,
 }: {
   calibration: JudgeCalibration;
-}): ReactElement {
+}) {
   const { agreement, qualified, hiddenReason } = calibration;
   const band = readingWord(calibration.reading);
   const below = hiddenReason === 'below-min-agreement';

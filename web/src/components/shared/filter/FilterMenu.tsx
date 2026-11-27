@@ -1,5 +1,5 @@
 import { ListFilter } from 'lucide-react';
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -54,7 +54,7 @@ export function FilterMenu({
   compact = false,
   triggerSize,
   children,
-}: FilterMenuProps): ReactElement {
+}: FilterMenuProps) {
   const look = LOOKS[compact ? 'compact' : 'regular'];
   const trigger = LOOKS[triggerSize ?? (compact ? 'compact' : 'regular')];
   const filled = applied > 0;

@@ -1,5 +1,4 @@
 import { TriangleAlert } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   Tooltip,
@@ -10,7 +9,7 @@ import { ENFORCEMENT_DESCRIPTION, ENFORCEMENT_LABELS } from '@/lib/run-network';
 
 const SHOWN = `Egress ${ENFORCEMENT_LABELS['not-enforced'].toLowerCase()}`;
 
-export function TraceEgressMark(): ReactElement {
+export function TraceEgressMark() {
   return (
     <Tooltip>
       <TooltipTrigger

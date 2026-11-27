@@ -5,6 +5,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -163,10 +164,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
     let held = false;
 
     for (const arrived of happenings) {
-      const key =
-        receivedAs !== null && receivedAs !== ''
-          ? `${receivedAs}\n${identityOf(arrived)}`
-          : null;
+      const key = nonEmpty(receivedAs)
+        ? `${receivedAs}\n${identityOf(arrived)}`
+        : null;
       const happened = this.received(workspaceId, arrived);
 
       if (
@@ -390,10 +390,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
     });
 
     const email = happened.chat?.email;
-    const speaker =
-      email !== undefined && email !== null && email !== ''
-        ? await this.members.byEmail(task.workspaceId, email)
-        : null;
+    const speaker = nonEmpty(email)
+      ? await this.members.byEmail(task.workspaceId, email)
+      : null;
     const anchor = anchorOf(happened, attachments);
     const to = task.reopensAt(line, happened.payload.happening);
     const ranks = (await this.placements.placementsAt(to)).map(
@@ -594,18 +593,13 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const named = happened.opens?.assignEmail ?? null;
     const lineDefault = line.defaultAssignee;
 
-    if (
-      (named === null || named === '') &&
-      (lineDefault === null || lineDefault === '')
-    ) {
+    if (!nonEmpty(named) && !nonEmpty(lineDefault)) {
       return null;
     }
 
     const members = await this.teams.membersOf(line.teamId);
     const person = (email: string | null) =>
-      email !== null && email !== ''
-        ? this.members.byEmail(workspaceId, email)
-        : null;
+      nonEmpty(email) ? this.members.byEmail(workspaceId, email) : null;
 
     return members
       ? {
@@ -641,10 +635,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return null;
     }
 
-    const author =
-      authorEmail !== null && authorEmail !== ''
-        ? await this.members.byEmail(task.workspaceId, authorEmail)
-        : null;
+    const author = nonEmpty(authorEmail)
+      ? await this.members.byEmail(task.workspaceId, authorEmail)
+      : null;
     const destination = movedTo(reaction);
 
     const members = await this.teams.membersOf(line.teamId);

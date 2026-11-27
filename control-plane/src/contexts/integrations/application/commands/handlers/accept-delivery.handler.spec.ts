@@ -26,26 +26,22 @@ const provider = (
   ({
     key: 'github',
     happenings: [],
-    verifies: vi.fn((delivered: Delivered) =>
-      Promise.resolve(verifies(delivered)),
-    ),
+    verifies: vi.fn(async (delivered: Delivered) => verifies(delivered)),
     delivery: (delivered: Delivered) => {
       const named = delivered.headers['x-delivery'];
 
       return typeof named === 'string' ? named : 'unnamed';
     },
-    routes: () => Promise.resolve(null),
-    read: () => Promise.resolve([]),
+    routes: async () => null,
+    read: async () => [],
     ...over,
   }) satisfies WebhookProviderPort;
 
 const workspaces = partial<WorkspaceReaderPort>({
-  identifyTeam: (_slug: string, teamKey: string) =>
-    Promise.resolve(
-      teamKey === 'platform'
-        ? { workspaceId: WorkspaceId.of('ws_1'), teamId: TeamId.of('team_1') }
-        : null,
-    ),
+  identifyTeam: async (_slug: string, teamKey: string) =>
+    teamKey === 'platform'
+      ? { workspaceId: WorkspaceId.of('ws_1'), teamId: TeamId.of('team_1') }
+      : null,
 });
 
 const accepting = (
@@ -54,19 +50,19 @@ const accepting = (
 ) => {
   const taken: InboundDelivery[] = [];
   const deliveries = {
-    add: vi.fn((delivery: InboundDelivery) => {
+    add: vi.fn(async (delivery: InboundDelivery) => {
       const first = !taken.some(
         (each) =>
           each.integration.equals(delivery.integration) &&
           each.id.equals(delivery.id),
       );
       taken.push(delivery);
-      return Promise.resolve(first);
+      return first;
     }),
-    claimCandidates: vi.fn(() => Promise.resolve([])),
-    current: vi.fn(() => Promise.resolve(null)),
-    addressedTo: vi.fn(() => Promise.resolve([])),
-    finishedBefore: vi.fn(() => Promise.resolve([])),
+    claimCandidates: vi.fn(async () => []),
+    current: vi.fn(async () => null),
+    addressedTo: vi.fn(async () => []),
+    finishedBefore: vi.fn(async () => []),
     remove: vi.fn(async () => {}),
     save: vi.fn(async () => {}),
   } satisfies InboundDeliveryRepository;
@@ -80,11 +76,9 @@ const accepting = (
   return {
     handler: new AcceptDeliveryHandler(
       new ProviderForDelivery(WebhookProviders.of(providers), {
-        find: (_team, key) =>
-          Promise.resolve(
-            configured.find((each) => each.key === key.value) ?? null,
-          ),
-        all: () => Promise.resolve(configured),
+        find: async (_team, key) =>
+          configured.find((each) => each.key === key.value) ?? null,
+        all: async () => configured,
       }),
       workspaces,
       deliveries,

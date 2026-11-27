@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -13,7 +12,7 @@ import {
   teamSectionPath,
 } from '@/lib/team';
 
-export function TeamIndex(): ReactElement | null {
+export function TeamIndex() {
   const { slug, teamId } = useParams();
   const lines = useLines(teamId);
 

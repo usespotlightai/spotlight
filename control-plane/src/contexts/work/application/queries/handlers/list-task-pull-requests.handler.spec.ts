@@ -45,10 +45,8 @@ const reader = (found: TaskSummary | null): TaskReaderPort => ({
 
 const seeing = (sees = true): WorkAccess =>
   partial<WorkAccess>({
-    seenTeam: vi.fn(() =>
-      Promise.resolve(
-        sees ? partial<SeenTeam>({ workspaceId: WORKSPACE }) : null,
-      ),
+    seenTeam: vi.fn(async () =>
+      sees ? partial<SeenTeam>({ workspaceId: WORKSPACE }) : null,
     ),
   });
 
@@ -64,7 +62,7 @@ const MERGED_SUMMARY = {
 };
 
 const summaries: TaskPullRequestSummariesPort = {
-  of: vi.fn(() => Promise.resolve(new Map([[MERGED, MERGED_SUMMARY]]))),
+  of: vi.fn(async () => new Map([[MERGED, MERGED_SUMMARY]])),
 };
 
 const handle = (tasks: TaskReaderPort, access = seeing()) =>

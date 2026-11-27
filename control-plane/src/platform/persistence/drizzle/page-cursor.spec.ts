@@ -1,9 +1,9 @@
 import { encodeCursor } from '@platform/persistence/drizzle/keyset';
-import { InvalidPageCursorError } from '@shared-kernel/application/errors/invalid-page-cursor.error';
 import {
   cursorOf,
   timeCursorOf,
 } from '@platform/persistence/drizzle/page-cursor';
+import { InvalidPageCursorError } from '@shared-kernel/application/errors/invalid-page-cursor.error';
 import { describe, expect, it } from 'vitest';
 
 const TIME_CURSOR = encodeCursor({

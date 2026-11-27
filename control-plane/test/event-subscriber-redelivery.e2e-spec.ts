@@ -122,8 +122,8 @@ let context: DrizzleContext;
 const committed: DomainEvent[] = [];
 
 const dispatcher: DomainEventDispatcher = {
-  dispatch: (events) =>
-    Promise.resolve(context.afterCommit(() => committed.push(...events))),
+  dispatch: async (events) =>
+    context.afterCommit(() => committed.push(...events)),
 };
 
 const committedKinds = (runId: string): readonly string[] =>
@@ -374,10 +374,8 @@ const recordingOf = (event: RunEnded) => (): Promise<void> =>
   new RecordRunUsage(
     new RunReadModel(new DrizzleRunFactsReader(context)),
     new DrizzleRunUsages(context, {
-      dispatch: (events) =>
-        Promise.resolve(
-          context.afterCommit(() => usageRecorded.push(...events)),
-        ),
+      dispatch: async (events) =>
+        context.afterCommit(() => usageRecorded.push(...events)),
     }),
     launch,
   ).onRunEnded(event);

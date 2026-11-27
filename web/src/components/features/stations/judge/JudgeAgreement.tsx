@@ -1,5 +1,5 @@
 import { GraduationCap } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { ConfusionMatrix } from '@/components/features/stations/judge/ConfusionMatrix';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
@@ -51,7 +51,7 @@ export function JudgeAgreement({
   teamId,
   lineId,
   stationId,
-}: JudgeAgreementProps): ReactElement {
+}: JudgeAgreementProps) {
   const query = useStationJudge(teamId, lineId, stationId);
   const [picked, setPicked] = useState<string | null>(null);
 

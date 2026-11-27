@@ -72,14 +72,12 @@ export class RecordSearchProgress {
     const search = await this.searches.ranAs(run);
 
     if (search) {
-      await this.changing(search.id, (fresh) =>
-        Promise.resolve(
-          fresh.recordRunEnd(
-            run,
-            searchRunEnding(event),
-            event.endedAt,
-            this.runIds,
-          ),
+      await this.changing(search.id, async (fresh) =>
+        fresh.recordRunEnd(
+          run,
+          searchRunEnding(event),
+          event.endedAt,
+          this.runIds,
         ),
       );
     }
@@ -90,10 +88,8 @@ export class RecordSearchProgress {
     const search = await this.searches.ranAs(run);
 
     if (search) {
-      await this.changing(search.id, (fresh) =>
-        Promise.resolve(
-          fresh.recordAgentSpend(run, spent, this.clock.now(), this.runIds),
-        ),
+      await this.changing(search.id, async (fresh) =>
+        fresh.recordAgentSpend(run, spent, this.clock.now(), this.runIds),
       );
     }
   }

@@ -1,9 +1,9 @@
 import { REVIEW_DELIVERY_KINDS } from '@change-review/application/ports/review-deliveries.port';
+import { REVIEW_COMMENT_STATES } from '@change-review/domain/aggregates/review-comment.aggregate';
 import {
   REVIEW_STATES,
   REVIEW_VERDICTS,
 } from '@change-review/domain/aggregates/review.aggregate';
-import { REVIEW_COMMENT_STATES } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { DELIVERY_FAILURE_CODES } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { REVIEW_SIDES } from '@change-review/domain/value-objects/review-anchor.vo';
 import { timestamptz } from '@platform/persistence/drizzle/columns';

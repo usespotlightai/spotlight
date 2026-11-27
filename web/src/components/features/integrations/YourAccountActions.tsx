@@ -1,5 +1,4 @@
 import { Unplug } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { RowActions } from '@/components/shared/RowActions';
 import { useDisconnectIntegration } from '@/hooks/api/useDisconnectIntegration';
@@ -13,7 +12,7 @@ type YourAccountActionsProps = {
 export function YourAccountActions({
   integration,
   teamId,
-}: YourAccountActionsProps): ReactElement {
+}: YourAccountActionsProps) {
   const disconnect = useDisconnectIntegration(teamId);
 
   return (

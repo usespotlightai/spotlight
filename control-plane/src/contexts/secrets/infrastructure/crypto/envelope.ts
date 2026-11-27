@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+
 const ALGORITHM = 'aes-256-gcm';
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
@@ -53,10 +55,8 @@ export const decrypt = (
 
   if (
     version !== VERSION ||
-    iv === undefined ||
-    iv === '' ||
-    tag === undefined ||
-    tag === '' ||
+    !nonEmpty(iv) ||
+    !nonEmpty(tag) ||
     encrypted === undefined ||
     rest.length > 0
   ) {

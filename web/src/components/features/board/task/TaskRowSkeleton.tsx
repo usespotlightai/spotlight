@@ -1,10 +1,8 @@
-import type { ReactElement } from 'react';
-
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function TaskRowSkeleton(): ReactElement {
+export function TaskRowSkeleton() {
   return (
     <li className="relative mx-1.5 rounded-md first:mt-0.5 last:mb-0.5">
       <div className="flex h-10 min-w-0 items-center gap-2 px-3">

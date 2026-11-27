@@ -19,41 +19,35 @@ export class InMemoryPersonToolPolicies
 {
   readonly stored = new Map<string, PersonToolPolicy>();
 
-  of(
+  async of(
     teamId: TeamId,
     personId: UserId,
     integration: IntegrationKey,
   ): Promise<PersonToolPolicy | null> {
-    return Promise.resolve(
-      this.stored.get(keyOf(teamId, personId, integration)) ?? null,
-    );
+    return this.stored.get(keyOf(teamId, personId, integration)) ?? null;
   }
 
-  ofPerson(
+  async ofPerson(
     teamId: TeamId,
     personId: UserId,
   ): Promise<ReadonlyMap<string, PersonToolRule>> {
-    return Promise.resolve(
-      new Map(
-        [...this.stored.values()]
-          .filter(
-            (each) =>
-              each.teamId.equals(teamId) && each.personId.equals(personId),
-          )
-          .flatMap((each) =>
-            each.rules.map((rule) => [rule.tool.value, rule.rule] as const),
-          ),
-      ),
+    return new Map(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.teamId.equals(teamId) && each.personId.equals(personId),
+        )
+        .flatMap((each) =>
+          each.rules.map((rule) => [rule.tool.value, rule.rule] as const),
+        ),
     );
   }
 
-  save(policy: PersonToolPolicy): Promise<void> {
+  async save(policy: PersonToolPolicy): Promise<void> {
     const key = keyOf(policy.teamId, policy.personId, policy.integration);
 
     if ((this.stored.get(key)?.version ?? 0) !== policy.version) {
-      return Promise.reject(
-        new PersonToolPolicyVersionConflictError(policy.integration.value),
-      );
+      throw new PersonToolPolicyVersionConflictError(policy.integration.value);
     }
 
     this.stored.set(
@@ -66,28 +60,22 @@ export class InMemoryPersonToolPolicies
         version: policy.version + 1,
       }),
     );
-
-    return Promise.resolve();
   }
 
-  ofTeam(teamId: TeamId): Promise<readonly PersonToolPolicy[]> {
-    return Promise.resolve(
-      [...this.stored.values()].filter((each) => each.teamId.equals(teamId)),
+  async ofTeam(teamId: TeamId): Promise<readonly PersonToolPolicy[]> {
+    return [...this.stored.values()].filter((each) =>
+      each.teamId.equals(teamId),
     );
   }
 
-  remove(policy: PersonToolPolicy): Promise<void> {
+  async remove(policy: PersonToolPolicy): Promise<void> {
     const key = keyOf(policy.teamId, policy.personId, policy.integration);
 
     if (this.stored.get(key)?.version !== policy.version) {
-      return Promise.reject(
-        new PersonToolPolicyVersionConflictError(policy.integration.value),
-      );
+      throw new PersonToolPolicyVersionConflictError(policy.integration.value);
     }
 
     this.stored.delete(key);
-
-    return Promise.resolve();
   }
 }
 
@@ -96,11 +84,7 @@ export const personRulesFrom = (
   names: Readonly<Record<string, string>> = {},
 ): PersonToolRules =>
   new PersonToolRules(policies, {
-    find: (id) =>
-      Promise.resolve(
-        names[id.value]
-          ? { id, name: names[id.value] ?? '', image: null }
-          : null,
-      ),
-    findMany: () => Promise.resolve(new Map()),
+    find: async (id) =>
+      names[id.value] ? { id, name: names[id.value] ?? '', image: null } : null,
+    findMany: async () => new Map(),
   });

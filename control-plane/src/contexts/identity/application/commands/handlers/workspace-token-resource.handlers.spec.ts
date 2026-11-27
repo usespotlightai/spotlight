@@ -33,11 +33,10 @@ const issuing = (
     throwing?: Error;
   } = {},
 ) => {
-  const add = vi.fn<(token: WorkspaceToken) => Promise<void>>(() => {
+  const add = vi.fn<(token: WorkspaceToken) => Promise<void>>(async () => {
     if (over.throwing) {
-      return Promise.reject(over.throwing);
+      throw over.throwing;
     }
-    return Promise.resolve();
   });
   const issuer = new RandomTokenIssuer();
   const keys = creates();

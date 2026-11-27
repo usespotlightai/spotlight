@@ -1,7 +1,7 @@
 import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 
 export class CheckedChange {
-  private readonly kind: string = 'checked-change';
+  private readonly kind = 'checked-change';
 
   private constructor(readonly value: string) {}
 
@@ -10,6 +10,6 @@ export class CheckedChange {
   }
 
   equals(other: CheckedChange): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof CheckedChange && this.value === other.value;
   }
 }

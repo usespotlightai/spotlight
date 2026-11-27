@@ -84,11 +84,11 @@ class FakeContext {
         set: (values: Record<string, unknown>) => ({
           where: (condition: unknown) => {
             this.leasesGuarded.push(...datesIn(condition));
-            const written = () => {
+            const written = async () => {
               if (this.failingUpdateAt === this.updates.length) {
                 this.failingUpdateAt = null;
                 this.steps.push('update failed');
-                return Promise.reject(new Error('connection terminated'));
+                throw new Error('connection terminated');
               }
               if (
                 this.failingUpdates > 0 &&
@@ -96,15 +96,15 @@ class FakeContext {
               ) {
                 this.failingUpdates -= 1;
                 this.steps.push('update failed');
-                return Promise.reject(new Error('connection terminated'));
+                throw new Error('connection terminated');
               }
               if (this.settledElsewhere && this.updates.length > 0) {
                 this.steps.push('update matched nothing');
-                return Promise.resolve([]);
+                return [];
               }
               this.steps.push('update');
               this.updates.push(values);
-              return Promise.resolve([{ eventId: 'event_1' }]);
+              return [{ eventId: 'event_1' }];
             };
 
             const rows = written();
@@ -183,10 +183,10 @@ const delivering = (
     partial<DrizzleContext>(context),
     partial<EventOutbox>({
       decode: () => partial<DomainEvent>({}),
-      record: () => Promise.resolve(undefined),
+      record: async () => undefined,
     }),
     subscribers,
-    { now: () => clock.now(), sleep: () => Promise.resolve(undefined) },
+    { now: () => clock.now(), sleep: async () => undefined },
     logger,
     new CauseCarrier(),
     reports,
@@ -198,7 +198,7 @@ const delivering = (
 
 describe('EventDelivery', () => {
   it('records a delivery in the transaction that claimed it, after the subscriber handled it in a savepoint', async () => {
-    const { delivery, context } = delivering(() => Promise.resolve(undefined));
+    const { delivery, context } = delivering(async () => undefined);
 
     expect(await delivery.processDue('contexts')).toBe(1);
     expect(context.steps.slice(0, 6)).toEqual([
@@ -213,8 +213,8 @@ describe('EventDelivery', () => {
   });
 
   it('records a failed delivery and its backoff in the transaction that claimed it, so no other control plane takes it before', async () => {
-    const { delivery, context } = delivering(() => {
-      return Promise.reject(new Error('nobody home'));
+    const { delivery, context } = delivering(async () => {
+      throw new Error('nobody home');
     }, 2);
 
     expect(await delivery.processDue('contexts')).toBe(1);
@@ -238,8 +238,8 @@ describe('EventDelivery', () => {
   });
 
   it('records and logs the subscriber’s failure, not the database’s, when writing it in the claiming transaction fails', async () => {
-    const { delivery, context, logger } = delivering(() => {
-      return Promise.reject(new Error('nobody home'));
+    const { delivery, context, logger } = delivering(async () => {
+      throw new Error('nobody home');
     });
     context.failingUpdates = 1;
 
@@ -255,8 +255,8 @@ describe('EventDelivery', () => {
   });
 
   it('logs the subscriber’s failure even when no transaction can record it', async () => {
-    const { delivery, context, logger } = delivering(() => {
-      return Promise.reject(new Error('nobody home'));
+    const { delivery, context, logger } = delivering(async () => {
+      throw new Error('nobody home');
     });
     context.failingUpdates = 2;
 
@@ -270,8 +270,8 @@ describe('EventDelivery', () => {
   });
 
   it('dead-letters the delivery in the same transaction on the last attempt, and reports it once it committed', async () => {
-    const { delivery, context, reports } = delivering(() => {
-      return Promise.reject(new Error('nobody home'));
+    const { delivery, context, reports } = delivering(async () => {
+      throw new Error('nobody home');
     }, DEFAULT_RETRY.maxAttempts - 1);
 
     await delivery.processDue('contexts');
@@ -289,9 +289,12 @@ describe('EventDelivery', () => {
   });
 
   it('counts and reports nothing when another instance settled the delivery before the fallback wrote it', async () => {
-    const { delivery, context, logger, reports, telemetry } = delivering(() => {
-      return Promise.reject(new Error('nobody home'));
-    }, DEFAULT_RETRY.maxAttempts - 1);
+    const { delivery, context, logger, reports, telemetry } = delivering(
+      async () => {
+        throw new Error('nobody home');
+      },
+      DEFAULT_RETRY.maxAttempts - 1,
+    );
     context.failingUpdates = 1;
     context.settledElsewhere = true;
     context.updates.push({ deliveredAt: NOW });
@@ -308,7 +311,7 @@ describe('EventDelivery', () => {
   });
 
   it('gives the subscriber the outbox record of the event', async () => {
-    const handle = vi.fn(() => Promise.resolve(undefined));
+    const handle = vi.fn(async () => undefined);
     const { delivery } = delivering(handle);
 
     await delivery.processDue('contexts');
@@ -320,7 +323,7 @@ describe('EventDelivery', () => {
   });
 
   it('claims nothing in a lane where this instance registers no subscriber', async () => {
-    const { delivery, context } = delivering(() => Promise.resolve(undefined));
+    const { delivery, context } = delivering(async () => undefined);
 
     expect(await delivery.processDue('sinks')).toBe(0);
     expect(context.steps).toEqual(['begin', 'commit']);
@@ -334,8 +337,8 @@ describe('EventDelivery', () => {
       initialDelayMs: 2_000,
       maxDelayMs: 60 * 60 * 1000,
     });
-    const failing = () => {
-      return Promise.reject(new Error('nobody home'));
+    const failing = async () => {
+      throw new Error('nobody home');
     };
 
     it('waits 2^attempts seconds, but never longer than the longest backoff', async () => {
@@ -400,9 +403,8 @@ describe('EventDelivery', () => {
 
     it('leases the delivery in a transaction of its own, calls out with none open, and records it in another', async () => {
       const { delivery, context, telemetry } = delivering(
-        () => {
+        async () => {
           context.steps.push('called out');
-          return Promise.resolve();
         },
         0,
         CALLS_OUT,
@@ -482,8 +484,8 @@ describe('EventDelivery', () => {
 
     it('records a failed call and its backoff once it failed', async () => {
       const { delivery, context, logger } = delivering(
-        () => {
-          return Promise.reject(new Error('nobody home'));
+        async () => {
+          throw new Error('nobody home');
         },
         2,
         CALLS_OUT,
@@ -508,8 +510,8 @@ describe('EventDelivery', () => {
 
     it('dead-letters a call that fails on the last attempt, and reports it', async () => {
       const { delivery, reports } = delivering(
-        () => {
-          return Promise.reject(new Error('nobody home'));
+        async () => {
+          throw new Error('nobody home');
         },
         DEFAULT_RETRY.maxAttempts - 1,
         CALLS_OUT,
@@ -525,7 +527,7 @@ describe('EventDelivery', () => {
 
     it('counts and reports nothing where another instance took the delivery over', async () => {
       const { delivery, context, logger, reports, telemetry } = delivering(
-        () => Promise.resolve(undefined),
+        async () => undefined,
         0,
         CALLS_OUT,
       );
@@ -544,7 +546,7 @@ describe('EventDelivery', () => {
 
     it('counts a failed recording of a call that worked as an attempt, so it ends dead-lettered', async () => {
       const { delivery, context, logger, reports } = delivering(
-        () => Promise.resolve(undefined),
+        async () => undefined,
         DEFAULT_RETRY.maxAttempts - 1,
         CALLS_OUT,
       );
@@ -569,7 +571,7 @@ describe('EventDelivery', () => {
 
     it('leaves a call that worked to its lease when nothing can be recorded', async () => {
       const { delivery, context, logger, reports } = delivering(
-        () => Promise.resolve(undefined),
+        async () => undefined,
         0,
         CALLS_OUT,
       );

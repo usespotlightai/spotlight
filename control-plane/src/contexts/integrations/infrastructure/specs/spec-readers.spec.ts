@@ -17,17 +17,17 @@ import { describe, expect, it } from 'vitest';
 const UNREAD: SpecRead = { kind: 'unread', problem: 'unused' };
 
 const recording = (seen: boolean[]): SpecReaderPort => ({
-  read: () => {
+  read: async () => {
     seen.push(
       OutboundScope.allows('api.example.com'),
       OutboundScope.allows('elsewhere.example'),
     );
-    return Promise.resolve(UNREAD);
+    return UNREAD;
   },
 });
 
 const CALL_AUTH = partial<CallAuth>({
-  workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
+  workspace: async () => WorkspaceId.of('ws_1'),
 });
 
 describe('SpecReaders', () => {

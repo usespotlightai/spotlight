@@ -88,13 +88,13 @@ const answering = (state: NetworkCallState) => {
   const queued: { request: NetworkRequest; expiresAt: Date }[] = [];
   const calls: NetworkCallsPort = {
     queue: vi.fn<NetworkCallsPort['queue']>(
-      (_workspace, request, expiresAt) => {
+      async (_workspace, request, expiresAt) => {
         queued.push({ request, expiresAt });
-        return Promise.resolve('call_1');
+        return 'call_1';
       },
     ),
-    stateOf: vi.fn(() => Promise.resolve(state)),
-    answered: vi.fn(() => Promise.resolve(state)),
+    stateOf: vi.fn(async () => state),
+    answered: vi.fn(async () => state),
   };
 
   return { calls, queued };
@@ -125,7 +125,7 @@ const sending = (
   });
   const run = vi.fn();
   const within = vi.fn();
-  const take = vi.fn(() => Promise.resolve(true));
+  const take = vi.fn(async () => true);
   const limits = over.limits ?? { perSecond: 50, take };
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
@@ -149,10 +149,10 @@ const sending = (
     noFiles,
   );
   const callAuth: CallAuth = {
-    workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
+    workspace: async () => WorkspaceId.of('ws_1'),
     connection: null,
-    credentials: new SpotlightCredentials(secrets.injection, () =>
-      Promise.resolve(WorkspaceId.of('ws_1')),
+    credentials: new SpotlightCredentials(secrets.injection, async () =>
+      WorkspaceId.of('ws_1'),
     ),
   };
 
@@ -269,7 +269,7 @@ describe('an action sent from the network', () => {
 
   it('queues nothing when the workspace is over its rate limit', async () => {
     const { call, calls } = sending(answered(201, '{"id":"rec_1"}'), {
-      limits: { perSecond: 50, take: () => Promise.resolve(false) },
+      limits: { perSecond: 50, take: async () => false },
     });
 
     await expect(call('deployed')).rejects.toThrow(/more than 50 requests/);

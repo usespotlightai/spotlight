@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
@@ -29,11 +29,7 @@ type TimeToMergeProps = {
   days: readonly MergeDay[];
 };
 
-export function TimeToMerge({
-  now,
-  changes,
-  days,
-}: TimeToMergeProps): ReactElement {
+export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
   const [smoothing, setSmoothing] = useState<Smoothing>('rolling');
 

@@ -10,6 +10,7 @@ import {
   named,
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const STRINGS = new Set(['interpreted_string_literal', 'raw_string_literal']);
@@ -80,11 +81,7 @@ export const GO_GRAMMAR: Grammar = {
             .filter((part) => !/^v\d+$/.test(part))
             .pop();
 
-        return specifier &&
-          local !== undefined &&
-          local !== '' &&
-          local !== '_' &&
-          local !== '.'
+        return specifier && nonEmpty(local) && local !== '_' && local !== '.'
           ? [{ local, imported: '*', specifier }]
           : [];
       });

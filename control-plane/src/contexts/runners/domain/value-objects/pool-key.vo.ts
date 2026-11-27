@@ -7,7 +7,7 @@ import {
 const PLATFORM = 'spotlight';
 
 export class PoolKey {
-  private readonly kind: string = 'pool-key';
+  private readonly kind = 'pool-key';
 
   private constructor(readonly value: string) {}
 
@@ -30,7 +30,7 @@ export class PoolKey {
   }
 
   equals(other: PoolKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof PoolKey && this.value === other.value;
   }
 
   toString(): string {

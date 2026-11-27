@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   type AfterRun,
@@ -42,7 +42,7 @@ export function RunConversation({
   afterRun,
   docked,
   pills,
-}: RunConversationProps): ReactElement {
+}: RunConversationProps) {
   return (
     <Conversation
       item={conversationItemOf(conversation, teamId, progress)}

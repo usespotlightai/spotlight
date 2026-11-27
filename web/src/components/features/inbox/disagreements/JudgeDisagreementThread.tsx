@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { JudgeDisagreementItem } from '@/components/features/inbox/disagreements/JudgeDisagreementItem';
 import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
@@ -68,7 +68,7 @@ export function JudgeDisagreementThread({
   teamId,
   disagreementId,
   trail,
-}: JudgeDisagreementThreadProps): ReactElement {
+}: JudgeDisagreementThreadProps) {
   const disagreement = useJudgeDisagreement(teamId, disagreementId);
   const scores = useRunScores(teamId, disagreement.data?.runId);
 

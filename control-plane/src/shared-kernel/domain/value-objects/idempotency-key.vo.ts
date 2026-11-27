@@ -3,7 +3,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 const SHAPE = /^[\x21-\x7e]{1,255}$/;
 
 export class IdempotencyKey {
-  private readonly kind: string = 'idempotency-key';
+  private readonly kind = 'idempotency-key';
 
   private constructor(readonly value: string) {}
 
@@ -19,7 +19,7 @@ export class IdempotencyKey {
   }
 
   equals(other: IdempotencyKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof IdempotencyKey && this.value === other.value;
   }
 
   toString(): string {

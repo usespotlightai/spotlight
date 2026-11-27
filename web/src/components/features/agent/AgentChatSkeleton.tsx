@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
@@ -12,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { STICKY_AT_TOP } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
-export function AgentChatSkeleton(): ReactElement {
+export function AgentChatSkeleton() {
   return (
     <div
       role="status"

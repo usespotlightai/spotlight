@@ -1,6 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   AskedInboxRequest,
@@ -57,12 +58,7 @@ export class InboxRequests implements InboxRequestsPort {
           taskId: task.id,
           form: FORMS[inboxRequest.form],
           about: inboxRequest.about,
-          askedOf:
-            input.askedOf !== undefined &&
-            input.askedOf !== null &&
-            input.askedOf !== ''
-              ? UserId.of(input.askedOf)
-              : null,
+          askedOf: nonEmpty(input.askedOf) ? UserId.of(input.askedOf) : null,
           now: this.clock.now(),
         }),
       );
@@ -145,12 +141,7 @@ export class InboxRequests implements InboxRequestsPort {
             taskId: task.id,
             form: FORMS[inboxRequest.form],
             about: inboxRequest.about,
-            askedOf:
-              input.askedOf !== undefined &&
-              input.askedOf !== null &&
-              input.askedOf !== ''
-                ? UserId.of(input.askedOf)
-                : null,
+            askedOf: nonEmpty(input.askedOf) ? UserId.of(input.askedOf) : null,
             now,
           }).resolve(now),
         );

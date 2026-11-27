@@ -13,8 +13,9 @@ const TARGET = {
 
 const pushWith = (status: number) => {
   const keys = generateVAPIDKeys();
-  const fetch = vi.fn((_url: string | URL | Request, _init?: RequestInit) =>
-    Promise.resolve(new Response(null, { status })),
+  const fetch = vi.fn(
+    async (_url: string | URL | Request, _init?: RequestInit) =>
+      new Response(null, { status }),
   );
   const push = new VapidWebPush(
     {

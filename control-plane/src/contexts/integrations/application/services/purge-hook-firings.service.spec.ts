@@ -51,7 +51,7 @@ const FINISHED = HookFiring.rehydrate({
 
 const setUp = () => {
   const inMemory = firingsInMemory(FINISHED);
-  const purgeExpired = vi.fn(() => Promise.resolve(2));
+  const purgeExpired = vi.fn(async () => 2);
 
   vi.mocked(inMemory.firings.finishedBefore).mockResolvedValue([FINISHED]);
 

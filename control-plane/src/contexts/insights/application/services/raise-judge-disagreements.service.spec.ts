@@ -178,8 +178,8 @@ describe('RaiseJudgeDisagreements', () => {
     const score = FAILED();
     let judge = judgeOf();
     const { disagreements, raising } = await setUp('accepted', [score], {
-      judgeAt: () => Promise.resolve(judge),
-      judgesOnTeam: () => Promise.resolve(new Map()),
+      judgeAt: async () => judge,
+      judgesOnTeam: async () => new Map(),
     });
     await raising.scoreRecorded(recordedOf(score));
     const changed = {
@@ -201,8 +201,8 @@ describe('RaiseJudgeDisagreements', () => {
 
   it('withdraws every outdated disagreement of a station, more than one batch holds', async () => {
     const { disagreements, raising } = await setUp('accepted', [], {
-      judgeAt: () => Promise.resolve(NEXT_JUDGE),
-      judgesOnTeam: () => Promise.resolve(new Map()),
+      judgeAt: async () => NEXT_JUDGE,
+      judgesOnTeam: async () => new Map(),
     });
     const outdated = Array.from({ length: 250 }, (_, at) =>
       openDisagreement(`run_${at + 2}`),
@@ -233,8 +233,8 @@ describe('RaiseJudgeDisagreements', () => {
       'accepted',
       [score],
       {
-        judgeAt: () => Promise.resolve(judge),
-        judgesOnTeam: () => Promise.resolve(new Map()),
+        judgeAt: async () => judge,
+        judgesOnTeam: async () => new Map(),
       },
     );
     await raising.scoreRecorded(recordedOf(score));
@@ -262,7 +262,7 @@ describe('RaiseJudgeDisagreements', () => {
   it('opens one disagreement when two subscribers try at once, and the late one ends quietly', async () => {
     const score = FAILED();
     const { disagreements, raising } = await setUp('accepted', [score]);
-    disagreements.ofRun = () => Promise.resolve([]);
+    disagreements.ofRun = async () => [];
 
     await raising.scoreRecorded(recordedOf(score));
     await expect(
@@ -438,11 +438,9 @@ describe('RaiseJudgeDisagreements', () => {
       const [ended] = await added(endedRun('run_2', 12));
       const saved = disagreements.save.bind(disagreements);
       let conflicts = 0;
-      disagreements.save = (disagreement) => {
+      disagreements.save = async (disagreement) => {
         conflicts += 1;
-        return Promise.reject(
-          new JudgeDisagreementVersionConflictError(disagreement.id.value),
-        );
+        throw new JudgeDisagreementVersionConflictError(disagreement.id.value);
       };
 
       await expect(

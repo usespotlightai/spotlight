@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode, ReactElement } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { NavLink } from 'react-router';
 
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
@@ -27,7 +27,7 @@ export function SidebarLink({
   trailing,
   active,
   children,
-}: SidebarLinkProps): ReactElement {
+}: SidebarLinkProps) {
   const command = useActiveCommand({ to });
   const link = (
     <NavLink

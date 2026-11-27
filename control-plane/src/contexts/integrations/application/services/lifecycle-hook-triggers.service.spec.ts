@@ -30,12 +30,10 @@ import { describe, expect, it, vi } from 'vitest';
 const TASK = taskViewOf();
 
 const setUp = (task: LinkedTaskView | null = TASK) => {
-  const queue = vi.fn((_task: TaskView, _occurred: HookOccurrence) =>
-    Promise.resolve(1),
-  );
+  const queue = vi.fn(async (_task: TaskView, _occurred: HookOccurrence) => 1);
   const tasks = {
-    of: vi.fn(() => Promise.resolve(task)),
-    ofPullRequest: vi.fn(() => Promise.resolve(task)),
+    of: vi.fn(async () => task),
+    ofPullRequest: vi.fn(async () => task),
   } satisfies TasksForHooksPort;
 
   const occurred = (index = 0) => {

@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { ReplyBox } from '@/components/features/review/ReplyBox';
@@ -23,7 +23,7 @@ export function DecisionThread({
   path,
   reasoningAt,
   disputing,
-}: DecisionThreadProps): ReactElement {
+}: DecisionThreadProps) {
   const [replying, setReplying] = useState(false);
   const disputes = decision.disputes.filter((each) => each.path === path);
 

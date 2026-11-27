@@ -1,5 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -17,7 +18,7 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug !== null && slug !== ''
+    return nonEmpty(slug)
       ? this.taskLinks.conversationPage(slug, conversationId)
       : null;
   }
@@ -29,7 +30,7 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug !== null && slug !== ''
+    return nonEmpty(slug)
       ? this.taskLinks.chatPage(slug, teamId.value, chatId)
       : null;
   }
@@ -41,7 +42,7 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug !== null && slug !== ''
+    return nonEmpty(slug)
       ? this.taskLinks.taskPage(slug, teamId.value, taskId.value)
       : null;
   }
@@ -52,7 +53,7 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug !== null && slug !== ''
+    return nonEmpty(slug)
       ? this.taskLinks.inboxRequestPage(slug, inboxRequestId)
       : null;
   }
@@ -63,8 +64,6 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug !== null && slug !== ''
-      ? this.taskLinks.noticePage(slug, noticeId)
-      : null;
+    return nonEmpty(slug) ? this.taskLinks.noticePage(slug, noticeId) : null;
   }
 }

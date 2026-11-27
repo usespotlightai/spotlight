@@ -55,20 +55,18 @@ const welcoming = (
   const welcomed: TeamId[] = [];
   const welcomer = new WelcomeTeam(
     partial<LineMapsPort>({
-      ofTeam: vi.fn(() => Promise.resolve(over.lines ?? LINES)),
+      ofTeam: vi.fn(async () => over.lines ?? LINES),
     }),
     partial<TaskRepository>({
-      add: vi.fn((task: Task) => Promise.resolve(void added.push(task))),
+      add: vi.fn(async (task: Task) => void added.push(task)),
     }),
     {
-      welcomed: vi.fn(() => Promise.resolve(over.welcomed ?? false)),
-      record: vi.fn((teamId: TeamId) =>
-        Promise.resolve(void welcomed.push(teamId)),
-      ),
+      welcomed: vi.fn(async () => over.welcomed ?? false),
+      record: vi.fn(async (teamId: TeamId) => void welcomed.push(teamId)),
       forget: vi.fn(),
     },
     partial<RunnerReaderPort>({
-      hasPlatformRunners: vi.fn(() => Promise.resolve(over.platform ?? false)),
+      hasPlatformRunners: vi.fn(async () => over.platform ?? false),
     }),
     ids(),
     { now: () => new Date('2026-09-03T09:00:00.000Z'), sleep: async () => {} },

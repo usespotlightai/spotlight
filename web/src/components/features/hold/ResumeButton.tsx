@@ -1,5 +1,4 @@
 import { Play } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import { Button } from '@/components/ui/button';
@@ -9,11 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-export function ResumeButton({
-  onClick,
-}: {
-  onClick: () => void;
-}): ReactElement {
+export function ResumeButton({ onClick }: { onClick: () => void }) {
   return (
     <Tooltip>
       <TooltipTrigger

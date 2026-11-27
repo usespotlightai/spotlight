@@ -5,6 +5,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray, min, sql } from 'drizzle-orm';
@@ -20,7 +21,7 @@ const earliest = (seen: readonly Seen[]): ReadonlyMap<string, Date> => {
   for (const each of seen) {
     const at = each.at === null ? null : new Date(each.at);
 
-    if (each.person === null || each.person === '' || !at) {
+    if (!nonEmpty(each.person) || !at) {
       continue;
     }
 

@@ -12,6 +12,7 @@ import type { CelVariables } from '@platform/expressions/cel-variables';
 import type { NetworkCallsPort } from '@runs/application/ports/network-calls.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class NetworkOutbound {
   constructor(
@@ -82,10 +83,7 @@ export class NetworkOutbound {
 
     const { response } = state;
 
-    if (
-      response.status === 0 ||
-      (response.error !== null && response.error !== '')
-    ) {
+    if (response.status === 0 || nonEmpty(response.error)) {
       throw new UpstreamError(
         sending,
         response.error ?? 'nothing answered there',

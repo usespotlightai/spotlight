@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -11,13 +10,15 @@ import type {
   WorkspaceRunnersRecord,
 } from '@runners/application/ports/runner-resources.port';
 import type { CredentialSourceKeys } from '@runners/domain/services/dangling-keys';
+import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import {
   egress,
   runnerPool,
   runnerTrust,
   workspaceRunners,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
-import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -40,8 +41,8 @@ const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
   key: row.key,
   labels: row.labels,
   maxRuns: row.maxRuns,
-  tokenVersion: row.provisionUrl !== null && row.provisionUrl !== '' ? null : row.tokenVersion,
-  provision: row.provisionUrl !== null && row.provisionUrl !== ''
+  tokenVersion: nonEmpty(row.provisionUrl) ? null : row.tokenVersion,
+  provision: nonEmpty(row.provisionUrl)
     ? {
         url: row.provisionUrl,
         secretVersion: row.provisionSecretVersion,
@@ -88,11 +89,13 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async trustWithId(id: string): Promise<RunnerTrustRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(runnerTrust)
-      .where(eq(runnerTrust.id, id))
-      .limit(1));
+    const found = firstOf(
+      await this.db
+        .select()
+        .from(runnerTrust)
+        .where(eq(runnerTrust.id, id))
+        .limit(1),
+    );
 
     return found ? trustRecord(found) : null;
   }
@@ -101,16 +104,18 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     workspaceId: WorkspaceId,
     key: string,
   ): Promise<RunnerTrustRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(runnerTrust)
-      .where(
-        and(
-          eq(runnerTrust.workspaceId, workspaceId.value),
-          eq(runnerTrust.key, key),
-        ),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.db
+        .select()
+        .from(runnerTrust)
+        .where(
+          and(
+            eq(runnerTrust.workspaceId, workspaceId.value),
+            eq(runnerTrust.key, key),
+          ),
+        )
+        .limit(1),
+    );
 
     return found ? trustRecord(found) : null;
   }
@@ -127,11 +132,13 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
   }
 
   async poolWithId(id: string): Promise<RunnerPoolRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(runnerPool)
-      .where(and(eq(runnerPool.id, id), ownedPools))
-      .limit(1));
+    const found = firstOf(
+      await this.db
+        .select()
+        .from(runnerPool)
+        .where(and(eq(runnerPool.id, id), ownedPools))
+        .limit(1),
+    );
 
     return found ? poolRecord(found) : null;
   }
@@ -140,17 +147,19 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     workspaceId: WorkspaceId,
     key: string,
   ): Promise<RunnerPoolRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(runnerPool)
-      .where(
-        and(
-          eq(runnerPool.workspaceId, workspaceId.value),
-          eq(runnerPool.key, key),
-          ownedPools,
-        ),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.db
+        .select()
+        .from(runnerPool)
+        .where(
+          and(
+            eq(runnerPool.workspaceId, workspaceId.value),
+            eq(runnerPool.key, key),
+            ownedPools,
+          ),
+        )
+        .limit(1),
+    );
 
     return found ? poolRecord(found) : null;
   }
@@ -162,18 +171,14 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       await this.db
         .select()
         .from(runnerPool)
-        .where(
-          and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
-        )
+        .where(and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools))
     ).map(poolRecord);
   }
 
   async egressWithId(id: string): Promise<EgressRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(egress)
-      .where(eq(egress.id, id))
-      .limit(1));
+    const found = firstOf(
+      await this.db.select().from(egress).where(eq(egress.id, id)).limit(1),
+    );
 
     return found ? egressRecord(found) : null;
   }
@@ -182,13 +187,15 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     workspaceId: WorkspaceId,
     key: string,
   ): Promise<EgressRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(egress)
-      .where(
-        and(eq(egress.workspaceId, workspaceId.value), eq(egress.key, key)),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.db
+        .select()
+        .from(egress)
+        .where(
+          and(eq(egress.workspaceId, workspaceId.value), eq(egress.key, key)),
+        )
+        .limit(1),
+    );
 
     return found ? egressRecord(found) : null;
   }
@@ -205,11 +212,13 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
   async workspaceRunnersWithId(
     id: string,
   ): Promise<WorkspaceRunnersRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(workspaceRunners)
-      .where(eq(workspaceRunners.id, id))
-      .limit(1));
+    const found = firstOf(
+      await this.db
+        .select()
+        .from(workspaceRunners)
+        .where(eq(workspaceRunners.id, id))
+        .limit(1),
+    );
 
     return found ? workspaceRunnersRecord(found) : null;
   }
@@ -217,11 +226,13 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
   async ofWorkspace(
     workspaceId: WorkspaceId,
   ): Promise<WorkspaceRunnersRecord | null> {
-    const found = firstOf(await this.db
-      .select()
-      .from(workspaceRunners)
-      .where(eq(workspaceRunners.workspaceId, workspaceId.value))
-      .limit(1));
+    const found = firstOf(
+      await this.db
+        .select()
+        .from(workspaceRunners)
+        .where(eq(workspaceRunners.workspaceId, workspaceId.value))
+        .limit(1),
+    );
 
     return found ? workspaceRunnersRecord(found) : null;
   }
@@ -237,9 +248,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       this.db
         .select({ key: runnerPool.key })
         .from(runnerPool)
-        .where(
-          and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
-        ),
+        .where(and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools)),
     ]);
 
     return {

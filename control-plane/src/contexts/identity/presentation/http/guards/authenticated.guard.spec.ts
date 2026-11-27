@@ -14,6 +14,7 @@ import {
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { REQUEST_PRINCIPAL } from '@platform/http/decorators/current-principal.decorator';
 import { REQUEST_USER } from '@platform/http/decorators/current-user.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -53,23 +54,19 @@ function setup(
       false,
   );
 
-  const read = vi
-    .fn()
-    .mockResolvedValue(options.session === true ? USER : null);
-  const readBearer = vi.fn((token: string) =>
-    Promise.resolve(options.login === true && token === LOGIN ? USER : null),
+  const read = vi.fn().mockResolvedValue(options.session ? USER : null);
+  const readBearer = vi.fn(async (token: string) =>
+    options.login && token === LOGIN ? USER : null,
   );
   const sessions = { read, readBearer } satisfies SessionReaderPort;
-  const authenticate = vi
-    .fn()
-    .mockResolvedValue(options.known === true ? TOKEN : null);
+  const authenticate = vi.fn().mockResolvedValue(options.known ? TOKEN : null);
   const tokens = {
     authenticate,
   } satisfies WorkspaceTokenIdentityPort;
 
   const headers: Record<string, string> = {
     cookie: 'x',
-    ...(options.bearer !== undefined && options.bearer !== ''
+    ...(nonEmpty(options.bearer)
       ? { authorization: `Bearer ${options.bearer}` }
       : {}),
   };

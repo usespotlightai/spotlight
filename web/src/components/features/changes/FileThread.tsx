@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ReplyBox } from '@/components/features/review/ReplyBox';
 import { ReviewCommentItem } from '@/components/features/review/ReviewCommentItem';
 import { ThreadEntry } from '@/components/features/review/ThreadEntry';
@@ -21,7 +19,7 @@ export function FileThread({
   note,
   replying,
   onReplying,
-}: FileThreadProps): ReactElement | null {
+}: FileThreadProps) {
   const reviewing = useReviewing();
   const draft = useDraftReviewComment();
   const comments = fileCommentsOf(reviewing?.review?.comments ?? [], path);

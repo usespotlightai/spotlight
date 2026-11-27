@@ -40,35 +40,33 @@ const facts = (over: Partial<RunFacts> = {}): RunFacts =>
 const recording = (found: RunFacts | null) => {
   const recorded: RunUsageRecorded[] = [];
   const known: RunFactsPort = {
-    of: () => Promise.resolve(found ? [found] : []),
+    of: async () => (found ? [found] : []),
   };
   const usages: RunUsageWriterPort = {
-    readingsOf: () =>
-      Promise.resolve({
-        attempt: 2,
-        readings: [
-          {
-            handedOver: true,
-            ms: 60_000,
-            steps: [{ status: 'completed', change: null }],
-            spent: { used: 40_000, size: 200_000, cost: Money.of(0.42, 'USD') },
-            spentBySession: new Map([
-              [
-                'session_1',
-                { used: 40_000, size: 200_000, cost: Money.of(0.42, 'USD') },
-              ],
-            ]),
-            tokens: Tokens.of({ input: 1_200, output: 900 }),
-            calls: [],
-          },
-        ],
-      }),
-    record: (usage: RecordedRunUsage) => {
+    readingsOf: async () => ({
+      attempt: 2,
+      readings: [
+        {
+          handedOver: true,
+          ms: 60_000,
+          steps: [{ status: 'completed', change: null }],
+          spent: { used: 40_000, size: 200_000, cost: Money.of(0.42, 'USD') },
+          spentBySession: new Map([
+            [
+              'session_1',
+              { used: 40_000, size: 200_000, cost: Money.of(0.42, 'USD') },
+            ],
+          ]),
+          tokens: Tokens.of({ input: 1_200, output: 900 }),
+          calls: [],
+        },
+      ],
+    }),
+    record: async (usage: RecordedRunUsage) => {
       const event = usage.recordedFirst(true);
       if (event) {
         recorded.push(event);
       }
-      return Promise.resolve();
     },
   };
   const launch = partial<HarnessLaunchPort>({

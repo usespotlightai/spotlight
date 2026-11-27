@@ -5,7 +5,7 @@ const PLATFORM = 'spotlight';
 export class EgressReference {
   static readonly PLATFORM = PLATFORM;
 
-  private readonly kind: string = 'egress-reference';
+  private readonly kind = 'egress-reference';
 
   private constructor(readonly egressId: EgressId | null) {}
 
@@ -38,7 +38,7 @@ export class EgressReference {
   }
 
   equals(other: EgressReference): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressReference && this.value === other.value;
   }
 
   toString(): string {

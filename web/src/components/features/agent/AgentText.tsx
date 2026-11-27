@@ -1,9 +1,7 @@
-import type { ReactElement } from 'react';
-
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useRevealedText } from '@/hooks/useRevealedText';
 
-export function AgentText({ text }: { text: string }): ReactElement {
+export function AgentText({ text }: { text: string }) {
   const shown = useRevealedText(text);
 
   return (

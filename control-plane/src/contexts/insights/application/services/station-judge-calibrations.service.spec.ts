@@ -20,19 +20,18 @@ const calibrated = (
   rubricVersion: CurrentCalibration['rubricVersion'] = RUBRIC_VERSION,
 ) =>
   new StationJudgeCalibrations({
-    calibrationAt: () =>
-      Promise.resolve({
-        rubricVersion,
-        rubric: null,
-        calibration: {
-          qualified: false,
-          agreement: null,
-          pairs: 0,
-          minAgreement: 0.6,
-          hiddenReason: null,
-          ...calibration,
-        },
-      }),
+    calibrationAt: async () => ({
+      rubricVersion,
+      rubric: null,
+      calibration: {
+        qualified: false,
+        agreement: null,
+        pairs: 0,
+        minAgreement: 0.6,
+        hiddenReason: null,
+        ...calibration,
+      },
+    }),
   });
 
 describe('StationJudgeCalibrations', () => {

@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class LineId {
-  private readonly kind: string = 'line';
+  private readonly kind = 'line';
 
   private constructor(readonly value: string) {}
 
@@ -13,7 +13,7 @@ export class LineId {
   }
 
   equals(other: LineId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof LineId && this.value === other.value;
   }
 
   toString(): string {

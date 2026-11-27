@@ -3,7 +3,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 const DIGITS = /^\d+$/;
 
 export class GitHubInstallation {
-  private readonly kind: string = 'github-installation';
+  private readonly kind = 'github-installation';
 
   private constructor(readonly value: string) {}
 
@@ -27,7 +27,7 @@ export class GitHubInstallation {
   }
 
   equals(other: GitHubInstallation): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof GitHubInstallation && this.value === other.value;
   }
 
   toString(): string {

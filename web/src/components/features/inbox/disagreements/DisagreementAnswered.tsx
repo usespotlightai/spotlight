@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import type { NotMetAnswerResponseDto } from '@/lib/api';
@@ -19,7 +17,7 @@ type DisagreementAnsweredProps = {
 export function DisagreementAnswered({
   disagreement,
   answer,
-}: DisagreementAnsweredProps): ReactElement {
+}: DisagreementAnsweredProps) {
   const named = disagreement.claims.find((each) => each.index === answer.claim);
 
   return (

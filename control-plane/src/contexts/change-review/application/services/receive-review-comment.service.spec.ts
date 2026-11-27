@@ -46,35 +46,32 @@ const receiving = (stored: ReviewComment[] = []) => {
   let generated = 0;
 
   const repository = partial<ReviewCommentRepository>({
-    add: (comment: ReviewComment) =>
-      Promise.resolve(void comments.set(comment.id.value, comment)),
-    save: (comment: ReviewComment) =>
-      Promise.resolve(void comments.set(comment.id.value, comment)),
-    onGitHub: (_: WorkspaceId, githubId: number) =>
-      Promise.resolve(
-        [...comments.values()].find((each) => each.github?.id === githubId) ??
-          null,
-      ),
-    ofTask: () => Promise.resolve([...comments.values()]),
+    add: async (comment: ReviewComment) =>
+      void comments.set(comment.id.value, comment),
+    save: async (comment: ReviewComment) =>
+      void comments.set(comment.id.value, comment),
+    onGitHub: async (_: WorkspaceId, githubId: number) =>
+      [...comments.values()].find((each) => each.github?.id === githubId) ??
+      null,
+    ofTask: async () => [...comments.values()],
   });
 
   const service = new ReceiveReviewComment(
     {
-      run: () => Promise.resolve(null),
-      teamOfRun: () => Promise.resolve(null),
-      repositoriesOfRun: () => Promise.resolve([]),
-      task: () => Promise.resolve(null),
-      taskWithPullRequest: (workspaceId, pullRequest) =>
-        Promise.resolve({
-          id: TASK,
-          workspaceId,
-          teamId: null,
-          pullRequests: [pullRequest],
-          openPullRequests: [pullRequest],
-          reviewedPullRequest: null,
-          reviewing: false,
-          currentRunId: null,
-        }),
+      run: async () => null,
+      teamOfRun: async () => null,
+      repositoriesOfRun: async () => [],
+      task: async () => null,
+      taskWithPullRequest: async (workspaceId, pullRequest) => ({
+        id: TASK,
+        workspaceId,
+        teamId: null,
+        pullRequests: [pullRequest],
+        openPullRequests: [pullRequest],
+        reviewedPullRequest: null,
+        reviewing: false,
+        currentRunId: null,
+      }),
     },
     repository,
     { inTransaction: (work) => work() },

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { RunnerList } from '@/components/features/runners/RunnerList';
 import { RunnerListSkeleton } from '@/components/features/runners/RunnerListSkeleton';
 import { Notice } from '@/components/shared/Notice';
@@ -35,7 +33,7 @@ export function FilteredRunners({
   pools,
   harnesses,
   selectable,
-}: FilteredRunnersProps): ReactElement {
+}: FilteredRunnersProps) {
   const shownHosts = hosts.filter((host) => hostInFilter(filter, host));
   const shownPools = pools.filter((pool) => poolInFilter(filter, pool));
   const noneShown =

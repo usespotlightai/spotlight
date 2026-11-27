@@ -133,6 +133,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -523,10 +524,7 @@ export const replaysSubscribers = (
         pullRequest: PullRequestUrl.of(event.pullRequest),
         hostId: event.gitHubId,
         merged: event.merged,
-        at:
-          event.closedAt !== null && event.closedAt !== ''
-            ? new Date(event.closedAt)
-            : null,
+        at: nonEmpty(event.closedAt) ? new Date(event.closedAt) : null,
       }),
   ),
   subscribing<PullRequestReopenedIntegrationEvent>(
@@ -538,10 +536,7 @@ export const replaysSubscribers = (
         repository: Repository.of(event.repository),
         pullRequest: PullRequestUrl.of(event.pullRequest),
         hostId: event.gitHubId,
-        at:
-          event.reopenedAt !== null && event.reopenedAt !== ''
-            ? new Date(event.reopenedAt)
-            : null,
+        at: nonEmpty(event.reopenedAt) ? new Date(event.reopenedAt) : null,
       }),
     { callsOut: true },
   ),

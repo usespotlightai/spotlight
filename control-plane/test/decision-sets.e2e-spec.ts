@@ -14,6 +14,7 @@ import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/pers
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -404,10 +405,7 @@ describe('reading the decisions of a task with a pull request in each repository
   const seek = (repository: string | null) =>
     reader().merged({
       workspaceId: WORKSPACE,
-      repository:
-        repository !== null && repository !== ''
-          ? Repository.of(repository)
-          : null,
+      repository: nonEmpty(repository) ? Repository.of(repository) : null,
       within: [],
       since: null,
       until: null,

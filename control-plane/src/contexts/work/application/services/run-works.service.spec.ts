@@ -109,36 +109,30 @@ const works = (over: {
 }) =>
   new RunWorks(
     partial<RunLeasesPort>({
-      leasedBy: () =>
-        Promise.resolve(
-          over.leased === false
-            ? null
-            : partial<LeasedRunFacts>({
-                runId: RUN,
-                workspaceId: WorkspaceId.of('ws_1'),
-                policy: partial<RunPolicyContract>({ actsBeyondItself: true }),
-              }),
-        ),
+      leasedBy: async () =>
+        over.leased === false
+          ? null
+          : partial<LeasedRunFacts>({
+              runId: RUN,
+              workspaceId: WorkspaceId.of('ws_1'),
+              policy: partial<RunPolicyContract>({ actsBeyondItself: true }),
+            }),
     }),
     partial<RunsPort>({}),
     partial<TaskRepository>({
-      find: () =>
-        Promise.resolve(
-          over.task === undefined || over.task === null
-            ? null
-            : partial<Task>(over.task),
-        ),
+      find: async () =>
+        over.task === undefined || over.task === null
+          ? null
+          : partial<Task>(over.task),
     }),
     partial<ChatRepository>({
-      find: () =>
-        Promise.resolve(
-          over.chat === undefined || over.chat === null
-            ? null
-            : partial<Chat>(over.chat),
-        ),
+      find: async () =>
+        over.chat === undefined || over.chat === null
+          ? null
+          : partial<Chat>(over.chat),
     }),
     partial<LineMapsPort>({
-      findByStation: () => Promise.resolve(null),
+      findByStation: async () => null,
     }),
     over.dispatches ?? dispatchesOf(),
     partial<RepositorySettingsPort>({}),

@@ -1,5 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
-import { type ComponentType, type ReactElement, useId } from 'react';
+import { type ComponentType, useId } from 'react';
 
 import {
   DropdownMenu,
@@ -38,7 +38,7 @@ export function CheckboxSelect({
   empty,
   readOnlyBecause,
   className,
-}: CheckboxSelectProps): ReactElement {
+}: CheckboxSelectProps) {
   const chosen = new Set(value);
   const readOnly = Boolean(readOnlyBecause);
   const reasonId = useId();

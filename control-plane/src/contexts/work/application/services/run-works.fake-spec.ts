@@ -106,8 +106,8 @@ export const dispatchesOf = (
   ...dispatches: readonly Dispatch[]
 ): DispatchRepository =>
   partial<DispatchRepository>({
-    find: (id: RunId) =>
-      Promise.resolve(dispatches.find((each) => each.id.equals(id)) ?? null),
+    find: async (id: RunId) =>
+      dispatches.find((each) => each.id.equals(id)) ?? null,
   });
 
 export type RunRequested = 'task' | 'chat' | 'trial' | 'search' | 'spec';
@@ -174,5 +174,5 @@ export const runWorksOver = (
 
 export const defaultBranchIs = (name: string): RepositorySettingsPort =>
   partial<RepositorySettingsPort>({
-    defaultBranchNameOf: () => Promise.resolve(name),
+    defaultBranchNameOf: async () => name,
   });

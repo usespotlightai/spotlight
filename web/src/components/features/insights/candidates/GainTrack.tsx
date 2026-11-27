@@ -1,4 +1,4 @@
-import { type ReactElement, useContext } from 'react';
+import { useContext } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { GainScale } from '@/lib/insights-candidates';
@@ -21,11 +21,7 @@ const INKS: Record<GainSignificanceCode, string> = {
 const at = (value: number, extent: number): string =>
   `${50 + (Math.max(-extent, Math.min(extent, value)) / extent) * 50}%`;
 
-export function GainTrack({
-  gain,
-}: {
-  gain: GainEstimate | null;
-}): ReactElement {
+export function GainTrack({ gain }: { gain: GainEstimate | null }) {
   const extent = useContext(GainScale);
 
   if (!gain) {

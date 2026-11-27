@@ -261,7 +261,7 @@ export class HclStationSourceEdits implements StationSourceEditsPort {
             each.endsWith(TERRAFORM_FILE) &&
             directoryOf(each) === directoryOf(request.file.path),
         ),
-      read: (path) => Promise.resolve(contents.get(path) ?? null),
+      read: async (path) => contents.get(path) ?? null,
     });
 
     return edited.ok

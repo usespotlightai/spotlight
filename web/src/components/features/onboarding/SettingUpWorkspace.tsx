@@ -1,10 +1,9 @@
 import { LoaderCircle } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
 
-export function SettingUpWorkspace(): ReactElement {
+export function SettingUpWorkspace() {
   return (
     <AuthScreen className="w-80 items-center">
       <LoaderCircle

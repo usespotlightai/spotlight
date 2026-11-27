@@ -283,13 +283,11 @@ const noticing = () =>
     findings(),
     suppliers.lines,
     {
-      notify: (notice) => {
+      notify: async (notice) => {
         noticed.push(notice);
-        return Promise.resolve();
       },
-      advise: (notice) => {
+      advise: async (notice) => {
         advised.push(notice);
-        return Promise.resolve();
       },
     },
   );
@@ -444,17 +442,16 @@ beforeEach(async () => {
   memory = new InMemoryReplays();
   memory.startsPlannedReplays = true;
   suppliers = new FakeSuppliers();
-  suppliers.configs.live = () =>
-    Promise.resolve({
-      lineKey: 'delivery',
-      block: StationBlock.of(SEED_BLOCK),
-      fingerprint: LIVE_FINGERPRINT,
-      scoring: UNSCORED,
-      hashes: LIVE_HASHES,
-      threshold: null,
-      search: null,
-      agent: null,
-    });
+  suppliers.configs.live = async () => ({
+    lineKey: 'delivery',
+    block: StationBlock.of(SEED_BLOCK),
+    fingerprint: LIVE_FINGERPRINT,
+    scoring: UNSCORED,
+    hashes: LIVE_HASHES,
+    threshold: null,
+    search: null,
+    agent: null,
+  });
   await memory.setRepository.add(aSet(10));
   memory.events.splice(0);
 });
@@ -494,7 +491,7 @@ describe('a search’s iterations', () => {
     const started = await start();
 
     await delivered();
-    suppliers.lines.station = () => Promise.resolve(null);
+    suppliers.lines.station = async () => null;
     await replayed(started.seedReplayId, () => true, 0.5);
 
     expect(theSearch().current).toBe('stopped');
@@ -524,13 +521,13 @@ describe('a search’s iterations', () => {
   });
 
   it('stops as station-gone, counting no failed iteration, when its station left its line while its agent run was being queued', async () => {
-    suppliers.dispatch.dispatchSearch = () => {
-      suppliers.lines.station = () => Promise.resolve(null);
+    suppliers.dispatch.dispatchSearch = async () => {
+      suppliers.lines.station = async () => null;
 
-      return Promise.resolve({
+      return {
         queued: false,
         reason: 'the line no longer has the station it searches',
-      });
+      };
     };
 
     await seeded();
@@ -573,8 +570,8 @@ describe('a search’s iterations', () => {
 
   it('retries an iteration whose dispatch failed, from the sweeper', async () => {
     const dispatch = suppliers.dispatch.dispatchSearch;
-    suppliers.dispatch.dispatchSearch = () => {
-      return Promise.reject(new Error('the database went away'));
+    suppliers.dispatch.dispatchSearch = async () => {
+      throw new Error('the database went away');
     };
 
     await expect(seeded()).rejects.toThrow('the database went away');
@@ -612,20 +609,18 @@ describe('a stalled search looking into why', () => {
   };
 
   it('briefs its agent with the searched tasks the best config still fails, takes one cause each, never for a held-out task, and ends stalled with the causes, advising the team once on them', async () => {
-    suppliers.trialableRuns.runSummaries = (_workspace, runs) =>
-      Promise.resolve(
-        runs.map((runId) => ({
-          runId,
-          taskId: null,
-          stationId: null,
-          unreplayableReason: null,
-          reason: null,
-          title: runId.equals(searchedAt(0).runId) ? 'Drain the queue' : null,
-          state: null,
-          endedAt: null,
-          origin: null,
-        })),
-      );
+    suppliers.trialableRuns.runSummaries = async (_workspace, runs) =>
+      runs.map((runId) => ({
+        runId,
+        taskId: null,
+        stationId: null,
+        unreplayableReason: null,
+        reason: null,
+        title: runId.equals(searchedAt(0).runId) ? 'Drain the queue' : null,
+        state: null,
+        endedAt: null,
+        origin: null,
+      }));
     await stalledOn({ ...BUDGET, iterations: 5 }, (original) => {
       const search = theSearch();
 
@@ -995,15 +990,14 @@ describe('SearchVisibilities', () => {
   it('hands a search run each replay’s verdict and what to improve, never the judge’s reasons or the checks that failed', async () => {
     const live = await liveFrom(suppliers.configs)();
     const RUBRIC_PHRASE = 'drain the queue without dropping a job';
-    suppliers.configs.live = () =>
-      Promise.resolve({
-        ...live,
-        scoring: CandidateScoring.of({
-          checksChanges: true,
-          judge: JUDGE,
-          rubricVersion: RubricVersion.of('c'.repeat(64)),
-        }),
-      });
+    suppliers.configs.live = async () => ({
+      ...live,
+      scoring: CandidateScoring.of({
+        checksChanges: true,
+        judge: JUDGE,
+        rubricVersion: RubricVersion.of('c'.repeat(64)),
+      }),
+    });
     const started = await start();
 
     await delivered();

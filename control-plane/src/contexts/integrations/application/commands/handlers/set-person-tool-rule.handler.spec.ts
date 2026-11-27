@@ -31,19 +31,16 @@ const setting = (member = true, actsAs = 'requester') => {
   const policies = new InMemoryPersonToolPolicies();
   const handler = new SetPersonToolRuleHandler(
     partial<WorkspaceAccessPort>({
-      inWorkspaceOfTeam: () =>
-        Promise.resolve(
-          member ? partial<TeamWorkspaceMembership>({ isAdmin: false }) : null,
-        ),
+      inWorkspaceOfTeam: async () =>
+        member ? partial<TeamWorkspaceMembership>({ isAdmin: false }) : null,
     }),
     partial<DefinedIntegrationsPort>({
-      ofTeam: () =>
-        Promise.resolve([
-          partial<DefinedIntegration>({
-            integration: 'linear',
-            tools: ['linear.comment', 'linear.issue'],
-          }),
-        ]),
+      ofTeam: async () => [
+        partial<DefinedIntegration>({
+          integration: 'linear',
+          tools: ['linear.comment', 'linear.issue'],
+        }),
+      ],
     }),
     partial<IntegrationRuntimePort>({
       offered: () => [

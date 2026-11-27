@@ -19,6 +19,7 @@ import {
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -63,35 +64,31 @@ const SCORED = /score\((\d)\)/;
 const WITHIN = 60_000;
 
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  stored: () => Promise.resolve(true),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+  received: async () => [],
+  stored: async () => true,
+  taken: async () => undefined,
+  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 });
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
 const judge: JudgePort = {
   roundOf: () => null,
-  judge: (request) => {
+  judge: async (request) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
-    return Promise.resolve({
+    return {
       status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
@@ -108,7 +105,7 @@ const judge: JudgePort = {
           ],
         })),
       },
-    });
+    };
   },
 };
 
@@ -630,7 +627,7 @@ afterAll(async () => {
 });
 
 const replayedPath = (period?: string) =>
-  `${teamPath()}/replayed-candidates${period !== undefined && period !== '' ? `?period=${period}` : ''}`;
+  `${teamPath()}/replayed-candidates${nonEmpty(period) ? `?period=${period}` : ''}`;
 
 interface Replayed {
   period: { name: string; from: string; to: string };

@@ -12,9 +12,9 @@ describe('RunnerController, taking a run’s completion', () => {
     const sent: unknown[] = [];
     const controller = new RunnerController(
       partial<CommandBus>({
-        execute: (command: unknown) => {
+        execute: async (command: unknown) => {
           sent.push(command);
-          return Promise.resolve({ waiting: false });
+          return { waiting: false };
         },
       }),
       partial<QueryBus>({}),
@@ -43,9 +43,9 @@ describe('RunnerController, renewing the lease on check work', () => {
     const sent: unknown[] = [];
     const controller = new RunnerController(
       partial<CommandBus>({
-        execute: (command: unknown) => {
+        execute: async (command: unknown) => {
           sent.push(command);
-          return Promise.resolve(answer);
+          return answer;
         },
       }),
       partial<QueryBus>({}),

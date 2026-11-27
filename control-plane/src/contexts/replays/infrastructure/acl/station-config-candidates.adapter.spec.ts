@@ -31,7 +31,7 @@ const sha256 = (text: string): string =>
 const live = () =>
   new StationConfigCandidates(
     partial<StationConfigCandidatesPort>({
-      live: () => Promise.resolve(LIVE),
+      live: async () => LIVE,
     }),
     { sha256 },
   ).live(LineId.of('line_1'), StationId.of('station_1'));

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MemberRow } from '@/components/features/members/MemberRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import type { useWorkspaceMembers } from '@/hooks/api/useWorkspaceMembers';
@@ -10,10 +8,7 @@ type SuspendedMembersProps = {
   members: ReturnType<typeof useWorkspaceMembers>;
 };
 
-export function SuspendedMembers({
-  slug,
-  members,
-}: SuspendedMembersProps): ReactElement | null {
+export function SuspendedMembers({ slug, members }: SuspendedMembersProps) {
   const suspended = suspendedMembers(members.data ?? []);
 
   if (suspended.length === 0) {

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
@@ -29,7 +27,7 @@ export function InboxComposer({
   teamId,
   runId,
   stoppable,
-}: InboxComposerProps): ReactElement {
+}: InboxComposerProps) {
   const answer = useAnswerInboxItem();
   const stop = useStopRun();
   const { line, station: currentStation } = useTaskStation(teamId, taskId);

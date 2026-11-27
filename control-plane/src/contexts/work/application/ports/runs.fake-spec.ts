@@ -144,25 +144,20 @@ export const runCancelled = (
 export const recordingRuns = (
   answers: Partial<RunsPort> = {},
 ): Mocked<RunsPort> => ({
-  enqueue: vi.fn(
-    answers.enqueue ?? (() => Promise.resolve({ outcome: 'enqueued' })),
-  ),
+  enqueue: vi.fn(answers.enqueue ?? (async () => ({ outcome: 'enqueued' }))),
   requestStop: vi.fn(
-    answers.requestStop ?? (() => Promise.resolve({ pendingTurn: null })),
+    answers.requestStop ?? (async () => ({ pendingTurn: null })),
   ),
   cancel: vi.fn(
-    answers.cancel ??
-      (() => Promise.resolve({ was: 'unknown', started: false })),
+    answers.cancel ?? (async () => ({ was: 'unknown', started: false })),
   ),
   cancelIfQueued: vi.fn(
-    answers.cancelIfQueued ?? (() => Promise.resolve({ outcome: 'unknown' })),
+    answers.cancelIfQueued ?? (async () => ({ outcome: 'unknown' })),
   ),
-  askedAPerson: vi.fn(
-    answers.askedAPerson ?? (() => Promise.resolve(undefined)),
-  ),
-  keep: vi.fn(answers.keep ?? (() => Promise.resolve(undefined))),
-  resume: vi.fn(answers.resume ?? (() => Promise.resolve('resumed' as const))),
-  finish: vi.fn(answers.finish ?? (() => Promise.resolve(undefined))),
+  askedAPerson: vi.fn(answers.askedAPerson ?? (async () => undefined)),
+  keep: vi.fn(answers.keep ?? (async () => undefined)),
+  resume: vi.fn(answers.resume ?? (async () => 'resumed' as const)),
+  finish: vi.fn(answers.finish ?? (async () => undefined)),
 });
 
 export const turnFacts = (part: Partial<TurnFacts> = {}): TurnFacts => ({
@@ -189,27 +184,21 @@ export interface HeldTurn {
 export const heldTurn = (held: TurnFacts | null): HeldTurn => {
   let current = held;
   const turns = partial<RunTurnsPort>({
-    turnOf: (runId: RunId, attempt: number) =>
-      Promise.resolve(
-        current?.runId.equals(runId) === true && current.attempt === attempt
-          ? current
-          : null,
-      ),
+    turnOf: async (runId: RunId, attempt: number) =>
+      current?.runId.equals(runId) && current.attempt === attempt
+        ? current
+        : null,
   });
   const runs = recordingRuns({
-    keep: () => {
+    keep: async () => {
       current = current && { ...current, turn: 'kept' };
-
-      return Promise.resolve();
     },
-    resume: () => {
+    resume: async () => {
       current = null;
-      return Promise.resolve('resumed' as const);
+      return 'resumed' as const;
     },
-    finish: () => {
+    finish: async () => {
       current = null;
-
-      return Promise.resolve();
     },
   });
 
@@ -283,7 +272,7 @@ export const runLeasesOver = (
   const found = (runId: RunId): LeasedRunFacts | null => {
     const run = lookedUp();
 
-    return run?.runId.equals(runId) === true ? run : null;
+    return run?.runId.equals(runId) ? run : null;
   };
   const leased = (runId: RunId, runner: RunnerId): LeasedRunFacts | null => {
     const run = found(runId);
@@ -292,27 +281,25 @@ export const runLeasesOver = (
   };
 
   return {
-    leasedBy: (runId, runner) => Promise.resolve(leased(runId, runner)),
-    leaseOf: (runId, runner) => {
+    leasedBy: async (runId, runner) => leased(runId, runner),
+    leaseOf: async (runId, runner) => {
       const run = found(runId);
 
       if (!run) {
-        return Promise.reject(new RunNotFound(`Run ${runId.value} not found.`));
+        throw new RunNotFound(`Run ${runId.value} not found.`);
       }
       if (!isLeasedBy(run, runner)) {
-        return Promise.reject(
-          new RunNotLeased(
-            `Run ${runId.value} is not leased by runner ${runner.value}.`,
-          ),
+        throw new RunNotLeased(
+          `Run ${runId.value} is not leased by runner ${runner.value}.`,
         );
       }
 
-      return Promise.resolve(run);
+      return run;
     },
-    isStillOn: (runId, attempt, runner) =>
-      Promise.resolve(leased(runId, runner)?.attempt === attempt),
-    claimedBy: (runId, runner) =>
-      Promise.resolve(found(runId)?.claimedBy.equals(runner) ?? false),
+    isStillOn: async (runId, attempt, runner) =>
+      leased(runId, runner)?.attempt === attempt,
+    claimedBy: async (runId, runner) =>
+      found(runId)?.claimedBy.equals(runner) ?? false,
   };
 };
 

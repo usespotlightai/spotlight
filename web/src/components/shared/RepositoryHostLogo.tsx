@@ -1,4 +1,4 @@
-import type { ComponentType, SVGProps, ReactElement } from 'react';
+import type { ComponentType, SVGProps } from 'react';
 
 import { GithubLogo } from '@/components/shared/icons';
 import type { LineRepositoryResponseDto } from '@/lib/api';
@@ -16,7 +16,7 @@ export function RepositoryHostLogo({
 }: {
   host: LineRepositoryResponseDto['host'];
   className?: string;
-}): ReactElement {
+}) {
   const Logo = LOGOS[host];
 
   return <Logo aria-hidden className={className} />;

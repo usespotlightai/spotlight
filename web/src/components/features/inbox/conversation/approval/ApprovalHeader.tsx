@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { DecisionActions } from '@/components/shared/DecisionActions';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
@@ -17,7 +15,7 @@ export function ApprovalHeader({
   pending,
   acting,
   onEdit,
-}: ApprovalHeaderProps): ReactElement {
+}: ApprovalHeaderProps) {
   return (
     <DecisionHeader
       title={

@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
@@ -20,7 +20,7 @@ export function TimeToMergeByType({
   merges,
 }: {
   merges: Pick<InsightsShipping, 'types' | 'slowestFirst'>;
-}): ReactElement {
+}) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
   const rows = slowestFirst(merges, percentile);
   const max = Math.max(

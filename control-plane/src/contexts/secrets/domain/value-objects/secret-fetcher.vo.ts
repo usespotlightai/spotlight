@@ -2,7 +2,7 @@ import type { EgressId } from '@secrets/domain/value-objects/egress-id.vo';
 import type { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 
 export class SecretFetcher {
-  private readonly kind: string = 'secret-fetcher';
+  private readonly kind = 'secret-fetcher';
 
   private constructor(
     readonly recipient: Recipient,
@@ -34,7 +34,7 @@ export class SecretFetcher {
 
   equals(other: SecretFetcher): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof SecretFetcher &&
       this.recipient.equals(other.recipient) &&
       (this.sharedEgress === null || other.sharedEgress === null
         ? this.sharedEgress === other.sharedEgress

@@ -30,6 +30,7 @@ import {
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const UNAUTHORIZED =
   'The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.';
@@ -96,7 +97,7 @@ export class HookCallbackController {
       new NoteByCallbackCommand(
         bearerIn(authorization) ?? '',
         typeof body?.body === 'string' ? body.body : '',
-        idempotency === undefined || idempotency === '' ? null : idempotency,
+        !nonEmpty(idempotency) ? null : idempotency,
       ),
     );
 

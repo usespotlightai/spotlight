@@ -83,44 +83,38 @@ const reading = (input: {
   proposed?: boolean;
 }) => {
   const work = partial<WorkPort>({
-    run: () =>
-      Promise.resolve({
-        id: RunId.of('run_1'),
-        workspaceId: WORKSPACE,
-        taskId: input.proposed === true ? TaskId.of('task_1') : null,
-        briefed: input.briefed.map((each) => each.id.value),
-        omitted: input.omitted.map((each) => each.id.value),
-      }),
-    reasoning: () => Promise.resolve([]),
-    notesOf: () => Promise.resolve([]),
-    harnessOf: () => Promise.resolve('claude-code'),
-    contextOfRun: () =>
-      Promise.resolve(
-        input.teamOfRun && {
-          teamId: input.teamOfRun,
-          lineId: null,
-          stationId: null,
-          repositories: [],
-        },
-      ),
+    run: async () => ({
+      id: RunId.of('run_1'),
+      workspaceId: WORKSPACE,
+      taskId: input.proposed ? TaskId.of('task_1') : null,
+      briefed: input.briefed.map((each) => each.id.value),
+      omitted: input.omitted.map((each) => each.id.value),
+    }),
+    reasoning: async () => [],
+    notesOf: async () => [],
+    harnessOf: async () => 'claude-code',
+    contextOfRun: async () =>
+      input.teamOfRun && {
+        teamId: input.teamOfRun,
+        lineId: null,
+        stationId: null,
+        repositories: [],
+      },
   });
   const people = partial<PeoplePort>({
-    viewerOf: () =>
-      Promise.resolve({
-        workspaceId: WORKSPACE,
-        by: UserId.of('user_1'),
-      }),
-    find: () => Promise.resolve({ name: 'Ada', image: null }),
+    viewerOf: async () => ({
+      workspaceId: WORKSPACE,
+      by: UserId.of('user_1'),
+    }),
+    find: async () => ({ name: 'Ada', image: null }),
   });
   const memories = partial<MemoryRepository>({
-    findAll: (ids: readonly MemoryId[]) =>
-      Promise.resolve(
-        ids.flatMap((id) => input.stored.filter((each) => each.id.equals(id))),
-      ),
+    findAll: async (ids: readonly MemoryId[]) =>
+      ids.flatMap((id) => input.stored.filter((each) => each.id.equals(id))),
   });
   const uses = partial<MemoryUsesPort>({
-    usedBy: () => Promise.resolve(input.recalled.map((each) => each.id)),
-    runsUsing: () => Promise.resolve(new Map()),
+    usedBy: async () => input.recalled.map((each) => each.id),
+    runsUsing: async () => new Map(),
   });
 
   return new ReadRunMemoriesHandler(
@@ -128,13 +122,12 @@ const reading = (input: {
     work,
     memories,
     partial<MemoryProposalSetRepository>({
-      forTask: () =>
-        Promise.resolve(input.proposed === true ? draftProposing() : null),
+      forTask: async () => (input.proposed ? draftProposing() : null),
     }),
     uses,
     new MemoryReviews(work, people, memories),
     new TeamMemoryViews(memories, people, uses),
-    partial<ReviewsPort>({ reviewItemOf: () => Promise.resolve('request_1') }),
+    partial<ReviewsPort>({ reviewItemOf: async () => 'request_1' }),
   ).execute(new ReadRunMemoriesQuery('team_1', 'run_1', 'user_1'));
 };
 

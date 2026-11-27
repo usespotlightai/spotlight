@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -11,9 +10,9 @@ import type {
   LiveRunnerSummary,
   RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
+import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
-import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
@@ -28,8 +27,19 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  type SQL,
+} from 'drizzle-orm';
 
 interface SourceRow {
   readonly poolId: string | null;
@@ -38,7 +48,6 @@ interface SourceRow {
   readonly poolEgress: string | null;
   readonly trustKey: string | null;
 }
-
 
 @Injectable()
 export class DrizzleRunnerReader
@@ -74,7 +83,7 @@ export class DrizzleRunnerReader
     return {
       kind: 'pool',
       key: row.poolKey,
-      platform: row.poolPlatform === true
+      platform: row.poolPlatform
         ? {
             egress:
               row.poolEgress !== null &&
@@ -85,13 +94,13 @@ export class DrizzleRunnerReader
   }
 
   async readyToRun(workspaceId: WorkspaceId): Promise<boolean> {
-    const pushed = firstOf(await this.db
-      .select({ id: runnerPool.id })
-      .from(runnerPool)
-      .where(
-        and(eq(runnerPool.workspaceId, workspaceId.value), this.pushes),
-      )
-      .limit(1));
+    const pushed = firstOf(
+      await this.db
+        .select({ id: runnerPool.id })
+        .from(runnerPool)
+        .where(and(eq(runnerPool.workspaceId, workspaceId.value), this.pushes))
+        .limit(1),
+    );
 
     if (pushed) {
       return true;
@@ -105,17 +114,19 @@ export class DrizzleRunnerReader
       return false;
     }
 
-    const disabled = firstOf(await this.db
-      .select({ id: runnerPool.id })
-      .from(runnerPool)
-      .where(
-        and(
-          eq(runnerPool.workspaceId, workspaceId.value),
-          eq(runnerPool.platform, true),
-          eq(runnerPool.disabled, true),
-        ),
-      )
-      .limit(1));
+    const disabled = firstOf(
+      await this.db
+        .select({ id: runnerPool.id })
+        .from(runnerPool)
+        .where(
+          and(
+            eq(runnerPool.workspaceId, workspaceId.value),
+            eq(runnerPool.platform, true),
+            eq(runnerPool.disabled, true),
+          ),
+        )
+        .limit(1),
+    );
 
     return !disabled;
   }
@@ -130,7 +141,10 @@ export class DrizzleRunnerReader
           this.pushes,
           isNotNull(runnerPool.provisionEgress),
           // As RunnerPool.allowsSecrets: the platform pool takes runs that need egress only when the operator allows it.
-          or(eq(runnerPool.platform, false), eq(runnerPool.allowsSecrets, true)),
+          or(
+            eq(runnerPool.platform, false),
+            eq(runnerPool.allowsSecrets, true),
+          ),
         ),
       );
 
@@ -208,7 +222,7 @@ export class DrizzleRunnerReader
 
     for (const row of hosts) {
       for (const image of row.images.filter(
-        (each) => (each.unavailableReason === undefined || each.unavailableReason === ''),
+        (each) => !nonEmpty(each.unavailableReason),
       )) {
         for (const each of image.harnesses) {
           collect(each.id, each.models);
@@ -243,10 +257,7 @@ export class DrizzleRunnerReader
       .leftJoin(runnerPool, eq(runnerPool.id, runner.poolId))
       .leftJoin(runnerTrust, eq(runnerTrust.id, runner.trustId))
       .where(
-        and(
-          eq(runner.workspaceId, workspaceId.value),
-          isNull(runner.endedAt),
-        ),
+        and(eq(runner.workspaceId, workspaceId.value), isNull(runner.endedAt)),
       )
       .orderBy(runner.startedAt);
 
@@ -325,9 +336,7 @@ export class DrizzleRunnerReader
         startedAt: sandbox.startedAt,
       })
       .from(sandbox)
-      .where(
-        and(inArray(sandbox.hostId, [...hostIds]), isIdleSandbox()),
-      )
+      .where(and(inArray(sandbox.hostId, [...hostIds]), isIdleSandbox()))
       .orderBy(sandbox.startedAt);
 
     return rows.flatMap((row) =>

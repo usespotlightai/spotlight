@@ -90,8 +90,8 @@ const seenAs = (
 });
 
 const claiming = (
-  claimNext = vi.fn((): Promise<Run | null> => Promise.resolve(queued())),
-  claimCheck = vi.fn((): Promise<ClaimedCheck | null> => Promise.resolve(null)),
+  claimNext = vi.fn(async (): Promise<Run | null> => queued()),
+  claimCheck = vi.fn(async (): Promise<ClaimedCheck | null> => null),
   over: {
     seen?: RegisteredClaimant | null;
     reservedFor?: Run | null;
@@ -101,54 +101,51 @@ const claiming = (
     liveKeys?: readonly string[];
   } = {},
 ) => {
-  const mayStart = vi.fn((): Promise<RunStart> =>
-    Promise.resolve(over.starts ?? 'starts'),
+  const mayStart = vi.fn(
+    async (): Promise<RunStart> => over.starts ?? 'starts',
   );
-  const claimReserved = vi.fn((): Promise<ClaimedReviewWork | null> =>
-    Promise.resolve(over.reservedCheck ?? null),
+  const claimReserved = vi.fn(
+    async (): Promise<ClaimedReviewWork | null> => over.reservedCheck ?? null,
   );
   const pooled = {
-    claim: vi.fn(() => {
-      if (over.tookFails === true) {
-        return Promise.reject(new Error('runner_1 is spent'));
+    claim: vi.fn(async () => {
+      if (over.tookFails) {
+        throw new Error('runner_1 is spent');
       }
-      return Promise.resolve();
     }),
   };
   const saved: Run[] = [];
   const unclaim = vi.fn(async () => {});
-  const failed = vi.fn(() => Promise.resolve(null));
+  const failed = vi.fn(async () => null);
   let now = NOW;
   const clock = {
     now: () => now,
-    sleep: (ms: number) => {
+    sleep: async (ms: number) => {
       now = new Date(now.getTime() + ms);
-      return Promise.resolve();
     },
   };
   const runs = partial<RunRepository>({
-    reservedFor: vi.fn(() => Promise.resolve(over.reservedFor ?? null)),
-    findById: vi.fn(() => Promise.resolve(queued())),
-    save: vi.fn((run: Run) => {
+    reservedFor: vi.fn(async () => over.reservedFor ?? null),
+    findById: vi.fn(async () => queued()),
+    save: vi.fn(async (run: Run) => {
       saved.push(run);
-      return Promise.resolve();
     }),
   });
   const checks = {
     claimNext: claimCheck,
     claimReserved,
     unclaim,
-    renewLease: vi.fn(() => Promise.resolve('renewed' as const)),
-    isLeasedBy: vi.fn(() => Promise.resolve(false)),
-    waitingPlacements: vi.fn(() => Promise.resolve([])),
+    renewLease: vi.fn(async () => 'renewed' as const),
+    isLeasedBy: vi.fn(async () => false),
+    waitingPlacements: vi.fn(async () => []),
   };
   const handler = new ClaimRunHandler(
     runs,
     partial<RunClaims>({ next: claimNext }),
     {
-      claimantOf: () => Promise.resolve(null),
-      registeredClaimantOf: vi.fn(() =>
-        Promise.resolve(over.seen === undefined ? seenAs() : over.seen),
+      claimantOf: async () => null,
+      registeredClaimantOf: vi.fn(async () =>
+        over.seen === undefined ? seenAs() : over.seen,
       ),
     },
     clock,
@@ -163,7 +160,7 @@ const claiming = (
     partial<ClaimGate>({ mayStart }),
     new LongPoll(clock),
     partial<SandboxesPort>({
-      liveKeysIn: vi.fn(() => Promise.resolve(over.liveKeys ?? [])),
+      liveKeysIn: vi.fn(async () => over.liveKeys ?? []),
     }),
   );
 
@@ -195,7 +192,7 @@ describe('ClaimRunHandler', () => {
   });
 
   it('only looks for work in the runner’s own workspace', async () => {
-    const claimNext = vi.fn(() => Promise.resolve(queued()));
+    const claimNext = vi.fn(async () => queued());
 
     await claiming(claimNext).execute(new ClaimRunCommand('runner_1'));
 
@@ -206,7 +203,7 @@ describe('ClaimRunHandler', () => {
   });
 
   it('looks only for work placed where the runner answers', async () => {
-    const claimNext = vi.fn(() => Promise.resolve(queued()));
+    const claimNext = vi.fn(async () => queued());
 
     await claiming(claimNext).execute(new ClaimRunCommand('runner_1'));
 
@@ -217,7 +214,7 @@ describe('ClaimRunHandler', () => {
   });
 
   it('claims as the pool or trust its runner came in through, so the run keeps it', async () => {
-    const claimNext = vi.fn(() => Promise.resolve(queued()));
+    const claimNext = vi.fn(async () => queued());
 
     await claiming(claimNext).execute(new ClaimRunCommand('runner_1'));
 
@@ -234,7 +231,7 @@ describe('ClaimRunHandler', () => {
   });
 
   it('claims as no pool or trust once its pool or trust is gone', async () => {
-    const claimNext = vi.fn(() => Promise.resolve(queued()));
+    const claimNext = vi.fn(async () => queued());
 
     await claiming(claimNext, undefined, {
       seen: { ...seenAs(), source: null },
@@ -261,7 +258,7 @@ describe('ClaimRunHandler', () => {
   });
 
   it('leaves the runs of keys that ready host sandboxes keep to those sandboxes', async () => {
-    const claimNext = vi.fn(() => Promise.resolve(queued()));
+    const claimNext = vi.fn(async () => queued());
 
     await claiming(claimNext, undefined, {
       liveKeys: ['requester/subject-task_1'],
@@ -286,8 +283,8 @@ describe('ClaimRunHandler', () => {
   });
 
   it('hands a runner that may claim nothing no work at all', async () => {
-    const claimNext = vi.fn(() => Promise.resolve(queued()));
-    const claimCheck = vi.fn(() => Promise.resolve(aCheck));
+    const claimNext = vi.fn(async () => queued());
+    const claimCheck = vi.fn(async () => aCheck);
     const handler = claiming(claimNext, claimCheck, {
       seen: seenAs('nothing'),
     });
@@ -299,7 +296,7 @@ describe('ClaimRunHandler', () => {
 
   describe('for a runner started for one reserved run', () => {
     it('claims the run reserved for it, and records that its runner claimed it', async () => {
-      const claimNext = vi.fn(() => Promise.resolve(queued()));
+      const claimNext = vi.fn(async () => queued());
       const handler = claiming(claimNext, undefined, {
         seen: seenAs('reserved'),
         reservedFor: reservedForPooled(),
@@ -321,7 +318,7 @@ describe('ClaimRunHandler', () => {
 
     it('puts the run back on the queue, uncounted, when its runner cannot take it', async () => {
       const handler = claiming(
-        vi.fn(() => Promise.resolve(queued())),
+        vi.fn(async () => queued()),
         undefined,
         {
           seen: seenAs('reserved'),
@@ -341,7 +338,7 @@ describe('ClaimRunHandler', () => {
 
     it('puts the check back, uncounted, when its runner cannot take it', async () => {
       const handler = claiming(
-        vi.fn(() => Promise.resolve(null)),
+        vi.fn(async () => null),
         undefined,
         {
           seen: seenAs('reserved'),
@@ -361,9 +358,9 @@ describe('ClaimRunHandler', () => {
     });
 
     it('never offers it a check that was not reserved for it', async () => {
-      const claimCheck = vi.fn(() => Promise.resolve(aCheck));
+      const claimCheck = vi.fn(async () => aCheck);
       const handler = claiming(
-        vi.fn(() => Promise.resolve(null)),
+        vi.fn(async () => null),
         claimCheck,
         { seen: seenAs('reserved') },
       );
@@ -378,9 +375,9 @@ describe('ClaimRunHandler', () => {
     });
 
     it('claims the check reserved for it where no run is, and records that it claimed it', async () => {
-      const claimCheck = vi.fn(() => Promise.resolve(null));
+      const claimCheck = vi.fn(async () => null);
       const handler = claiming(
-        vi.fn(() => Promise.resolve(null)),
+        vi.fn(async () => null),
         claimCheck,
         {
           seen: seenAs('reserved'),
@@ -408,7 +405,7 @@ describe('ClaimRunHandler', () => {
         head: 'b'.repeat(40),
       };
       const handler = claiming(
-        vi.fn(() => Promise.resolve(null)),
+        vi.fn(async () => null),
         undefined,
         {
           seen: seenAs('reserved'),
@@ -428,7 +425,7 @@ describe('ClaimRunHandler', () => {
 
     it('looks for no reserved check once it has taken its reserved run', async () => {
       const handler = claiming(
-        vi.fn(() => Promise.resolve(queued())),
+        vi.fn(async () => queued()),
         undefined,
         {
           seen: seenAs('reserved'),
@@ -444,7 +441,7 @@ describe('ClaimRunHandler', () => {
     });
 
     it('fails the provisioning when it lacks the run’s harness', async () => {
-      const claimNext = vi.fn(() => Promise.resolve(queued()));
+      const claimNext = vi.fn(async () => queued());
       const handler = claiming(claimNext, undefined, {
         seen: seenAs('reserved', [HarnessId.of('codex')]),
         reservedFor: reservedForPooled(),
@@ -473,9 +470,7 @@ describe('ClaimRunHandler', () => {
   });
 
   it('stops polling at once, taking up no check, when a run had to be requeued', async () => {
-    const claimNext = vi.fn((): Promise<Run | null> =>
-      Promise.resolve(queued()),
-    );
+    const claimNext = vi.fn(async (): Promise<Run | null> => queued());
     const handler = claiming(claimNext, undefined, {
       starts: 'requeued',
       reservedCheck: aCheck,

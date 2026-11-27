@@ -16,6 +16,7 @@ import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { parseMemoryStatus } from '@memory/domain/value-objects/memory-status';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -36,7 +37,7 @@ const pathOf = (raw: string | null): string | null => {
 const textOf = (raw: string | null | undefined): string | null => {
   const trimmed = raw?.trim();
 
-  return trimmed === undefined || trimmed === '' ? null : trimmed;
+  return !nonEmpty(trimmed) ? null : trimmed;
 };
 
 const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
@@ -47,14 +48,10 @@ const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
 
   return {
     status: parseMemoryStatus(listing.status ?? 'active'),
-    kind: kind !== null && kind !== '' ? parseMemoryKind(kind) : null,
-    lineId: lineId !== null && lineId !== '' ? LineId.of(lineId) : null,
-    stationId:
-      stationId !== null && stationId !== '' ? StationId.of(stationId) : null,
-    repository:
-      repository !== null && repository !== ''
-        ? Repository.of(repository)
-        : null,
+    kind: nonEmpty(kind) ? parseMemoryKind(kind) : null,
+    lineId: nonEmpty(lineId) ? LineId.of(lineId) : null,
+    stationId: nonEmpty(stationId) ? StationId.of(stationId) : null,
+    repository: nonEmpty(repository) ? Repository.of(repository) : null,
     path: pathOf(listing.path),
   };
 };

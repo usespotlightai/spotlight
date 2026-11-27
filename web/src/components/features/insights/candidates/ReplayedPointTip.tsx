@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import type { TipPlacement } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
@@ -17,7 +15,7 @@ export function ReplayedPointTip({
   point,
   currency,
   placement,
-}: ReplayedPointTipProps): ReactElement {
+}: ReplayedPointTipProps) {
   return (
     <ChartTip
       placement={placement}

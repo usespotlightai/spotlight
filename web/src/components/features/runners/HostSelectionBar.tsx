@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -15,7 +14,7 @@ export function HostSelectionBar({
   deleting,
   onDelete,
   onClear,
-}: HostSelectionBarProps): ReactElement | null {
+}: HostSelectionBarProps) {
   if (count === 0) {
     return null;
   }

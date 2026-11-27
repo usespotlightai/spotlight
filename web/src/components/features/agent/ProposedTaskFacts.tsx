@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -25,7 +23,7 @@ export function ProposedTaskFacts({
   proposal,
   attachments,
   titleId,
-}: ProposedTaskFactsProps): ReactElement {
+}: ProposedTaskFactsProps) {
   const station = proposedStationOf(proposal);
   const made = proposal.state === 'accepted' || proposal.state === 'created';
 

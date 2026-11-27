@@ -114,50 +114,47 @@ const revising = async (options: Options = {}) => {
       labelled: new LabelledRuns(station.facts),
       judges: judgesWith(options.judge ?? judgeOf()),
       evidence: {
-        hasTask: () => Promise.resolve(true),
-        of: (runId) =>
-          Promise.resolve({
-            runId,
-            taskId: TaskId.of(`task_${runId.value}`),
-            title: runId.value,
-            description: null,
-            steps: [
-              {
-                index: 1,
-                kind: 'message',
-                tool: null,
-                text: 'Retrying.',
-                input: null,
-                output: null,
-              },
-            ],
-            hunks: [],
-          }),
+        hasTask: async () => true,
+        of: async (runId) => ({
+          runId,
+          taskId: TaskId.of(`task_${runId.value}`),
+          title: runId.value,
+          description: null,
+          steps: [
+            {
+              index: 1,
+              kind: 'message',
+              tool: null,
+              text: 'Retrying.',
+              input: null,
+              output: null,
+            },
+          ],
+          hunks: [],
+        }),
       },
       judge: {
-        judge: (request) => {
+        judge: async (request) => {
           judged.push(request);
           spentWhenJudged.push(
             [...revisions.stored.values()][0]?.judgeCalls ?? -1,
           );
-          if (options.pending?.(request) === true) {
-            return Promise.resolve(SESSION_WAITING);
+          if (options.pending?.(request)) {
+            return SESSION_WAITING;
           }
           if (options.failing) {
-            return Promise.resolve({
+            return {
               status: 'failed',
               failure: options.failing,
-            });
+            };
           }
-          return Promise.resolve(
-            verdictFor(
-              request,
-              request.claims[0] === BETTER[0]
-                ? accepts(request.title)
-                : request.claims[0] === WORSE[0]
-                  ? !accepts(request.title)
-                  : false,
-            ),
+          return verdictFor(
+            request,
+            request.claims[0] === BETTER[0]
+              ? accepts(request.title)
+              : request.claims[0] === WORSE[0]
+                ? !accepts(request.title)
+                : false,
           );
         },
         roundOf: (session) =>
@@ -166,16 +163,16 @@ const revising = async (options: Options = {}) => {
             : null,
       },
       drafter: {
-        drafted: (request) => {
+        drafted: async (request) => {
           drafts.push(request);
-          if (options.pendingDraft === true) {
-            return Promise.resolve(SESSION_WAITING);
+          if (options.pendingDraft) {
+            return SESSION_WAITING;
           }
-          return Promise.resolve(
+          return (
             options.drafts ?? {
               status: 'drafted',
               candidates: options.drafted ?? [WORSE, CLAIMS, BETTER],
-            },
+            }
           );
         },
         roundOf: (session) =>
@@ -195,10 +192,8 @@ const revising = async (options: Options = {}) => {
     revisions,
     disagreements,
     {
-      request: (request) => {
+      request: async (request) => {
         requested.push(request);
-
-        return Promise.resolve();
       },
     },
     inTransaction,

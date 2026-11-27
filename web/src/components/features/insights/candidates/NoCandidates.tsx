@@ -1,5 +1,4 @@
 import { FlaskConical } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -15,11 +14,7 @@ type NoCandidatesProps = {
   lineId: string | null;
 };
 
-export function NoCandidates({
-  slug,
-  teamId,
-  lineId,
-}: NoCandidatesProps): ReactElement {
+export function NoCandidates({ slug, teamId, lineId }: NoCandidatesProps) {
   return (
     <EmptyFrame>
       <EmptyState

@@ -15,6 +15,7 @@ import {
 } from '@integrations/infrastructure/specs/operation-record';
 import { SchemaBudget } from '@integrations/infrastructure/specs/schema-budget';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Node = Readonly<Record<string, unknown>>;
 
@@ -191,17 +192,17 @@ const serverIn = (servers: unknown, url: string | null): string | null => {
 };
 
 const serverOf = (document: Node, at: Reading): string => {
-  if (at.baseUrl !== null && at.baseUrl !== '') {
+  if (nonEmpty(at.baseUrl)) {
     return at.baseUrl.replace(/\/+$/, '');
   }
 
   const named = serverIn(document.servers, at.url);
 
-  if (named !== null && named !== '') {
+  if (nonEmpty(named)) {
     return named;
   }
 
-  if (at.url !== null && at.url !== '') {
+  if (nonEmpty(at.url)) {
     return new URL('/', at.url).href.replace(/\/+$/, '');
   }
 
@@ -257,12 +258,9 @@ const jsonBodyOf = (
       /^application\/[\w.-]+\+json$/.test(each) ||
       each.startsWith('application/json;'),
   );
-  const media =
-    contentType !== undefined && contentType !== ''
-      ? content[contentType]
-      : undefined;
+  const media = nonEmpty(contentType) ? content[contentType] : undefined;
 
-  return contentType !== undefined && contentType !== '' && isNode(media)
+  return nonEmpty(contentType) && isNode(media)
     ? { contentType, schema: media.schema }
     : null;
 };
@@ -295,16 +293,15 @@ const operationOf = (
     return skip('It has no name that a tool can take');
   }
 
-  const server =
-    at.baseUrl !== null && at.baseUrl !== ''
-      ? input.server
-      : (serverIn(operation.servers, at.url) ??
-        serverIn(input.servers, at.url) ??
-        input.server);
+  const server = nonEmpty(at.baseUrl)
+    ? input.server
+    : (serverIn(operation.servers, at.url) ??
+      serverIn(input.servers, at.url) ??
+      input.server);
 
   if (
     at.connected &&
-    (at.baseUrl === null || at.baseUrl === '') &&
+    !nonEmpty(at.baseUrl) &&
     (at.url === null || hostOf(server) !== hostOf(at.url))
   ) {
     return skip(

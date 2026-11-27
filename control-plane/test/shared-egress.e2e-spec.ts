@@ -134,11 +134,9 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
   };
 
   const provisioned = async (runId: string) => {
-    const body = await eventually(() =>
-      Promise.resolve(
-        endpoint.bodies.find(
-          (each) => parsedAs<Provisioning>(each).data.runId === runId,
-        ),
+    const body = await eventually(async () =>
+      endpoint.bodies.find(
+        (each) => parsedAs<Provisioning>(each).data.runId === runId,
       ),
     );
 

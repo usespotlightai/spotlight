@@ -44,8 +44,8 @@ const disconnecting = (member = true) => {
     connections,
     handler: new DisconnectIntegrationHandler(
       partial<WorkspaceAccessPort>({
-        inWorkspaceOfTeam: () =>
-          Promise.resolve(member ? partial<TeamWorkspaceMembership>({}) : null),
+        inWorkspaceOfTeam: async () =>
+          member ? partial<TeamWorkspaceMembership>({}) : null,
       }),
       connections,
       partial<TransactionPort>({

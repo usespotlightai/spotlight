@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { ScheduleCursor } from '@integrations/domain/aggregates/schedule-cursor.aggregate';
 import { ScheduleCursorVersionConflictError } from '@integrations/domain/exceptions/schedule-cursor-version-conflict.error';
 import type { ScheduleCursorRepository } from '@integrations/domain/repositories/schedule-cursor.repository';
@@ -7,6 +6,7 @@ import { scheduleCursor } from '@integrations/infrastructure/persistence/drizzle
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -18,16 +18,18 @@ export class DrizzleScheduleCursors implements ScheduleCursorRepository {
     teamId: TeamId,
     integration: IntegrationKey,
   ): Promise<ScheduleCursor> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(scheduleCursor)
-      .where(
-        and(
-          eq(scheduleCursor.teamId, teamId.value),
-          eq(scheduleCursor.integration, integration.value),
-        ),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(scheduleCursor)
+        .where(
+          and(
+            eq(scheduleCursor.teamId, teamId.value),
+            eq(scheduleCursor.integration, integration.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return found
       ? ScheduleCursor.rehydrate({

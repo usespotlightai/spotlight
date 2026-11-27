@@ -9,6 +9,7 @@ import {
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ElicitResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { z } from 'zod';
 
 interface McpReceived {
@@ -64,15 +65,15 @@ const registered = (server: McpServer, called: McpCalled[]): McpServer => {
       },
       annotations: { readOnlyHint: true },
     },
-    (args) => {
+    async (args) => {
       called.push({ tool: 'search_issues', args });
 
-      return Promise.resolve({
+      return {
         content: [{ type: 'text', text: 'ENG-1 Queue stuck' }],
         structuredContent: {
           issues: [{ id: 'ENG-1', title: 'Queue stuck' }],
         },
-      });
+      };
     },
   );
   server.registerTool(
@@ -82,12 +83,12 @@ const registered = (server: McpServer, called: McpCalled[]): McpServer => {
       inputSchema: { id: z.string() },
       annotations: { destructiveHint: true },
     },
-    (args) => {
+    async (args) => {
       called.push({ tool: 'delete_issue', args });
 
-      return Promise.resolve({
+      return {
         content: [{ type: 'text', text: `{"deleted":"${args.id}"}` }],
-      });
+      };
     },
   );
   server.registerTool(
@@ -97,13 +98,13 @@ const registered = (server: McpServer, called: McpCalled[]): McpServer => {
       inputSchema: { tool: z.string() },
       annotations: { readOnlyHint: true },
     },
-    (args) => {
+    async (args) => {
       called.push({ tool: 'check_policy', args });
 
-      return Promise.resolve({
+      return {
         isError: true,
         content: [{ type: 'text', text: 'Deleting is frozen this week.' }],
-      });
+      };
     },
   );
   server.registerTool(
@@ -162,7 +163,7 @@ export const fakeMcpServer = async (
       });
 
       if (path !== PATH) {
-        if ((await options.other?.(request, reply, origin)) !== true) {
+        if (!(await options.other?.(request, reply, origin))) {
           reply.writeHead(404).end();
         }
 
@@ -170,8 +171,7 @@ export const fakeMcpServer = async (
       }
 
       if (
-        options.token !== undefined &&
-        options.token !== '' &&
+        nonEmpty(options.token) &&
         authorization !== `Bearer ${options.token}`
       ) {
         reply
@@ -183,10 +183,9 @@ export const fakeMcpServer = async (
       }
 
       const id = headerOf(request, 'mcp-session-id');
-      const existing =
-        id !== undefined && id !== '' ? sessions.get(id) : undefined;
+      const existing = nonEmpty(id) ? sessions.get(id) : undefined;
 
-      if (id !== undefined && id !== '' && !existing) {
+      if (nonEmpty(id) && !existing) {
         reply.writeHead(404).end();
         return;
       }

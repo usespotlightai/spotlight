@@ -85,7 +85,7 @@ export class CommandRegistry {
       const shortcut = shortcutOf(command.id);
 
       return (
-        shortcut.focused !== true &&
+        !shortcut.focused &&
         (!typing || shortcut.typing === true) &&
         startsWith(shortcut.keys, pressed)
       );

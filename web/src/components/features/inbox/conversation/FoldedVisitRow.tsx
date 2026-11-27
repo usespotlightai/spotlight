@@ -1,4 +1,4 @@
-import { type ReactElement, use, useId, useState } from 'react';
+import { use, useId, useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { FoldedVisitNotes } from '@/components/features/inbox/conversation/FoldedVisitNotes';
@@ -43,11 +43,7 @@ type FoldedVisitRowProps = {
   worked: readonly RunJournal[];
 };
 
-export function FoldedVisitRow({
-  visit,
-  item,
-  worked,
-}: FoldedVisitRowProps): ReactElement {
+export function FoldedVisitRow({ visit, item, worked }: FoldedVisitRowProps) {
   const [open, setOpen] = useState(false);
   const shown = useId();
   const { first, answers } = visit;

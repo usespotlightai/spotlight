@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ProposedMemoryCard } from '@/components/features/inbox/memories/ProposedMemoryCard';
 import { useApproveMemories } from '@/hooks/api/useApproveMemories';
 import { useRejectMemory } from '@/hooks/api/useRejectMemory';
@@ -23,7 +21,7 @@ export function MemoryDecision({
   runId,
   memory,
   position,
-}: MemoryDecisionProps): ReactElement {
+}: MemoryDecisionProps) {
   const approve = useApproveMemories();
   const reject = useRejectMemory();
   const restore = useRestoreMemory();

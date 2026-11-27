@@ -87,10 +87,7 @@ export class InMemoryOutboundLimits implements OutboundLimitsPort {
   }
 
   take(workspaceId: string): Promise<boolean> {
-    return takeWithin(
-      () => Promise.resolve(this.next(workspaceId)),
-      this.waits,
-    );
+    return takeWithin(async () => this.next(workspaceId), this.waits);
   }
 
   private next(workspaceId: string): number {

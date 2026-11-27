@@ -182,76 +182,55 @@ export class InMemoryReplays {
       [...this.searches.values()].filter(kept);
 
     return {
-      startedOfTeamSince: (teamId, since, max) =>
-        Promise.resolve(
-          replays()
-            .filter(
-              (each) =>
-                each.teamId.equals(teamId) &&
-                each.startedAt.getTime() >= since.getTime(),
-            )
-            .sort(
-              (one, other) =>
-                other.startedAt.getTime() - one.startedAt.getTime() ||
-                (one.id.value < other.id.value ? 1 : -1),
-            )
-            .slice(0, max),
-        ),
-      sets: (setIds) =>
-        Promise.resolve(
-          [...this.sets.values()].filter((each) =>
-            setIds.some((id) => each.id.equals(id)),
-          ),
-        ),
-      searches: (searchIds) =>
-        Promise.resolve(
-          searchesWhere((each) => searchIds.some((id) => each.id.equals(id))),
-        ),
-      searchesOfSetsStartedSince: (setIds, since) =>
-        Promise.resolve(
-          searchesWhere(
+      startedOfTeamSince: async (teamId, since, max) =>
+        replays()
+          .filter(
             (each) =>
-              setIds.some((id) => each.setId.equals(id)) &&
+              each.teamId.equals(teamId) &&
               each.startedAt.getTime() >= since.getTime(),
-          ),
+          )
+          .sort(
+            (one, other) =>
+              other.startedAt.getTime() - one.startedAt.getTime() ||
+              (one.id.value < other.id.value ? 1 : -1),
+          )
+          .slice(0, max),
+      sets: async (setIds) =>
+        [...this.sets.values()].filter((each) =>
+          setIds.some((id) => each.id.equals(id)),
         ),
-      outcomesOfSearches: (searchIds) =>
-        Promise.resolve(
-          outcomesWhere((each) =>
-            searchIds.some((id) => each.searchId?.equals(id) ?? false),
-          ),
+      searches: async (searchIds) =>
+        searchesWhere((each) => searchIds.some((id) => each.id.equals(id))),
+      searchesOfSetsStartedSince: async (setIds, since) =>
+        searchesWhere(
+          (each) =>
+            setIds.some((id) => each.setId.equals(id)) &&
+            each.startedAt.getTime() >= since.getTime(),
         ),
-      servingBaselinesOfSets: (setIds) =>
-        Promise.resolve(
-          outcomesWhere(
-            (each) =>
-              each.servesAsBaseline &&
-              setIds.some((id) => each.setId.equals(id)),
-          ),
+      outcomesOfSearches: async (searchIds) =>
+        outcomesWhere((each) =>
+          searchIds.some((id) => each.searchId?.equals(id) ?? false),
         ),
-      healthSamplesOfSets: (setIds) =>
-        Promise.resolve(
-          outcomesWhere(
-            (each) =>
-              each.healthSampleGroup !== null &&
-              setIds.some((id) => each.setId.equals(id)),
-          ),
+      servingBaselinesOfSets: async (setIds) =>
+        outcomesWhere(
+          (each) =>
+            each.servesAsBaseline && setIds.some((id) => each.setId.equals(id)),
         ),
-      outcomes: (replayIds) =>
-        Promise.resolve(
-          outcomesWhere((each) => replayIds.some((id) => each.id.equals(id))),
+      healthSamplesOfSets: async (setIds) =>
+        outcomesWhere(
+          (each) =>
+            each.healthSampleGroup !== null &&
+            setIds.some((id) => each.setId.equals(id)),
         ),
-      candidates: (candidateIds) =>
-        Promise.resolve(
-          [...this.candidates.values()]
-            .filter((each) => candidateIds.some((id) => each.id.equals(id)))
-            .map(candidateRowOf),
-        ),
-      pullRequestsOfSearches: (searchIds) =>
-        Promise.resolve(
-          [...pullRequests.stored.values()].filter((each) =>
-            searchIds.some((id) => id.value === each.searchId.value),
-          ),
+      outcomes: async (replayIds) =>
+        outcomesWhere((each) => replayIds.some((id) => each.id.equals(id))),
+      candidates: async (candidateIds) =>
+        [...this.candidates.values()]
+          .filter((each) => candidateIds.some((id) => each.id.equals(id)))
+          .map(candidateRowOf),
+      pullRequestsOfSearches: async (searchIds) =>
+        [...pullRequests.stored.values()].filter((each) =>
+          searchIds.some((id) => id.value === each.searchId.value),
         ),
     };
   }
@@ -261,30 +240,21 @@ export class InMemoryReplays {
   }
 
   readonly budgetRepository: LineSearchBudgetRepository = {
-    locked: (lineId, month) =>
-      Promise.resolve(
-        this.budgets.get(this.budgetKey({ lineId, month })) ?? null,
-      ),
-    ofTeam: (teamId) =>
-      Promise.resolve(
-        [...this.budgets.values()].filter((each) => each.teamId.equals(teamId)),
-      ),
-    add: (budget) => {
+    locked: async (lineId, month) =>
+      this.budgets.get(this.budgetKey({ lineId, month })) ?? null,
+    ofTeam: async (teamId) =>
+      [...this.budgets.values()].filter((each) => each.teamId.equals(teamId)),
+    add: async (budget) => {
       if (this.budgets.has(this.budgetKey(budget))) {
-        return Promise.reject(
-          new LineSearchBudgetVersionConflictError(budget.lineId),
-        );
+        throw new LineSearchBudgetVersionConflictError(budget.lineId);
       }
       this.budgets.set(this.budgetKey(budget), budget);
-      return Promise.resolve();
     },
-    save: (budget) => {
+    save: async (budget) => {
       if (
         this.budgets.get(this.budgetKey(budget))?.version !== budget.version
       ) {
-        return Promise.reject(
-          new LineSearchBudgetVersionConflictError(budget.lineId),
-        );
+        throw new LineSearchBudgetVersionConflictError(budget.lineId);
       }
       if (budget.isDeleted) {
         this.budgets.delete(this.budgetKey(budget));
@@ -301,65 +271,47 @@ export class InMemoryReplays {
           }),
         );
       }
-      return Promise.resolve();
     },
   };
 
   readonly scheduleRepository: StationSearchScheduleRepository = {
-    ofStation: (stationId) =>
-      Promise.resolve(this.schedules.get(stationId.value) ?? null),
-    locked: (stationId) =>
-      Promise.resolve(this.schedules.get(stationId.value) ?? null),
-    ofSet: (setId) =>
-      Promise.resolve(
-        [...this.schedules.values()].find((each) => each.setId.equals(setId)) ??
-          null,
-      ),
-    dueStations: (now, limit) =>
-      Promise.resolve(
-        [...this.schedules.values()]
-          .filter((each) => each.isDue(now))
-          .slice(0, limit)
-          .map((each) => each.stationId),
-      ),
-    withStepsPendingSince: (before, limit) =>
-      Promise.resolve(
-        [...this.schedules.values()]
-          .filter((each) => {
-            const since = each.stepsPendingSince;
+    ofStation: async (stationId) => this.schedules.get(stationId.value) ?? null,
+    locked: async (stationId) => this.schedules.get(stationId.value) ?? null,
+    ofSet: async (setId) =>
+      [...this.schedules.values()].find((each) => each.setId.equals(setId)) ??
+      null,
+    dueStations: async (now, limit) =>
+      [...this.schedules.values()]
+        .filter((each) => each.isDue(now))
+        .slice(0, limit)
+        .map((each) => each.stationId),
+    withStepsPendingSince: async (before, limit) =>
+      [...this.schedules.values()]
+        .filter((each) => {
+          const since = each.stepsPendingSince;
 
-            return since !== null && since <= before;
-          })
-          .slice(0, limit)
-          .map((each) => each.stationId),
+          return since !== null && since <= before;
+        })
+        .slice(0, limit)
+        .map((each) => each.stationId),
+    ofLine: async (lineId) =>
+      [...this.schedules.values()].filter((each) =>
+        each.station.lineId.equals(lineId),
       ),
-    ofLine: (lineId) =>
-      Promise.resolve(
-        [...this.schedules.values()].filter((each) =>
-          each.station.lineId.equals(lineId),
-        ),
-      ),
-    ofTeam: (teamId) =>
-      Promise.resolve(
-        [...this.schedules.values()].filter((each) =>
-          each.teamId.equals(teamId),
-        ),
-      ),
-    add: (schedule) => {
+    ofTeam: async (teamId) =>
+      [...this.schedules.values()].filter((each) => each.teamId.equals(teamId)),
+    add: async (schedule) => {
       this.events.push(...schedule.pullEvents());
       if (!this.schedules.has(schedule.stationId.value)) {
         this.schedules.set(schedule.stationId.value, schedule);
       }
-      return Promise.resolve();
     },
-    save: (schedule) => {
+    save: async (schedule) => {
       if (
         this.schedules.get(schedule.stationId.value)?.version !==
         schedule.version
       ) {
-        return Promise.reject(
-          new StationSearchScheduleVersionConflictError(schedule.stationId),
-        );
+        throw new StationSearchScheduleVersionConflictError(schedule.stationId);
       }
 
       this.events.push(...schedule.pullEvents());
@@ -386,168 +338,128 @@ export class InMemoryReplays {
           }),
         );
       }
-      return Promise.resolve();
     },
   };
 
   readonly setRepository: ReplaySetRepository = {
-    find: (id: ReplaySetId) => Promise.resolve(this.sets.get(id.value) ?? null),
-    ofStation: (stationId) =>
-      Promise.resolve(
-        [...this.sets.values()].find((each) => each.isAtStation(stationId)) ??
-          null,
-      ),
-    atLiveStationsRefreshedBefore: (at) =>
-      Promise.resolve(
-        [...this.sets.values()]
-          .filter(
-            (each) =>
-              !each.isAtGoneStation &&
-              (each.refreshedAt === null || each.refreshedAt < at),
-          )
-          .sort(
-            (one, other) =>
-              (one.refreshedAt?.getTime() ?? -1) -
-                (other.refreshedAt?.getTime() ?? -1) ||
-              one.id.value.localeCompare(other.id.value),
-          ),
-      ),
-    add: (set) => {
+    find: async (id: ReplaySetId) => this.sets.get(id.value) ?? null,
+    ofStation: async (stationId) =>
+      [...this.sets.values()].find((each) => each.isAtStation(stationId)) ??
+      null,
+    atLiveStationsRefreshedBefore: async (at) =>
+      [...this.sets.values()]
+        .filter(
+          (each) =>
+            !each.isAtGoneStation &&
+            (each.refreshedAt === null || each.refreshedAt < at),
+        )
+        .sort(
+          (one, other) =>
+            (one.refreshedAt?.getTime() ?? -1) -
+              (other.refreshedAt?.getTime() ?? -1) ||
+            one.id.value.localeCompare(other.id.value),
+        ),
+    add: async (set) => {
       this.events.push(...set.pullEvents());
       this.sets.set(set.id.value, set);
-      return Promise.resolve();
     },
-    locked: (id: ReplaySetId) =>
-      Promise.resolve(this.sets.get(id.value) ?? null),
-    findMany: (ids) =>
-      Promise.resolve(
-        ids.flatMap((id) => {
-          const found = this.sets.get(id.value);
-          return found ? [found] : [];
-        }),
+    locked: async (id: ReplaySetId) => this.sets.get(id.value) ?? null,
+    findMany: async (ids) =>
+      ids.flatMap((id) => {
+        const found = this.sets.get(id.value);
+        return found ? [found] : [];
+      }),
+    ofLine: async (lineId) =>
+      [...this.sets.values()].filter((each) =>
+        each.station.lineId.equals(lineId),
       ),
-    ofLine: (lineId) =>
-      Promise.resolve(
-        [...this.sets.values()].filter((each) =>
-          each.station.lineId.equals(lineId),
-        ),
-      ),
-    ofTeam: (teamId) =>
-      Promise.resolve(
-        [...this.sets.values()].filter((each) => each.teamId.equals(teamId)),
-      ),
-    save: (set) => {
+    ofTeam: async (teamId) =>
+      [...this.sets.values()].filter((each) => each.teamId.equals(teamId)),
+    save: async (set) => {
       this.events.push(...set.pullEvents());
       if (set.isDeleted) {
         this.sets.delete(set.id.value);
       } else {
         this.sets.set(set.id.value, set);
       }
-      return Promise.resolve();
     },
   };
 
   readonly candidateRepository: CandidateRepository = {
-    find: (id: CandidateId) =>
-      Promise.resolve(this.candidates.get(id.value) ?? null),
-    findMany: (ids) =>
-      Promise.resolve(
-        ids.flatMap((id) => {
-          const found = this.candidates.get(id.value);
-          return found ? [found] : [];
-        }),
-      ),
-    add: (candidate) => {
+    find: async (id: CandidateId) => this.candidates.get(id.value) ?? null,
+    findMany: async (ids) =>
+      ids.flatMap((id) => {
+        const found = this.candidates.get(id.value);
+        return found ? [found] : [];
+      }),
+    add: async (candidate) => {
       this.events.push(...candidate.pullEvents());
       this.candidates.set(candidate.id.value, candidate);
-      return Promise.resolve();
     },
-    save: (candidate) => {
+    save: async (candidate) => {
       this.events.push(...candidate.pullEvents());
       if (candidate.isDeleted) {
         this.candidates.delete(candidate.id.value);
       }
-      return Promise.resolve();
     },
-    ofTeam: (teamId) =>
-      Promise.resolve(
-        [...this.candidates.values()].filter((each) =>
-          each.teamId.equals(teamId),
-        ),
+    ofTeam: async (teamId) =>
+      [...this.candidates.values()].filter((each) =>
+        each.teamId.equals(teamId),
       ),
   };
 
   readonly replayRepository: ReplayRepository = {
-    find: (id: ReplayId) => Promise.resolve(this.replays.get(id.value) ?? null),
-    findMany: (ids) =>
-      Promise.resolve(
-        ids.flatMap((id) => {
-          const found = this.replays.get(id.value);
-          return found ? [found] : [];
-        }),
+    find: async (id: ReplayId) => this.replays.get(id.value) ?? null,
+    findMany: async (ids) =>
+      ids.flatMap((id) => {
+        const found = this.replays.get(id.value);
+        return found ? [found] : [];
+      }),
+    ranAs: async (run: RunId) =>
+      [...this.replays.values()].find((each) => each.ran(run)) ?? null,
+    ofSet: async (setId) =>
+      [...this.replays.values()].filter((each) => each.setId.equals(setId)),
+    healthSamplesOfSets: async (setIds) =>
+      [...this.replays.values()].filter(
+        (each) =>
+          each.healthSampleGroup !== null &&
+          setIds.some((id) => each.setId.equals(id)),
       ),
-    ranAs: (run: RunId) =>
-      Promise.resolve(
-        [...this.replays.values()].find((each) => each.ran(run)) ?? null,
-      ),
-    ofSet: (setId) =>
-      Promise.resolve(
-        [...this.replays.values()].filter((each) => each.setId.equals(setId)),
-      ),
-    healthSamplesOfSets: (setIds) =>
-      Promise.resolve(
-        [...this.replays.values()].filter(
+    pairingWith: async (replayId) =>
+      [...this.replays.values()]
+        .filter(
           (each) =>
-            each.healthSampleGroup !== null &&
-            setIds.some((id) => each.setId.equals(id)),
-        ),
+            (each.pairwiseReferenceId?.equals(replayId) ?? false) &&
+            each.takesPairings,
+        )
+        .map((each) => each.id),
+    ofSearch: async (searchId) =>
+      [...this.replays.values()].filter(
+        (each) => each.searchId?.equals(searchId) ?? false,
       ),
-    pairingWith: (replayId) =>
-      Promise.resolve(
-        [...this.replays.values()]
-          .filter(
-            (each) =>
-              (each.pairwiseReferenceId?.equals(replayId) ?? false) &&
-              each.takesPairings,
-          )
-          .map((each) => each.id),
-      ),
-    ofSearch: (searchId) =>
-      Promise.resolve(
-        [...this.replays.values()].filter(
-          (each) => each.searchId?.equals(searchId) ?? false,
-        ),
-      ),
-    teamsDispatching: () => {
+    teamsDispatching: async () => {
       const teams = new Map<string, TeamId>();
       for (const each of this.replays.values()) {
         if (each.hasWaiting) {
           teams.set(each.teamId.value, each.teamId);
         }
       }
-      return Promise.resolve([...teams.values()]);
+      return [...teams.values()];
     },
-    inProgressOfTeam: (teamId) =>
-      Promise.resolve(
-        [...this.replays.values()].filter(
-          (each) => each.teamId.equals(teamId) && each.isInProgress,
-        ),
+    inProgressOfTeam: async (teamId) =>
+      [...this.replays.values()].filter(
+        (each) => each.teamId.equals(teamId) && each.isInProgress,
       ),
-    unconfirmed: () =>
-      Promise.resolve(
-        [...this.replays.values()].filter(
-          (each) => each.unconfirmed.length > 0,
-        ),
-      ),
-    add: (replay) => {
+    unconfirmed: async () =>
+      [...this.replays.values()].filter((each) => each.unconfirmed.length > 0),
+    add: async (replay) => {
       this.events.push(...replay.pullEvents());
       this.replays.set(replay.id.value, replay);
-      return Promise.resolve();
     },
-    save: (replay) => {
+    save: async (replay) => {
       const existing = this.replays.get(replay.id.value);
       if (existing && existing.version !== replay.version) {
-        return Promise.reject(new ReplayVersionConflictError(replay.id.value));
+        throw new ReplayVersionConflictError(replay.id.value);
       }
       this.events.push(...replay.pullEvents());
       if (replay.isDeleted) {
@@ -555,84 +467,57 @@ export class InMemoryReplays {
       } else {
         this.replays.set(replay.id.value, replay);
       }
-      return Promise.resolve();
     },
   };
 
   readonly searchRepository: SearchRepository = {
-    find: (id: SearchId) =>
-      Promise.resolve(this.searches.get(id.value) ?? null),
-    locked: (id: SearchId) =>
-      Promise.resolve(this.searches.get(id.value) ?? null),
-    findMany: (ids) =>
-      Promise.resolve(
-        ids.flatMap((id) => {
-          const found = this.searches.get(id.value);
-          return found ? [found] : [];
-        }),
+    find: async (id: SearchId) => this.searches.get(id.value) ?? null,
+    locked: async (id: SearchId) => this.searches.get(id.value) ?? null,
+    findMany: async (ids) =>
+      ids.flatMap((id) => {
+        const found = this.searches.get(id.value);
+        return found ? [found] : [];
+      }),
+    ofLineStartedSince: async (lineId, since) =>
+      [...this.searches.values()].filter(
+        (each) =>
+          each.station.lineId.equals(lineId) &&
+          each.startedAt.getTime() >= since.getTime(),
       ),
-    ofLineStartedSince: (lineId, since) =>
-      Promise.resolve(
-        [...this.searches.values()].filter(
-          (each) =>
-            each.station.lineId.equals(lineId) &&
-            each.startedAt.getTime() >= since.getTime(),
-        ),
+    ranAs: async (run) =>
+      [...this.searches.values()].find(
+        (each) => each.iterationOf(run) !== null,
+      ) ?? null,
+    activeAtStation: async (stationId) =>
+      [...this.searches.values()].find(
+        (each) => each.isActive && each.station.stationId.equals(stationId),
+      ) ?? null,
+    activeOfLine: async (lineId) =>
+      [...this.searches.values()].filter(
+        (each) => each.isActive && each.station.lineId.equals(lineId),
       ),
-    ranAs: (run) =>
-      Promise.resolve(
-        [...this.searches.values()].find(
-          (each) => each.iterationOf(run) !== null,
-        ) ?? null,
+    newestAtStation: async (stationId) =>
+      [...this.searches.values()]
+        .filter((each) => each.station.stationId.equals(stationId))
+        .sort(
+          (one, other) => other.startedAt.getTime() - one.startedAt.getTime(),
+        )[0] ?? null,
+    activeOfSet: async (setId) =>
+      [...this.searches.values()].find(
+        (each) => each.isActive && each.setId.equals(setId),
+      ) ?? null,
+    ofStation: async (stationId) =>
+      [...this.searches.values()].filter((each) =>
+        each.station.stationId.equals(stationId),
       ),
-    activeAtStation: (stationId) =>
-      Promise.resolve(
-        [...this.searches.values()].find(
-          (each) => each.isActive && each.station.stationId.equals(stationId),
-        ) ?? null,
-      ),
-    activeOfLine: (lineId) =>
-      Promise.resolve(
-        [...this.searches.values()].filter(
-          (each) => each.isActive && each.station.lineId.equals(lineId),
-        ),
-      ),
-    newestAtStation: (stationId) =>
-      Promise.resolve(
-        [...this.searches.values()]
-          .filter((each) => each.station.stationId.equals(stationId))
-          .sort(
-            (one, other) => other.startedAt.getTime() - one.startedAt.getTime(),
-          )[0] ?? null,
-      ),
-    activeOfSet: (setId) =>
-      Promise.resolve(
-        [...this.searches.values()].find(
-          (each) => each.isActive && each.setId.equals(setId),
-        ) ?? null,
-      ),
-    ofStation: (stationId) =>
-      Promise.resolve(
-        [...this.searches.values()].filter((each) =>
-          each.station.stationId.equals(stationId),
-        ),
-      ),
-    ofTeam: (teamId) =>
-      Promise.resolve(
-        [...this.searches.values()].filter((each) =>
-          each.teamId.equals(teamId),
-        ),
-      ),
-    advancing: () =>
-      Promise.resolve(
-        [...this.searches.values()].filter(
-          (each) =>
-            each.isActive ||
-            each.iterations.some(
-              (iteration) => iteration.agentSpent === null,
-            ) ||
-            each.unendedReplays.length > 0,
-        ),
+    ofTeam: async (teamId) =>
+      [...this.searches.values()].filter((each) => each.teamId.equals(teamId)),
+    advancing: async () =>
+      [...this.searches.values()].filter(
+        (each) =>
+          each.isActive ||
+          each.iterations.some((iteration) => iteration.agentSpent === null) ||
+          each.unendedReplays.length > 0,
       ),
     add: async (search) => {
       const raised = search.pullEvents();
@@ -656,28 +541,22 @@ export class InMemoryReplays {
 export class FakeLines implements LinesPort {
   threshold: ReplayThreshold | null = null;
 
-  station = (
+  station = async (
     lineId: LineId,
     stationId: StationId,
   ): Promise<StationView | null> =>
-    Promise.resolve(
-      lineId.equals(STATION_VIEW.lineId) &&
-        stationId.equals(STATION_VIEW.stationId)
-        ? STATION_VIEW
-        : null,
-    );
+    lineId.equals(STATION_VIEW.lineId) &&
+    stationId.equals(STATION_VIEW.stationId)
+      ? STATION_VIEW
+      : null;
 
-  findStation = (stationId: StationId): Promise<StationView | null> =>
-    Promise.resolve(
-      stationId.equals(STATION_VIEW.stationId) ? STATION_VIEW : null,
-    );
+  findStation = async (stationId: StationId): Promise<StationView | null> =>
+    stationId.equals(STATION_VIEW.stationId) ? STATION_VIEW : null;
 
-  keyed = (lineId: LineId, key: string): Promise<StationView | null> =>
-    Promise.resolve(
-      lineId.equals(STATION_VIEW.lineId) && key === STATION_VIEW.key
-        ? STATION_VIEW
-        : null,
-    );
+  keyed = async (lineId: LineId, key: string): Promise<StationView | null> =>
+    lineId.equals(STATION_VIEW.lineId) && key === STATION_VIEW.key
+      ? STATION_VIEW
+      : null;
 
   namedStation = async (
     lineId: LineId,
@@ -711,42 +590,39 @@ export class FakeLines implements LinesPort {
       : null;
   };
 
-  stationSettings = (): Promise<StationSettings | null> =>
-    Promise.resolve({
-      block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
-      threshold: this.threshold,
-      search: null,
-      agent: null,
-    });
+  stationSettings = async (): Promise<StationSettings | null> => ({
+    block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
+    threshold: this.threshold,
+    search: null,
+    agent: null,
+  });
 
-  candidateBlock = (
+  candidateBlock = async (
     _line: LineId,
     _station: StationId,
     block: unknown,
     _planned: PlannedLine | null,
-  ): Promise<StationBlock | null> => Promise.resolve(StationBlock.of(block));
+  ): Promise<StationBlock | null> => StationBlock.of(block);
 }
 
 export class FakeStationConfigCandidates implements StationConfigCandidatesPort {
-  live = (): Promise<LiveStationConfig | null> =>
-    Promise.resolve({
-      lineKey: 'delivery',
-      fingerprint: FINGERPRINT,
-      scoring: UNSCORED,
-      hashes: LIVE_HASHES,
-    });
+  live = async (): Promise<LiveStationConfig | null> => ({
+    lineKey: 'delivery',
+    fingerprint: FINGERPRINT,
+    scoring: UNSCORED,
+    hashes: LIVE_HASHES,
+  });
 
-  validate = (): Promise<CandidateValidation | null> =>
-    Promise.resolve({
-      ok: true,
-      fingerprint: FINGERPRINT,
-      hashes: HASHES,
-      liveHashes: LIVE_HASHES,
-      scoring: UNSCORED,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      dependsOn: { harnessProfile: null, skills: [], tools: [] },
-      liveDependsOn: { harnessProfile: null, skills: [], tools: [] },
-    });
+  validate = async (): Promise<CandidateValidation | null> => ({
+    ok: true,
+    fingerprint: FINGERPRINT,
+    hashes: HASHES,
+    liveHashes: LIVE_HASHES,
+    scoring: UNSCORED,
+    changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+    dependsOn: { harnessProfile: null, skills: [], tools: [] },
+    liveDependsOn: { harnessProfile: null, skills: [], tools: [] },
+  });
 }
 
 class FakeTrialableRuns implements TrialableRunsPort {
@@ -754,13 +630,11 @@ class FakeTrialableRuns implements TrialableRunsPort {
 
   recent: PickableRun[] = [];
 
-  replayable = (_workspace: unknown, runs: readonly RunId[]) =>
-    Promise.resolve(
-      runs.flatMap((run) => {
-        const found = this.replayables.get(run.value);
-        return found ? [found] : [];
-      }),
-    );
+  replayable = async (_workspace: unknown, runs: readonly RunId[]) =>
+    runs.flatMap((run) => {
+      const found = this.replayables.get(run.value);
+      return found ? [found] : [];
+    });
 
   runSummaries = async (workspace: unknown, runs: readonly RunId[]) =>
     (await this.replayable(workspace, runs)).map((each) => ({
@@ -769,23 +643,25 @@ class FakeTrialableRuns implements TrialableRunsPort {
       endedAt: null,
     }));
 
-  recentAt = () => Promise.resolve(this.recent);
+  recentAt = async () => this.recent;
 }
 
 class FakeStartingPointHolds implements StartingPointHoldsPort {
   readonly held = new Map<string, readonly string[]>();
 
-  hold = (holder: string, _workspace: unknown, runs: readonly RunId[]) => {
+  hold = async (
+    holder: string,
+    _workspace: unknown,
+    runs: readonly RunId[],
+  ) => {
     this.held.set(
       holder,
       runs.map((each) => each.value),
     );
-    return Promise.resolve();
   };
 
-  release = (holder: string) => {
+  release = async (holder: string) => {
     this.held.delete(holder);
-    return Promise.resolve();
   };
 }
 
@@ -798,40 +674,33 @@ class FakeRunDispatch implements ReplayRunDispatching, SearchRunDispatching {
 
   queuedRuns = new Set<string>();
 
-  cancel = (
+  cancel = async (
     run: RunId,
     _owner: ReplayRunOwner,
     leaveRunAsIs: boolean,
   ): Promise<CancelledRun> => {
     this.cancelled.push({ run: run.value, leaveRunAsIs });
-    return Promise.resolve(
-      this.queuedRuns.has(run.value)
-        ? { wasQueued: true, fingerprint: FINGERPRINT }
-        : { wasQueued: false },
-    );
+    return this.queuedRuns.has(run.value)
+      ? { wasQueued: true, fingerprint: FINGERPRINT }
+      : { wasQueued: false };
   };
 
   unanswerable = new Set<string>();
 
-  answerable = (
+  answerable = async (
     inputs: readonly OracleAnswerInput[],
   ): Promise<readonly RunId[]> =>
-    Promise.resolve(
-      inputs
-        .filter((each) => !this.unanswerable.has(each.run.value))
-        .map((each) => each.run),
-    );
+    inputs
+      .filter((each) => !this.unanswerable.has(each.run.value))
+      .map((each) => each.run);
 
-  dispatch = (order: ReplayRunOrder): Promise<ReplayRunQueued> => {
+  dispatch = async (order: ReplayRunOrder): Promise<ReplayRunQueued> => {
     this.dispatched.push(order);
-    return Promise.resolve(
-      this.unqueued ?? { queued: true, fingerprint: FINGERPRINT },
-    );
+    return this.unqueued ?? { queued: true, fingerprint: FINGERPRINT };
   };
 
-  cancelQueued = (runs: readonly RunId[]) => {
+  cancelQueued = async (runs: readonly RunId[]) => {
     this.cancelledQueued.push(...runs.map((each) => each.value));
-    return Promise.resolve();
   };
 
   invalidAgent: AgentProblem | null = null;
@@ -842,43 +711,42 @@ class FakeRunDispatch implements ReplayRunDispatching, SearchRunDispatching {
 
   searchRefused = false;
 
-  dispatchSearch = (order: SearchRunOrder): Promise<SearchRunQueued> => {
+  dispatchSearch = async (order: SearchRunOrder): Promise<SearchRunQueued> => {
     this.searchesDispatched.push(order);
-    return Promise.resolve({ queued: !this.searchRefused });
+    return { queued: !this.searchRefused };
   };
 
   readonly cancelledSearchRuns: string[] = [];
 
-  cancelSearchRun = (run: RunId) => {
+  cancelSearchRun = async (run: RunId) => {
     this.cancelledSearchRuns.push(run.value);
-    return Promise.resolve();
   };
 
   readonly leasedSearchRuns = new Map<string, LeasedSearchRun>();
 
-  leasedSearchRun = (run: RunId) =>
-    Promise.resolve(this.leasedSearchRuns.get(run.value) ?? null);
+  leasedSearchRun = async (run: RunId) =>
+    this.leasedSearchRuns.get(run.value) ?? null;
 
   unclaimed: UnclaimedCancellation = { outcome: 'cancelled', started: false };
 
   readonly cancelledUnclaimed: string[] = [];
 
-  cancelUnclaimedSearchRun = (run: RunId): Promise<UnclaimedCancellation> => {
+  cancelUnclaimedSearchRun = async (
+    run: RunId,
+  ): Promise<UnclaimedCancellation> => {
     if (this.unclaimed.outcome === 'cancelled') {
       this.cancelledUnclaimed.push(run.value);
     }
-    return Promise.resolve(this.unclaimed);
+    return this.unclaimed;
   };
 
   readonly runStatuses = new Map<string, SearchRunStatus>();
 
-  searchRunStatuses = (runs: readonly RunId[]) =>
-    Promise.resolve(
-      runs.flatMap((run) => {
-        const status = this.runStatuses.get(run.value);
-        return status ? [status] : [];
-      }),
-    );
+  searchRunStatuses = async (runs: readonly RunId[]) =>
+    runs.flatMap((run) => {
+      const status = this.runStatuses.get(run.value);
+      return status ? [status] : [];
+    });
 }
 
 export const liveFrom = (configs: StationConfigs) => {
@@ -907,11 +775,9 @@ export class FakeSuppliers {
 }
 
 export const peopleWho = (mayPlan: boolean | null): PeoplePort => ({
-  membershipOn: () =>
-    Promise.resolve(
-      mayPlan === null ? null : { workspaceId: STATION.workspaceId, mayPlan },
-    ),
-  teamKey: () => Promise.resolve('core'),
+  membershipOn: async () =>
+    mayPlan === null ? null : { workspaceId: STATION.workspaceId, mayPlan },
+  teamKey: async () => 'core',
 });
 
 export const accessFor = (
@@ -933,23 +799,20 @@ export class FakeChangeReview implements ChangeReviewPort {
   readonly recheckRequests: string[] = [];
   recheckableStacks: readonly string[] = ['stack_1'];
 
-  stacksOf(run: RunId): Promise<readonly StackStatus[]> {
-    return Promise.resolve(this.stacks.get(run.value) ?? []);
+  async stacksOf(run: RunId): Promise<readonly StackStatus[]> {
+    return this.stacks.get(run.value) ?? [];
   }
 
-  rechecksOf(run: RunId): Promise<readonly StackStatus[]> {
-    return Promise.resolve(this.rechecks.get(run.value) ?? []);
+  async rechecksOf(run: RunId): Promise<readonly StackStatus[]> {
+    return this.rechecks.get(run.value) ?? [];
   }
 
-  recheckable(): Promise<readonly ChangeStackId[]> {
-    return Promise.resolve(
-      this.recheckableStacks.map((each) => ChangeStackId.of(each)),
-    );
+  async recheckable(): Promise<readonly ChangeStackId[]> {
+    return this.recheckableStacks.map((each) => ChangeStackId.of(each));
   }
 
-  recheck(run: RunId, stackId: ChangeStackId): Promise<void> {
+  async recheck(run: RunId, stackId: ChangeStackId): Promise<void> {
     this.recheckRequests.push(`${run.value}#${stackId.value}`);
-    return Promise.resolve();
   }
 }
 
@@ -958,21 +821,19 @@ export class FakeInsights implements InsightsPort {
   readonly sentBack = new Set<string>();
   calibration: JudgeCalibration | null = null;
 
-  judgeCalibration(): Promise<JudgeCalibration | null> {
-    return Promise.resolve(this.calibration);
+  async judgeCalibration(): Promise<JudgeCalibration | null> {
+    return this.calibration;
   }
 
-  acceptedAfter(run: RunId): Promise<boolean> {
-    return Promise.resolve(this.accepted.has(run.value));
+  async acceptedAfter(run: RunId): Promise<boolean> {
+    return this.accepted.has(run.value);
   }
 
-  originalOutcomes(): Promise<ReadonlyMap<string, OriginalOutcome>> {
-    return Promise.resolve(
-      new Map([
-        ...[...this.accepted].map((run) => [run, 'accepted'] as const),
-        ...[...this.sentBack].map((run) => [run, 'sent-back'] as const),
-      ]),
-    );
+  async originalOutcomes(): Promise<ReadonlyMap<string, OriginalOutcome>> {
+    return new Map([
+      ...[...this.accepted].map((run) => [run, 'accepted'] as const),
+      ...[...this.sentBack].map((run) => [run, 'sent-back'] as const),
+    ]);
   }
 }
 
@@ -1058,61 +919,55 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   readonly stored = new Map<string, ConfigPullRequest>();
   readonly events: DomainEvent[] = [];
 
-  find(id: { value: string }): Promise<ConfigPullRequest | null> {
-    return Promise.resolve(this.stored.get(id.value) ?? null);
+  async find(id: { value: string }): Promise<ConfigPullRequest | null> {
+    return this.stored.get(id.value) ?? null;
   }
 
-  forCandidate(
+  async forCandidate(
     searchId: { value: string },
     candidateId: { value: string },
   ): Promise<ConfigPullRequest | null> {
-    return Promise.resolve(
+    return (
       [...this.stored.values()].find(
         (each) =>
           each.searchId.value === searchId.value &&
           each.candidateId.value === candidateId.value,
-      ) ?? null,
+      ) ?? null
     );
   }
 
-  ofSearch(searchId: { value: string }): Promise<ConfigPullRequest[]> {
-    return Promise.resolve(
-      [...this.stored.values()].filter(
-        (each) => each.searchId.value === searchId.value,
-      ),
+  async ofSearch(searchId: { value: string }): Promise<ConfigPullRequest[]> {
+    return [...this.stored.values()].filter(
+      (each) => each.searchId.value === searchId.value,
     );
   }
 
-  findMany(ids: readonly { value: string }[]): Promise<ConfigPullRequest[]> {
-    return Promise.resolve(
-      ids.flatMap((id) => {
-        const found = this.stored.get(id.value);
-        return found ? [found] : [];
-      }),
+  async findMany(
+    ids: readonly { value: string }[],
+  ): Promise<ConfigPullRequest[]> {
+    return ids.flatMap((id) => {
+      const found = this.stored.get(id.value);
+      return found ? [found] : [];
+    });
+  }
+
+  async ofTeam(teamId: { value: string }): Promise<ConfigPullRequest[]> {
+    return [...this.stored.values()].filter(
+      (each) => each.teamId.value === teamId.value,
     );
   }
 
-  ofTeam(teamId: { value: string }): Promise<ConfigPullRequest[]> {
-    return Promise.resolve(
-      [...this.stored.values()].filter(
-        (each) => each.teamId.value === teamId.value,
-      ),
+  async openAtStation(stationId: StationId): Promise<boolean> {
+    return [...this.stored.values()].some(
+      (each) => each.station.stationId.equals(stationId) && each.isOpen,
     );
   }
 
-  openAtStation(stationId: StationId): Promise<boolean> {
-    return Promise.resolve(
-      [...this.stored.values()].some(
-        (each) => each.station.stationId.equals(stationId) && each.isOpen,
-      ),
-    );
-  }
-
-  fromHost(
+  async fromHost(
     workspaceId: { value: string },
     key: { hostId: number | null; repository: string; number: number },
   ): Promise<ConfigPullRequest | null> {
-    return Promise.resolve(
+    return (
       [...this.stored.values()].find(
         (each) =>
           each.workspaceId.value === workspaceId.value &&
@@ -1120,40 +975,36 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
             ? each.repository?.value.toLowerCase() ===
                 key.repository.toLowerCase() && each.number === key.number
             : each.hostId === key.hostId),
-      ) ?? null,
+      ) ?? null
     );
   }
 
-  dueForCheck(
+  async dueForCheck(
     checkedBefore: Date,
     limit: number,
   ): Promise<ConfigPullRequest[]> {
-    return Promise.resolve(
-      [...this.stored.values()]
-        .filter(
-          (each) =>
-            each.current === 'opened' &&
-            each.checkedAt !== null &&
-            each.checkedAt < checkedBefore,
-        )
-        .slice(0, limit),
-    );
-  }
-
-  openedOnLine(lineId: LineId): Promise<ConfigPullRequest[]> {
-    return Promise.resolve(
-      [...this.stored.values()].filter(
+    return [...this.stored.values()]
+      .filter(
         (each) =>
-          each.station.lineId.equals(lineId) && each.current === 'opened',
-      ),
+          each.current === 'opened' &&
+          each.checkedAt !== null &&
+          each.checkedAt < checkedBefore,
+      )
+      .slice(0, limit);
+  }
+
+  async openedOnLine(lineId: LineId): Promise<ConfigPullRequest[]> {
+    return [...this.stored.values()].filter(
+      (each) => each.station.lineId.equals(lineId) && each.current === 'opened',
     );
   }
 
-  due(state: 'opening' | 'closing', now: Date): Promise<ConfigPullRequest[]> {
-    return Promise.resolve(
-      [...this.stored.values()].filter(
-        (each) => each.current === state && each.isDue(now),
-      ),
+  async due(
+    state: 'opening' | 'closing',
+    now: Date,
+  ): Promise<ConfigPullRequest[]> {
+    return [...this.stored.values()].filter(
+      (each) => each.current === state && each.isDue(now),
     );
   }
 
@@ -1169,20 +1020,18 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     this.stored.set(added.id.value, added);
   }
 
-  save(saved: ConfigPullRequest): Promise<void> {
+  async save(saved: ConfigPullRequest): Promise<void> {
     const existing = this.stored.get(saved.id.value);
 
     if (!existing || existing.version !== saved.version) {
-      return Promise.reject(
-        new ConfigPullRequestVersionConflictError(saved.id.value),
-      );
+      throw new ConfigPullRequestVersionConflictError(saved.id.value);
     }
 
     this.events.push(...saved.pullEvents());
 
     if (saved.isDeleted) {
       this.stored.delete(saved.id.value);
-      return Promise.resolve();
+      return;
     }
 
     this.stored.set(
@@ -1215,7 +1064,6 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
         version: saved.version + 1,
       }),
     );
-    return Promise.resolve();
   }
 }
 
@@ -1224,52 +1072,41 @@ export class InMemoryChecks implements ReplayCheckRepository {
 
   constructor(private readonly events: DomainEvent[]) {}
 
-  find = (id: { value: string }): Promise<ReplayCheck | null> =>
-    Promise.resolve(this.stored.get(id.value) ?? null);
+  find = async (id: { value: string }): Promise<ReplayCheck | null> =>
+    this.stored.get(id.value) ?? null;
 
-  ofChange = (
+  ofChange = async (
     stationId: StationId,
     change: CheckedChange,
   ): Promise<ReplayCheck[]> =>
-    Promise.resolve(
-      [...this.stored.values()].filter(
-        (each) =>
-          each.station.stationId.equals(stationId) &&
-          each.change.equals(change),
-      ),
+    [...this.stored.values()].filter(
+      (each) =>
+        each.station.stationId.equals(stationId) && each.change.equals(change),
     );
 
-  ofPullRequest = (
+  ofPullRequest = async (
     stationId: StationId,
     pullRequest: number,
   ): Promise<ReplayCheck[]> =>
-    Promise.resolve(
-      [...this.stored.values()].filter(
-        (each) =>
-          each.station.stationId.equals(stationId) &&
-          each.reference.pullRequest === pullRequest,
-      ),
+    [...this.stored.values()].filter(
+      (each) =>
+        each.station.stationId.equals(stationId) &&
+        each.reference.pullRequest === pullRequest,
     );
 
-  awaitingBaseline = (): Promise<ReplayCheck[]> =>
-    Promise.resolve(
-      [...this.stored.values()].filter((each) => each.awaitsBaseline),
+  awaitingBaseline = async (): Promise<ReplayCheck[]> =>
+    [...this.stored.values()].filter((each) => each.awaitsBaseline);
+
+  awaitingBaselineOfSet = async (setId: ReplaySetId): Promise<ReplayCheck[]> =>
+    [...this.stored.values()].filter(
+      (each) => each.awaitsBaseline && each.setId.equals(setId),
     );
 
-  awaitingBaselineOfSet = (setId: ReplaySetId): Promise<ReplayCheck[]> =>
-    Promise.resolve(
-      [...this.stored.values()].filter(
-        (each) => each.awaitsBaseline && each.setId.equals(setId),
-      ),
-    );
+  ofTeam = async (): Promise<ReplayCheck[]> => [...this.stored.values()];
 
-  ofTeam = (): Promise<ReplayCheck[]> =>
-    Promise.resolve([...this.stored.values()]);
+  ofSet = async (): Promise<ReplayCheck[]> => [...this.stored.values()];
 
-  ofSet = (): Promise<ReplayCheck[]> =>
-    Promise.resolve([...this.stored.values()]);
-
-  pageOfSet = (
+  pageOfSet = async (
     _setId: unknown,
     page: { before: { value: string } | null; limit: number },
   ): Promise<ReplayCheck[]> => {
@@ -1278,22 +1115,19 @@ export class InMemoryChecks implements ReplayCheckRepository {
       ? newest.findIndex((each) => each.id.value === page.before?.value) + 1
       : 0;
 
-    return Promise.resolve(
-      page.before && from === 0 ? [] : newest.slice(from, from + page.limit),
-    );
+    return page.before && from === 0
+      ? []
+      : newest.slice(from, from + page.limit);
   };
 
-  add = (check: ReplayCheck): Promise<void> => {
+  add = async (check: ReplayCheck): Promise<void> => {
     this.events.push(...check.pullEvents());
     this.stored.set(check.id.value, check);
-    return Promise.resolve();
   };
 
-  save = (check: ReplayCheck): Promise<void> => {
+  save = async (check: ReplayCheck): Promise<void> => {
     if (this.stored.get(check.id.value)?.version !== check.version) {
-      return Promise.reject(
-        new ReplayCheckVersionConflictError(check.id.value),
-      );
+      throw new ReplayCheckVersionConflictError(check.id.value);
     }
 
     this.events.push(...check.pullEvents());
@@ -1328,7 +1162,6 @@ export class InMemoryChecks implements ReplayCheckRepository {
         }),
       );
     }
-    return Promise.resolve();
   };
 }
 
@@ -1338,60 +1171,49 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
   readonly deletedReplays = new Set<string>();
   now = new Date('2026-11-07T12:00:00.000Z');
 
-  find = (runId: RunId): Promise<ReplayRunDecision | null> =>
-    Promise.resolve(this.decisions.get(runId.value) ?? null);
+  find = async (runId: RunId): Promise<ReplayRunDecision | null> =>
+    this.decisions.get(runId.value) ?? null;
 
-  ofTeam = (teamId: TeamId): Promise<ReplayRunDecision[]> =>
-    Promise.resolve(
-      [...this.decisions.values()].filter((each) =>
-        each.owner.teamId.equals(teamId),
-      ),
+  ofTeam = async (teamId: TeamId): Promise<ReplayRunDecision[]> =>
+    [...this.decisions.values()].filter((each) =>
+      each.owner.teamId.equals(teamId),
     );
 
-  ofReplay = (replayId: ReplayId): Promise<ReplayRunDecision[]> =>
-    Promise.resolve(
-      [...this.decisions.values()].filter((each) =>
-        each.owner.replayId.equals(replayId),
-      ),
+  ofReplay = async (replayId: ReplayId): Promise<ReplayRunDecision[]> =>
+    [...this.decisions.values()].filter((each) =>
+      each.owner.replayId.equals(replayId),
     );
 
-  ofDeletedReplays = (
+  ofDeletedReplays = async (
     decidedBefore: Date,
     limit: number,
   ): Promise<ReplayRunDecision[]> =>
-    Promise.resolve(
-      [...this.decisions.values()]
-        .filter(
-          (each) =>
-            this.deletedReplays.has(each.owner.replayId.value) &&
-            (this.decidedAt.get(each.runId.value) ?? this.now) < decidedBefore,
-        )
-        .slice(0, limit),
-    );
+    [...this.decisions.values()]
+      .filter(
+        (each) =>
+          this.deletedReplays.has(each.owner.replayId.value) &&
+          (this.decidedAt.get(each.runId.value) ?? this.now) < decidedBefore,
+      )
+      .slice(0, limit);
 
-  add = (decision: ReplayRunDecision): Promise<void> => {
+  add = async (decision: ReplayRunDecision): Promise<void> => {
     if (this.decisions.has(decision.runId.value)) {
-      return Promise.reject(
-        new ReplayRunDecisionVersionConflictError(decision.runId),
-      );
+      throw new ReplayRunDecisionVersionConflictError(decision.runId);
     }
     this.decisions.set(decision.runId.value, decision);
     this.decidedAt.set(decision.runId.value, this.now);
-    return Promise.resolve();
   };
 
-  save = (decision: ReplayRunDecision): Promise<void> => {
+  save = async (decision: ReplayRunDecision): Promise<void> => {
     if (
       this.decisions.get(decision.runId.value)?.version !== decision.version
     ) {
-      return Promise.reject(
-        new ReplayRunDecisionVersionConflictError(decision.runId),
-      );
+      throw new ReplayRunDecisionVersionConflictError(decision.runId);
     }
     if (decision.isDeleted) {
       this.decisions.delete(decision.runId.value);
       this.decidedAt.delete(decision.runId.value);
-      return Promise.resolve();
+      return;
     }
     this.decisions.set(
       decision.runId.value,
@@ -1404,6 +1226,5 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
         version: decision.version + 1,
       }),
     );
-    return Promise.resolve();
   };
 }

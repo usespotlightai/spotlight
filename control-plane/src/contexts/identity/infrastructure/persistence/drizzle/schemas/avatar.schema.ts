@@ -1,11 +1,5 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
-import {
-  integer,
-  pgTable,
-  text,
-  unique,
-  uuid,
-} from 'drizzle-orm/pg-core';
+import { integer, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 
 export const avatar = pgTable(
   'avatar',

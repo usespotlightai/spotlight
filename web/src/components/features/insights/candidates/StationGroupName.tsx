@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { formatStation, type StationNames } from '@/lib/insights';
 import { nonEmpty } from '@/lib/non-empty';
 
@@ -8,10 +6,7 @@ type StationGroupNameProps = {
   names: StationNames;
 };
 
-export function StationGroupName({
-  stationId,
-  names,
-}: StationGroupNameProps): ReactElement {
+export function StationGroupName({ stationId, names }: StationGroupNameProps) {
   const line = names.get(stationId)?.lineName;
 
   return (

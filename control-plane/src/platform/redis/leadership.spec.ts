@@ -35,7 +35,7 @@ describe('Leadership', () => {
   });
 
   it('leads once the store grants the lease, and not before', async () => {
-    const { leadership } = leading({ eval: () => Promise.resolve(1) });
+    const { leadership } = leading({ eval: async () => 1 });
 
     expect(leadership.held()).toBe(false);
     await leadership.renew();
@@ -43,7 +43,7 @@ describe('Leadership', () => {
   });
 
   it('does not lead while another instance holds the lease', async () => {
-    const { leadership } = leading({ eval: () => Promise.resolve(0) });
+    const { leadership } = leading({ eval: async () => 0 });
 
     await leadership.renew();
 
@@ -82,7 +82,7 @@ describe('Leadership', () => {
   });
 
   it('gives the lease back when it stops', async () => {
-    const store = { eval: vi.fn(() => Promise.resolve(1)) };
+    const store = { eval: vi.fn(async () => 1) };
     const { leadership } = leading(store);
     await leadership.renew();
 
@@ -98,7 +98,7 @@ describe('Leadership', () => {
   });
 
   it('gives the lease back when it stops even after its own deadline passed', async () => {
-    const store = { eval: vi.fn(() => Promise.resolve(1)) };
+    const store = { eval: vi.fn(async () => 1) };
     const { leadership, elapse } = leading(store);
     await leadership.renew();
     elapse(60_000);

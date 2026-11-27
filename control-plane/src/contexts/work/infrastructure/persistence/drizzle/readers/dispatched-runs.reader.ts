@@ -3,6 +3,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -28,17 +29,11 @@ type DispatchRow = Pick<
 >;
 
 const forOf = (row: DispatchRow): DispatchedFor => {
-  if (row.kind === 'chat' && row.chatId !== null && row.chatId !== '') {
+  if (row.kind === 'chat' && nonEmpty(row.chatId)) {
     return { kind: 'chat', chatId: ChatId.of(row.chatId) };
   }
 
-  if (
-    row.kind === 'task' &&
-    row.taskId !== null &&
-    row.taskId !== '' &&
-    row.stationId !== null &&
-    row.stationId !== ''
-  ) {
+  if (row.kind === 'task' && nonEmpty(row.taskId) && nonEmpty(row.stationId)) {
     return {
       kind: 'task',
       taskId: TaskId.of(row.taskId),
@@ -46,7 +41,7 @@ const forOf = (row: DispatchRow): DispatchedFor => {
     };
   }
 
-  if (row.kind === 'trial' && row.stationId !== null && row.stationId !== '') {
+  if (row.kind === 'trial' && nonEmpty(row.stationId)) {
     return {
       kind: 'trial',
       stationId: StationId.of(row.stationId),

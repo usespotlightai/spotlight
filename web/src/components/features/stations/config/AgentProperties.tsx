@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { EffortSteps } from '@/components/features/stations/config/EffortSteps';
 import {
   Property,
@@ -10,11 +8,7 @@ import { TabSection } from '@/components/features/stations/TabSection';
 import { useStationAgent } from '@/hooks/useStationAgent';
 import type { StationResponseDto } from '@/lib/api';
 
-export function AgentProperties({
-  station,
-}: {
-  station: StationResponseDto;
-}): ReactElement {
+export function AgentProperties({ station }: { station: StationResponseDto }) {
   const agent = useStationAgent(station);
 
   return (

@@ -78,7 +78,7 @@ const connectionWith = (
   token: AccessToken.of(token),
   owner: ConnectionOwner.team(),
   linkedAccount: null,
-  unauthorized: vi.fn(() => Promise.resolve(AccessToken.maybe(refreshed))),
+  unauthorized: vi.fn(async () => AccessToken.maybe(refreshed)),
 });
 
 const reading = (
@@ -91,44 +91,42 @@ const reading = (
   let answered = 0;
   let fetched = 0;
   const outbound = partial<HttpOutbound>({
-    run: (_request: RequestIR, against: CelVariables) => {
+    run: async (_request: RequestIR, against: CelVariables) => {
       sentWith.push(against.connection);
       const status = answers[Math.min(answered, answers.length - 1)] ?? 200;
       answered += 1;
 
-      return Promise.resolve({
+      return {
         ok: status === 200,
         status,
         response: { email: 'ada@example.com' },
         capture: {},
-      });
+      };
     },
-    bytes: (_request: RequestIR, against: CelVariables) => {
+    bytes: async (_request: RequestIR, against: CelVariables) => {
       fetchedWith.push(against.connection);
       const status =
         fetchAnswers[Math.min(fetched, fetchAnswers.length - 1)] ?? 200;
       fetched += 1;
 
       if (status !== 200) {
-        return Promise.reject(
-          new UpstreamError(
-            'fetching a file',
-            `the host answered ${status} without it`,
-            status,
-          ),
+        throw new UpstreamError(
+          'fetching a file',
+          `the host answered ${status} without it`,
+          status,
         );
       }
 
-      return Promise.resolve(new Uint8Array());
+      return new Uint8Array();
     },
   });
-  const connectionOf = vi.fn(() => Promise.resolve(connection));
+  const connectionOf = vi.fn(async () => connection);
   const runtime = new WebhookRuntime(
     compiled(CHAT),
     WorkspaceId.of('ws_1'),
     signingFor(),
     { now: () => new Date(1_700_000_000_000), sleep: async () => {} },
-    { keys: () => Promise.resolve(new Map()) },
+    { keys: async () => new Map() },
     outbound,
     credentialsFor(),
     unlimited,

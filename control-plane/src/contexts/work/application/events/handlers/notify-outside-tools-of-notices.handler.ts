@@ -18,7 +18,7 @@ export class NotifyOutsideToolsOfNotices {
   async on(event: NoticeRaised): Promise<void> {
     const notice = await this.notices.find(event.noticeId);
 
-    if (notice?.openToTeam !== true) {
+    if (!notice?.openToTeam) {
       return;
     }
 

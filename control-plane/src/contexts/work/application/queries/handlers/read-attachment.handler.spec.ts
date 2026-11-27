@@ -14,19 +14,17 @@ const reading = (holder: AttachmentHolder) =>
   new ReadAttachmentHandler(
     workAccessSeeing(() => true),
     {
-      find: vi.fn(() =>
-        Promise.resolve({
-          id: 'attachment_1',
-          name: 'screenshot.png',
-          contentType: 'image/png',
-          size: 1_024,
-          workspaceId: 'ws_1',
-          holder,
-        }),
-      ),
+      find: vi.fn(async () => ({
+        id: 'attachment_1',
+        name: 'screenshot.png',
+        contentType: 'image/png',
+        size: 1_024,
+        workspaceId: 'ws_1',
+        holder,
+      })),
     } satisfies AttachmentReaderPort,
     partial<AttachmentStorePort>({
-      link: vi.fn(() => Promise.resolve('https://files.example/attachment_1')),
+      link: vi.fn(async () => 'https://files.example/attachment_1'),
     }),
   );
 
@@ -39,12 +37,10 @@ const readingUnclaimed = (
   access: WorkAccess,
   attachmentId = 'attachment_1',
 ) => {
-  const linkPending = vi.fn(() =>
-    Promise.resolve('https://files.example/pending'),
-  );
+  const linkPending = vi.fn(async () => 'https://files.example/pending');
   const handler = new ReadAttachmentHandler(
     access,
-    { find: vi.fn(() => Promise.resolve(null)) } satisfies AttachmentReaderPort,
+    { find: vi.fn(async () => null) } satisfies AttachmentReaderPort,
     partial<AttachmentStorePort>({ linkPending }),
   );
 
@@ -86,7 +82,7 @@ describe('ReadAttachmentHandler', () => {
       Object.assign(
         workAccessSeeing(() => true),
         {
-          memberWorkspaceAt: () => Promise.resolve(null),
+          memberWorkspaceAt: async () => null,
         },
       ),
     );

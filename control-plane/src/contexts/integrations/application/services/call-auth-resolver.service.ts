@@ -131,7 +131,7 @@ export class CallAuthResolver implements TeamConnectionsPort {
     const credentials: Credentials = this.credentials.forRun(run);
 
     return {
-      workspace: () => Promise.resolve(run.workspaceId),
+      workspace: async () => run.workspaceId,
       connection: connection ? this.active(connection) : null,
       credentials,
     };

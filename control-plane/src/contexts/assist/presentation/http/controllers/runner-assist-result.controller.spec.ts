@@ -12,9 +12,9 @@ const submitting = (answer: AssistResultSubmitted) => {
   const sent: unknown[] = [];
   const controller = new RunnerAssistResultController(
     partial<CommandBus>({
-      execute: (command: unknown) => {
+      execute: async (command: unknown) => {
         sent.push(command);
-        return Promise.resolve(answer);
+        return answer;
       },
     }),
   );

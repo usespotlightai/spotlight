@@ -1,5 +1,4 @@
 import { Spool } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -8,13 +7,7 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import { teamSectionPath } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
-export function NoMemories({
-  slug,
-  teamId,
-}: {
-  slug: string;
-  teamId: string;
-}): ReactElement {
+export function NoMemories({ slug, teamId }: { slug: string; teamId: string }) {
   return (
     <EmptyFrame>
       <EmptyState

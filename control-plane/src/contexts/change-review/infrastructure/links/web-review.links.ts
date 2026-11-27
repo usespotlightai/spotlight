@@ -3,6 +3,7 @@ import type {
   DecisionsPage,
   ReviewLinksPort,
 } from '@change-review/application/ports/review-links.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class WebReviewLinks implements ReviewLinksPort {
   constructor(private readonly publicUrl: string) {}
@@ -18,7 +19,7 @@ export class WebReviewLinks implements ReviewLinksPort {
       'changes',
     ]);
 
-    return page.repository !== null && page.repository !== ''
+    return nonEmpty(page.repository)
       ? `${changes}?${new URLSearchParams({ repository: page.repository }).toString()}`
       : changes;
   }

@@ -13,12 +13,10 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const REPOSITORY = Repository.of('acme/docs');
 
 const access = partial<RepositoryAccessPort>({
-  credential: vi.fn(() =>
-    Promise.resolve({
-      username: 'x-access-token',
-      password: 'tok_1',
-    }),
-  ),
+  credential: vi.fn(async () => ({
+    username: 'x-access-token',
+    password: 'tok_1',
+  })),
 });
 
 const logger = partial<LoggerPort>({
@@ -43,10 +41,8 @@ describe('GitHubGitTransport', () => {
     const cause = new Error('other side closed');
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => {
-        return Promise.reject(
-          Object.assign(new TypeError('fetch failed'), { cause }),
-        );
+      vi.fn(async () => {
+        throw Object.assign(new TypeError('fetch failed'), { cause });
       }),
     );
 
@@ -63,13 +59,11 @@ describe('GitHubGitTransport', () => {
   });
 
   it('returns the answer and drops the caller authorization', async () => {
-    const fetcher = vi.fn((_url: string, _init: RequestInit) =>
-      Promise.resolve({
-        status: 200,
-        headers: new Headers({ 'content-type': 'x-git-result' }),
-        body: null,
-      }),
-    );
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => ({
+      status: 200,
+      headers: new Headers({ 'content-type': 'x-git-result' }),
+      body: null,
+    }));
     vi.stubGlobal('fetch', fetcher);
 
     const answer = await new GitHubGitTransport(access, logger).call(

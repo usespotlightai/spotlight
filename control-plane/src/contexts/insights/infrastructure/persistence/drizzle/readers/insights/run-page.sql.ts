@@ -17,6 +17,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   and,
   count,
@@ -212,7 +213,7 @@ const listedOf = (row: FactRow): ListedRun => ({
   failure: row.failure,
   checks: row.checks,
   passed:
-    row.passedTo !== null && row.passedTo !== '' && row.passedAt
+    nonEmpty(row.passedTo) && row.passedAt
       ? { to: row.passedTo, at: row.passedAt }
       : null,
   pullRequestState: row.pullRequestState,

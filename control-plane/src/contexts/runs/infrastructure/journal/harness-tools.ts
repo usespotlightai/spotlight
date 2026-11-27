@@ -4,6 +4,7 @@ import type {
   HarnessToolNamesPort,
 } from '@runs/application/ports/harness-tool-names.port';
 import type { CallEnding } from '@runs/domain/services/tool-attribution';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface HarnessTool {
   readonly server: string | null;
@@ -42,7 +43,7 @@ export const harnessToolOf = (
 ): HarnessTool => {
   const trimmed = title.trim();
 
-  if (named !== null && named !== '') {
+  if (nonEmpty(named)) {
     return prefixed(named.trim()) ?? { server: null, tool: named.trim() };
   }
 
@@ -53,12 +54,7 @@ export const requestedSkillOf = (
   tool: HarnessTool,
   input: string | null,
 ): string | null => {
-  if (
-    tool.server !== null ||
-    tool.tool !== SKILL_TOOL ||
-    input === null ||
-    input === ''
-  ) {
+  if (tool.server !== null || tool.tool !== SKILL_TOOL || !nonEmpty(input)) {
     return null;
   }
 
@@ -82,7 +78,7 @@ export const readingPaths = (
   read: readonly (string | null)[],
 ): readonly string[] =>
   tool.server === null && kind !== null && READING_KINDS.has(kind)
-    ? read.flatMap((each) => (each !== null && each !== '' ? [each] : []))
+    ? read.flatMap((each) => (nonEmpty(each) ? [each] : []))
     : [];
 
 export const callEndingOf = (

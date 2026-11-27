@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import {
   DropdownMenuRadioGroup,
@@ -20,7 +18,7 @@ export function AgentHarnessMenu({
   harnesses,
   harness,
   onHarness,
-}: AgentHarnessMenuProps): ReactElement {
+}: AgentHarnessMenuProps) {
   const offered = harnesses.find((each) => each.id === harness);
 
   return (

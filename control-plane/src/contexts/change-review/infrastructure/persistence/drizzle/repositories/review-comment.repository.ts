@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
@@ -18,6 +17,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -57,13 +58,13 @@ const toComment = (row: Row): ReviewComment =>
     anchor: anchorOf(row),
     body: row.body,
     author: ReviewAuthor.rehydrate({
-      userId: row.authorId !== null && row.authorId !== '' ? UserId.of(row.authorId) : null,
-      runId: row.authorRunId !== null && row.authorRunId !== '' ? RunId.of(row.authorRunId) : null,
+      userId: nonEmpty(row.authorId) ? UserId.of(row.authorId) : null,
+      runId: nonEmpty(row.authorRunId) ? RunId.of(row.authorRunId) : null,
       login: row.authorLogin,
       name: AuthorName.of(row.authorName),
     }),
-    replyTo: row.replyToId !== null && row.replyToId !== '' ? ReviewCommentId.of(row.replyToId) : null,
-    reviewId: row.reviewId !== null && row.reviewId !== '' ? ReviewId.of(row.reviewId) : null,
+    replyTo: nonEmpty(row.replyToId) ? ReviewCommentId.of(row.replyToId) : null,
+    reviewId: nonEmpty(row.reviewId) ? ReviewId.of(row.reviewId) : null,
     state: row.state,
     github:
       row.githubId !== null && row.githubUrl !== null && row.githubUrl !== ''
@@ -146,11 +147,13 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
   }
 
   async find(id: ReviewCommentId): Promise<ReviewComment | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(reviewComment)
-      .where(eq(reviewComment.id, id.value))
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(reviewComment)
+        .where(eq(reviewComment.id, id.value))
+        .limit(1),
+    );
 
     return row ? toComment(row) : null;
   }
@@ -159,16 +162,18 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
     workspaceId: WorkspaceId,
     githubId: number,
   ): Promise<ReviewComment | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(reviewComment)
-      .where(
-        and(
-          eq(reviewComment.workspaceId, workspaceId.value),
-          eq(reviewComment.githubId, githubId),
-        ),
-      )
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(reviewComment)
+        .where(
+          and(
+            eq(reviewComment.workspaceId, workspaceId.value),
+            eq(reviewComment.githubId, githubId),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toComment(row) : null;
   }

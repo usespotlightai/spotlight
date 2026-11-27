@@ -17,8 +17,8 @@ const leases = runLeasesOver(() => leasedRunFor(RunId.of('run_1'), 'dev'));
 const acknowledging = () => {
   const acknowledged: number[] = [];
   const work = partial<RunWork>({
-    acknowledgeUpTo: (position: number) =>
-      Promise.resolve(void acknowledged.push(position)),
+    acknowledgeUpTo: async (position: number) =>
+      void acknowledged.push(position),
   });
   const works = partial<RunWorks>({
     leasedBy: async (runId: string, runnerId: string) => ({

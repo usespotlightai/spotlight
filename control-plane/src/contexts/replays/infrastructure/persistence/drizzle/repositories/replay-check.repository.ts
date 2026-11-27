@@ -1,9 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
-import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
-import {
-  JudgeCalibration,
-  type JudgeCalibrationFields,
-} from '@replays/domain/value-objects/judge-calibration';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -12,6 +6,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
 import { ReplayCheckAttemptTakenError } from '@replays/domain/exceptions/replay-check-attempt-taken.error';
 import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
@@ -21,6 +16,10 @@ import {
 } from '@replays/domain/services/live-scoring';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
+import {
+  JudgeCalibration,
+  type JudgeCalibrationFields,
+} from '@replays/domain/value-objects/judge-calibration';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -39,6 +38,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';

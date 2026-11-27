@@ -23,6 +23,7 @@ import {
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
@@ -69,25 +70,21 @@ const LIVE_CHECK = {
 };
 
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  stored: () => Promise.resolve(true),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+  received: async () => [],
+  stored: async () => true,
+  taken: async () => undefined,
+  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 });
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
@@ -130,9 +127,9 @@ const bearing = (token: string) => ({
       .set('Authorization', `Bearer ${token}`)
       .set('Spotlight-Client', 'cli/1.2.3');
 
-    return (
-      key !== null && key !== '' ? request.set('Idempotency-Key', key) : request
-    ).send(body);
+    return (nonEmpty(key) ? request.set('Idempotency-Key', key) : request).send(
+      body,
+    );
   },
   delete: (path: string) =>
     http().delete(path).set('Authorization', `Bearer ${token}`),

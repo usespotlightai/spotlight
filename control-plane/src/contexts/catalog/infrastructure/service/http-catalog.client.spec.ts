@@ -26,12 +26,12 @@ const serving = (status: number, body: unknown) => {
   const service = new HttpCatalogClient(
     'https://catalog.example.com/v1',
     'catalog-token',
-    (url, init) => {
+    async (url, init) => {
       sent.push({
         url: url instanceof Request ? url.url : url.toString(),
         init: init ?? {},
       });
-      return Promise.resolve(new Response(JSON.stringify(body), { status }));
+      return new Response(JSON.stringify(body), { status });
     },
   );
 

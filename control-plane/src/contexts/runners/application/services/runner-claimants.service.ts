@@ -14,7 +14,7 @@ export const claimantOf = (
   runner: Runner | null,
   at: Date,
 ): RunnerClaimant | null =>
-  runner?.isAlive(at) === true
+  runner?.isAlive(at)
     ? {
         workspaceId: runner.workspaceId,
         harnesses: runner.harnesses,

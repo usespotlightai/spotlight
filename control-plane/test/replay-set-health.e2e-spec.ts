@@ -42,6 +42,7 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -85,61 +86,54 @@ const CLAIMS = [
 ];
 
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  stored: () => Promise.resolve(true),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+  received: async () => [],
+  stored: async () => true,
+  taken: async () => undefined,
+  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 });
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
 const generator: ChangeStackGeneratorPort = {
-  generate: ({ diff }) =>
-    Promise.resolve({
-      status: 'drafted' as const,
-      usage: {
-        inputTokens: 1_000,
-        outputTokens: 100,
-        cost: { amount: 0.02, currency: 'USD' },
+  generate: async ({ diff }) => ({
+    status: 'drafted' as const,
+    usage: {
+      inputTokens: 1_000,
+      outputTokens: 100,
+      cost: { amount: 0.02, currency: 'USD' },
+    },
+    cohorts: [
+      {
+        kind: 'change',
+        title: 'Drain the queue',
+        intent: 'Drain it in order',
+        layers: [
+          {
+            title: 'Drain in order',
+            summary: 'Drains the queue oldest first',
+            dependsOn: [],
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
+            notes: [
+              ...new Set(
+                diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
+              ),
+            ].map((path) => ({ path, note: 'Drains the queue' })),
+            questions: [],
+          },
+        ],
       },
-      cohorts: [
-        {
-          kind: 'change',
-          title: 'Drain the queue',
-          intent: 'Drain it in order',
-          layers: [
-            {
-              title: 'Drain in order',
-              summary: 'Drains the queue oldest first',
-              dependsOn: [],
-              hunks: diff.hunks.map((each) => ({ hunk: each.id })),
-              notes: [
-                ...new Set(
-                  diff.hunks.flatMap(
-                    (each) => diff.fileOf(each.id)?.path ?? [],
-                  ),
-                ),
-              ].map((path) => ({ path, note: 'Drains the queue' })),
-              questions: [],
-            },
-          ],
-        },
-      ],
-    }),
+    ],
+  }),
 };
 
 const SCORED = /score\((\d)\)/;
@@ -152,7 +146,7 @@ let judgeFlipsLeft = 4;
 
 const judge: JudgePort = {
   roundOf: () => null,
-  judge: (request: JudgeRequest) => {
+  judge: async (request: JudgeRequest) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
     const times = (judgedRuns.get(run) ?? 0) + 1;
@@ -164,7 +158,7 @@ const judge: JudgePort = {
 
     judgedRuns.set(run, times);
 
-    return Promise.resolve({
+    return {
       status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
@@ -181,7 +175,7 @@ const judge: JudgePort = {
           ],
         })),
       },
-    });
+    };
   },
 };
 
@@ -492,7 +486,7 @@ const entriesOf = (replayIds: readonly string[]) =>
 
 const workWaiting = async (replayIds: readonly string[]) => {
   const runs = (await entriesOf(replayIds)).flatMap((each) =>
-    each.runId !== null && each.runId !== '' ? [each.runId] : [],
+    nonEmpty(each.runId) ? [each.runId] : [],
   );
 
   if (runs.length === 0) {
@@ -550,8 +544,7 @@ const recalibrated = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
     (each) =>
       each.secondJudging !== null &&
       (each.secondJudging.verdict !== null ||
-        (each.secondJudging.unjudged !== null &&
-          each.secondJudging.unjudged !== '')) &&
+        nonEmpty(each.secondJudging.unjudged)) &&
       each.recheck !== null &&
       each.recheck.state !== 'checking',
   );
@@ -792,7 +785,7 @@ describe('checking a replay set’s health', () => {
     await workUntil([calibrationId], recalibrated, () => 5);
 
     const runs = (await entriesOf([calibrationId])).flatMap((each) =>
-      each.runId !== null && each.runId !== '' ? [each.runId] : [],
+      nonEmpty(each.runId) ? [each.runId] : [],
     );
 
     const calibration = await replayOf(app, calibrationId);

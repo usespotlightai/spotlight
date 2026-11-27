@@ -20,8 +20,8 @@ const registering = (
   } = {},
 ) => {
   const save = vi.fn(input.save ?? (async (_runner: Runner) => {}));
-  const find = vi.fn(() =>
-    Promise.resolve(input.runner ? input.runner() : aRunner({ id: ID })),
+  const find = vi.fn(async () =>
+    input.runner ? input.runner() : aRunner({ id: ID }),
   );
 
   const handler = new RegisterRunnerHandler(
@@ -90,12 +90,11 @@ describe('RegisterRunnerHandler', () => {
   it('reads the runner again when a heartbeat wrote it first', async () => {
     let raced = false;
     const { handler, save, find } = registering({
-      save: () => {
+      save: async () => {
         if (!raced) {
           raced = true;
-          return Promise.reject(new RunnerVersionConflictError(ID));
+          throw new RunnerVersionConflictError(ID);
         }
-        return Promise.resolve();
       },
     });
 

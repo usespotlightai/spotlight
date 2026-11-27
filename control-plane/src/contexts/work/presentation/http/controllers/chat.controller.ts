@@ -29,6 +29,7 @@ import {
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
@@ -150,7 +151,7 @@ export class ChatController {
       ),
     );
 
-    if (chatId === null || chatId === '') {
+    if (!nonEmpty(chatId)) {
       throw new NotFoundException();
     }
 

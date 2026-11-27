@@ -1,10 +1,11 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 export const excerptOf = (
   text: string | null,
   length: number,
 ): string | null => {
   const trimmed = text?.trim();
 
-  if (trimmed === undefined || trimmed === '') {
+  if (!nonEmpty(trimmed)) {
     return null;
   }
 

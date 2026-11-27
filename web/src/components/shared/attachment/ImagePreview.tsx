@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useState } from 'react';
 
 import { MissingImage } from '@/components/shared/attachment/MissingImage';
 import { ZoomableImage } from '@/components/shared/attachment/ZoomableImage';
@@ -12,11 +12,7 @@ type ImagePreviewProps = {
   className?: string;
 };
 
-export function ImagePreview({
-  source,
-  name,
-  className,
-}: ImagePreviewProps): ReactElement | null {
+export function ImagePreview({ source, name, className }: ImagePreviewProps) {
   const local = useObjectUrl('blob' in source ? source.blob : null);
   const url = 'url' in source ? source.url : local;
   const [failed, setFailed] = useState<string | null>(null);

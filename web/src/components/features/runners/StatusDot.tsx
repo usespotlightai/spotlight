@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
@@ -18,11 +16,7 @@ type StatusDotProps = {
   children: string;
 };
 
-export function StatusDot({
-  tone,
-  tip,
-  children,
-}: StatusDotProps): ReactElement {
+export function StatusDot({ tone, tip, children }: StatusDotProps) {
   return (
     <span className="flex min-w-0 shrink-0 items-center gap-1.5 font-medium text-muted-foreground text-xs">
       <span

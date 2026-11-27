@@ -4,7 +4,7 @@ import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo
 const SPOTLIGHT = 'spotlight';
 
 export class PrincipalRef {
-  private readonly kind: string = 'principal-ref';
+  private readonly kind = 'principal-ref';
 
   private constructor(readonly value: string) {}
 
@@ -28,7 +28,7 @@ export class PrincipalRef {
   }
 
   equals(other: PrincipalRef): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof PrincipalRef && this.value === other.value;
   }
 
   toString(): string {

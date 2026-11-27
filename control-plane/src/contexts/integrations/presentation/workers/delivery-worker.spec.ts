@@ -19,7 +19,7 @@ const ticking = (processDue: () => Promise<number>) => {
   const work = partial<DeliveryWorkPort>({ processDue: vi.fn(processDue) });
 
   const retention = partial<InboundDeliveryRetention>({
-    purgeFinished: vi.fn(() => Promise.resolve(0)),
+    purgeFinished: vi.fn(async () => 0),
   });
 
   return { worker: new DeliveryWorker(work, retention, logger), work, logger };
@@ -27,7 +27,7 @@ const ticking = (processDue: () => Promise<number>) => {
 
 describe('DeliveryWorker', () => {
   it('works off what is waiting when its turn comes', async () => {
-    const { worker, work } = ticking(() => Promise.resolve(2));
+    const { worker, work } = ticking(async () => 2);
 
     await worker.tick();
 
@@ -51,7 +51,7 @@ describe('DeliveryWorker', () => {
   });
 
   it('takes its next turn once the last one is done', async () => {
-    const { worker, work } = ticking(() => Promise.resolve(0));
+    const { worker, work } = ticking(async () => 0);
 
     await worker.tick();
     await worker.tick();
@@ -60,7 +60,7 @@ describe('DeliveryWorker', () => {
   });
 
   it('starts no new turn once it is going down', async () => {
-    const { worker, work } = ticking(() => Promise.resolve(1));
+    const { worker, work } = ticking(async () => 1);
 
     void worker.onModuleDestroy();
     await worker.tick();
@@ -70,9 +70,9 @@ describe('DeliveryWorker', () => {
 
   it('says what went wrong and takes its next turn anyway', async () => {
     let turns = 0;
-    const { worker, logger } = ticking(() => {
+    const { worker, logger } = ticking(async () => {
       turns += 1;
-      return Promise.reject(new Error('the database was away'));
+      throw new Error('the database was away');
     });
 
     await expect(worker.tick()).resolves.toBeUndefined();

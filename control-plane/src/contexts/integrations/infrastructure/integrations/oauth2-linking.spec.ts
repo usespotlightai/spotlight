@@ -31,6 +31,7 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -98,7 +99,7 @@ const linking = (
       OutboundScope.allows('elsewhere.example'),
     );
 
-    if (over.blocked === true) {
+    if (over.blocked) {
       throw new EgressBlockedError('slack.com', 'Host is not allowed.');
     }
 
@@ -107,52 +108,46 @@ const linking = (
   const exchanged = over.exchanged === undefined ? TOKENS : over.exchanged;
   const allowedWhileExchanging: boolean[] = [];
   const exchange = vi.fn<OAuth2Exchange['exchange']>(
-    (): Promise<OAuthTokens | null> => {
+    async (): Promise<OAuthTokens | null> => {
       allowedWhileExchanging.push(
         OutboundScope.allows('slack.com'),
         OutboundScope.allows('elsewhere.example'),
       );
-      return Promise.resolve(exchanged);
+      return exchanged;
     },
   );
   const spent = new Set<string>();
   const nonces: OAuth2NoncesPort = {
-    spend: (nonce) => {
+    spend: async (nonce) => {
       if (spent.has(nonce)) {
-        return Promise.resolve(false);
+        return false;
       }
       spent.add(nonce);
-      return Promise.resolve(true);
+      return true;
     },
   };
 
   const linked = new OAuth2Linking(
     partial<DefinedIntegrationsPort>({
-      ofTeam: () =>
-        Promise.resolve(
-          over.file !== undefined && over.file !== ''
-            ? [defined(over.file)]
-            : config(),
-        ),
+      ofTeam: async () =>
+        nonEmpty(over.file) ? [defined(over.file)] : config(),
     }),
     new IntegrationReader(expressions, operationsContaining()),
     discovery,
     configured,
     partial<OAuth2Exchange>({ exchange }),
     partial<TeamDirectoryPort>({
-      find: () =>
-        Promise.resolve(
-          over.team === false
-            ? null
-            : partial<TeamProfile>({
-                id: TEAM,
-                workspaceId: WorkspaceId.of('ws_1'),
-                name: 'Platform',
-                members: [],
-              }),
-        ),
+      find: async () =>
+        over.team === false
+          ? null
+          : partial<TeamProfile>({
+              id: TEAM,
+              workspaceId: WorkspaceId.of('ws_1'),
+              name: 'Platform',
+              members: [],
+            }),
     }),
-    partial<WorkspaceReaderPort>({ slugOf: () => Promise.resolve('acme') }),
+    partial<WorkspaceReaderPort>({ slugOf: async () => 'acme' }),
     new OAuth2State('a-secret'),
     nonces,
     partial<ClockPort>({ now: () => new Date() }),
@@ -509,32 +504,29 @@ describe('OAuth2Linking', () => {
     const { it } = linking();
     const withResource = new OAuth2Linking(
       partial<DefinedIntegrationsPort>({
-        ofTeam: () =>
-          Promise.resolve([
-            defined(
-              SLACK.replace(
-                '    scopes:\n',
-                '    resource: https://mcp.slack.com/\n    scopes:\n',
-              ),
+        ofTeam: async () => [
+          defined(
+            SLACK.replace(
+              '    scopes:\n',
+              '    resource: https://mcp.slack.com/\n    scopes:\n',
             ),
-          ]),
+          ),
+        ],
       }),
       new IntegrationReader(expressions, operationsContaining()),
       discoveringNothing(),
       clientsFrom('{"slack":{"id":"c-1","secret":"s-1"}}'),
       partial<OAuth2Exchange>({}),
       partial<TeamDirectoryPort>({
-        find: () =>
-          Promise.resolve(
-            partial<TeamProfile>({
-              id: TEAM,
-              workspaceId: WorkspaceId.of('ws_1'),
-            }),
-          ),
+        find: async () =>
+          partial<TeamProfile>({
+            id: TEAM,
+            workspaceId: WorkspaceId.of('ws_1'),
+          }),
       }),
       partial<WorkspaceReaderPort>({}),
       new OAuth2State('a-secret'),
-      { spend: () => Promise.resolve(true) },
+      { spend: async () => true },
       partial<ClockPort>({ now: () => new Date() }),
       BASE,
       `${BASE}/api/integrations/oauth/callback`,

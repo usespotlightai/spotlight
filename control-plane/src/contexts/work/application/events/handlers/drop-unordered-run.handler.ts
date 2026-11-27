@@ -11,7 +11,7 @@ export class DropUnorderedRun {
   async ofTask(event: DispatchRefused): Promise<void> {
     const task = event.taskId ? await this.tasks.find(event.taskId) : null;
 
-    if (task?.hasCurrentRun(event.runId) === true) {
+    if (task?.hasCurrentRun(event.runId)) {
       await this.tasks.save(task.dropUnstartedRun(event.runId));
     }
   }
@@ -19,7 +19,7 @@ export class DropUnorderedRun {
   async ofChat(event: DispatchRefused): Promise<void> {
     const chat = event.chatId ? await this.chats.find(event.chatId) : null;
 
-    if (chat?.hasCurrentRun(event.runId) === true) {
+    if (chat?.hasCurrentRun(event.runId)) {
       await this.chats.save(chat.runNotStarted(event.runId));
     }
   }

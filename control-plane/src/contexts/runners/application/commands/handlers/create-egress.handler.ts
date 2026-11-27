@@ -28,6 +28,7 @@ import type {
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -121,8 +122,7 @@ export class CreateEgressHandler implements CommandHandlerPort<
         return {
           created,
           token:
-            issued.token !== null &&
-            issued.token !== '' &&
+            nonEmpty(issued.token) &&
             created.outcome === 'created' &&
             !created.replayed
               ? issued.token

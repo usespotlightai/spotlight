@@ -113,7 +113,7 @@ export const storedSandboxes = (
   const all = () => [...stored.values()];
 
   const sandboxes = {
-    add: vi.fn((added: Sandbox) => {
+    add: vi.fn(async (added: Sandbox) => {
       const addedKey = added.key;
       const keyTaken =
         addedKey !== null &&
@@ -125,14 +125,13 @@ export const storedSandboxes = (
         );
 
       if (stored.has(added.id.value) || keyTaken) {
-        return Promise.reject(new SandboxVersionConflictError(added.id.value));
+        throw new SandboxVersionConflictError(added.id.value);
       }
       stored.set(added.id.value, added);
-      return Promise.resolve();
     }),
-    save: vi.fn((saved: Sandbox) => {
+    save: vi.fn(async (saved: Sandbox) => {
       if (stored.get(saved.id.value)?.version !== saved.version) {
-        return Promise.reject(new SandboxVersionConflictError(saved.id.value));
+        throw new SandboxVersionConflictError(saved.id.value);
       }
       const savedKey = saved.key;
       if (
@@ -146,151 +145,119 @@ export const storedSandboxes = (
             each.key?.equals(savedKey) === true,
         )
       ) {
-        return Promise.reject(new SandboxKeyTakenError(saved.id.value));
+        throw new SandboxKeyTakenError(saved.id.value);
       }
       stored.set(saved.id.value, savedAs(saved, saved.version + 1));
-      return Promise.resolve();
     }),
-    find: vi.fn((id: SandboxId) =>
-      Promise.resolve(stored.get(id.value) ?? null),
-    ),
-    openFor: vi.fn((workspaceId: WorkspaceId, key: SandboxKey) =>
-      Promise.resolve(
+    find: vi.fn(async (id: SandboxId) => stored.get(id.value) ?? null),
+    openFor: vi.fn(
+      async (workspaceId: WorkspaceId, key: SandboxKey) =>
         all().find(
           (each) =>
             each.isOpen &&
             each.workspaceId.equals(workspaceId) &&
             each.key?.equals(key) === true,
         ) ?? null,
-      ),
     ),
-    liveByTokenHash: vi.fn((hash: TokenHash) =>
-      Promise.resolve(
+    liveByTokenHash: vi.fn(
+      async (hash: TokenHash) =>
         all().find(
           (each) => each.isLive && each.tokenHash?.equals(hash) === true,
         ) ?? null,
-      ),
     ),
-    requestedIn: vi.fn((workspaceId: WorkspaceId, limit: number) =>
-      Promise.resolve(
-        all()
-          .filter(
-            (each) =>
-              each.isRequested &&
-              each.key !== null &&
-              each.workspaceId.equals(workspaceId),
-          )
-          .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
-          .slice(0, limit),
-      ),
-    ),
-    liveOn: vi.fn((hostId: HostId) =>
-      Promise.resolve(
-        all().filter(
-          (each) => each.isLive && each.hostId?.equals(hostId) === true,
-        ),
-      ),
-    ),
-    liveIn: vi.fn((workspaceId: WorkspaceId) =>
-      Promise.resolve(
-        all().filter(
-          (each) => each.isLive && each.workspaceId.equals(workspaceId),
-        ),
-      ),
-    ),
-    openWarm: vi.fn(() => Promise.resolve(all().filter((each) => each.isWarm))),
-    openWarmIn: vi.fn((workspaceId: WorkspaceId) =>
-      Promise.resolve(
-        all().filter(
-          (each) => each.isWarm && each.workspaceId.equals(workspaceId),
-        ),
-      ),
-    ),
-    lostWarmSince: vi.fn((cutoff: Date) =>
-      Promise.resolve(
-        all().filter(
+    requestedIn: vi.fn(async (workspaceId: WorkspaceId, limit: number) =>
+      all()
+        .filter(
           (each) =>
-            each.lostWhileWarm && each.goneAt !== null && each.goneAt >= cutoff,
-        ),
+            each.isRequested &&
+            each.key !== null &&
+            each.workspaceId.equals(workspaceId),
+        )
+        .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
+        .slice(0, limit),
+    ),
+    liveOn: vi.fn(async (hostId: HostId) =>
+      all().filter(
+        (each) => each.isLive && each.hostId?.equals(hostId) === true,
       ),
     ),
-    holdingRun: vi.fn((runId: RunId) =>
-      Promise.resolve(
-        all().filter((each) => each.isLive && each.holdsRun(runId)),
+    liveIn: vi.fn(async (workspaceId: WorkspaceId) =>
+      all().filter(
+        (each) => each.isLive && each.workspaceId.equals(workspaceId),
       ),
     ),
-    idleSince: vi.fn((cutoff: Date) =>
-      Promise.resolve(
-        all().filter(
-          (each) =>
-            each.isOpen && each.idleSince !== null && each.idleSince <= cutoff,
-        ),
+    openWarm: vi.fn(async () => all().filter((each) => each.isWarm)),
+    openWarmIn: vi.fn(async (workspaceId: WorkspaceId) =>
+      all().filter(
+        (each) => each.isWarm && each.workspaceId.equals(workspaceId),
       ),
     ),
-    retiring: vi.fn(() =>
-      Promise.resolve(all().filter((each) => each.isOpen && each.isRetiring)),
-    ),
-    withArchiveLeaseRenewedBefore: vi.fn((cutoff: Date) =>
-      Promise.resolve(
-        all().filter(
-          (each) =>
-            each.isLive &&
-            each.leases.some(
-              (lease) => lease.isForArchive && lease.renewedAt <= cutoff,
-            ),
-        ),
+    lostWarmSince: vi.fn(async (cutoff: Date) =>
+      all().filter(
+        (each) =>
+          each.lostWhileWarm && each.goneAt !== null && each.goneAt >= cutoff,
       ),
     ),
-    goneBefore: vi.fn((cutoff: Date) =>
-      Promise.resolve(
-        all().filter((each) => each.goneAt !== null && each.goneAt <= cutoff),
+    holdingRun: vi.fn(async (runId: RunId) =>
+      all().filter((each) => each.isLive && each.holdsRun(runId)),
+    ),
+    idleSince: vi.fn(async (cutoff: Date) =>
+      all().filter(
+        (each) =>
+          each.isOpen && each.idleSince !== null && each.idleSince <= cutoff,
       ),
     ),
-    remove: vi.fn((removed: Sandbox) => {
+    retiring: vi.fn(async () =>
+      all().filter((each) => each.isOpen && each.isRetiring),
+    ),
+    withArchiveLeaseRenewedBefore: vi.fn(async (cutoff: Date) =>
+      all().filter(
+        (each) =>
+          each.isLive &&
+          each.leases.some(
+            (lease) => lease.isForArchive && lease.renewedAt <= cutoff,
+          ),
+      ),
+    ),
+    goneBefore: vi.fn(async (cutoff: Date) =>
+      all().filter((each) => each.goneAt !== null && each.goneAt <= cutoff),
+    ),
+    remove: vi.fn(async (removed: Sandbox) => {
       if (stored.get(removed.id.value)?.version !== removed.version) {
-        return Promise.reject(
-          new SandboxVersionConflictError(removed.id.value),
-        );
+        throw new SandboxVersionConflictError(removed.id.value);
       }
       stored.delete(removed.id.value);
-      return Promise.resolve();
     }),
   } satisfies SandboxRepository;
 
   const placements = {
-    idleInPool: vi.fn((poolId: PoolId) =>
-      Promise.resolve(
-        all()
-          .filter(
-            (each) =>
-              each.isLive &&
-              each.isIdle &&
-              each.source?.poolId?.equals(poolId) === true,
-          )
-          .map((each) => each.id),
-      ),
+    idleInPool: vi.fn(async (poolId: PoolId) =>
+      all()
+        .filter(
+          (each) =>
+            each.isLive &&
+            each.isIdle &&
+            each.source?.poolId?.equals(poolId) === true,
+        )
+        .map((each) => each.id),
     ),
-    unreportedStartedBefore: vi.fn((cutoff: Date) =>
-      Promise.resolve(
-        all()
-          .filter(
-            (each) => each.isLive && each.isPlaced && each.startedAt <= cutoff,
-          )
-          .map((each) => each.id),
-      ),
+    unreportedStartedBefore: vi.fn(async (cutoff: Date) =>
+      all()
+        .filter(
+          (each) => each.isLive && each.isPlaced && each.startedAt <= cutoff,
+        )
+        .map((each) => each.id),
     ),
-    liveOnHostsSilentSince: vi.fn(() => {
+    liveOnHostsSilentSince: vi.fn(async () => {
       const silent = input.silentHosts?.() ?? [];
-      return Promise.resolve(
-        all()
-          .filter(
-            (each) =>
-              each.isLive &&
-              each.hostId !== null &&
-              silent.includes(each.hostId.value),
-          )
-          .map((each) => each.id),
-      );
+      return all()
+        .filter(
+          (each) =>
+            each.isLive &&
+            each.hostId !== null &&
+            silent.includes(each.hostId.value),
+        )
+        .map((each) => each.id);
     }),
   } satisfies SandboxPlacementsPort;
 

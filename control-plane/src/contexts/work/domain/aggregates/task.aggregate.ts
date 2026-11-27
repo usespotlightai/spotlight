@@ -275,7 +275,7 @@ export class Task extends EventRecorder {
     const branch = input.branch ?? Branch.for(id, input.title);
     const base = input.base?.taskBase ?? null;
 
-    if (base?.equals(branch) === true) {
+    if (base?.equals(branch)) {
       throw new InvalidTaskTransitionError(
         `A task cannot start from its own branch ${branch.value}. Give it another base branch.`,
       );
@@ -794,7 +794,7 @@ export class Task extends EventRecorder {
   ): Task {
     this.assertNoOtherRun(by, 'make its deferred move');
 
-    if (this.deferredMoveTo?.equals(to) !== true) {
+    if (!this.deferredMoveTo?.equals(to)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has no deferred move to that station.`,
       );
@@ -1287,7 +1287,7 @@ export class Task extends EventRecorder {
   ): Task {
     const owned = this.ownedPullRequests.find((each) => each.url.equals(url));
 
-    if (owned?.open !== true) {
+    if (!owned?.open) {
       return this;
     }
 
@@ -2418,7 +2418,7 @@ export class Task extends EventRecorder {
   private assertDrivenBy(voice: Voice, doing: string): void {
     if (this.holdsAside(voice)) {
       throw new InvalidTaskTransitionError(
-        this.openHold?.takesTurns === true
+        this.openHold?.takesTurns
           ? `Task ${this.id.value} is on hold. Only a person can ${doing} until the line resumes.`
           : `Task ${this.id.value} is on hold for an agent chat. Nobody can ${doing} until the line resumes.`,
       );
@@ -2470,7 +2470,7 @@ export class Task extends EventRecorder {
   ): Task {
     if (
       !this.hasCurrentRun(by) ||
-      (this.session?.equals(session) === true &&
+      (this.session?.equals(session) &&
         (claimedBy === null
           ? this.claimedBy === null
           : (this.claimedBy?.equals(claimedBy) ?? false)))
@@ -2631,7 +2631,7 @@ export class Task extends EventRecorder {
     pullRequest: PullRequestUrl | null;
   } {
     const note = at.noteIn(this.notes);
-    const reviewComment = note?.open === true ? note.reviewComment : null;
+    const reviewComment = note?.open ? note.reviewComment : null;
 
     if (!reviewComment) {
       throw new InvalidTaskTransitionError(
@@ -2749,7 +2749,7 @@ export class Task extends EventRecorder {
   }): Task {
     const runId = turn.turn.runId;
 
-    if (this.awaitedTurn?.equals(turn.turn) === true) {
+    if (this.awaitedTurn?.equals(turn.turn)) {
       return this;
     }
 
@@ -2894,7 +2894,7 @@ export class Task extends EventRecorder {
     const free = by ? this : this.stopped(newNote.at);
     const earlier = free.openFailure;
 
-    if (free.awaitingReview && earlier?.failure?.sameAs(failure) === true) {
+    if (free.awaitingReview && earlier?.failure?.sameAs(failure)) {
       const recurred = failure.following(earlier.failure);
 
       return free
@@ -2963,7 +2963,7 @@ export class Task extends EventRecorder {
 
     const current = this.approvalFor(subject);
 
-    if (current?.approval.dismisses === true) {
+    if (current?.approval.dismisses) {
       return {
         task: this,
         check: {
@@ -2973,7 +2973,7 @@ export class Task extends EventRecorder {
       };
     }
 
-    if (current?.approval.grantedFor(needed.askedOf) === true) {
+    if (current?.approval.grantedFor(needed.askedOf)) {
       return {
         task: this.claimedApprovalAt(current.at),
         check: {
@@ -3038,11 +3038,7 @@ export class Task extends EventRecorder {
     const asking = this.openAsk;
     const ask = asking?.connectionAsk;
 
-    if (
-      !open ||
-      !asking ||
-      ask?.answeredBy(teamId, integration, personId) !== true
-    ) {
+    if (!open || !asking || !ask?.answeredBy(teamId, integration, personId)) {
       return null;
     }
 
@@ -3073,7 +3069,7 @@ export class Task extends EventRecorder {
       const note = itemAt(this.notes, at);
       const approval = note?.approval;
 
-      if (note && approval?.appliesTo(subject, this.stationId) === true) {
+      if (note && approval?.appliesTo(subject, this.stationId)) {
         return { at: note.position, approval };
       }
     }
@@ -3113,7 +3109,7 @@ export class Task extends EventRecorder {
     const by = newNote.voice.author;
     const asking = this.openAsk;
 
-    if (decision && decides && asking?.position.equals(decides) !== true) {
+    if (decision && decides && !asking?.position.equals(decides)) {
       throw new InvalidApprovalAnswerError(
         `Task ${this.id.value} asked something newer since the ask that was decided.`,
       );
@@ -3412,7 +3408,7 @@ export class Task extends EventRecorder {
   }
 
   baseMerged(merged: Branch, into: Branch | null): Task {
-    if (this.base?.equals(merged) !== true) {
+    if (!this.base?.equals(merged)) {
       return this;
     }
 

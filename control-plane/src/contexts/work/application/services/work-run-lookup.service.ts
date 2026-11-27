@@ -129,10 +129,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
     const line = stationId ? await this.lines.findByStation(stationId) : null;
     const station = stationId ? line?.stationAt(stationId) : null;
 
-    return run?.team &&
-      dispatched &&
-      line?.teamId.equals(run.team) === true &&
-      station
+    return run?.team && dispatched && line?.teamId.equals(run.team) && station
       ? {
           teamId: run.team,
           lineId: line.id.value,
@@ -240,7 +237,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
     if (subject.kind === 'trial') {
       return {
         teamId: team,
-        lineId: line?.teamId.equals(team) === true ? line.id.value : null,
+        lineId: line?.teamId.equals(team) ? line.id.value : null,
         stationId: line ? subject.stationId.value : null,
         repositories: subject.repositories,
       };

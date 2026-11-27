@@ -10,22 +10,21 @@ import {
 } from '@integrations/infrastructure/specs/spec-fetch';
 import { ThreadedSpecReader } from '@integrations/infrastructure/specs/threaded-spec-reader';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, type Mock, vi } from 'vitest';
 import { stringify as yamlOf } from 'yaml';
 
 const CALL_AUTH: CallAuth = {
-  workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
+  workspace: async () => WorkspaceId.of('ws_1'),
   connection: null,
   credentials: credentialsFor(),
 };
 
 const fetchingNothing = partial<SpecFetch>({
-  text: vi.fn(() => {
-    return Promise.reject(
-      new Error('nothing is fetched for a document written out'),
-    );
+  text: vi.fn(async () => {
+    throw new Error('nothing is fetched for a document written out');
   }),
 });
 
@@ -70,7 +69,7 @@ describe('ThreadedSpecReader', () => {
 
   it('introspects a GraphQL endpoint it fetches from', async () => {
     const fetching = partial<SpecFetch>({
-      text: vi.fn(() => Promise.resolve(LINEAR_SDL)),
+      text: vi.fn(async () => LINEAR_SDL),
     });
     const read = await new ThreadedSpecReader(fetching).read(
       ApiSpec.of({
@@ -113,15 +112,11 @@ describe('ThreadedSpecReader', () => {
       });
 
     const callAuthWith = (refreshed: string | null) => {
-      const unauthorized = vi.fn(() =>
-        Promise.resolve(
-          refreshed !== null && refreshed !== ''
-            ? AccessToken.of(refreshed)
-            : null,
-        ),
+      const unauthorized = vi.fn(async () =>
+        nonEmpty(refreshed) ? AccessToken.of(refreshed) : null,
       );
       const callAuth: CallAuth = {
-        workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
+        workspace: async () => WorkspaceId.of('ws_1'),
         connection: {
           token: AccessToken.of('lin-old'),
           owner: ConnectionOwner.team(),
@@ -138,7 +133,7 @@ describe('ThreadedSpecReader', () => {
       text.mock.calls.map(([, injection]) => injection.connection);
 
     it('sends it only where the spec authenticates by oauth2', async () => {
-      const text = vi.fn<SpecFetch['text']>(() => Promise.resolve(LINEAR_SDL));
+      const text = vi.fn<SpecFetch['text']>(async () => LINEAR_SDL);
       const fetching = partial<SpecFetch>({ text });
       const { callAuth } = callAuthWith(null);
       const reader = new ThreadedSpecReader(fetching);

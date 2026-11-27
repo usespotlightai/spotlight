@@ -1,6 +1,6 @@
 import { parseDiffFromFile } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
-import { useMemo, useRef, type ReactElement } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHighlighterReady } from '@/hooks/useHighlighterReady';
@@ -21,7 +21,7 @@ export function CodeDiff({
   after: string;
   flush?: boolean;
   lines?: LineRange | null;
-}): ReactElement {
+}) {
   const name = path ?? 'file';
   const ready = useHighlighterReady(name);
   const container = useRef<HTMLDivElement>(null);

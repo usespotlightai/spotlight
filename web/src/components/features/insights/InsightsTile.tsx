@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
@@ -32,7 +32,7 @@ export function InsightsTile({
   trend,
   visual,
   className,
-}: InsightsTileProps): ReactElement {
+}: InsightsTileProps) {
   const sparkline = trend !== undefined && trend.length > 1;
 
   return (

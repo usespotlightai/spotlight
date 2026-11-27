@@ -41,7 +41,7 @@ describe('PruneStateBodies', () => {
     if (!(written instanceof TerraformStateWritten)) {
       throw new Error('expected a written Terraform state');
     }
-    const remove = vi.fn(() => Promise.resolve(undefined));
+    const remove = vi.fn(async () => undefined);
 
     await new PruneStateBodies(
       partial<TerraformStateBodiesPort>({

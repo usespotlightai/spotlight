@@ -10,6 +10,7 @@ import type {
   ProvisionCall,
   ProvisionCallsPort,
 } from '@runners/application/ports/provision-calls.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 type Fetch = typeof globalThis.fetch;
@@ -156,7 +157,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
     const reason =
       answered.status === UNPROCESSABLE ? declinedReason(text) : null;
 
-    if (reason !== null && reason !== '') {
+    if (nonEmpty(reason)) {
       return { outcome: 'declined', detail: reason };
     }
 

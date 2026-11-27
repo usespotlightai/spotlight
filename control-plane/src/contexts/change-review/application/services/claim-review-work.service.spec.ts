@@ -142,30 +142,27 @@ const diffsOf = (
   return {
     saved,
     repository: partial<PushDiffRepository>({
-      waitingIn: () => Promise.resolve([...stored.values()]),
-      reservedFor: (runner: RunnerId) =>
-        Promise.resolve(
-          [...stored.values()].filter(
-            (each) => each.reservation?.isFor(runner) === true,
-          ),
+      waitingIn: async () => [...stored.values()],
+      reservedFor: async (runner: RunnerId) =>
+        [...stored.values()].filter(
+          (each) => each.reservation?.isFor(runner) === true,
         ),
-      find: (id: PushDiffId) => Promise.resolve(stored.get(id.value) ?? null),
-      save: (diff: PushDiff) => {
+      find: async (id: PushDiffId) => stored.get(id.value) ?? null,
+      save: async (diff: PushDiff) => {
         if (conflicts.includes(diff.id.value)) {
-          return Promise.reject(new PushDiffVersionConflictError(diff.id));
+          throw new PushDiffVersionConflictError(diff.id);
         }
         saved.push(diff);
         stored.set(diff.id.value, diff);
-        return Promise.resolve();
       },
     }),
   };
 };
 
 const NO_DIFFS = partial<PushDiffRepository>({
-  waitingIn: () => Promise.resolve([]),
-  reservedFor: () => Promise.resolve([]),
-  find: () => Promise.resolve(null),
+  waitingIn: async () => [],
+  reservedFor: async () => [],
+  find: async () => null,
 });
 
 const reservedFor = (runner: RunnerId) =>
@@ -173,7 +170,7 @@ const reservedFor = (runner: RunnerId) =>
 
 const claimingReserved = (found: StackCheck | null) => {
   const saved: StackCheck[] = [];
-  const listedFor = vi.fn(() => Promise.resolve(found ? [found] : []));
+  const listedFor = vi.fn(async () => (found ? [found] : []));
 
   return {
     saved,
@@ -181,13 +178,12 @@ const claimingReserved = (found: StackCheck | null) => {
     service: new ClaimReviewWork(
       partial<StackCheckRepository>({
         reservedFor: listedFor,
-        save: (check: StackCheck) => {
+        save: async (check: StackCheck) => {
           saved.push(check);
-          return Promise.resolve();
         },
       }),
       partial<ChangeStackRepository>({
-        find: () => Promise.resolve(completed()),
+        find: async () => completed(),
       }),
       { patchOf: () => 'diff' },
       { inTransaction: (work) => work() },
@@ -198,9 +194,9 @@ const claimingReserved = (found: StackCheck | null) => {
 
 describe('ClaimReviewWork', () => {
   it('hands a runner no check placed on runners it does not answer to', async () => {
-    const waitingIn = vi.fn(() =>
-      Promise.resolve([waitingCheck(RunnerPlacement.of(['vpc-internal']))]),
-    );
+    const waitingIn = vi.fn(async () => [
+      waitingCheck(RunnerPlacement.of(['vpc-internal'])),
+    ]);
     const find = vi.fn();
 
     const claimed = await new ClaimReviewWork(
@@ -234,14 +230,13 @@ describe('ClaimReviewWork', () => {
 
     await new ClaimReviewWork(
       partial<StackCheckRepository>({
-        waitingIn: () => Promise.resolve([later, first]),
-        save: (check: StackCheck) => {
+        waitingIn: async () => [later, first],
+        save: async (check: StackCheck) => {
           saved.push(check);
-          return Promise.resolve();
         },
       }),
       partial<ChangeStackRepository>({
-        find: () => Promise.resolve(completed()),
+        find: async () => completed(),
       }),
       { patchOf: () => 'diff' },
       { inTransaction: (work) => work() },
@@ -269,17 +264,16 @@ describe('ClaimReviewWork', () => {
 
     const claimed = await new ClaimReviewWork(
       partial<StackCheckRepository>({
-        waitingIn: () => Promise.resolve([first, second]),
-        save: (check: StackCheck) => {
+        waitingIn: async () => [first, second],
+        save: async (check: StackCheck) => {
           if (check.stackId.equals(first.stackId)) {
-            return Promise.reject(new StackCheckVersionConflictError(check.id));
+            throw new StackCheckVersionConflictError(check.id);
           }
           saved.push(check);
-          return Promise.resolve();
         },
       }),
       partial<ChangeStackRepository>({
-        find: () => Promise.resolve(completed()),
+        find: async () => completed(),
       }),
       { patchOf: () => 'diff' },
       { inTransaction: (work) => work() },
@@ -355,18 +349,16 @@ describe('ClaimReviewWork', () => {
         saved,
         service: new ClaimReviewWork(
           partial<StackCheckRepository>({
-            waitingIn: () => Promise.resolve([check]),
-            reservedFor: () => Promise.resolve([check]),
-            save: (each: StackCheck) => {
+            waitingIn: async () => [check],
+            reservedFor: async () => [check],
+            save: async (each: StackCheck) => {
               saved.push(each);
-              return Promise.resolve();
             },
-            remove: (each: StackCheck) => {
+            remove: async (each: StackCheck) => {
               removed.push(each);
-              return Promise.resolve();
             },
           }),
-          partial<ChangeStackRepository>({ find: () => Promise.resolve(null) }),
+          partial<ChangeStackRepository>({ find: async () => null }),
           { patchOf: () => 'diff' },
           { inTransaction: (work) => work() },
           NO_DIFFS,
@@ -404,16 +396,13 @@ describe('ClaimReviewWork', () => {
         saved,
         service: new ClaimReviewWork(
           partial<StackCheckRepository>({
-            find: () => Promise.resolve(stored),
-            save: (check: StackCheck) => {
+            find: async () => stored,
+            save: async (check: StackCheck) => {
               if (left > 0) {
                 left -= 1;
-                return Promise.reject(
-                  new StackCheckVersionConflictError(check.id),
-                );
+                throw new StackCheckVersionConflictError(check.id);
               }
               saved.push(check);
-              return Promise.resolve();
             },
           }),
           partial<ChangeStackRepository>({}),
@@ -469,16 +458,13 @@ describe('ClaimReviewWork', () => {
         saved,
         service: new ClaimReviewWork(
           partial<StackCheckRepository>({
-            find: () => Promise.resolve(found),
-            save: (check: StackCheck) => {
+            find: async () => found,
+            save: async (check: StackCheck) => {
               if (left > 0) {
                 left -= 1;
-                return Promise.reject(
-                  new StackCheckVersionConflictError(check.id),
-                );
+                throw new StackCheckVersionConflictError(check.id);
               }
               saved.push(check);
-              return Promise.resolve();
             },
           }),
           partial<ChangeStackRepository>({}),
@@ -621,17 +607,16 @@ describe('ClaimReviewWork', () => {
         savedChecks,
         service: new ClaimReviewWork(
           partial<StackCheckRepository>({
-            waitingIn: () => Promise.resolve(checks),
-            reservedFor: () => Promise.resolve(checks),
-            find: () => Promise.resolve(checks[0] ?? null),
-            ofStack: () => Promise.resolve(checks),
-            save: (check: StackCheck) => {
+            waitingIn: async () => checks,
+            reservedFor: async () => checks,
+            find: async () => checks[0] ?? null,
+            ofStack: async () => checks,
+            save: async (check: StackCheck) => {
               savedChecks.push(check);
-              return Promise.resolve();
             },
           }),
           partial<ChangeStackRepository>({
-            find: () => Promise.resolve(completed()),
+            find: async () => completed(),
           }),
           { patchOf: () => 'diff' },
           { inTransaction: (work) => work() },
@@ -776,16 +761,13 @@ describe('ClaimReviewWork', () => {
         return {
           saved,
           repository: partial<PushDiffRepository>({
-            find: () => Promise.resolve(leased),
-            save: (diff: PushDiff) => {
+            find: async () => leased,
+            save: async (diff: PushDiff) => {
               if (!refused) {
                 refused = true;
-                return Promise.reject(
-                  new PushDiffVersionConflictError(diff.id),
-                );
+                throw new PushDiffVersionConflictError(diff.id);
               }
               saved.push(diff);
-              return Promise.resolve();
             },
           }),
         };
@@ -812,15 +794,11 @@ describe('ClaimReviewWork', () => {
 
     it('looks for a check only among the stack checks, and for a push only among the push diffs', async () => {
       const checks = {
-        find: vi.fn(() =>
-          Promise.resolve(waitingCheck().claimedFor(RUNNER, LAPTOP, NOW)),
-        ),
+        find: vi.fn(async () => waitingCheck().claimedFor(RUNNER, LAPTOP, NOW)),
         save: vi.fn(async () => {}),
       };
       const diffs = {
-        find: vi.fn(() =>
-          Promise.resolve(pushDiff().claimedFor(RUNNER, LAPTOP, NOW)),
-        ),
+        find: vi.fn(async () => pushDiff().claimedFor(RUNNER, LAPTOP, NOW)),
         save: vi.fn(async () => {}),
       };
       const service = new ClaimReviewWork(

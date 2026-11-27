@@ -1,5 +1,6 @@
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -42,11 +43,7 @@ export const followed = async (
     });
     const location = reply.headers.get('location');
 
-    if (
-      !REDIRECTS.includes(reply.status) ||
-      location === null ||
-      location === ''
-    ) {
+    if (!REDIRECTS.includes(reply.status) || !nonEmpty(location)) {
       return { reply, url: hop.url };
     }
 

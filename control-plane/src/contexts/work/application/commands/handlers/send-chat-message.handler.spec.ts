@@ -38,20 +38,18 @@ const sendMessage = async (model?: string | null, effort?: string | null) => {
   const saved: Chat[] = [];
 
   await new SendChatMessageHandler(
-    partial<ChatLoader>({ openedBy: () => Promise.resolve(chatOnOpus()) }),
+    partial<ChatLoader>({ openedBy: async () => chatOnOpus() }),
     partial<ChatRepository>({
-      save: (chat: Chat) => {
+      save: async (chat: Chat) => {
         saved.push(chat);
-
-        return Promise.resolve();
       },
     }),
     partial<FilesLoader>({
-      handedOver: () => Promise.resolve([]),
-      takenIn: () => Promise.resolve(undefined),
+      handedOver: async () => [],
+      takenIn: async () => undefined,
     }),
-    partial<TracesLoader>({ shared: () => Promise.resolve([]) }),
-    { takenUp: (chat: Chat) => Promise.resolve(chat) },
+    partial<TracesLoader>({ shared: async () => [] }),
+    { takenUp: async (chat: Chat) => chat },
     partial<ClockPort>({ now: () => NOW }),
     partial<TransactionPort>({
       inTransaction: <T>(work: () => Promise<T>) => work(),

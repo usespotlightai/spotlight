@@ -1,4 +1,5 @@
 import { repeatedIn } from '@shared-kernel/domain/distinct';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
@@ -11,11 +12,11 @@ export const skillsProblem = (skills: readonly SkillKey[]): string | null => {
 
   const twice = repeatedIn(skills.map((each) => each.unversioned));
 
-  return twice !== null && twice !== '' ? `names skill ${twice} twice` : null;
+  return nonEmpty(twice) ? `names skill ${twice} twice` : null;
 };
 
 export const toolsProblem = (tools: readonly Tool[]): string | null => {
   const twice = repeatedIn(tools.map((each) => each.called));
 
-  return twice !== null && twice !== '' ? `names tool ${twice} twice` : null;
+  return nonEmpty(twice) ? `names tool ${twice} twice` : null;
 };

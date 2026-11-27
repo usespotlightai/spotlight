@@ -1,5 +1,4 @@
 import { MousePointer2 } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { ClearSelection } from '@/components/shared/ClearSelection';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ export function TraceSelectionBar({
   count,
   onDiscuss,
   onClear,
-}: TraceSelectionBarProps): ReactElement | null {
+}: TraceSelectionBarProps) {
   if (count === 0) {
     return null;
   }

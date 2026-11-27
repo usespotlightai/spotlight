@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import type { ReactElement, Ref } from 'react';
+import type { Ref } from 'react';
 
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { RunNetwork } from '@/components/features/runs/network/RunNetwork';
@@ -47,7 +47,7 @@ export function SpanDetail({
   onClose: () => void;
   duration?: number;
   ref?: Ref<HTMLElement>;
-}): ReactElement {
+}) {
   const { step } = node;
   const runId = runIdOf(node);
 

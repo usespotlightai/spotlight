@@ -26,7 +26,7 @@ export class DeleteReviewCommentHandler implements CommandHandlerPort<
         ReviewCommentId.of(command.commentId),
       );
 
-      if (comment?.taskId.equals(task.id) !== true) {
+      if (!comment?.taskId.equals(task.id)) {
         throw new UnknownReviewCommentError();
       }
 

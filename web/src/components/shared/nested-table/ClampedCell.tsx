@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { useClipped } from '@/hooks/useClipped';
 import type { Expansion } from '@/hooks/useExpandingRow';
@@ -16,7 +16,7 @@ export function ClampedCell({
   pinned = false,
   preview,
   children,
-}: ClampedCellProps): ReactElement {
+}: ClampedCellProps) {
   const clipped = useClipped(clamp, pinned && preview !== undefined);
 
   return (

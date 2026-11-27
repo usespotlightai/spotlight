@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import {
@@ -26,7 +26,7 @@ export function NestedGroupRow({
   cells,
   spans = '@4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
   children,
-}: NestedGroupRowProps): ReactElement {
+}: NestedGroupRowProps) {
   const celled = Boolean(cells);
   const named = (
     <>

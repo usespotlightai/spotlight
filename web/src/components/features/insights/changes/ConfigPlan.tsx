@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { PlanHeredoc } from '@/components/features/insights/changes/PlanHeredoc';
 import { PlanLeafRow } from '@/components/features/insights/changes/PlanLeafRow';
 import { PlanRow } from '@/components/features/insights/changes/PlanRow';
@@ -14,10 +12,7 @@ type ConfigPlanProps = {
   firstLine?: boolean;
 };
 
-export function ConfigPlan({
-  entries,
-  firstLine = false,
-}: ConfigPlanProps): ReactElement {
+export function ConfigPlan({ entries, firstLine = false }: ConfigPlanProps) {
   const width = planNameWidth(entries);
   const first = entries.at(0);
 

@@ -12,7 +12,9 @@ import { describe, expect, it, vi } from 'vitest';
 const removing = (error: Error) =>
   new GitHubReviewPosting(
     partial<PullRequestReviewsPort>({
-      remove: () => Promise.reject(error),
+      remove: async () => {
+        throw error;
+      },
     }),
   ).remove({
     workspaceId: WorkspaceId.of('workspace_1'),
@@ -82,13 +84,11 @@ describe('GitHubReviewPosting', () => {
   });
 
   it('posts a review on GitHub in GitHub’s terms, and answers in Change Review’s', async () => {
-    const submit = vi.fn(() =>
-      Promise.resolve({
-        githubId: 900,
-        postedAs: 'comment' as const,
-        comments: [{ id: 100, url: 'https://github.com/c/100' }, null],
-      }),
-    );
+    const submit = vi.fn(async () => ({
+      githubId: 900,
+      postedAs: 'comment' as const,
+      comments: [{ id: 100, url: 'https://github.com/c/100' }, null],
+    }));
     const posting = new GitHubReviewPosting(
       partial<PullRequestReviewsPort>({
         submit,
@@ -123,9 +123,7 @@ describe('GitHubReviewPosting', () => {
   });
 
   it('replies to a thread as a reply to GitHub’s comment', async () => {
-    const reply = vi.fn(() =>
-      Promise.resolve({ id: 5, url: 'https://github.com/c/5' }),
-    );
+    const reply = vi.fn(async () => ({ id: 5, url: 'https://github.com/c/5' }));
 
     await new GitHubReviewPosting(
       partial<PullRequestReviewsPort>({

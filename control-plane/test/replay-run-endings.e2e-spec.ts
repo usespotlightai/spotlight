@@ -94,10 +94,8 @@ const receivedBy = async (
   const subscribers = replaysSubscribers(
     partial<ReplaysReactions>({
       ending: partial<RecordReplayRunEnding>({
-        ended: (ended: ReplayRunEnded) => {
+        ended: async (ended: ReplayRunEnded) => {
           received.push(ended);
-
-          return Promise.resolve();
         },
       }),
     }),

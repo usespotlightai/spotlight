@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { contentsOf, reported } from '@/lib/detail';
@@ -32,7 +32,7 @@ export function DetailHeader({
 }: {
   node: TraceNode;
   action?: ReactNode;
-}): ReactElement {
+}) {
   const contents = contentsOf(node);
   const model = reported(node, 'gen_ai.request.model', 'llm.model_name');
   const tokens = tokensOf(node);

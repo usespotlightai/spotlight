@@ -10,12 +10,16 @@ import { describe, expect, it } from 'vitest';
 
 const keyed = (key: Buffer) =>
   new WorkspaceCredentialEncryption(
-    partial<WorkspaceKeys>({ of: () => Promise.resolve(key) }),
+    partial<WorkspaceKeys>({ of: async () => key }),
   );
 
 const keyless = (error: Error) =>
   new WorkspaceCredentialEncryption(
-    partial<WorkspaceKeys>({ of: () => Promise.reject(error) }),
+    partial<WorkspaceKeys>({
+      of: async () => {
+        throw error;
+      },
+    }),
   );
 
 const PLAIN = Credential.of('plain');

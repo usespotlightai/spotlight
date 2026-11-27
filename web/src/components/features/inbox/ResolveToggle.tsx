@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
 import {
   Tooltip,
@@ -15,13 +13,13 @@ type ResolveToggleProps = {
 
 export function ResolveToggle({
   action: { label, icon: Icon, onSelect, disabled },
-}: ResolveToggleProps): ReactElement {
+}: ResolveToggleProps) {
   useCommands([
     {
       id: 'inbox.resolve',
       title: label,
       run: onSelect,
-      enabled: () => disabled !== true,
+      enabled: () => !disabled,
     },
   ]);
 

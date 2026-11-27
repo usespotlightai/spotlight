@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
@@ -13,6 +12,7 @@ import type { IntegrationKey } from '@integrations/domain/value-objects/integrat
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
@@ -117,11 +117,13 @@ export class DrizzleDefinedIntegrations
   private async findOne(
     where: SQL | undefined,
   ): Promise<IntegrationRecord | null> {
-    const found = firstOf(await this.context.db
-      .select(DEFINED)
-      .from(integrationDefinition)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select(DEFINED)
+        .from(integrationDefinition)
+        .where(where)
+        .limit(1),
+    );
 
     return found ? recordOf(found, TeamId.of(found.teamId)) : null;
   }

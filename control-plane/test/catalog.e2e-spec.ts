@@ -368,9 +368,9 @@ describe('a catalog call (e2e)', () => {
   it('calls the catalog service with the workspace, run and the version called', async () => {
     const called: unknown[] = [];
     const calls = new CatalogCalls(new StaticCatalog(CATALOG_ITEMS), {
-      call: (tool, _inputs, on) => {
+      call: async (tool, _inputs, on) => {
         called.push([tool.id.value, on.workspaceId.value, on.runId.value]);
-        return Promise.resolve(['https://example.com']);
+        return ['https://example.com'];
       },
     });
     const runId = randomUUID();

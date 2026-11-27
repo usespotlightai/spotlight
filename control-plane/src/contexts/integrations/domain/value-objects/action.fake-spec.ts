@@ -8,7 +8,7 @@ export const actionNamed = (
     name,
     fromNetwork: over.fromNetwork ?? false,
     waitsSeconds: null,
-    uploads: over.uploads === true ? { sendsBody: false } : null,
+    uploads: over.uploads ? { sendsBody: false } : null,
     auth: { oauth2: false, secrets: false },
     headers: [],
     url: 'https://api.example.com',

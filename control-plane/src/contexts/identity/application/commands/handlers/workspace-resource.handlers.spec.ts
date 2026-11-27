@@ -229,22 +229,20 @@ describe('DeleteWorkspaceHandler', () => {
     const stored = workspaces({ existing: workspaceAt(3) });
     const registry = new DependentsRegistry<WorkspaceId>();
     registry.register({
-      dependentsOf: () => Promise.resolve(over.dependents ?? []),
+      dependentsOf: async () => over.dependents ?? [],
     });
     const trust = oidcTrustKeyed('github-main');
     const handler = new DeleteWorkspaceHandler(
       stored,
-      teams({ inWorkspace: over.hasTeam === true ? [teamAt(0)] : [] }),
+      teams({ inWorkspace: over.hasTeam ? [teamAt(0)] : [] }),
       partial<WorkspaceTokenRepository>({
-        ofWorkspace: () =>
-          Promise.resolve([
-            ...(over.issued === true ? [handIssued('ci')] : []),
-            ...(over.issuing === true ? [issuedBy(trust)] : []),
-          ]),
+        ofWorkspace: async () => [
+          ...(over.issued ? [handIssued('ci')] : []),
+          ...(over.issuing ? [issuedBy(trust)] : []),
+        ],
       }),
       partial<OidcTrustRepository>({
-        ofWorkspace: () =>
-          Promise.resolve(over.trusted === true ? [trust] : []),
+        ofWorkspace: async () => (over.trusted ? [trust] : []),
       }),
       registry,
       transaction,

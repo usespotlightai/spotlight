@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -7,10 +7,7 @@ type IconAvatarProps = {
   children: ReactNode;
 };
 
-export function IconAvatar({
-  size = 'sm',
-  children,
-}: IconAvatarProps): ReactElement {
+export function IconAvatar({ size = 'sm', children }: IconAvatarProps) {
   return (
     <span
       className={cn(

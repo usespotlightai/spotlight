@@ -89,8 +89,9 @@ const received: string[] = [];
 let failing = 0;
 const causation = new CauseCarrier();
 const causes: unknown[] = [];
-let callOut: (event: Called) => Promise<readonly DomainEvent[]> = () =>
-  Promise.resolve([]);
+let callOut: (
+  event: Called,
+) => Promise<readonly DomainEvent[]> = async () => [];
 
 const logger = {
   debug: () => undefined,
@@ -107,23 +108,23 @@ const outboxWith = (
   types.register('shared-kernel', SHARED_KERNEL_PAYLOAD_TYPES);
   const subscribers = new EventSubscribers();
   subscribers.register([
-    subscribing<Rang>('test.answer', ['bell.rang'], (event) => {
+    subscribing<Rang>('test.answer', ['bell.rang'], async (event) => {
       received.push(`rang ${event.marker.value}`);
-      return Promise.resolve([new Answered(event.marker)]);
+      return [new Answered(event.marker)];
     }),
-    subscribing<Answered>('test.receive-answer', ['bell.answered'], (event) => {
-      received.push(`answered ${event.marker.value}`);
-      causes.push(causation.current());
-
-      return Promise.resolve();
-    }),
+    subscribing<Answered>(
+      'test.receive-answer',
+      ['bell.answered'],
+      async (event) => {
+        received.push(`answered ${event.marker.value}`);
+        causes.push(causation.current());
+      },
+    ),
     subscribing<{ kind: string; marker: string }>(
       'test.receive-published',
       ['bell.published-rang.v1'],
-      (event) => {
+      async (event) => {
         received.push(`published ${typeof event.marker} ${event.marker}`);
-
-        return Promise.resolve();
       },
     ),
     subscribing<Called>(
@@ -132,14 +133,12 @@ const outboxWith = (
       (event) => callOut(event),
       { callsOut: true },
     ),
-    subscribing<Rang>('test.flaky', ['bell.rang'], (event) => {
+    subscribing<Rang>('test.flaky', ['bell.rang'], async (event) => {
       if (failing > 0) {
         failing -= 1;
-        return Promise.reject(new Error('not yet'));
+        throw new Error('not yet');
       }
       received.push(`flaky ${event.marker.value}`);
-
-      return Promise.resolve();
     }),
   ]);
   more(subscribers);
@@ -169,12 +168,10 @@ const outboxWith = (
     new LiveNotices(
       new InMemoryLiveFeed(),
       {
-        append: (notices) =>
-          Promise.resolve(
-            notices.map((notice) => ({ ...notice, sequence: null })),
-          ),
-        logs: () => Promise.resolve(new Map()),
-        prune: () => Promise.resolve(0),
+        append: async (notices) =>
+          notices.map((notice) => ({ ...notice, sequence: null })),
+        logs: async () => new Map(),
+        prune: async () => 0,
       },
       logger,
     ),
@@ -454,13 +451,13 @@ describe('the event outbox', () => {
     it('retries a failed call after its backoff, and only then delivers it', async () => {
       let failures = 1;
       const { delivery, eventId } = await calledIn('seven');
-      callOut = () => {
+      callOut = async () => {
         if (failures > 0) {
           failures -= 1;
-          return Promise.reject(new Error('the service did not answer'));
+          throw new Error('the service did not answer');
         }
 
-        return Promise.resolve([]);
+        return [];
       };
 
       await delivery.processDue('contexts');
@@ -579,12 +576,8 @@ describe('the rows the event outbox keeps', () => {
     const recentDelivered = await event(recent, [delivered]);
     const registered = new EventSubscribers();
     registered.register([
-      subscribing('test.retained-0', ['bell.retained'], () =>
-        Promise.resolve([]),
-      ),
-      subscribing('test.retained-1', ['bell.retained'], () =>
-        Promise.resolve([]),
-      ),
+      subscribing('test.retained-0', ['bell.retained'], async () => []),
+      subscribing('test.retained-1', ['bell.retained'], async () => []),
     ]);
 
     const deleted = await new OutboxRetention(
@@ -671,8 +664,8 @@ describe('the rows the event outbox keeps', () => {
     ];
     const registered = new EventSubscribers();
     registered.register([
-      subscribing('test.redeliver', ['bell.kept'], () => Promise.resolve([])),
-      subscribing('test.other', ['bell.kept'], () => Promise.resolve([])),
+      subscribing('test.redeliver', ['bell.kept'], async () => []),
+      subscribing('test.other', ['bell.kept'], async () => []),
     ]);
     const { outbox } = outboxWith();
     const redelivery = new EventDelivery(
@@ -748,7 +741,7 @@ describe('the rows the event outbox keeps', () => {
     await deliveryRow(id, 'bell.raced', old, 'test.raced');
     const elsewhere = new EventSubscribers();
     elsewhere.register([
-      subscribing('test.raced', ['bell.raced'], () => Promise.resolve([])),
+      subscribing('test.raced', ['bell.raced'], async () => []),
     ]);
     const { outbox } = outboxWith();
     const redelivery = new EventDelivery(
@@ -834,7 +827,7 @@ describe('the rows the event outbox keeps', () => {
     }
     const here = new EventSubscribers();
     here.register([
-      subscribing('test.here', ['bell.abandoned'], () => Promise.resolve([])),
+      subscribing('test.here', ['bell.abandoned'], async () => []),
     ]);
 
     expect(
@@ -861,7 +854,7 @@ describe('the rows the event outbox keeps', () => {
     await deliveryRow(u2, 'bell.cursor', old, 'test.cursor-gone');
     const registered = new EventSubscribers();
     registered.register([
-      subscribing('test.cursor', ['bell.cursor'], () => Promise.resolve([])),
+      subscribing('test.cursor', ['bell.cursor'], async () => []),
     ]);
     const retention = new OutboxRetention(
       context,
@@ -952,15 +945,11 @@ describe('the lanes of event delivery', () => {
         new OtelTelemetry(),
       );
     const older = new EventSubscribers();
-    older.register([
-      subscribing('test.older', ['bell.newer'], () => Promise.resolve([])),
-    ]);
+    older.register([subscribing('test.older', ['bell.newer'], async () => [])]);
     const newer = new EventSubscribers();
     newer.register([
-      subscribing('test.newer', ['bell.newer'], () => {
+      subscribing('test.newer', ['bell.newer'], async () => {
         heard.push(id);
-
-        return Promise.resolve();
       }),
     ]);
     const rowOf = async () =>
@@ -1033,14 +1022,12 @@ describe('the lanes of event delivery', () => {
     const heard: string[] = [];
     const older = new EventSubscribers();
     older.register([
-      subscribing('test.widened', ['bell.kept'], () => Promise.resolve([])),
+      subscribing('test.widened', ['bell.kept'], async () => []),
     ]);
     const newer = new EventSubscribers();
     newer.register([
-      subscribing('test.widened', ['bell.kept', 'bell.added'], () => {
+      subscribing('test.widened', ['bell.kept', 'bell.added'], async () => {
         heard.push(id);
-
-        return Promise.resolve();
       }),
     ]);
 
@@ -1068,10 +1055,8 @@ describe('the lanes of event delivery', () => {
     const sinkWith = (prefixes: readonly string[]) => {
       const subscribers = new EventSubscribers();
       subscribers.registerSink({
-        subscriber: subscribing('test.widened-sink', [], () => {
+        subscriber: subscribing('test.widened-sink', [], async () => {
           sunk.push(id);
-
-          return Promise.resolve();
         }),
         prefixes,
         retry: null,
@@ -1101,9 +1086,7 @@ describe('the lanes of event delivery', () => {
       'platform.send-event-webhook',
     );
     const here = new EventSubscribers();
-    here.register([
-      subscribing('test.gauge', ['bell.gauge'], () => Promise.resolve([])),
-    ]);
+    here.register([subscribing('test.gauge', ['bell.gauge'], async () => [])]);
     const gauges = new OutboxGauges(
       database.db,
       partial<ClockPort>({ now: () => now }),

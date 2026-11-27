@@ -1,11 +1,12 @@
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
 const trimmedDetail = (detail: string | null | undefined): string | null => {
   const trimmed = detail?.trim();
-  return trimmed === undefined || trimmed === '' ? null : trimmed;
+  return !nonEmpty(trimmed) ? null : trimmed;
 };
 
 export class RunOutcome {
@@ -25,7 +26,7 @@ export class RunOutcome {
         'counts attempts that are not a positive whole number',
       );
     }
-    if (failure?.countsAttempts !== true) {
+    if (!failure?.countsAttempts) {
       throw new InconsistentStateError(
         'run outcome',
         'counts attempts for a failure that is not the end of repeated attempts',
@@ -42,7 +43,7 @@ export class RunOutcome {
     return new RunOutcome(
       input.exitCode,
       input.failed
-        ? RunFailure.of(input.setupFailed === true ? 'unprepared' : 'exited')
+        ? RunFailure.of(input.setupFailed ? 'unprepared' : 'exited')
         : null,
       trimmedDetail(input.detail),
     );

@@ -610,7 +610,7 @@ const PROFILES: ResourceKind = {
     mcpServers: stored.mcpServers,
     native: stored.native,
   }),
-  parts: () => Promise.resolve(new Map()),
+  parts: async () => new Map(),
 };
 
 const same = (one: unknown, other: unknown): boolean =>

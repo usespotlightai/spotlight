@@ -111,7 +111,7 @@ const inviting = (
 
   const administration = new WorkspaceAdministration(
     partial<WorkspaceRepository>({
-      findBySlug: () => Promise.resolve(workspace(over.role)),
+      findBySlug: async () => workspace(over.role),
     }),
   );
   const handler = new InviteToWorkspaceHandler(
@@ -119,23 +119,19 @@ const inviting = (
     partial<WorkspaceInviteRepository>({
       add,
       save,
-      latestTo: (_: WorkspaceId, email: EmailAddress) =>
-        Promise.resolve(over.previous?.(email.value) ?? null),
+      latestTo: async (_: WorkspaceId, email: EmailAddress) =>
+        over.previous?.(email.value) ?? null,
     }),
-    partial<TeamRepository>({ ofWorkspace: () => Promise.resolve(TEAMS) }),
+    partial<TeamRepository>({ ofWorkspace: async () => TEAMS }),
     {
-      listedByEmail: (_: WorkspaceId, email: string) =>
-        Promise.resolve(over.members?.includes(email) === true ? LEON : null),
-      emailsOf: () => Promise.resolve([]),
+      listedByEmail: async (_: WorkspaceId, email: string) =>
+        over.members?.includes(email) ? LEON : null,
+      emailsOf: async () => [],
     },
     new InviteSending(
       partial<PersonReaderPort>({
-        find: () =>
-          Promise.resolve(
-            over.sender === null
-              ? null
-              : { id: LEON, name: 'Leon', image: null },
-          ),
+        find: async () =>
+          over.sender === null ? null : { id: LEON, name: 'Leon', image: null },
       }),
       { send },
       partial<LoggerPort>({ warn }),
@@ -257,11 +253,10 @@ describe('WorkspaceInviting', () => {
 
   it('stores the invite whose email could not be sent, says so, and carries on with the rest', async () => {
     const { batch, add, send, warn } = inviting({
-      mail: (sending) => {
+      mail: async (sending) => {
         if (sending.to === 'grace@example.com') {
-          return Promise.reject(new Error('mailbox unavailable'));
+          throw new Error('mailbox unavailable');
         }
-        return Promise.resolve();
       },
     });
 
@@ -357,12 +352,11 @@ describe('WorkspaceInviting', () => {
     const created = new Map<string, WorkspaceInvite>();
     const { batch, add, save, send } = inviting({
       previous: (email) => created.get(email) ?? null,
-      add: (added) => {
+      add: async (added) => {
         if (added.email.value === 'ada@example.com') {
           created.set('ada@example.com', pendingInvite());
-          return Promise.reject(new AlreadyInvitedError(added.email.value));
+          throw new AlreadyInvitedError(added.email.value);
         }
-        return Promise.resolve();
       },
     });
 
@@ -383,12 +377,11 @@ describe('WorkspaceInviting', () => {
     let saves = 0;
     const { batch, save, send } = inviting({
       previous: () => pendingInvite(),
-      save: (saved) => {
+      save: async (saved) => {
         saves += 1;
         if (saves === 1) {
-          return Promise.reject(new InviteVersionConflictError(saved.id.value));
+          throw new InviteVersionConflictError(saved.id.value);
         }
-        return Promise.resolve();
       },
     });
 

@@ -11,6 +11,7 @@ import {
   RUN_PAUSED,
 } from '@runs/domain/value-objects/journal-entry-type';
 import { decoded } from '@runs/infrastructure/journal/journalled';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const encoded = (value: object): string =>
   Buffer.from(JSON.stringify(value), 'utf8').toString('base64');
@@ -35,7 +36,7 @@ const isStored = (value: unknown): value is Stored =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const storedOf = (data: string | null): Stored | null => {
-  if (data === null || data === '') {
+  if (!nonEmpty(data)) {
     return null;
   }
 

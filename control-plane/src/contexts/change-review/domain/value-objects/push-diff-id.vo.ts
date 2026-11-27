@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class PushDiffId {
-  private readonly kind: string = 'push-diff';
+  private readonly kind = 'push-diff';
 
   private constructor(readonly value: string) {}
 
@@ -13,7 +13,7 @@ export class PushDiffId {
   }
 
   equals(other: PushDiffId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof PushDiffId && this.value === other.value;
   }
 
   toString(): string {

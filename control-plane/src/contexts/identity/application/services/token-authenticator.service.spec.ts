@@ -59,10 +59,10 @@ const authenticator = (
 ) =>
   new TokenAuthenticator(
     partial<WorkspaceTokenRepository>({
-      findByHash: vi.fn(() => Promise.resolve(token)),
+      findByHash: vi.fn(async () => token),
     }),
     partial<OidcTrustRepository>({
-      find: vi.fn(() => Promise.resolve(trust)),
+      find: vi.fn(async () => trust),
     }),
     partial<TokenIssuer>({ hash: () => 'd'.repeat(64) }),
     { now: () => at, sleep: async () => {} },

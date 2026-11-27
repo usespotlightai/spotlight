@@ -1,5 +1,5 @@
 import { AppWindow, ExternalLink, Globe, Link, Plus } from 'lucide-react';
-import { useMemo, type ReactElement } from 'react';
+import { useMemo } from 'react';
 
 import {
   DropdownMenu,
@@ -66,7 +66,7 @@ export function ContextMenuPopup({
   link,
   actions,
   onOpenTab,
-}: ContextMenuPopupProps): ReactElement {
+}: ContextMenuPopupProps) {
   const anchor = useMemo(
     () => ({
       getBoundingClientRect: () =>

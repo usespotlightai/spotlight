@@ -17,8 +17,7 @@ export function useGitHub(
   return useQuery({
     queryKey: gitHubKeys.status(slug),
     enabled: Boolean(slug),
-    refetchInterval: (query) =>
-      query.state.data?.connected === true ? false : POLL_MS,
+    refetchInterval: (query) => (query.state.data?.connected ? false : POLL_MS),
     queryFn: async () => {
       const { data } = await readGitHub({
         path: { slug: required(slug) },

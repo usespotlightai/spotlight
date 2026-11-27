@@ -10,6 +10,7 @@ import type {
 import { lastUseOf } from '@runs/domain/services/working-copy-last-use';
 import { isLeasedState } from '@runs/domain/value-objects/run-state';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
@@ -74,9 +75,7 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
       );
 
     return rows.flatMap((row) =>
-      row.claimedBy !== null &&
-      row.claimedBy !== '' &&
-      isLeasedState(row.state)
+      nonEmpty(row.claimedBy) && isLeasedState(row.state)
         ? [{ ...activityRunOf(row), runnerId: row.claimedBy }]
         : [],
     );

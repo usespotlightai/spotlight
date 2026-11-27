@@ -1,5 +1,4 @@
 import { BellRing } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { AlertChart } from '@/components/features/inbox/alerts/AlertChart';
 import { AlertChartEmpty } from '@/components/features/inbox/alerts/AlertChartEmpty';
@@ -36,7 +35,7 @@ export function StationAlertCard({
   slug,
   teamId,
   alertId,
-}: StationAlertCardProps): ReactElement {
+}: StationAlertCardProps) {
   const alert = useStationAlert(teamId, alertId);
   const names = stationNamesOf(useLines(teamId).data);
 

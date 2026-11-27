@@ -104,11 +104,11 @@ export class EditorSession {
     while (!this.closed) {
       const sandbox = await this.editors.stateOf(this.connection);
 
-      if (sandbox?.ready === true) {
+      if (sandbox?.ready) {
         return true;
       }
 
-      if (sandbox?.open !== true) {
+      if (!sandbox?.open) {
         this.close(EDITOR_CLOSE.sandboxStopped, STOPPED);
         return false;
       }
@@ -198,7 +198,7 @@ export class EditorSession {
         return;
       }
 
-      if (sandbox?.open !== true) {
+      if (!sandbox?.open) {
         this.close(EDITOR_CLOSE.sandboxStopped, STOPPED);
       }
     } catch (error) {

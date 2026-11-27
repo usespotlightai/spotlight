@@ -129,12 +129,12 @@ const runtime = (secret: string | null = SIGNING, file = SLACK) =>
     WORKSPACE,
     signingFor(secret === null ? {} : { SLACK_SIGNING_SECRET: secret }),
     { now: () => new Date(NOW * 1000), sleep: async () => {} },
-    { keys: () => Promise.resolve(new Map()) },
+    { keys: async () => new Map() },
     partial<HttpOutbound>({}),
     credentialsFor(),
     unlimited,
     unscoped,
-    () => Promise.resolve(null),
+    async () => null,
   );
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
@@ -344,26 +344,24 @@ webhook:
         throw new Error(read.problems.map((each) => each.reason).join(', '));
       }
 
-      const run = vi.fn(() =>
-        Promise.resolve({
-          ok,
-          status: 200,
-          response,
-          capture: {},
-        }),
-      );
+      const run = vi.fn(async () => ({
+        ok,
+        status: 200,
+        response,
+        capture: {},
+      }));
 
       const runtime = new WebhookRuntime(
         read.readable,
         WORKSPACE,
         signingFor(),
         { now: () => new Date(NOW * 1000), sleep: async () => {} },
-        { keys: () => Promise.resolve(new Map()) },
+        { keys: async () => new Map() },
         partial<HttpOutbound>({ run }),
         SLACK,
         unlimited,
         unscoped,
-        () => Promise.resolve(null),
+        async () => null,
       );
 
       return { runtime, run };

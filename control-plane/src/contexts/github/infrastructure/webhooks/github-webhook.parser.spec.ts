@@ -1,5 +1,6 @@
 import { GitHubWebhookParser } from '@github/infrastructure/webhooks/github-webhook.parser';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { describe, expect, it } from 'vitest';
@@ -12,7 +13,7 @@ const delivered = (
   headers: Record<string, string> = {},
 ) => ({
   headers: {
-    ...(event !== undefined && event !== '' ? { 'x-github-event': event } : {}),
+    ...(nonEmpty(event) ? { 'x-github-event': event } : {}),
     ...headers,
   },
   body,

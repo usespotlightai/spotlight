@@ -63,7 +63,7 @@ const slotsOn = (input: {
     aHost({ id: HOST, at: NOW, sandboxes: [...input.warm] }),
   );
   const runners = partial<RunnerRepository>({
-    aliveInWorkspace: vi.fn(() => Promise.resolve(input.alive)),
+    aliveInWorkspace: vi.fn(async () => input.alive),
   });
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const held: string[] = [];
@@ -85,9 +85,9 @@ const slotsOn = (input: {
 };
 
 const started = (slots: HostWarmSlots, host: string) =>
-  slots.startWarmIfRoomOn(host, NOW, () => Promise.resolve('started'));
+  slots.startWarmIfRoomOn(host, NOW, async () => 'started');
 
-const aRunWaits = () => Promise.resolve(true);
+const aRunWaits = async () => true;
 
 describe('HostWarmSlots', () => {
   it('has room for a warm sandbox while another slot of the host stays free', async () => {
@@ -188,7 +188,7 @@ describe('HostWarmSlots', () => {
       warm: ['sandbox_w1', 'sandbox_w2'],
       alive: [running('running_1')],
     });
-    const runWaits = vi.fn(() => Promise.resolve(false));
+    const runWaits = vi.fn(async () => false);
 
     await free.slots.drainWarmOn(HOST.value, NOW, runWaits);
 

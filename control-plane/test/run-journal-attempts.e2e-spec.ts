@@ -13,6 +13,7 @@ import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/rea
 import { DrizzleRunUsagesReader } from '@runs/infrastructure/persistence/drizzle/readers/run-usages.reader';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -65,10 +66,8 @@ beforeAll(async () => {
   journal = new DrizzleRunJournal(new DrizzleContext(db), new SystemClock());
   events = new DrizzleRunJournalEntryReader(db);
   runUsages = new DrizzleRunUsages(new DrizzleContext(db), {
-    dispatch: (events) => {
+    dispatch: async (events) => {
       usageRecorded.push(...events);
-
-      return Promise.resolve();
     },
   });
   usageFacts = new DrizzleRunUsagesReader(new DrizzleContext(db));
@@ -459,7 +458,7 @@ describe('telling when the agent last wrote', () => {
       id,
       role,
       text,
-      ...(session !== undefined && session !== '' ? { session } : {}),
+      ...(nonEmpty(session) ? { session } : {}),
     },
   });
 
@@ -467,7 +466,7 @@ describe('telling when the agent last wrote', () => {
     let now = minute(0);
     const clock = {
       now: () => now,
-      sleep: () => Promise.resolve(undefined),
+      sleep: async () => undefined,
     } satisfies ClockPort;
     const receiving = new DrizzleRunJournal(new DrizzleContext(db), clock);
 

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { useStopRunAction } from '@/hooks/useStopRunAction';
@@ -12,7 +10,7 @@ type InboxRunRowProps = {
   run: InboxRun;
 };
 
-export function InboxRunRow({ slug, run }: InboxRunRowProps): ReactElement {
+export function InboxRunRow({ slug, run }: InboxRunRowProps) {
   const stop = useStopRunAction(run.teamId, run.id, stoppable(run));
 
   return (

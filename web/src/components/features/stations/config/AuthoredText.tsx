@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { nonEmpty } from '@/lib/non-empty';
@@ -13,7 +13,7 @@ export function AuthoredText({
 }: {
   label?: string;
   children: ReactNode;
-}): ReactElement {
+}) {
   return (
     <div
       className={cn('flex min-w-0 flex-col gap-2', nonEmpty(label) && 'pt-2')}

@@ -1,4 +1,5 @@
 import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import ts from 'typescript';
 
@@ -58,9 +59,7 @@ const publisherOf = (module: string): string | null => {
   ).flatMap((literal) => {
     const context = INTEGRATION_EVENT_KIND.exec(literal.text)?.[1];
 
-    return context !== undefined && context !== '' && CONTEXTS.includes(context)
-      ? [context]
-      : [];
+    return nonEmpty(context) && CONTEXTS.includes(context) ? [context] : [];
   });
 
   return kinds[0] ?? null;
@@ -80,19 +79,19 @@ const contextDependencies = (): ContextDependency[] =>
     return moduleSpecifiersOf(file).flatMap(
       (specifier): ContextDependency[] => {
         const target = moduleTarget(file.path, specifier);
-        const to = target !== null && target !== '' ? contextOf(target) : null;
+        const to = nonEmpty(target) ? contextOf(target) : null;
 
-        if (to !== null && to !== '' && to !== from) {
+        if (nonEmpty(to) && to !== from) {
           return [{ from, to, through: 'import', file: file.path }];
         }
 
         if (
-          target?.startsWith(INTEGRATION_EVENTS) === true &&
+          target?.startsWith(INTEGRATION_EVENTS) &&
           target !== `${INTEGRATION_EVENTS}integration-event`
         ) {
           const publisher = publisherOf(target);
 
-          return publisher !== null && publisher !== '' && publisher !== from
+          return nonEmpty(publisher) && publisher !== from
             ? [
                 {
                   from,

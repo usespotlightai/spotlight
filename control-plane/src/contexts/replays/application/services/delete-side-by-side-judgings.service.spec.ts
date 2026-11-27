@@ -38,8 +38,8 @@ class LeasedWhileListed extends InMemorySideBySideJudgings {
 }
 
 class GoneOnceListed extends InMemorySideBySideJudgings {
-  override of(): Promise<SideBySideJudging | null> {
-    return Promise.resolve(null);
+  override async of(): Promise<SideBySideJudging | null> {
+    return null;
   }
 }
 

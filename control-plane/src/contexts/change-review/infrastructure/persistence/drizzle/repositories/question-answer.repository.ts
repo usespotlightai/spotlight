@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
@@ -17,6 +16,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -35,10 +36,12 @@ const toAnswer = (row: Row): QuestionAnswer =>
   QuestionAnswer.rehydrate({
     id: QuestionAnswerId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    taskId: row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
-    teamId: row.teamId !== null && row.teamId !== '' ? TeamId.of(row.teamId) : null,
+    taskId: nonEmpty(row.taskId) ? TaskId.of(row.taskId) : null,
+    teamId: nonEmpty(row.teamId) ? TeamId.of(row.teamId) : null,
     stackId: ChangeStackId.of(row.stackId),
-    repository: row.repository !== null && row.repository !== '' ? RepositoryName.of(row.repository) : null,
+    repository: nonEmpty(row.repository)
+      ? RepositoryName.of(row.repository)
+      : null,
     questionId: QuestionId.of(row.questionId),
     personId: UserId.of(row.personId),
     asked: row.asked,
@@ -87,9 +90,7 @@ const toRow = (answer: QuestionAnswer): Row => ({
 });
 
 @Injectable()
-export class DrizzleQuestionAnswerRepository
-  implements QuestionAnswerRepository
-{
+export class DrizzleQuestionAnswerRepository implements QuestionAnswerRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -134,28 +135,35 @@ export class DrizzleQuestionAnswerRepository
   }
 
   async find(id: QuestionAnswerId): Promise<QuestionAnswer | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(questionAnswer)
-      .where(eq(questionAnswer.id, id.value))
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(questionAnswer)
+        .where(eq(questionAnswer.id, id.value))
+        .limit(1),
+    );
 
     return row ? toAnswer(row) : null;
   }
 
   async nextDueGrading(now: Date): Promise<QuestionAnswer | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(questionAnswer)
-      .where(
-        and(
-          eq(questionAnswer.grading, 'pending'),
-          or(isNull(questionAnswer.jobDueAt), lte(questionAnswer.jobDueAt, now)),
-        ),
-      )
-      .orderBy(asc(questionAnswer.answeredAt))
-      .limit(1)
-      .for('update', { skipLocked: true }));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(questionAnswer)
+        .where(
+          and(
+            eq(questionAnswer.grading, 'pending'),
+            or(
+              isNull(questionAnswer.jobDueAt),
+              lte(questionAnswer.jobDueAt, now),
+            ),
+          ),
+        )
+        .orderBy(asc(questionAnswer.answeredAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toAnswer(row) : null;
   }
@@ -165,17 +173,19 @@ export class DrizzleQuestionAnswerRepository
     questionId: QuestionId,
     personId: UserId,
   ): Promise<QuestionAnswer | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(questionAnswer)
-      .where(
-        and(
-          eq(questionAnswer.stackId, stackId.value),
-          eq(questionAnswer.questionId, questionId),
-          eq(questionAnswer.personId, personId.value),
-        ),
-      )
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(questionAnswer)
+        .where(
+          and(
+            eq(questionAnswer.stackId, stackId.value),
+            eq(questionAnswer.questionId, questionId),
+            eq(questionAnswer.personId, personId.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toAnswer(row) : null;
   }

@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { nonEmpty } from '@/lib/non-empty';
@@ -22,7 +22,7 @@ export function SettingsSection({
   action,
   listLabel,
   children,
-}: SettingsSectionProps): ReactElement {
+}: SettingsSectionProps) {
   const Body = nonEmpty(listLabel) ? 'ul' : 'div';
 
   return (

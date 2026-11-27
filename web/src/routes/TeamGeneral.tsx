@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AvatarSetting } from '@/components/features/settings/AvatarSetting';
@@ -14,7 +13,7 @@ import { nonEmpty } from '@/lib/non-empty';
 import { failed } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 
-export function TeamGeneral(): ReactElement | null {
+export function TeamGeneral() {
   const { slug, teamId } = useParams();
   const workspace = useWorkspace(slug);
   const change = useTeamAvatar(slug, teamId);

@@ -11,6 +11,7 @@ import {
 import { memoryComparisonFrom } from '@insights/domain/services/memory-comparison';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class ReadInsightsMemoryHandler implements QueryHandlerPort<
   ReadInsightsMemoryQuery,
@@ -43,9 +44,7 @@ export class ReadInsightsMemoryHandler implements QueryHandlerPort<
         compared.cutThenRead.most.map((each) => each.memoryId),
       );
       const names = await this.people.namesOf(
-        use.flagged.flatMap((each) =>
-          each.by !== null && each.by !== '' ? [each.by] : [],
-        ),
+        use.flagged.flatMap((each) => (nonEmpty(each.by) ? [each.by] : [])),
       );
 
       return {
@@ -68,10 +67,7 @@ export class ReadInsightsMemoryHandler implements QueryHandlerPort<
         }),
         flagged: use.flagged.map((each) => ({
           ...each,
-          byName:
-            each.by !== null && each.by !== ''
-              ? (names.get(each.by) ?? null)
-              : null,
+          byName: nonEmpty(each.by) ? (names.get(each.by) ?? null) : null,
           at: each.at.toISOString(),
         })),
         withMemories: compared.withMemories,

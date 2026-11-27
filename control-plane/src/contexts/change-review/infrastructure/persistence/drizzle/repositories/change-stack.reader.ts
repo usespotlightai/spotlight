@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   ChangeStackDto,
   CheckedStepDto,
@@ -27,16 +26,16 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
-import {
-  type StackVisibility,
-  visibilityOf,
-} from '@change-review/domain/value-objects/stack-visibility.vo';
 import type { CheckedStep } from '@change-review/domain/value-objects/stack-check.vo';
 import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
   isShownForTask,
 } from '@change-review/domain/value-objects/stack-progress.vo';
+import {
+  type StackVisibility,
+  visibilityOf,
+} from '@change-review/domain/value-objects/stack-visibility.vo';
 import { diffOf } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
 import { toStackCheck } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { StoredCohort } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
@@ -45,6 +44,8 @@ import { questionAnswer } from '@change-review/infrastructure/persistence/drizzl
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -210,8 +211,7 @@ const publicFilesOf = (files: ShownRow['files']) =>
 
 const hasRepository = (
   row: ShownRow,
-): row is ShownRow & { readonly repository: string } =>
-  row.repository !== null;
+): row is ShownRow & { readonly repository: string } => row.repository !== null;
 
 const publicStackOf = (
   row: ShownRow & { readonly repository: string },
@@ -243,8 +243,10 @@ const cohortDtosOf = (
 
 const scopeOf = (stack: StackScope): AnswerScope => ({
   stackId: ChangeStackId.of(stack.id),
-  taskId: stack.taskId !== null && stack.taskId !== '' ? TaskId.of(stack.taskId) : null,
-  repository: stack.repository !== null && stack.repository !== '' ? RepositoryName.of(stack.repository) : null,
+  taskId: nonEmpty(stack.taskId) ? TaskId.of(stack.taskId) : null,
+  repository: nonEmpty(stack.repository)
+    ? RepositoryName.of(stack.repository)
+    : null,
 });
 
 const givenOf = (row: AnswerRow): GivenAnswer => ({
@@ -273,7 +275,9 @@ const answeredFrom =
 
 const inScopeOf = (stacks: readonly StackScope[]) => {
   const tasks = [
-    ...new Set(stacks.flatMap((stack) => (stack.taskId !== null && stack.taskId !== '' ? [stack.taskId] : []))),
+    ...new Set(
+      stacks.flatMap((stack) => (nonEmpty(stack.taskId) ? [stack.taskId] : [])),
+    ),
   ];
 
   return or(
@@ -296,9 +300,9 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     taskId: TaskId,
     now: Date,
   ): Promise<ChangeStackSummary | null> {
-    const latest = firstOf(await this.shownForTask(taskId, now, (rows) =>
-      rows.slice(0, 1),
-    ));
+    const latest = firstOf(
+      await this.shownForTask(taskId, now, (rows) => rows.slice(0, 1)),
+    );
 
     return latest ?? null;
   }
@@ -441,33 +445,37 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         now,
       ),
       runId: row.runId,
-      push: row.pushedHead !== null && row.pushedHead !== ''
+      push: nonEmpty(row.pushedHead)
         ? { head: row.pushedHead, pushedBy: row.pushedBy }
         : null,
     }));
   }
 
   async visibilityOf(stackId: ChangeStackId): Promise<StackVisibility | null> {
-    const stack = firstOf(await this.context.db
-      .select({ taskId: changeStack.taskId, runId: changeStack.runId })
-      .from(changeStack)
-      .where(eq(changeStack.id, stackId.value))
-      .limit(1));
+    const stack = firstOf(
+      await this.context.db
+        .select({ taskId: changeStack.taskId, runId: changeStack.runId })
+        .from(changeStack)
+        .where(eq(changeStack.id, stackId.value))
+        .limit(1),
+    );
 
     return stack
       ? visibilityOf({
-          taskId: stack.taskId !== null && stack.taskId !== '' ? TaskId.of(stack.taskId) : null,
-          runId: stack.runId !== null && stack.runId !== '' ? RunId.of(stack.runId) : null,
+          taskId: nonEmpty(stack.taskId) ? TaskId.of(stack.taskId) : null,
+          runId: nonEmpty(stack.runId) ? RunId.of(stack.runId) : null,
         })
       : null;
   }
 
   async repositoryOf(stackId: ChangeStackId): Promise<StackRepository | null> {
-    const stack = firstOf(await this.context.db
-      .select({ repository: changeStack.repository })
-      .from(changeStack)
-      .where(eq(changeStack.id, stackId.value))
-      .limit(1));
+    const stack = firstOf(
+      await this.context.db
+        .select({ repository: changeStack.repository })
+        .from(changeStack)
+        .where(eq(changeStack.id, stackId.value))
+        .limit(1),
+    );
 
     return stack ?? null;
   }
@@ -477,16 +485,18 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     questionId: QuestionId,
     viewerId: UserId,
   ): Promise<QuestionAnswerDto | null> {
-    const stack = firstOf(await this.context.db
-      .select({
-        id: changeStack.id,
-        taskId: changeStack.taskId,
-        repository: changeStack.repository,
-        cohorts: changeStack.cohorts,
-      })
-      .from(changeStack)
-      .where(eq(changeStack.id, stackId.value))
-      .limit(1));
+    const stack = firstOf(
+      await this.context.db
+        .select({
+          id: changeStack.id,
+          taskId: changeStack.taskId,
+          repository: changeStack.repository,
+          cohorts: changeStack.cohorts,
+        })
+        .from(changeStack)
+        .where(eq(changeStack.id, stackId.value))
+        .limit(1),
+    );
     const question = stack?.cohorts
       .flatMap((cohort) => cohort.layers)
       .flatMap((layer) => layer.questions ?? [])

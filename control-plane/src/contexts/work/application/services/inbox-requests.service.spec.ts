@@ -23,41 +23,33 @@ const asiding = (input: { task?: boolean } = {}) => {
 
   const inboxRequests = new InboxRequests(
     partial<InboxRequestRepository>({
-      add: (inboxRequest: InboxRequest) => {
+      add: async (inboxRequest: InboxRequest) => {
         stored.push(inboxRequest);
-
-        return Promise.resolve();
       },
-      save: (inboxRequest: InboxRequest) => {
+      save: async (inboxRequest: InboxRequest) => {
         stored.splice(
           stored.findIndex((each) => each.id.equals(inboxRequest.id)),
           1,
           inboxRequest,
         );
-
-        return Promise.resolve();
       },
-      about: (taskId: TaskId, form: string, about: InboxRequestSubject) =>
-        Promise.resolve(
-          stored.find(
-            (each) =>
-              each.taskId.equals(taskId) &&
-              each.form === form &&
-              each.about.equals(about),
-          ) ?? null,
-        ),
+      about: async (taskId: TaskId, form: string, about: InboxRequestSubject) =>
+        stored.find(
+          (each) =>
+            each.taskId.equals(taskId) &&
+            each.form === form &&
+            each.about.equals(about),
+        ) ?? null,
     }),
     partial<TaskRepository>({
-      find: () =>
-        Promise.resolve(
-          (input.task ?? true)
-            ? partial<Task>({ id: TASK, workspaceId: WorkspaceId.of('ws_1') })
-            : null,
-        ),
+      find: async () =>
+        (input.task ?? true)
+          ? partial<Task>({ id: TASK, workspaceId: WorkspaceId.of('ws_1') })
+          : null,
     }),
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'request_1' },
-    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+    { now: () => NOW, sleep: async () => undefined },
   );
 
   return { inboxRequests, stored };

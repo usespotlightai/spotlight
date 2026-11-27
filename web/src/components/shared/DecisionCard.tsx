@@ -1,4 +1,4 @@
-import { type HTMLAttributes, type Ref, use, type ReactElement } from 'react';
+import { type HTMLAttributes, type Ref, use } from 'react';
 
 import { DockedContext } from '@/lib/decision-tray';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ export function DecisionCard({
   className,
   ref,
   ...props
-}: DecisionCardProps): ReactElement {
+}: DecisionCardProps) {
   const docked = use(DockedContext) !== null;
 
   return (

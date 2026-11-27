@@ -30,6 +30,7 @@ import type { CelVariables } from '@platform/expressions/cel-variables';
 import { isTrue, value } from '@platform/expressions/readings';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface OutboundResult {
   readonly ok: boolean;
@@ -229,7 +230,7 @@ export class HttpOutbound {
   rendered(request: RequestIR, against: CelVariables): PlainRequest | null {
     const url = this.templated(request.url, against);
 
-    if (url === null || url === '') {
+    if (!nonEmpty(url)) {
       return null;
     }
 
@@ -251,7 +252,7 @@ export class HttpOutbound {
     const target = query.size > 0 ? `${url}?${query.toString()}` : url;
 
     const body = this.body(request, against);
-    if (body?.json === true && !has(headers, 'content-type')) {
+    if (body?.json && !has(headers, 'content-type')) {
       headers['content-type'] = 'application/json';
     }
 
@@ -349,7 +350,7 @@ export class HttpOutbound {
     headers: Record<string, string>,
     credentials: Credentials,
   ): Promise<InjectedSecrets> {
-    if (auth?.kind === 'oauth2' && connection !== null && connection !== '') {
+    if (auth?.kind === 'oauth2' && nonEmpty(connection)) {
       if (!auth.hosts.includes(url.host)) {
         throw new TokenHostRefusedError(url.host);
       }

@@ -1,5 +1,4 @@
 import { Eye, EyeOff } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ScoreVisibility } from '@/lib/judge';
@@ -10,7 +9,7 @@ export function ScoreVisibilityLine({
   visibility,
 }: {
   visibility: ScoreVisibility;
-}): ReactElement {
+}) {
   const Icon = visibility.hidden ? EyeOff : Eye;
 
   return (

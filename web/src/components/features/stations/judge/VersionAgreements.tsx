@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { KappaBar } from '@/components/features/stations/judge/KappaBar';
 import { VersionLabel } from '@/components/features/stations/judge/VersionLabel';
 import {
@@ -32,7 +30,7 @@ const currentFirst = (versions: readonly RubricVersion[]): RubricVersion[] =>
 export function VersionAgreements({
   versions,
   minAgreement,
-}: VersionAgreementsProps): ReactElement {
+}: VersionAgreementsProps) {
   return (
     <NestedTable label={VERSIONS_TITLE} headings={VERSION_HEADINGS}>
       {currentFirst(versions).map((version) => {

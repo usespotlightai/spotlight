@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   HookTools,
   HookToolsPort,
@@ -10,6 +9,7 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq } from 'drizzle-orm';
 
@@ -53,11 +53,13 @@ export class DrizzleHookDefinitionsReader implements HookToolsPort {
   }
 
   async withId(id: HookDefinitionId): Promise<StoredHookDefinition | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(hookDefinition)
-      .where(eq(hookDefinition.id, id.value))
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(hookDefinition)
+        .where(eq(hookDefinition.id, id.value))
+        .limit(1),
+    );
 
     return row ? storedOf(row) : null;
   }

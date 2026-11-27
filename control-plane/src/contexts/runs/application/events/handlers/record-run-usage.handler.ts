@@ -26,8 +26,7 @@ export class RecordRunUsage {
 
   private async record(runId: RunId): Promise<void> {
     const facts = firstOf(await this.facts.of([runId]));
-    const read =
-      facts?.ended === true ? await this.usages.readingsOf(runId) : null;
+    const read = facts?.ended ? await this.usages.readingsOf(runId) : null;
 
     if (!facts || !read) {
       return;

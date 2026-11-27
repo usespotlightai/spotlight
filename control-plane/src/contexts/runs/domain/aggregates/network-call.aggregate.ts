@@ -311,7 +311,7 @@ export class NetworkCall extends EventRecorder {
     const { progress, secretsClaim } = this.state;
     const id = this.state.id.value;
 
-    if (secretsClaim?.isRedeemedBy(tokenHash) !== true) {
+    if (!secretsClaim?.isRedeemedBy(tokenHash)) {
       throw new WrongCallSecretsTokenError(id);
     }
 

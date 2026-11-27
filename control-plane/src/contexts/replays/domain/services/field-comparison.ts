@@ -23,8 +23,7 @@ export const sameField = (
   other: unknown,
   options: { readonly emptyIsUnset?: boolean } = {},
 ): boolean => {
-  const read =
-    options.emptyIsUnset === true ? unsetIfEmpty : (value: unknown) => value;
+  const read = options.emptyIsUnset ? unsetIfEmpty : (value: unknown) => value;
 
   return (
     JSON.stringify(canonical(read(one)) ?? null) ===

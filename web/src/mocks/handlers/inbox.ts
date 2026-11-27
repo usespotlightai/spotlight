@@ -135,8 +135,8 @@ const answer = (item: InboxConversation, reply: AnswerInboxItemRequestDto) => {
   if (deciding && pending?.approval) {
     pending.approval = {
       ...pending.approval,
-      status: reply.approve === true ? 'approved' : 'dismissed',
-      edited: reply.approve === true && reply.inputs ? reply.inputs : null,
+      status: reply.approve ? 'approved' : 'dismissed',
+      edited: reply.approve && reply.inputs ? reply.inputs : null,
     };
   }
 
@@ -841,9 +841,9 @@ const reviewHandlers = [
       const commentId = param(params, 'commentId');
 
       if (
-        review?.comments.some(
+        !review?.comments.some(
           (each) => each.id === commentId && each.viewerIsAuthor,
-        ) !== true
+        )
       ) {
         return notFound();
       }

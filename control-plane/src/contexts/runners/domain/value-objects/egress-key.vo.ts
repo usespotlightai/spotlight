@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class EgressKey {
-  private readonly kind: string = 'egress-key';
+  private readonly kind = 'egress-key';
 
   private constructor(readonly value: string) {}
 
@@ -23,7 +23,7 @@ export class EgressKey {
   }
 
   equals(other: EgressKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressKey && this.value === other.value;
   }
 
   toString(): string {

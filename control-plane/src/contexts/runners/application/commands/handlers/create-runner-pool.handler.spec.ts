@@ -20,16 +20,14 @@ const creating = (key: string) => {
   const added: RunnerPool[] = [];
   const handler = new CreateRunnerPoolHandler(
     partial<WorkspaceAccessPort>({
-      permissionsIn: vi.fn(() =>
-        Promise.resolve({
-          workspaceId: WorkspaceId.of('ws_1'),
-          slug: 'acme',
-          plans: false,
-          configures: false,
-          scopes: new Set(['runners'] as const),
-          isAdmin: false,
-        }),
-      ),
+      permissionsIn: vi.fn(async () => ({
+        workspaceId: WorkspaceId.of('ws_1'),
+        slug: 'acme',
+        plans: false,
+        configures: false,
+        scopes: new Set(['runners'] as const),
+        isAdmin: false,
+      })),
     }),
     partial<RunnerDefinitionsPort>({
       pool: () => ({
@@ -42,9 +40,8 @@ const creating = (key: string) => {
       }),
     }),
     partial<RunnerPoolRepository>({
-      add: vi.fn((pool: RunnerPool) => {
+      add: vi.fn(async (pool: RunnerPool) => {
         added.push(pool);
-        return Promise.resolve();
       }),
     }),
     partial<UsedTokensPort>({}),
@@ -52,8 +49,8 @@ const creating = (key: string) => {
     partial<EgressRepository>({}),
     null,
     {
-      reserve: vi.fn(() => Promise.resolve({ kind: 'new' as const })),
-      recordCreated: vi.fn(() => Promise.resolve(undefined)),
+      reserve: vi.fn(async () => ({ kind: 'new' as const })),
+      recordCreated: vi.fn(async () => undefined),
     } satisfies IdempotentCreatesPort,
     { generate: () => 'pool_1' },
     {

@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { ReplyBox } from '@/components/features/review/ReplyBox';
 import { ReviewCommentItem } from '@/components/features/review/ReviewCommentItem';
@@ -17,7 +17,7 @@ export function ReviewThreadCard({
   thread,
   appear = false,
   onPointedAt,
-}: ReviewThreadCardProps): ReactElement | null {
+}: ReviewThreadCardProps) {
   const reviewing = useReviewing();
   const [replying, setReplying] = useState(false);
   const draft = useDraftReviewComment();

@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useId } from 'react';
+import { type ReactNode, useId } from 'react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { nonEmpty } from '@/lib/non-empty';
@@ -23,7 +23,7 @@ export function TabSection({
   level = 2,
   action,
   children,
-}: TabSectionProps): ReactElement {
+}: TabSectionProps) {
   const Heading = level === 3 ? 'h3' : 'h2';
   const titleId = useId();
 

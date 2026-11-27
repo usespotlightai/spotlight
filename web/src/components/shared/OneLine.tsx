@@ -1,4 +1,4 @@
-import { useRef, type ReactElement } from 'react';
+import { useRef } from 'react';
 
 import {
   Tooltip,
@@ -13,7 +13,7 @@ type OneLineProps = {
   className?: string;
 };
 
-export function OneLine({ text, className }: OneLineProps): ReactElement {
+export function OneLine({ text, className }: OneLineProps) {
   const line = useRef<HTMLSpanElement>(null);
   const overflows = useOverflows(line, true, 'x', text);
 

@@ -1,13 +1,7 @@
-import type { ReactElement } from 'react';
-
 import { Logo } from '@/components/shared/icons';
 import { cn } from '@/lib/utils';
 
-export function LogoLockup({
-  className,
-}: {
-  className?: string;
-}): ReactElement {
+export function LogoLockup({ className }: { className?: string }) {
   return (
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       <Logo className="size-8 shrink-0" />

@@ -7,6 +7,7 @@ import type { HeadlineCounts } from '@insights/domain/services/headline';
 import type { OverviewCounts } from '@insights/domain/services/overview-counts';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
 import { configMarkers } from '@insights/infrastructure/persistence/drizzle/readers/insights/config-markers.sql';
+import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
 import {
   asUtc,
   atWithin,
@@ -19,7 +20,6 @@ import {
   failingIn,
   stationCountsIn,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
-import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
 import { teamActivity } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   runFact,

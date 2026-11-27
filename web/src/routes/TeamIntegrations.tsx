@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { GitHubRow } from '@/components/features/integrations/GitHubRow';
@@ -18,7 +17,7 @@ import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 
-export function TeamIntegrations(): ReactElement | null {
+export function TeamIntegrations() {
   const { slug, teamId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const github = useGitHub(slug);

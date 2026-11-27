@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties } from 'react';
 
 import { TIMELINE } from '@/components/features/trace/view/TraceBar';
 import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
@@ -29,7 +29,7 @@ const WATERFALL: readonly TraceRowShape[] = [
   { depth: 1, hasChildren: false, name: 'w-14', left: 85, width: 1 },
 ];
 
-export function TraceViewSkeleton(): ReactElement {
+export function TraceViewSkeleton() {
   const names = usePaneWidth<HTMLDivElement>(NAMES_PANE);
   const namesWanted: CSSProperties & Record<`--${string}`, string> = {
     '--names-wanted': `${names.width}px`,

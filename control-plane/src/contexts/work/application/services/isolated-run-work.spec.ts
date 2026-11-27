@@ -34,10 +34,8 @@ describe('the work of a run that acts on nothing beyond itself', () => {
     );
   });
 
-  it('reads no attachment', () => {
+  it('reads no attachment', async () => {
     expect(working().work.attachment()).toBeNull();
-
-    return Promise.resolve();
   });
 
   it('uses no tool', async () => {
@@ -67,10 +65,8 @@ describe('the work of a run that acts on nothing beyond itself', () => {
 
   it('ends no turn where the run refuses the lease it held', async () => {
     const { work } = working({
-      askedAPerson: () => {
-        return Promise.reject(
-          new RunNotLeased('Run run_9 is leased by runner_2.'),
-        );
+      askedAPerson: async () => {
+        throw new RunNotLeased('Run run_9 is leased by runner_2.');
       },
     });
 

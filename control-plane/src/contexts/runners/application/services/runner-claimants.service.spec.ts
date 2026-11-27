@@ -26,13 +26,13 @@ const claimants = (
 ) =>
   new RunnerClaimants(
     partial<RunnerRepository>({
-      find: vi.fn(() => Promise.resolve(runner)),
+      find: vi.fn(async () => runner),
     }),
     partial<RunnerPoolRepository>({
-      find: vi.fn(() => Promise.resolve(known.pool ?? null)),
+      find: vi.fn(async () => known.pool ?? null),
     }),
     partial<RunnerTrustRepository>({
-      find: vi.fn(() => Promise.resolve(known.trust ?? null)),
+      find: vi.fn(async () => known.trust ?? null),
     }),
   );
 
@@ -92,11 +92,11 @@ describe('RunnerClaimants', () => {
   });
 
   it('reads no pool and no trust for a claimant on the hot routes, such as a lease renewal', async () => {
-    const pools = { find: vi.fn(() => Promise.resolve(aPullPool())) };
-    const trusts = { find: vi.fn(() => Promise.resolve(aTrust())) };
+    const pools = { find: vi.fn(async () => aPullPool()) };
+    const trusts = { find: vi.fn(async () => aTrust()) };
     const found = await new RunnerClaimants(
       partial<RunnerRepository>({
-        find: vi.fn(() => Promise.resolve(aRunner())),
+        find: vi.fn(async () => aRunner()),
       }),
       partial<RunnerPoolRepository>(pools),
       partial<RunnerTrustRepository>(trusts),

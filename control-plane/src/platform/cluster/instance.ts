@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
 
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+
 const reachableAddress = (): string | undefined =>
   Object.values(networkInterfaces())
     .flat()
@@ -16,13 +18,13 @@ export class Instance {
     port: number;
     clustered: boolean;
   }): Instance {
-    if (options.address !== undefined && options.address !== '') {
+    if (nonEmpty(options.address)) {
       return new Instance(options.address);
     }
 
     const reachable = reachableAddress();
 
-    if ((reachable === undefined || reachable === '') && options.clustered) {
+    if (!nonEmpty(reachable) && options.clustered) {
       throw new Error(
         'Sorry, Spotlight found no network address that other control-plane instances can reach. Set SPOTLIGHT_INSTANCE_URL.',
       );

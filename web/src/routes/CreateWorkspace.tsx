@@ -1,6 +1,5 @@
 import {
   type ChangeEvent,
-  type ReactElement,
   type SubmitEvent,
   useId,
   useRef,
@@ -29,7 +28,7 @@ const PREVIOUS: Record<Exclude<Step, 'workspace'>, Step> = {
   about: 'team',
 };
 
-export function CreateWorkspace(): ReactElement {
+export function CreateWorkspace() {
   const nameId = useId();
   const slugId = useId();
   const prefixId = useId();

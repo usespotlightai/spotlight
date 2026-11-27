@@ -21,7 +21,7 @@ export class HoldOutSearch {
   async requested(searchId: SearchId): Promise<void> {
     const seen = await this.searches.find(searchId);
 
-    if (seen?.wantsHoldingOut !== true) {
+    if (!seen?.wantsHoldingOut) {
       return;
     }
 
@@ -30,7 +30,7 @@ export class HoldOutSearch {
     return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(searchId);
 
-      if (search?.wantsHoldingOut !== true) {
+      if (!search?.wantsHoldingOut) {
         return;
       }
 

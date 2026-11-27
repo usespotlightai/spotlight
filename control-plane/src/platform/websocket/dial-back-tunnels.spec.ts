@@ -30,39 +30,34 @@ const sharedDirectory = () => {
 
   return (address: string): TunnelDirectory => ({
     address,
-    claimPeer: (peer) => {
+    claimPeer: async (peer) => {
       peers.set(peer, address);
-      return Promise.resolve();
     },
-    renewPeer: (peer) => {
+    renewPeer: async (peer) => {
       if ((peers.get(peer) ?? address) === address) {
         peers.set(peer, address);
       }
-      return Promise.resolve();
     },
-    releasePeer: (peer) => {
+    releasePeer: async (peer) => {
       if (peers.get(peer) === address) {
         peers.delete(peer);
       }
-      return Promise.resolve();
     },
-    ownerOfPeer: (peer) => Promise.resolve(peers.get(peer) ?? null),
-    claimStream: (stream) => {
+    ownerOfPeer: async (peer) => peers.get(peer) ?? null,
+    claimStream: async (stream) => {
       streams.set(stream, address);
-      return Promise.resolve();
     },
-    ownerOfStream: (stream) => Promise.resolve(streams.get(stream) ?? null),
-    ask: (owner, peer, message) => {
+    ownerOfStream: async (stream) => streams.get(stream) ?? null,
+    ask: async (owner, peer, message) => {
       const ask = asks.get(owner);
       ask?.(peer, message);
-      return Promise.resolve(ask !== undefined);
+      return ask !== undefined;
     },
     onAsk: (ask) => {
       asks.set(address, ask);
     },
-    stopAsking: () => {
+    stopAsking: async () => {
       asks.delete(address);
-      return Promise.resolve();
     },
   });
 };
@@ -98,7 +93,7 @@ const instance = async (directoryAt: (address: string) => TunnelDirectory) => {
       const groups: readonly (string | undefined)[] = matched;
       return { peer: groups[1] ?? '', stream: groups[2] ?? null };
     },
-    admit: () => Promise.resolve(true),
+    admit: async () => true,
     refusals: {
       browser: 'browser',
       unadmitted: 'unadmitted',
@@ -253,8 +248,8 @@ describe('DialBackTunnels across instances', () => {
     const at = sharedDirectory();
     const a = await instance((address) => ({
       ...at(address),
-      claimStream: () => {
-        return Promise.reject(new Error('Redis is not reachable'));
+      claimStream: async () => {
+        throw new Error('Redis is not reachable');
       },
     }));
     await host(a.address, () => a.address);

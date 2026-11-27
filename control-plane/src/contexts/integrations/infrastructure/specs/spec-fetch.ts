@@ -14,6 +14,7 @@ import {
 import { SpecUnreadable } from '@integrations/infrastructure/specs/operation-record';
 import { causeOf, fieldOf } from '@platform/json/field-of';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type Fetch = typeof globalThis.fetch;
@@ -140,7 +141,7 @@ export class SpecFetch {
       return { url: url.href, headers, injected: InjectedSecrets.none() };
     }
 
-    if (injection.connection !== null && injection.connection !== '') {
+    if (nonEmpty(injection.connection)) {
       headers.authorization = `Bearer ${injection.connection}`;
     }
 

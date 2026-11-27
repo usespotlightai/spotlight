@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 describe('runsSubscribers', () => {
   it('tells Secrets to end what a run was granted once the run ends', async () => {
-    const endedFor = vi.fn(() => Promise.resolve());
+    const endedFor = vi.fn(async () => {});
     const ending = runsSubscribers(
       partial<Parameters<typeof runsSubscribers>[0]>({
         credentials: new RunCredentials(
@@ -55,7 +55,7 @@ describe('runsSubscribers', () => {
   });
 
   it('tells Secrets that the lease of an attempt is lost when it expires', async () => {
-    const leaseLost = vi.fn(() => Promise.resolve());
+    const leaseLost = vi.fn(async () => {});
     const losing = runsSubscribers(
       partial<Parameters<typeof runsSubscribers>[0]>({
         credentials: new RunCredentials(
@@ -98,7 +98,7 @@ describe('runsSubscribers', () => {
   });
 
   it('revokes every token issued for a run once it ends, and an attempt’s once its lease expires or the run is suspended', async () => {
-    const revokeFor = vi.fn(() => Promise.resolve());
+    const revokeFor = vi.fn(async () => {});
     const subscribers = runsSubscribers(
       partial<Parameters<typeof runsSubscribers>[0]>({
         credentials: new RunCredentials(

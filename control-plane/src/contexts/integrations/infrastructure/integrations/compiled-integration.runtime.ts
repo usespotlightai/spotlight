@@ -88,6 +88,7 @@ import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import { evaluateText, value } from '@platform/expressions/readings';
 import { type Sleep, sleeping } from '@platform/time/sleep';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
@@ -346,7 +347,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     if (!target.channel && aboutATask(payload)) {
       const routed = binding.routes.get(payload.task.line.value);
-      if (routed !== undefined && routed !== '') {
+      if (nonEmpty(routed)) {
         target.channel = routed;
       }
     }
@@ -395,7 +396,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const marks: TaskMark[] = [];
     for (const mark of binding.mark) {
       const read = evaluateText(mark.value, beside);
-      if (read !== null && read !== '') {
+      if (nonEmpty(read)) {
         marks.push({ kind: mark.kind.value, value: read });
       }
     }
@@ -603,10 +604,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     task: TaskView,
   ): CallableTool | null {
     const compiled = readable.tools.get(provided.name);
-    const action =
-      provided.backing.action !== null && provided.backing.action !== ''
-        ? readable.actions.get(provided.backing.action)
-        : undefined;
+    const action = nonEmpty(provided.backing.action)
+      ? readable.actions.get(provided.backing.action)
+      : undefined;
 
     if (!compiled || !action) {
       return null;
@@ -720,13 +720,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     const server = apiSpec?.spec.url;
 
-    if (
-      apiSpec === null ||
-      server === undefined ||
-      server === null ||
-      server === '' ||
-      call?.kind !== 'mcp'
-    ) {
+    if (apiSpec === null || !nonEmpty(server) || call?.kind !== 'mcp') {
       return null;
     }
 

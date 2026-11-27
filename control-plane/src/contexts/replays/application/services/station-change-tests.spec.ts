@@ -205,21 +205,20 @@ beforeEach(async () => {
   policy = policyOf();
   scoring = CHECKED;
   liveBlock = { key: 'build', name: 'Build', kind: 'work' };
-  suppliers.configs.live = () =>
-    Promise.resolve({
-      lineKey: 'delivery',
-      block: StationBlock.of(liveBlock),
-      fingerprint: LIVE_FINGERPRINT,
-      scoring,
-      hashes: LIVE_HASHES,
-      threshold: null,
-      search: policy,
-      agent: SearchAgent.of({
-        harness: 'claude-code',
-        model: null,
-        effort: null,
-      }),
-    });
+  suppliers.configs.live = async () => ({
+    lineKey: 'delivery',
+    block: StationBlock.of(liveBlock),
+    fingerprint: LIVE_FINGERPRINT,
+    scoring,
+    hashes: LIVE_HASHES,
+    threshold: null,
+    search: policy,
+    agent: SearchAgent.of({
+      harness: 'claude-code',
+      model: null,
+      effort: null,
+    }),
+  });
 
   const set = aSet(10);
 

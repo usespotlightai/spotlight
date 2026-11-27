@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
 import { GainTrack } from '@/components/features/insights/candidates/GainTrack';
 import { ReplayStateIcon } from '@/components/features/insights/candidates/ReplayStateIcon';
@@ -43,7 +41,7 @@ type CandidateComparisonRowProps = {
 export function CandidateComparisonRow({
   candidate,
   heldOut,
-}: CandidateComparisonRowProps): ReactElement {
+}: CandidateComparisonRowProps) {
   const { shown } = candidate;
   const changes = configChangesOf(candidate.changes);
   const entries = configPlan(changes);

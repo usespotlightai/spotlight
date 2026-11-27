@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
@@ -14,11 +14,7 @@ import {
   type Smoothing,
 } from '@/lib/insights-shipping';
 
-export function TimeToFirstReview({
-  days,
-}: {
-  days: readonly ReviewDay[];
-}): ReactElement {
+export function TimeToFirstReview({ days }: { days: readonly ReviewDay[] }) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
   const [smoothing, setSmoothing] = useState<Smoothing>('rolling');
 

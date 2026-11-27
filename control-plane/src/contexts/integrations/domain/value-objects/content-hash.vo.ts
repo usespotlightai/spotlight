@@ -3,7 +3,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 export class ContentHash {
-  private readonly kind: string = 'content-hash';
+  private readonly kind = 'content-hash';
 
   private constructor(readonly value: string) {}
 
@@ -19,7 +19,7 @@ export class ContentHash {
   }
 
   equals(other: ContentHash): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ContentHash && this.value === other.value;
   }
 
   toString(): string {

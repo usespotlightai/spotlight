@@ -47,15 +47,15 @@ const stopping = (
   answers: Partial<RunsPort> = {},
 ) => {
   const runs = recordingRuns(answers);
-  const take = vi.fn(() => Promise.resolve(undefined));
+  const take = vi.fn(async () => undefined);
   const handler = new StopRunHandler(
     runs,
     {
-      find: () => Promise.resolve(dispatched),
-      add: () => Promise.resolve(undefined),
-      save: () => Promise.resolve(undefined),
+      find: async () => dispatched,
+      add: async () => undefined,
+      save: async () => undefined,
     } satisfies DispatchRepository,
-    partial<TaskRepository>({ find: vi.fn(() => Promise.resolve(task)) }),
+    partial<TaskRepository>({ find: vi.fn(async () => task) }),
     partial<TakeTurn>({ take }),
     access,
   );
@@ -77,7 +77,7 @@ describe('StopRunHandler', () => {
     const { handler, take } = stopping(
       TASK,
       workAccessSeeing(() => true),
-      { requestStop: () => Promise.resolve({ pendingTurn: 1 }) },
+      { requestStop: async () => ({ pendingTurn: 1 }) },
     );
 
     await handler.execute(new StopRunCommand('run_1', 'user_1'));
@@ -135,10 +135,8 @@ describe('StopRunHandler', () => {
       TASK,
       workAccessSeeing(() => true),
       {
-        requestStop: () => {
-          return Promise.reject(
-            new Error('Run run_1 has ended. It cannot be stopped.'),
-          );
+        requestStop: async () => {
+          throw new Error('Run run_1 has ended. It cannot be stopped.');
         },
       },
     );

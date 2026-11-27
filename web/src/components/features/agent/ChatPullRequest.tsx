@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
 
 import { ChatPullRequestCard } from '@/components/features/agent/ChatPullRequestCard';
 import { chatKeys } from '@/hooks/api/useChats';
@@ -22,7 +21,7 @@ export function ChatPullRequest({
   chatId,
   title,
   pullRequest,
-}: ChatPullRequestProps): ReactElement {
+}: ChatPullRequestProps) {
   const queryClient = useQueryClient();
   const resume = useResumeLine();
 

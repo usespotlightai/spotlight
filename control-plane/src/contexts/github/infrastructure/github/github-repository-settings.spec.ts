@@ -9,12 +9,10 @@ import { z } from 'zod';
 const JSON_OBJECT = z.record(z.string(), z.unknown());
 
 const access = partial<RepositoryAccessPort>({
-  credential: vi.fn(() =>
-    Promise.resolve({
-      username: 'x-access-token',
-      password: 'tok_1',
-    }),
-  ),
+  credential: vi.fn(async () => ({
+    username: 'x-access-token',
+    password: 'tok_1',
+  })),
 });
 
 const workspaceId = WorkspaceId.of('ws_1');
@@ -37,11 +35,11 @@ let sent: Sent[] = [];
 const answering = ({ status, body = {} }: Answer) => ({
   status,
   ok: status >= 200 && status < 300,
-  json: () => Promise.resolve(body),
+  json: async () => body,
 });
 
 const routing = (route: (method: string, url: string) => Answer) =>
-  vi.stubGlobal('fetch', (url: string, init: RequestInit = {}) => {
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     const method = init.method ?? 'GET';
 
     sent.push({
@@ -53,7 +51,7 @@ const routing = (route: (method: string, url: string) => Answer) =>
           : {},
     });
 
-    return Promise.resolve(answering(route(method, url)));
+    return answering(route(method, url));
   });
 
 const branch = (

@@ -1,5 +1,4 @@
 import { Triangle } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { ShownDelta } from '@/lib/insights';
@@ -17,7 +16,7 @@ type DeltaGlyphProps = {
   tooltip?: string;
 };
 
-export function DeltaGlyph({ delta, tooltip }: DeltaGlyphProps): ReactElement {
+export function DeltaGlyph({ delta, tooltip }: DeltaGlyphProps) {
   const up = delta.shown.startsWith('+') || delta.shown.startsWith('Up');
   const down = /^[-−]/.test(delta.shown);
 

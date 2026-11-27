@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
@@ -38,7 +38,7 @@ type TraceViewProps = {
   teamId: string;
 };
 
-export function TraceView({ trace, teamId }: TraceViewProps): ReactElement {
+export function TraceView({ trace, teamId }: TraceViewProps) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
   const [cited, setCited] = useState<LineRange | null>(null);
@@ -56,10 +56,7 @@ export function TraceView({ trace, teamId }: TraceViewProps): ReactElement {
     (event) => {
       const on = event.target instanceof Node ? event.target : null;
 
-      if (
-        listed.current?.contains(on) !== true &&
-        panel.current?.contains(on) !== true
-      ) {
+      if (!listed.current?.contains(on) && !panel.current?.contains(on)) {
         setPicked(null);
       }
     },

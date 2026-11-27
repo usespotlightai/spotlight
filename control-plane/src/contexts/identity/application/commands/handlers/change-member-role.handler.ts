@@ -20,7 +20,7 @@ export class ChangeMemberRoleHandler implements CommandHandlerPort<
         WorkspaceSlug.of(command.slug),
       );
 
-      if (workspace?.hasMember(by) !== true) {
+      if (!workspace?.hasMember(by)) {
         return false;
       }
 

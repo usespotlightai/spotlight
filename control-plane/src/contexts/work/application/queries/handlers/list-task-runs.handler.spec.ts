@@ -1,4 +1,5 @@
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   RunReaderPort,
@@ -263,10 +264,7 @@ describe('ListTaskRunsHandler', () => {
           task: {
             running: true,
             pending: {
-              assignee:
-                assignee !== null && assignee !== ''
-                  ? UserId.of(assignee)
-                  : null,
+              assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
               ask: ask && { ...ask, connectionAsk: null },
             },
           },
@@ -394,10 +392,7 @@ describe('ListTaskRunsHandler', () => {
           audience: audienceOf({
             task: {
               pending: {
-                assignee:
-                  assignee !== null && assignee !== ''
-                    ? UserId.of(assignee)
-                    : null,
+                assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
                 ask: null,
               },
             },

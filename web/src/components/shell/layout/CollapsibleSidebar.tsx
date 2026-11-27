@@ -1,10 +1,4 @@
-import {
-  type ReactNode,
-  useId,
-  useRef,
-  useState,
-  type ReactElement,
-} from 'react';
+import { type ReactNode, useId, useRef, useState } from 'react';
 
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { SidebarAside } from '@/components/shell/layout/SidebarAside';
@@ -61,9 +55,7 @@ type CollapsibleSidebarProps = {
   children?: ReactNode;
 };
 
-export function CollapsibleSidebar({
-  children,
-}: CollapsibleSidebarProps): ReactElement {
+export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
   const [closing, setClosing] = useState(false);
   const [leaving, setLeaving] = useSettling<true>();
   const asideRef = useRef<HTMLElement | null>(null);

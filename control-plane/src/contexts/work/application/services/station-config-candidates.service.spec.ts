@@ -105,14 +105,14 @@ const trialToolsOf = async (
   }
 
   const candidates = partial<CandidateLines>({
-    live: () => Promise.resolve({ line, station }),
-    configOf: () => Promise.resolve(configWith(stationTools)),
+    live: async () => ({ line, station }),
+    configOf: async () => configWith(stationTools),
   });
   const integrations = new TeamIntegrations({
-    provided: (_team, tools) =>
-      Promise.resolve(DECLARED.filter((each) => tools.includes(each.tool))),
-    toolsOnMarks: () => Promise.resolve([]),
-    toolsOnAnyMark: () => Promise.resolve(onAnyMark),
+    provided: async (_team, tools) =>
+      DECLARED.filter((each) => tools.includes(each.tool)),
+    toolsOnMarks: async () => [],
+    toolsOnAnyMark: async () => onAnyMark,
   });
 
   return (

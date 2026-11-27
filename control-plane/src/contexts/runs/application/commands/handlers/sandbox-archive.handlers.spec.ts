@@ -44,8 +44,8 @@ const setUp = (
 ) => {
   const sandboxes = new SandboxArchives(
     partial<SandboxesPort>({
-      authenticate: (token: string | undefined) =>
-        Promise.resolve(token === TOKEN ? sandbox : null),
+      authenticate: async (token: string | undefined) =>
+        token === TOKEN ? sandbox : null,
     }),
   );
   const archives = new InMemoryArchives();
@@ -62,8 +62,8 @@ const setUp = (
   );
   const restored = new RestoredArchives(archives, store);
   const stores: WorkingCopyStoresPort = {
-    ofRunner: () => Promise.resolve(null),
-    ofSandbox: () => Promise.resolve(null),
+    ofRunner: async () => null,
+    ofSandbox: async () => null,
   };
 
   return {

@@ -134,20 +134,17 @@ const grading = (
   const grade = vi.fn(answer);
 
   const answers = partial<QuestionAnswerRepository>({
-    find: () => Promise.resolve(stored),
-    save: (saved: QuestionAnswer) => {
+    find: async () => stored,
+    save: async (saved: QuestionAnswer) => {
       stored = saved;
-      return Promise.resolve();
     },
-    nextDueGrading: (at: Date) =>
-      Promise.resolve(
-        stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
-      ),
+    nextDueGrading: async (at: Date) =>
+      stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
   });
   const stackRepository = partial<ChangeStackRepository>({
-    find: (id: ChangeStackId) =>
-      Promise.resolve(stacks.find((each) => each.id.equals(id)) ?? null),
-    ofTask: () => Promise.resolve(stacks),
+    find: async (id: ChangeStackId) =>
+      stacks.find((each) => each.id.equals(id)) ?? null,
+    ofTask: async () => stacks,
   });
   const grader: AnswerGraderPort = { grade };
   let now = NOW;
@@ -157,7 +154,7 @@ const grading = (
     stackRepository,
     grader,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => now, sleep: () => Promise.resolve() },
+    { now: () => now, sleep: async () => {} },
     QUIET,
     { report: () => undefined },
     telemetryInMemory(),
@@ -172,12 +169,11 @@ const grading = (
   return { tick, grade, stored: () => stored };
 };
 
-const GRADED = (): Promise<GradedAnswer> =>
-  Promise.resolve({
-    status: 'graded',
-    grade: { verdict: 'partly-right', feedback: 'Not the bot.' },
-    usage: { inputTokens: 300, outputTokens: 40, cost: null },
-  });
+const GRADED = async (): Promise<GradedAnswer> => ({
+  status: 'graded',
+  grade: { verdict: 'partly-right', feedback: 'Not the bot.' },
+  usage: { inputTokens: 300, outputTokens: 40, cost: null },
+});
 
 describe('WorkAnswerGrades', () => {
   it('grades a pending answer in a session based on the stack’s run, against the hunks that show the answer', async () => {
@@ -252,12 +248,10 @@ describe('WorkAnswerGrades', () => {
   });
 
   it('grades again in a new round after a session gave no grade, then gives up', async () => {
-    const worked = grading(answered(RUN_STACK), () =>
-      Promise.resolve({
-        status: 'failed',
-        failure: SessionFailure.of('no-result'),
-      }),
-    );
+    const worked = grading(answered(RUN_STACK), async () => ({
+      status: 'failed',
+      failure: SessionFailure.of('no-result'),
+    }));
 
     for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
       await worked.tick(new Date(NOW.getTime() + day * DAY));
@@ -272,12 +266,10 @@ describe('WorkAnswerGrades', () => {
 
   it('gives up at once where no harness can run the session, or its run is in another workspace', async () => {
     for (const reason of ['no-harness', 'base-run-elsewhere'] as const) {
-      const worked = grading(answered(RUN_STACK), () =>
-        Promise.resolve({
-          status: 'failed',
-          failure: SessionFailure.of(reason),
-        }),
-      );
+      const worked = grading(answered(RUN_STACK), async () => ({
+        status: 'failed',
+        failure: SessionFailure.of(reason),
+      }));
 
       await worked.tick(NOW);
 

@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { WorkspaceTokenAlreadyIssuedError } from '@identity/domain/exceptions/workspace-token-already-issued.error';
@@ -22,6 +21,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -50,9 +50,7 @@ const rehydrated = (row: Row): WorkspaceToken =>
   });
 
 @Injectable()
-export class DrizzleWorkspaceTokenRepository
-  implements WorkspaceTokenRepository
-{
+export class DrizzleWorkspaceTokenRepository implements WorkspaceTokenRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -196,11 +194,9 @@ export class DrizzleWorkspaceTokenRepository
   }
 
   private async one(where: SQL): Promise<WorkspaceToken | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(workspaceToken)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db.select().from(workspaceToken).where(where).limit(1),
+    );
 
     return found ? rehydrated(found) : null;
   }

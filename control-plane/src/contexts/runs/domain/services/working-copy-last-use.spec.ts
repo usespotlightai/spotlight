@@ -1,4 +1,5 @@
 import { lastUseOf } from '@runs/domain/services/working-copy-last-use';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { describe, expect, it } from 'vitest';
 
 const at = (time: string) => new Date(`2026-11-14T${time}:00.000Z`);
@@ -9,12 +10,8 @@ const use = (
 ) => ({
   id,
   createdAt: at(times.created),
-  startedAt:
-    times.started !== undefined && times.started !== ''
-      ? at(times.started)
-      : null,
-  endedAt:
-    times.ended !== undefined && times.ended !== '' ? at(times.ended) : null,
+  startedAt: nonEmpty(times.started) ? at(times.started) : null,
+  endedAt: nonEmpty(times.ended) ? at(times.ended) : null,
 });
 
 describe('lastUseOf', () => {

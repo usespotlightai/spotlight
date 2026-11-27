@@ -15,7 +15,7 @@ const rule = { window: 10, max: 3 };
 
 describe('redisRateLimit', () => {
   it('allows a request the store counted within the limit', async () => {
-    const eval_ = vi.fn(() => Promise.resolve(-1));
+    const eval_ = vi.fn(async () => -1);
 
     await expect(
       redisRateLimit({ eval: eval_ }, logger).consume('ip|/sign-in', rule),
@@ -31,10 +31,7 @@ describe('redisRateLimit', () => {
 
   it('refuses a request over the limit until the window frees up', async () => {
     await expect(
-      redisRateLimit({ eval: () => Promise.resolve(1_500) }, logger).consume(
-        'key',
-        rule,
-      ),
+      redisRateLimit({ eval: async () => 1_500 }, logger).consume('key', rule),
     ).resolves.toEqual({ allowed: false, retryAfter: 2 });
   });
 
@@ -42,8 +39,8 @@ describe('redisRateLimit', () => {
     await expect(
       redisRateLimit(
         {
-          eval: () => {
-            return Promise.reject(new Error('Command timed out'));
+          eval: async () => {
+            throw new Error('Command timed out');
           },
         },
         logger,

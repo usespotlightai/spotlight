@@ -1,5 +1,6 @@
 import { InvalidConfigSourceError } from '@lines/domain/exceptions/invalid-config-source.error';
 import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid-repository.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 const LONGEST_PATH = 1_024;
@@ -46,7 +47,7 @@ export class ConfigSource {
 
     const problem = pathProblem(input.path);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InvalidConfigSourceError('path', problem);
     }
 

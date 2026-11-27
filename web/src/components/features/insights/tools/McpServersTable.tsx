@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
@@ -85,10 +85,7 @@ type McpServersTableProps = {
   dismissals: readonly ToolDismissals[];
 };
 
-export function McpServersTable({
-  servers,
-  dismissals,
-}: McpServersTableProps): ReactElement {
+export function McpServersTable({ servers, dismissals }: McpServersTableProps) {
   const others = dismissals.filter(
     (each) =>
       each.server === null ||

@@ -1,4 +1,5 @@
 import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid-repository.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { InvalidConfigFolderError } from '@work/domain/exceptions/invalid-config-folder.error';
@@ -50,7 +51,7 @@ export class ConfigFolder {
     const folder = input.folder.trim().replace(/^\/+|\/+$/g, '');
     const problem = folderProblem(folder);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InvalidConfigFolderError('folder', problem);
     }
 

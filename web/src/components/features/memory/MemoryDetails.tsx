@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { RetireReply } from '@/components/features/memory/RetireReply';
 import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButtons';
@@ -30,7 +30,7 @@ export function MemoryDetails({
   onEdit,
   onCancel,
   onSave,
-}: MemoryDetailsProps): ReactElement {
+}: MemoryDetailsProps) {
   const query = useTeamMemory(teamId, memoryId);
   const [retiring, setRetiring] = useState(false);
 

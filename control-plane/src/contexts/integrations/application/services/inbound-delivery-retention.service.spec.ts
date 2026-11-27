@@ -31,8 +31,8 @@ const retentionOf = (deliveries: readonly InboundDelivery[]) => {
     add: vi.fn(),
     claimCandidates: vi.fn(),
     current: vi.fn(),
-    addressedTo: vi.fn(() => Promise.resolve(deliveries)),
-    finishedBefore: vi.fn(() => Promise.resolve(deliveries)),
+    addressedTo: vi.fn(async () => deliveries),
+    finishedBefore: vi.fn(async () => deliveries),
     save: vi.fn(),
     remove: vi.fn(async () => {}),
   } satisfies InboundDeliveryRepository;

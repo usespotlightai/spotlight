@@ -1,7 +1,7 @@
 import { InvalidFilePathError } from '@change-review/domain/exceptions/invalid-file-path.error';
 
 export class FilePath {
-  private readonly kind: string = 'file-path';
+  private readonly kind = 'file-path';
 
   private constructor(readonly value: string) {}
 
@@ -16,7 +16,7 @@ export class FilePath {
   }
 
   equals(other: FilePath): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof FilePath && this.value === other.value;
   }
 
   toString(): string {

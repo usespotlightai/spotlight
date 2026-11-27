@@ -13,6 +13,7 @@ import { StationAlert } from '@lines/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@lines/domain/value-objects/station-check.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -75,8 +76,7 @@ const plan = (over: Partial<Parameters<typeof LinePlan.of>[0]> = {}) =>
 
 const repositoryConfig = (name: string, setup?: string) =>
   LineRepositoryConfig.of(Repository.of(name), {
-    setup:
-      setup !== undefined && setup !== '' ? RepositorySetup.of(setup) : null,
+    setup: nonEmpty(setup) ? RepositorySetup.of(setup) : null,
   });
 
 const checking = (over: Partial<StationPlan> = {}) =>

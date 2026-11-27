@@ -1,4 +1,4 @@
-import { type ReactElement, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { ClaimAnsweredRows } from '@/components/features/inbox/disagreements/ClaimAnsweredRows';
 import { ClaimAnswerRow } from '@/components/features/inbox/disagreements/ClaimAnswerRow';
@@ -46,7 +46,7 @@ export function DisputedClaimCard({
   scores,
   loading,
   answererOf,
-}: DisputedClaimCardProps): ReactElement {
+}: DisputedClaimCardProps) {
   const send = useAnswerDisagreementClaim();
   const [draft, setDraft] = useState<ClaimDraft>(EMPTY_CLAIM_DRAFT);
   const section = useRef<HTMLElement>(null);

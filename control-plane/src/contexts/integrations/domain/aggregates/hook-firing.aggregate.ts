@@ -26,6 +26,7 @@ import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -165,7 +166,7 @@ export class HookFiring extends EventRecorder {
 
     const trail = impossibleTrail(state.steps);
 
-    if (trail !== null && trail !== '') {
+    if (nonEmpty(trail)) {
       throw new InconsistentStateError(
         'hook firing',
         `${trail} (${state.id.value})`,

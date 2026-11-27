@@ -12,10 +12,9 @@ const TEAM = TeamId.of('team_1');
 const stored = (files: Readonly<Record<string, string>>) =>
   new TeamSkillReading(
     {
-      of: () =>
-        Promise.resolve([
-          { key: DefinedSkillKey.of('grafana'), files: SkillFiles.of(files) },
-        ]),
+      of: async () => [
+        { key: DefinedSkillKey.of('grafana'), files: SkillFiles.of(files) },
+      ],
     } satisfies TeamSkillFoldersPort,
     new SkillCompiler(),
   );

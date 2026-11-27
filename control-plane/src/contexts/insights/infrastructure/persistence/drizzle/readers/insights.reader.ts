@@ -76,7 +76,10 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     team: TeamInPeriod,
     filter: AgentConfigFilter,
   ): Promise<AgentConfigComparisonCounts> {
-    return this.reading.read((db) => agentConfigCountsIn(db, team, filter), NO_JIT);
+    return this.reading.read(
+      (db) => agentConfigCountsIn(db, team, filter),
+      NO_JIT,
+    );
   }
 
   changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]> {
@@ -87,22 +90,30 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     team: TeamInPeriod,
     repositories: readonly string[],
   ): Promise<PullRequestCounts> {
-    return this.reading.read((db) =>
-      pullRequestCountsIn(db, team, repositories), NO_JIT);
+    return this.reading.read(
+      (db) => pullRequestCountsIn(db, team, repositories),
+      NO_JIT,
+    );
   }
 
   pullRequestPage(
     team: TeamInPeriod,
     listing: PullRequestListing,
   ): Promise<PullRequestPage> {
-    return this.reading.read((db) => pullRequestPageIn(db, team, listing), NO_JIT);
+    return this.reading.read(
+      (db) => pullRequestPageIn(db, team, listing),
+      NO_JIT,
+    );
   }
 
   shippingCounts(
     team: TeamInPeriod,
     repositories: readonly string[],
   ): Promise<ShippingCounts> {
-    return this.reading.read((db) => shippingCountsIn(db, team, repositories), NO_JIT);
+    return this.reading.read(
+      (db) => shippingCountsIn(db, team, repositories),
+      NO_JIT,
+    );
   }
 
   runPage(listing: RunListing): Promise<RunsListed> {
@@ -113,6 +124,9 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     window: TeamWindow,
     taskIds: readonly string[],
   ): Promise<ReadonlyMap<string, number>> {
-    return this.reading.read((db) => runsPerTaskIn(db, window, taskIds), NO_JIT);
+    return this.reading.read(
+      (db) => runsPerTaskIn(db, window, taskIds),
+      NO_JIT,
+    );
   }
 }

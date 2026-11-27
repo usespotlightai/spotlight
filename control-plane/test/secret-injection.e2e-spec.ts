@@ -93,12 +93,11 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const fetch = vi.fn((_url: string | URL | Request, _init?: RequestInit) =>
-    Promise.resolve(
+  const fetch = vi.fn(
+    async (_url: string | URL | Request, _init?: RequestInit) =>
       new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
         status: 200,
       }),
-    ),
   );
 
   const post = (path: string, body: object) =>

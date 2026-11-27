@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
@@ -31,7 +29,7 @@ export function StationWaitsTable({
   teamId,
   stations,
   names,
-}: StationWaitsTableProps): ReactElement {
+}: StationWaitsTableProps) {
   const columns: InsightsColumn<StationFlow>[] = [
     {
       id: 'station',

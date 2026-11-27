@@ -116,7 +116,7 @@ const answering = (
   const handler = new AnswerQuestionHandler(
     over.access ??
       partial<TeamWorkAccess>({
-        actingOnStack: (
+        actingOnStack: async (
           _teamId: string,
           visibility: StackVisibility | null,
           _viewerId: string,
@@ -131,47 +131,34 @@ const answering = (
           }),
       }),
     partial<ChangeStackRepository>({
-      find: () => Promise.resolve(over.stack ?? asking()),
+      find: async () => over.stack ?? asking(),
     }),
     {
-      find: () => Promise.resolve(stored),
-      nextDueGrading: () => Promise.resolve(null),
-      of: () => Promise.resolve(stored),
-      add: (answer: QuestionAnswer) => {
+      find: async () => stored,
+      nextDueGrading: async () => null,
+      of: async () => stored,
+      add: async (answer: QuestionAnswer) => {
         if (over.answeredMeanwhile && !stored) {
           stored = over.answeredMeanwhile;
-          return Promise.reject(
-            new QuestionAnswerVersionConflictError(answer.id.value),
-          );
+          throw new QuestionAnswerVersionConflictError(answer.id.value);
         }
         if (over.takenOnTask && !taken) {
           taken = over.takenOnTask;
-          return Promise.reject(
-            new QuestionAnswerVersionConflictError(answer.id.value),
-          );
+          throw new QuestionAnswerVersionConflictError(answer.id.value);
         }
         added.push(answer);
-        return Promise.resolve();
       },
-      save: (answer: QuestionAnswer) => {
+      save: async (answer: QuestionAnswer) => {
         if (over.takenOnSave && !taken) {
           taken = over.takenOnSave;
-          return Promise.reject(
-            new QuestionAnswerVersionConflictError(answer.id.value),
-          );
+          throw new QuestionAnswerVersionConflictError(answer.id.value);
         }
         saved.push(answer);
-        return Promise.resolve();
       },
-      ofTask: () => Promise.resolve(over.inTask ?? []),
-      ofTaskBy: () =>
-        Promise.resolve(
-          over.inTask ?? [
-            ...(stored ? [stored] : []),
-            ...(taken ? [taken] : []),
-          ],
-        ),
-      ofTeam: () => Promise.resolve([]),
+      ofTask: async () => over.inTask ?? [],
+      ofTaskBy: async () =>
+        over.inTask ?? [...(stored ? [stored] : []), ...(taken ? [taken] : [])],
+      ofTeam: async () => [],
       remove: async () => {},
     } satisfies QuestionAnswerRepository,
     { generate: () => 'answer-1' },
@@ -358,25 +345,24 @@ describe('AnswerQuestionHandler', () => {
       currentRunId: null,
     };
     const accessTo = (task: ReviewedTask | null, actsOnTeam = true) => {
-      const run = vi.fn(() => Promise.resolve(null));
+      const run = vi.fn(async () => null);
 
       return {
         run,
         access: new TeamWorkAccess(
           {
-            viewerOf: () =>
-              Promise.resolve({
-                workspaceId: WorkspaceId.of('workspace-1'),
-                teamId: TeamId.of('team_1'),
-                by: UserId.of('user-1'),
-              }),
-            actsOnTeam: () => Promise.resolve(actsOnTeam),
-            find: () => Promise.resolve(null),
+            viewerOf: async () => ({
+              workspaceId: WorkspaceId.of('workspace-1'),
+              teamId: TeamId.of('team_1'),
+              by: UserId.of('user-1'),
+            }),
+            actsOnTeam: async () => actsOnTeam,
+            find: async () => null,
           },
           partial<WorkPort>({
             run,
-            task: () => Promise.resolve(task),
-            teamOfRun: () => Promise.resolve(null),
+            task: async () => task,
+            teamOfRun: async () => null,
           }),
         ),
       };

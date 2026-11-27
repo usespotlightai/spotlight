@@ -67,6 +67,7 @@ import type {
 } from '@runs/domain/value-objects/working-copy-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -163,9 +164,7 @@ const orderProblem = (ordered: RunOrdered, spec: RunSpec): string | null => {
     ? null
     : actsBeyondItselfIn(spec.value);
 
-  return beyond !== null && beyond !== ''
-    ? `acts only on itself, yet ${beyond}`
-    : null;
+  return nonEmpty(beyond) ? `acts only on itself, yet ${beyond}` : null;
 };
 
 export class Run extends EventRecorder {
@@ -235,7 +234,7 @@ export class Run extends EventRecorder {
     });
     const problem = orderProblem(ordered, input.spec);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InvalidRunOrderError(problem);
     }
 
@@ -462,7 +461,7 @@ export class Run extends EventRecorder {
     }
     if (
       input.state === 'suspended' &&
-      (input.outcome?.handsOver !== true || !input.ordered.policy.holdsTurn)
+      (!input.outcome?.handsOver || !input.ordered.policy.holdsTurn)
     ) {
       throw new InconsistentStateError(
         'run',
@@ -500,13 +499,10 @@ export class Run extends EventRecorder {
     }
     const problem = orderProblem(input.ordered, input.spec);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('run', problem);
     }
-    if (
-      input.askedAPerson === true &&
-      input.ordered.policy.asks !== 'recorded'
-    ) {
+    if (input.askedAPerson && input.ordered.policy.asks !== 'recorded') {
       throw new InconsistentStateError(
         'run',
         'recorded that it asked a person though its requester takes its asks',
@@ -599,7 +595,7 @@ export class Run extends EventRecorder {
 
     const workingCopy = this.ordered.workingCopy;
 
-    return workingCopy?.restoresWhen(this.spec.continuesASession) === true
+    return workingCopy?.restoresWhen(this.spec.continuesASession)
       ? { newestOf: workingCopy.key }
       : null;
   }
@@ -682,7 +678,7 @@ export class Run extends EventRecorder {
         `Run ${this.id.value} waits before a runner can claim it again.`,
       );
     }
-    if (this.isReservedAt(now) && this.reservation?.isFor(by) !== true) {
+    if (this.isReservedAt(now) && !this.reservation?.isFor(by)) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} is waiting for the runner provisioned for it.`,
       );
@@ -712,7 +708,7 @@ export class Run extends EventRecorder {
   ): ProvisionFailure | null {
     if (
       this.state !== 'queued' ||
-      this.reservation?.isFor(runner) !== true ||
+      !this.reservation?.isFor(runner) ||
       harnesses.some((each) => each.equals(this.harness))
     ) {
       return null;
@@ -771,7 +767,7 @@ export class Run extends EventRecorder {
   }
 
   unreservedFor(runner: RunnerId): Run {
-    if (this.state !== 'queued' || this.reservation?.isFor(runner) !== true) {
+    if (this.state !== 'queued' || !this.reservation?.isFor(runner)) {
       return this;
     }
 
@@ -782,7 +778,7 @@ export class Run extends EventRecorder {
   }
 
   provisionFailed(runner: RunnerId, failure: ProvisionFailure, now: Date): Run {
-    if (this.state !== 'queued' || this.reservation?.isFor(runner) !== true) {
+    if (this.state !== 'queued' || !this.reservation?.isFor(runner)) {
       return this;
     }
 
@@ -968,7 +964,7 @@ export class Run extends EventRecorder {
       );
     }
 
-    if (this.ranIn?.equals(image) === true) {
+    if (this.ranIn?.equals(image)) {
       return this;
     }
 
@@ -1176,7 +1172,7 @@ export class Run extends EventRecorder {
   keep(attempt: RunAttempt, now: Date): Run {
     const turn = this.turnAt(attempt);
 
-    if (turn?.pending !== true) {
+    if (!turn?.pending) {
       return this;
     }
 
@@ -1546,7 +1542,7 @@ export class Run extends EventRecorder {
   }
 
   requestStop(now: Date): Run {
-    if (this.state === 'suspended' && this.turn?.pending === true) {
+    if (this.state === 'suspended' && this.turn?.pending) {
       return this.stopRequested ? this : this.stoppingAt(now);
     }
 
@@ -1615,7 +1611,7 @@ export class Run extends EventRecorder {
     const reported = this.attemptNumbered(attempt);
 
     if (
-      reported?.equals(this.attempt) === true &&
+      reported?.equals(this.attempt) &&
       (isLeased(this.state) || this.state === 'queued')
     ) {
       throw new InvalidRunTransitionError(
@@ -1788,7 +1784,7 @@ export class Run extends EventRecorder {
         `Cannot ${action} run ${this.id.value} while it is ${this.state}.`,
       );
     }
-    if (this.claimedBy?.equals(by) !== true) {
+    if (!this.claimedBy?.equals(by)) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} is claimed by runner ${this.claimedBy?.value ?? 'none'}.`,
       );

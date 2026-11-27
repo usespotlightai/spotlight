@@ -27,6 +27,7 @@ import { listingSizeOf } from '@insights/domain/value-objects/listing.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -86,7 +87,7 @@ export class ReadStationInsightsHandler implements QueryHandlerPort<
         [
           ...new Set(
             newestFirst.flatMap((group) =>
-              group.fingerprint !== null && group.fingerprint !== ''
+              nonEmpty(group.fingerprint)
                 ? [ConfigFingerprint.of(group.fingerprint)]
                 : [],
             ),

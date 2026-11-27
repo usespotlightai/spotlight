@@ -34,7 +34,7 @@ export function useRowClick(
 
       if (
         target.closest(OWN_CLICKS) ||
-        latest.current.ignore?.(target) === true ||
+        latest.current.ignore?.(target) ||
         (window.getSelection()?.toString() ?? '') !== ''
       ) {
         return;

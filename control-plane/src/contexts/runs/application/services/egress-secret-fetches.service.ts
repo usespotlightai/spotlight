@@ -83,7 +83,7 @@ export class EgressSecretFetches {
       : null;
     const still = await this.leasedBy(runId, runner, authorized.workspaceId);
 
-    if (still?.attempt.equals(leased.attempt) !== true) {
+    if (!still?.attempt.equals(leased.attempt)) {
       await this.grants.leaseLost({
         workspaceId: authorized.workspaceId,
         runId: runId.value,

@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { SidebarHeading } from '@/components/shell/layout/SidebarHeading';
 
@@ -7,10 +7,7 @@ type SettingsNavGroupProps = {
   children: ReactNode;
 };
 
-export function SettingsNavGroup({
-  heading,
-  children,
-}: SettingsNavGroupProps): ReactElement {
+export function SettingsNavGroup({ heading, children }: SettingsNavGroupProps) {
   return (
     <section>
       <SidebarHeading>{heading}</SidebarHeading>

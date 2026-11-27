@@ -52,7 +52,10 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
       .select({ memoryId: memoryUse.memoryId })
       .from(memoryUse)
       .where(
-        and(eq(memoryUse.runId, runId.value), inArray(memoryUse.via, [...vias])),
+        and(
+          eq(memoryUse.runId, runId.value),
+          inArray(memoryUse.via, [...vias]),
+        ),
       )
       .orderBy(asc(memoryUse.at));
 

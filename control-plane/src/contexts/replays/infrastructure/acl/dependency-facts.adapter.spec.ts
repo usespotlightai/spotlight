@@ -19,37 +19,35 @@ describe('DependencyFactsReader', () => {
     const reader = new DependencyFactsReader(
       {
         register: () => {},
-        of: (secret) => {
+        of: async (secret) => {
           asked.push(secret);
-          return Promise.resolve(
-            secret.name === 'API_KEY'
-              ? [
-                  {
-                    kind: 'harness-profile',
-                    key: 'core/careful',
-                    exposes: false,
-                  },
-                  {
-                    kind: 'harness-profile',
-                    key: 'core-two/careful',
-                    exposes: false,
-                  },
-                  { kind: 'integration', key: 'core/linear', exposes: false },
-                  { kind: 'hook', key: 'core/notify', exposes: false },
-                ]
-              : [],
-          );
+          return secret.name === 'API_KEY'
+            ? [
+                {
+                  kind: 'harness-profile',
+                  key: 'core/careful',
+                  exposes: false,
+                },
+                {
+                  kind: 'harness-profile',
+                  key: 'core-two/careful',
+                  exposes: false,
+                },
+                { kind: 'integration', key: 'core/linear', exposes: false },
+                { kind: 'hook', key: 'core/notify', exposes: false },
+              ]
+            : [];
         },
       },
       {
-        skills: () => Promise.resolve([{ key: 'tdd', secrets: ['TDD_KEY'] }]),
-        hooksAt: (_team, station, hooks) => {
+        skills: async () => [{ key: 'tdd', secrets: ['TDD_KEY'] }],
+        hooksAt: async (_team, station, hooks) => {
           asked.push({ station, hooks });
-          return Promise.resolve([{ key: 'notify', integrations: ['linear'] }]);
+          return [{ key: 'notify', integrations: ['linear'] }];
         },
-        enablingToolsOnMarks: (integrations) => {
+        enablingToolsOnMarks: async (integrations) => {
           asked.push({ integrations });
-          return Promise.resolve(['posthog']);
+          return ['posthog'];
         },
       },
     );

@@ -12,22 +12,19 @@ const line = warmLineOf({ warm: 2 });
 
 const keepingWith = (over: { requestFails?: boolean } = {}) => {
   const sandboxes = {
-    kept: vi.fn(() =>
-      Promise.resolve([
-        {
-          id: 'sandbox_old',
-          lineId: line.id,
-          fingerprint: WarmFingerprint.of('outdated'),
-          placed: true,
-        },
-      ]),
-    ),
-    linesLostSince: vi.fn(() => Promise.resolve([])),
-    request: vi.fn(() => {
-      if (over.requestFails === true) {
-        return Promise.reject(new Error('runners down'));
+    kept: vi.fn(async () => [
+      {
+        id: 'sandbox_old',
+        lineId: line.id,
+        fingerprint: WarmFingerprint.of('outdated'),
+        placed: true,
+      },
+    ]),
+    linesLostSince: vi.fn(async () => []),
+    request: vi.fn(async () => {
+      if (over.requestFails) {
+        throw new Error('runners down');
       }
-      return Promise.resolve();
     }),
     retire: vi.fn(async () => {}),
   } satisfies WarmSandboxKeepingPort;
@@ -37,7 +34,7 @@ const keepingWith = (over: { requestFails?: boolean } = {}) => {
     error: vi.fn(),
   });
   const keeping = new WarmSandboxKeeping(
-    { keepingWarmSandboxes: () => Promise.resolve([line]) },
+    { keepingWarmSandboxes: async () => [line] },
     sandboxes,
     { now: () => NOW, sleep: async () => {} },
     logger,

@@ -21,19 +21,15 @@ const setUp = async () => {
   await disagreements.add(opened);
   const moved: string[] = [];
   const inbox = new JudgeDisagreementInbox(disagreements, {
-    ask: (taskId, disagreementId, askedOf) => {
+    ask: async (taskId, disagreementId, askedOf) => {
       moved.push(
         `ask ${taskId.value} ${disagreementId.value} ${askedOf?.value}`,
       );
-
-      return Promise.resolve();
     },
-    resolve: (taskId, disagreementId, askedOf) => {
+    resolve: async (taskId, disagreementId, askedOf) => {
       moved.push(
         `resolve ${taskId.value} ${disagreementId.value} ${askedOf?.value}`,
       );
-
-      return Promise.resolve();
     },
   });
   const args = [

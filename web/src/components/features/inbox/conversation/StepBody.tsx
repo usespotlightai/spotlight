@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ShownStep } from '@/lib/journal-step';
@@ -9,7 +7,7 @@ type StepBodyProps = {
   command: string;
 };
 
-export function StepBody({ shown, command }: StepBodyProps): ReactElement {
+export function StepBody({ shown, command }: StepBodyProps) {
   if (shown.prose) {
     return (
       <ScrollArea orientation="both" className="mt-0.5 mb-1 max-h-64">

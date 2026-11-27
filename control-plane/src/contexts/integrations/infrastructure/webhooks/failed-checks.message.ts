@@ -1,4 +1,5 @@
 import type { FailedCheck } from '@github/application/dto/pull-request-activity.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const LOG_LINES = 40;
 
@@ -40,22 +41,17 @@ const detailOf = (check: FailedCheck): string | null => {
       ? headOf(check.summary.trim())
       : null;
 
-  if (
-    (check.step === null || check.step === '') &&
-    (log === null || log === '') &&
-    (summary === null || summary === '')
-  ) {
+  if (!nonEmpty(check.step) && !nonEmpty(log) && !nonEmpty(summary)) {
     return null;
   }
 
-  const failed =
-    check.step !== null && check.step !== ''
-      ? `**${check.name}** failed at the step "${check.step}".`
-      : `**${check.name}** failed.`;
+  const failed = nonEmpty(check.step)
+    ? `**${check.name}** failed at the step "${check.step}".`
+    : `**${check.name}** failed.`;
 
   return [
-    log !== null && log !== '' ? `${failed} The end of its log:` : failed,
-    log !== null && log !== '' ? fenced(log) : summary,
+    nonEmpty(log) ? `${failed} The end of its log:` : failed,
+    nonEmpty(log) ? fenced(log) : summary,
   ]
     .filter(Boolean)
     .join('\n\n');

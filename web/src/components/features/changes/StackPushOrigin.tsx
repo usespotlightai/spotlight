@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { type ChangeStack, shortCommit } from '@/lib/change-stack';
 import { nonEmpty } from '@/lib/non-empty';
 
@@ -7,9 +5,7 @@ type StackPushOriginProps = {
   stack: ChangeStack;
 };
 
-export function StackPushOrigin({
-  stack,
-}: StackPushOriginProps): ReactElement | null {
+export function StackPushOrigin({ stack }: StackPushOriginProps) {
   if (!stack.push) {
     return null;
   }

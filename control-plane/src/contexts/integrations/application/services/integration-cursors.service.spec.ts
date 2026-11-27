@@ -27,14 +27,14 @@ const ran = ScheduleCursor.rehydrate({
 
 const cursorsWith = (poll: PollCursor, schedule: ScheduleCursor) => {
   const polls = {
-    of: vi.fn(() => Promise.resolve(poll)),
-    ofTeam: vi.fn(() => Promise.resolve([poll])),
+    of: vi.fn(async () => poll),
+    ofTeam: vi.fn(async () => [poll]),
     save: vi.fn(),
     remove: vi.fn(async () => {}),
   } satisfies PollCursorRepository;
   const schedules = {
-    of: vi.fn(() => Promise.resolve(schedule)),
-    ofTeam: vi.fn(() => Promise.resolve([schedule])),
+    of: vi.fn(async () => schedule),
+    ofTeam: vi.fn(async () => [schedule]),
     save: vi.fn(),
     remove: vi.fn(async () => {}),
   } satisfies ScheduleCursorRepository;

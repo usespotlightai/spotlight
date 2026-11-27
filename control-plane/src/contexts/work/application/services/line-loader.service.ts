@@ -46,7 +46,7 @@ export class LineLoader {
     actorId: string,
     unknown: () => Error,
   ): Promise<LineMap> {
-    if (line?.teamId.equals(TeamId.of(teamId)) !== true) {
+    if (!line?.teamId.equals(TeamId.of(teamId))) {
       throw unknown();
     }
 

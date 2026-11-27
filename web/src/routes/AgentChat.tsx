@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router';
 
 import { AgentChatSkeleton } from '@/components/features/agent/AgentChatSkeleton';
@@ -65,7 +65,7 @@ function ChatNotLoaded({
   );
 }
 
-export function AgentChat(): ReactElement | null {
+export function AgentChat() {
   const { slug, teamId, chatId } = useParams();
   const thread = useChat(teamId, chatId);
   const chat = thread.data;

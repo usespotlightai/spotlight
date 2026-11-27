@@ -4,7 +4,7 @@ import { trimmedWithin } from '@identity/domain/value-objects/trimmed-within';
 const LONGEST = 1000;
 
 export class OidcTrustDescription {
-  private readonly kind: string = 'oidc-trust-description';
+  private readonly kind = 'oidc-trust-description';
 
   private constructor(readonly value: string) {}
 
@@ -19,6 +19,6 @@ export class OidcTrustDescription {
   }
 
   equals(other: OidcTrustDescription): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OidcTrustDescription && this.value === other.value;
   }
 }

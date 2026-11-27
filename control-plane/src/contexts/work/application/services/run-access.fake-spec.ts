@@ -40,12 +40,12 @@ export const runAccessWhere = (
   standing: TeamStanding = MEMBER,
 ): RunAccess =>
   new RunAccess(
-    partial<ChatReaderPort>({ ownershipOf: () => Promise.resolve(null) }),
+    partial<ChatReaderPort>({ ownershipOf: async () => null }),
     partial<WorkAccess>({
-      seesWorkspace: () => Promise.resolve(sees),
-      seesWorkspaceOfTeam: () => Promise.resolve(false),
-      opensChat: () => Promise.resolve(false),
-      standingOn: () => Promise.resolve(standing),
+      seesWorkspace: async () => sees,
+      seesWorkspaceOfTeam: async () => false,
+      opensChat: async () => false,
+      standingOn: async () => standing,
     }),
   );
 
@@ -63,18 +63,17 @@ export const linesWhere = (
   harnessed: readonly string[] = [HARNESSED],
 ): LineMapsPort =>
   partial<LineMapsPort>({
-    ofTeam: () =>
-      Promise.resolve([
-        partial<LineMap>({
-          stationAt: (id: StationId) =>
-            partial<Station>({
-              harness: harnessed.includes(id.value)
-                ? HarnessId.of('claude-code')
-                : null,
-            }),
-          completed: partial<Station>({ id: StationId.of(COMPLETED) }),
-        }),
-      ]),
+    ofTeam: async () => [
+      partial<LineMap>({
+        stationAt: (id: StationId) =>
+          partial<Station>({
+            harness: harnessed.includes(id.value)
+              ? HarnessId.of('claude-code')
+              : null,
+          }),
+        completed: partial<Station>({ id: StationId.of(COMPLETED) }),
+      }),
+    ],
   });
 
 export const audienceOf = (

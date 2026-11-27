@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { ClaimMark } from '@/components/features/runs/judge/ClaimMark';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
@@ -21,7 +21,7 @@ export function ClaimVerdictRow({
   met,
   reasons,
   defaultOpen,
-}: ClaimVerdictRowProps): ReactElement {
+}: ClaimVerdictRowProps) {
   const [open, setOpen] = useState(defaultOpen);
   const expandable = reasons.length > 0;
   const shown = expandable && open;

@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { FileDiffSkeleton } from '@/components/features/changes/FileDiffSkeleton';
 import { LargeDiffNotice } from '@/components/features/changes/LargeDiffNotice';
@@ -18,7 +18,7 @@ export function LayerFileDiff({
   hunks,
   mounted,
   lines,
-}: LayerFileDiffProps): ReactElement | null {
+}: LayerFileDiffProps) {
   const [loaded, setLoaded] = useState(false);
 
   if (loaded && !mounted) {

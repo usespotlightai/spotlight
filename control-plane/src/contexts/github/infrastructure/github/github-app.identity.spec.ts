@@ -18,7 +18,7 @@ const env = partial<Env>({
 const answering = (body: unknown, ok = true) =>
   vi
     .fn<(url: string, init: { headers: Record<string, string> }) => unknown>()
-    .mockResolvedValue({ ok, json: () => Promise.resolve(body) });
+    .mockResolvedValue({ ok, json: async () => body });
 
 afterEach(() => {
   vi.unstubAllGlobals();

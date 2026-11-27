@@ -1,13 +1,7 @@
-import type { ReactElement } from 'react';
-
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { cn } from '@/lib/utils';
 
-export function SkeletonLine({
-  className,
-}: {
-  className?: string;
-}): ReactElement {
+export function SkeletonLine({ className }: { className?: string }) {
   return (
     <span
       aria-hidden

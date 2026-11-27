@@ -46,7 +46,7 @@ export class PickSearchCandidates {
 
     const seen = await this.searches.find(event.searchId);
 
-    if (seen?.awaitsPick !== true) {
+    if (!seen?.awaitsPick) {
       return;
     }
 
@@ -60,7 +60,7 @@ export class PickSearchCandidates {
     await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(event.searchId);
 
-      if (search?.awaitsPick !== true) {
+      if (!search?.awaitsPick) {
         return;
       }
 

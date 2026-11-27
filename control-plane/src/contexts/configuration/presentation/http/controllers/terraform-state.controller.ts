@@ -31,6 +31,7 @@ import { AllowBasicCredentials } from '@platform/http/decorators/allow-basic-cre
 import { AllowWorkspaceTokens } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
@@ -57,11 +58,7 @@ const md5Of = (body: Uint8Array): string =>
   createHash('md5').update(body).digest('hex');
 
 const assertDigest = (md5: string, sent: string | undefined): void => {
-  if (
-    sent !== undefined &&
-    sent !== '' &&
-    Buffer.from(sent, 'base64').toString('hex') !== md5
-  ) {
+  if (nonEmpty(sent) && Buffer.from(sent, 'base64').toString('hex') !== md5) {
     throw new BadRequestException(
       'The Content-MD5 header does not match the state Terraform sent. Please run the command again.',
     );
@@ -151,7 +148,7 @@ export class TerraformStateController {
           slug,
           name,
           actor,
-          lockId === undefined || lockId === '' ? null : lockId,
+          !nonEmpty(lockId) ? null : lockId,
           body,
           md5,
         ),

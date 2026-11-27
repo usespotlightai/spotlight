@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import {
   DETAILS_GRID,
@@ -22,7 +20,7 @@ const TILES = [
   { label: null, detail: true },
 ];
 
-export function JudgeAgreementSkeleton(): ReactElement {
+export function JudgeAgreementSkeleton() {
   return (
     <div
       role="status"

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
@@ -17,7 +15,7 @@ type SpotlightShareTableProps = {
 export function SpotlightShareTable({
   weeks,
   repository,
-}: SpotlightShareTableProps): ReactElement {
+}: SpotlightShareTableProps) {
   const counted = (
     week: WeekShare,
     count: number,

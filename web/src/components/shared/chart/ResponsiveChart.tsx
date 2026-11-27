@@ -8,10 +8,7 @@ type ResponsiveChartProps = {
   children: ReactElement;
 };
 
-export function ResponsiveChart({
-  height,
-  children,
-}: ResponsiveChartProps): ReactElement {
+export function ResponsiveChart({ height, children }: ResponsiveChartProps) {
   const frame = useRef<HTMLDivElement>(null);
   const width = useElementWidth(frame);
 

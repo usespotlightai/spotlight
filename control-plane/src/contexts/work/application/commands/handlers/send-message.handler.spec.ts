@@ -1,6 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -133,26 +134,22 @@ const sendMessage = (
     },
   );
   const live: LiveTaskDraftsPort = {
-    writers: () => Promise.resolve(typed.map(UserId.of)),
-    sent: (_taskId, next) => {
+    writers: async () => typed.map(UserId.of),
+    sent: async (_taskId, next) => {
       announced.push(next.value);
-
-      return Promise.resolve();
     },
   };
 
   const dispatch: TaskDispatching = {
-    runIdFor: ({ task: wanting }) => {
+    runIdFor: async ({ task: wanting }) => {
       dispatched.push(wanting);
-      return Promise.resolve(
-        runnerFor !== null && runnerFor !== '' ? RunId.of(runnerFor) : null,
-      );
+      return nonEmpty(runnerFor) ? RunId.of(runnerFor) : null;
     },
   };
 
   const files = partial<FilesLoader>({
-    handedOver: () => Promise.resolve([]),
-    takenIn: () => Promise.resolve(undefined),
+    handedOver: async () => [],
+    takenIn: async () => undefined,
   });
   const drafts = new DraftSending(
     access,
@@ -162,29 +159,25 @@ const sendMessage = (
     }),
   );
   const tasks = partial<TaskRepository>({
-    find: vi.fn(() => Promise.resolve(task)),
-    save: vi.fn((each: Task) => {
+    find: vi.fn(async () => task),
+    save: vi.fn(async (each: Task) => {
       saved = each;
-
-      return Promise.resolve();
     }),
   });
 
   return new SendMessageHandler(
     partial<DispatchRepository>({
-      find: vi.fn(() =>
-        Promise.resolve(
-          partial<Dispatch>({
-            workspaceId: WorkspaceId.of('ws_1'),
-            subject: {
-              kind: 'task',
-              taskId: TaskId.of('task_1'),
-              revision: TaskRevision.of(0),
-              stationId: REVIEW,
-              driver: 'line',
-            },
-          }),
-        ),
+      find: vi.fn(async () =>
+        partial<Dispatch>({
+          workspaceId: WorkspaceId.of('ws_1'),
+          subject: {
+            kind: 'task',
+            taskId: TaskId.of('task_1'),
+            revision: TaskRevision.of(0),
+            stationId: REVIEW,
+            driver: 'line',
+          },
+        }),
       ),
     }),
     { inTransaction: (work) => work() } satisfies TransactionPort,
@@ -193,14 +186,14 @@ const sendMessage = (
     new MessageSending(
       tasks,
       partial<LineMapsPort>({
-        findByStation: vi.fn(() => Promise.resolve(line)),
+        findByStation: vi.fn(async () => line),
       }),
       dispatch,
       partial<ClockPort>({ now: () => NOW }),
       files,
       access,
       drafts,
-      { of: () => Promise.resolve([]) },
+      { of: async () => [] },
       { generate: () => 'hold_1' },
     ),
   ).execute(

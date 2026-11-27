@@ -1,4 +1,4 @@
-import { type ReactElement, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Bar, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { ConfigMarkers } from '@/components/features/insights/ConfigMarkers';
@@ -38,10 +38,10 @@ export const TipContent = ({
   active?: boolean;
   payload?: { payload: DayOutput }[];
   currency: string | null;
-}): ReactElement | null => {
+}) => {
   const day = payload?.[0]?.payload;
 
-  if (active !== true || !day) {
+  if (!active || !day) {
     return null;
   }
 
@@ -81,7 +81,7 @@ export function OutputAgainstCost({
   currency,
   noSpend,
   names,
-}: OutputAgainstCostProps): ReactElement {
+}: OutputAgainstCostProps) {
   const cursor = useCursorTooltip();
   const priced = currency !== null;
   const data = useMemo(() => [...days], [days]);

@@ -130,7 +130,7 @@ export class Turns {
       const task =
         subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
 
-      if (task?.hasCurrentRun(turn.runId) !== true) {
+      if (!task?.hasCurrentRun(turn.runId)) {
         await this.runs.cancel(
           turn.runId,
           'Task moved on before a runner claimed the run.',

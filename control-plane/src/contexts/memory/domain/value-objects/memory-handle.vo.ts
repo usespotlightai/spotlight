@@ -1,4 +1,5 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const PREFIX = 'M-';
 
@@ -20,7 +21,7 @@ export class MemoryHandle {
   static parse(raw: string): MemoryHandle {
     const number = SHAPE.exec(raw.trim())?.[1];
 
-    if (number === undefined || number === '') {
+    if (!nonEmpty(number)) {
       throw new InvalidMemoryError(`handle must look like M-12, not ${raw}`);
     }
 

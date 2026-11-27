@@ -1,5 +1,4 @@
 import { GitPullRequest } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -13,10 +12,7 @@ type NoPullRequestsProps = {
   teamId: string;
 };
 
-export function NoPullRequests({
-  slug,
-  teamId,
-}: NoPullRequestsProps): ReactElement {
+export function NoPullRequests({ slug, teamId }: NoPullRequestsProps) {
   return (
     <EmptyFrame>
       <EmptyState

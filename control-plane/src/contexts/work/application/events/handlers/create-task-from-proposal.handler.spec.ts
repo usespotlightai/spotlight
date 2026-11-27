@@ -123,21 +123,21 @@ const acceptedWith = (
 const event = acceptedWith([]);
 
 const creating = (line: LineMap | null) => {
-  const save = vi.fn((_saved: Chat) => Promise.resolve(undefined));
-  const create = vi.fn(({ task }: { task: Task }) => Promise.resolve(task));
-  const copy = vi.fn(() => Promise.resolve(undefined));
+  const save = vi.fn(async (_saved: Chat) => undefined);
+  const create = vi.fn(async ({ task }: { task: Task }) => task);
+  const copy = vi.fn(async () => undefined);
   const handler = new CreateTaskFromProposal(
     partial<ChatRepository>({
-      find: vi.fn(() => Promise.resolve(accepted())),
+      find: vi.fn(async () => accepted()),
       save,
     }),
-    partial<LineMapsPort>({ find: vi.fn(() => Promise.resolve(line)) }),
-    { placementsAt: vi.fn(() => Promise.resolve([])) },
+    partial<LineMapsPort>({ find: vi.fn(async () => line) }),
+    { placementsAt: vi.fn(async () => []) },
     partial<CreateTask>({ create }),
     new AttachmentCopies(partial<AttachmentStorePort>({ copy })),
     { generate: () => 'task_9' },
     partial<ClockPort>({ now: () => NOW }),
-    { defaultBranchNameOf: () => Promise.resolve('main') },
+    { defaultBranchNameOf: async () => 'main' },
   );
 
   return { handler, save, create, copy };

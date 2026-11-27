@@ -29,61 +29,52 @@ const access = (
 ) =>
   new TeamWorkAccess(
     {
-      viewerOf: () =>
-        Promise.resolve(
-          over.member === false
-            ? null
-            : {
-                workspaceId: WORKSPACE,
-                teamId: TeamId.of('team_1'),
-                by: UserId.of('user_1'),
-              },
-        ),
-      actsOnTeam: () =>
-        Promise.resolve(over.actsOnTeam ?? over.member !== false),
-      find: () => Promise.resolve({ name: 'Ada', image: null }),
+      viewerOf: async () =>
+        over.member === false
+          ? null
+          : {
+              workspaceId: WORKSPACE,
+              teamId: TeamId.of('team_1'),
+              by: UserId.of('user_1'),
+            },
+      actsOnTeam: async () => over.actsOnTeam ?? over.member !== false,
+      find: async () => ({ name: 'Ada', image: null }),
     },
     partial<WorkPort>({
-      run: (): Promise<RunForReview | null> =>
-        Promise.resolve(
-          over.run === null
-            ? null
-            : {
-                id: RunId.of('run_1'),
-                workspaceId: WORKSPACE,
-                taskId: TaskId.of('task_1'),
-                checking: null,
-                working: false,
-                attempt: 1,
-                orderedAt: null,
-                decisions: false,
-                trial: false,
-                isolated: false,
-                checkouts: 1,
-                placement: RunnerPlacement.anywhere(),
-                ...over.run,
-              },
-        ),
-      task: (): Promise<ReviewedTask | null> =>
-        Promise.resolve(
-          over.task === null
-            ? null
-            : {
-                id: TaskId.of('task_1'),
-                workspaceId: WORKSPACE,
-                teamId: TeamId.of('team_1'),
-                pullRequests: [],
-                openPullRequests: [],
-                reviewedPullRequest: null,
-                reviewing: false,
-                currentRunId: null,
-                ...over.task,
-              },
-        ),
-      teamOfRun: () =>
-        Promise.resolve(
-          over.ranFor === undefined ? TeamId.of('team_1') : over.ranFor,
-        ),
+      run: async (): Promise<RunForReview | null> =>
+        over.run === null
+          ? null
+          : {
+              id: RunId.of('run_1'),
+              workspaceId: WORKSPACE,
+              taskId: TaskId.of('task_1'),
+              checking: null,
+              working: false,
+              attempt: 1,
+              orderedAt: null,
+              decisions: false,
+              trial: false,
+              isolated: false,
+              checkouts: 1,
+              placement: RunnerPlacement.anywhere(),
+              ...over.run,
+            },
+      task: async (): Promise<ReviewedTask | null> =>
+        over.task === null
+          ? null
+          : {
+              id: TaskId.of('task_1'),
+              workspaceId: WORKSPACE,
+              teamId: TeamId.of('team_1'),
+              pullRequests: [],
+              openPullRequests: [],
+              reviewedPullRequest: null,
+              reviewing: false,
+              currentRunId: null,
+              ...over.task,
+            },
+      teamOfRun: async () =>
+        over.ranFor === undefined ? TeamId.of('team_1') : over.ranFor,
     }),
   );
 

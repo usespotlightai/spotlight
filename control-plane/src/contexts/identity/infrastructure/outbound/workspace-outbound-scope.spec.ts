@@ -7,8 +7,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const hosts = (over: Partial<WorkspaceOutboundHostsPort> = {}) => ({
-  of: vi.fn(() => Promise.resolve(HostAllowList.of(['cached.example.com']))),
-  fresh: vi.fn(() => Promise.resolve(HostAllowList.of(['fresh.example.com']))),
+  of: vi.fn(async () => HostAllowList.of(['cached.example.com'])),
+  fresh: vi.fn(async () => HostAllowList.of(['fresh.example.com'])),
   forget: vi.fn(),
   ...over,
 });
@@ -16,12 +16,10 @@ const hosts = (over: Partial<WorkspaceOutboundHostsPort> = {}) => ({
 const allowedWithin = (
   run: (work: () => Promise<boolean[]>) => Promise<boolean[]>,
 ) =>
-  run(() =>
-    Promise.resolve([
-      OutboundScope.allows('cached.example.com'),
-      OutboundScope.allows('fresh.example.com'),
-    ]),
-  );
+  run(async () => [
+    OutboundScope.allows('cached.example.com'),
+    OutboundScope.allows('fresh.example.com'),
+  ]);
 
 describe('WorkspaceOutboundScope', () => {
   it('runs work within the cached list, or the fresh one when asked', async () => {
@@ -36,11 +34,11 @@ describe('WorkspaceOutboundScope', () => {
   });
 
   it('runs nothing when it cannot read the list, and says so with its own error', async () => {
-    const work = vi.fn(() => Promise.resolve('sent'));
+    const work = vi.fn(async () => 'sent');
     const scope = new WorkspaceOutboundScope(
       hosts({
-        of: () => {
-          return Promise.reject(new Error('workspace ws_gone does not exist'));
+        of: async () => {
+          throw new Error('workspace ws_gone does not exist');
         },
       }),
     );

@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { OidcTrustsSection } from '@/components/features/oidc-trusts/OidcTrustsSection';
@@ -20,7 +20,7 @@ import { isAdmin } from '@/lib/role';
 import type { WorkspaceToken } from '@/lib/token';
 import { workspacePath } from '@/lib/workspace';
 
-export function ApiAccess(): ReactElement | null {
+export function ApiAccess() {
   const { slug } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const admin = workspace ? isAdmin(workspace.role) : false;

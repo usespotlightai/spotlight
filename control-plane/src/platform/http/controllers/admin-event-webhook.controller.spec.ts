@@ -7,15 +7,15 @@ import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const controller = (registered: boolean) => {
-  const redeliver = vi.fn(() =>
-    Promise.resolve({ queued: 3, truncated: false }),
-  );
+  const redeliver = vi.fn(async () => ({ queued: 3, truncated: false }));
   const subscribers = new EventSubscribers();
 
   if (registered) {
     subscribers.registerSink({
-      subscriber: subscribing('platform.send-event-webhook', [], () =>
-        Promise.resolve([]),
+      subscriber: subscribing(
+        'platform.send-event-webhook',
+        [],
+        async () => [],
       ),
       prefixes: [''],
       retry: null,

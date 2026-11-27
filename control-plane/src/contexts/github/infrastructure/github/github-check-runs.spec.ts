@@ -13,19 +13,17 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const PULL_REQUEST = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 
 const access = partial<RepositoryAccessPort>({
-  credential: vi.fn(() =>
-    Promise.resolve({
-      username: 'x-access-token',
-      password: 'tok_1',
-    }),
-  ),
+  credential: vi.fn(async () => ({
+    username: 'x-access-token',
+    password: 'tok_1',
+  })),
 });
 
 const answering = (status: number, body: unknown) => ({
   status,
   ok: status >= 200 && status < 300,
   headers: new Headers(),
-  json: () => Promise.resolve(body),
+  json: async () => body,
 });
 
 const RUNS = {
@@ -67,37 +65,35 @@ const requested: string[] = [];
 const github = (
   over: { logs?: number; unreachable?: boolean; runs?: typeof RUNS } = {},
 ) =>
-  vi.stubGlobal('fetch', (url: string) => {
+  vi.stubGlobal('fetch', async (url: string) => {
     requested.push(url);
 
-    if (over.unreachable === true && url.includes('/actions/jobs/')) {
-      return Promise.reject(new TypeError('fetch failed'));
+    if (over.unreachable && url.includes('/actions/jobs/')) {
+      throw new TypeError('fetch failed');
     }
 
     if (url.endsWith('/pulls/7')) {
-      return Promise.resolve(answering(200, { head: { sha: 'abc123' } }));
+      return answering(200, { head: { sha: 'abc123' } });
     }
     if (url.includes('/commits/abc123/check-runs')) {
-      return Promise.resolve(answering(200, over.runs ?? RUNS));
+      return answering(200, over.runs ?? RUNS);
     }
     if (url.includes('/check-suites/42/check-runs')) {
-      return Promise.resolve(answering(200, RUNS));
+      return answering(200, RUNS);
     }
     if (url.endsWith('/actions/jobs/11')) {
-      return Promise.resolve(
-        answering(200, {
-          steps: [
-            { name: 'Install', conclusion: 'success' },
-            { name: 'Build', conclusion: 'failure' },
-          ],
-        }),
-      );
+      return answering(200, {
+        steps: [
+          { name: 'Install', conclusion: 'success' },
+          { name: 'Build', conclusion: 'failure' },
+        ],
+      });
     }
     if (url.endsWith('/actions/jobs/11/logs')) {
-      return Promise.resolve(new Response(LOG, { status: over.logs ?? 200 }));
+      return new Response(LOG, { status: over.logs ?? 200 });
     }
 
-    return Promise.resolve(answering(404, { message: 'Not Found' }));
+    return answering(404, { message: 'Not Found' });
   });
 
 afterEach(() => {
@@ -174,21 +170,19 @@ describe('GitHubCheckRuns', () => {
         name: `test ${index}`,
         conclusion: 'success',
       }));
-      vi.stubGlobal('fetch', (url: string) => {
+      vi.stubGlobal('fetch', async (url: string) => {
         requested.push(url);
 
         if (url.endsWith('/pulls/7')) {
-          return Promise.resolve(answering(200, { head: { sha: 'abc123' } }));
+          return answering(200, { head: { sha: 'abc123' } });
         }
 
-        return Promise.resolve(
-          answering(200, {
-            total_count: 101,
-            check_runs: url.endsWith('&page=1')
-              ? passed
-              : [{ id: 99, name: 'lint', conclusion: 'failure' }],
-          }),
-        );
+        return answering(200, {
+          total_count: 101,
+          check_runs: url.endsWith('&page=1')
+            ? passed
+            : [{ id: 99, name: 'lint', conclusion: 'failure' }],
+        });
       });
 
       const { failed } = await new GitHubCheckRuns(access).failedOn(
@@ -204,16 +198,14 @@ describe('GitHubCheckRuns', () => {
         { length: 5_000 },
         (_, index) => `line ${index}`,
       );
-      vi.stubGlobal('fetch', (url: string) =>
-        Promise.resolve(
-          url.endsWith('/logs')
-            ? new Response(lines.join('\n'))
-            : url.endsWith('/pulls/7')
-              ? answering(200, { head: { sha: 'abc123' } })
-              : url.endsWith('/actions/jobs/11')
-                ? answering(200, { steps: [] })
-                : answering(200, RUNS),
-        ),
+      vi.stubGlobal('fetch', async (url: string) =>
+        url.endsWith('/logs')
+          ? new Response(lines.join('\n'))
+          : url.endsWith('/pulls/7')
+            ? answering(200, { head: { sha: 'abc123' } })
+            : url.endsWith('/actions/jobs/11')
+              ? answering(200, { steps: [] })
+              : answering(200, RUNS),
       );
 
       const { failed } = await new GitHubCheckRuns(access).failedOn(
@@ -273,14 +265,12 @@ describe('GitHubCheckRuns', () => {
 
   describe('the log of a failed job', () => {
     const logged = async (log: string): Promise<string | null> => {
-      vi.stubGlobal('fetch', (url: string) =>
-        Promise.resolve(
-          url.endsWith('/logs')
-            ? new Response(log)
-            : url.endsWith('/actions/jobs/11')
-              ? answering(200, { steps: [] })
-              : answering(200, RUNS),
-        ),
+      vi.stubGlobal('fetch', async (url: string) =>
+        url.endsWith('/logs')
+          ? new Response(log)
+          : url.endsWith('/actions/jobs/11')
+            ? answering(200, { steps: [] })
+            : answering(200, RUNS),
       );
 
       const first = firstOf(
@@ -320,16 +310,14 @@ describe('GitHubCheckRuns', () => {
     });
 
     it('is the same for the checks tool on a pull request', async () => {
-      vi.stubGlobal('fetch', (url: string) =>
-        Promise.resolve(
-          url.endsWith('/logs')
-            ? new Response('failed\n##[error]exit 1\nPost job cleanup.')
-            : url.endsWith('/pulls/7')
-              ? answering(200, { head: { sha: 'abc123' } })
-              : url.endsWith('/actions/jobs/11')
-                ? answering(200, { steps: [] })
-                : answering(200, RUNS),
-        ),
+      vi.stubGlobal('fetch', async (url: string) =>
+        url.endsWith('/logs')
+          ? new Response('failed\n##[error]exit 1\nPost job cleanup.')
+          : url.endsWith('/pulls/7')
+            ? answering(200, { head: { sha: 'abc123' } })
+            : url.endsWith('/actions/jobs/11')
+              ? answering(200, { steps: [] })
+              : answering(200, RUNS),
       );
 
       const { failed } = await new GitHubCheckRuns(access).failedOn(

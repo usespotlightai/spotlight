@@ -27,9 +27,9 @@ const answering = (answer: PlatformPoolChangeDto | null) => {
   const sent: unknown[] = [];
   const controller = new AdminPlatformPoolController(
     partial<CommandBus>({
-      execute: (command: unknown) => {
+      execute: async (command: unknown) => {
         sent.push(command);
-        return Promise.resolve(answer);
+        return answer;
       },
     }),
   );

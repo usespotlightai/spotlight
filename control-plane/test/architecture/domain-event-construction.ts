@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import { DECLARED_EVENTS, isDomainEventsPath } from './domain-event-kinds';
@@ -96,7 +97,7 @@ const constructionsIn = (file: SourceFile): Violation[] => {
   ).flatMap((node) => {
     const built = builtEvent(node, events);
 
-    return built !== null && built !== ''
+    return nonEmpty(built)
       ? [
           {
             key: `${withoutExtension(file.path)}: ${built}`,

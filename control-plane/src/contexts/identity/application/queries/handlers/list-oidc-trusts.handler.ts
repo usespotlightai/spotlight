@@ -23,9 +23,7 @@ export class ListOidcTrustsHandler implements QueryHandlerPort<
         WorkspaceSlug.of(query.slug),
       );
 
-      if (
-        workspace?.permissionsFor(query.principal).seesOidcTrustUsage !== true
-      ) {
+      if (!workspace?.permissionsFor(query.principal).seesOidcTrustUsage) {
         return null;
       }
 

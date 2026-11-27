@@ -2,7 +2,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class HookOccurrenceKey {
-  private readonly kind: string = 'hook-occurrence-key';
+  private readonly kind = 'hook-occurrence-key';
 
   private constructor(readonly value: string) {}
 
@@ -29,6 +29,6 @@ export class HookOccurrenceKey {
   }
 
   equals(other: HookOccurrenceKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HookOccurrenceKey && this.value === other.value;
   }
 }

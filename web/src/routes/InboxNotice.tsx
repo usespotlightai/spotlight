@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
@@ -21,7 +20,7 @@ import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
-export function InboxNotice(): ReactElement {
+export function InboxNotice() {
   const { slug, noticeId } = useParams();
   const found = useInboxNotice(slug, noticeId);
   const notice = found.data;

@@ -32,6 +32,7 @@ import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -47,7 +48,7 @@ const ended = (original: number, at: string | null): RunSummary => ({
   unreplayableReason: null,
   reason: null,
   title: null,
-  endedAt: at !== null && at !== '' ? new Date(at) : null,
+  endedAt: nonEmpty(at) ? new Date(at) : null,
 });
 
 const seenIn = (

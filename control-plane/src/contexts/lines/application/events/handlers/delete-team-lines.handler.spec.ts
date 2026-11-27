@@ -40,12 +40,10 @@ const deleting = (tasks: number) => {
   const line = existingLine();
   const save = vi.fn<(line: Line) => Promise<void>>(async () => {});
   const warn = vi.fn();
-  const tally = () =>
-    Promise.resolve(
-      line.stations.map((each) => ({ stationId: each.id, tasks })),
-    );
+  const tally = async () =>
+    line.stations.map((each) => ({ stationId: each.id, tasks }));
   const lines = partial<LineRepository>({
-    ofTeam: vi.fn(() => Promise.resolve([line])),
+    ofTeam: vi.fn(async () => [line]),
     save,
   });
   const service = new DeleteTeamLines(

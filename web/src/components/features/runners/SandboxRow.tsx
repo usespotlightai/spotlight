@@ -1,5 +1,4 @@
 import { CornerDownRight } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   HOST_COLUMNS,
@@ -71,12 +70,7 @@ type SandboxRowProps = {
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function SandboxRow({
-  slug,
-  host,
-  row,
-  harnesses,
-}: SandboxRowProps): ReactElement {
+export function SandboxRow({ slug, host, row, harnesses }: SandboxRowProps) {
   const [first] = row.sandboxes;
   const lineNames = useLineNames(slug, isWarm(first));
   const lineName =

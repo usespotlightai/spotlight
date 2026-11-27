@@ -42,31 +42,25 @@ const submitting = (over: { racing?: boolean } = {}) => {
 
   const handler = new SubmitReviewHandler(
     partial<TeamWorkAccess>({
-      actingInReview: () =>
-        Promise.resolve({
-          task: partial<ReviewedTask>({ id: TASK, workspaceId: WORKSPACE }),
-          by: ADA,
-          author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
-        }),
+      actingInReview: async () => ({
+        task: partial<ReviewedTask>({ id: TASK, workspaceId: WORKSPACE }),
+        by: ADA,
+        author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      }),
     }),
     new SubmitReview(
       partial<ReviewCommentRepository>({
-        draftsOn: () =>
-          Promise.resolve(
-            [...comments.values()].filter((each) => each.state === 'draft'),
-          ),
-        save: (comment: ReviewComment) => {
-          if (over.racing === true) {
-            return Promise.reject(
-              new ReviewCommentVersionConflictError(comment.id.value),
-            );
+        draftsOn: async () =>
+          [...comments.values()].filter((each) => each.state === 'draft'),
+        save: async (comment: ReviewComment) => {
+          if (over.racing) {
+            throw new ReviewCommentVersionConflictError(comment.id.value);
           }
           comments.set(comment.id.value, comment);
-          return Promise.resolve();
         },
       }),
       partial<ReviewRepository>({
-        add: (review: Review) => Promise.resolve(void reviews.push(review)),
+        add: async (review: Review) => void reviews.push(review),
       }),
       {
         inTransaction: async (work) => {

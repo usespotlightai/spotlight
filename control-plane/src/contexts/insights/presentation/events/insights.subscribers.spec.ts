@@ -110,23 +110,19 @@ const ENDED: EndedRun = {
 const HELD = RunId.of('run_held');
 
 const WORK = {
-  unfinishedRuns: () => Promise.resolve([]),
-  traced: () =>
-    Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
-  taskRunOf: (runId: RunId) =>
-    Promise.resolve(
-      runId.equals(ENDED.runId) || runId.equals(HELD)
-        ? {
-            runId,
-            workspaceId: ENDED.workspaceId,
-            taskId: ENDED.taskId,
-            teamId: ENDED.teamId,
-          }
-        : null,
-    ),
-  endedRun: (runId: RunId) =>
-    Promise.resolve(runId.equals(ENDED.runId) ? ENDED : null),
-  configsInOrder: () => Promise.resolve([]),
+  unfinishedRuns: async () => [],
+  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+  taskRunOf: async (runId: RunId) =>
+    runId.equals(ENDED.runId) || runId.equals(HELD)
+      ? {
+          runId,
+          workspaceId: ENDED.workspaceId,
+          taskId: ENDED.taskId,
+          teamId: ENDED.teamId,
+        }
+      : null,
+  endedRun: async (runId: RunId) => (runId.equals(ENDED.runId) ? ENDED : null),
+  configsInOrder: async () => [],
 };
 
 const CLOCK = {
@@ -140,8 +136,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const alerted: string[] = [];
   let alertsNow = alerts;
   const lines = {
-    teamRepositories: () => Promise.resolve([]),
-    alertsAt: () => Promise.resolve(alertsNow),
+    teamRepositories: async () => [],
+    alertsAt: async () => alertsNow,
   };
   const judgings = new JudgingsInMemory();
   const scores = new ScoresInMemory();
@@ -155,10 +151,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const settled: SettledSession[] = [];
   const subscribers = insightsSubscribers({
     waking: partial<WorkJudgings>({
-      sessionSettled: (session: SettledSession) => {
+      sessionSettled: async (session: SettledSession) => {
         settled.push(session);
-
-        return Promise.resolve();
       },
     }),
     ending: new RecordRunEnding(
@@ -209,21 +203,20 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     judging: new RequestJudging(
       WORK,
       {
-        hasTask: () => Promise.resolve(true),
-        of: () => Promise.resolve(null),
+        hasTask: async () => true,
+        of: async () => null,
       },
       {
-        judgesOnTeam: () => Promise.resolve(new Map()),
-        judgeAt: () =>
-          Promise.resolve({
-            teamId: TeamId.of('team_1'),
-            lineId: LineId.of('line_1'),
-            rubricVersion: RUBRIC_VERSION,
-            claims: ['It retries the upload.'],
-            passThreshold: 1,
-            sample: 1,
-            minAgreement: 0.6,
-          }),
+        judgesOnTeam: async () => new Map(),
+        judgeAt: async () => ({
+          teamId: TeamId.of('team_1'),
+          lineId: LineId.of('line_1'),
+          rubricVersion: RUBRIC_VERSION,
+          claims: ['It retries the upload.'],
+          passThreshold: 1,
+          sample: 1,
+          minAgreement: 0.6,
+        }),
       },
       judgings,
       new FactRecorder(deletions),
@@ -298,15 +291,11 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     ),
     alerting: new AlertInbox(
       {
-        open: (taskId, alertId) => {
+        open: async (taskId, alertId) => {
           alerted.push(`open ${taskId.value} ${alertId.value}`);
-
-          return Promise.resolve();
         },
-        resolve: (taskId, alertId) => {
+        resolve: async (taskId, alertId) => {
           alerted.push(`resolve ${taskId.value} ${alertId.value}`);
-
-          return Promise.resolve();
         },
       },
       alertStates,

@@ -12,14 +12,12 @@ const TASK: EditorTarget = { kind: 'task', id: 'task_1' };
 
 const setUp = () => {
   const workingCopyOf = vi.fn(
-    (_viewer: unknown, target: EditorTarget, _slug: string | null) =>
-      Promise.resolve(
-        target.id === 'task_1'
-          ? { workspaceId: WorkspaceId.of('ws_1'), key: 'work/task-task_1' }
-          : null,
-      ),
+    async (_viewer: unknown, target: EditorTarget, _slug: string | null) =>
+      target.id === 'task_1'
+        ? { workspaceId: WorkspaceId.of('ws_1'), key: 'work/task-task_1' }
+        : null,
   );
-  const leases = { isHeld: vi.fn(() => Promise.resolve(true)) };
+  const leases = { isHeld: vi.fn(async () => true) };
   const handler = new ReadEditorConnectionHandler(
     partial<EditorTargets>({ workingCopyOf }),
     partial<EditorLeasesPort>(leases),

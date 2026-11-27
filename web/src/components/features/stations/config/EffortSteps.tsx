@@ -1,9 +1,7 @@
-import type { ReactElement } from 'react';
-
 import type { EffortLevel } from '@/hooks/useStationAgent';
 import { cn } from '@/lib/utils';
 
-export function EffortSteps({ effort }: { effort: EffortLevel }): ReactElement {
+export function EffortSteps({ effort }: { effort: EffortLevel }) {
   const count = effort.levels.length;
 
   return (

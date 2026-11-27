@@ -14,7 +14,7 @@ export interface StationUse<K extends UsedKey<K>> {
 }
 
 export class StationUses<K extends UsedKey<K>> {
-  private readonly kind: string = 'station-uses';
+  private readonly kind = 'station-uses';
 
   private constructor(readonly uses: readonly StationUse<K>[]) {}
 
@@ -44,7 +44,7 @@ export class StationUses<K extends UsedKey<K>> {
 
   equals(other: StationUses<K>): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof StationUses &&
       this.uses.length === other.uses.length &&
       this.uses.every((each, index) => {
         const theirs = itemAt(other.uses, index);

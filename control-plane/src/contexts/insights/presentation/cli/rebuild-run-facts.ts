@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 
 import type { RebuiltRunFacts } from '@insights/application/services/rebuild-run-facts.service';
 import { openRunFactsRebuild } from '@insights/insights.run-facts-rebuild';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const USAGE =
   'Usage: rebuild-run-facts [--workspace <id> [--team <id>]]\nWithout --workspace, rebuilds every workspace.';
@@ -11,8 +12,7 @@ const reported = ({ owner, rebuilt }: RebuiltRunFacts): void => {
   console.log(`Rebuilt ${rebuilt} run facts for ${owner}.`);
 };
 
-const given = (value: string | undefined): value is string =>
-  value !== undefined && value !== '';
+const given = (value: string | undefined): value is string => nonEmpty(value);
 
 async function rebuild(): Promise<void> {
   const { values } = parseArgs({

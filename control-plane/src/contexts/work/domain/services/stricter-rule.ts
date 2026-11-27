@@ -21,11 +21,11 @@ export const StricterRule = {
   of(declared: DeclaredTool, person: PersonRule | null): Ruled {
     const team = declared.approval;
 
-    if (person?.rule.blocks === true) {
+    if (person?.rule.blocks) {
       return { kind: 'blocked', by: person.personName };
     }
 
-    if (person?.rule.asksFirst === true) {
+    if (person?.rule.asksFirst) {
       return {
         kind: 'needs-approval',
         needed: ApprovalNeeded.of(

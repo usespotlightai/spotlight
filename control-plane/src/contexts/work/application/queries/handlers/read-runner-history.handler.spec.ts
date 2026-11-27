@@ -131,51 +131,45 @@ const reading = ({
   const requested: StationRunsWanted[] = [];
   const stationsKeyed = vi.fn().mockResolvedValue(keyed);
   const stations: StationRunReaderPort = {
-    unfinishedOfTeam: () => Promise.resolve([]),
-    traced: () =>
-      Promise.resolve({ tasks: [], stations: [], notes: new Map() }),
+    unfinishedOfTeam: async () => [],
+    traced: async () => ({ tasks: [], stations: [], notes: new Map() }),
     endedRun: vi.fn(),
-    configsNamed: (fingerprints) =>
-      Promise.resolve(
-        fingerprints.map((fingerprint) => ({ fingerprint, parts: PARTS })),
-      ),
+    configsNamed: async (fingerprints) =>
+      fingerprints.map((fingerprint) => ({ fingerprint, parts: PARTS })),
     stationsKeyed,
-    endedAt: (_station, wanted) => {
+    endedAt: async (_station, wanted) => {
       requested.push(wanted);
-      return Promise.resolve(runs.slice(0, wanted.max));
+      return runs.slice(0, wanted.max);
     },
-    endedAmong: (_station, runIds) =>
-      Promise.resolve(among.filter((each) => runIds.includes(each.runId))),
-    journalsOf: (ids) => Promise.resolve(ids.map(journal)),
+    endedAmong: async (_station, runIds) =>
+      among.filter((each) => runIds.includes(each.runId)),
+    journalsOf: async (ids) => ids.map(journal),
   };
   const outcomesPort: RunResultsPort = {
-    of: () =>
-      Promise.resolve(new Map(outcomes.map((each) => [each.runId, each]))),
+    of: async () => new Map(outcomes.map((each) => [each.runId, each])),
   };
 
   const usages: RunUsageReaderPort = {
-    forRuns: (ids) =>
-      Promise.resolve(
-        new Map(
-          ids.map((id) => [
-            id.value,
-            {
-              ms: 300_000,
-              steps: 12,
-              errors: 1,
-              changedLines: 0,
-              contextTokens: 40_000,
-              contextWindow: 200_000,
-              cost: { amount: 0.42, currency: 'USD' },
-              tokens: {
-                input: null,
-                output: null,
-                cacheRead: null,
-                cacheWrite: null,
-              },
+    forRuns: async (ids) =>
+      new Map(
+        ids.map((id) => [
+          id.value,
+          {
+            ms: 300_000,
+            steps: 12,
+            errors: 1,
+            changedLines: 0,
+            contextTokens: 40_000,
+            contextWindow: 200_000,
+            cost: { amount: 0.42, currency: 'USD' },
+            tokens: {
+              input: null,
+              output: null,
+              cacheRead: null,
+              cacheWrite: null,
             },
-          ]),
-        ),
+          },
+        ]),
       ),
   };
 

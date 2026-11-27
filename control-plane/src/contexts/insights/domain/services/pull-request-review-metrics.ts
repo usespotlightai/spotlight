@@ -1,5 +1,6 @@
 import type { BotActivity } from '@insights/domain/value-objects/seen-pull-request.vo';
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface ObservedReview {
   readonly id: number;
@@ -82,15 +83,11 @@ const botLoginsOf = (activity: ObservedReviewActivity): readonly string[] =>
   [
     ...new Set([
       ...activity.reviews.flatMap((each) =>
-        each.byBot && each.login !== null && each.login !== ''
-          ? [each.login]
-          : [],
+        each.byBot && nonEmpty(each.login) ? [each.login] : [],
       ),
       ...activity.botComments.map((each) => each.login),
       ...activity.threads.flatMap((each) =>
-        each.byBot && each.login !== null && each.login !== ''
-          ? [each.login]
-          : [],
+        each.byBot && nonEmpty(each.login) ? [each.login] : [],
       ),
     ]),
   ].sort();

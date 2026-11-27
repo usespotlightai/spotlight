@@ -25,8 +25,8 @@ const workspaces = (
   found: readonly DirectoryWorkspace[],
 ): WorkspaceDirectoryPort => ({
   list: vi.fn().mockResolvedValue({ items: found, next: 'cursor_2' }),
-  find: vi.fn((id: WorkspaceId) =>
-    Promise.resolve(found.find((each) => each.id.equals(id)) ?? null),
+  find: vi.fn(
+    async (id: WorkspaceId) => found.find((each) => each.id.equals(id)) ?? null,
   ),
 });
 

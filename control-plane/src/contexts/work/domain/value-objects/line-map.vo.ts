@@ -1,5 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -84,7 +85,7 @@ export class LineMap {
     );
     const problem = topologyProblemOf(stations);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('line', problem);
     }
 
@@ -196,7 +197,7 @@ export class LineMap {
         )
         .map((station) => HandoverOption.station(station.key, station.name)),
       HandoverOption.review(),
-      ...(from?.ends === true ? [HandoverOption.done()] : []),
+      ...(from?.ends ? [HandoverOption.done()] : []),
     ];
   }
 
@@ -217,7 +218,7 @@ export class LineMap {
     if (!to.harness) {
       return 'nothing-runs';
     }
-    if (this.stationAt(from)?.routesTo(to.id) !== true) {
+    if (!this.stationAt(from)?.routesTo(to.id)) {
       return 'no-route';
     }
     return null;

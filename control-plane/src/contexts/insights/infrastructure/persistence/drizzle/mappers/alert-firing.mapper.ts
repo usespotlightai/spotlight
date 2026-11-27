@@ -2,6 +2,7 @@ import { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import type { stationAlert } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -21,8 +22,5 @@ export const firingOf = (row: AlertRow): AlertFiring =>
     firedAt: row.firedAt,
     resolvedAt: row.resolvedAt,
     clearRuns: row.clearRuns,
-    lastSeen:
-      row.lastSeenRunId !== null && row.lastSeenRunId !== ''
-        ? RunId.of(row.lastSeenRunId)
-        : null,
+    lastSeen: nonEmpty(row.lastSeenRunId) ? RunId.of(row.lastSeenRunId) : null,
   });

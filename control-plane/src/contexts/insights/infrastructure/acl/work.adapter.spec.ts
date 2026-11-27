@@ -46,7 +46,7 @@ const workOf = (fingerprint: string | null) => {
     error: () => {},
   };
   const stations = partial<StationRunsPort>({
-    ended: () => Promise.resolve(endedRun(fingerprint)),
+    ended: async () => endedRun(fingerprint),
   });
 
   return { work: new Work(stations, logger), warned };

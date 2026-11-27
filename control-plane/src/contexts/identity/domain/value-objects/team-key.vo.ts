@@ -6,7 +6,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TeamKey {
-  private readonly kind: string = 'team-key';
+  private readonly kind = 'team-key';
 
   private constructor(readonly value: string) {}
 
@@ -28,7 +28,7 @@ export class TeamKey {
   }
 
   equals(other: TeamKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TeamKey && this.value === other.value;
   }
 
   toString(): string {

@@ -32,28 +32,26 @@ const queueOf = (
   running = 2,
   checks: readonly RunnerPlacement[] = [],
 ) => {
-  const unclaimedIn = vi.fn(() => Promise.resolve(placements));
+  const unclaimedIn = vi.fn(async () => placements);
 
   return {
     unclaimedIn,
     handler: new PoolQueueHandler(
       {
-        pulledWith: (token: string | undefined, poolId: string) =>
-          Promise.resolve(
-            token === 'pool-token' && poolId === POOL.poolId ? POOL : null,
-          ),
-        offersIn: () => Promise.resolve({ pools: [], hostOffers: [] }),
-        running: () => Promise.resolve(running),
-        roomIn: () => Promise.resolve(room),
+        pulledWith: async (token: string | undefined, poolId: string) =>
+          token === 'pool-token' && poolId === POOL.poolId ? POOL : null,
+        offersIn: async () => ({ pools: [], hostOffers: [] }),
+        running: async () => running,
+        roomIn: async () => room,
       } satisfies RunnerPoolsPort,
       { unclaimedIn },
       {
-        claimNext: vi.fn(() => Promise.resolve(null)),
-        claimReserved: vi.fn(() => Promise.resolve(null)),
+        claimNext: vi.fn(async () => null),
+        claimReserved: vi.fn(async () => null),
         unclaim: vi.fn(async () => {}),
-        renewLease: vi.fn(() => Promise.resolve('renewed' as const)),
-        isLeasedBy: vi.fn(() => Promise.resolve(false)),
-        waitingPlacements: vi.fn(() => Promise.resolve(checks)),
+        renewLease: vi.fn(async () => 'renewed' as const),
+        isLeasedBy: vi.fn(async () => false),
+        waitingPlacements: vi.fn(async () => checks),
       },
       partial<ClockPort>({ now: () => NOW }),
     ),

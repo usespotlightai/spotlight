@@ -17,6 +17,7 @@ import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
@@ -49,30 +50,22 @@ interface Problem {
 const kept = () => {
   const bodies = new Map<string, Uint8Array>();
   const port: TerraformStateBodiesPort = {
-    put: (at, body) => {
+    put: async (at, body) => {
       bodies.set(`${at.workspaceId.value}/${at.versionId.value}`, body);
-
-      return Promise.resolve();
     },
-    read: (at) =>
-      Promise.resolve(
-        bodies.get(`${at.workspaceId.value}/${at.versionId.value}`) ?? null,
-      ),
-    remove: (at) => {
+    read: async (at) =>
+      bodies.get(`${at.workspaceId.value}/${at.versionId.value}`) ?? null,
+    remove: async (at) => {
       for (const each of at) {
         bodies.delete(`${each.workspaceId.value}/${each.versionId.value}`);
       }
-
-      return Promise.resolve();
     },
-    removeForWorkspace: (workspaceId) => {
+    removeForWorkspace: async (workspaceId) => {
       for (const key of bodies.keys()) {
         if (key.startsWith(`${workspaceId.value}/`)) {
           bodies.delete(key);
         }
       }
-
-      return Promise.resolve();
     },
   };
 
@@ -132,9 +125,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       http().get(address(name)).set('Authorization', basic(token)),
     write: (body: string, lockId?: string) =>
       http()
-        .post(
-          `${address()}${lockId !== undefined && lockId !== '' ? `?ID=${lockId}` : ''}`,
-        )
+        .post(`${address()}${nonEmpty(lockId) ? `?ID=${lockId}` : ''}`)
         .set('Authorization', basic(token))
         .set('Content-Type', 'application/json')
         .set('Content-MD5', md5Of(body))

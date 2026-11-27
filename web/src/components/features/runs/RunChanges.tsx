@@ -1,4 +1,4 @@
-import { type ReactElement, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { RunChangeFile } from '@/components/features/runs/RunChangeFile';
 import { DiffStat } from '@/components/shared/DiffStat';
@@ -7,11 +7,7 @@ import type { RunJournal } from '@/lib/inbox';
 
 const SHOWN = 6;
 
-export function RunChanges({
-  journals,
-}: {
-  journals: readonly RunJournal[];
-}): ReactElement | null {
+export function RunChanges({ journals }: { journals: readonly RunJournal[] }) {
   const [all, setAll] = useState(false);
 
   const files = useMemo(() => changesOf(journals), [journals]);

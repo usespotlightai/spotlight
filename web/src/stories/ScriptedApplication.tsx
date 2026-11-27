@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect } from 'react';
+import { useEffect } from 'react';
 import type { Location } from 'react-router';
 import { type queries, userEvent, within } from 'storybook/test';
 
@@ -13,10 +13,7 @@ type ScriptedApplicationProps = {
   script?: Script;
 };
 
-export function ScriptedApplication({
-  at,
-  script,
-}: ScriptedApplicationProps): ReactElement {
+export function ScriptedApplication({ at, script }: ScriptedApplicationProps) {
   useEffect(() => {
     void script?.(within(document.body), userEvent);
   }, [script]);

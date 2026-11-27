@@ -27,8 +27,8 @@ export class ToolSources {
     catalog: RunCatalog,
   ) {
     this.from = {
-      'built-in': (tool, _run, context) =>
-        Promise.resolve(builtIns.resolve(tool, context)),
+      'built-in': async (tool, _run, context) =>
+        builtIns.resolve(tool, context),
       integration: (tool, run, context, runnerId) =>
         integrations.resolve(tool, context, run, runnerId),
       catalog: (tool, run, context) => catalog.resolve(tool, run, context),

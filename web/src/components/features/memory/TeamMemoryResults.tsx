@@ -1,6 +1,6 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Spool } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { NewMemoryRow } from '@/components/features/memory/NewMemoryRow';
 import { TeamMemoryRow } from '@/components/features/memory/TeamMemoryRow';
@@ -34,7 +34,7 @@ export function TeamMemoryResults({
   onWritten,
   lines,
   memories,
-}: TeamMemoryResultsProps): ReactElement {
+}: TeamMemoryResultsProps) {
   const listed = memories.data ?? [];
   const known = lines.data ?? [];
   const [openId, setOpenId] = useState(opened);

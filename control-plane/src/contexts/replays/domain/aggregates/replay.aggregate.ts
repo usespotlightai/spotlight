@@ -517,7 +517,7 @@ export class Replay extends EventRecorder {
     if (
       !this.pairs ||
       !this.takesPairings ||
-      this.state.pairwiseReferenceId?.equals(reference.id) !== true
+      !this.state.pairwiseReferenceId?.equals(reference.id)
     ) {
       return this;
     }
@@ -764,7 +764,7 @@ export class Replay extends EventRecorder {
         (measures.cost !== null ||
           Object.values(measures.tokens).some((each) => each !== null));
       const unpricedRun =
-        called && measures.cost?.sameCurrencyAs(ceiling) !== true ? 1 : 0;
+        called && !measures.cost?.sameCurrencyAs(ceiling) ? 1 : 0;
 
       return count + unpricedRun + this.unpricedIn(entry.generationSpent);
     }, 0);
@@ -1020,7 +1020,7 @@ export class Replay extends EventRecorder {
     const entries = results.map(({ each, result }) => result?.entry ?? each);
     const concluded = results.some(({ result }) => result?.newly === true);
     const wanted = results.flatMap(({ result }) =>
-      result?.wanted === true ? [result.entry] : [],
+      result?.wanted ? [result.entry] : [],
     );
 
     if (entries.every((each, place) => each === this.state.entries[place])) {

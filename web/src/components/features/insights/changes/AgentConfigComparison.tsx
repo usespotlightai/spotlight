@@ -1,5 +1,4 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
 
 import { AgentConfigFilters } from '@/components/features/insights/changes/AgentConfigFilters';
 import { AgentConfigScatter } from '@/components/features/insights/changes/AgentConfigScatter';
@@ -46,7 +45,7 @@ export function AgentConfigComparison({
   names,
   onNarrow,
   onMeasure,
-}: AgentConfigComparisonProps): ReactElement {
+}: AgentConfigComparisonProps) {
   const harnesses = useHarnesses().data;
   const judged = comparison.agentConfigs.some(
     (each) => (each.judge?.judged ?? 0) > 0,

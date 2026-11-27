@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { AgreementValue } from '@/components/features/stations/config/AgreementValue';
 import { AuthoredText } from '@/components/features/stations/config/AuthoredText';
 import {
@@ -35,7 +33,7 @@ export function JudgeSection({
   lineId,
   stationId,
   judge,
-}: JudgeSectionProps): ReactElement {
+}: JudgeSectionProps) {
   const agreement = useStationJudge(teamId, lineId, stationId);
 
   if (!judge) {

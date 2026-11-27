@@ -7,6 +7,7 @@ import {
   owns,
   sameJson,
 } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const INPUT_TYPES = [
@@ -175,7 +176,7 @@ const normalised = (
   }
 
   const description = textOf(raw.description);
-  if (description !== null && description !== '') {
+  if (nonEmpty(description)) {
     written.description = description;
   }
 
@@ -208,7 +209,7 @@ const normalised = (
 
   for (const key of ['pattern', 'format'] as const) {
     const read = textOf(raw[key]);
-    if (read !== null && read !== '') {
+    if (nonEmpty(read)) {
       written[key] = read;
     }
   }
@@ -402,9 +403,7 @@ export class InputSchema {
     description: string | null = null,
   ): InputSchema {
     return InputSchema.of(
-      description !== null && description !== ''
-        ? { type, description }
-        : { type },
+      nonEmpty(description) ? { type, description } : { type },
     );
   }
 

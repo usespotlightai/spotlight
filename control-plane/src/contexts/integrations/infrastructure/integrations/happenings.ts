@@ -11,16 +11,17 @@ import {
   sanitizedForCel,
 } from '@platform/expressions/cel-variables';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   Happened,
   InboundAttachment,
   TaskMark,
 } from '@work/application/contracts/happenings.contract';
 
-const identity = (
+const identity = async (
   _event: EventIR,
   against: CelVariables,
-): Promise<CelVariables> => Promise.resolve(against);
+): Promise<CelVariables> => against;
 
 const textOrNull = (text: string | null): string | null =>
   text === '' ? null : text;
@@ -104,7 +105,7 @@ const arriving = (
       ? Number(value(attachments.size, per))
       : Number.NaN;
 
-    return name !== null && name !== ''
+    return nonEmpty(name)
       ? [
           {
             name,

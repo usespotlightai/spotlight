@@ -1,7 +1,6 @@
 import { Info } from 'lucide-react';
-import type { ReactElement } from 'react';
 
-export function TruncatedNote({ text }: { text: string }): ReactElement {
+export function TruncatedNote({ text }: { text: string }) {
   return (
     <p
       role="note"

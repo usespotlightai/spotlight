@@ -97,22 +97,18 @@ const waking = (
   let answer = waitingAnswer();
   const rounds: AssistRoundsPort = { roundOf: () => round };
   const stacks = partial<ChangeStackRepository>({
-    find: () => Promise.resolve(stack),
-    save: (saved: ChangeStack) => {
-      if (over.conflict === true) {
-        return Promise.reject(
-          new ChangeStackVersionConflictError(saved.id.value),
-        );
+    find: async () => stack,
+    save: async (saved: ChangeStack) => {
+      if (over.conflict) {
+        throw new ChangeStackVersionConflictError(saved.id.value);
       }
       stack = saved;
-      return Promise.resolve();
     },
   });
   const answers = partial<QuestionAnswerRepository>({
-    find: () => Promise.resolve(answer),
-    save: (saved: QuestionAnswer) => {
+    find: async () => answer,
+    save: async (saved: QuestionAnswer) => {
       answer = saved;
-      return Promise.resolve();
     },
   });
 
@@ -122,7 +118,7 @@ const waking = (
       stacks,
       answers,
       { inTransaction: (work) => work() },
-      { now: () => SETTLED, sleep: () => Promise.resolve() },
+      { now: () => SETTLED, sleep: async () => {} },
     ),
     stack: () => stack,
     answer: () => answer,

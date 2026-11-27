@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 const allowances = (deployment: string, ...workspace: string[]) =>
   new HookAllowancesService(
     partial<IntegrationDefinitionRepository>({
-      ofTeam: () => Promise.resolve([]),
+      ofTeam: async () => [],
     }),
     partial<HookTokensPort>({ signs: false }),
     HostAllowList.listed(deployment),
@@ -23,13 +23,13 @@ describe('HookAllowancesService', () => {
   it('checks against the workspace list as it is now, not as it was cached', async () => {
     const allowed = await new HookAllowancesService(
       partial<IntegrationDefinitionRepository>({
-        ofTeam: () => Promise.resolve([]),
+        ofTeam: async () => [],
       }),
       partial<HookTokensPort>({ signs: false }),
       HostAllowList.listed(''),
       {
-        of: () => Promise.resolve(HostAllowList.of(['old.example.com'])),
-        fresh: () => Promise.resolve(HostAllowList.of(['new.example.com'])),
+        of: async () => HostAllowList.of(['old.example.com']),
+        fresh: async () => HostAllowList.of(['new.example.com']),
       } as WorkspaceHostsPort,
     ).onTeam(TeamId.of('team_1'), WorkspaceId.of('ws_1'));
 

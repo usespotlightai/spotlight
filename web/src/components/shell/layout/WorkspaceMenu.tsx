@@ -1,5 +1,4 @@
 import { ChevronsUpDown } from 'lucide-react';
-import type { ReactElement } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
@@ -40,7 +39,7 @@ export function WorkspaceMenu({
   avatarUrl,
   slug,
   admin = false,
-}: WorkspaceMenuProps): ReactElement {
+}: WorkspaceMenuProps) {
   const navigate = useNavigate();
   const signOut = useSignOut();
   const { data: session } = useSession();

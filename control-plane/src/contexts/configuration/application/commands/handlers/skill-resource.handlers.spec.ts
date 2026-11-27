@@ -41,16 +41,14 @@ const GRAFANA = {
 const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 const teams = {
-  find: vi.fn(() =>
-    Promise.resolve({
-      id: TEAM,
-      workspaceId: WorkspaceId.of('ws_1'),
-      key: 'core',
-      name: 'Core',
-      members: [],
-    }),
-  ),
-  inWorkspace: vi.fn(() => Promise.resolve([])),
+  find: vi.fn(async () => ({
+    id: TEAM,
+    workspaceId: WorkspaceId.of('ws_1'),
+    key: 'core',
+    name: 'Core',
+    members: [],
+  })),
+  inWorkspace: vi.fn(async () => []),
 } satisfies TeamDirectoryPort;
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -67,16 +65,15 @@ const storedAt = (version: number) =>
 const definitions = (
   over: { stored?: SkillDefinition | null; throwing?: Error } = {},
 ) => {
-  const read = vi.fn(() => Promise.resolve(over.stored ?? null));
+  const read = vi.fn(async () => over.stored ?? null);
 
   return {
     withId: read,
-    ofTeam: vi.fn(() => Promise.resolve([])),
-    save: vi.fn<SkillDefinitionRepository['save']>(() => {
+    ofTeam: vi.fn(async () => []),
+    save: vi.fn<SkillDefinitionRepository['save']>(async () => {
       if (over.throwing) {
-        return Promise.reject(over.throwing);
+        throw over.throwing;
       }
-      return Promise.resolve();
     }),
   } satisfies SkillDefinitionRepository;
 };
@@ -90,7 +87,7 @@ describe('CreateSkillHandler', () => {
       new SkillCompiler(),
       repository,
       {
-        reserve: vi.fn(() => Promise.resolve({ kind: 'new' as const })),
+        reserve: vi.fn(async () => ({ kind: 'new' as const })),
         recordCreated: vi.fn(async () => {}),
       } satisfies IdempotentCreatesPort,
       { generate: () => 'skill_new' },
@@ -213,7 +210,7 @@ describe('DeleteSkillHandler', () => {
       access(),
       repository,
       partial<StationReferences>({
-        skillsOn: vi.fn(() => Promise.resolve(uses)),
+        skillsOn: vi.fn(async () => uses),
       }),
       transaction,
     );

@@ -74,28 +74,24 @@ const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 
 const attachmentStore = partial<AttachmentStorePort>({
-  received: () => Promise.resolve([]),
-  stored: () => Promise.resolve(true),
-  taken: () => Promise.resolve(undefined),
-  open: () =>
-    Promise.resolve({
-      bytes: new Uint8Array([1, 2, 3, 4]),
-      contentType: 'image/png',
-    }),
+  received: async () => [],
+  stored: async () => true,
+  taken: async () => undefined,
+  open: async () => ({
+    bytes: new Uint8Array([1, 2, 3, 4]),
+    contentType: 'image/png',
+  }),
 });
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
@@ -315,7 +311,7 @@ const ownerOf = () => ({
 });
 
 const standingReplays = partial<Pick<ReplayRepository, 'find'>>({
-  find: () => Promise.resolve(partial<Replay>({})),
+  find: async () => partial<Replay>({}),
 });
 
 const dispatchOver = (
@@ -838,7 +834,7 @@ describe('a replay deleted while its run is dispatched', () => {
           },
         });
         const replaysUntilDeleted = partial<Pick<ReplayRepository, 'find'>>({
-          find: () => Promise.resolve(deleted ? null : partial<Replay>({})),
+          find: async () => (deleted ? null : partial<Replay>({})),
         });
 
         expect(

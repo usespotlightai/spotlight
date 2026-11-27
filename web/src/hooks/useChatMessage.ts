@@ -192,7 +192,7 @@ export function useChatMessage(
     if (
       before.name === draftName &&
       before.synced &&
-      synced === true &&
+      synced &&
       before.generation !== generation
     ) {
       clearSent(sentText ?? '');

@@ -8,6 +8,7 @@ import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { UNTRIALABLE } from '@replays/infrastructure/acl/trialable-runs.adapter';
 import { WorkTrialRun } from '@replays/infrastructure/acl/work-trial-run';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   TrialFollowUp,
@@ -26,8 +27,8 @@ export class StationTrials implements StationTrialsPort {
     const followUps = await this.trials.followUpsOf(original.value);
 
     return [
-      ...(followUps?.accepted === true ? (['accepted'] as const) : []),
-      ...(followUps?.sentBack === true ? (['sent-back'] as const) : []),
+      ...(followUps?.accepted ? (['accepted'] as const) : []),
+      ...(followUps?.sentBack ? (['sent-back'] as const) : []),
     ];
   }
 
@@ -55,7 +56,7 @@ export class StationTrials implements StationTrialsPort {
       trial: new WorkTrialRun(
         ordering.order,
         ordering.checkouts,
-        ordering.fingerprint !== null && ordering.fingerprint !== ''
+        nonEmpty(ordering.fingerprint)
           ? StationFingerprint.of(ordering.fingerprint)
           : null,
         MovesOnWords.of(ordering.movesOnAfter),

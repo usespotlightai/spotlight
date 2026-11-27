@@ -1,4 +1,5 @@
 import { InvalidNetworkCallError } from '@runs/domain/exceptions/invalid-network-call.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const MAX_BODY_BYTES = 256 * 1024;
 
@@ -37,7 +38,7 @@ export class NetworkResponse {
     }
 
     const written = input.error?.trim().slice(0, MAX_ERROR);
-    const error = written === undefined || written === '' ? null : written;
+    const error = !nonEmpty(written) ? null : written;
 
     if (input.status === 0 && error === null) {
       throw new InvalidNetworkCallError('with no response must say why');

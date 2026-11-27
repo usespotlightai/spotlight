@@ -75,10 +75,9 @@ const sentInvite = (
     invitedBy: UserId.of('user_grace'),
     now: new Date('2026-09-01T09:00:00.000Z'),
   });
-  const invite =
-    over.revoked === true
-      ? created.revoke(UserId.of('user_leon'), NOW)
-      : created;
+  const invite = over.revoked
+    ? created.revoke(UserId.of('user_leon'), NOW)
+    : created;
 
   return WorkspaceInvite.rehydrate({ ...invite, version: 1 });
 };
@@ -94,23 +93,22 @@ const resending = (
   const handler = new ResendInviteHandler(
     new WorkspaceAdministration(
       partial<WorkspaceRepository>({
-        findBySlug: () => Promise.resolve(workspace(over.role)),
+        findBySlug: async () => workspace(over.role),
       }),
     ),
     partial<WorkspaceInviteRepository>({
-      find: () =>
-        Promise.resolve(over.invite === undefined ? sentInvite() : over.invite),
+      find: async () =>
+        over.invite === undefined ? sentInvite() : over.invite,
       save,
     }),
-    partial<TeamRepository>({ ofWorkspace: () => Promise.resolve([PLATFORM]) }),
+    partial<TeamRepository>({ ofWorkspace: async () => [PLATFORM] }),
     new InviteSending(
       partial<PersonReaderPort>({
-        find: (id: UserId) =>
-          Promise.resolve({
-            id,
-            name: 'Leon',
-            image: null,
-          }),
+        find: async (id: UserId) => ({
+          id,
+          name: 'Leon',
+          image: null,
+        }),
       }),
       { send },
       partial<LoggerPort>({ warn: vi.fn() }),

@@ -8,13 +8,11 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const platformPools = () => ({
-  set: vi.fn(() =>
-    Promise.resolve({
-      outcome: 'disabled' as const,
-      allowsSecrets: true,
-      allowsReviewWork: false,
-    }),
-  ),
+  set: vi.fn(async () => ({
+    outcome: 'disabled' as const,
+    allowsSecrets: true,
+    allowsReviewWork: false,
+  })),
 });
 
 describe('SetPlatformPoolHandler', () => {

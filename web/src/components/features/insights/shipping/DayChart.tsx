@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import {
   Bar,
   CartesianGrid,
@@ -50,7 +49,7 @@ const TipContent = ({
 }) => {
   const point = payload?.[0]?.payload;
 
-  if (active !== true || !point) {
+  if (!active || !point) {
     return null;
   }
 
@@ -76,7 +75,7 @@ export function DayChart({
   durations = false,
   height = DAY_CHART_HEIGHT,
   legend = true,
-}: DayChartProps): ReactElement {
+}: DayChartProps) {
   const cursor = useCursorTooltip();
   const max = Math.max(
     0,

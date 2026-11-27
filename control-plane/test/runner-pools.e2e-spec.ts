@@ -16,6 +16,7 @@ import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/l
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -172,7 +173,7 @@ describe('runner pools (e2e)', () => {
   };
 
   const checkReadFor = async (runId: string | null) => {
-    if (runId === null || runId === '') {
+    if (!nonEmpty(runId)) {
       throw new Error('the check belongs to no run');
     }
 
@@ -1050,8 +1051,8 @@ describe('runner pools (e2e)', () => {
         const runId = await queue([['sandbox']]);
 
         const call = firstOf(
-          await eventually(() =>
-            Promise.resolve(endpoint.calls.length > 0 ? endpoint.calls : null),
+          await eventually(async () =>
+            endpoint.calls.length > 0 ? endpoint.calls : null,
           ),
         );
         const signed = `${String(call?.headers['webhook-id'])}.${String(call?.headers['webhook-timestamp'])}.${call?.body}`;
@@ -1112,11 +1113,9 @@ describe('runner pools (e2e)', () => {
         });
         const plain = await queue([['sandbox']]);
 
-        await eventually(() =>
-          Promise.resolve(
-            endpoint.calls.some(
-              (call) => parsedAs<ProvisionCall>(call.body).data.runId === plain,
-            ),
+        await eventually(async () =>
+          endpoint.calls.some(
+            (call) => parsedAs<ProvisionCall>(call.body).data.runId === plain,
           ),
         );
 
@@ -1203,8 +1202,8 @@ describe('runner pools (e2e)', () => {
         const stackId = await awaitingCheck(db, workspaceId, [['sandbox']]);
 
         const call = firstOf(
-          await eventually(() =>
-            Promise.resolve(endpoint.calls.length > 0 ? endpoint.calls : null),
+          await eventually(async () =>
+            endpoint.calls.length > 0 ? endpoint.calls : null,
           ),
         );
         const sent = parsedAs<ProvisionCall>(call?.body ?? '{}');

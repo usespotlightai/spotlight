@@ -21,12 +21,11 @@ export class CompleteWorkingCopyArchiveHandler implements CommandHandlerPort<
   async execute(command: CompleteWorkingCopyArchiveCommand): Promise<boolean> {
     try {
       const run = await this.runs.findById(RunId.of(command.runId));
-      const archive =
-        run?.isLeasedBy(RunnerId.of(command.runnerId)) === true
-          ? await this.archives.find(WorkingCopyArchiveId.of(command.archiveId))
-          : null;
+      const archive = run?.isLeasedBy(RunnerId.of(command.runnerId))
+        ? await this.archives.find(WorkingCopyArchiveId.of(command.archiveId))
+        : null;
 
-      if (!run || archive?.grantedFor(run.id) !== true) {
+      if (!run || !archive?.grantedFor(run.id)) {
         return false;
       }
 

@@ -69,7 +69,7 @@ describe('RedisLiveFeed', () => {
     expect(watched).toBe(true);
   });
 
-  it('subscribes to a channel once and lets go after the last listener', () => {
+  it('subscribes to a channel once and lets go after the last listener', async () => {
     const { feed, subscriber } = instance();
     const subscribe = vi.spyOn(subscriber, 'subscribe');
     const unsubscribe = vi.spyOn(subscriber, 'unsubscribe');
@@ -85,10 +85,9 @@ describe('RedisLiveFeed', () => {
     second();
 
     expect(unsubscribe).toHaveBeenCalledWith('spotlight-live:person:user_1');
-    return Promise.resolve();
   });
 
-  it('tells every listener to resync when Redis comes back', () => {
+  it('tells every listener to resync when Redis comes back', async () => {
     const { feed, subscriber } = instance();
     const heard: string[] = [];
     feed.subscribe(['workspace:ws_1'], (message) => heard.push(message.type));
@@ -98,7 +97,6 @@ describe('RedisLiveFeed', () => {
 
     subscriber.emit('ready');
     expect(heard).toEqual(['resync']);
-    return Promise.resolve();
   });
 
   it('skips a message it cannot read', async () => {

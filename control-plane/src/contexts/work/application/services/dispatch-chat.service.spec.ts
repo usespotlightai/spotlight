@@ -110,22 +110,21 @@ const dispatching = (
           : null,
     }),
     partial<TraceParentPort>({ forChat: () => '00-trace-span-01' }),
-    partial<TeamDirectoryPort>({ find: () => Promise.resolve(null) }),
+    partial<TeamDirectoryPort>({ find: async () => null }),
     partial<LineMapsPort>({
-      ofTeam: () =>
-        Promise.resolve([
-          line('api', [API], ['vpc-internal']),
-          line('web', [Repository.of('acme/web')], ['gpu']),
-        ]),
+      ofTeam: async () => [
+        line('api', [API], ['vpc-internal']),
+        line('web', [Repository.of('acme/web')], ['gpu']),
+      ],
     }),
     { now: () => NOW, sleep: async () => {} },
     {
-      forBriefing: (place: BriefingContext) => {
+      forBriefing: async (place: BriefingContext) => {
         briefedAt.push(place);
         if (memoryFails) {
-          return Promise.reject(new Error('memory is down'));
+          throw new Error('memory is down');
         }
-        return Promise.resolve({
+        return {
           briefed: [
             {
               id: 'memory_1',
@@ -139,7 +138,7 @@ const dispatching = (
             path: '.spotlight/memory',
             guide: '',
           },
-        });
+        };
       },
     },
     {
@@ -153,7 +152,7 @@ const dispatching = (
     { release: null },
     new ChatToolExtensions(
       partial<ChatRepository>({
-        find: () => Promise.resolve(null),
+        find: async () => null,
       }),
     ),
   );

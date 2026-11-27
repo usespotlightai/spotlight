@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
@@ -23,6 +22,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -81,11 +82,13 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   }
 
   private async one(where: SQL): Promise<Workspace | null> {
-    const found = firstOf(await this.context.db
-      .select({ ...getTableColumns(workspace), members: membersOfWorkspace })
-      .from(workspace)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select({ ...getTableColumns(workspace), members: membersOfWorkspace })
+        .from(workspace)
+        .where(where)
+        .limit(1),
+    );
 
     if (!found) {
       return null;
@@ -99,7 +102,9 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       members: found.members.map((each) => ({
         userId: UserId.of(each.userId),
         role: WorkspaceRole.of(each.role),
-        suspendedAt: each.suspendedAt !== null && each.suspendedAt !== '' ? new Date(each.suspendedAt) : null,
+        suspendedAt: nonEmpty(each.suspendedAt)
+          ? new Date(each.suspendedAt)
+          : null,
       })),
       firstTeamPending: found.firstTeamPending,
       version: found.version,

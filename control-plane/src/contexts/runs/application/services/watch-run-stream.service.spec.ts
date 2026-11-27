@@ -18,8 +18,8 @@ const entry = (seq: number): RunJournalEntryView => ({
 
 const watching = (watchable: boolean, backlog = [entry(1)]) => {
   const runs = partial<RunViewing>({
-    watchedBy: vi.fn(() =>
-      Promise.resolve(watchable ? partial<WatchedRun>({ attempt: 1 }) : null),
+    watchedBy: vi.fn(async () =>
+      watchable ? partial<WatchedRun>({ attempt: 1 }) : null,
     ),
   });
   let answer: (found: RunJournalEntryView[]) => void = () => {};
@@ -30,7 +30,7 @@ const watching = (watchable: boolean, backlog = [entry(1)]) => {
           answer = resolve;
         }),
     ),
-    egressEnforcementOf: vi.fn(() => Promise.resolve(null)),
+    egressEnforcementOf: vi.fn(async () => null),
   } satisfies RunJournalEntryReaderPort;
   const stream = new InMemoryRunStream();
 

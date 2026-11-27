@@ -1,4 +1,4 @@
-import { useRef, type ReactElement } from 'react';
+import { useRef } from 'react';
 
 type ColumnResizerProps = {
   label: string;
@@ -12,7 +12,7 @@ export function ColumnResizer({
   onStart,
   onResize,
   onReset,
-}: ColumnResizerProps): ReactElement {
+}: ColumnResizerProps) {
   const start = useRef<{ x: number; width: number } | null>(null);
 
   return (

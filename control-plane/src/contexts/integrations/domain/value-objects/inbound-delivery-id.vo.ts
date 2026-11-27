@@ -2,7 +2,7 @@ import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/inv
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class InboundDeliveryId {
-  private readonly kind: string = 'inbound-delivery-id';
+  private readonly kind = 'inbound-delivery-id';
 
   private constructor(readonly value: string) {}
 
@@ -26,6 +26,6 @@ export class InboundDeliveryId {
   }
 
   equals(other: InboundDeliveryId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof InboundDeliveryId && this.value === other.value;
   }
 }

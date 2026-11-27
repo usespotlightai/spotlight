@@ -5,6 +5,7 @@ import type {
 } from '@catalog/application/ports/catalog-service.port';
 import type { CatalogTool } from '@catalog/domain/entities/catalog-item.entity';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -45,7 +46,7 @@ export class HttpCatalogClient implements CatalogServicePort {
           'content-type': 'application/json',
           'spotlight-workspace': on.workspaceId.value,
           'spotlight-run': on.runId.value,
-          ...(this.token !== undefined && this.token !== ''
+          ...(nonEmpty(this.token)
             ? { authorization: `Bearer ${this.token}` }
             : {}),
         },

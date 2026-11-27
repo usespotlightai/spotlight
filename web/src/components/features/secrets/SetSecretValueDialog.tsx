@@ -1,4 +1,4 @@
-import { type ReactElement, type SubmitEvent, useId, useState } from 'react';
+import { type SubmitEvent, useId, useState } from 'react';
 
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ export function SetSecretValueDialog({
   slug,
   secret,
   onClose,
-}: SetSecretValueDialogProps): ReactElement {
+}: SetSecretValueDialogProps) {
   const setValue = useSetSecretValue(slug);
   const valueId = useId();
   const [value, setTyped] = useState('');

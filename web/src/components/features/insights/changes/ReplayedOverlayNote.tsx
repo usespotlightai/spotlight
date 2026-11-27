@@ -1,5 +1,4 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import {
@@ -28,7 +27,7 @@ export function ReplayedOverlayNote({
   scattered,
   hiddenFor,
   candidates,
-}: ReplayedOverlayNoteProps): ReactElement | null {
+}: ReplayedOverlayNoteProps) {
   if (!nonEmpty(stationId)) {
     return null;
   }

@@ -16,6 +16,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -31,12 +32,9 @@ const openingOf = (row: TaskActionsRow): TaskOpening | null => {
     return null;
   }
   if (
-    row.teamId === null ||
-    row.teamId === '' ||
-    row.lineId === null ||
-    row.lineId === '' ||
-    row.stationId === null ||
-    row.stationId === ''
+    !nonEmpty(row.teamId) ||
+    !nonEmpty(row.lineId) ||
+    !nonEmpty(row.stationId)
   ) {
     throw new InconsistentStateError(
       'task actions',
@@ -48,10 +46,7 @@ const openingOf = (row: TaskActionsRow): TaskOpening | null => {
     teamId: TeamId.of(row.teamId),
     lineId: LineId.of(row.lineId),
     stationId: StationId.of(row.stationId),
-    by:
-      row.openedById !== null && row.openedById !== ''
-        ? UserId.of(row.openedById)
-        : null,
+    by: nonEmpty(row.openedById) ? UserId.of(row.openedById) : null,
     at: row.openedAt,
   });
 };

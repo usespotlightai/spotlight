@@ -335,36 +335,34 @@ const using = (
     because: 'denied here',
   });
   const catalog = new RunCatalog({
-    resolve: (named) =>
-      Promise.resolve(
-        over.denied?.when === 'before'
-          ? {
-              tools: [],
-              skills: [],
-              denied: named.tools.map(denial),
-            }
-          : {
-              tools: named.tools.map((id) => ({
-                id,
-                description: 'Search the web.',
-                inputs: [
-                  {
-                    name: 'query',
-                    schema: { type: 'string' },
-                    description: null,
-                    required: true,
-                    defaulted: false,
-                    stdin: false,
-                  },
-                ],
-              })),
-              skills: [],
-              denied: [],
-            },
-      ),
-    call: (request) => {
+    resolve: async (named) =>
+      over.denied?.when === 'before'
+        ? {
+            tools: [],
+            skills: [],
+            denied: named.tools.map(denial),
+          }
+        : {
+            tools: named.tools.map((id) => ({
+              id,
+              description: 'Search the web.',
+              inputs: [
+                {
+                  name: 'query',
+                  schema: { type: 'string' },
+                  description: null,
+                  required: true,
+                  defaulted: false,
+                  stdin: false,
+                },
+              ],
+            })),
+            skills: [],
+            denied: [],
+          },
+    call: async (request) => {
       if (over.denied?.when === 'during') {
-        return Promise.resolve({ kind: 'denied', denial: denial(request.id) });
+        return { kind: 'denied', denial: denial(request.id) };
       }
 
       called.push({
@@ -373,33 +371,27 @@ const using = (
         inputs: ToolInputs.of(request.inputs),
       });
 
-      if (over.changedWhileCalling === true) {
+      if (over.changedWhileCalling) {
         current = Task.rehydrate({ ...current, version: current.version + 1 });
       }
 
-      return Promise.resolve({ kind: 'answered', output: 'Three pages.' });
+      return { kind: 'answered', output: 'Three pages.' };
     },
   });
   let current = over.task ?? task();
   const tasks = partial<TaskRepository>({
-    find: () => Promise.resolve(current),
-    save: (saved: Task) => {
-      if (
-        over.changedWhileCalling === true &&
-        saved.version !== current.version
-      ) {
-        return Promise.reject(new TaskVersionConflictError(saved.id.value));
+    find: async () => current,
+    save: async (saved: Task) => {
+      if (over.changedWhileCalling && saved.version !== current.version) {
+        throw new TaskVersionConflictError(saved.id.value);
       }
-      current =
-        over.changedWhileCalling === true
-          ? Task.rehydrate({ ...saved, version: saved.version + 1 })
-          : saved;
-
-      return Promise.resolve();
+      current = over.changedWhileCalling
+        ? Task.rehydrate({ ...saved, version: saved.version + 1 })
+        : saved;
     },
   });
   const linear =
-    over.approval || over.readOnly === true
+    over.approval || over.readOnly
       ? DeclaredTool.of({
           tool: LINEAR_COMMENT.tool,
           description: LINEAR_COMMENT.description,
@@ -414,16 +406,16 @@ const using = (
     [
       {
         tool: PULL_REQUEST,
-        call: (context, inputs) => {
+        call: async (context, inputs) => {
           called.push({ tool: PULL_REQUEST.value, context, inputs });
-          return Promise.resolve('https://github.com/acme/widgets/pull/7');
+          return 'https://github.com/acme/widgets/pull/7';
         },
       },
       {
         tool: PROPOSE_TASK,
-        call: (context, inputs) => {
+        call: async (context, inputs) => {
           called.push({ tool: PROPOSE_TASK.value, context, inputs });
-          return Promise.resolve('Proposed.');
+          return 'Proposed.';
         },
       },
       ...[
@@ -435,49 +427,47 @@ const using = (
         OPEN_TASKS,
       ].map((tool) => ({
         tool,
-        call: () => Promise.resolve(null),
+        call: async () => null,
       })),
     ],
     new ChatToolExtensions(
       partial<ChatRepository>({
-        find: () => Promise.resolve(chat()),
+        find: async () => chat(),
       }),
     ),
   );
 
   const integrationTools: IntegrationToolResolver = {
-    resolve: (tool, context): Promise<ResolvedTool | null> =>
-      Promise.resolve(
-        tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
-          ? {
-              declared: linear,
-              actingAs: over.actingAs ?? null,
-              missing: over.missing ?? null,
-              personRule: over.personRule ?? null,
-              defaultFor: (input) =>
-                input.name === 'issue' ? 'ENG-12' : undefined,
-              call: (inputs) => {
-                if (over.movedOnWhileCalling === true) {
-                  return Promise.reject(new LeaseLostError('run_1', 1));
-                }
-                called.push({ tool: tool.value, context, inputs });
-                if (over.failing === true) {
-                  return Promise.resolve({
-                    outcome: 'failed',
-                    failure: {
-                      blocked: false,
-                      reason: 'using linear.comment: down',
-                    },
-                  });
-                }
-                return Promise.resolve({
-                  outcome: 'answered',
-                  output: 'https://linear.app/acme/issue/ENG-12#comment-1',
-                });
-              },
-            }
-          : null,
-      ),
+    resolve: async (tool, context): Promise<ResolvedTool | null> =>
+      tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
+        ? {
+            declared: linear,
+            actingAs: over.actingAs ?? null,
+            missing: over.missing ?? null,
+            personRule: over.personRule ?? null,
+            defaultFor: (input) =>
+              input.name === 'issue' ? 'ENG-12' : undefined,
+            call: async (inputs) => {
+              if (over.movedOnWhileCalling) {
+                throw new LeaseLostError('run_1', 1);
+              }
+              called.push({ tool: tool.value, context, inputs });
+              if (over.failing) {
+                return {
+                  outcome: 'failed',
+                  failure: {
+                    blocked: false,
+                    reason: 'using linear.comment: down',
+                  },
+                };
+              }
+              return {
+                outcome: 'answered',
+                output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+              };
+            },
+          }
+        : null,
   };
 
   const lineAt = over.lineAt === undefined ? 'station_1' : over.lineAt;
@@ -485,29 +475,27 @@ const using = (
   const hooked: Hooked = { before: [], after: [], asked: [] };
   const recorded: ToolUsed[] = [];
   const taskViews: TaskViewsPort = {
-    of: (taskId: string, runId: string | null) => {
+    of: async (taskId: string, runId: string | null) => {
       hooked.asked.push({ taskId, runId });
-      return Promise.resolve(TASK_VIEW);
+      return TASK_VIEW;
     },
-    ofNew: () => Promise.resolve(TASK_VIEW),
-    ofPullRequest: () => Promise.resolve(null),
+    ofNew: async () => TASK_VIEW,
+    ofPullRequest: async () => null,
   };
   const hooks: LifecycleHooksPort = {
-    listens: () => Promise.resolve(true),
-    before: (_task, event) => {
-      if (over.hooksDown === true) {
-        return Promise.reject(new Error('the hooks are unreachable'));
+    listens: async () => true,
+    before: async (_task, event) => {
+      if (over.hooksDown) {
+        throw new Error('the hooks are unreachable');
       }
       hooked.before.push(event);
-      return Promise.resolve(over.decision ?? { kind: 'allowed' });
+      return over.decision ?? { kind: 'allowed' };
     },
-    after: (_task, event, occurrence) => {
-      if (over.afterFails === true) {
-        return Promise.reject(new Error('the hooks are down'));
+    after: async (_task, event, occurrence) => {
+      if (over.afterFails) {
+        throw new Error('the hooks are down');
       }
       hooked.after.push({ event, occurrence });
-
-      return Promise.resolve();
     },
   };
   const afterwards = new ToolUsedHooks(taskViews, hooks);
@@ -542,11 +530,11 @@ const using = (
         () => (found.length > 1 ? found.shift() : found[0]) ?? null,
       ),
       tasks,
-      partial<ChatRepository>({ find: () => Promise.resolve(chat()) }),
+      partial<ChatRepository>({ find: async () => chat() }),
       partial<LineMapsPort>({
-        findByStation: (stationId: StationId) =>
-          Promise.resolve(stationId.value === lineAt ? LINE : null),
-        ofTeam: () => Promise.resolve([LINE]),
+        findByStation: async (stationId: StationId) =>
+          stationId.value === lineAt ? LINE : null,
+        ofTeam: async () => [LINE],
       }),
       dispatches,
       { now: () => NOW, sleep: async () => {} },
@@ -556,15 +544,13 @@ const using = (
     hooks,
     { generate: () => 'occurrence_1' },
     {
-      record: (use) => {
-        if (over.recordingFails === true) {
-          return Promise.reject(new Error('the outbox is unreachable'));
+      record: async (use) => {
+        if (over.recordingFails) {
+          throw new Error('the outbox is unreachable');
         }
         recorded.push(use.used);
-
-        return Promise.resolve();
       },
-      purgeBefore: () => Promise.resolve(0),
+      purgeBefore: async () => 0,
     },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -584,7 +570,7 @@ const using = (
         new UseToolCommand('run_1', 'runner_1', tool, input),
       );
     } finally {
-      if (over.afterFails !== true) {
+      if (!over.afterFails) {
         await delivered();
       }
     }

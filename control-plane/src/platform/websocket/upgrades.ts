@@ -5,6 +5,7 @@ import type { Duplex } from 'node:stream';
 
 import type { HttpAdapterHost } from '@nestjs/core';
 import { httpServerOf } from '@platform/http/http-server-of';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export type UpgradeListener = (
   request: IncomingMessage,
@@ -41,7 +42,7 @@ export const upgradeUrl = (request: IncomingMessage): URL =>
 export const sameOrigin = (request: IncomingMessage): boolean => {
   const origin = request.headers.origin;
 
-  if (origin === undefined || origin === '') {
+  if (!nonEmpty(origin)) {
     return true;
   }
 

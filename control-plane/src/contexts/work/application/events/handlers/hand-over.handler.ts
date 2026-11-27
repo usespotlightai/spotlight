@@ -115,7 +115,7 @@ export class HandOver implements RunEndingReactions {
 
     const { task: taskId, revision } = requested;
     const task = await this.tasks.find(taskId);
-    if (task?.hasCurrentRun(RunEndedFacts.runId(ended)) !== true) {
+    if (!task?.hasCurrentRun(RunEndedFacts.runId(ended))) {
       return null;
     }
 

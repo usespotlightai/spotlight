@@ -56,8 +56,8 @@ export const NEXT_JUDGE = judgeOf({
 export const judgesWith = (
   judge: StationJudge | null = judgeOf(),
 ): StationJudgesPort => ({
-  judgeAt: () => Promise.resolve(judge),
-  judgesOnTeam: () => Promise.resolve(new Map()),
+  judgeAt: async () => judge,
+  judgesOnTeam: async () => new Map(),
 });
 
 export const clockAt = (now = NOW): ClockPort => ({

@@ -1,4 +1,5 @@
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { InvalidNotePositionError } from '@work/domain/exceptions/invalid-note-position.error';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 
@@ -14,7 +15,7 @@ export const ReviewCommentHandle = {
 
     const digits = shaped === null ? undefined : itemAt(shaped, 1);
 
-    if (digits === undefined || digits === '') {
+    if (!nonEmpty(digits)) {
       throw new InvalidNotePositionError(handle);
     }
 

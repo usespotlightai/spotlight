@@ -8,27 +8,23 @@ import { describe, expect, it, vi } from 'vitest';
 const TEAM = TeamId.of('team_1');
 
 const setUp = (team: boolean) => {
-  const namesIn = vi.fn(() =>
-    Promise.resolve(['GRAFANA_TOKEN', 'LINEAR_API_KEY']),
-  );
-  const sandboxSecrets = vi.fn(() => Promise.resolve(['GRAFANA_TOKEN']));
+  const namesIn = vi.fn(async () => ['GRAFANA_TOKEN', 'LINEAR_API_KEY']);
+  const sandboxSecrets = vi.fn(async () => ['GRAFANA_TOKEN']);
 
   return {
     namesIn,
     secrets: new WorkspaceSecrets(
       {
-        find: vi.fn(() =>
-          Promise.resolve(
-            team
-              ? {
-                  id: TEAM,
-                  workspaceId: WorkspaceId.of('ws_1'),
-                  key: 'core',
-                  name: 'Core',
-                  members: [],
-                }
-              : null,
-          ),
+        find: vi.fn(async () =>
+          team
+            ? {
+                id: TEAM,
+                workspaceId: WorkspaceId.of('ws_1'),
+                key: 'core',
+                name: 'Core',
+                members: [],
+              }
+            : null,
         ),
         inWorkspace: vi.fn(),
       } satisfies TeamDirectoryPort,

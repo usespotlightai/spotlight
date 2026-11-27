@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { DiffStat } from '@/components/shared/DiffStat';
 import {
   type ChangeStack,
@@ -12,7 +10,7 @@ type CohortTallyProps = {
   cohort: StackCohort;
 };
 
-export function CohortTally({ stack, cohort }: CohortTallyProps): ReactElement {
+export function CohortTally({ stack, cohort }: CohortTallyProps) {
   const tally = cohortTallyOf(stack, cohort);
 
   return (

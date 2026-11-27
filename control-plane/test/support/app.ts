@@ -9,6 +9,7 @@ import { parseEnv } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import request, { type Agent, type Response } from 'supertest';
 
 import { AppModule } from '@/app.module';
@@ -32,16 +33,14 @@ export interface Problem {
 }
 
 const sessionsFromHeader: SessionReaderPort = {
-  read: (headers): Promise<AuthenticatedUser | null> => {
+  read: async (headers): Promise<AuthenticatedUser | null> => {
     const id = headers[TEST_USER_HEADER];
 
-    return Promise.resolve(
-      typeof id === 'string'
-        ? { id, email: `${id}@example.com`, name: id }
-        : null,
-    );
+    return typeof id === 'string'
+      ? { id, email: `${id}@example.com`, name: id }
+      : null;
   },
-  readBearer: () => Promise.resolve(null),
+  readBearer: async () => null,
 };
 
 const startingSearches = new WeakMap<INestApplication, () => Promise<void>>();
@@ -79,7 +78,7 @@ export const openApp = async (
     ? databases.get(options.sharingDatabaseOf)
     : undefined;
 
-  if (options.sharingDatabaseOf && (shared === undefined || shared === '')) {
+  if (options.sharingDatabaseOf && !nonEmpty(shared)) {
     throw new Error('Share the database of an app opened with openApp');
   }
 
@@ -104,7 +103,7 @@ export const openApp = async (
   app.close = async () => {
     await closed();
 
-    if (shared === undefined || shared === '') {
+    if (!nonEmpty(shared)) {
       dropDatabaseLater(env.DATABASE_URL);
     }
   };

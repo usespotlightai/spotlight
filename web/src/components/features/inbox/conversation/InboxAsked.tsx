@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
@@ -21,7 +19,7 @@ export function InboxAsked({
   title,
   description,
   attachments,
-}: InboxAskedProps): ReactElement {
+}: InboxAskedProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <MessageCard>

@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -44,7 +45,7 @@ const problemOf = (state: HoldState): string | null => {
     return 'holds a move after it ended';
   }
 
-  if (state.heldMove?.equals(state.stationId) === true) {
+  if (state.heldMove?.equals(state.stationId)) {
     return 'holds a move to the station it is at';
   }
 
@@ -145,7 +146,7 @@ export class Hold {
   static rehydrate(state: HoldState): Hold {
     const problem = problemOf(state);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('hold', problem);
     }
 
@@ -237,7 +238,7 @@ export class Hold {
       );
     }
 
-    if (this.state.from?.equals(runId) === true) {
+    if (this.state.from?.equals(runId)) {
       throw new InvalidHoldTransitionError(
         'cannot count the line run it held from as one of its turns',
       );

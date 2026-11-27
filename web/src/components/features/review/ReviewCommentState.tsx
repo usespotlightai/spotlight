@@ -1,5 +1,4 @@
 import { ExternalLink } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { nonEmpty } from '@/lib/non-empty';
 import type { PullRequestRoute, ReviewComment } from '@/lib/review';
@@ -27,7 +26,7 @@ export function ReviewCommentState({
 }: {
   comment: ReviewComment;
   route: PullRequestRoute;
-}): ReactElement {
+}) {
   const sending = comment.state === 'sending';
   const description = sending
     ? SENDING_DESCRIPTION[route]

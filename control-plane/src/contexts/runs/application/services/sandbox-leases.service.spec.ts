@@ -44,7 +44,7 @@ const leasing = (run: Run | null) => {
     releaseRun: vi.fn(async () => {}),
     retireRun: vi.fn(async () => {}),
   };
-  const runs = { findById: vi.fn(() => Promise.resolve(run)) };
+  const runs = { findById: vi.fn(async () => run) };
   const leases = new SandboxLeases(
     partial<SandboxesPort>(sandboxes),
     partial<RunRepository>(runs),

@@ -3,6 +3,7 @@ import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.p
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -66,10 +67,9 @@ export class ChannelChats {
     happened: Reached,
     attachments: readonly Attachment[],
   ): Promise<ChannelAnswer | null> {
-    const speaker =
-      happened.chat.email !== null && happened.chat.email !== ''
-        ? await this.members.byEmail(workspaceId, happened.chat.email)
-        : null;
+    const speaker = nonEmpty(happened.chat.email)
+      ? await this.members.byEmail(workspaceId, happened.chat.email)
+      : null;
     const said = happened.anchor?.body.trim() ?? '';
     const chat = await this.chats.findByCorrelation(
       workspaceId,

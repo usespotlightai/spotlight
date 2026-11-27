@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
 import {
   EDGE_INDENT,
@@ -20,7 +18,7 @@ type ReplayedAgentConfigRowProps = {
 export function ReplayedAgentConfigRow({
   point,
   currency,
-}: ReplayedAgentConfigRowProps): ReactElement {
+}: ReplayedAgentConfigRowProps) {
   return (
     <li
       data-slot="replayed-agent-config-row"

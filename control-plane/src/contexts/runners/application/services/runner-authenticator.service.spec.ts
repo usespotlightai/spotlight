@@ -40,35 +40,31 @@ const authenticating = (
     open?: boolean;
   } = {},
 ) => {
-  const findByTokenHash = vi.fn((hash: TokenHash) =>
-    Promise.resolve(
-      hash.equals(hashOf('a'))
-        ? input.pool === undefined
-          ? aPullPool()
-          : input.pool
-        : null,
-    ),
+  const findByTokenHash = vi.fn(async (hash: TokenHash) =>
+    hash.equals(hashOf('a'))
+      ? input.pool === undefined
+        ? aPullPool()
+        : input.pool
+      : null,
   );
   const recorder = scopeRecorder();
   const verifiedIn: (string | null)[] = [];
-  const verify = vi.fn((token: string, _expected: ExpectedWorkload) => {
+  const verify = vi.fn(async (token: string, _expected: ExpectedWorkload) => {
     verifiedIn.push(recorder.current());
 
-    return Promise.resolve(
-      token === WORKLOAD_TOKEN
-        ? input.claims === undefined
-          ? CLAIMS
-          : input.claims
-        : null,
-    );
+    return token === WORKLOAD_TOKEN
+      ? input.claims === undefined
+        ? CLAIMS
+        : input.claims
+      : null;
   });
-  const isOpen = vi.fn(() => Promise.resolve(input.open ?? true));
+  const isOpen = vi.fn(async () => input.open ?? true);
 
   const authenticator = new RunnerAuthenticator(
     partial<RunnerPoolRepository>({ findByTokenHash }),
     partial<RunnerTrustRepository>({
-      find: vi.fn(() =>
-        Promise.resolve(input.trust === undefined ? aTrust() : input.trust),
+      find: vi.fn(async () =>
+        input.trust === undefined ? aTrust() : input.trust,
       ),
     }),
     { verify },

@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
@@ -19,6 +18,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -208,41 +208,49 @@ export class DrizzleRunnerRepository implements RunnerRepository {
   }
 
   async find(id: RunnerId): Promise<Runner | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(runner)
-      .where(eq(runner.id, id.value))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(runner)
+        .where(eq(runner.id, id.value))
+        .limit(1),
+    );
 
     return found ? toRunner(found) : null;
   }
 
   async findByTokenHash(hash: TokenHash): Promise<Runner | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(runner)
-      .where(eq(runner.tokenHash, hash.value))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(runner)
+        .where(eq(runner.tokenHash, hash.value))
+        .limit(1),
+    );
 
     return found ? toRunner(found) : null;
   }
 
   async findByEgressTokenHash(hash: TokenHash): Promise<Runner | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(runner)
-      .where(eq(runner.egressTokenHash, hash.value))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(runner)
+        .where(eq(runner.egressTokenHash, hash.value))
+        .limit(1),
+    );
 
     return found ? toRunner(found) : null;
   }
 
   async findByProxyCredentialHash(hash: TokenHash): Promise<Runner | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(runner)
-      .where(eq(runner.proxyCredentialHash, hash.value))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(runner)
+        .where(eq(runner.proxyCredentialHash, hash.value))
+        .limit(1),
+    );
 
     return found ? toRunner(found) : null;
   }

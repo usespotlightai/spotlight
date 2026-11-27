@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { createdOn, type Task } from '@/lib/task';
 
@@ -13,7 +11,7 @@ export function TaskPreview({
   task,
   stationColor,
   stationShare,
-}: TaskPreviewProps): ReactElement {
+}: TaskPreviewProps) {
   return (
     <div
       data-slot="task-preview"

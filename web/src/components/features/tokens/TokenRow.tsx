@@ -1,5 +1,4 @@
 import { KeyRound } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { TokenActions } from '@/components/features/tokens/TokenActions';
@@ -16,7 +15,7 @@ type TokenRowProps = {
   onRevoke: () => void;
 };
 
-export function TokenRow({ token, onRevoke }: TokenRowProps): ReactElement {
+export function TokenRow({ token, onRevoke }: TokenRowProps) {
   return (
     <div data-slot="token-row" className="group/token">
       <SettingsRow

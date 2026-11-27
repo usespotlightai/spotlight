@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
   EDGE_INDENT,
@@ -29,7 +27,7 @@ type OutcomeRowProps = {
   to: string;
 };
 
-export function OutcomeRow({ run, to }: OutcomeRowProps): ReactElement {
+export function OutcomeRow({ run, to }: OutcomeRowProps) {
   return (
     <li className={cn(TABLE_ROW, ROW_DIVIDER)}>
       <span className={cn(LEAD_CELL, EDGE_INDENT)}>

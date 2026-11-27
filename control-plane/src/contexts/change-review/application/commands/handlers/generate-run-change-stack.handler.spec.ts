@@ -30,41 +30,38 @@ const generating = (
     repositories?: Repository[];
   } = {},
 ) => {
-  const begin = vi.fn(() => Promise.resolve(partial<ChangeStack>({})));
+  const begin = vi.fn(async () => partial<ChangeStack>({}));
 
   const work = {
-    run: () =>
-      Promise.resolve({
-        id: RunId.of(RUN),
-        workspaceId: WorkspaceId.of('ws_1'),
-        taskId: over.trial === true ? null : TaskId.of('task_1'),
-        checking: over.checking ?? null,
-        working: true,
-        attempt: 1,
-        orderedAt: null,
-        decisions: false,
-        trial: over.trial === true,
-        isolated: over.trial === true,
-        checkouts: 1,
-        placement: RunnerPlacement.anywhere(),
-      }),
-    teamOfRun: () => Promise.resolve(TeamId.of('team_1')),
-    repositoriesOfRun: () =>
-      Promise.resolve(
-        over.repositories ?? [
-          Repository.of('acme/widgets'),
-          Repository.of('acme/gadgets'),
-        ],
-      ),
-    task: () => Promise.resolve(null),
-    taskWithPullRequest: () => Promise.resolve(null),
+    run: async () => ({
+      id: RunId.of(RUN),
+      workspaceId: WorkspaceId.of('ws_1'),
+      taskId: over.trial ? null : TaskId.of('task_1'),
+      checking: over.checking ?? null,
+      working: true,
+      attempt: 1,
+      orderedAt: null,
+      decisions: false,
+      trial: over.trial === true,
+      isolated: over.trial === true,
+      checkouts: 1,
+      placement: RunnerPlacement.anywhere(),
+    }),
+    teamOfRun: async () => TeamId.of('team_1'),
+    repositoriesOfRun: async () =>
+      over.repositories ?? [
+        Repository.of('acme/widgets'),
+        Repository.of('acme/gadgets'),
+      ],
+    task: async () => null,
+    taskWithPullRequest: async () => null,
   } satisfies WorkPort;
 
   return {
     handler: new GenerateRunChangeStackHandler(
       work,
       partial<RunLeasesPort>({
-        claimedBy: () => Promise.resolve(over.claimed !== false),
+        claimedBy: async () => over.claimed !== false,
       }),
       partial<GenerateChangeStack>({ begin }),
     ),

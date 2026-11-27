@@ -1,5 +1,4 @@
 import { ArrowUp, Square } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -8,10 +7,7 @@ type SendOrStopProps = {
   unsendable: boolean;
 };
 
-export function SendOrStop({
-  onStop,
-  unsendable,
-}: SendOrStopProps): ReactElement {
+export function SendOrStop({ onStop, unsendable }: SendOrStopProps) {
   if (onStop) {
     return (
       <Button

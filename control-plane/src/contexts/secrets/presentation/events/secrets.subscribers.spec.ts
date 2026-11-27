@@ -55,8 +55,7 @@ const setUp = async () => {
   const subscribers = secretsSubscribers({
     deleting: new DeleteWorkspaceSecrets(secrets, transaction),
     keys: {
-      deleteDataKey: (workspaceId) =>
-        Promise.resolve(void deletedKeys.push(workspaceId)),
+      deleteDataKey: async (workspaceId) => void deletedKeys.push(workspaceId),
     },
     runGrants: new PurgeRunGrants(
       grants,

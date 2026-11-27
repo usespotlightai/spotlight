@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import type { InboxItem } from '@/lib/inbox';
 
@@ -7,9 +5,7 @@ type InboxItemBriefingProps = {
   item: InboxItem;
 };
 
-export function InboxItemBriefing({
-  item,
-}: InboxItemBriefingProps): ReactElement {
+export function InboxItemBriefing({ item }: InboxItemBriefingProps) {
   return (
     <InboxAsked
       station={{ ...item.originStation, count: item.stationCount }}

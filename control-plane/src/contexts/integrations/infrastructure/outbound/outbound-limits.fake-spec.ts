@@ -2,5 +2,5 @@ import type { OutboundLimitsPort } from '@integrations/application/ports/outboun
 
 export const unlimited: OutboundLimitsPort = {
   perSecond: 50,
-  take: () => Promise.resolve(true),
+  take: async () => true,
 };

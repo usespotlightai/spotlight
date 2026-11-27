@@ -12,10 +12,10 @@ const MERGED_AT = new Date('2026-09-20T12:00:00Z');
 const listing = (over: { mayView?: boolean } = {}) => {
   const sought: MergedSought[] = [];
   const reader: DecisionReaderPort = {
-    ofTask: () => Promise.resolve(null),
-    merged: (query) => {
+    ofTask: async () => null,
+    merged: async (query) => {
       sought.push(query);
-      return Promise.resolve([
+      return [
         {
           taskId: 'task_1',
           repository: 'acme/api',
@@ -44,21 +44,21 @@ const listing = (over: { mayView?: boolean } = {}) => {
             },
           ],
         },
-      ]);
+      ];
     },
   };
 
   const handler = new ListMergedDecisionsHandler(
     {
-      slugOf: () => Promise.resolve('acme'),
-      idOf: () => Promise.resolve(WorkspaceId.of('ws_1')),
-      mayView: () => Promise.resolve(over.mayView ?? true),
+      slugOf: async () => 'acme',
+      idOf: async () => WorkspaceId.of('ws_1'),
+      mayView: async () => over.mayView ?? true,
     },
     reader,
     {
-      find: () => Promise.resolve({ name: 'Maya Chen', image: null }),
-      viewerOf: () => Promise.resolve(null),
-      actsOnTeam: () => Promise.resolve(false),
+      find: async () => ({ name: 'Maya Chen', image: null }),
+      viewerOf: async () => null,
+      actsOnTeam: async () => false,
     },
   );
 

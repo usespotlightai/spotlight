@@ -1,4 +1,4 @@
-import { type ReactElement, useRef } from 'react';
+import { useRef } from 'react';
 
 import { COMPACT_PILL } from '@/components/features/runners/columns';
 import { ImagePill } from '@/components/features/runners/ImagePill';
@@ -14,7 +14,7 @@ export function HostImageCell({
   images,
 }: {
   images: readonly HostImageResponseDto[];
-}): ReactElement {
+}) {
   const cell = useRef<HTMLSpanElement>(null);
   const overflows = useOverflows(cell, true, 'x');
   const defaultImage = images.find((image) => image.isDefault) ?? images.at(0);

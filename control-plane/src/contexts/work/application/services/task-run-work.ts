@@ -1,5 +1,6 @@
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -137,8 +138,7 @@ export class TaskRunWork implements RunWork {
     missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
     if (
-      missing.personId === null ||
-      missing.personId === '' ||
+      !nonEmpty(missing.personId) ||
       !ConnectionAsk.askableWhen(MISSING_CONNECTIONS[missing.because])
     ) {
       return { kind: 'denied', reason: ConnectionAskedText.denial(missing) };

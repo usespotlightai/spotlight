@@ -96,24 +96,22 @@ const answering = (fails = 0) => {
   let current = waiting();
   const saved: Task[] = [];
   const tasks = partial<TaskRepository>({
-    awaitingConnection: vi.fn(() => Promise.resolve([current])),
-    find: vi.fn(() => Promise.resolve(current)),
-    save: vi.fn((task: Task) => {
+    awaitingConnection: vi.fn(async () => [current]),
+    find: vi.fn(async () => current),
+    save: vi.fn(async (task: Task) => {
       if (failuresLeft > 0) {
         failuresLeft--;
-        return Promise.reject(new TaskVersionConflictError('task_1'));
+        throw new TaskVersionConflictError('task_1');
       }
       current = task;
       saved.push(task);
-
-      return Promise.resolve();
     }),
   });
 
   return {
     made: new ConnectionsMade(
       tasks,
-      partial<LineMapsPort>({ findByStation: () => Promise.resolve(null) }),
+      partial<LineMapsPort>({ findByStation: async () => null }),
       { now: () => NOW, sleep: async () => {} },
       { inTransaction: (work) => work() },
     ),

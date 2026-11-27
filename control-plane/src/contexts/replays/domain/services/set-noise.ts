@@ -126,7 +126,7 @@ export const setNoiseOf = (
     if (
       replay.current !== 'finished' ||
       replay.repeats < 2 ||
-      candidate?.isLive !== true ||
+      !candidate?.isLive ||
       !candidate.fingerprint.equals(liveFingerprint)
     ) {
       continue;

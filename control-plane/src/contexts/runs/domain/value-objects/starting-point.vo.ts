@@ -2,6 +2,7 @@ import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-start
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidCheckoutHeadError } from '@shared-kernel/domain/exceptions/invalid-checkout-head.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   CheckoutHead,
   type CheckoutHeadParts,
@@ -65,10 +66,9 @@ export class StartingPoint {
   static rehydrate(parts: StartingPointParts): StartingPoint {
     try {
       return StartingPoint.of({
-        archive:
-          parts.archive !== null && parts.archive !== ''
-            ? WorkingCopyArchiveId.of(parts.archive)
-            : null,
+        archive: nonEmpty(parts.archive)
+          ? WorkingCopyArchiveId.of(parts.archive)
+          : null,
         checkouts: parts.checkouts.map(CheckoutHead.of),
         attempt: parts.attempt,
         at: parts.at,

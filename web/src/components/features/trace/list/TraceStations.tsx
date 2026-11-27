@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { TraceErrorCount } from '@/components/features/trace/list/TraceErrorCount';
 import type { InsightsTrace } from '@/lib/insights';
@@ -8,10 +6,7 @@ import { cn } from '@/lib/utils';
 
 type TraceStationsProps = Pick<InsightsTrace, 'stations' | 'errors'>;
 
-export function TraceStations({
-  stations,
-  errors,
-}: TraceStationsProps): ReactElement {
+export function TraceStations({ stations, errors }: TraceStationsProps) {
   const slots = errors > 0 ? 2 : 3;
   const folded = stations.length > slots ? stations.length - slots + 1 : 0;
   const shown = stations.length - folded;

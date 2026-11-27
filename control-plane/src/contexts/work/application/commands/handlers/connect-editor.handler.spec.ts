@@ -42,43 +42,38 @@ const setUp = () => {
     newId: () => 'chat_1',
   });
   const workspaces = partial<WorkspaceAccessPort>({
-    mayView: vi.fn((viewer: UserId, workspaceId: WorkspaceId) =>
-      Promise.resolve(
+    mayView: vi.fn(
+      async (viewer: UserId, workspaceId: WorkspaceId) =>
         viewer.value !== OUTSIDER && workspaceId.equals(WORKSPACE),
-      ),
     ),
-    inWorkspace: vi.fn((slug: string, viewer: UserId) =>
-      Promise.resolve(
-        slug === 'acme' && viewer.value !== OUTSIDER
-          ? { workspaceId: WORKSPACE, slug, viewer, isAdmin: false }
-          : slug === 'other'
-            ? {
-                workspaceId: WorkspaceId.of('ws_2'),
-                slug,
-                viewer,
-                isAdmin: false,
-              }
-            : null,
-      ),
+    inWorkspace: vi.fn(async (slug: string, viewer: UserId) =>
+      slug === 'acme' && viewer.value !== OUTSIDER
+        ? { workspaceId: WORKSPACE, slug, viewer, isAdmin: false }
+        : slug === 'other'
+          ? {
+              workspaceId: WorkspaceId.of('ws_2'),
+              slug,
+              viewer,
+              isAdmin: false,
+            }
+          : null,
     ),
   });
   const tasks = {
-    workspaceOf: vi.fn((taskId: { value: string }) =>
-      Promise.resolve(taskId.value === 'task_1' ? WORKSPACE : null),
+    workspaceOf: vi.fn(async (taskId: { value: string }) =>
+      taskId.value === 'task_1' ? WORKSPACE : null,
     ),
-    teamOf: vi.fn((taskId: { value: string }) =>
-      Promise.resolve(taskId.value === 'task_1' ? TeamId.of('team_1') : null),
+    teamOf: vi.fn(async (taskId: { value: string }) =>
+      taskId.value === 'task_1' ? TeamId.of('team_1') : null,
     ),
   };
   const chats = partial<ChatRepository>({
-    find: vi.fn((id: { value: string }) =>
-      Promise.resolve(id.value === 'chat_1' ? chat : null),
+    find: vi.fn(async (id: { value: string }) =>
+      id.value === 'chat_1' ? chat : null,
     ),
   });
   const leases = {
-    hold: vi.fn(() =>
-      Promise.resolve({ sandboxId: 'sandbox_1', holder: 'conn_1' }),
-    ),
+    hold: vi.fn(async () => ({ sandboxId: 'sandbox_1', holder: 'conn_1' })),
   } satisfies Pick<EditorLeasesPort, 'hold'>;
   const access = partial<WorkAccess>({
     ...workAccessSeeing((_, viewer) => viewer.value !== OUTSIDER, {

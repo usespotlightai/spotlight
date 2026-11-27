@@ -141,10 +141,8 @@ beforeAll(async () => {
   database = await openDatabase('judge_scores');
   context = new DrizzleContext(database.db);
   const dispatcher = {
-    dispatch: (events: readonly DomainEvent[]) => {
+    dispatch: async (events: readonly DomainEvent[]) => {
       dispatched.push(...events);
-
-      return Promise.resolve();
     },
   };
   judgings = new DrizzleJudgingRepository(context, dispatcher);
@@ -159,29 +157,27 @@ beforeAll(async () => {
   facts = new DrizzleStationFacts(context);
   reports = new StationJudgeReports(
     {
-      judgesOnTeam: () => Promise.resolve(new Map()),
-      judgeAt: (stationId) =>
-        Promise.resolve(
-          stationId.value === CLAIMS_STATION
-            ? {
-                teamId: TeamId.of('team_1'),
-                lineId: LineId.of('line_1'),
-                claims: [...CLAIMS],
-                passThreshold: 0.5,
-                rubricVersion: CLAIMS_VERSION,
-                sample: 1,
-                minAgreement: 0.5,
-              }
-            : {
-                teamId: TeamId.of('team_1'),
-                lineId: LineId.of('line_1'),
-                claims: ['It retries the upload.'],
-                passThreshold: 1,
-                rubricVersion: VERSION,
-                sample: 1,
-                minAgreement: 0.5,
-              },
-        ),
+      judgesOnTeam: async () => new Map(),
+      judgeAt: async (stationId) =>
+        stationId.value === CLAIMS_STATION
+          ? {
+              teamId: TeamId.of('team_1'),
+              lineId: LineId.of('line_1'),
+              claims: [...CLAIMS],
+              passThreshold: 0.5,
+              rubricVersion: CLAIMS_VERSION,
+              sample: 1,
+              minAgreement: 0.5,
+            }
+          : {
+              teamId: TeamId.of('team_1'),
+              lineId: LineId.of('line_1'),
+              claims: ['It retries the upload.'],
+              passThreshold: 1,
+              rubricVersion: VERSION,
+              sample: 1,
+              minAgreement: 0.5,
+            },
     },
     facts,
   );

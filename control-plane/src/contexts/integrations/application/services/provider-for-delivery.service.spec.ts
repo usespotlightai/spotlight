@@ -9,18 +9,18 @@ import { describe, expect, it, vi } from 'vitest';
 const provider = (key: string): WebhookProviderPort => ({
   key,
   happenings: [],
-  verifies: () => Promise.resolve(true),
+  verifies: async () => true,
   delivery: () => 'delivery_1',
-  routes: () => Promise.resolve(null),
-  read: () => Promise.resolve([]),
+  routes: async () => null,
+  read: async () => [],
 });
 
 const finding = (
   registered: readonly string[],
   declared: readonly string[] = [],
 ) => {
-  const find = vi.fn((_team: unknown, key: IntegrationKey) =>
-    Promise.resolve(declared.includes(key.value) ? provider(key.value) : null),
+  const find = vi.fn(async (_team: unknown, key: IntegrationKey) =>
+    declared.includes(key.value) ? provider(key.value) : null,
   );
 
   return {
@@ -29,7 +29,7 @@ const finding = (
       WebhookProviders.of(registered.map((each) => provider(each))),
       {
         find,
-        all: () => Promise.resolve(declared.map((each) => provider(each))),
+        all: async () => declared.map((each) => provider(each)),
       },
     ),
   };

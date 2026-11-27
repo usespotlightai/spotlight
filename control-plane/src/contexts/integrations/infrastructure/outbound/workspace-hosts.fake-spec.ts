@@ -2,5 +2,5 @@ import type { WorkspaceHostsPort } from '@integrations/application/ports/workspa
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
 export const onlyHosts = (...hosts: string[]): WorkspaceHostsPort => ({
-  fresh: () => Promise.resolve(HostAllowList.of(hosts)),
+  fresh: async () => HostAllowList.of(hosts),
 });

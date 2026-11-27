@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Avatar } from '@identity/domain/aggregates/avatar.aggregate';
 import { AvatarVersionConflictError } from '@identity/domain/exceptions/avatar-version-conflict.error';
 import type { AvatarRepository } from '@identity/domain/repositories/avatar.repository';
@@ -13,6 +12,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
@@ -20,7 +21,9 @@ import { and, eq, isNull, type SQL } from 'drizzle-orm';
 const ownedBy = (owner: AvatarOwner): SQL | undefined =>
   and(
     eq(avatar.workspaceId, owner.workspaceId.value),
-    owner.teamId ? eq(avatar.teamId, owner.teamId.value) : isNull(avatar.teamId),
+    owner.teamId
+      ? eq(avatar.teamId, owner.teamId.value)
+      : isNull(avatar.teamId),
   );
 
 const COLUMNS = {
@@ -45,7 +48,7 @@ const rehydrated = (workspaceId: WorkspaceId, row: AvatarRow): Avatar => {
   }
 
   return Avatar.rehydrate({
-    owner: row.teamId !== null && row.teamId !== ''
+    owner: nonEmpty(row.teamId)
       ? AvatarOwner.team(workspaceId, TeamId.of(row.teamId))
       : AvatarOwner.workspace(workspaceId),
     digest,
@@ -63,11 +66,13 @@ export class DrizzleAvatarRepository implements AvatarRepository {
   ) {}
 
   async find(owner: AvatarOwner): Promise<Avatar | null> {
-    const found = firstOf(await this.context.db
-      .select(COLUMNS)
-      .from(avatar)
-      .where(ownedBy(owner))
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select(COLUMNS)
+        .from(avatar)
+        .where(ownedBy(owner))
+        .limit(1),
+    );
 
     return found ? rehydrated(owner.workspaceId, found) : null;
   }

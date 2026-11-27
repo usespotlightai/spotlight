@@ -27,6 +27,7 @@ import type { PullRequestThread } from '@github/domain/value-objects/pull-reques
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -400,10 +401,9 @@ export class PullRequest extends EventRecorder {
       ...this.props,
       title: snapshot.title,
       author: snapshot.author ?? this.props.author,
-      authorIsBot:
-        snapshot.author !== null && snapshot.author !== ''
-          ? snapshot.authorIsBot
-          : this.props.authorIsBot,
+      authorIsBot: nonEmpty(snapshot.author)
+        ? snapshot.authorIsBot
+        : this.props.authorIsBot,
       branch: snapshot.branch ?? this.props.branch,
       size: snapshot.size ?? this.props.size,
       openedAt: snapshot.openedAt,
@@ -585,7 +585,7 @@ export class PullRequest extends EventRecorder {
     if (
       !this.merged ||
       revert.equals(this.url) ||
-      this.props.revertedBy?.equals(revert) === true
+      this.props.revertedBy?.equals(revert)
     ) {
       return this;
     }
@@ -615,10 +615,9 @@ export class PullRequest extends EventRecorder {
     const deleted = comment.action === 'deleted';
 
     if (
-      comment.login === null ||
-      comment.login === '' ||
+      !nonEmpty(comment.login) ||
       comment.action === 'edited' ||
-      known?.deleted === true ||
+      known?.deleted ||
       (known && !deleted)
     ) {
       return this;

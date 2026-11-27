@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ExternalPillLink } from '@/components/shared/ExternalPillLink';
 import { PillLink } from '@/components/shared/PillLink';
 import {
@@ -14,7 +12,7 @@ type NoticeCardProps = {
   notice: InboxNotice;
 };
 
-export function NoticeCard({ slug, notice }: NoticeCardProps): ReactElement {
+export function NoticeCard({ slug, notice }: NoticeCardProps) {
   return (
     <article
       data-slot="notice"

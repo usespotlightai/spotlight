@@ -13,12 +13,7 @@ type ShowMoreProps = {
   className?: string;
 };
 
-export function ShowMore({
-  list,
-  what,
-  skeleton,
-  className,
-}: ShowMoreProps): ReactNode {
+export function ShowMore({ list, what, skeleton, className }: ShowMoreProps) {
   if (loading(list)) {
     return skeleton ?? null;
   }

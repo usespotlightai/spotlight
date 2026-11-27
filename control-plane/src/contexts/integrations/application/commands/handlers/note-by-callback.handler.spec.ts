@@ -48,8 +48,8 @@ const setUp = (
 ) => {
   const repository = {
     add: vi.fn(async () => {}),
-    withToken: vi.fn(() => Promise.resolve(callbackToken)),
-    expiredBefore: vi.fn(() => Promise.resolve([])),
+    withToken: vi.fn(async () => callbackToken),
+    expiredBefore: vi.fn(async () => []),
     remove: vi.fn(async () => {}),
   } satisfies HookCallbackTokenRepository;
   const clock = { now: () => now, sleep: async () => {} };
@@ -62,22 +62,22 @@ const setUp = (
     clock,
   );
   const tasks = {
-    of: vi.fn(() => Promise.resolve(task)),
+    of: vi.fn(async () => task),
     ofPullRequest: vi.fn(),
   } satisfies TasksForHooksPort;
   const causation = causationInMemory();
   const chains: string[] = [];
   const notes = {
-    noted: vi.fn(() => {
+    noted: vi.fn(async () => {
       chains.push(causation.current().description);
-      return Promise.resolve(true);
+      return true;
     }),
-    failed: vi.fn(() => Promise.resolve('reported' as const)),
-    movedOn: vi.fn(() => Promise.resolve(false)),
+    failed: vi.fn(async () => 'reported' as const),
+    movedOn: vi.fn(async () => false),
   } satisfies TaskNotesFromHooksPort;
   const history = {
     recentRepeats: vi.fn(),
-    chainOf: vi.fn(() => Promise.resolve(FIRED)),
+    chainOf: vi.fn(async () => FIRED),
   } satisfies HookFiringHistoryPort;
 
   return {

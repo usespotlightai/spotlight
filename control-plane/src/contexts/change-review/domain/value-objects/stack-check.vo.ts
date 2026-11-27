@@ -6,6 +6,7 @@ import type {
   HunkId,
   LayerId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const CHECK_STATUS_VIEWS = ['waiting', 'checked', 'skipped'] as const;
 
@@ -104,7 +105,7 @@ export const skipOf = (code: string, detail: string | null): StackSkip => {
 
   return {
     code,
-    detail: trimmed !== undefined && trimmed !== '' ? trimmed : null,
+    detail: nonEmpty(trimmed) ? trimmed : null,
   };
 };
 

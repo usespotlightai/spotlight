@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import {
@@ -25,7 +25,7 @@ export function ClosedChatInput({
   settings,
   below,
   onStop,
-}: ClosedChatInputProps): ReactElement {
+}: ClosedChatInputProps) {
   return (
     <Tooltip>
       <TooltipTrigger delay={0} render={<div data-slot="closed-chat-input" />}>

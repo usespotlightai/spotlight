@@ -1,9 +1,7 @@
-import type { ReactElement } from 'react';
-
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function TeamMemberRowSkeleton(): ReactElement {
+export function TeamMemberRowSkeleton() {
   return (
     <div className="flex min-h-12 items-center gap-3 px-4 py-2">
       <Skeleton className="size-6 rounded-full" />

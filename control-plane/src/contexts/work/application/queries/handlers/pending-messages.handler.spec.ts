@@ -8,25 +8,23 @@ import { describe, expect, it } from 'vitest';
 const reading = () =>
   new PendingMessagesHandler(
     partial<RunWorks>({
-      pendingFor: (runId: string, runnerId: string) =>
-        Promise.resolve(
-          runId === 'run_1' && runnerId === 'runner_1'
-            ? [
-                {
-                  position: 2,
-                  body: 'Use the staging queue.',
-                  attachments: [
-                    Attachment.rehydrate({
-                      id: 'att_1',
-                      name: 'queue.png',
-                      contentType: 'image/png',
-                      size: 10,
-                    }),
-                  ],
-                },
-              ]
-            : null,
-        ),
+      pendingFor: async (runId: string, runnerId: string) =>
+        runId === 'run_1' && runnerId === 'runner_1'
+          ? [
+              {
+                position: 2,
+                body: 'Use the staging queue.',
+                attachments: [
+                  Attachment.rehydrate({
+                    id: 'att_1',
+                    name: 'queue.png',
+                    contentType: 'image/png',
+                    size: 10,
+                  }),
+                ],
+              },
+            ]
+          : null,
     }),
   );
 

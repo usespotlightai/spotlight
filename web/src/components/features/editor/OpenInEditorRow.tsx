@@ -1,5 +1,5 @@
 import { MoreHorizontal } from 'lucide-react';
-import { type ReactElement, useRef } from 'react';
+import { useRef } from 'react';
 
 import { EditorLogo } from '@/components/features/editor/EditorLogo';
 import { EditorMenuItems } from '@/components/features/editor/EditorMenuItems';
@@ -18,10 +18,7 @@ type OpenInEditorRowProps = {
   target: SandboxTarget;
 };
 
-export function OpenInEditorRow({
-  slug,
-  target,
-}: OpenInEditorRowProps): ReactElement {
+export function OpenInEditorRow({ slug, target }: OpenInEditorRowProps) {
   const editor = useEditorLaunch(slug, target);
   const row = useRef<HTMLDivElement>(null);
   const app = editor.preferred;

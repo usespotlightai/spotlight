@@ -138,11 +138,11 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
     const attempt = await tool?.attempt(
       { text },
       {
-        workspace: () => Promise.resolve(WorkspaceId.of(workspaceId)),
+        workspace: async () => WorkspaceId.of(workspaceId),
         connection: null,
         credentials: new SpotlightCredentials(
           app.get<SecretInjectionPort>(SECRET_INJECTION),
-          () => Promise.resolve(WorkspaceId.of(workspaceId)),
+          async () => WorkspaceId.of(workspaceId),
         ),
       },
       null,

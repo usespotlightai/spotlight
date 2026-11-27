@@ -1,5 +1,4 @@
 import { ChartNoAxesColumn } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -14,12 +13,7 @@ type NoRunsProps = {
   children: string;
 };
 
-export function NoRuns({
-  slug,
-  teamId,
-  period,
-  children,
-}: NoRunsProps): ReactElement {
+export function NoRuns({ slug, teamId, period, children }: NoRunsProps) {
   return (
     <Notice>
       <EmptyState

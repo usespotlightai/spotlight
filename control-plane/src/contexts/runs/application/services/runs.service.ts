@@ -35,6 +35,7 @@ import {
   WorkingCopyKey,
 } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -104,10 +105,9 @@ export class Runs implements RunsPort {
         priority: RunPriority.of(order.priority),
         requester: RunRequester.of({
           ...order.requester,
-          team:
-            order.requester.team !== null && order.requester.team !== ''
-              ? TeamId.of(order.requester.team)
-              : null,
+          team: nonEmpty(order.requester.team)
+            ? TeamId.of(order.requester.team)
+            : null,
         }),
         policy: RunPolicy.of(order.policy),
         workingCopy: order.workingCopy
@@ -126,7 +126,7 @@ export class Runs implements RunsPort {
         apiGrant: order.apiGrant ? RunApiGrant.of(order.apiGrant) : null,
         placement: RunnerPlacement.ofLabelGroups(
           order.placement.labelGroups,
-          order.placement.image !== null && order.placement.image !== ''
+          nonEmpty(order.placement.image)
             ? RunnerImage.of(order.placement.image)
             : null,
         ),
@@ -168,10 +168,9 @@ export class Runs implements RunsPort {
     }
 
     return {
-      pendingTurn:
-        stopped.turnAt(stopped.attempt)?.pending === true
-          ? stopped.attempt.number
-          : null,
+      pendingTurn: stopped.turnAt(stopped.attempt)?.pending
+        ? stopped.attempt.number
+        : null,
     };
   }
 

@@ -22,13 +22,12 @@ const bus = () => {
   }>();
 
   const publisher = (): RedisPublisher => ({
-    publish: (channel, message) => {
+    publish: async (channel, message) => {
       for (const subscriber of subscribers) {
         if (subscriber.channels.has(channel)) {
           subscriber.deliver(channel, message);
         }
       }
-      return Promise.resolve();
     },
   });
 
@@ -41,11 +40,9 @@ const bus = () => {
 
     return {
       channels: entry.channels,
-      subscribe: vi.fn((channel: string) =>
-        Promise.resolve(entry.channels.add(channel)),
-      ),
-      unsubscribe: vi.fn((channel: string) =>
-        Promise.resolve(entry.channels.delete(channel)),
+      subscribe: vi.fn(async (channel: string) => entry.channels.add(channel)),
+      unsubscribe: vi.fn(async (channel: string) =>
+        entry.channels.delete(channel),
       ),
       on: (_event, listener) => {
         entry.deliver = listener;
@@ -100,7 +97,7 @@ describe('RedisRunStream', () => {
     await vi.waitFor(() => expect(seen).toEqual([event(2)]));
   });
 
-  it('watches a run on Redis once and stops when its last watcher leaves', () => {
+  it('watches a run on Redis once and stops when its last watcher leaves', async () => {
     const { instance } = bus();
     const a = instance();
 
@@ -115,6 +112,5 @@ describe('RedisRunStream', () => {
     second();
 
     expect(a.listening.unsubscribe).toHaveBeenCalledTimes(1);
-    return Promise.resolve();
   });
 });

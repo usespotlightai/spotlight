@@ -3,6 +3,7 @@ import type { RepositorySettingsPort } from '@github/application/ports/repositor
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -42,7 +43,7 @@ const NEXT =
 const baseOf = (named: string | null | undefined): Branch | null => {
   const trimmed = named?.trim();
 
-  return trimmed !== undefined && trimmed !== '' ? Branch.of(trimmed) : null;
+  return nonEmpty(trimmed) ? Branch.of(trimmed) : null;
 };
 
 interface Opening {

@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 
 import { InsightsPeriodPicker } from '@/components/features/insights/InsightsPeriodPicker';
@@ -8,7 +7,7 @@ import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { insightsCrumbs, viewOf } from '@/lib/insights';
 import { nonEmpty } from '@/lib/non-empty';
 
-export function Insights(): ReactElement | null {
+export function Insights() {
   const { slug, teamId } = useParams();
   const [params] = useSearchParams();
   const view = viewOf(params);

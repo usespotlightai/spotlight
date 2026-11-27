@@ -1,15 +1,9 @@
-import type { ReactElement } from 'react';
-
 import { ContextDonut } from '@/components/features/inbox/conversation/ContextDonut';
 import { StepsDisclosure } from '@/components/features/inbox/conversation/StepsDisclosure';
 import { RunChanges } from '@/components/features/runs/RunChanges';
 import { counted, formatShortDuration, type RunJournal } from '@/lib/inbox';
 
-export function InboxWork({
-  journals,
-}: {
-  journals: readonly RunJournal[];
-}): ReactElement | null {
+export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
   const steps = journals.flatMap((each) => each.steps);
 
   if (steps.length === 0) {

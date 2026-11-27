@@ -2,7 +2,7 @@ import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class DispatchPool {
-  private readonly kind: string = 'dispatch-pool';
+  private readonly kind = 'dispatch-pool';
 
   private constructor(readonly value: string) {}
 
@@ -15,7 +15,7 @@ export class DispatchPool {
   }
 
   equals(other: DispatchPool): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof DispatchPool && this.value === other.value;
   }
 
   toString(): string {

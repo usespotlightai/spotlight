@@ -13,6 +13,7 @@ import type { StationColor } from '@lines/domain/value-objects/station-color.vo'
 import type { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import type { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -141,7 +142,7 @@ export abstract class Station {
   ): void {
     const problem = skillsProblem(skills) ?? toolsProblem(tools);
 
-    if (problem !== null && problem !== '') {
+    if (nonEmpty(problem)) {
       throw new InvalidStationChangeError(problem);
     }
   }

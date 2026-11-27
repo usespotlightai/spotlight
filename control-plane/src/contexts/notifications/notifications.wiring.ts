@@ -71,6 +71,7 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   MEMBER_INBOXES,
   type MemberInboxesPort,
@@ -148,12 +149,9 @@ export const NOTIFICATIONS_PROVIDERS: readonly Provider[] = [
     inject: [ENV, PUSH_SERVICE_GUARD],
     useFactory: (env: Env, guard: OutboundGuard): WebPushPort =>
       new VapidWebPush(
-        env.VAPID_PUBLIC_KEY !== undefined &&
-          env.VAPID_PUBLIC_KEY !== '' &&
-          env.VAPID_PRIVATE_KEY !== undefined &&
-          env.VAPID_PRIVATE_KEY !== '' &&
-          env.VAPID_SUBJECT !== undefined &&
-          env.VAPID_SUBJECT !== ''
+        nonEmpty(env.VAPID_PUBLIC_KEY) &&
+          nonEmpty(env.VAPID_PRIVATE_KEY) &&
+          nonEmpty(env.VAPID_SUBJECT)
           ? {
               publicKey: env.VAPID_PUBLIC_KEY,
               privateKey: env.VAPID_PRIVATE_KEY,

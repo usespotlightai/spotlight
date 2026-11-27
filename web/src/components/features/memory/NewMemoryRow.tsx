@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   MEMORY_COLUMNS,
   MEMORY_WIDE_CELL,
@@ -21,11 +19,7 @@ type NewMemoryRowProps = {
   onDone: () => void;
 };
 
-export function NewMemoryRow({
-  teamId,
-  lines,
-  onDone,
-}: NewMemoryRowProps): ReactElement {
+export function NewMemoryRow({ teamId, lines, onDone }: NewMemoryRowProps) {
   const draft = useMemoryDraft(null, lines);
   const write = useWriteMemory();
   const { data: session } = useSession();

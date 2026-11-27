@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useMessageSources } from '@/hooks/api/useMessageSources';
@@ -11,11 +9,7 @@ type TaskSourceLinkProps = {
   source: string | null;
 };
 
-export function TaskSourceLink({
-  slug,
-  teamId,
-  source,
-}: TaskSourceLinkProps): ReactElement | null {
+export function TaskSourceLink({ slug, teamId, source }: TaskSourceLinkProps) {
   const from = useMessageSources(teamId)(source);
 
   if (!from) {

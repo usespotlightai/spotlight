@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -52,10 +53,7 @@ const reviewOf = (
     // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- a stored payload may lack it, and then it is outside
     outside: review.outside !== false,
     draft: review.draft,
-    branch:
-      review.branch !== null && review.branch !== ''
-        ? Branch.of(review.branch)
-        : null,
+    branch: nonEmpty(review.branch) ? Branch.of(review.branch) : null,
   });
 };
 
@@ -84,12 +82,9 @@ export const HappenedMapper = {
         summary: happened.summary,
         answers: happened.answers,
         state: happened.state,
-        closedPullRequest:
-          happened.closedPullRequest !== null &&
-          happened.closedPullRequest !== undefined &&
-          happened.closedPullRequest !== ''
-            ? PullRequestUrl.of(happened.closedPullRequest)
-            : null,
+        closedPullRequest: nonEmpty(happened.closedPullRequest)
+          ? PullRequestUrl.of(happened.closedPullRequest)
+          : null,
       },
       correlationKeys,
       anchor: happened.message ? Anchor.of(happened.message) : null,
@@ -98,10 +93,9 @@ export const HappenedMapper = {
       opens: opens
         ? {
             lineRole: LineRole.of(opens.lineRole),
-            station:
-              opens.station !== null && opens.station !== ''
-                ? StationKey.parsed(opens.station)
-                : null,
+            station: nonEmpty(opens.station)
+              ? StationKey.parsed(opens.station)
+              : null,
             title: opens.title,
             description: opens.description,
             assignEmail: opens.assignEmail,

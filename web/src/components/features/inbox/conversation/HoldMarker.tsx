@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import type { NoteResumptionResponseDto } from '@/lib/api';
 import type { Note } from '@/lib/inbox';
 import { nonEmpty } from '@/lib/non-empty';
@@ -13,7 +11,7 @@ const WHERE_IT_WENT: Record<
   finish: () => 'It is completed.',
 };
 
-export function HoldMarker({ note }: { note: Note }): ReactElement {
+export function HoldMarker({ note }: { note: Note }) {
   const who = note.author?.name ?? 'Someone';
 
   if (note.form === 'held') {

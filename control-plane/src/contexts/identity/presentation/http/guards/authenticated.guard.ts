@@ -32,6 +32,7 @@ import {
 } from '@platform/http/decorators/current-user.decorator';
 import { MACHINE_ONLY } from '@platform/http/decorators/machine-only.decorator';
 import type { RequestHeaders } from '@platform/http/request-headers';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -79,7 +80,7 @@ export class AuthenticatedGuard implements CanActivate {
         ? basicPasswordIn(presented)
         : undefined);
 
-    if (presented !== '' && (bearer === undefined || bearer === '')) {
+    if (presented !== '' && !nonEmpty(bearer)) {
       throw new UnauthorizedException(
         marked(ALLOW_BASIC_CREDENTIALS)
           ? 'The Authorization header must use the Bearer scheme, or the Basic scheme with the token as the password.'
@@ -87,11 +88,7 @@ export class AuthenticatedGuard implements CanActivate {
       );
     }
 
-    if (
-      bearer !== undefined &&
-      bearer !== '' &&
-      marked(ALLOW_WORKSPACE_TOKENS)
-    ) {
+    if (nonEmpty(bearer) && marked(ALLOW_WORKSPACE_TOKENS)) {
       const principal = await this.tokens.authenticate(bearer);
 
       if (principal) {
@@ -101,23 +98,17 @@ export class AuthenticatedGuard implements CanActivate {
       }
     }
 
-    const user =
-      bearer !== undefined && bearer !== ''
-        ? await this.sessions.readBearer(bearer)
-        : await this.sessions.read(request.headers);
+    const user = nonEmpty(bearer)
+      ? await this.sessions.readBearer(bearer)
+      : await this.sessions.read(request.headers);
 
-    if (
-      !user &&
-      bearer !== undefined &&
-      bearer !== '' &&
-      marked(ALLOW_WORKSPACE_TOKENS)
-    ) {
+    if (!user && nonEmpty(bearer) && marked(ALLOW_WORKSPACE_TOKENS)) {
       throw new UnauthorizedException(
         'The token is unknown, expired or revoked.',
       );
     }
 
-    if (!user && bearer !== undefined && bearer !== '') {
+    if (!user && nonEmpty(bearer)) {
       throw new UnauthorizedException(
         'The token is not a current login. Workspace tokens cannot call this route.',
       );

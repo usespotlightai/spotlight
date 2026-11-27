@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
@@ -22,12 +20,7 @@ type ToolsTabProps = {
   names: StationNames;
 };
 
-export function ToolsTab({
-  slug,
-  teamId,
-  period,
-  names,
-}: ToolsTabProps): ReactElement {
+export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
   const tools = useInsightsTools(teamId, period);
 
   if (loading(tools)) {

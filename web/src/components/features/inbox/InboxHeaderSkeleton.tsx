@@ -1,11 +1,10 @@
 import { ChevronRight } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 
-export function InboxHeaderSkeleton(): ReactElement {
+export function InboxHeaderSkeleton() {
   return (
     <PageHeader
       title={

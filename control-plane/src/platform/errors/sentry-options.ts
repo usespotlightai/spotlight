@@ -12,6 +12,7 @@ import {
   openTelemetryIntegration,
 } from '@sentry/nestjs';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { DrizzleQueryError } from 'drizzle-orm';
 
 type SentryEnv = {
@@ -30,7 +31,7 @@ export function sentryOptions(
   env: SentryEnv,
   { openTelemetry = false }: { openTelemetry?: boolean } = {},
 ): NodeOptions | undefined {
-  if (env.SENTRY_DSN === undefined || env.SENTRY_DSN === '') {
+  if (!nonEmpty(env.SENTRY_DSN)) {
     return undefined;
   }
 

@@ -19,6 +19,7 @@ import { WarmSandboxKeeping } from '@runs/application/services/warm-sandbox-keep
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import {
   afterAll,
@@ -50,17 +51,14 @@ const HOST = 'host-sandboxes-1';
 const SHA256 = 'd'.repeat(64);
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: (archive) =>
-    Promise.resolve({
-      url: `https://archives.test/${archive.id.value}`,
-      headers: {},
-    }),
-  stored: (archive) =>
-    Promise.resolve(
-      archive.location.kind === 'spotlight' ? archive.location : null,
-    ),
-  grantDownload: (archive) =>
-    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) =>
+    archive.location.kind === 'spotlight' ? archive.location : null,
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
 };
 
@@ -107,12 +105,11 @@ describe('sandboxes (e2e)', () => {
     } = {},
   ) => {
     const id = randomUUID();
-    const line =
-      input.line !== undefined && input.line !== ''
-        ? ((
-            await app.get<WarmLinesPort>(WARM_LINES).keepingWarmSandboxes()
-          ).find((each) => each.id.value === input.line) ?? null)
-        : null;
+    const line = nonEmpty(input.line)
+      ? ((await app.get<WarmLinesPort>(WARM_LINES).keepingWarmSandboxes()).find(
+          (each) => each.id.value === input.line,
+        ) ?? null)
+      : null;
 
     await db.insert(schema.run).values({
       id,

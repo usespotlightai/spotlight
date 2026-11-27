@@ -28,7 +28,7 @@ export interface TrialBlock {
 }
 
 export const trialBlockOf = (facts: TrialFacts | null): TrialBlock | null => {
-  if (facts?.inWorkspace !== true) {
+  if (!facts?.inWorkspace) {
     return {
       reason: 'unknown-run',
       description: 'The run is not in this workspace.',

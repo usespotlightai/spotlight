@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { nonEmpty } from '@/lib/non-empty';
@@ -15,7 +13,7 @@ export function IconRowSkeleton({
   nameWidth,
   aboutWidth,
   trailingWidth,
-}: IconRowSkeletonProps): ReactElement {
+}: IconRowSkeletonProps) {
   return (
     <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-2">
       <div className="flex min-w-0 items-center gap-3">

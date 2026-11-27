@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TaskPullRequestStateIcon } from '@/components/features/board/task/TaskPullRequestStateIcon';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { DiffStat } from '@/components/shared/DiffStat';
@@ -24,7 +22,7 @@ export function TaskPullRequestCard({
   pullRequest,
 }: {
   pullRequest: TaskPullRequest;
-}): ReactElement {
+}) {
   const { repository, number } = pullRequestOf(pullRequest.url);
   const {
     state,

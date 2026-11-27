@@ -67,7 +67,7 @@ const handledBy = async (
 };
 
 const refreshSpecOn = async (owner: ConnectionOwner) => {
-  const execute = vi.fn(() => Promise.resolve(undefined));
+  const execute = vi.fn(async () => undefined);
 
   await handledBy(
     'integrations.refresh-spec-when-an-integration-connected',
@@ -80,7 +80,7 @@ const refreshSpecOn = async (owner: ConnectionOwner) => {
 };
 
 const asksAnsweredOn = async (owner: ConnectionOwner) => {
-  const answer = vi.fn(() => Promise.resolve(undefined));
+  const answer = vi.fn(async () => undefined);
 
   await handledBy(
     'integrations.answer-asks-to-connect',

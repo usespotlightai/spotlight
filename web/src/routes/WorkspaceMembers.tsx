@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { Navigate, useParams, useSearchParams } from 'react-router';
 
 import { InviteDialog } from '@/components/features/members/InviteDialog';
@@ -23,7 +23,7 @@ const TITLE = 'Members';
 
 const DESCRIPTION = 'Everyone in this workspace, their role and their teams.';
 
-export function WorkspaceMembers(): ReactElement | null {
+export function WorkspaceMembers() {
   const { slug } = useParams();
   const [params] = useSearchParams();
   const found = useWorkspace(slug);

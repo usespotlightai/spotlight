@@ -23,14 +23,13 @@ const runOf = ({ leased = true, replay = false } = {}): Leased =>
 
 const granting = (run: Leased) => {
   const grant = vi.fn(
-    (_workspaceId: WorkspaceId, _uploader: RunId, _file: Attachment) =>
-      Promise.resolve({
-        url: 'https://files.example/put',
-        headers: { 'content-type': 'image/png' },
-      }),
+    async (_workspaceId: WorkspaceId, _uploader: RunId, _file: Attachment) => ({
+      url: 'https://files.example/put',
+      headers: { 'content-type': 'image/png' },
+    }),
   );
   const handler = new GrantRunAttachmentUploadHandler(
-    partial<RunLeasesPort>({ leasedBy: () => Promise.resolve(run) }),
+    partial<RunLeasesPort>({ leasedBy: async () => run }),
     partial<AttachmentStorePort>({ grant }),
     { generate: () => 'file_1' },
   );

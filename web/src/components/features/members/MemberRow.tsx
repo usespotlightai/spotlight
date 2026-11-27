@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { MemberActions } from '@/components/features/members/MemberActions';
@@ -22,7 +22,7 @@ type MemberRowProps = {
   member: WorkspaceMember;
 };
 
-export function MemberRow({ slug, member }: MemberRowProps): ReactElement {
+export function MemberRow({ slug, member }: MemberRowProps) {
   const navigate = useNavigate();
   const changeRole = useChangeMemberRole(slug);
   const suspend = useSuspendMember(slug);

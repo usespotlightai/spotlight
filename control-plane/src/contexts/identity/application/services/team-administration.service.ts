@@ -30,7 +30,7 @@ export class TeamAdministration {
 
     const workspace = await this.workspaces.find(team.workspaceId);
 
-    return workspace?.permissionsFor(principal).isAdmin === true
+    return workspace?.permissionsFor(principal).isAdmin
       ? { team, workspace, by: principal.userId }
       : null;
   }

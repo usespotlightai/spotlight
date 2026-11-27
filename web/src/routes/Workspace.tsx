@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link, useMatch, useParams } from 'react-router';
 
 import { SettingUpWorkspace } from '@/components/features/onboarding/SettingUpWorkspace';
@@ -36,7 +36,7 @@ type WorkspaceProps = {
   pages: ReactNode;
 };
 
-export function Workspace({ pages }: WorkspaceProps): ReactElement | null {
+export function Workspace({ pages }: WorkspaceProps) {
   const { slug } = useParams();
   const workspace = useWorkspace(slug);
   const inSettings = Boolean(useMatch('/w/:slug/settings/*'));

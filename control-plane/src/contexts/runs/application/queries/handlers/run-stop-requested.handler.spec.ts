@@ -12,14 +12,12 @@ import { describe, expect, it } from 'vitest';
 const requesting = (stopping: Record<string, string>) =>
   new RunStopRequestedHandler(
     partial<RunLeasesPort>({
-      leasedBy: (runId: RunId, runnerId: RunnerId) =>
-        Promise.resolve(
-          runnerId.value === 'runner_1'
-            ? partial<LeasedRunFacts>({
-                stopRequested: stopping[runId.value] === runnerId.value,
-              })
-            : null,
-        ),
+      leasedBy: async (runId: RunId, runnerId: RunnerId) =>
+        runnerId.value === 'runner_1'
+          ? partial<LeasedRunFacts>({
+              stopRequested: stopping[runId.value] === runnerId.value,
+            })
+          : null,
     }),
   );
 

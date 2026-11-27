@@ -6,10 +6,8 @@ import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { describe, expect, it, vi } from 'vitest';
 
 const tracing = (known: readonly TracedTask[]) => {
-  const of = vi.fn((ids: readonly TaskId[]) =>
-    Promise.resolve(
-      known.filter((each) => ids.some((id) => id.value === each.taskId)),
-    ),
+  const of = vi.fn(async (ids: readonly TaskId[]) =>
+    known.filter((each) => ids.some((id) => id.value === each.taskId)),
   );
 
   return { of, traces: new TracesLoader({ of }) };

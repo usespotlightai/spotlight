@@ -10,6 +10,7 @@ import type {
   HookTokensPort,
   PublishedKeys,
 } from '@integrations/application/ports/hook-tokens.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { SignJWT } from 'jose';
 
 const ALGORITHM = 'ES256';
@@ -66,7 +67,7 @@ export class JoseHookTokens implements HookTokensPort {
     pem: string | undefined,
     readonly issuer: string,
   ) {
-    this.signer = pem !== undefined && pem !== '' ? signerFrom(pem) : null;
+    this.signer = nonEmpty(pem) ? signerFrom(pem) : null;
   }
 
   get signs(): boolean {
@@ -95,7 +96,7 @@ export class JoseHookTokens implements HookTokensPort {
       .sign(this.signer.key);
   }
 
-  keys(): Promise<PublishedKeys> {
-    return Promise.resolve({ keys: this.signer ? [this.signer.jwk] : [] });
+  async keys(): Promise<PublishedKeys> {
+    return { keys: this.signer ? [this.signer.jwk] : [] };
   }
 }

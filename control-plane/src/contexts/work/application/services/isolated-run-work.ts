@@ -27,9 +27,9 @@ export class IsolatedRunWork implements RunWork {
     return this.run.workspaceId;
   }
 
-  acknowledgeUpTo(): Promise<void> {
-    return Promise.reject(
-      new NotAllowedForIsolatedRunError('acknowledge the messages of a person'),
+  async acknowledgeUpTo(): Promise<void> {
+    throw new NotAllowedForIsolatedRunError(
+      'acknowledge the messages of a person',
     );
   }
 
@@ -37,30 +37,28 @@ export class IsolatedRunWork implements RunWork {
     return null;
   }
 
-  repositoryNamed(name: string): Promise<Repository | null> {
-    return Promise.reject(
-      new NotAllowedForIsolatedRunError(`use the repository ${name}`),
-    );
+  async repositoryNamed(name: string): Promise<Repository | null> {
+    throw new NotAllowedForIsolatedRunError(`use the repository ${name}`);
   }
 
   readonly limitsPushes = false;
 
-  pushRefusal(): Promise<string | null> {
-    return Promise.resolve(null);
+  async pushRefusal(): Promise<string | null> {
+    return null;
   }
 
   async pushed(): Promise<void> {}
 
-  toolContext(tool: Tool): Promise<ToolContext> {
-    return Promise.reject(new ToolNotEnabledError(tool.value));
+  async toolContext(tool: Tool): Promise<ToolContext> {
+    throw new ToolNotEnabledError(tool.value);
   }
 
-  clearFor(): Promise<Cleared> {
-    return Promise.resolve({ kind: 'dismissed', reason: NO_TOOLS });
+  async clearFor(): Promise<Cleared> {
+    return { kind: 'dismissed', reason: NO_TOOLS };
   }
 
-  askToConnect(): Promise<ConnectionAsked> {
-    return Promise.resolve({ kind: 'denied', reason: NO_TOOLS });
+  async askToConnect(): Promise<ConnectionAsked> {
+    return { kind: 'denied', reason: NO_TOOLS };
   }
 
   async clearPermission(): Promise<PermissionCleared> {

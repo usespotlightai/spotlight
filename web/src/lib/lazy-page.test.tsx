@@ -16,7 +16,7 @@ const shown = (Page: ReturnType<typeof lazyPage>) =>
 describe('lazyPage', () => {
   it('shows a preloaded page at once, without the fallback', async () => {
     const Page = lazyPage(
-      () => Promise.resolve(pageModule),
+      async () => pageModule,
       (module) => module.Page,
     );
 
@@ -29,7 +29,7 @@ describe('lazyPage', () => {
 
   it('shows the fallback until a page that was not preloaded arrives', async () => {
     const Page = lazyPage(
-      () => Promise.resolve(pageModule),
+      async () => pageModule,
       (module) => module.Page,
     );
 
@@ -40,7 +40,7 @@ describe('lazyPage', () => {
   });
 
   it('loads the module once for a preload and a render', async () => {
-    const load = vi.fn(() => Promise.resolve(pageModule));
+    const load = vi.fn(async () => pageModule);
     const Page = lazyPage(load, (module) => module.Page);
 
     await Page.preload();
@@ -67,7 +67,7 @@ describe('lazyPage', () => {
     expect(
       isLazyPage(
         lazyPage(
-          () => Promise.resolve(pageModule),
+          async () => pageModule,
           (m) => m.Page,
         ),
       ),

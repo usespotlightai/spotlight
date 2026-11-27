@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ConnectionRow } from '@/components/features/runs/network/ConnectionRow';
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
@@ -28,7 +26,7 @@ export function RunNetwork({
 }: {
   teamId: string;
   runId: string;
-}): ReactElement | null {
+}) {
   const query = useRunNetwork(teamId, runId);
 
   if (loading(query)) {

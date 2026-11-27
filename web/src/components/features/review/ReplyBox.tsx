@@ -1,4 +1,4 @@
-import { type ReactElement, useRef } from 'react';
+import { useRef } from 'react';
 
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
 import { Composer } from '@/components/shared/form/Composer';
@@ -20,7 +20,7 @@ export function ReplyBox({
   onOpenChange,
   pending,
   onSubmit,
-}: ReplyBoxProps): ReactElement {
+}: ReplyBoxProps) {
   const content = useRef<HTMLDivElement>(null);
   const height = useOffsetHeight(content);
 

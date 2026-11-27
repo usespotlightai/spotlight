@@ -1,7 +1,6 @@
 import { Image } from 'lucide-react';
-import type { ReactElement } from 'react';
 
-export function MissingImage({ name }: { name: string }): ReactElement {
+export function MissingImage({ name }: { name: string }) {
   return (
     <span
       role="img"

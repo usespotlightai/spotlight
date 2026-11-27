@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { FoldedVisitNotes } from '@/components/features/inbox/conversation/FoldedVisitNotes';
 import { FoldedVisits } from '@/components/features/inbox/conversation/FoldedVisits';
@@ -143,7 +143,7 @@ export function Conversation({
   suggestion,
   docked = [],
   pills,
-}: ConversationProps): ReactElement {
+}: ConversationProps) {
   const marked = marksIn(item);
   const turns = turnsOf(item);
   const liveShown = Boolean(live);

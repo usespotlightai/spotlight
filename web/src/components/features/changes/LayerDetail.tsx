@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { type ReactElement, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
 import { LayerFileCard } from '@/components/features/changes/LayerFileCard';
@@ -46,11 +46,7 @@ const collapsedFilesFor = (
   ),
 });
 
-export function LayerDetail({
-  stack,
-  located,
-  onPick,
-}: LayerDetailProps): ReactElement {
+export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   const { layer } = located;
   const layers = layersOf(stack);
   const at = layers.findIndex((each) => each.layer.id === layer.id);

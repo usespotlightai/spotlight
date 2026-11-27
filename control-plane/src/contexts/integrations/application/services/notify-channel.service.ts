@@ -6,6 +6,7 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -88,7 +89,7 @@ export class NotifyChannel {
       return this.links.task(notice.workspaceId, notice.teamId, notice.taskId);
     }
 
-    return notice.chatId !== null && notice.chatId !== ''
+    return nonEmpty(notice.chatId)
       ? this.links.chat(notice.workspaceId, notice.teamId, notice.chatId)
       : null;
   }

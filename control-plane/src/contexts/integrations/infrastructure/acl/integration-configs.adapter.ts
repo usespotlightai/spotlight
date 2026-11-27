@@ -53,13 +53,13 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
       : [];
   }
 
-  toolsOnAnyMarkAsPlanned(
+  async toolsOnAnyMarkAsPlanned(
     definition: Readonly<Record<string, unknown>>,
   ): Promise<readonly string[] | null> {
-    return Promise.resolve(
+    return (
       this.reader
         .enabledOnAnyMarkAsPlanned(definition)
-        ?.map((each) => each.value) ?? null,
+        ?.map((each) => each.value) ?? null
     );
   }
 }

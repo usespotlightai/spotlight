@@ -12,7 +12,7 @@ const invalid = (): never => {
 };
 
 export class IntegrationAddress {
-  private readonly kind: string = 'integration-address';
+  private readonly kind = 'integration-address';
 
   private constructor(
     readonly teamKey: string,
@@ -35,7 +35,7 @@ export class IntegrationAddress {
 
   equals(other: IntegrationAddress): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof IntegrationAddress &&
       this.teamKey === other.teamKey &&
       this.integration.equals(other.integration)
     );

@@ -4,6 +4,7 @@ import { isRunnerVariable } from '@runs/domain/value-objects/runner-variables';
 import type { WarmCheckout } from '@runs/domain/value-objects/warm-line.vo';
 import { distinct } from '@shared-kernel/domain/distinct';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { isEnvironmentVariableName } from '@shared-kernel/domain/value-objects/environment-variable-name';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -228,7 +229,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
             ({ id, value, optional }) => ({
               id,
               value,
-              ...(optional === true ? { optional: true } : {}),
+              ...(optional ? { optional: true } : {}),
             }),
           ),
         }
@@ -243,8 +244,8 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ...(parts.resume.sessionId !== undefined
       ? { sessionId: parts.resume.sessionId }
       : {}),
-    ...(parts.resume.resumeSession === true ? { resumeSession: true } : {}),
-    ...(parts.resume.followUp !== undefined && parts.resume.followUp !== ''
+    ...(parts.resume.resumeSession ? { resumeSession: true } : {}),
+    ...(nonEmpty(parts.resume.followUp)
       ? { followUp: parts.resume.followUp }
       : {}),
   },
@@ -294,7 +295,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     : {}),
   ...(parts.diffs === undefined ? {} : { diffs: parts.diffs }),
   ...(parts.check !== undefined ? { check: parts.check } : {}),
-  ...(parts.startingPoint === true ? { startingPoint: true } : {}),
+  ...(parts.startingPoint ? { startingPoint: true } : {}),
   ...(parts.harnessSetup
     ? { harnessSetup: setupCopied(parts.harnessSetup) }
     : {}),
@@ -315,7 +316,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.harnessKeys !== undefined && parts.harnessKeys.length > 0
     ? { harnessKeys: [...parts.harnessKeys] }
     : {}),
-  ...(parts.spotlightApi === true ? { spotlightApi: true } : {}),
+  ...(parts.spotlightApi ? { spotlightApi: true } : {}),
 });
 
 export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
@@ -327,7 +328,7 @@ export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
     return 'puts secrets in its sandbox';
   }
 
-  if (parts.spotlightApi === true) {
+  if (parts.spotlightApi) {
     return 'uses Spotlight’s API';
   }
 
@@ -347,14 +348,11 @@ export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
     return 'starts MCP servers';
   }
 
-  if (
-    (parts.resume.sessionId !== undefined && parts.resume.sessionId !== '') ||
-    parts.resume.resumeSession === true
-  ) {
+  if (nonEmpty(parts.resume.sessionId) || parts.resume.resumeSession) {
     return 'carries on a conversation';
   }
 
-  if (parts.startingPoint === true) {
+  if (parts.startingPoint) {
     return 'reports where it started';
   }
 
@@ -403,7 +401,7 @@ export class RunSpec {
     if (
       parts.command.sessionOptions?.some(
         (option) => blank(option.id) || blank(option.value),
-      ) === true
+      )
     ) {
       throw new InvalidRunSpecError(
         'must name each harness session option and its value',
@@ -572,8 +570,7 @@ export class RunSpec {
               ? { sessionId: this.parts.resume.sessionId }
               : {}),
           resumeSession: true,
-          ...(this.parts.resume.followUp !== undefined &&
-          this.parts.resume.followUp !== ''
+          ...(nonEmpty(this.parts.resume.followUp)
             ? { followUp: this.parts.resume.followUp }
             : {}),
         },

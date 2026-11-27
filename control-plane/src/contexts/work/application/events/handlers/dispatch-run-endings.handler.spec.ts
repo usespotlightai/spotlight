@@ -32,13 +32,11 @@ let stored: Dispatch | null;
 let saves: Dispatch[];
 
 const dispatches: DispatchRepository = {
-  find: () => Promise.resolve(stored),
-  add: () => Promise.resolve(undefined),
-  save: (saved) => {
+  find: async () => stored,
+  add: async () => undefined,
+  save: async (saved) => {
     saves.push(saved);
     stored = saved;
-
-    return Promise.resolve();
   },
 };
 
@@ -135,7 +133,7 @@ describe('DropUnorderedRun', () => {
     });
     let found: Task = holding;
     const drop = new DropUnorderedRun(
-      partial<TaskRepository>({ find: () => Promise.resolve(found), save }),
+      partial<TaskRepository>({ find: async () => found, save }),
       partial<ChatRepository>({}),
     );
     const refused = new DispatchRefused(RUN, WORKSPACE, TASK, null, 'no-order');

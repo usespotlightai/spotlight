@@ -11,14 +11,12 @@ describe('TeamConfiguration.enablingToolsOnMarks', () => {
       partial<TeamSkillReading>({}),
       partial<HookConfigsPort>({}),
       partial<IntegrationConfigsPort>({
-        toolsOnAnyMarkAsPlanned: ({ tools }: { tools?: unknown }) =>
-          Promise.resolve(
-            tools === 'marked'
-              ? ['posthog.query']
-              : tools === 'broken'
-                ? null
-                : [],
-          ),
+        toolsOnAnyMarkAsPlanned: async ({ tools }: { tools?: unknown }) =>
+          tools === 'marked'
+            ? ['posthog.query']
+            : tools === 'broken'
+              ? null
+              : [],
       }),
     );
 

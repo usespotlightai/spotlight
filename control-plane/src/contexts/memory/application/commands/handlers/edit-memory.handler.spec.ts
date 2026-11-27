@@ -36,30 +36,28 @@ const OLD = Memory.write({
 const editing = (member = true) => {
   const added: Memory[] = [];
   const memories = {
-    find: (id: MemoryId) => Promise.resolve(id.equals(OLD.id) ? OLD : null),
-    nextHandle: () => Promise.resolve(MemoryHandle.of(8)),
-    add: vi.fn((memory: Memory) => {
+    find: async (id: MemoryId) => (id.equals(OLD.id) ? OLD : null),
+    nextHandle: async () => MemoryHandle.of(8),
+    add: vi.fn(async (memory: Memory) => {
       added.push(memory);
-      return Promise.resolve();
     }),
     save: vi.fn(),
   };
   const work = partial<WorkPort>({
-    reasoning: () => Promise.resolve(null),
-    notesOf: () => Promise.resolve(null),
+    reasoning: async () => null,
+    notesOf: async () => null,
   });
   const people = partial<PeoplePort>({
-    viewerOf: () =>
-      Promise.resolve(member ? { workspaceId: WORKSPACE, by: ADA } : null),
-    find: () => Promise.resolve({ name: 'Ada', image: null }),
+    viewerOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),
+    find: async () => ({ name: 'Ada', image: null }),
   });
   const repository = partial<MemoryRepository>(memories);
   const handler = new EditMemoryHandler(
     new MemoryAccess(people, work),
-    new TeamMemoryLoader(repository, { ofTeam: () => Promise.resolve([]) }),
+    new TeamMemoryLoader(repository, { ofTeam: async () => [] }),
     repository,
     { generate: () => 'memory_new' },
-    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+    { now: () => NOW, sleep: async () => undefined },
   );
 
   return {

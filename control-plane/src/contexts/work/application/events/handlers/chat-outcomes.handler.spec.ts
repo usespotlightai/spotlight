@@ -70,16 +70,14 @@ const completed = (part: Partial<RunEndedIntegrationEvent> = {}) =>
   });
 
 const outcomesOf = (chat: Chat | null, lastWordsAt: Date | null = null) => {
-  const save = vi.fn((_saved: Chat) => Promise.resolve(undefined));
-  const takenUp = vi.fn((taken: Chat) =>
-    Promise.resolve(taken.assignRun(RunId.of('run_2'), NOW)),
+  const save = vi.fn(async (_saved: Chat) => undefined);
+  const takenUp = vi.fn(async (taken: Chat) =>
+    taken.assignRun(RunId.of('run_2'), NOW),
   );
-  const lastWordsReceivedAt = vi.fn((_runId: RunId) =>
-    Promise.resolve(lastWordsAt),
-  );
+  const lastWordsReceivedAt = vi.fn(async (_runId: RunId) => lastWordsAt);
   const outcomes = new ChatOutcomes(
     partial<ChatRepository>({
-      find: vi.fn(() => Promise.resolve(chat)),
+      find: vi.fn(async () => chat),
       save,
     }),
     { takenUp },

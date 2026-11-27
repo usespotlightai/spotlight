@@ -15,6 +15,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -109,7 +110,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
     const answered: Record<string, string> = {};
     for (const name of ANSWERED) {
       const value = response.headers.get(name);
-      if (value !== null && value !== '') {
+      if (nonEmpty(value)) {
         answered[name] = value;
       }
     }

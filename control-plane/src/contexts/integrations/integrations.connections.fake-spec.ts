@@ -62,17 +62,15 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
     }
   }
 
-  of(
+  async of(
     teamId: TeamId,
     integration: IntegrationKey,
     owner: ConnectionOwner,
   ): Promise<IntegrationConnection | null> {
-    return Promise.resolve(
-      this.#stored.get(keyOf(teamId, integration, owner)) ?? null,
-    );
+    return this.#stored.get(keyOf(teamId, integration, owner)) ?? null;
   }
 
-  save(connection: IntegrationConnection): Promise<void> {
+  async save(connection: IntegrationConnection): Promise<void> {
     const key = keyOf(
       connection.teamId,
       connection.integration,
@@ -85,10 +83,8 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
       if (stored) {
         this.#stored.set(key, storedAs(stored, stored.version + 1));
       }
-      return Promise.reject(
-        new IntegrationConnectionVersionConflictError(
-          connection.integration.value,
-        ),
+      throw new IntegrationConnectionVersionConflictError(
+        connection.integration.value,
       );
     }
 
@@ -97,21 +93,17 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
         ? stored !== undefined
         : stored?.version !== connection.version
     ) {
-      return Promise.reject(
-        new IntegrationConnectionVersionConflictError(
-          connection.integration.value,
-        ),
+      throw new IntegrationConnectionVersionConflictError(
+        connection.integration.value,
       );
     }
 
     this.#stored.set(key, storedAs(connection, (stored?.version ?? 0) + 1));
     this.saved.push(connection);
     this.events.push(...connection.pullEvents());
-
-    return Promise.resolve();
   }
 
-  remove(connection: IntegrationConnection): Promise<void> {
+  async remove(connection: IntegrationConnection): Promise<void> {
     const key = keyOf(
       connection.teamId,
       connection.integration,
@@ -119,47 +111,41 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
     );
 
     if (this.#stored.get(key)?.version !== connection.version) {
-      return Promise.reject(
-        new IntegrationConnectionVersionConflictError(
-          connection.integration.value,
-        ),
+      throw new IntegrationConnectionVersionConflictError(
+        connection.integration.value,
       );
     }
 
     this.#stored.delete(key);
     this.events.push(...connection.pullEvents());
-
-    return Promise.resolve();
   }
 
-  expiringBefore(horizon: Date): Promise<readonly IntegrationConnection[]> {
-    return Promise.resolve(
-      [...this.#stored.values()].filter(
-        (each) =>
-          each.refreshToken !== null &&
-          each.refreshFailedAt === null &&
-          each.expiresAt !== null &&
-          each.expiresAt.getTime() < horizon.getTime(),
-      ),
+  async expiringBefore(
+    horizon: Date,
+  ): Promise<readonly IntegrationConnection[]> {
+    return [...this.#stored.values()].filter(
+      (each) =>
+        each.refreshToken !== null &&
+        each.refreshFailedAt === null &&
+        each.expiresAt !== null &&
+        each.expiresAt.getTime() < horizon.getTime(),
     );
   }
 
-  ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]> {
-    return Promise.resolve(
-      [...this.#stored.values()].filter((each) => each.teamId.equals(teamId)),
+  async ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]> {
+    return [...this.#stored.values()].filter((each) =>
+      each.teamId.equals(teamId),
     );
   }
 
-  ofPerson(
+  async ofPerson(
     workspaceId: WorkspaceId,
     person: UserId,
   ): Promise<readonly IntegrationConnection[]> {
-    return Promise.resolve(
-      [...this.#stored.values()].filter(
-        (each) =>
-          each.workspaceId.equals(workspaceId) &&
-          each.owner.personId?.equals(person) === true,
-      ),
+    return [...this.#stored.values()].filter(
+      (each) =>
+        each.workspaceId.equals(workspaceId) &&
+        each.owner.personId?.equals(person) === true,
     );
   }
 }

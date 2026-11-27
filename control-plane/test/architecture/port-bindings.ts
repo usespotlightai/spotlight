@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import ts from 'typescript';
 
@@ -55,7 +56,7 @@ const providersOf = (
   for (const file of files) {
     const context = contextOf(file.path);
 
-    if (context === null || context === '') {
+    if (!nonEmpty(context)) {
       continue;
     }
 
@@ -66,7 +67,7 @@ const providersOf = (
       const provided = propertyNamed(literal, 'provide');
       const token = provided ? tokenOf(provided, file) : null;
 
-      if (token !== null && token !== '' && PORT.test(token)) {
+      if (nonEmpty(token) && PORT.test(token)) {
         providers.set(
           token,
           new Set([...(providers.get(token) ?? []), context]),
@@ -117,16 +118,9 @@ export const portBindings = (): PortBinding[] => {
 
     return injectedIn(file).flatMap((element) => {
       const token = tokenOf(element, file);
-      const declarer =
-        token !== null && token !== '' ? PORT.exec(token)?.[1] : undefined;
+      const declarer = nonEmpty(token) ? PORT.exec(token)?.[1] : undefined;
 
-      if (
-        token === null ||
-        token === '' ||
-        declarer === undefined ||
-        declarer === '' ||
-        declarer === consumer
-      ) {
+      if (!nonEmpty(token) || !nonEmpty(declarer) || declarer === consumer) {
         return [];
       }
 

@@ -1,5 +1,5 @@
 import { Minus } from 'lucide-react';
-import { type Ref, useState, type ReactElement } from 'react';
+import { type Ref, useState } from 'react';
 
 import { DecisionPager } from '@/components/shared/decision-tray/DecisionPager';
 import { FadingScroll } from '@/components/shared/FadingScroll';
@@ -21,7 +21,7 @@ export function DecisionTrayCard({
   ref,
   tray,
   onCollapse,
-}: DecisionTrayCardProps): ReactElement | null {
+}: DecisionTrayCardProps) {
   const { decisions, shown, open } = tray;
   const [slots, setSlots] = useState<Readonly<Record<string, HTMLElement>>>({});
 

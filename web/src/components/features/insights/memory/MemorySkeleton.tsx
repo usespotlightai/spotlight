@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
@@ -20,7 +18,7 @@ const TILES: readonly TileBones[] = [
   { label: 'Solved with memories', detail: true },
 ];
 
-export function MemorySkeleton(): ReactElement {
+export function MemorySkeleton() {
   return (
     <div
       role="status"

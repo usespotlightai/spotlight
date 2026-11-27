@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import { tableNamed } from './drizzle-tables';
@@ -131,8 +132,7 @@ const persistedTypesIn = (file: SourceFile): Violation[] => {
                 const name = reference.typeName.getText();
                 const target = imported.get(name);
 
-                return target !== undefined &&
-                  target !== '' &&
+                return nonEmpty(target) &&
                   /\/domain\//.test(target) &&
                   !AGGREGATE_FILE.test(target)
                   ? [

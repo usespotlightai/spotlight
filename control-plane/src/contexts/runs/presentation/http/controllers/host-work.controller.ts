@@ -77,6 +77,7 @@ import { SnapshotRemovalsResponseDto } from '@runs/presentation/http/dto/snapsho
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 import { EgressSecretsHttpMapper } from '@runs/presentation/http/mappers/egress-secrets.http.mapper';
 import { HostCallResponseHttpMapper } from '@runs/presentation/http/mappers/host-call-response.http.mapper';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface Answerable {
   status(code: number): unknown;
@@ -270,9 +271,7 @@ export class HostWorkController {
         { bearer: bearerIn(authorization), trust },
         body?.host ?? '',
         body?.image ?? '',
-        body?.sandbox !== undefined && body.sandbox !== ''
-          ? body.sandbox
-          : null,
+        nonEmpty(body?.sandbox) ? body.sandbox : null,
       ),
     );
 

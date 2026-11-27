@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { nonEmpty } from '@/lib/non-empty';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
@@ -9,7 +7,7 @@ export function TooltipNoteContent({
 }: {
   note: TooltipNote;
   className?: string;
-}): ReactElement {
+}) {
   return (
     <span className={`flex flex-col gap-1 ${className}`}>
       {nonEmpty(note.title) && (

@@ -1,5 +1,5 @@
 import { useDroppable } from '@dnd-kit/core';
-import { use, useRef, type ReactElement } from 'react';
+import { use, useRef } from 'react';
 
 import { TabDragContext, zoneId } from '@/components/shell/tabs/tab-drag';
 import { useNarrowerThan } from '@/hooks/useNarrowerThan';
@@ -12,7 +12,7 @@ type SplitDropZonesProps = {
   sides: readonly SplitSide[];
 };
 
-export function SplitDropZones({ sides }: SplitDropZonesProps): ReactElement {
+export function SplitDropZones({ sides }: SplitDropZonesProps) {
   const frame = useRef<HTMLDivElement>(null);
   const narrow = useNarrowerThan(frame, TWO_PANES_PX);
   const shown = sides.length > 1 && narrow ? [] : sides;

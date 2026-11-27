@@ -6,15 +6,17 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { after, pageOf } from '@platform/persistence/drizzle/keyset';
+import { cursorOf } from '@platform/persistence/drizzle/page-cursor';
 import {
   RUN_PROGRESS,
   type RunProgressPort,
 } from '@runs/application/ports/run-progress.port';
+import type { Page } from '@shared-kernel/application/dto/page.dto';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Page } from '@shared-kernel/application/dto/page.dto';
 import type {
   TaskListing,
   TaskNoteSummary,
@@ -24,7 +26,6 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
-import { cursorOf } from '@platform/persistence/drizzle/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -93,7 +94,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       and(
         eq(workStation.kind, 'completed'),
         eq(task.isSetup, false),
-        listing.lineId !== null && listing.lineId !== ''
+        nonEmpty(listing.lineId)
           ? eq(workStation.lineId, listing.lineId)
           : undefined,
         before ? after(task.rank, task.id, before) : undefined,
@@ -172,9 +173,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
           [
             ...rows.flatMap((row) => [row.createdById, row.assigneeId]),
             ...rows.map((row) => row.hold?.heldBy),
-          ].flatMap((id) =>
-            id !== undefined && id !== null && id !== '' ? [UserId.of(id)] : [],
-          ),
+          ].flatMap((id) => (nonEmpty(id) ? [UserId.of(id)] : [])),
         ),
         progressOfCurrentRuns(
           this.progress,
@@ -202,27 +201,21 @@ export class DrizzleTaskReader implements TaskReaderPort {
         ...rest
       }) => ({
         ...rest,
-        pullRequests:
-          reviewedPullRequest !== null && reviewedPullRequest !== ''
-            ? [reviewedPullRequest]
-            : (pulled.get(rest.id) ?? []),
+        pullRequests: nonEmpty(reviewedPullRequest)
+          ? [reviewedPullRequest]
+          : (pulled.get(rest.id) ?? []),
         attachments: attachmentsOf(attached, rest.id).own,
         progress: awaited.has(rest.id) ? null : progressOf(currentRunId),
         awaitingReview: awaited.get(rest.id) ?? null,
         finished: finishedAt !== null,
         running: currentRunId !== null,
-        createdBy:
-          createdById !== null && createdById !== ''
-            ? person(createdById)
-            : null,
-        assignee:
-          assigneeId !== null && assigneeId !== '' ? person(assigneeId) : null,
+        createdBy: nonEmpty(createdById) ? person(createdById) : null,
+        assignee: nonEmpty(assigneeId) ? person(assigneeId) : null,
         note: notes.get(rest.id) ?? null,
         source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
         hold: holdOf(hold, person),
         runNotStarted:
-          notStartedHarness !== null &&
-          notStartedHarness !== '' &&
+          nonEmpty(notStartedHarness) &&
           notStartedStationId === rest.stationId &&
           currentRunId === null &&
           finishedAt === null

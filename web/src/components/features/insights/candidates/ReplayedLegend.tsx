@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   FRONTIER_INK,
   REPLAYED_INK,
@@ -19,7 +17,7 @@ type ReplayedLegendProps = {
 export function ReplayedLegend({
   points,
   hollow = false,
-}: ReplayedLegendProps): ReactElement {
+}: ReplayedLegendProps) {
   const onFrontier = (point: ReplayedPoint) => !hollow && point.frontier;
   const swatch = (shape: string, mark: ReplayedMark) =>
     cn(

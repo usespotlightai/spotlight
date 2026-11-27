@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
@@ -37,7 +36,7 @@ export function StationsTable({
   stations,
   counted,
   names,
-}: StationsTableProps): ReactElement {
+}: StationsTableProps) {
   const { slug = '', teamId = '' } = useParams();
   const [params] = useSearchParams();
   const { period } = viewOf(params);

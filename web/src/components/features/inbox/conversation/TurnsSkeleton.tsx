@@ -1,10 +1,9 @@
 import { ChevronRight } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function TurnsSkeleton(): ReactElement {
+export function TurnsSkeleton() {
   return (
     <ol className="mt-6 flex flex-col gap-6">
       <li className="flex justify-center text-xs">

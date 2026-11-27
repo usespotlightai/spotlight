@@ -5,6 +5,7 @@ import type {
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
 import type { BoundSecretsPort } from '@secrets/application/ports/bound-secrets.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { BoundSecretMapper } from '@work/application/mappers/bound-secret.mapper';
@@ -71,7 +72,7 @@ const laidOut = (
   skillHomes: laid.skillHomes,
   attachments: Attached.shapes(laid.attachments),
   diffs: order.diffs,
-  ...(order.check !== null && order.check !== '' ? { check: order.check } : {}),
+  ...(nonEmpty(order.check) ? { check: order.check } : {}),
   ...(prepared.setup ? { harnessSetup: prepared.setup } : {}),
   settingFiles: laid.settingFiles,
 });

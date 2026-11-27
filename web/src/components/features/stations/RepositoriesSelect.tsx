@@ -1,5 +1,4 @@
 import { GitBranch } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { CheckboxSelect } from '@/components/features/stations/CheckboxSelect';
 import { useRepositories } from '@/hooks/api/useRepositories';
@@ -20,7 +19,7 @@ export function RepositoriesSelect({
   none = 'No repositories',
   readOnlyBecause,
   className,
-}: RepositoriesSelectProps): ReactElement {
+}: RepositoriesSelectProps) {
   const { data: available } = useRepositories(slug);
 
   const names = [

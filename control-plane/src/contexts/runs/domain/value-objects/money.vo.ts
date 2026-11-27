@@ -1,4 +1,5 @@
 import { InvalidMoneyError } from '@runs/domain/exceptions/invalid-money.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const CURRENCY = /^[A-Z]{3}$/;
 
@@ -28,11 +29,7 @@ export class Money {
     amount: number | null | undefined,
     currency: string | null | undefined,
   ): Money | null {
-    return amount === null ||
-      amount === undefined ||
-      currency === null ||
-      currency === undefined ||
-      currency === ''
+    return amount === null || amount === undefined || !nonEmpty(currency)
       ? null
       : Money.of(amount, currency);
   }

@@ -40,10 +40,9 @@ const owning = <T>(found: readonly T[]) => {
   return {
     removed,
     repository: {
-      ofTeam: vi.fn(() => Promise.resolve(found)),
-      remove: vi.fn((each: T) => {
+      ofTeam: vi.fn(async () => found),
+      remove: vi.fn(async (each: T) => {
         removed.push(each);
-        return Promise.resolve();
       }),
     },
   };

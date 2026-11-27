@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   HOST_COLUMNS,
   HOST_ROW,
@@ -28,7 +26,7 @@ type PoolRowProps = {
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function PoolRow({ slug, pool, harnesses }: PoolRowProps): ReactElement {
+export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
   const name = poolName(pool.source);
 
   return (

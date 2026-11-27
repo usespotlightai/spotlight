@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class AssistSessionId {
-  private readonly kind: string = 'assist-session';
+  private readonly kind = 'assist-session';
 
   private constructor(readonly value: string) {}
 
@@ -14,6 +14,6 @@ export class AssistSessionId {
   }
 
   equals(other: AssistSessionId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof AssistSessionId && this.value === other.value;
   }
 }

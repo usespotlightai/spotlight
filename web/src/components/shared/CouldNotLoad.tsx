@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -15,7 +13,7 @@ export function CouldNotLoad({
   retrying,
   onRetry,
   className,
-}: CouldNotLoadProps): ReactElement {
+}: CouldNotLoadProps) {
   return (
     <div
       role="alert"

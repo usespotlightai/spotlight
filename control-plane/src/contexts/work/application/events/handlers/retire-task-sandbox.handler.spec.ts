@@ -44,11 +44,11 @@ const retiring = (
       ? null
       : partial<Task>({ stationId: STATION, keepsNoLiveWorkingCopyOn });
   const tasks = partial<TaskRepository>({
-    find: vi.fn(() => Promise.resolve(task)),
+    find: vi.fn(async () => task),
   });
   const lines = partial<LineMapsPort>({
-    findByStation: vi.fn(() =>
-      Promise.resolve(input.line === undefined ? LINE : input.line),
+    findByStation: vi.fn(async () =>
+      input.line === undefined ? LINE : input.line,
     ),
   });
   const sandboxes: SandboxRetirementPort = { retire: vi.fn(async () => {}) };

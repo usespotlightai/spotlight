@@ -127,44 +127,38 @@ const lookingUp = (seen: Seen) => {
   const facts = seen.facts === undefined ? factsOf() : seen.facts;
 
   return new WorkRunLookup(
-    { of: () => Promise.resolve(facts ? [facts] : []) },
+    { of: async () => (facts ? [facts] : []) },
     partial<RunLeasesPort>({
-      leasedBy: () =>
-        Promise.resolve(
-          seen.leased === true && facts
-            ? partial<LeasedRunFacts>({
-                ...facts,
-                claimedBy: RUNNER,
-                manifest: [],
-                pins: [],
-              })
-            : null,
-        ),
+      leasedBy: async () =>
+        seen.leased && facts
+          ? partial<LeasedRunFacts>({
+              ...facts,
+              claimedBy: RUNNER,
+              manifest: [],
+              pins: [],
+            })
+          : null,
     }),
     {
-      of: () =>
-        Promise.resolve(
-          seen.for === null
-            ? null
-            : {
-                runId: RUN,
-                for: seen.for ?? taskAt('implementation'),
-                briefedMemories: { briefed: [], omitted: [] },
-                orderedAt: ORDERED_AT,
-              },
-        ),
+      of: async () =>
+        seen.for === null
+          ? null
+          : {
+              runId: RUN,
+              for: seen.for ?? taskAt('implementation'),
+              briefedMemories: { briefed: [], omitted: [] },
+              orderedAt: ORDERED_AT,
+            },
     },
-    partial<TaskRepository>({ find: () => Promise.resolve(null) }),
+    partial<TaskRepository>({ find: async () => null }),
     partial<ChatRepository>({
-      find: () =>
-        Promise.resolve(partial<Chat>({ teamId: TEAM, repositories: [WEB] })),
+      find: async () => partial<Chat>({ teamId: TEAM, repositories: [WEB] }),
     }),
     partial<LineMapsPort>({
-      findByStation: () =>
-        Promise.resolve(seen.lineGone === true ? null : line),
+      findByStation: async () => (seen.lineGone ? null : line),
     }),
     partial<RunJournalReaderPort>({
-      attemptsOfRun: () => Promise.resolve([...(seen.attempts ?? [])]),
+      attemptsOfRun: async () => [...(seen.attempts ?? [])],
     }),
     readings,
   );

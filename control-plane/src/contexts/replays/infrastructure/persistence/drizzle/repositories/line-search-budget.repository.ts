@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
@@ -11,6 +10,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -41,9 +41,7 @@ const admissionsOf = (budget: LineSearchBudget) =>
   }));
 
 @Injectable()
-export class DrizzleLineSearchBudgetRepository
-  implements LineSearchBudgetRepository
-{
+export class DrizzleLineSearchBudgetRepository implements LineSearchBudgetRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -51,16 +49,18 @@ export class DrizzleLineSearchBudgetRepository
   ) {}
 
   async locked(lineId: LineId, month: Date): Promise<LineSearchBudget | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(lineSearchBudget)
-      .where(
-        and(
-          eq(lineSearchBudget.lineId, lineId.value),
-          eq(lineSearchBudget.month, month),
-        ),
-      )
-      .for('update'));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(lineSearchBudget)
+        .where(
+          and(
+            eq(lineSearchBudget.lineId, lineId.value),
+            eq(lineSearchBudget.month, month),
+          ),
+        )
+        .for('update'),
+    );
 
     return found ? toBudget(found) : null;
   }

@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -24,20 +23,22 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
+import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import {
+  workingCopyStoreColumns,
+  workingCopyStoreOf,
+} from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  workingCopyStoreColumns,
-  workingCopyStoreOf,
-} from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
-import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { and, eq, inArray, type SQL } from 'drizzle-orm';
 
 type Row = typeof runnerPool.$inferSelect;
@@ -80,14 +81,14 @@ const accessOf = (row: Row): PoolAccess => {
     });
   }
 
-  if (row.tokenHash !== null && row.tokenHash !== '') {
+  if (nonEmpty(row.tokenHash)) {
     return PullAccess.of(
       TokenHash.of(row.tokenHash),
       RotationVersion.of(row.tokenVersion),
     );
   }
 
-  if (row.provisionUrl !== null && row.provisionUrl !== '' && row.provisionSecret !== null && row.provisionSecret !== '') {
+  if (nonEmpty(row.provisionUrl) && nonEmpty(row.provisionSecret)) {
     return PushAccess.of(
       ProvisionUrl.of(row.provisionUrl),
       EncryptedProvisionSecret.of(row.provisionSecret),
@@ -220,7 +221,10 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     return this.all(eq(runnerPool.key, key.value));
   }
 
-  findByKey(workspaceId: WorkspaceId, key: PoolKey): Promise<RunnerPool | null> {
+  findByKey(
+    workspaceId: WorkspaceId,
+    key: PoolKey,
+  ): Promise<RunnerPool | null> {
     return this.one(
       and(
         eq(runnerPool.workspaceId, workspaceId.value),

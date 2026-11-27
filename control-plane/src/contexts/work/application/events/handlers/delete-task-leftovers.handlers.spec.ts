@@ -21,7 +21,7 @@ describe('a deleted task’s inbox requests', () => {
     const remove = vi.fn<(inboxRequest: InboxRequest) => Promise<void>>(
       async () => {},
     );
-    const ofTask = vi.fn(() => Promise.resolve(requests));
+    const ofTask = vi.fn(async () => requests);
 
     await new DeleteTaskInboxRequests(
       partial<InboxRequestRepository>({

@@ -1,5 +1,6 @@
 import { InvalidReferralSourceError } from '@identity/domain/exceptions/invalid-referral-source.error';
 import { JobFunction } from '@identity/domain/value-objects/job-function.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const MAX_REFERRAL_SOURCE_LENGTH = 200;
 
@@ -14,8 +15,7 @@ export class SignupSurvey {
     referralSource: string | null;
   }): SignupSurvey {
     const trimmed = answers.referralSource?.trim();
-    const referralSource =
-      trimmed === undefined || trimmed === '' ? null : trimmed;
+    const referralSource = !nonEmpty(trimmed) ? null : trimmed;
 
     if (
       referralSource !== null &&

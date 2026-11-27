@@ -1,11 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import {
-  type ReactElement,
-  type ReactNode,
-  useId,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useId, useRef, useState } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOverflows } from '@/hooks/useOverflows';
@@ -16,10 +10,7 @@ type ExpandableTextProps = {
   children: ReactNode;
 };
 
-export function ExpandableText({
-  what,
-  children,
-}: ExpandableTextProps): ReactElement {
+export function ExpandableText({ what, children }: ExpandableTextProps) {
   const [open, setOpen] = useState(false);
   const text = useRef<HTMLDivElement>(null);
   const shown = useId();

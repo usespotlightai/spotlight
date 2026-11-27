@@ -76,28 +76,24 @@ const joining = (
           team_1: team('team_1'),
           team_elsewhere: team('team_elsewhere', WorkspaceId.of('ws_2')),
         };
-  const savedWorkspace = vi.fn((saved: Workspace) => {
+  const savedWorkspace = vi.fn(async (saved: Workspace) => {
     workspace = saved;
-    return Promise.resolve();
   });
-  const savedTeam = vi.fn((saved: Team) => {
+  const savedTeam = vi.fn(async (saved: Team) => {
     teams[saved.id.value] = saved;
-    return Promise.resolve();
   });
   const memberships = new InviteMemberships(
     partial<WorkspaceRepository>({
-      find: () => Promise.resolve(workspace),
+      find: async () => workspace,
       save: savedWorkspace,
     }),
     partial<TeamRepository>({
-      find: (id: TeamId) => Promise.resolve(teams[id.value] ?? null),
+      find: async (id: TeamId) => teams[id.value] ?? null,
       save: savedTeam,
     }),
     partial<PersonReaderPort>({
-      find: (id: UserId) =>
-        Promise.resolve(
-          over.adaLeft === true ? null : { id, name: 'Ada', image: null },
-        ),
+      find: async (id: UserId) =>
+        over.adaLeft ? null : { id, name: 'Ada', image: null },
     }),
   );
 

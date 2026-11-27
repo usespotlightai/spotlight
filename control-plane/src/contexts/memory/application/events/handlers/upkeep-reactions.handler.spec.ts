@@ -22,6 +22,7 @@ import { MemoryUpkeepId } from '@memory/domain/value-objects/memory-upkeep-id.vo
 import type { UpkeepChange } from '@memory/domain/value-objects/upkeep-change';
 import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -91,51 +92,44 @@ const reacting = (
   const settled: MemoryUpkeepId[] = [];
   const reactions = new UpkeepReactions(
     {
-      swept: (event: MemoryUpkeepSwept) => {
+      swept: async (event: MemoryUpkeepSwept) => {
         noticed.push(event);
-        return Promise.resolve();
       },
-      settled: (upkeepId: MemoryUpkeepId) => {
+      settled: async (upkeepId: MemoryUpkeepId) => {
         settled.push(upkeepId);
-        return Promise.resolve();
       },
     },
     partial<MemoryRepository>({
-      find: (id: MemoryId) => Promise.resolve(memories.get(id.value) ?? null),
-      findAll: (ids: readonly MemoryId[]) =>
-        Promise.resolve(ids.flatMap((id) => memories.get(id.value) ?? [])),
-      findAllLocked: (ids: readonly MemoryId[]) =>
-        Promise.resolve(ids.flatMap((id) => memories.get(id.value) ?? [])),
-      save: (saved: Memory) => {
+      find: async (id: MemoryId) => memories.get(id.value) ?? null,
+      findAll: async (ids: readonly MemoryId[]) =>
+        ids.flatMap((id) => memories.get(id.value) ?? []),
+      findAllLocked: async (ids: readonly MemoryId[]) =>
+        ids.flatMap((id) => memories.get(id.value) ?? []),
+      save: async (saved: Memory) => {
         memories.set(saved.id.value, saved);
-        return Promise.resolve();
       },
-      add: (added: Memory) => {
+      add: async (added: Memory) => {
         memories.set(added.id.value, added);
-        return Promise.resolve();
       },
-      nextHandle: () => Promise.resolve(MemoryHandle.of(50)),
+      nextHandle: async () => MemoryHandle.of(50),
     }),
     partial<MemoryUpkeepRepository>({
-      find: () => Promise.resolve(upkeeps[upkeeps.length - 1] ?? null),
-      save: (saved: MemoryUpkeep) => {
+      find: async () => upkeeps[upkeeps.length - 1] ?? null,
+      save: async (saved: MemoryUpkeep) => {
         upkeeps.push(saved);
-        return Promise.resolve();
       },
     }),
     partial<MemoryUpkeepScheduleRepository>({
-      ofTeam: () => Promise.resolve(schedules[schedules.length - 1] ?? null),
-      add: (added: MemoryUpkeepSchedule) => {
+      ofTeam: async () => schedules[schedules.length - 1] ?? null,
+      add: async (added: MemoryUpkeepSchedule) => {
         schedules.push(added);
-        return Promise.resolve();
       },
-      save: (saved: MemoryUpkeepSchedule) => {
+      save: async (saved: MemoryUpkeepSchedule) => {
         schedules.push(saved);
-        return Promise.resolve();
       },
     }),
     instantly,
-    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+    { now: () => NOW, sleep: async () => undefined },
   );
 
   return { reactions, memories, schedules, upkeeps, noticed, settled };
@@ -156,7 +150,7 @@ const approved = (
     change === 'merge' ? MemoryBody.of('One rule.') : null,
     'Not used in 90 days.',
     MemoryDecision.of({ by: ADA, at: NOW }),
-    merged !== null && merged !== '' ? MemoryId.of(merged) : null,
+    nonEmpty(merged) ? MemoryId.of(merged) : null,
   );
 
 describe('UpkeepReactions', () => {

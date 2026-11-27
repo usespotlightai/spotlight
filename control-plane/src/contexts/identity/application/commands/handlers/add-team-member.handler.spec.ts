@@ -52,7 +52,7 @@ const platform = Team.rehydrate({
 const adding = (leonIs = WorkspaceRole.admin) => {
   const save = vi.fn<(team: Team) => Promise<void>>(async () => {});
   const teams = partial<TeamRepository>({
-    find: () => Promise.resolve(platform),
+    find: async () => platform,
     save,
   });
 
@@ -60,7 +60,7 @@ const adding = (leonIs = WorkspaceRole.admin) => {
     new TeamAdministration(
       teams,
       partial<WorkspaceRepository>({
-        find: () => Promise.resolve(workspace(leonIs)),
+        find: async () => workspace(leonIs),
       }),
     ),
     teams,

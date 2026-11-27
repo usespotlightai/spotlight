@@ -12,32 +12,25 @@ const INSTALLED = GitHubInstallation.of('158876513');
 const connections = (connected: boolean, saved: GitHubConnection[] = []) =>
   new WorkspaceConnections(
     {
-      connectedWorkspaceOf: vi.fn(() =>
-        Promise.resolve(connected ? WORKSPACE : null),
+      connectedWorkspaceOf: vi.fn(async () => (connected ? WORKSPACE : null)),
+      lockedConnectedWorkspaceOf: vi.fn(async () =>
+        connected ? WORKSPACE : null,
       ),
-      lockedConnectedWorkspaceOf: vi.fn(() =>
-        Promise.resolve(connected ? WORKSPACE : null),
+      of: vi.fn(async (id: WorkspaceId) =>
+        connected
+          ? GitHubConnection.rehydrate({
+              workspaceId: id,
+              installation: INSTALLED,
+              version: 1,
+            })
+          : GitHubConnection.none(id),
       ),
-      of: vi.fn((id: WorkspaceId) =>
-        Promise.resolve(
-          connected
-            ? GitHubConnection.rehydrate({
-                workspaceId: id,
-                installation: INSTALLED,
-                version: 1,
-              })
-            : GitHubConnection.none(id),
-        ),
-      ),
-      save: vi.fn((connection: GitHubConnection) => {
+      save: vi.fn(async (connection: GitHubConnection) => {
         saved.push(connection);
-        return Promise.resolve();
       }),
     } satisfies GitHubConnectionRepository,
     {
-      installationOf: vi.fn(() =>
-        Promise.resolve(connected ? INSTALLED : null),
-      ),
+      installationOf: vi.fn(async () => (connected ? INSTALLED : null)),
     } satisfies GitHubConnectionReaderPort,
   );
 

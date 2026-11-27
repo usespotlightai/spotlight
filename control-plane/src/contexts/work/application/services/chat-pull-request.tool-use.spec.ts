@@ -126,59 +126,48 @@ const using = (
   const tasks = new Map<string, Task>(
     (held ?? []).map((each) => [each.id.value, each]),
   );
-  const open = vi.fn(() => Promise.resolve(opened(URL)));
-  const changedOn = vi.fn((): Promise<readonly string[]> =>
-    Promise.resolve(['web/src/icons.ts']),
-  );
-  const defaultBranchNameOf = vi.fn(() => Promise.resolve('main'));
+  const open = vi.fn(async () => opened(URL));
+  const changedOn = vi.fn(async (): Promise<readonly string[]> => [
+    'web/src/icons.ts',
+  ]);
+  const defaultBranchNameOf = vi.fn(async () => 'main');
   const allows = vi.fn(async () => {});
   const allowsNew = vi.fn(async () => {});
   const tool = new ChatPullRequestToolUse(
     partial<ChatRepository>({
-      find: () => Promise.resolve(chat),
-      save: (saved: Chat) => {
+      find: async () => chat,
+      save: async (saved: Chat) => {
         chat = saved;
-
-        return Promise.resolve();
       },
     }),
     partial<TaskRepository>({
-      find: (id: TaskId) => Promise.resolve(tasks.get(id.value) ?? null),
-      save: (saved: Task) => {
+      find: async (id: TaskId) => tasks.get(id.value) ?? null,
+      save: async (saved: Task) => {
         tasks.set(saved.id.value, saved);
-
-        return Promise.resolve();
       },
-      remove: (gone: Task) => {
+      remove: async (gone: Task) => {
         tasks.delete(gone.id.value);
-
-        return Promise.resolve();
       },
-      onBranch: (_: WorkspaceId, branch: Branch) =>
-        Promise.resolve(
-          [...tasks.values()].find((each) => each.branch.equals(branch)) ??
-            null,
-        ),
+      onBranch: async (_: WorkspaceId, branch: Branch) =>
+        [...tasks.values()].find((each) => each.branch.equals(branch)) ?? null,
     }),
-    partial<LineMapsPort>({ ofTeam: () => Promise.resolve(lines) }),
-    { placementsAt: () => Promise.resolve([]) },
+    partial<LineMapsPort>({ ofTeam: async () => lines }),
+    { placementsAt: async () => [] },
     partial<WorkAccess>({
-      membersOf: () => Promise.resolve(TeamMembers.of([LEON])),
+      membersOf: async () => TeamMembers.of([LEON]),
     }),
     partial<CreateTask>({
-      create: ({ task }: { task: Task }) => {
+      create: async ({ task }: { task: Task }) => {
         const first = racing.shift();
 
         if (first) {
           tasks.set(first.id.value, first);
-          return Promise.reject(
-            new Error('duplicate key value violates unique constraint'),
-          );
+          throw new Error('duplicate key value violates unique constraint');
         }
 
         created.push(task);
         tasks.set(task.id.value, task);
-        return Promise.resolve(task);
+        return task;
       },
     }),
     partial<PullRequestPort>({ open, changedOn }),
@@ -259,11 +248,9 @@ describe('ChatPullRequestToolUse', () => {
 
   it('asks the pull-request.opening hook about the new task before it opens the pull request', async () => {
     const { tool, context, allowsNew, open, created } = using();
-    allowsNew.mockImplementationOnce(() => {
+    allowsNew.mockImplementationOnce(async () => {
       expect(open).not.toHaveBeenCalled();
       expect(created).toEqual([]);
-
-      return Promise.resolve();
     });
 
     await tool.call(context, INPUTS);
@@ -408,14 +395,14 @@ describe('ChatPullRequestToolUse', () => {
         ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/web' }),
       ),
     );
-    open.mockImplementationOnce(() => {
+    open.mockImplementationOnce(async () => {
       const task = stored(first.task);
 
       if (task) {
         put(handedOver(task));
       }
 
-      return Promise.resolve(opened('https://github.com/acme/api/pull/3'));
+      return opened('https://github.com/acme/api/pull/3');
     });
 
     await tool.call(

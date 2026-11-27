@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { RangePicker } from '@/components/shared/RangePicker';
@@ -10,7 +9,7 @@ const ACTIVITY_RANGES = [
   ...PERIOD_RANGES,
 ];
 
-export function ActivityPeriodPicker(): ReactElement {
+export function ActivityPeriodPicker() {
   const [params, setParams] = useSearchParams();
   const choose = (next: string) => {
     const changed = new URLSearchParams(params);

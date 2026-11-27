@@ -31,6 +31,7 @@ import {
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
 import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { GrantRunAttachmentUploadCommand } from '@work/application/commands/grant-run-attachment-upload.command';
@@ -71,7 +72,7 @@ import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.
 const trimmedOrNull = (value: string | undefined): string | null => {
   const trimmed = value?.trim();
 
-  return trimmed === undefined || trimmed === '' ? null : trimmed;
+  return !nonEmpty(trimmed) ? null : trimmed;
 };
 
 @ApiTags('runners')
@@ -256,7 +257,7 @@ export class RunWorkController {
         fingerprint: trimmedOrNull(fingerprint),
         outcome: trimmedOrNull(outcome),
         since: trimmedOrNull(since),
-        last: last !== undefined && last !== '' ? Number(last) : null,
+        last: nonEmpty(last) ? Number(last) : null,
       }),
     );
 
@@ -360,10 +361,7 @@ export class RunWorkController {
       PermissionAnswerDto
     >(
       new AskPermissionCommand(runId, runnerId, {
-        sessionId:
-          body.sessionId === undefined || body.sessionId === ''
-            ? null
-            : body.sessionId,
+        sessionId: !nonEmpty(body.sessionId) ? null : body.sessionId,
         kind: body.kind ?? '',
         title: body.title ?? '',
         input: body.input,

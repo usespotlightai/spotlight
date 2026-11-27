@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
@@ -52,7 +52,7 @@ export function InboxNote({
   suggestion,
   arrived = false,
   prompt,
-}: InboxNoteProps): ReactElement {
+}: InboxNoteProps) {
   const { data: session } = useSession();
   const sight = useJournalSight();
   const written = useRef<HTMLDivElement>(null);

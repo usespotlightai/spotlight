@@ -26,7 +26,7 @@ export class StoredWorkingCopyArchiveHandler implements QueryHandlerPort<
       const runner = RunnerId.of(query.runnerId);
       const run = await this.runs.findById(RunId.of(query.runId));
 
-      if (run?.isLeasedBy(runner) !== true) {
+      if (!run?.isLeasedBy(runner)) {
         return { leased: false };
       }
 

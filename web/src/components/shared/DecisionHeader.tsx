@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -12,7 +12,7 @@ export function DecisionHeader({
   title,
   trailing,
   className,
-}: DecisionHeaderProps): ReactElement {
+}: DecisionHeaderProps) {
   return (
     <div
       className={cn(

@@ -44,25 +44,23 @@ const pooling = (
     platformImages?: readonly RunnerImage[] | null;
   } = {},
 ) => {
-  const authenticate = vi.fn(() => Promise.resolve(authenticated));
-  const find = vi.fn(() =>
-    Promise.resolve(
-      stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
-    ),
+  const authenticate = vi.fn(async () => authenticated);
+  const find = vi.fn(async () =>
+    stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
   );
 
-  const inWorkspaces = vi.fn(() => Promise.resolve(stored.provisioning ?? []));
+  const inWorkspaces = vi.fn(async () => stored.provisioning ?? []);
 
   const pools = new RunnerPools(
     partial<RunnerPoolRepository>({ find, inWorkspaces }),
     partial<RunnerTrustRepository>({
-      inWorkspaces: vi.fn(() => Promise.resolve(stored.trusts ?? [])),
+      inWorkspaces: vi.fn(async () => stored.trusts ?? []),
     }),
     partial<RunnerRepository>({
-      aliveIn: vi.fn(() => Promise.resolve(stored.alive ?? [])),
+      aliveIn: vi.fn(async () => stored.alive ?? []),
     }),
     partial<SandboxPlacementsPort>({
-      idleInPool: vi.fn(() => Promise.resolve(stored.idleSandboxes ?? [])),
+      idleInPool: vi.fn(async () => stored.idleSandboxes ?? []),
     }),
     { authenticate } satisfies RunnerAuthenticatorPort,
     {

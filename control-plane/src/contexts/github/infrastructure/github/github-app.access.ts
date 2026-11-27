@@ -9,6 +9,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { z } from 'zod';
 
@@ -76,12 +77,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     const token = answer.data?.token;
     const expiresAt = answer.data?.expires_at;
 
-    if (
-      token === undefined ||
-      token === '' ||
-      expiresAt === undefined ||
-      expiresAt === ''
-    ) {
+    if (!nonEmpty(token) || !nonEmpty(expiresAt)) {
       throw new UpstreamError(
         'GitHub would not mint an installation token',
         'The answer had no token',

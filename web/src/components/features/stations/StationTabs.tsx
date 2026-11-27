@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TabLinks } from '@/components/shared/TabLinks';
 import type { StationResponseDto } from '@/lib/api';
 import { type StationTab, stationTabPath, stationTabsOf } from '@/lib/station';
@@ -21,7 +19,7 @@ export function StationTabs({
   station,
   current,
   className,
-}: StationTabsProps): ReactElement {
+}: StationTabsProps) {
   return (
     <TabLinks
       label="Station"

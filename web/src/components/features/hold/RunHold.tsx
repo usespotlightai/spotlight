@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 
 import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
 import { ResumeButton } from '@/components/features/hold/ResumeButton';
@@ -16,12 +16,7 @@ type RunHoldProps = {
   runId: string;
 };
 
-export function RunHold({
-  slug,
-  teamId,
-  taskId,
-  runId,
-}: RunHoldProps): ReactElement | null {
+export function RunHold({ slug, teamId, taskId, runId }: RunHoldProps) {
   const { line, station, task } = useTaskStation(teamId, taskId);
   const [resuming, setResuming] = useState(false);
   const hold = task?.hold;

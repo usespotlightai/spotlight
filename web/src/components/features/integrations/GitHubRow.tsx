@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useLocation } from 'react-router';
 
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
@@ -23,7 +22,7 @@ export function GitHubRow({
   teamId,
   installUrl,
   connected,
-}: GitHubRowProps): ReactElement {
+}: GitHubRowProps) {
   const here = useLocation();
   const repositories = useRepositories(connected ? slug : undefined);
   const lines = useLines(teamId);

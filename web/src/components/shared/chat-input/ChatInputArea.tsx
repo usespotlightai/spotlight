@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { nonEmpty } from '@/lib/non-empty';
 
@@ -14,7 +14,7 @@ export function ChatInputArea({
   area,
   className,
   children,
-}: ChatInputAreaProps): ReactElement {
+}: ChatInputAreaProps) {
   return (
     <div
       inert={disabled}

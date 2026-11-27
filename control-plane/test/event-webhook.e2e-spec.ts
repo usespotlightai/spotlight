@@ -167,9 +167,9 @@ describe('deployment event webhook (e2e)', () => {
     await makeAdmin();
 
     const call = firstOf(
-      await eventually(() => {
+      await eventually(async () => {
         const found = callsOf(ROLE_CHANGED);
-        return Promise.resolve(found.length > 0 ? found : null);
+        return found.length > 0 ? found : null;
       }),
     );
     const id = String(call?.headers['webhook-id']);
@@ -200,9 +200,9 @@ describe('deployment event webhook (e2e)', () => {
     await makeAdmin();
 
     const call = firstOf(
-      await eventually(() => {
+      await eventually(async () => {
         const found = callsOf(ROLE_CHANGED);
-        return Promise.resolve(found.length > 0 ? found : null);
+        return found.length > 0 ? found : null;
       }),
     );
 
@@ -221,9 +221,9 @@ describe('deployment event webhook (e2e)', () => {
     await makeAdmin();
 
     const failed = firstOf(
-      await eventually(() => {
+      await eventually(async () => {
         const found = callsOf(ROLE_CHANGED);
-        return Promise.resolve(found.length > 0 ? found : null);
+        return found.length > 0 ? found : null;
       }),
     );
     const id = String(failed?.headers['webhook-id']);
@@ -265,9 +265,9 @@ describe('deployment event webhook (e2e)', () => {
     await makeAdmin();
 
     const failed = firstOf(
-      await eventually(() => {
+      await eventually(async () => {
         const found = callsOf(ROLE_CHANGED);
-        return Promise.resolve(found.length > 0 ? found : null);
+        return found.length > 0 ? found : null;
       }),
     );
     const id = String(failed?.headers['webhook-id']);

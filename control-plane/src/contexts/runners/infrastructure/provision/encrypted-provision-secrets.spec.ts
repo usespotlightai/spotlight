@@ -16,15 +16,16 @@ const HOLDER = { id: POOL_ID, workspaceId: WorkspaceId.of('ws_1') };
 
 const encryption = (decrypts = true) =>
   ({
-    encrypt: vi.fn((workspaceId: string, label: string, plain: Credential) =>
-      Promise.resolve(`${workspaceId}|${label}|${plain.revealed()}`),
+    encrypt: vi.fn(
+      async (workspaceId: string, label: string, plain: Credential) =>
+        `${workspaceId}|${label}|${plain.revealed()}`,
     ),
     decrypt: vi.fn(
-      (_workspaceId: string, label: string, ciphertext: string) => {
+      async (_workspaceId: string, label: string, ciphertext: string) => {
         if (!decrypts) {
-          return Promise.reject(new CredentialDecryptionFailedError(label));
+          throw new CredentialDecryptionFailedError(label);
         }
-        return Promise.resolve(Credential.of(ciphertext.split('|')[2] ?? ''));
+        return Credential.of(ciphertext.split('|')[2] ?? '');
       },
     ),
   }) satisfies CredentialEncryptionPort;

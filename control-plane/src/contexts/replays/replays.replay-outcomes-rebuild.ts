@@ -16,11 +16,9 @@ export interface ReplayOutcomesRebuildSession {
 }
 
 const READ_ONLY: DomainEventDispatcher = {
-  dispatch: () => {
-    return Promise.reject(
-      new Error(
-        'The replay outcomes rebuild reads replays and never saves them',
-      ),
+  dispatch: async () => {
+    throw new Error(
+      'The replay outcomes rebuild reads replays and never saves them',
     );
   },
 };

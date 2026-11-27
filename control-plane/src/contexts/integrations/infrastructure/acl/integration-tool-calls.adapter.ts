@@ -12,6 +12,7 @@ import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-re
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
 import { ToolDeclarationMapper } from '@integrations/infrastructure/acl/tool-declaration.mapper';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
@@ -86,7 +87,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
           named,
           IntegrationTaskViewMapper.toView(task),
           RunAttemptRef.of(RunId.of(run.runId), run.attempt),
-          requester !== null && requester !== '' ? UserId.of(requester) : null,
+          nonEmpty(requester) ? UserId.of(requester) : null,
         )
       : null;
 

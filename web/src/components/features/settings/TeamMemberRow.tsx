@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MemberRole } from '@/components/features/settings/MemberRole';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { MemberResponseDto } from '@/lib/api';
@@ -19,7 +17,7 @@ export function TeamMemberRow({
   onOffer,
   onChange,
   pending,
-}: TeamMemberRowProps): ReactElement {
+}: TeamMemberRowProps) {
   return (
     <div className="flex min-h-12 items-center gap-3 px-4 py-2">
       <Avatar size="sm">

@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 import { CommandItem } from '@/components/ui/command';
 import type { PaletteAction } from '@/lib/commands/palette';
@@ -9,10 +7,7 @@ type PaletteActionItemProps = {
   onRun: () => void;
 };
 
-export function PaletteActionItem({
-  action,
-  onRun,
-}: PaletteActionItemProps): ReactElement {
+export function PaletteActionItem({ action, onRun }: PaletteActionItemProps) {
   return (
     <CommandItem
       value={`command:${action.id}`}

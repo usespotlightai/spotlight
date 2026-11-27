@@ -21,6 +21,7 @@ import {
 import type { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
@@ -63,7 +64,7 @@ const offeredBy = (
   OfferedTools.listed(
     integration,
     defined.tools.map((tool) => ToolName.rehydrate(tool)),
-    defined.generatedFrom !== null && defined.generatedFrom !== ''
+    nonEmpty(defined.generatedFrom)
       ? ContentHash.of(defined.generatedFrom)
       : null,
   );
@@ -183,7 +184,7 @@ export class IntegrationReader implements ToolDeclarationsPort {
       : undefined;
     const compiled = defined ? this.compiledOf(defined) : null;
 
-    if (!named || !defined || compiled?.ok !== true) {
+    if (!named || !defined || !compiled?.ok) {
       return null;
     }
 

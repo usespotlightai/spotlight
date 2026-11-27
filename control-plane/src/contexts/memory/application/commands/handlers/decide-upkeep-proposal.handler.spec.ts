@@ -59,25 +59,22 @@ const deciding = (memories: Memory[]) => {
   });
   const handler = new DecideUpkeepProposalHandler(
     partial<MemoryAccess>({
-      forTeam: () =>
-        Promise.resolve(
-          TeamAccess.onTeam(TEAM, {
-            workspaceId: WorkspaceId.of('ws_1'),
-            by: ADA,
-          }),
-        ),
+      forTeam: async () =>
+        TeamAccess.onTeam(TEAM, {
+          workspaceId: WorkspaceId.of('ws_1'),
+          by: ADA,
+        }),
     }),
     partial<MemoryUpkeepRepository>({
-      find: () => Promise.resolve(upkeep),
-      save: (each: MemoryUpkeep) => {
+      find: async () => upkeep,
+      save: async (each: MemoryUpkeep) => {
         saved.push(each);
-        return Promise.resolve();
       },
     }),
-    partial<MemoryRepository>({ findAll: () => Promise.resolve(memories) }),
+    partial<MemoryRepository>({ findAll: async () => memories }),
     { generate: () => 'memory_new' },
     { inTransaction: (work) => work() },
-    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
+    { now: () => NOW, sleep: async () => undefined },
   );
 
   return { handler, saved };

@@ -15,6 +15,7 @@ import {
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface RunEndedToJudge {
@@ -42,10 +43,8 @@ export class RequestJudging {
 
     if (
       !isLineWork(event) ||
-      event.taskId === null ||
-      event.taskId === '' ||
-      event.stationId === null ||
-      event.stationId === '' ||
+      !nonEmpty(event.taskId) ||
+      !nonEmpty(event.stationId) ||
       !ending ||
       !leftWork(ending)
     ) {

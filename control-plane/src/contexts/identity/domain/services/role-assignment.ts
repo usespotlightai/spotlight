@@ -28,7 +28,7 @@ export function roleAssignmentDenial(
   if (!memberRole) {
     return 'not-a-member';
   }
-  if (callerRole?.rankedAtLeast(WorkspaceRole.admin) !== true) {
+  if (!callerRole?.rankedAtLeast(WorkspaceRole.admin)) {
     return 'not-an-admin';
   }
 

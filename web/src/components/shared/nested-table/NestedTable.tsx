@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode, ReactElement } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { NestedHeadings } from '@/components/shared/nested-table/NestedHeadings';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,7 +21,7 @@ export function NestedTable({
   headed = true,
   compact = false,
   children,
-}: NestedTableProps): ReactElement {
+}: NestedTableProps) {
   const columns = useColumnWidths(headings.length);
   const nestedColumns: CSSProperties & Record<`--${string}`, string> = {
     '--nested-columns': columnTemplate(headings, columns.widths, trailing),

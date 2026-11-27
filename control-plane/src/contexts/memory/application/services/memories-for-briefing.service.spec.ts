@@ -49,21 +49,21 @@ const briefing = (
   ],
   elsewhere: Memory[] = [],
 ) => {
-  const touched = vi.fn(() => Promise.resolve(touching));
-  const rank = vi.fn(() => Promise.resolve(ranks));
+  const touched = vi.fn(async () => touching);
+  const rank = vi.fn(async () => ranks);
   const relevance = partial<MemoryRelevancePort>({ rank });
   const memories = new MemoriesForBriefing(
     new ApplicableMemories(
       partial<MemoryRepository>({
-        mayApplyAt: () => Promise.resolve(stored),
-        ofRepositories: () => Promise.resolve(elsewhere),
-        successorsOf: () => Promise.resolve([]),
+        mayApplyAt: async () => stored,
+        ofRepositories: async () => elsewhere,
+        successorsOf: async () => [],
       }),
       relevance,
     ),
     relevance,
-    partial<MemoryUsesPort>({ runsUsing: () => Promise.resolve(new Map()) }),
-    partial<MemoryRepository>({ findAll: () => Promise.resolve(stored) }),
+    partial<MemoryUsesPort>({ runsUsing: async () => new Map() }),
+    partial<MemoryRepository>({ findAll: async () => stored }),
   );
 
   return {

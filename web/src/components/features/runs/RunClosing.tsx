@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { RunActions } from '@/components/features/runs/RunActions';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { lastNoteAt, type RunJournal } from '@/lib/inbox';
@@ -20,7 +18,7 @@ export function RunClosing({
   run,
   conversation,
   ran,
-}: RunClosingProps): ReactElement {
+}: RunClosingProps) {
   return (
     <div className="flex flex-col gap-6">
       <RunActions

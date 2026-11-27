@@ -80,8 +80,8 @@ const trailOf = async (id: TaskId) =>
     await trailsFor(
       db,
       {
-        find: () => Promise.resolve(null),
-        findMany: () => Promise.resolve(new Map()),
+        find: async () => null,
+        findMany: async () => new Map(),
       },
       [id.value],
     )

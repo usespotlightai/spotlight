@@ -3,6 +3,7 @@ import type { CheckEntry } from '@change-review/domain/value-objects/stack-check
 import type { StackCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const generatedEntries = (
   diff: Diff,
@@ -45,7 +46,7 @@ export const generatedEntries = (
         for (const entry of layer.hunks) {
           const path = diff.fileOf(entry.hunk)?.path;
 
-          if (path !== undefined && path !== '') {
+          if (nonEmpty(path)) {
             const earliest = layerOf.get(path);
 
             layerOf.set(

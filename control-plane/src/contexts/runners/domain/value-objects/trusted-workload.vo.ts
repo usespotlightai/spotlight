@@ -23,7 +23,7 @@ const bounded = (
 };
 
 export class TrustedWorkload {
-  private readonly kind: string = 'trusted-workload';
+  private readonly kind = 'trusted-workload';
 
   private constructor(
     readonly issuer: string,
@@ -93,7 +93,7 @@ export class TrustedWorkload {
 
   equals(other: TrustedWorkload): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof TrustedWorkload &&
       this.issuer === other.issuer &&
       this.subject === other.subject &&
       this.audience === other.audience

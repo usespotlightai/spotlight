@@ -3,7 +3,7 @@ import {
   SortableContext,
 } from '@dnd-kit/sortable';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties } from 'react';
 
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ export function AppTabStrip({
   onOpen,
   onBack,
   onForward,
-}: AppTabStripProps): ReactElement {
+}: AppTabStripProps) {
   const collapsed = useSidebarCollapsedSetting();
   const hangs = framesWindow() && !collapsed;
 

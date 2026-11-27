@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { DecisionPill } from '@/components/shared/decision-tray/DecisionPill';
 import { DecisionTrayCard } from '@/components/shared/decision-tray/DecisionTrayCard';
@@ -16,11 +16,7 @@ type DecisionTrayProps = {
   children?: ReactNode;
 };
 
-export function DecisionTray({
-  tray,
-  alongside,
-  children,
-}: DecisionTrayProps): ReactElement {
+export function DecisionTray({ tray, alongside, children }: DecisionTrayProps) {
   const { shown, open } = tray;
   const covered = Boolean(shown) && open;
   const { card, pills, collapse } = useTrayMotion(

@@ -90,19 +90,19 @@ const notifying = (
   const task = handed();
   const request = requestOf(task);
   const save = vi.fn<(task: Task) => Promise<void>>(async () => {});
-  const notify = vi.fn(() => Promise.resolve(marks));
-  const notifyRequest = vi.fn(() => Promise.resolve(marks));
+  const notify = vi.fn(async () => marks);
+  const notifyRequest = vi.fn(async () => marks);
   const handler = new NotifyOutsideTools(
     partial<TaskRepository>({
-      find: () => Promise.resolve(task),
-      findByCorrelation: () => Promise.resolve(markedTask ? [markedTask] : []),
-      owningPullRequest: () => Promise.resolve(null),
-      reviewingPullRequest: () => Promise.resolve(null),
-      holdingMark: () => Promise.resolve([]),
+      find: async () => task,
+      findByCorrelation: async () => (markedTask ? [markedTask] : []),
+      owningPullRequest: async () => null,
+      reviewingPullRequest: async () => null,
+      holdingMark: async () => [],
       save,
     }),
     partial<InboxRequestRepository>({
-      find: () => Promise.resolve(request),
+      find: async () => request,
     }),
     { notify, notifyRequest } satisfies OutboundTaskNotifier,
     { inTransaction: (work) => work() } satisfies TransactionPort,

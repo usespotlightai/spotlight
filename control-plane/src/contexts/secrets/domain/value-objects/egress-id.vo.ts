@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class EgressId {
-  private readonly kind: string = 'egress-id';
+  private readonly kind = 'egress-id';
 
   private constructor(readonly value: string) {}
 
@@ -17,6 +17,6 @@ export class EgressId {
   }
 
   equals(other: EgressId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressId && this.value === other.value;
   }
 }

@@ -23,7 +23,7 @@ const viewing = (member: boolean) =>
   new RunViewing(
     partial<RunFactsPort>({}),
     partial<WorkspaceAccessPort>({
-      mayView: () => Promise.resolve(member),
+      mayView: async () => member,
     }),
   );
 
@@ -50,7 +50,7 @@ describe('RunViewing', () => {
     const viewers = viewing(true);
     viewers.register({
       owner: 'work',
-      readableAmong: () => Promise.resolve(new Set()),
+      readableAmong: async () => new Set(),
     });
 
     expect(

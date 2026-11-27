@@ -12,6 +12,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import { TeamAccess } from '@identity/domain/services/team-access';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -99,10 +100,9 @@ export class WorkspaceReader implements WorkspaceReaderPort {
     userId: UserId,
   ): Promise<WorkspaceDetail | null> {
     const id = await this.records.idForSlug(slug);
-    const workspace =
-      id !== null && id !== ''
-        ? await this.workspaces.find(WorkspaceId.of(id))
-        : null;
+    const workspace = nonEmpty(id)
+      ? await this.workspaces.find(WorkspaceId.of(id))
+      : null;
     const role = workspace?.roleOf(userId);
 
     if (

@@ -275,97 +275,81 @@ let requestedAgain: {
 
 const trialsOf = () =>
   new StationTrials(
-    { of: () => Promise.resolve(facts ? [facts] : []) },
+    { of: async () => (facts ? [facts] : []) },
     {
-      find: (id: RunId) =>
-        Promise.resolve(
-          id.equals(ORIGINAL)
-            ? originalDispatch(toolsOnMarks)
-            : (trials.find((each) => each.id.equals(id)) ?? null),
-        ),
-      add: (trial: Dispatch) => {
+      find: async (id: RunId) =>
+        id.equals(ORIGINAL)
+          ? originalDispatch(toolsOnMarks)
+          : (trials.find((each) => each.id.equals(id)) ?? null),
+      add: async (trial: Dispatch) => {
         trials.push(trial);
-
-        return Promise.resolve();
       },
-      save: (trial: Dispatch) => {
+      save: async (trial: Dispatch) => {
         trials = trials.map((each) =>
           each.id.equals(trial.id) ? trial : each,
         );
-
-        return Promise.resolve();
       },
     },
     partial<TaskRepository>({
-      find: () =>
-        Promise.resolve(taskGone ? null : partial<Task>({ notes: taskNotes })),
+      find: async () => (taskGone ? null : partial<Task>({ notes: taskNotes })),
     }),
     partial<CandidateLines>({
-      live: () => Promise.resolve({ line: LINE, station: buildOf(LINE) }),
-      withStation: () =>
-        Promise.resolve({
-          ok: true,
-          line: candidate,
-          station: buildOf(candidate),
-        }),
+      live: async () => ({ line: LINE, station: buildOf(LINE) }),
+      withStation: async () => ({
+        ok: true,
+        line: candidate,
+        station: buildOf(candidate),
+      }),
     }),
     new StationOrdering(
       harnesses,
       launch,
       { named: () => null },
-      partial<StationSkills>({ readyAt: () => Promise.resolve([]) }),
+      partial<StationSkills>({ readyAt: async () => [] }),
       new RunCatalog({
-        resolve: () =>
-          Promise.resolve({
-            tools: [],
-            skills: [],
-            denied: [
-              {
-                id: 'catalog.web-search@1.1.0',
-                reason: 'unknown',
-                because: 'Catalog has no item catalog.web-search@1.1.0.',
-              },
-            ],
-          }),
-        call: () => Promise.resolve({ kind: 'answered', output: null }),
+        resolve: async () => ({
+          tools: [],
+          skills: [],
+          denied: [
+            {
+              id: 'catalog.web-search@1.1.0',
+              reason: 'unknown',
+              because: 'Catalog has no item catalog.web-search@1.1.0.',
+            },
+          ],
+        }),
+        call: async () => ({ kind: 'answered', output: null }),
       }),
       {
-        named: (_team, key) =>
-          Promise.resolve(key === 'linear' ? LINEAR : null),
+        named: async (_team, key) => (key === 'linear' ? LINEAR : null),
       },
       new Sha256ContentHash(),
       {
-        boundIn: (_workspace, names) => {
+        boundIn: async (_workspace, names) => {
           awaitingAsked.push(...names);
-          return Promise.resolve(
-            names.map((name) => ({
-              name,
-              bindings: [],
-              awaitingValue: true,
-              allowsSandbox: false,
-            })),
-          );
+          return names.map((name) => ({
+            name,
+            bindings: [],
+            awaitingValue: true,
+            allowsSandbox: false,
+          }));
         },
       },
     ),
     new TeamIntegrations({
-      provided: (_team, tools) =>
-        Promise.resolve(DECLARED.filter((each) => tools.includes(each.tool))),
-      toolsOnMarks: () => {
-        return Promise.reject(
-          new Error('a trial reads the tools its original had'),
-        );
+      provided: async (_team, tools) =>
+        DECLARED.filter((each) => tools.includes(each.tool)),
+      toolsOnMarks: async () => {
+        throw new Error('a trial reads the tools its original had');
       },
-      toolsOnAnyMark: () => {
-        return Promise.reject(
-          new Error('a trial reads the tools its original had'),
-        );
+      toolsOnAnyMark: async () => {
+        throw new Error('a trial reads the tools its original had');
       },
     }),
     {
-      again: (place, chosen) => {
+      again: async (place, chosen) => {
         requestedAgain.push({ place, briefed: chosen.briefed });
-        return Promise.resolve({
+        return {
           briefed: [
             {
               id: 'memory_1',
@@ -376,35 +360,34 @@ const trialsOf = () =>
           ],
           omitted: [...chosen.omitted],
           folder: null,
-        });
+        };
       },
     },
     partial<AttachmentStorePort>({
-      stored: (_workspace: WorkspaceId, ids: readonly AttachmentId[]) =>
-        Promise.resolve(!ids.some((each) => gone.includes(each.value))),
+      stored: async (_workspace: WorkspaceId, ids: readonly AttachmentId[]) =>
+        !ids.some((each) => gone.includes(each.value)),
     }),
     {
       for: (taskId, runId) => `trace:${taskId.value}:${runId.value}`,
       forChat: (chatId, runId) => `trace:${chatId.value}:${runId.value}`,
     },
     partial<RunEvidencePort>({
-      of: () =>
-        Promise.resolve({
-          runId: ORIGINAL.value,
-          taskId: 'task_1',
-          title: 'Drain the queue',
-          description: null,
-          steps: [],
-          hunks: [
-            {
-              id: 'h1',
-              path: 'api/queue.ts',
-              index: 0,
-              header: '@@ -1 +1 @@',
-              lines: ['-drain()', '+drain(oldestFirst)'],
-            },
-          ],
-        }),
+      of: async () => ({
+        runId: ORIGINAL.value,
+        taskId: 'task_1',
+        title: 'Drain the queue',
+        description: null,
+        steps: [],
+        hunks: [
+          {
+            id: 'h1',
+            path: 'api/queue.ts',
+            index: 0,
+            header: '@@ -1 +1 @@',
+            lines: ['-drain()', '+drain(oldestFirst)'],
+          },
+        ],
+      }),
     }),
     { now: () => NOW, sleep: async () => {} },
   );

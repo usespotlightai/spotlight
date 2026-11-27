@@ -6,6 +6,7 @@ import {
   decoded,
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface Exported {
   readonly spanId?: unknown;
@@ -88,7 +89,7 @@ export class Reported {
   readonly #spans: RunSpan[] = [];
 
   take(event: Journalled): void {
-    if (event.type !== 'span' || event.data === null || event.data === '') {
+    if (event.type !== 'span' || !nonEmpty(event.data)) {
       return;
     }
 

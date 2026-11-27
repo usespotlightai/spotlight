@@ -28,10 +28,8 @@ const checker = (
     sharedEgress(authorized),
     partial<EgressSecretFetches>(leasing(leased)),
     partial<ReviewWorkPort>({
-      isLeasedBy: (lease: ReviewWorkLease) =>
-        Promise.resolve(
-          checksLeased.includes(`${lease.kind}:${lease.id.value}`),
-        ),
+      isLeasedBy: async (lease: ReviewWorkLease) =>
+        checksLeased.includes(`${lease.kind}:${lease.id.value}`),
     }),
     partial<ClockPort>({ now: () => NOW }),
   );

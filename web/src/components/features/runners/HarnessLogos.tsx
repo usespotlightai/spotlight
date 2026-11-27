@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { nonEmpty } from '@/lib/non-empty';
 import type { NamedHarness } from '@/lib/runner';
@@ -13,7 +11,7 @@ export function HarnessLogos({
   harnesses,
 }: {
   harnesses: readonly NamedHarness[];
-}): ReactElement {
+}) {
   if (harnesses.length === 0) {
     return <span className="text-muted-foreground text-xs">–</span>;
   }

@@ -18,7 +18,7 @@ export class WorkspaceAdministration {
   ): Promise<AdministeredWorkspace | null> {
     const workspace = await this.workspaces.findBySlug(WorkspaceSlug.of(slug));
 
-    return workspace?.permissionsFor(principal).isAdmin === true
+    return workspace?.permissionsFor(principal).isAdmin
       ? { workspace, by: principal.userId }
       : null;
   }

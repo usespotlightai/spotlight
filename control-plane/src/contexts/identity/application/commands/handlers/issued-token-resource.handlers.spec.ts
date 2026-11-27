@@ -86,7 +86,7 @@ const tokens = () => {
   return {
     save,
     repository: partial<WorkspaceTokenRepository>({
-      find: vi.fn(() => Promise.resolve(issued())),
+      find: vi.fn(async () => issued()),
       save,
     }),
   };
@@ -144,17 +144,15 @@ describe('DeleteOidcTrustHandler', () => {
     const save = vi.fn<(trust: OidcTrust) => Promise<void>>(async () => {});
     const handler = new DeleteOidcTrustHandler(
       partial<WorkspaceAccessPort>({
-        permissionsIn: vi.fn(() =>
-          Promise.resolve(
-            partial<WorkspacePermissions>({
-              workspaceId: WorkspaceId.of('ws_1'),
-              scopes: new Set(['trusts'] as const),
-            }),
-          ),
+        permissionsIn: vi.fn(async () =>
+          partial<WorkspacePermissions>({
+            workspaceId: WorkspaceId.of('ws_1'),
+            scopes: new Set(['trusts'] as const),
+          }),
         ),
       }),
       partial<OidcTrustRepository>({
-        find: vi.fn(() => Promise.resolve(trust())),
+        find: vi.fn(async () => trust()),
         save,
       }),
       transaction,

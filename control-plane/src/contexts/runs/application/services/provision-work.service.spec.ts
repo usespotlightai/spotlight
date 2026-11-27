@@ -153,7 +153,7 @@ const provisioning = (
   };
   const stored = new Map(queue.map((each) => [each.id.value, each]));
   const awaitingProvision = vi.fn(
-    (
+    async (
       workspaceId: WorkspaceId,
       at: Date,
       page: {
@@ -166,7 +166,7 @@ const provisioning = (
       const order = [...stored.keys()];
       const from = page.after ? order.indexOf(page.after.id) + 1 : 0;
 
-      return Promise.resolve({
+      return {
         waiting: [...stored.values()]
           .filter(
             (each) =>
@@ -176,7 +176,7 @@ const provisioning = (
           )
           .slice(0, page.max),
         leasedRequesters: [],
-      });
+      };
     },
   );
   const recorded: DomainEvent[] = [];
@@ -185,57 +185,45 @@ const provisioning = (
     clear: vi.fn<RunWaitsPort['clear']>(async () => {}),
   } satisfies RunWaitsPort;
   const runs = partial<RunRepository>({
-    findById: (id: RunId) => Promise.resolve(stored.get(id.value) ?? null),
-    save: (run: Run) => {
+    findById: async (id: RunId) => stored.get(id.value) ?? null,
+    save: async (run: Run) => {
       recorded.push(...run.pullEvents());
       stored.set(run.id.value, run);
-      return Promise.resolve();
     },
     awaitingProvision,
-    workspacesAwaitingProvision: (at: Date) =>
-      Promise.resolve([
-        ...new Map(
-          [...stored.values()]
-            .filter((each) => each.provisionableAt(at, true))
-            .map((each) => [each.workspaceId.value, each.workspaceId]),
-        ).values(),
-      ]),
-    withExpiredReservations: (at: Date) =>
-      Promise.resolve(
-        [...stored.values()].filter((each) => each.reservationExpiredAt(at)),
-      ),
+    workspacesAwaitingProvision: async (at: Date) => [
+      ...new Map(
+        [...stored.values()]
+          .filter((each) => each.provisionableAt(at, true))
+          .map((each) => [each.workspaceId.value, each.workspaceId]),
+      ).values(),
+    ],
+    withExpiredReservations: async (at: Date) =>
+      [...stored.values()].filter((each) => each.reservationExpiredAt(at)),
   });
   const provision = vi.fn(
-    (request: ProvisionRequest): Promise<ProvisionedRunner> =>
-      Promise.resolve(answers[request.poolId] ?? { outcome: 'provisioned' }),
+    async (request: ProvisionRequest): Promise<ProvisionedRunner> =>
+      answers[request.poolId] ?? { outcome: 'provisioned' },
   );
   const release = vi.fn(async () => {});
   const checks = {
     awaiting: vi.fn<ReviewWorkProvisioningPort['awaiting']>(
-      (_workspaceId, _at, page) =>
-        Promise.resolve(
-          page.after === null
-            ? { waiting: waitingChecks.awaiting ?? [], next: 'cursor_1' }
-            : { waiting: [], next: null },
-        ),
+      async (_workspaceId, _at, page) =>
+        page.after === null
+          ? { waiting: waitingChecks.awaiting ?? [], next: 'cursor_1' }
+          : { waiting: [], next: null },
     ),
     reserve: vi.fn<ReviewWorkProvisioningPort['reserve']>(
-      (_check, _runner, _pool, at) =>
-        Promise.resolve(
-          waitingChecks.reserves === false
-            ? null
-            : new Date(at.getTime() + 5 * 60_000),
-        ),
+      async (_check, _runner, _pool, at) =>
+        waitingChecks.reserves === false
+          ? null
+          : new Date(at.getTime() + 5 * 60_000),
     ),
     unreserve: vi.fn(async () => {}),
     failed: vi.fn(async () => {}),
-    expired: vi.fn(() => Promise.resolve(waitingChecks.expired ?? [])),
-    workspacesAwaiting: vi.fn(() =>
-      Promise.resolve(
-        (waitingChecks.awaiting ?? []).length > 0
-          ? [WorkspaceId.of('ws_1')]
-          : [],
-      ),
+    expired: vi.fn(async () => waitingChecks.expired ?? []),
+    workspacesAwaiting: vi.fn(async () =>
+      (waitingChecks.awaiting ?? []).length > 0 ? [WorkspaceId.of('ws_1')] : [],
     ),
   } satisfies ReviewWorkProvisioningPort;
   let generated = 0;
@@ -248,12 +236,10 @@ const provisioning = (
       all.filter((each) =>
         workspaceIds.some((id) => id.equals(each.workspaceId)),
       );
-  const offering = vi.fn((workspaceIds: readonly WorkspaceId[]) =>
-    Promise.resolve({
-      pools: inWorkspaces(workspaceIds)(pools),
-      hostOffers: inWorkspaces(workspaceIds)(hostOffers),
-    }),
-  );
+  const offering = vi.fn(async (workspaceIds: readonly WorkspaceId[]) => ({
+    pools: inWorkspaces(workspaceIds)(pools),
+    hostOffers: inWorkspaces(workspaceIds)(hostOffers),
+  }));
 
   return {
     provision,
@@ -276,18 +262,16 @@ const provisioning = (
       checks,
       partial<RunnerPoolsPort>({
         offersIn: offering,
-        roomIn: (poolId: string) => {
+        roomIn: async (poolId: string) => {
           const maxRuns =
             pools.find((each) => each.poolId === poolId)?.maxRuns ?? null;
 
-          return Promise.resolve(
-            maxRuns === null ? null : Math.max(0, maxRuns - running),
-          );
+          return maxRuns === null ? null : Math.max(0, maxRuns - running);
         },
       }),
       partial<RunnersPort>({ provision, release }),
       partial<SandboxesPort>({
-        liveKeysIn: vi.fn(() => Promise.resolve(liveKeys)),
+        liveKeysIn: vi.fn(async () => liveKeys),
       }),
       failures,
       {
@@ -412,14 +396,12 @@ describe('ProvisionWork', () => {
       [waiting('run_1', ['broken']), waiting('run_2', ['gpu'])],
       [aPool('broken', ['broken']), aPool('burst', ['gpu'])],
     );
-    provision.mockImplementation((request: ProvisionRequest) => {
+    provision.mockImplementation(async (request: ProvisionRequest) => {
       if (request.poolId === 'pool_broken') {
-        return Promise.reject(
-          new Error('the provision secret does not open here'),
-        );
+        throw new Error('the provision secret does not open here');
       }
 
-      return Promise.resolve({ outcome: 'provisioned' });
+      return { outcome: 'provisioned' };
     });
 
     await expect(provisioner.due()).rejects.toThrow(
@@ -678,14 +660,12 @@ describe('ProvisionWork', () => {
       [waiting('run_1')],
       [aPool('a-broken'), aPool('b-burst')],
     );
-    provision.mockImplementation((request: ProvisionRequest) => {
+    provision.mockImplementation(async (request: ProvisionRequest) => {
       if (request.poolId === 'pool_a-broken') {
-        return Promise.reject(
-          new Error('the provision secret does not open here'),
-        );
+        throw new Error('the provision secret does not open here');
       }
 
-      return Promise.resolve({ outcome: 'provisioned' });
+      return { outcome: 'provisioned' };
     });
 
     await expect(provisioner.due()).rejects.toThrow(
@@ -1095,18 +1075,16 @@ describe('ProvisionWork', () => {
         Array.from({ length: 200 }, (_, index) =>
           aWaitingCheck(`blocked_${from + index}`, ['gpu']),
         );
-      checks.awaiting.mockImplementation((_workspaceId, _at, page) =>
-        Promise.resolve(
-          page.after === null
-            ? { waiting: blocked(0), next: 'after_head' }
-            : {
-                waiting: [
-                  ...blocked(200).slice(1),
-                  aWaitingCheck('arm_1', ['arm']),
-                ],
-                next: `after_${page.after}`,
-              },
-        ),
+      checks.awaiting.mockImplementation(async (_workspaceId, _at, page) =>
+        page.after === null
+          ? { waiting: blocked(0), next: 'after_head' }
+          : {
+              waiting: [
+                ...blocked(200).slice(1),
+                aWaitingCheck('arm_1', ['arm']),
+              ],
+              next: `after_${page.after}`,
+            },
       );
 
       await provisioner.due();

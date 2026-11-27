@@ -10,9 +10,8 @@ import { describe, expect, it } from 'vitest';
 const sending = () => {
   const delivered: MailMessage[] = [];
   const transport: MailTransport = {
-    deliver: (message) => {
+    deliver: async (message) => {
       delivered.push(message);
-      return Promise.resolve();
     },
   };
 

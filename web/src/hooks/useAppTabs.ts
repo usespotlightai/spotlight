@@ -31,7 +31,7 @@ import type { ReportTitle } from '@/lib/tab-title';
 import type { Team } from '@/lib/team';
 
 const tabStorage = (): Storage =>
-  desktopApp()?.extraWindow === true ? sessionStorage : localStorage;
+  desktopApp()?.extraWindow ? sessionStorage : localStorage;
 
 const readTabs = (storageKey: string, here: Place): AppTabs => {
   let stored: string | null = null;

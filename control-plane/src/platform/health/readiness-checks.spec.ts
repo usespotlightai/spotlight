@@ -8,9 +8,9 @@ describe('ReadinessChecks', () => {
     const checks = new ReadinessChecks();
     checks.register({
       name: 'postgres',
-      check: () => Promise.resolve(undefined),
+      check: async () => undefined,
     });
-    checks.register({ name: 's3', check: () => Promise.resolve(undefined) });
+    checks.register({ name: 's3', check: async () => undefined });
 
     expect(await checks.run()).toEqual([
       { name: 'postgres', ok: true },
@@ -23,8 +23,8 @@ describe('ReadinessChecks', () => {
     const refused = new Error('connection refused');
     checks.register({
       name: 'postgres',
-      check: () => {
-        return Promise.reject(refused);
+      check: async () => {
+        throw refused;
       },
     });
 
@@ -55,9 +55,8 @@ describe('ReadinessChecks', () => {
     let asked = 0;
     checks.register({
       name: 'postgres',
-      check: () => {
+      check: async () => {
         asked += 1;
-        return Promise.resolve();
       },
     });
 
@@ -71,13 +70,13 @@ describe('ReadinessChecks', () => {
     const checks = new ReadinessChecks();
     checks.register({
       name: 'postgres',
-      check: () => Promise.resolve(undefined),
+      check: async () => undefined,
     });
 
     expect(() =>
       checks.register({
         name: 'postgres',
-        check: () => Promise.resolve(undefined),
+        check: async () => undefined,
       }),
     ).toThrow('postgres');
   });

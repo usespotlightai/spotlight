@@ -49,12 +49,11 @@ const CALL: HookCallTrace = {
 const tracing = (run: Run | null = onSecondAttempt()) => {
   let seq = -1_000_000;
   const appendControlPlaneEntry = vi.fn(
-    (_: RunAttempt, entry: { type: string; at: Date }) =>
-      Promise.resolve({
-        seq: seq--,
-        type: entry.type,
-        at: entry.at,
-      }),
+    async (_: RunAttempt, entry: { type: string; at: Date }) => ({
+      seq: seq--,
+      type: entry.type,
+      at: entry.at,
+    }),
   );
   const publish = vi.fn();
 
@@ -62,7 +61,7 @@ const tracing = (run: Run | null = onSecondAttempt()) => {
     appendControlPlaneEntry,
     publish,
     traces: new HookTraces(
-      partial<RunRepository>({ findById: () => Promise.resolve(run) }),
+      partial<RunRepository>({ findById: async () => run }),
       partial<RunJournalPort>({ appendControlPlaneEntry }),
       partial<RunStreamPort>({ publish }),
     ),

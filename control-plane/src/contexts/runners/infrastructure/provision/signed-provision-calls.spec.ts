@@ -101,7 +101,7 @@ const calls = (
 describe('SignedProvisionCalls', () => {
   it('posts nothing to a host the workspace does not allow, and says so', async () => {
     const { fetch, provision } = calls(
-      () => Promise.resolve(new Response(null, { status: 202 })),
+      async () => new Response(null, { status: 202 }),
       { workspaceHosts: ['hooks.example.com'] },
     );
 
@@ -115,7 +115,7 @@ describe('SignedProvisionCalls', () => {
 
   it('posts a call to the provisioner of the deployment under the deployment’s allow-list only', async () => {
     const { fetch, provision } = calls(
-      () => Promise.resolve(new Response(null, { status: 202 })),
+      async () => new Response(null, { status: 202 }),
       { workspaceHosts: ['hooks.example.com'] },
     );
 
@@ -127,7 +127,7 @@ describe('SignedProvisionCalls', () => {
 
   it('posts nothing to a provisioner of the deployment that the deployment does not allow', async () => {
     const { fetch, provision } = calls(
-      () => Promise.resolve(new Response(null, { status: 202 })),
+      async () => new Response(null, { status: 202 }),
       { hosts: ['hooks.example.com'] },
     );
 
@@ -142,8 +142,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('posts the run, its labels, its image and a one-run token, signed with the pool secret', async () => {
-    const { fetch, provision } = calls(() =>
-      Promise.resolve(new Response(null, { status: 202 })),
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
     );
 
     await expect(provision.call(calling())).resolves.toEqual({
@@ -179,8 +179,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('names the change stack when the runner is wanted for a check', async () => {
-    const { fetch, provision } = calls(() =>
-      Promise.resolve(new Response(null, { status: 202 })),
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
     );
 
     await provision.call({
@@ -201,8 +201,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('names no run when the runner is wanted for work of no run', async () => {
-    const { fetch, provision } = calls(() =>
-      Promise.resolve(new Response(null, { status: 202 })),
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
     );
 
     await provision.call({
@@ -222,8 +222,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('names no image when the work requests the default one', async () => {
-    const { fetch, provision } = calls(() =>
-      Promise.resolve(new Response(null, { status: 202 })),
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
     );
 
     await provision.call({ ...calling(), image: null });
@@ -234,8 +234,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('gives the runner the egress to go out through and its proxy credential', async () => {
-    const { fetch, provision } = calls(() =>
-      Promise.resolve(new Response(null, { status: 202 })),
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
     );
 
     await provision.call({
@@ -261,8 +261,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('says what the endpoint answered when it fails', async () => {
-    const { provision } = calls(() =>
-      Promise.resolve(new Response('no capacity', { status: 503 })),
+    const { provision } = calls(
+      async () => new Response('no capacity', { status: 503 }),
     );
 
     await expect(provision.call(calling())).resolves.toEqual({
@@ -272,15 +272,13 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('passes on the reason when the pool declines the work', async () => {
-    const { provision } = calls(() =>
-      Promise.resolve(
-        Response.json(
-          {
-            type: 'work.declined',
-            reason: '  This workspace has used its free run-hours.  ',
-          },
-          { status: 422 },
-        ),
+    const { provision } = calls(async () =>
+      Response.json(
+        {
+          type: 'work.declined',
+          reason: '  This workspace has used its free run-hours.  ',
+        },
+        { status: 422 },
       ),
     );
 
@@ -291,12 +289,10 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('keeps at most 500 characters of a reason', async () => {
-    const { provision } = calls(() =>
-      Promise.resolve(
-        Response.json(
-          { type: 'work.declined', reason: 'x'.repeat(600) },
-          { status: 422 },
-        ),
+    const { provision } = calls(async () =>
+      Response.json(
+        { type: 'work.declined', reason: 'x'.repeat(600) },
+        { status: 422 },
       ),
     );
 
@@ -312,8 +308,8 @@ describe('SignedProvisionCalls', () => {
     ['no reason', JSON.stringify({ type: 'work.declined' })],
     ['an empty reason', JSON.stringify({ type: 'work.declined', reason: ' ' })],
   ])('takes a 422 with %s as an HTTP error', async (_, body) => {
-    const { provision } = calls(() =>
-      Promise.resolve(new Response(body, { status: 422 })),
+    const { provision } = calls(
+      async () => new Response(body, { status: 422 }),
     );
 
     await expect(provision.call(calling())).resolves.toMatchObject({
@@ -322,13 +318,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('takes a decline body with another status as an HTTP error', async () => {
-    const { provision } = calls(() =>
-      Promise.resolve(
-        Response.json(
-          { type: 'work.declined', reason: 'No.' },
-          { status: 403 },
-        ),
-      ),
+    const { provision } = calls(async () =>
+      Response.json({ type: 'work.declined', reason: 'No.' }, { status: 403 }),
     );
 
     await expect(provision.call(calling())).resolves.toMatchObject({
@@ -337,8 +328,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('takes the pool as full when the provision URL answers 429', async () => {
-    const { provision } = calls(() =>
-      Promise.resolve(new Response('slow down', { status: 429 })),
+    const { provision } = calls(
+      async () => new Response('slow down', { status: 429 }),
     );
 
     await expect(provision.call(calling())).resolves.toEqual({
@@ -347,8 +338,8 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('says the endpoint could not be reached', async () => {
-    const { provision } = calls(() => {
-      return Promise.reject(new TypeError('fetch failed'));
+    const { provision } = calls(async () => {
+      throw new TypeError('fetch failed');
     });
 
     await expect(provision.call(calling())).resolves.toMatchObject({
@@ -358,9 +349,7 @@ describe('SignedProvisionCalls', () => {
   });
 
   it('calls no host the deployment does not allow', async () => {
-    const { fetch, provision } = calls(() =>
-      Promise.resolve(new Response(null)),
-    );
+    const { fetch, provision } = calls(async () => new Response(null));
 
     await expect(
       provision.call(calling('https://elsewhere.test/runs')),

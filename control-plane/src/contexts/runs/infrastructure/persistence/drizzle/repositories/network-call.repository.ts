@@ -18,6 +18,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -51,7 +52,7 @@ const progressOf = (row: Row): NetworkCallProgress => {
     };
   }
 
-  if (row.claimedBy === null || row.claimedBy === '' || !row.claimedAt) {
+  if (!nonEmpty(row.claimedBy) || !row.claimedAt) {
     throw new InconsistentStateError(
       'network call',
       `is ${row.state} by no host (${row.id})`,

@@ -47,9 +47,7 @@ export const sourceRow = (
 ): ConfigSourceRow | null =>
   source ? { repository: source.repository.value, path: source.path } : null;
 
-export const routeRowsOf = (
-  line: Line,
-): (typeof stationRoute.$inferInsert)[] =>
+export const routeRowsOf = (line: Line): (typeof stationRoute.$inferInsert)[] =>
   line.stations.flatMap((each) =>
     each.routes.stations.map((to) => ({
       stationId: each.id.value,
@@ -57,9 +55,7 @@ export const routeRowsOf = (
     })),
   );
 
-export const toolRowsOf = (
-  line: Line,
-): (typeof stationTool.$inferInsert)[] =>
+export const toolRowsOf = (line: Line): (typeof stationTool.$inferInsert)[] =>
   line.stations.flatMap((each) =>
     each.tools.map((tool, position) => ({
       stationId: each.id.value,
@@ -68,9 +64,7 @@ export const toolRowsOf = (
     })),
   );
 
-export const skillRowsOf = (
-  line: Line,
-): (typeof stationSkill.$inferInsert)[] =>
+export const skillRowsOf = (line: Line): (typeof stationSkill.$inferInsert)[] =>
   line.stations.flatMap((each) =>
     each.skills.map((skill, position) => ({
       stationId: each.id.value,

@@ -7,8 +7,8 @@ import { describe, expect, it, vi } from 'vitest';
 describe('WorkspaceSecretsAwaitingValue', () => {
   it('names the secrets among those given that await a value, in one lookup', async () => {
     const awaitingValue = vi.fn(
-      (_workspace: string, names: readonly string[]) =>
-        Promise.resolve(names.filter((each) => each === 'GRAFANA_TOKEN')),
+      async (_workspace: string, names: readonly string[]) =>
+        names.filter((each) => each === 'GRAFANA_TOKEN'),
     );
     const awaiting = new WorkspaceSecretsAwaitingValue({
       awaitingValue,

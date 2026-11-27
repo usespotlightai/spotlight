@@ -6,12 +6,9 @@ import type {
 export const connectionsInMemory = (
   recorded: readonly ConnectionOfRun[] = [],
 ): RunConnectionsPort => ({
-  of: (runId) =>
-    Promise.resolve(recorded.filter((each) => each.runId === runId)),
-  errorsIn: (runIds) =>
-    Promise.resolve(
-      recorded.filter(
-        (each) => runIds.includes(each.runId) && each.connection.error !== null,
-      ),
+  of: async (runId) => recorded.filter((each) => each.runId === runId),
+  errorsIn: async (runIds) =>
+    recorded.filter(
+      (each) => runIds.includes(each.runId) && each.connection.error !== null,
     ),
 });

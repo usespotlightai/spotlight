@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import {
   EDGE_INDENT,
@@ -27,7 +25,7 @@ export function FlaggedMemories({
   slug,
   teamId,
   flagged,
-}: FlaggedMemoriesProps): ReactElement {
+}: FlaggedMemoriesProps) {
   return (
     <InsightsCard
       flat

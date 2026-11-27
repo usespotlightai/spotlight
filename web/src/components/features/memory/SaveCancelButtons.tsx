@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +15,7 @@ export function SaveCancelButtons({
   onSave,
   onCancel,
   className,
-}: SaveCancelButtonsProps): ReactElement {
+}: SaveCancelButtonsProps) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <DecisionButton

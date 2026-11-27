@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { FilterMenu } from '@/components/shared/filter/FilterMenu';
@@ -7,7 +6,7 @@ import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { MEMBER_SHOWS, SHOW_PARAM, showOf } from '@/lib/members';
 import { nonEmpty } from '@/lib/non-empty';
 
-export function MembersFilterMenu(): ReactElement {
+export function MembersFilterMenu() {
   const [params, setParams] = useSearchParams();
   const show = showOf(params);
 

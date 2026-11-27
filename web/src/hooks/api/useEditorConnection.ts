@@ -19,9 +19,7 @@ export function useEditorConnection(
     queryKey: editorConnectionKeys.since(target, slug, since),
     enabled: since !== null,
     refetchInterval: (query) =>
-      query.state.data === true || query.state.status === 'error'
-        ? false
-        : POLL_MS,
+      query.state.data || query.state.status === 'error' ? false : POLL_MS,
     refetchIntervalInBackground: true,
     retry: false,
     gcTime: 0,

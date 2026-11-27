@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { type ReactNode, useRef, type ReactElement } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import {
@@ -68,7 +68,7 @@ export function ChatInput({
   shared = null,
   draft,
   focusOnReply = false,
-}: ChatInputProps): ReactElement {
+}: ChatInputProps) {
   const cursors = useRef<HTMLDivElement>(null);
   const message = useChatMessage(
     slug,

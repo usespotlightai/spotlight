@@ -15,6 +15,7 @@ import {
 } from '@integrations/domain/services/pull-request-happenings';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { failedChecksMessage } from '@integrations/infrastructure/webhooks/failed-checks.message';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -90,7 +91,7 @@ const RAISED: Readonly<Record<ReportedActivity, HappeningDeclaration>> = {
 const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
   const body = failedChecksMessage(event.failedChecks);
 
-  return body !== null && body !== '' ? { body } : null;
+  return nonEmpty(body) ? { body } : null;
 };
 
 const messageOf = (event: PullRequestActivity): Happened['message'] =>
@@ -107,12 +108,11 @@ const messageOf = (event: PullRequestActivity): Happened['message'] =>
 
 const factsOf = (event: PullRequestActivity): PullRequestActivityFacts => ({
   activity: event.activity,
-  pullRequest:
-    event.pullRequest !== null && event.pullRequest !== ''
-      ? PullRequestUrl.of(event.pullRequest)
-      : null,
+  pullRequest: nonEmpty(event.pullRequest)
+    ? PullRequestUrl.of(event.pullRequest)
+    : null,
   branch: event.branch,
-  labelled: event.label !== null && event.label !== '',
+  labelled: nonEmpty(event.label),
   described: event.details !== null,
   body: event.details?.body ?? null,
   comment: event.reviewComment?.body ?? null,
@@ -233,8 +233,8 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
 
   constructor(private readonly github: GitHubWebhooksPort) {}
 
-  verifies(delivered: Delivered): Promise<boolean> {
-    return Promise.resolve(this.github.verifies(delivered));
+  async verifies(delivered: Delivered): Promise<boolean> {
+    return this.github.verifies(delivered);
   }
 
   delivery(delivered: Delivered): string {

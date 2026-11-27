@@ -51,23 +51,23 @@ const egress = anEgress();
 
 const configuration = new RunnerConfiguration(
   partial<RunnerTrustRepository>({
-    inWorkspace: () => Promise.resolve([trust]),
-    find: () => Promise.resolve(trust),
+    inWorkspace: async () => [trust],
+    find: async () => trust,
   }),
   partial<WorkspaceRunnersRepository>({
-    ofWorkspace: () => Promise.resolve(declared),
-    find: () => Promise.resolve(declared),
+    ofWorkspace: async () => declared,
+    find: async () => declared,
   }),
-  partial<WorkspaceReaderPort>({ slugOf: () => Promise.resolve('acme') }),
+  partial<WorkspaceReaderPort>({ slugOf: async () => 'acme' }),
   partial<RunnerPoolRepository>({
-    inWorkspace: () => Promise.resolve([pool, aPlatformPool()]),
-    ownedIn: () => Promise.resolve([pool]),
-    find: () => Promise.resolve(aPlatformPool()),
-    findOwned: () => Promise.resolve(pool),
+    inWorkspace: async () => [pool, aPlatformPool()],
+    ownedIn: async () => [pool],
+    find: async () => aPlatformPool(),
+    findOwned: async () => pool,
   }),
   partial<EgressRepository>({
-    inWorkspace: () => Promise.resolve([egress]),
-    find: () => Promise.resolve(egress),
+    inWorkspace: async () => [egress],
+    find: async () => egress,
   }),
 );
 

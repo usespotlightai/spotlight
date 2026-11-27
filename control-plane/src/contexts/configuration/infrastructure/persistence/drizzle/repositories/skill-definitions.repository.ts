@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
@@ -16,6 +15,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
@@ -103,11 +103,13 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
   }
 
   private async first(where: SQL | undefined): Promise<SkillDefinition | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(skillDefinition)
-      .where(where)
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(skillDefinition)
+        .where(where)
+        .limit(1),
+    );
 
     return found ? rehydrated(found) : null;
   }

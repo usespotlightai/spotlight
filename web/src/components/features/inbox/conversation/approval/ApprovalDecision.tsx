@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ApprovalApproveButton } from '@/components/features/inbox/conversation/approval/ApprovalApproveButton';
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
@@ -22,7 +20,7 @@ export function ApprovalDecision({
   keyed = false,
   onApprove,
   onDismiss,
-}: ApprovalDecisionProps): ReactElement {
+}: ApprovalDecisionProps) {
   return (
     <DecisionControls>
       <DecisionButton

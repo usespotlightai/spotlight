@@ -42,7 +42,7 @@ export class StartOracleReplay {
     const baseline = await this.replays.find(event.replayId);
     const live = baseline && (await this.candidates.find(baseline.candidateId));
 
-    if (!baseline || live?.isLive !== true || !baseline.isOracleReference) {
+    if (!baseline || !live?.isLive || !baseline.isOracleReference) {
       return;
     }
 

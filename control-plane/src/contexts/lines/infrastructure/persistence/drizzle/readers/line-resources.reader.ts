@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   LineRecord,
   LineResourcesPort,
@@ -12,6 +11,7 @@ import {
 import { line } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -36,9 +36,11 @@ export class DrizzleLineResources implements LineResourcesPort {
   }
 
   async at(teamId: TeamId, key: LineKey): Promise<LineRecord | null> {
-    const found = firstOf(await this.recordsWhere(
-      and(eq(line.teamId, teamId.value), eq(line.key, key.value)),
-    ));
+    const found = firstOf(
+      await this.recordsWhere(
+        and(eq(line.teamId, teamId.value), eq(line.key, key.value)),
+      ),
+    );
 
     return found ?? null;
   }

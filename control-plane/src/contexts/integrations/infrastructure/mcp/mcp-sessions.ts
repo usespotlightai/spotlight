@@ -34,6 +34,7 @@ import type { OnModuleDestroy } from '@nestjs/common';
 import { causeOf } from '@platform/json/field-of';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type Fetch = typeof globalThis.fetch;
@@ -165,14 +166,14 @@ export class McpSessions implements OnModuleDestroy {
 
       for (let page = 0; page < MAX_PAGES; page += 1) {
         const listed = await session.client.listTools(
-          cursor !== undefined && cursor !== '' ? { cursor } : undefined,
+          nonEmpty(cursor) ? { cursor } : undefined,
           { timeout: ANSWERS_WITHIN_MS },
         );
 
         tools.push(...listed.tools);
         cursor = listed.nextCursor;
 
-        if (cursor === undefined || cursor === '') {
+        if (!nonEmpty(cursor)) {
           break;
         }
       }
@@ -271,7 +272,7 @@ export class McpSessions implements OnModuleDestroy {
 
       reusable = true;
 
-      if (result.isError === true && askedDuringCall(session)) {
+      if (result.isError && askedDuringCall(session)) {
         throw new McpQuestionUnsupportedError();
       }
 
@@ -341,16 +342,14 @@ export class McpSessions implements OnModuleDestroy {
     });
     const session: Session = { client, transport, asked: false, idle: null };
 
-    client.fallbackRequestHandler = (request) => {
+    client.fallbackRequestHandler = async (request) => {
       if (request.method === ELICITATION_METHOD) {
         session.asked = true;
       }
 
-      return Promise.reject(
-        new McpError(
-          ErrorCode.MethodNotFound,
-          `Spotlight does not answer ${request.method}`,
-        ),
+      throw new McpError(
+        ErrorCode.MethodNotFound,
+        `Spotlight does not answer ${request.method}`,
       );
     };
 
@@ -388,7 +387,7 @@ export class McpSessions implements OnModuleDestroy {
       return InjectedSecrets.none();
     }
 
-    if (injected.connection !== null && injected.connection !== '') {
+    if (nonEmpty(injected.connection)) {
       request.headers.authorization = `Bearer ${injected.connection}`;
     }
 

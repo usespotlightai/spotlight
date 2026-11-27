@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { InboxItemConversation } from '@/components/features/inbox/conversation/InboxItemConversation';
@@ -35,7 +34,7 @@ const itemLoading = (
   loading(found) ||
   Boolean(item && !item.inboxRequest && (loading(journal) || footerLoading));
 
-export function InboxItem(): ReactElement {
+export function InboxItem() {
   const { slug, itemId } = useParams();
   useClearedParam('connected');
   const found = useInboxItem(slug, itemId);

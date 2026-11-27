@@ -1,4 +1,3 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { PersonToolPolicyVersionConflictError } from '@integrations/domain/exceptions/person-tool-policy-version-conflict.error';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
@@ -7,6 +6,7 @@ import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-r
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { personToolPolicy } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, eq } from 'drizzle-orm';
@@ -33,17 +33,19 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
     personId: UserId,
     integration: IntegrationKey,
   ): Promise<PersonToolPolicy | null> {
-    const found = firstOf(await this.context.db
-      .select()
-      .from(personToolPolicy)
-      .where(
-        and(
-          eq(personToolPolicy.teamId, teamId.value),
-          eq(personToolPolicy.personId, personId.value),
-          eq(personToolPolicy.integration, integration.value),
-        ),
-      )
-      .limit(1));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(personToolPolicy)
+        .where(
+          and(
+            eq(personToolPolicy.teamId, teamId.value),
+            eq(personToolPolicy.personId, personId.value),
+            eq(personToolPolicy.integration, integration.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return found ? rehydrate(found) : null;
   }

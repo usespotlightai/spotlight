@@ -11,12 +11,13 @@ import {
 import type { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { z } from 'zod';
 
 const filePath = z.string().superRefine((path, context) => {
   const problem = skillFileProblem(path);
 
-  if (problem !== null && problem !== '') {
+  if (nonEmpty(problem)) {
     context.addIssue({ code: 'custom', message: problem });
   }
 });

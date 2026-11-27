@@ -11,6 +11,7 @@ import {
   withoutOutboundPath,
 } from '@platform/telemetry/span-urls';
 import { exportersOf } from '@platform/telemetry/telemetry-env';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const SERVICE_NAME = 'spotlight-control-plane';
 
@@ -31,10 +32,7 @@ export function startOpenTelemetry(env: NodeJS.ProcessEnv): boolean {
   Object.assign(env, exporters);
 
   started = new NodeSDK({
-    serviceName:
-      env.OTEL_SERVICE_NAME !== undefined && env.OTEL_SERVICE_NAME !== ''
-        ? undefined
-        : SERVICE_NAME,
+    serviceName: nonEmpty(env.OTEL_SERVICE_NAME) ? undefined : SERVICE_NAME,
     instrumentations: [
       new HttpInstrumentation({
         ignoreIncomingRequestHook: isProbe,

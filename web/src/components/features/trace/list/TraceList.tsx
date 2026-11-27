@@ -1,11 +1,5 @@
 import { Binoculars } from 'lucide-react';
-import {
-  type ReactElement,
-  type ReactNode,
-  useDeferredValue,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useDeferredValue, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
@@ -54,7 +48,7 @@ export function TraceList({
   filter,
   filters,
   onEveryTrace,
-}: TraceListProps): ReactElement {
+}: TraceListProps) {
   const traces = useInsightsTraces(teamId, range, filter);
   const navigate = useNavigate();
   const trail = useForwardTrail();

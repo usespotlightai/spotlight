@@ -41,6 +41,7 @@ import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome
 import type { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayedCandidatesSeen {
@@ -80,7 +81,7 @@ interface Placed {
 const iso = (at: Date | null): string | null => at?.toISOString() ?? null;
 
 const timeOf = (at: string | null): number =>
-  at !== null && at !== '' ? new Date(at).getTime() : Number.NEGATIVE_INFINITY;
+  nonEmpty(at) ? new Date(at).getTime() : Number.NEGATIVE_INFINITY;
 
 const newestFirst = (one: string | null, other: string | null): number =>
   timeOf(other) - timeOf(one);

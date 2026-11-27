@@ -49,37 +49,32 @@ const posting = (
   const deleted: StickyCommentPlace[] = [];
 
   const service = new PostDecisionsComment(
-    partial<DecisionReaderPort>({ ofTask: () => Promise.resolve(stored) }),
+    partial<DecisionReaderPort>({ ofTask: async () => stored }),
     partial<WorkPort>({
-      task: (): Promise<ReviewedTask> =>
-        Promise.resolve({
-          id: TASK,
-          workspaceId: WORKSPACE,
-          teamId: TeamId.of('team_1'),
-          pullRequests: [
-            PullRequestUrl.of('https://github.com/acme/api/pull/7'),
-          ],
-          openPullRequests: [],
-          reviewedPullRequest: null,
-          reviewing: false,
-          currentRunId: null,
-          ...task,
-        }),
+      task: async (): Promise<ReviewedTask> => ({
+        id: TASK,
+        workspaceId: WORKSPACE,
+        teamId: TeamId.of('team_1'),
+        pullRequests: [PullRequestUrl.of('https://github.com/acme/api/pull/7')],
+        openPullRequests: [],
+        reviewedPullRequest: null,
+        reviewing: false,
+        currentRunId: null,
+        ...task,
+      }),
     }),
     {
-      slugOf: () => Promise.resolve('acme'),
-      idOf: () => Promise.resolve(null),
-      mayView: () => Promise.resolve(true),
+      slugOf: async () => 'acme',
+      idOf: async () => null,
+      mayView: async () => true,
     },
-    { isConnected: () => Promise.resolve(true) },
+    { isConnected: async () => true },
     {
-      upsert: (comment) => {
+      upsert: async (comment) => {
         upserted.push(comment);
-        return Promise.resolve();
       },
-      delete: (place) => {
+      delete: async (place) => {
         deleted.push(place);
-        return Promise.resolve();
       },
     },
     {
@@ -88,9 +83,9 @@ const posting = (
         `https://app.example/tasks/${taskId.value}#decisions`,
     },
     {
-      find: () => Promise.resolve({ name: 'Maya Chen', image: null }),
-      viewerOf: () => Promise.resolve(null),
-      actsOnTeam: () => Promise.resolve(false),
+      find: async () => ({ name: 'Maya Chen', image: null }),
+      viewerOf: async () => null,
+      actsOnTeam: async () => false,
     },
     new MarkdownCommentBodies(),
   );

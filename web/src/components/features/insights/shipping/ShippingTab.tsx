@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { NoPullRequests } from '@/components/features/insights/pull-requests/NoPullRequests';
@@ -19,12 +17,7 @@ type ShippingTabProps = {
 
 const FIRST_SECTION = 'What the agents ship';
 
-export function ShippingTab({
-  slug,
-  teamId,
-  period,
-  names,
-}: ShippingTabProps): ReactElement {
+export function ShippingTab({ slug, teamId, period, names }: ShippingTabProps) {
   const insights = useInsightsShipping(teamId, period);
 
   if (loading(insights)) {

@@ -83,8 +83,8 @@ const reporting = (
   let now = STARTED_AT;
   let authenticated =
     input.authenticated === undefined ? aPullPool() : input.authenticated;
-  const authenticate = vi.fn(() =>
-    Promise.resolve(authenticated ? authenticatedThrough(authenticated) : null),
+  const authenticate = vi.fn(async () =>
+    authenticated ? authenticatedThrough(authenticated) : null,
   );
 
   const handler = new HostHeartbeatHandler(

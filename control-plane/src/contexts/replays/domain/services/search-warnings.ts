@@ -73,10 +73,10 @@ const healthWarnings = (health: SetHealth): readonly SearchWarning[] => {
   const { saturation, judge, checks, oracle } = health;
 
   return [
-    ...(saturation?.saturated === true
+    ...(saturation?.saturated
       ? [{ kind: 'saturated' as const, rate: saturation.rate }]
       : []),
-    ...(judge?.unstable === true && judge.agreement !== null
+    ...(judge?.unstable && judge.agreement !== null
       ? [
           {
             kind: 'judge-unstable' as const,

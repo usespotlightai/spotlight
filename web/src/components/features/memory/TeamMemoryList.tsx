@@ -1,5 +1,4 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
 
 import { MemoryTabs } from '@/components/features/memory/MemoryTabs';
 import { TeamMemoryResults } from '@/components/features/memory/TeamMemoryResults';
@@ -25,7 +24,7 @@ export function TeamMemoryList({
   writing,
   onWritten,
   lines,
-}: TeamMemoryListProps): ReactElement {
+}: TeamMemoryListProps) {
   const memories = useTeamMemories(teamId, filter);
 
   return (

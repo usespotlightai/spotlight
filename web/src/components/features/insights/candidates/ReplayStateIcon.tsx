@@ -5,7 +5,6 @@ import {
   LoaderCircle,
   type LucideIcon,
 } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { nonEmpty } from '@/lib/non-empty';
@@ -24,11 +23,7 @@ const ICONS: Record<ShownState, { icon: LucideIcon; className: string }> = {
   'ceiling-reached': { icon: CircleAlert, className: 'text-destructive' },
 };
 
-export function ReplayStateIcon({
-  state,
-}: {
-  state: ShownState;
-}): ReactElement {
+export function ReplayStateIcon({ state }: { state: ShownState }) {
   const { icon: Icon, className } = ICONS[state];
   const note = stateNote(state);
 

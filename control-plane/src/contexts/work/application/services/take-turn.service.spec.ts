@@ -138,30 +138,23 @@ const attaching = () => {
   >({
     asked,
     taken,
-    uploadedBy: (
+    uploadedBy: async (
       run: RunId,
       workspaceId: WorkspaceId,
       ids: readonly string[],
     ) => {
       asked.push([`${run.value}@${workspaceId.value}`, ids]);
-      return Promise.resolve(
-        ids.map((id) =>
-          Attachment.of({
-            id,
-            name: `${id.replace('file_', '')}.png`,
-            contentType: 'image/png',
-            size: 3,
-          }),
-        ),
+      return ids.map((id) =>
+        Attachment.of({
+          id,
+          name: `${id.replace('file_', '')}.png`,
+          contentType: 'image/png',
+          size: 3,
+        }),
       );
     },
-    takenIn: (workspaceId: WorkspaceId, files: readonly Attachment[]) =>
-      Promise.resolve(
-        void taken.push([
-          workspaceId.value,
-          files.map((each) => each.id.value),
-        ]),
-      ),
+    takenIn: async (workspaceId: WorkspaceId, files: readonly Attachment[]) =>
+      void taken.push([workspaceId.value, files.map((each) => each.id.value)]),
   });
 };
 
@@ -230,54 +223,52 @@ const turning = (over: Turning = {}) => {
   const files =
     over.files ??
     partial<FilesLoader>({
-      uploadedBy: () => Promise.resolve([]),
+      uploadedBy: async () => [],
       takenIn: async () => {},
     });
   const taskOf = () =>
     typeof over.task === 'function' ? over.task() : (over.task ?? null);
   const taskStore = partial<TaskRepository>({
-    find: () => Promise.resolve(tasks[tasks.length - 1] ?? taskOf()),
-    save: (each: Task) => {
+    find: async () => tasks[tasks.length - 1] ?? taskOf(),
+    save: async (each: Task) => {
       tasks.push(each);
-
-      return Promise.resolve();
     },
   });
   const dispatches: DispatchRepository = {
-    find: () => Promise.resolve(dispatched()),
-    add: () => Promise.resolve(undefined),
-    save: () => Promise.resolve(undefined),
+    find: async () => dispatched(),
+    add: async () => undefined,
+    save: async () => undefined,
   };
   const taking = new TakeTurn(
     held.turns,
     held.runs,
     dispatches,
     taskStore,
-    partial<LineMapsPort>({ findByStation: () => Promise.resolve(line()) }),
+    partial<LineMapsPort>({ findByStation: async () => line() }),
     partial<RunJournalReaderPort>({
-      attemptsOfRun: () => Promise.resolve([]),
+      attemptsOfRun: async () => [],
     }),
-    partial<TaskViewsPort>({ of: () => Promise.resolve(TASK_VIEW) }),
+    partial<TaskViewsPort>({ of: async () => TASK_VIEW }),
     {
-      listens: () => Promise.resolve(true),
-      before: (_task, event) => {
+      listens: async () => true,
+      before: async (_task, event) => {
         hookCalls.push(event);
-        return Promise.resolve(over.decision ?? { kind: 'allowed' });
+        return over.decision ?? { kind: 'allowed' };
       },
       after: async () => {},
     },
     files,
     new RunRouting(
-      { placementsAt: () => Promise.resolve([]) },
-      { runIdFor: () => Promise.resolve(RunId.of('run_2')) },
+      { placementsAt: async () => [] },
+      { runIdFor: async () => RunId.of('run_2') },
       clock,
     ),
     runJournalReadings({ lastWordsIn: () => over.lastWords ?? null }),
     resumingWith(held.runs, dispatches),
     new LineResuming(
-      { placementsAt: () => Promise.resolve([]) },
-      { of: () => Promise.resolve([]) },
-      { runIdFor: () => Promise.resolve(RunId.of('run_2')) },
+      { placementsAt: async () => [] },
+      { of: async () => [] },
+      { runIdFor: async () => RunId.of('run_2') },
       clock,
     ),
   );

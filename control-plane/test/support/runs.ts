@@ -1,5 +1,6 @@
 import type { RunState } from '@runs/domain/value-objects/run-state';
 import type { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
@@ -59,7 +60,7 @@ export const aDispatch = (
   return {
     id: input.runId,
     ...configured({ ...input, ...ending }),
-    ...(input.chatId !== undefined && input.chatId !== ''
+    ...(nonEmpty(input.chatId)
       ? { kind: 'chat' as const, chatId: input.chatId }
       : {
           kind: 'task' as const,
@@ -210,9 +211,9 @@ export const requestedBySpec = (
   teamId: null,
   ...ACTS,
   exclusive: false,
-  workingCopyKey: key !== null && key !== '' ? `workspace/${key}` : null,
-  workingCopyRejoinable: key !== null && key !== '' ? false : null,
-  workingCopyRestores: key !== null && key !== '' ? 'when-continuing' : null,
+  workingCopyKey: nonEmpty(key) ? `workspace/${key}` : null,
+  workingCopyRejoinable: nonEmpty(key) ? false : null,
+  workingCopyRestores: nonEmpty(key) ? 'when-continuing' : null,
 });
 
 export const requestedByReplay = (

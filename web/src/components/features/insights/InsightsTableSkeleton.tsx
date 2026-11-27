@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
@@ -21,7 +19,7 @@ export function InsightsTableSkeleton({
   label,
   headers,
   rows = 2,
-}: InsightsTableSkeletonProps): ReactElement {
+}: InsightsTableSkeletonProps) {
   const template = columnTemplate(
     headers.map((header, at) => ({
       label: header ?? `${at}`,

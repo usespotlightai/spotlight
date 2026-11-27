@@ -7,6 +7,7 @@ import {
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
 import { HCL_GRAMMAR_WASM } from '@platform/hcl/hcl.parse';
 import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const LABELLED: Readonly<Record<string, number>> = {
@@ -172,7 +173,7 @@ export const TERRAFORM_GRAMMAR: Grammar = {
     const specifier = moduleSource(node);
     const [name] = labelsOf(node);
 
-    return specifier !== undefined && specifier !== '' && name
+    return nonEmpty(specifier) && name
       ? [{ local: `module.${name}`, imported: '*', specifier }]
       : [];
   },

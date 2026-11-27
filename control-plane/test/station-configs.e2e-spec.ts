@@ -4,6 +4,7 @@ import type { PersonReaderPort } from '@identity/application/ports/person-reader
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunState } from '@runs/domain/value-objects/run-state';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -168,7 +169,7 @@ const ran = async (
       taskId,
       stationId,
       fingerprint,
-      config: fingerprint !== null && fingerprint !== '' ? parts : null,
+      config: nonEmpty(fingerprint) ? parts : null,
       briefedTask: {
         stationId,
         title: 'Task',

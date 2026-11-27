@@ -38,28 +38,23 @@ const chat = partial<InboxEntrySummary>({
 const inboxesWith = () => {
   const opened: InboxScope[] = [];
   const access = partial<WorkspaceAccessPort>({
-    teamAccessOfMembers: () =>
-      Promise.resolve([
-        {
-          workspaceId: WorkspaceId.of('ws_1'),
-          viewer: UserId.of('admin_1'),
-          teams: [
-            { teamId: PLATFORM, sees: true, actsOn: true, joined: false },
-          ],
-        },
-        {
-          workspaceId: WorkspaceId.of('ws_1'),
-          viewer: UserId.of('member_1'),
-          teams: [
-            { teamId: PLATFORM, sees: true, actsOn: false, joined: false },
-          ],
-        },
-      ]),
+    teamAccessOfMembers: async () => [
+      {
+        workspaceId: WorkspaceId.of('ws_1'),
+        viewer: UserId.of('admin_1'),
+        teams: [{ teamId: PLATFORM, sees: true, actsOn: true, joined: false }],
+      },
+      {
+        workspaceId: WorkspaceId.of('ws_1'),
+        viewer: UserId.of('member_1'),
+        teams: [{ teamId: PLATFORM, sees: true, actsOn: false, joined: false }],
+      },
+    ],
   });
   const reader: InboxReaderPort = partial<InboxReaderPort>({
-    open: (scope: InboxScope) => {
+    open: async (scope: InboxScope) => {
       opened.push(scope);
-      return Promise.resolve([notice, chat]);
+      return [notice, chat];
     },
   });
 

@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { DetailCopy } from '@/components/features/trace/view/detail/DetailCopy';
 import { PaneSection } from '@/components/shared/PaneSection';
@@ -12,7 +12,7 @@ export function DetailSection({
   title: string;
   copy?: string;
   children: ReactNode;
-}): ReactElement {
+}) {
   return (
     <PaneSection
       title={title}

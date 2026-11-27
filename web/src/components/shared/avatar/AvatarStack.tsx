@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import {
   Tooltip,
@@ -19,11 +17,7 @@ type AvatarStackProps = {
   className?: string;
 };
 
-export function AvatarStack({
-  people,
-  label,
-  className,
-}: AvatarStackProps): ReactElement | null {
+export function AvatarStack({ people, label, className }: AvatarStackProps) {
   if (people.length === 0) {
     return null;
   }

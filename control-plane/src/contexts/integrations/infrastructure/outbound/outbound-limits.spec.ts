@@ -23,11 +23,9 @@ const clock = (waitMs = 5_000) => {
     slept,
     waits: {
       now: () => now,
-      sleep: (ms: number) => {
+      sleep: async (ms: number) => {
         slept.push(ms);
         now += ms;
-
-        return Promise.resolve();
       },
       waitMs,
     },
@@ -76,7 +74,7 @@ describe('InMemoryOutboundLimits', () => {
 describe('RedisOutboundLimits', () => {
   it('waits as long as the store says, then sends', async () => {
     const answers = [250, -1];
-    const store = { eval: vi.fn(() => Promise.resolve(answers.shift())) };
+    const store = { eval: vi.fn(async () => answers.shift()) };
     const { waits, slept } = clock();
 
     expect(
@@ -96,8 +94,8 @@ describe('RedisOutboundLimits', () => {
     const { waits } = clock(0);
     const limits = new RedisOutboundLimits(
       {
-        eval: () => {
-          return Promise.reject(new Error('Command timed out'));
+        eval: async () => {
+          throw new Error('Command timed out');
         },
       },
       1,

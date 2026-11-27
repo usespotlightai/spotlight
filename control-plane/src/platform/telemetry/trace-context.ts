@@ -6,6 +6,7 @@ import {
   ROOT_CONTEXT,
   trace,
 } from '@opentelemetry/api';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const TRACEPARENT = 'traceparent';
 
@@ -18,7 +19,7 @@ export function activeTraceparent(): string | null {
 }
 
 export function linksTo(traceparent: string | null): Link[] {
-  if (traceparent === null || traceparent === '') {
+  if (!nonEmpty(traceparent)) {
     return [];
   }
 

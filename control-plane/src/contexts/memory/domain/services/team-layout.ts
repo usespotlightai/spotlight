@@ -1,6 +1,7 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -9,7 +10,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 const trimmedOrNull = (raw: string | null | undefined): string | null => {
   const trimmed = raw?.trim();
 
-  return trimmed === undefined || trimmed === '' ? null : trimmed;
+  return !nonEmpty(trimmed) ? null : trimmed;
 };
 
 export interface LaidOutLine {

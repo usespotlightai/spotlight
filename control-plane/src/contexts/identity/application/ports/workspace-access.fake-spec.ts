@@ -19,21 +19,17 @@ export const teamAccess = (
   };
 
   return partial<WorkspaceAccessPort>({
-    inWorkspaceOfTeam: vi.fn(() =>
-      Promise.resolve({
+    inWorkspaceOfTeam: vi.fn(async () => ({
+      ...permissions,
+      viewer: UserId.of('user_1'),
+      isAdmin: configures,
+    })),
+    permissionsInWorkspaceOfTeam: vi.fn(async () =>
+      partial<TeamPermissions>({
         ...permissions,
-        viewer: UserId.of('user_1'),
+        configures,
         isAdmin: configures,
       }),
-    ),
-    permissionsInWorkspaceOfTeam: vi.fn(() =>
-      Promise.resolve(
-        partial<TeamPermissions>({
-          ...permissions,
-          configures,
-          isAdmin: configures,
-        }),
-      ),
     ),
   });
 };

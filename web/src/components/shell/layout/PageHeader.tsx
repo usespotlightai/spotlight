@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ export function PageHeader({
   actions,
   bordered = true,
   heading = true,
-}: PageHeaderProps): ReactElement {
+}: PageHeaderProps) {
   const Title = heading ? 'h1' : 'nav';
 
   return (

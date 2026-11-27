@@ -4,6 +4,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { WorkingCopyImagesPort } from '@runners/application/ports/working-copy-images.port';
 import { lastUseOf } from '@runs/domain/services/working-copy-last-use';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 
@@ -43,9 +44,7 @@ export class DrizzleWorkingCopyImages implements WorkingCopyImagesPort {
           rows.filter((each) => each.workingCopyKey === key),
         )?.ranIn;
 
-        return ranIn !== undefined && ranIn !== null && ranIn !== ''
-          ? [[key, ranIn] as const]
-          : [];
+        return nonEmpty(ranIn) ? [[key, ranIn] as const] : [];
       }),
     );
   }

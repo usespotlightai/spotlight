@@ -1,5 +1,6 @@
 import type { ExpressionSpan } from '@platform/expressions/expression-engine.port';
 import type { Scope } from '@platform/expressions/scope';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const UNKNOWN_VARIABLE = /^Unknown variable: (\S+)/;
 const NO_SUCH_KEY = /^No such key: (\S+)/;
@@ -67,7 +68,7 @@ export const suggestionFor = (
 ): string | null => {
   const unknown = UNKNOWN_VARIABLE.exec(reason)?.[1];
 
-  if (unknown !== undefined && unknown !== '') {
+  if (nonEmpty(unknown)) {
     return closest(unknown, scope.names);
   }
 
@@ -76,17 +77,12 @@ export const suggestionFor = (
     ? RECEIVER.exec(source.slice(0, span.start))?.[1]
     : undefined;
 
-  if (
-    missing === undefined ||
-    missing === '' ||
-    receiver === undefined ||
-    receiver === ''
-  ) {
+  if (!nonEmpty(missing) || !nonEmpty(receiver)) {
     return null;
   }
 
   const path = receiver.split('.').map((each) => each.trim());
   const field = closest(missing, scope.fieldsAt(path));
 
-  return field !== null && field !== '' ? [...path, field].join('.') : null;
+  return nonEmpty(field) ? [...path, field].join('.') : null;
 };

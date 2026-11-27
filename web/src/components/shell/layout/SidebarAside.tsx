@@ -1,4 +1,4 @@
-import type { ReactNode, Ref, ReactElement } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { SidebarWindowChrome } from '@/components/shell/layout/SidebarWindowChrome';
 import { SPRING } from '@/lib/motion';
@@ -50,7 +50,7 @@ export function SidebarAside({
   shrunkTo,
   desktop,
   children,
-}: SidebarAsideProps): ReactElement {
+}: SidebarAsideProps) {
   const hidden = collapsed && !peeking;
   const motion = asideMotion({
     resizing,

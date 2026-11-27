@@ -1,4 +1,4 @@
-import type { ReactNode, ReactElement } from 'react';
+import type { ReactNode } from 'react';
 
 import type { Expansion } from '@/hooks/useExpandingRow';
 import { cn } from '@/lib/utils';
@@ -9,11 +9,7 @@ type RowDetailProps = {
   children: ReactNode;
 };
 
-export function RowDetail({
-  expansion,
-  className,
-  children,
-}: RowDetailProps): ReactElement {
+export function RowDetail({ expansion, className, children }: RowDetailProps) {
   return (
     <div
       data-slot="row-detail"

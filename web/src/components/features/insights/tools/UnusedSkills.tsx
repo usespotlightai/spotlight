@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import {
@@ -28,7 +26,7 @@ export function UnusedSkills({
   teamId,
   unused,
   collapsibles,
-}: UnusedSkillsProps): ReactElement {
+}: UnusedSkillsProps) {
   const open = collapsibles.isOpen(UNUSED_KEY);
 
   return (

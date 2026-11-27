@@ -1,4 +1,5 @@
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import { SNAPSHOT_FOREIGN_KEYS } from './drizzle-snapshot';
@@ -62,10 +63,7 @@ const foreignSchemaImports = (file: SourceFile, owner: string): Violation[] =>
   moduleSpecifiersOf(file).flatMap((specifier) => {
     const target = moduleTarget(file.path, specifier);
 
-    if (
-      target?.endsWith('.schema') !== true ||
-      target.endsWith('/env.schema')
-    ) {
+    if (!target?.endsWith('.schema') || target.endsWith('/env.schema')) {
       return [];
     }
 
@@ -87,7 +85,7 @@ const foreignRawTables = (file: SourceFile, owner: string): Violation[] =>
       const tableOwner =
         name && TABLE_NAMES.has(name) ? ownerOfTable(name) : null;
 
-      return tableOwner !== null && tableOwner !== '' && tableOwner !== owner
+      return nonEmpty(tableOwner) && tableOwner !== owner
         ? [
             {
               key: `${file.path}: names ${name} of ${tableOwner} in SQL`,
@@ -112,11 +110,7 @@ const crossOwnerForeignKeys = (): Violation[] =>
     const from = ownerOfTable(key.tableFrom);
     const to = ownerOfTable(key.tableTo);
 
-    return from !== null &&
-      from !== '' &&
-      to !== null &&
-      to !== '' &&
-      from !== to
+    return nonEmpty(from) && nonEmpty(to) && from !== to
       ? [
           {
             key: `${key.tableFrom} of ${from} references ${key.tableTo} of ${to}`,

@@ -99,7 +99,9 @@ describe('RateLimitGuard', () => {
 
   it('lets the request through when Redis cannot be reached', async () => {
     const broken = partial<Redis>({
-      eval: () => Promise.reject(new Error('Command timed out')),
+      eval: async () => {
+        throw new Error('Command timed out');
+      },
     });
 
     await expect(

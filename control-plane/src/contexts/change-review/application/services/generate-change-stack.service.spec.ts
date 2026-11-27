@@ -180,56 +180,50 @@ const generating = (
   };
 
   const stacks: ChangeStackRepository = {
-    add: (stack) => {
+    add: async (stack) => {
       steps.push(transacting ? 'add in transaction' : 'add');
       saved.push(stack);
       dispatched.push(...stack.pullEvents());
-      return Promise.resolve();
     },
-    save: (stack) => {
+    save: async (stack) => {
       saved.push(stack);
       dispatched.push(...stack.pullEvents());
-      return Promise.resolve();
     },
-    find: (id) =>
-      Promise.resolve(
-        [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
-      ),
-    nextDueJob: () => Promise.resolve(null),
-    ofRun: () => Promise.resolve([]),
-    ofTask: (taskId) => {
+    find: async (id) =>
+      [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
+    nextDueJob: async () => null,
+    ofRun: async () => [],
+    ofTask: async (taskId) => {
       if (transacting) {
         steps.push(`read ${taskId.value} in transaction`);
       }
 
-      return Promise.resolve([
+      return [
         ...new Map(
           saved
             .filter((each) => each.taskId?.equals(taskId) === true)
             .map((each) => [each.id.value, each]),
         ).values(),
-      ]);
+      ];
     },
-    ofTeam: () => Promise.resolve([]),
-    remove: () => Promise.resolve(),
+    ofTeam: async () => [],
+    remove: async () => {},
   };
 
   const generator: ChangeStackGeneratorPort = {
-    generate: (request) => {
+    generate: async (request) => {
       requests.push(request);
       const answer = answers.shift();
 
       if (answer === undefined) {
-        return Promise.reject(new Error('Requested too often'));
+        throw new Error('Requested too often');
       }
       if (answer === 'pending') {
-        return Promise.resolve(SESSION_WAITING);
+        return SESSION_WAITING;
       }
-      return Promise.resolve(
-        'failure' in answer
-          ? answer
-          : { status: 'drafted', cohorts: answer, usage },
-      );
+      return 'failure' in answer
+        ? answer
+        : { status: 'drafted', cohorts: answer, usage };
     },
   };
 
@@ -238,7 +232,7 @@ const generating = (
     generator,
     READER,
     READING,
-    { index: over.index ?? (() => Promise.resolve(NO_INDEX)) },
+    { index: over.index ?? (async () => NO_INDEX) },
     {
       stackingFor: async <T>(
         taskId: TaskId,
@@ -256,7 +250,7 @@ const generating = (
     { generate: over.ids ?? (() => 'stack-1') },
     {
       now: () => new Date('2026-09-16T10:00:00Z'),
-      sleep: () => Promise.resolve(),
+      sleep: async () => {},
     },
     over.logger ?? QUIET,
   );
@@ -595,9 +589,9 @@ describe('GenerateChangeStack', () => {
         ],
       };
       const { generated, requests } = generating({
-        index: (sources) => {
+        index: async (sources) => {
           read.push(...sources.map((each) => `${each.side}:${each.path}`));
-          return Promise.resolve(index);
+          return index;
         },
       });
 
@@ -628,8 +622,8 @@ describe('GenerateChangeStack', () => {
     it('generates from the diff alone where the code cannot be parsed', async () => {
       const { generated, saved, requests } = generating({
         answers: [[cohort(['h1', 'h2'], LINKED_PATHS)]],
-        index: () => {
-          return Promise.reject(new Error('no grammar'));
+        index: async () => {
+          throw new Error('no grammar');
         },
       });
 
@@ -740,7 +734,7 @@ describe('RedraftChangeStack', () => {
       generated.generator,
       {
         now: () => new Date('2026-09-16T10:05:00Z'),
-        sleep: () => Promise.resolve(),
+        sleep: async () => {},
       },
       QUIET,
     );

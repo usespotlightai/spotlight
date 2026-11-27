@@ -9,6 +9,7 @@ import { SetPlatformPoolCommand } from '@runners/application/commands/platform-p
 import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -143,9 +144,7 @@ describe('platform runner pool (e2e)', () => {
     const call = served(on).put(`/api/admin/workspaces/${id}/platform-pool`);
 
     return (
-      token !== null && token !== ''
-        ? call.set('Authorization', `Bearer ${token}`)
-        : call
+      nonEmpty(token) ? call.set('Authorization', `Bearer ${token}`) : call
     ).send({
       enabled,
     });
@@ -240,10 +239,8 @@ describe('platform runner pool (e2e)', () => {
   it('provisions a run that names no runners through the provisioner of the deployment, signed with its secret', async () => {
     const runId = await queue();
 
-    const call = await eventually(() =>
-      Promise.resolve(
-        platformEndpoint.calls.find((each) => runIdOf(each) === runId),
-      ),
+    const call = await eventually(async () =>
+      platformEndpoint.calls.find((each) => runIdOf(each) === runId),
     );
     const signed = `${String(call.headers['webhook-id'])}.${String(call.headers['webhook-timestamp'])}.${call.body}`;
     const key = Buffer.from(SECRET.slice('whsec_'.length), 'base64');
@@ -287,8 +284,8 @@ describe('platform runner pool (e2e)', () => {
         .expect(201);
       const runId = await queue([['sandbox']]);
 
-      await eventually(() =>
-        Promise.resolve(own.calls.some((each) => runIdOf(each) === runId)),
+      await eventually(async () =>
+        own.calls.some((each) => runIdOf(each) === runId),
       );
 
       expect(platformEndpoint.calls.map(runIdOf)).not.toContain(runId);
@@ -383,10 +380,8 @@ describe('platform runner pool (e2e)', () => {
         allowsReviewWork: false,
       });
 
-      await eventually(() =>
-        Promise.resolve(
-          platformEndpoint.calls.some((each) => runIdOf(each) === waitingRun),
-        ),
+      await eventually(async () =>
+        platformEndpoint.calls.some((each) => runIdOf(each) === waitingRun),
       );
 
       const changes = await http()

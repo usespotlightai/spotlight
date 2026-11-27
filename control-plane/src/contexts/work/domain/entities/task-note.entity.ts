@@ -143,7 +143,7 @@ export class TaskNote {
       );
     }
 
-    if (input.suggestsClosing === true && input.kind !== 'asked') {
+    if (input.suggestsClosing && input.kind !== 'asked') {
       throw new InconsistentStateError(
         'task note',
         `suggests closing the task on a ${input.kind} note`,

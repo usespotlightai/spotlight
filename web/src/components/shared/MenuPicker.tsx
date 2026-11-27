@@ -1,5 +1,4 @@
 import { ChevronDown } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import {
   DropdownMenu,
@@ -34,7 +33,7 @@ export function MenuPicker({
   options,
   selected,
   onChange,
-}: MenuPickerProps): ReactElement {
+}: MenuPickerProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

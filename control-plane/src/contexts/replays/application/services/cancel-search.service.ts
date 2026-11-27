@@ -42,7 +42,7 @@ export class CancelSearch {
     return this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
 
-      if (replay?.isStoppable === true) {
+      if (replay?.isStoppable) {
         await this.replays.save(
           replay.stop(
             this.clock.now(),

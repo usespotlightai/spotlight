@@ -10,6 +10,7 @@ import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-gr
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,7 +47,7 @@ const actorColumns = (actor: Actor | null) => {
 };
 
 const changedBy = (row: Row): ChangedBy => {
-  if (row.actor === 'token' && row.tokenId !== null && row.tokenId !== '' && row.userId !== null && row.userId !== '') {
+  if (row.actor === 'token' && nonEmpty(row.tokenId) && nonEmpty(row.userId)) {
     return {
       kind: 'token',
       tokenId: row.tokenId,
@@ -55,7 +56,7 @@ const changedBy = (row: Row): ChangedBy => {
     };
   }
 
-  if (row.actor === 'person' && row.userId !== null && row.userId !== '') {
+  if (row.actor === 'person' && nonEmpty(row.userId)) {
     return { kind: 'person', userId: row.userId };
   }
 

@@ -1,6 +1,7 @@
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   SECRET,
   type Secret,
@@ -33,9 +34,7 @@ export class OAuthTokens implements Secret {
       RefreshToken.maybe(input.refreshToken),
       input.expiresAt ?? null,
       (input.scopes ?? []).map(OAuthScope.of),
-      linkedAccount === undefined || linkedAccount === ''
-        ? null
-        : linkedAccount,
+      !nonEmpty(linkedAccount) ? null : linkedAccount,
     );
   }
 

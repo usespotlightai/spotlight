@@ -50,10 +50,8 @@ describe('additional emails (e2e)', () => {
   beforeAll(async () => {
     app = await openApp((module) =>
       module.overrideProvider(USER_EMAIL_MAIL).useValue({
-        send: (verification: VerificationToSend) => {
+        send: async (verification: VerificationToSend) => {
           sent.push(verification);
-
-          return Promise.resolve();
         },
       }),
     );

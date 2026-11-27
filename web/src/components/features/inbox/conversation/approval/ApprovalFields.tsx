@@ -1,4 +1,4 @@
-import { type ReactElement, useId } from 'react';
+import { useId } from 'react';
 
 import { FACT_LABEL, FactRow } from '@/components/shared/FactRow';
 import { InPlaceTextarea } from '@/components/shared/form/InPlaceTextarea';
@@ -17,7 +17,7 @@ export function ApprovalFields({
   edits,
   disabled,
   onEdit,
-}: ApprovalFieldsProps): ReactElement {
+}: ApprovalFieldsProps) {
   const id = useId();
 
   return (

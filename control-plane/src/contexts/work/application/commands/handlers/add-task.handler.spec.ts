@@ -79,11 +79,11 @@ const line = () =>
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
 const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
-  runIdFor: ({ task, line }) => {
+  runIdFor: async ({ task, line }) => {
     const station = line.stationAt(task.stationId);
 
     if (!station?.harness) {
-      return Promise.resolve(null);
+      return null;
     }
     dispatched.push({
       harness: station.harness.value,
@@ -100,7 +100,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
         sandboxEnv: [],
       }),
     });
-    return Promise.resolve(runId === null ? null : RunId.of(runId));
+    return runId === null ? null : RunId.of(runId);
   },
 });
 
@@ -108,26 +108,24 @@ let added: Task | undefined;
 
 const tasks = () =>
   ({
-    add: vi.fn((task: Task) => {
+    add: vi.fn(async (task: Task) => {
       added = task;
-
-      return Promise.resolve();
     }),
     save: vi.fn(),
-    find: vi.fn(() => Promise.resolve(null)),
+    find: vi.fn(async () => null),
     remove: vi.fn(),
-    placementsAt: vi.fn(() => Promise.resolve([])),
-    findByCorrelation: vi.fn(() => Promise.resolve([])),
-    owningPullRequest: vi.fn(() => Promise.resolve(null)),
-    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
-    holdingMark: vi.fn(() => Promise.resolve([])),
-    settingUpFor: vi.fn(() => Promise.resolve(null)),
-    settingUpIn: vi.fn(() => Promise.resolve([])),
-    settingUp: vi.fn(() => Promise.resolve([])),
-    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
-    awaitingConnection: vi.fn(() => Promise.resolve([])),
-    startingFrom: vi.fn(() => Promise.resolve([])),
-    onBranch: vi.fn(() => Promise.resolve(null)),
+    placementsAt: vi.fn(async () => []),
+    findByCorrelation: vi.fn(async () => []),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
+    holdingMark: vi.fn(async () => []),
+    settingUpFor: vi.fn(async () => null),
+    settingUpIn: vi.fn(async () => []),
+    settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
+    awaitingConnection: vi.fn(async () => []),
+    startingFrom: vi.fn(async () => []),
+    onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const access = (teamId = 'team_1') =>
@@ -137,29 +135,27 @@ const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const lines = (found: LineMap | null = line()) =>
   ({
-    find: vi.fn(() => Promise.resolve(found)),
-    findByStation: vi.fn(() => Promise.resolve(found)),
-    ofWorkspace: vi.fn(() => Promise.resolve([])),
-    ofTeam: vi.fn(() => Promise.resolve([])),
+    find: vi.fn(async () => found),
+    findByStation: vi.fn(async () => found),
+    ofWorkspace: vi.fn(async () => []),
+    ofTeam: vi.fn(async () => []),
     candidate: vi.fn(),
   }) satisfies LineMapsPort;
 
 const store = {
   grant: vi.fn(),
-  received: vi.fn((_at, ids: readonly AttachmentId[]) =>
-    Promise.resolve(
-      ids.map((id) =>
-        Attachment.of({
-          id: id.value,
-          name: 'queue.png',
-          contentType: 'image/png',
-          size: 4096,
-        }),
-      ),
+  received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
+    ids.map((id) =>
+      Attachment.of({
+        id: id.value,
+        name: 'queue.png',
+        contentType: 'image/png',
+        size: 4096,
+      }),
     ),
   ),
   save: vi.fn(),
-  stored: vi.fn(() => Promise.resolve(true)),
+  stored: vi.fn(async () => true),
   taken: vi.fn(),
   copy: vi.fn(),
   link: vi.fn(),
@@ -181,7 +177,7 @@ const addTask = (
     clock,
     new CreateTask(tasks(), dispatch(), transaction, files),
     files,
-    { defaultBranchNameOf: () => Promise.resolve('main') },
+    { defaultBranchNameOf: async () => 'main' },
   ).execute(command);
 
 beforeEach(() => {

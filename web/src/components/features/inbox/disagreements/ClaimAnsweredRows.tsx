@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import {
   ANSWER_LABEL,
@@ -9,11 +7,7 @@ import {
 } from '@/lib/judge-disagreement';
 import { nonEmpty } from '@/lib/non-empty';
 
-export function ClaimAnsweredRows({
-  answer,
-}: {
-  answer: GivenClaimAnswer;
-}): ReactElement {
+export function ClaimAnsweredRows({ answer }: { answer: GivenClaimAnswer }) {
   return (
     <>
       <FactRow wide>

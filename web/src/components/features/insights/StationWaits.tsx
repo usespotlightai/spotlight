@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Bar, BarChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { WAIT_SERIES } from '@/components/features/insights/chart-series';
@@ -29,7 +28,7 @@ const TipContent = ({
 }) => {
   const row = payload?.[0]?.payload;
 
-  if (active !== true || !row) {
+  if (!active || !row) {
     return null;
   }
 
@@ -59,7 +58,7 @@ export function StationWaits({
   teamId,
   stations,
   names,
-}: StationWaitsProps): ReactElement {
+}: StationWaitsProps) {
   const cursor = useCursorTooltip();
   const rows = waitRows(stations, names);
 

@@ -3,7 +3,7 @@ import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 const SEPARATOR = '/';
 
 export class StationPath {
-  private readonly kind: string = 'station-path';
+  private readonly kind = 'station-path';
 
   private constructor(
     readonly teamKey: string,
@@ -31,7 +31,7 @@ export class StationPath {
 
   equals(other: StationPath): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof StationPath &&
       this.teamKey === other.teamKey &&
       this.lineKey === other.lineKey &&
       this.stationKey === other.stationKey

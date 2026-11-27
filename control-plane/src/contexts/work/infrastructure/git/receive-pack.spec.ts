@@ -31,15 +31,15 @@ const chunked = (text: string, size: number): AsyncIterable<Uint8Array> => ({
     let at = 0;
 
     return {
-      next: (): Promise<IteratorResult<Uint8Array>> => {
+      next: async (): Promise<IteratorResult<Uint8Array>> => {
         if (at >= bytes.length) {
-          return Promise.resolve({ done: true, value: undefined });
+          return { done: true, value: undefined };
         }
 
         const chunk = bytes.subarray(at, at + size);
         at += size;
 
-        return Promise.resolve({ done: false, value: chunk });
+        return { done: false, value: chunk };
       },
     };
   },
@@ -295,10 +295,8 @@ describe('GitReceivePack, reading what GitHub took from a push', () => {
     const taken: string[] = [];
     const answer = push.reported(
       { status: 200, headers: {}, body: chunked(report, 5) },
-      (updates) => {
+      async (updates) => {
         taken.push(...updates.map((each) => each.ref));
-
-        return Promise.resolve();
       },
     );
 

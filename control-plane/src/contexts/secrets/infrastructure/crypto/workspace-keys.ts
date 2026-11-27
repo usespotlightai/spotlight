@@ -6,6 +6,7 @@ import type {
 } from '@secrets/infrastructure/kms/key-management';
 import { secretDataKey } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 
@@ -27,7 +28,7 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
   async of(workspaceId: WorkspaceId): Promise<Uint8Array> {
     const existing = await this.storedKey(workspaceId);
 
-    if (existing !== null && existing !== '') {
+    if (nonEmpty(existing)) {
       return this.unwrapped(workspaceId, existing);
     }
 
@@ -51,7 +52,7 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
 
     const first = await this.storedKey(workspaceId);
 
-    if (first === null || first === '') {
+    if (!nonEmpty(first)) {
       throw new Error(
         `The data key for workspace ${workspaceId.value} vanished while it was issued`,
       );

@@ -1,13 +1,13 @@
-import { firstOf } from '@shared-kernel/domain/item-at';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStackVersionConflictError } from '@change-review/domain/exceptions/change-stack-version-conflict.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
-import type { StoredStackProblem } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import {
   cohortRows,
   cohortsOf,
@@ -18,6 +18,7 @@ import {
   progressOf,
   removedOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
+import type { StoredStackProblem } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -26,6 +27,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -35,8 +38,6 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
-import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
-import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 
 type Row = typeof changeStack.$inferSelect;
 
@@ -67,11 +68,13 @@ const baseOf = (raw: string): CommitSha => {
 };
 
 const originOf = (row: Row): StackOrigin => {
-  if (row.runId !== null && row.runId !== '') {
+  if (nonEmpty(row.runId)) {
     return StackOrigin.run(RunId.of(row.runId));
   }
 
-  const head = row.pushedHead !== null && row.pushedHead !== '' ? CommitSha.parsed(row.pushedHead) : null;
+  const head = nonEmpty(row.pushedHead)
+    ? CommitSha.parsed(row.pushedHead)
+    : null;
 
   if (!head) {
     throw new InconsistentStateError(
@@ -87,13 +90,15 @@ const toChangeStack = (row: Row): ChangeStack =>
   ChangeStack.rehydrate({
     id: ChangeStackId.of(row.id),
     origin: originOf(row),
-    taskId: row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
-    teamId: row.teamId !== null && row.teamId !== '' ? TeamId.of(row.teamId) : null,
+    taskId: nonEmpty(row.taskId) ? TaskId.of(row.taskId) : null,
+    teamId: nonEmpty(row.teamId) ? TeamId.of(row.teamId) : null,
     trial: row.trial,
     workspaceId: WorkspaceId.of(row.workspaceId),
     owner: row.repositoryOwner,
-    repository: row.repository !== null && row.repository !== '' ? RepositoryName.of(row.repository) : null,
-    base: row.baseCommit !== null && row.baseCommit !== '' ? baseOf(row.baseCommit) : null,
+    repository: nonEmpty(row.repository)
+      ? RepositoryName.of(row.repository)
+      : null,
+    base: nonEmpty(row.baseCommit) ? baseOf(row.baseCommit) : null,
     diff: diffOf(row.files),
     facts: factsOf(row.facts),
     cohorts: cohortsOf(row.cohorts),
@@ -103,13 +108,13 @@ const toChangeStack = (row: Row): ChangeStack =>
       nextAttemptAt: row.jobDueAt,
       waitingSince: row.waitingSince,
     }),
-    request: row.checkCommand !== null && row.checkCommand !== ''
+    request: nonEmpty(row.checkCommand)
       ? CheckRequest.of(
           row.checkCommand,
           row.checkSetup,
           RunnerPlacement.ofLabelGroups(
             row.checkPlacement,
-            row.checkPlacementImage !== null && row.checkPlacementImage !== ''
+            nonEmpty(row.checkPlacementImage)
               ? RunnerImage.of(row.checkPlacementImage)
               : null,
           ),
@@ -117,7 +122,7 @@ const toChangeStack = (row: Row): ChangeStack =>
       : null,
     redrafting: row.redrafting,
     usage: ModelUsage.rehydrate(row.usage),
-    previous: row.previousStackId !== null && row.previousStackId !== ''
+    previous: nonEmpty(row.previousStackId)
       ? ChangeStackId.of(row.previousStackId)
       : null,
     removed: removedOf(row.removedLayers),
@@ -146,8 +151,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
     await this.context.db.insert(changeStack).values({
       id: added.id.value,
       runId: added.runId?.value ?? null,
-      pushedHead:
-        added.origin.kind === 'push' ? added.origin.head.value : null,
+      pushedHead: added.origin.kind === 'push' ? added.origin.head.value : null,
       pushedBy:
         added.origin.kind === 'push'
           ? (added.origin.pushedBy?.value ?? null)
@@ -222,11 +226,13 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
   }
 
   async find(id: ChangeStackId): Promise<ChangeStack | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(changeStack)
-      .where(eq(changeStack.id, id.value))
-      .limit(1));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(changeStack)
+        .where(eq(changeStack.id, id.value))
+        .limit(1),
+    );
 
     return row ? toChangeStack(row) : null;
   }
@@ -242,18 +248,20 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
   }
 
   async nextDueJob(now: Date): Promise<ChangeStack | null> {
-    const row = firstOf(await this.context.db
-      .select()
-      .from(changeStack)
-      .where(
-        and(
-          eq(changeStack.pendingJob, true),
-          or(isNull(changeStack.jobDueAt), lte(changeStack.jobDueAt, now)),
-        ),
-      )
-      .orderBy(asc(changeStack.startedAt))
-      .limit(1)
-      .for('update', { skipLocked: true }));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(changeStack)
+        .where(
+          and(
+            eq(changeStack.pendingJob, true),
+            or(isNull(changeStack.jobDueAt), lte(changeStack.jobDueAt, now)),
+          ),
+        )
+        .orderBy(asc(changeStack.startedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toChangeStack(row) : null;
   }

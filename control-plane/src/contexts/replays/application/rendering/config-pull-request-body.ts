@@ -5,6 +5,7 @@ import {
 } from '@replays/application/rendering/markdown-text';
 import type { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface ShownInterval {
   readonly low: number;
@@ -282,7 +283,7 @@ const inline = (value: string | null): string =>
   value === null ? 'not set' : `\`${defused(value).replace(/`/g, "'")}\``;
 
 const changeName = (change: ShownChange): string =>
-  change.name !== null && change.name !== ''
+  nonEmpty(change.name)
     ? `\`${change.part}\` · ${markdownText(clippedText(change.name, MAX_TITLE))}`
     : `\`${change.part}\``;
 
@@ -480,9 +481,9 @@ export const ConfigPullRequestBody = {
         describeJudge(facts),
         describeOverfit(facts),
         describeRegressionLimit(facts),
-      ].flatMap((each) => (each !== null && each !== '' ? [each] : [])),
+      ].flatMap((each) => (nonEmpty(each) ? [each] : [])),
       describeChanges(facts.changes),
-      ...(facts.hypothesis !== null && facts.hypothesis !== ''
+      ...(nonEmpty(facts.hypothesis)
         ? [
             `## Why it should be better\n\nThe agent that proposed it wrote:\n\n${fenced(capped(facts.hypothesis, MAX_VALUE))}`,
           ]
@@ -502,7 +503,7 @@ export const ConfigPullRequestBody = {
           describeGain('held-out', facts.gains.heldOut),
           describePairs('searched', facts.pairs.searched),
           describePairs('held-out', facts.pairs.heldOut),
-        ].flatMap((each) => (each !== null && each !== '' ? ['', each] : [])),
+        ].flatMap((each) => (nonEmpty(each) ? ['', each] : [])),
       ].join('\n'),
       ...(facts.unchecked.length > 0
         ? [
@@ -513,7 +514,7 @@ export const ConfigPullRequestBody = {
         describeTasks(facts),
         describeSearch(facts.search, facts),
         describeFound(facts.found),
-      ].flatMap((each) => (each !== null && each !== '' ? [each] : [])),
+      ].flatMap((each) => (nonEmpty(each) ? [each] : [])),
     ]);
   },
 };

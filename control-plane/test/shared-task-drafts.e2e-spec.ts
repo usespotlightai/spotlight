@@ -8,6 +8,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   LIVE_TASK_DRAFTS,
@@ -37,10 +38,8 @@ const signedInAs = (userId: string | null, origin?: string) =>
       super(url, {
         protocols,
         headers: {
-          ...(userId !== null && userId !== ''
-            ? { [TEST_USER_HEADER]: userId }
-            : {}),
-          ...(origin !== undefined && origin !== '' ? { origin } : {}),
+          ...(nonEmpty(userId) ? { [TEST_USER_HEADER]: userId } : {}),
+          ...(nonEmpty(origin) ? { origin } : {}),
         },
       } as never);
     }
@@ -93,19 +92,14 @@ describe('the shared draft of a task', () => {
   it('lets two members of the workspace write it together', async () => {
     const ada = join(team.owner.value);
     const again = join(team.owner.value);
-    await eventually(
-      () => Promise.resolve(ada.seen.synced && again.seen.synced),
-      10_000,
-    );
+    await eventually(async () => ada.seen.synced && again.seen.synced, 10_000);
 
     ada.document.getText('t').insert(0, 'Cap the retries at 500.');
 
     await expect(
       eventually(
-        () =>
-          Promise.resolve(
-            again.document.getText('t').toJSON() === 'Cap the retries at 500.',
-          ),
+        async () =>
+          again.document.getText('t').toJSON() === 'Cap the retries at 500.',
         10_000,
       ),
     ).resolves.toBe(true);
@@ -114,7 +108,7 @@ describe('the shared draft of a task', () => {
   it('refuses a person who cannot see the workspace', async () => {
     const outsider = join(randomUUID());
 
-    await eventually(() => Promise.resolve(outsider.seen.refused), 10_000);
+    await eventually(async () => outsider.seen.refused, 10_000);
     expect(outsider.seen.synced).toBe(false);
   });
 
@@ -129,7 +123,7 @@ describe('the shared draft of a task', () => {
 
   it('knows who wrote, and tells every writer what was sent', async () => {
     const ada = join(team.owner.value);
-    await eventually(() => Promise.resolve(ada.seen.synced), 10_000);
+    await eventually(async () => ada.seen.synced, 10_000);
     ada.document.getMap('writers').set(team.owner.value, true);
     const live = app.get<LiveTaskDraftsPort>(LIVE_TASK_DRAFTS);
 
@@ -141,12 +135,10 @@ describe('the shared draft of a task', () => {
     await live.sent(team.list.id, DraftGeneration.of(1), 'Cap it.');
 
     await eventually(
-      () =>
-        Promise.resolve(
-          ada.document.getMap('meta').get('generation') === 1 &&
-            ada.document.getMap('meta').get('sent') === 'Cap it.' &&
-            ada.document.getMap('writers').size === 0,
-        ),
+      async () =>
+        ada.document.getMap('meta').get('generation') === 1 &&
+        ada.document.getMap('meta').get('sent') === 'Cap it.' &&
+        ada.document.getMap('writers').size === 0,
       10_000,
     );
     expect(await live.writers(team.list.id)).toEqual<UserId[]>([]);

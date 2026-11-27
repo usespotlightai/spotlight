@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { TabLinks } from '@/components/shared/TabLinks';
 import { usePrefetchInsightsTab } from '@/hooks/api/usePrefetchInsightsTab';
 import { INSIGHTS_TABS, type InsightsView, insightsPath } from '@/lib/insights';
@@ -10,11 +8,7 @@ type InsightsTabsProps = {
   view: InsightsView;
 };
 
-export function InsightsTabs({
-  slug,
-  teamId,
-  view,
-}: InsightsTabsProps): ReactElement {
+export function InsightsTabs({ slug, teamId, view }: InsightsTabsProps) {
   const prefetch = usePrefetchInsightsTab(teamId, view.period);
 
   return (

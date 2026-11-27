@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const SHAPE = /^v?([0-9]+(\.[0-9A-Za-z-]+)*)$/;
 
@@ -22,7 +23,7 @@ export class HarnessVersion {
 
   static reported(raw: string | undefined): HarnessVersion | null {
     try {
-      return raw !== undefined && raw !== '' ? HarnessVersion.of(raw) : null;
+      return nonEmpty(raw) ? HarnessVersion.of(raw) : null;
     } catch {
       return null;
     }

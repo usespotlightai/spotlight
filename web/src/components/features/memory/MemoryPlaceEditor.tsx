@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import type { MemoryDraft } from '@/hooks/useMemoryDraft';
@@ -20,10 +18,7 @@ type MemoryPlaceEditorProps = {
   lines: readonly LineResponseDto[];
 };
 
-export function MemoryPlaceEditor({
-  draft,
-  lines,
-}: MemoryPlaceEditorProps): ReactElement {
+export function MemoryPlaceEditor({ draft, lines }: MemoryPlaceEditorProps) {
   return (
     <ul aria-label="Where it applies" className="min-w-0">
       <li className="min-w-0">

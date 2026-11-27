@@ -1,5 +1,5 @@
-import { nonEmpty } from '@change-review/domain/services/non-empty';
 import { isOneOf } from '@change-review/domain/services/one-of';
+import { textOrNull } from '@change-review/domain/services/text-or-null';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export const DELIVERY_FAILURE_CODES = [
@@ -48,7 +48,7 @@ export class DeliveryFailure {
   ): DeliveryFailure {
     return new DeliveryFailure(
       code,
-      nonEmpty(detail?.trim().slice(0, MAX_DETAIL)),
+      textOrNull(detail?.trim().slice(0, MAX_DETAIL)),
     );
   }
 

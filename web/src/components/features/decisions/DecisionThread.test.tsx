@@ -40,7 +40,7 @@ const QUEUE: Decision = {
 };
 
 const shown = (path: string) => {
-  const dispute = vi.fn(() => Promise.resolve(undefined));
+  const dispute = vi.fn(async () => undefined);
   render(
     <MemoryRouter>
       <DecisionThread

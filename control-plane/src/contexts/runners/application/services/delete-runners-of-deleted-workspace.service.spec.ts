@@ -59,28 +59,27 @@ const deleting = (
 ) => {
   const open = input.open ?? false;
   const saved: { pullEvents(): readonly DomainEvent[] }[] = [];
-  const save = vi.fn((each: (typeof saved)[number]) => {
+  const save = vi.fn(async (each: (typeof saved)[number]) => {
     saved.push(each);
-    return Promise.resolve();
   });
   const service = new DeleteRunnersOfDeletedWorkspace(
     partial<RunnerTrustRepository>({
-      inWorkspace: () => Promise.resolve([trust]),
+      inWorkspace: async () => [trust],
       save,
     }),
     partial<WorkspaceRunnersRepository>({
-      ofWorkspace: () => Promise.resolve(declared),
+      ofWorkspace: async () => declared,
       save,
     }),
     partial<RunnerPoolRepository>({
-      inWorkspace: () => Promise.resolve(input.naming ?? [pool]),
+      inWorkspace: async () => input.naming ?? [pool],
       save,
     }),
     partial<EgressRepository>({
-      inWorkspace: () => Promise.resolve([egress]),
+      inWorkspace: async () => [egress],
       save,
     }),
-    partial<WorkspaceReaderPort>({ isOpen: () => Promise.resolve(open) }),
+    partial<WorkspaceReaderPort>({ isOpen: async () => open }),
     partial<TransactionPort>({
       inTransaction: <T>(work: () => Promise<T>) => work(),
     }),

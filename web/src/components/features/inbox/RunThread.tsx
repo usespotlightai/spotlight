@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { RunCitationTargets } from '@/components/features/runs/RunCitationTargets';
@@ -46,7 +46,7 @@ export function RunThread({
   after,
   docked,
   pending = false,
-}: RunThreadProps): ReactElement {
+}: RunThreadProps) {
   const conversationQuery = useRunNotes(teamId, runId);
   const journal = useTaskJournal(slug, taskId, [
     runId,

@@ -47,26 +47,22 @@ const reading = (
   carried: readonly Happened[],
   over: { workspaceId?: string | null } = {},
 ) => {
-  const react = vi.fn((): Promise<HappeningsReaction> =>
-    Promise.resolve({
-      kind: 'reacted',
-    }),
-  );
-  const read = vi.fn(() => Promise.resolve(carried));
+  const react = vi.fn(async (): Promise<HappeningsReaction> => ({
+    kind: 'reacted',
+  }));
+  const read = vi.fn(async () => carried);
   const causation = causationInMemory();
   const chains: string[] = [];
   const firings = partial<HookFiringHistoryPort>({
-    chainOf: vi.fn((workspaceId: WorkspaceId, firingId: HookFiringId) =>
-      Promise.resolve(
-        workspaceId.value === 'ws_1' && firingId.value === 'firing_1'
-          ? FIRED
-          : null,
-      ),
+    chainOf: vi.fn(async (workspaceId: WorkspaceId, firingId: HookFiringId) =>
+      workspaceId.value === 'ws_1' && firingId.value === 'firing_1'
+        ? FIRED
+        : null,
     ),
   });
-  react.mockImplementation(() => {
+  react.mockImplementation(async () => {
     chains.push(causation.current().description);
-    return Promise.resolve({ kind: 'reacted' });
+    return { kind: 'reacted' };
   });
   const logger = {
     debug: vi.fn(),
@@ -80,18 +76,16 @@ const reading = (
         {
           key: 'github',
           happenings: [],
-          verifies: () => Promise.resolve(true),
+          verifies: async () => true,
           delivery: () => 'delivery_1',
-          routes: () =>
-            Promise.resolve(
-              over.workspaceId === null
-                ? null
-                : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
-            ),
+          routes: async () =>
+            over.workspaceId === null
+              ? null
+              : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
           read,
         } satisfies WebhookProviderPort,
       ]),
-      { find: () => Promise.resolve(null), all: () => Promise.resolve([]) },
+      { find: async () => null, all: async () => [] },
     ),
     new ProviderDeliveryReader(),
     new WorkDeliveryReactions({ react }),

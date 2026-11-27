@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -11,10 +10,7 @@ type AddHostLinkProps = {
   label?: string;
 };
 
-export function AddHostLink({
-  slug,
-  label = 'Add a host',
-}: AddHostLinkProps): ReactElement {
+export function AddHostLink({ slug, label = 'Add a host' }: AddHostLinkProps) {
   return (
     <TrailLink
       to={addHostPath(slug)}

@@ -1,5 +1,4 @@
 import { Mail } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { InviteActions } from '@/components/features/members/InviteActions';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
@@ -17,7 +16,7 @@ type InviteRowProps = {
   invite: WorkspaceInvite;
 };
 
-export function InviteRow({ slug, invite }: InviteRowProps): ReactElement {
+export function InviteRow({ slug, invite }: InviteRowProps) {
   return (
     <li data-slot="invite-row">
       <SettingsRow

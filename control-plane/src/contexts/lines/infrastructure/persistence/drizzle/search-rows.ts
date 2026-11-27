@@ -7,6 +7,7 @@ import type {
   LineSearchRow,
   StationSearchRow,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -43,8 +44,12 @@ export const stationSearchOf = (
     agent: row.agent
       ? SearchAgent.of({
           harness: HarnessId.of(row.agent.harness),
-          model: row.agent.model !== null && row.agent.model !== '' ? HarnessModel.of(row.agent.model) : null,
-          effort: row.agent.effort !== null && row.agent.effort !== '' ? Effort.of(row.agent.effort) : null,
+          model: nonEmpty(row.agent.model)
+            ? HarnessModel.of(row.agent.model)
+            : null,
+          effort: nonEmpty(row.agent.effort)
+            ? Effort.of(row.agent.effort)
+            : null,
         })
       : null,
   });

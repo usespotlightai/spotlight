@@ -11,6 +11,7 @@ import {
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
 import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs'];
@@ -132,9 +133,7 @@ const importsOf = (node: Node): GrammarImport[] | null => {
     );
     const named = (clause?.namedChildren ?? []).flatMap((each) => {
       const name = each ? field(each, 'name')?.text : undefined;
-      return name !== undefined && name !== ''
-        ? [{ local: '', imported: name, specifier }]
-        : [];
+      return nonEmpty(name) ? [{ local: '', imported: name, specifier }] : [];
     });
 
     return named.length > 0 ? named : [{ local: '', imported: '*', specifier }];
@@ -158,16 +157,14 @@ const importsOf = (node: Node): GrammarImport[] | null => {
     }
     if (part.type === 'namespace_import') {
       const local = part.namedChildren[0]?.text;
-      return local !== undefined && local !== ''
-        ? [{ local, imported: '*', specifier }]
-        : [];
+      return nonEmpty(local) ? [{ local, imported: '*', specifier }] : [];
     }
 
     return part.namedChildren.flatMap((each): GrammarImport[] => {
       const name = each ? field(each, 'name')?.text : undefined;
       const alias = each ? field(each, 'alias')?.text : undefined;
 
-      return name !== undefined && name !== ''
+      return nonEmpty(name)
         ? [{ local: alias ?? name, imported: name, specifier }]
         : [];
     });
@@ -247,7 +244,7 @@ const aliases = (node: Node): [string, string][] => {
     const name = each ? field(each, 'name')?.text : undefined;
     const alias = each ? field(each, 'alias')?.text : undefined;
 
-    return name !== undefined && name !== '' ? [[name, alias ?? name]] : [];
+    return nonEmpty(name) ? [[name, alias ?? name]] : [];
   });
 };
 

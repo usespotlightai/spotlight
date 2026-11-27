@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { FilterMenu } from '@/components/shared/filter/FilterMenu';
 import { FilterRow } from '@/components/shared/filter/FilterRow';
@@ -41,7 +40,7 @@ export function PullRequestFilters({
   filter,
   repositories,
   onChange,
-}: PullRequestFiltersProps): ReactElement {
+}: PullRequestFiltersProps) {
   const change = (key: PullRequestFilterKey, value: string | null) =>
     onChange({ ...filter, [key]: value ?? undefined });
 

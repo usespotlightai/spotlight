@@ -19,6 +19,7 @@ import {
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { present } from '@shared-kernel/domain/present.fake-spec';
 import { eq } from 'drizzle-orm';
 import type { Response, Test } from 'supertest';
@@ -162,9 +163,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         create: (body: Body, key: string | null = randomUUID()) => {
           const test = signed(http.post(fixture.collection)).send(body);
 
-          return key !== null && key !== ''
-            ? test.set('Idempotency-Key', key)
-            : test;
+          return nonEmpty(key) ? test.set('Idempotency-Key', key) : test;
         },
         read: (id: string) => signed(http.get(fixture.item(id))),
         update: (id: string, body: Body, version: number | null) => {
@@ -282,7 +281,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         expect(header(operation, 'Spotlight-Api-Version'), name).toBeDefined();
 
         const statuses =
-          name === 'list' && fixture.listsAcrossWorkspaces === true
+          name === 'list' && fixture.listsAcrossWorkspaces
             ? ['400', '401']
             : ['400', '401', '404'];
 
@@ -424,7 +423,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
         expect(items).toContainEqual(made);
 
-        if (fixture.listsAcrossWorkspaces === true) {
+        if (fixture.listsAcrossWorkspaces) {
           // oxlint-disable-next-line vitest/no-conditional-expect -- the fixture says at run time whether the list spans workspaces
           expect(items.map((each) => each.id)).toEqual([made.id]);
         }
@@ -442,7 +441,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
           fixture.workspaceOf(made),
         );
 
-        if (fixture.listsAcrossWorkspaces === true) {
+        if (fixture.listsAcrossWorkspaces) {
           // oxlint-disable-next-line vitest/no-conditional-expect -- the fixture says at run time whether the list spans workspaces
           expect(listed(stranger).map((each) => each.id)).toEqual([
             elsewhere.workspaceId,
@@ -638,7 +637,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     it('lets someone who may not configure it read it, and nothing more', async () => {
       const made = await created();
       const viewer = as(
-        fixture.viewerToken !== undefined && fixture.viewerToken !== ''
+        nonEmpty(fixture.viewerToken)
           ? { bearer: fixture.viewerToken }
           : fixture.viewer,
       );
@@ -651,7 +650,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       ).toContainEqual(made);
 
       const forbidden = [
-        ...(fixture.anyoneCreates === true
+        ...(fixture.anyoneCreates
           ? []
           : [problem(await viewer.create(fixture.changed), 403, 'forbidden')]),
         ...(updates

@@ -16,6 +16,7 @@ import type {
   StoredTools,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -71,17 +72,12 @@ export const endOf = (
     return null;
   }
   if (
-    row.teamId === null ||
-    row.teamId === '' ||
-    row.lineId === null ||
-    row.lineId === '' ||
-    row.stationId === null ||
-    row.stationId === '' ||
-    row.taskId === null ||
-    row.taskId === '' ||
+    !nonEmpty(row.teamId) ||
+    !nonEmpty(row.lineId) ||
+    !nonEmpty(row.stationId) ||
+    !nonEmpty(row.taskId) ||
     !row.ending ||
-    row.harness === null ||
-    row.harness === '' ||
+    !nonEmpty(row.harness) ||
     !row.repositories ||
     !row.skills ||
     row.runNumber === null
@@ -166,7 +162,7 @@ export const answerOf = (
     );
   }
 
-  return answeredAt && answeredBy !== null && answeredBy !== ''
+  return answeredAt && nonEmpty(answeredBy)
     ? PersonAction.of('answered', answeredAt, UserId.of(answeredBy))
     : null;
 };
@@ -281,7 +277,7 @@ export const passOf = (
     );
   }
 
-  return row.passedTo !== null && row.passedTo !== '' && row.passedAt
+  return nonEmpty(row.passedTo) && row.passedAt
     ? StationPass.of(StationId.of(row.passedTo), row.passedAt)
     : null;
 };

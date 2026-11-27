@@ -6,6 +6,7 @@ import type {
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -124,51 +125,42 @@ const channels = ({
 } = {}) => {
   const added: Chat[] = [];
   const saved: Chat[] = [];
-  const notify = vi.fn(() => Promise.resolve(undefined));
+  const notify = vi.fn(async () => undefined);
   const warn = vi.fn();
   const service = new ChannelChats(
     partial<ChatRepository>({
-      findByCorrelation: vi.fn(() => Promise.resolve(existing)),
-      add: vi.fn((chat: Chat) => {
+      findByCorrelation: vi.fn(async () => existing),
+      add: vi.fn(async (chat: Chat) => {
         added.push(chat);
-
-        return Promise.resolve();
       }),
-      save: vi.fn((chat: Chat) => {
+      save: vi.fn(async (chat: Chat) => {
         saved.push(chat);
-
-        return Promise.resolve();
       }),
     }),
     partial<LineMapsPort>({
-      ofTeam: vi.fn(() =>
-        Promise.resolve(
-          images.map((image) =>
-            partial<LineMap>({
-              repositories: partial<LineRepositories>({
-                all: [Repository.of('acme/api')],
-              }),
-              names: () => true,
-              image:
-                image !== null && image !== '' ? RunnerImage.of(image) : null,
-              runsIn: RunnerPlacement.anywhere(),
+      ofTeam: vi.fn(async () =>
+        images.map((image) =>
+          partial<LineMap>({
+            repositories: partial<LineRepositories>({
+              all: [Repository.of('acme/api')],
             }),
-          ),
+            names: () => true,
+            image: nonEmpty(image) ? RunnerImage.of(image) : null,
+            runsIn: RunnerPlacement.anywhere(),
+          }),
         ),
       ),
     }),
     {
-      byEmail: vi.fn((_, email: string) =>
-        Promise.resolve(
-          email === 'ada@example.com'
-            ? ADA
-            : email === 'grace@example.com'
-              ? GRACE
-              : null,
-        ),
+      byEmail: vi.fn(async (_, email: string) =>
+        email === 'ada@example.com'
+          ? ADA
+          : email === 'grace@example.com'
+            ? GRACE
+            : null,
       ),
     } satisfies MemberDirectoryPort,
-    { seesTeam: vi.fn(() => Promise.resolve(member)) },
+    { seesTeam: vi.fn(async () => member) },
     partial<HarnessLaunchPort>({
       catalogue: () => [
         partial<HarnessCatalogueEntry>({ id: 'claude-code' }),
@@ -177,7 +169,7 @@ const channels = ({
     }),
     HarnessId.of('claude-code'),
     {
-      takenUp: vi.fn((chat: Chat) => Promise.resolve(chat)),
+      takenUp: vi.fn(async (chat: Chat) => chat),
     },
     { notify } satisfies ChannelNoticesPort,
     partial<ClockPort>({ now: () => NOW }),

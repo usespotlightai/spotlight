@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 
 type InsightsFailedProps = {
@@ -11,10 +9,7 @@ type InsightsFailedProps = {
   };
 };
 
-export function InsightsFailed({
-  what,
-  query,
-}: InsightsFailedProps): ReactElement {
+export function InsightsFailed({ what, query }: InsightsFailedProps) {
   return (
     <div className="flex justify-center rounded-xl border border-border py-10">
       <MembersOnlyOrCouldNotLoad

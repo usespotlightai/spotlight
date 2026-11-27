@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
 import type { TileBones } from '@/lib/insights-tiles';
@@ -14,7 +12,7 @@ export function InsightsTilesSkeleton({
   label,
   tiles,
   className,
-}: InsightsTilesSkeletonProps): ReactElement {
+}: InsightsTilesSkeletonProps) {
   return (
     <InsightsTiles label={label} className={className}>
       {tiles.map((tile, at) => (

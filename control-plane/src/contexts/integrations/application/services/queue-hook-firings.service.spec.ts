@@ -50,8 +50,7 @@ const setUp = (
       logger(),
       telemetry,
       {
-        currentOf: (runId: RunId) =>
-          Promise.resolve(RunAttemptRef.of(runId, 2)),
+        currentOf: async (runId: RunId) => RunAttemptRef.of(runId, 2),
       },
     ),
   };

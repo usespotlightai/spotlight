@@ -1,5 +1,4 @@
 import { Bot, HatGlasses, User } from 'lucide-react';
-import type { ReactElement } from 'react';
 
 import { ThreadEntry } from '@/components/features/review/ThreadEntry';
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
@@ -35,7 +34,7 @@ type MemoryProvenanceListProps = {
 
 export function MemoryProvenanceList({
   provenance,
-}: MemoryProvenanceListProps): ReactElement {
+}: MemoryProvenanceListProps) {
   const { data: harnesses } = useHarnesses();
   const agent = harnesses?.find((each) => each.id === provenance.harness)?.name;
   const entries = [

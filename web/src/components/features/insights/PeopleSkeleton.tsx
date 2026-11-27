@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import {
@@ -17,7 +15,7 @@ const LOAD: readonly TileBones[] = [
   { label: 'Dismissed', delta: true },
 ];
 
-export function PeopleSkeleton(): ReactElement {
+export function PeopleSkeleton() {
   return (
     <div
       role="status"

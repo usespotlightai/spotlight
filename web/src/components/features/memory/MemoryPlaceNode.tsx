@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import { MemoryPlaceToggle } from '@/components/features/memory/MemoryPlaceToggle';
 import type { PlaceNode } from '@/lib/memory';
 import { nonEmpty } from '@/lib/non-empty';
@@ -43,7 +41,7 @@ export function MemoryPlaceNode({
   open,
   collapsed,
   onToggle,
-}: MemoryPlaceNodeProps): ReactElement {
+}: MemoryPlaceNodeProps) {
   const branches = node.children.length > 0;
   const hidden = collapsed.has(at);
 

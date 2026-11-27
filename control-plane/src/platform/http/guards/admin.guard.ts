@@ -16,6 +16,7 @@ import {
   TOKEN_ISSUER,
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 @Injectable()
@@ -27,11 +28,9 @@ export class AdminGuard implements CanActivate {
     @Inject(ENV) env: Env,
     @Inject(TOKEN_ISSUER) private readonly tokens: TokenIssuer,
   ) {
-    this.#tokenHash =
-      env.SPOTLIGHT_ADMIN_TOKEN !== undefined &&
-      env.SPOTLIGHT_ADMIN_TOKEN !== ''
-        ? TokenHash.of(tokens.hash(env.SPOTLIGHT_ADMIN_TOKEN))
-        : null;
+    this.#tokenHash = nonEmpty(env.SPOTLIGHT_ADMIN_TOKEN)
+      ? TokenHash.of(tokens.hash(env.SPOTLIGHT_ADMIN_TOKEN))
+      : null;
   }
 
   canActivate(context: ExecutionContext): boolean {
@@ -40,7 +39,7 @@ export class AdminGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    if (adminOnly !== true) {
+    if (!adminOnly) {
       return true;
     }
 
@@ -56,8 +55,7 @@ export class AdminGuard implements CanActivate {
     );
 
     if (
-      presented === undefined ||
-      presented === '' ||
+      !nonEmpty(presented) ||
       !TokenHash.of(this.tokens.hash(presented)).equals(this.#tokenHash)
     ) {
       throw new UnauthorizedException('The admin token is missing or wrong.');

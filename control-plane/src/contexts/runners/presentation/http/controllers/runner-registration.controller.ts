@@ -12,6 +12,7 @@ import { RegisterRunnerCommand } from '@runners/application/commands/runner-flee
 import type { RegisteredRunnerDto } from '@runners/application/dto/runner.dto';
 import { RegisterRunnerRequestDto } from '@runners/presentation/http/dto/register-runner.request.dto';
 import { RegisteredRunnerResponseDto } from '@runners/presentation/http/dto/registered-runner.response.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
@@ -41,9 +42,7 @@ export class RunnerRegistrationController {
         (body.harnesses ?? []).map((each) => ({
           id: each.id,
           models: each.models ?? [],
-          ...(each.version !== undefined && each.version !== ''
-            ? { version: each.version }
-            : {}),
+          ...(nonEmpty(each.version) ? { version: each.version } : {}),
         })),
       ),
     );
