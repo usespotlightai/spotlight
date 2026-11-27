@@ -413,6 +413,16 @@ describe('formatRun', () => {
     ).toBe('A run queued by hand');
     expect(formatRun(null)).toBe('No run yet');
   });
+
+  it('says the task or agent chat is deleted where the viewer reads its team but it has no title', () => {
+    expect(formatRun({ ...LEASED_RUN, title: null })).toBe('Deleted task');
+    expect(formatRun({ ...LEASED_RUN, kind: 'chat', title: null })).toBe(
+      'Deleted agent chat',
+    );
+    expect(formatRun({ ...LEASED_RUN, readable: false, title: null })).toBe(
+      'Title hidden. This run belongs to a team you’re not on.',
+    );
+  });
 });
 
 describe('runnerStatus', () => {
