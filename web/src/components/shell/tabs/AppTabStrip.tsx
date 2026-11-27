@@ -7,6 +7,11 @@ import type { CSSProperties } from 'react';
 
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useSidebarCollapsedSetting } from '@/hooks/useCollapsedSidebar';
 import { type AppTab, tabIconOf } from '@/lib/app-tabs';
 import { desktopApp, framesWindow } from '@/lib/desktop';
@@ -61,26 +66,42 @@ export function AppTabStrip({
             hangs && 'md:-ml-[calc(2*(var(--history-button)+var(--tab-gap)))]',
           )}
         >
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back"
-            disabled={!canGoBack}
-            onClick={onBack}
-            className="size-(--history-button) text-muted-foreground dark:hover:bg-muted"
-          >
-            <ChevronLeft className="size-3.5" aria-hidden />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Forward"
-            disabled={!canGoForward}
-            onClick={onForward}
-            className="size-(--history-button) text-muted-foreground dark:hover:bg-muted"
-          >
-            <ChevronRight className="size-3.5" aria-hidden />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              iconOnly
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Back"
+                  disabled={!canGoBack}
+                  onClick={onBack}
+                  className="size-(--history-button) text-muted-foreground dark:hover:bg-muted"
+                />
+              }
+            >
+              <ChevronLeft className="size-3.5" aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent>Go back</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              iconOnly
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Forward"
+                  disabled={!canGoForward}
+                  onClick={onForward}
+                  className="size-(--history-button) text-muted-foreground dark:hover:bg-muted"
+                />
+              }
+            >
+              <ChevronRight className="size-3.5" aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent>Go forward</TooltipContent>
+          </Tooltip>
         </div>
       )}
       <SortableContext
@@ -102,15 +123,23 @@ export function AppTabStrip({
         </ul>
       </SortableContext>
 
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="New tab"
-        onClick={onOpen}
-        className="text-muted-foreground dark:hover:bg-muted"
-      >
-        <Plus className="size-3.5" aria-hidden />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          iconOnly
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="New tab"
+              onClick={onOpen}
+              className="text-muted-foreground dark:hover:bg-muted"
+            />
+          }
+        >
+          <Plus className="size-3.5" aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent>Open a new tab</TooltipContent>
+      </Tooltip>
     </nav>
   );
 }

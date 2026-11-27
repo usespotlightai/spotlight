@@ -2,6 +2,11 @@ import { Paperclip } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
@@ -22,23 +27,34 @@ export function AttachButton({
 }: AttachButtonProps) {
   const picker = useRef<HTMLInputElement>(null);
 
+  const button = (
+    <Button
+      type="button"
+      variant="ghost"
+      size={nonEmpty(label) ? 'sm' : 'icon-sm'}
+      className={cn(
+        nonEmpty(label) ? 'pointer-coarse:h-9' : 'pointer-coarse:size-9',
+        className,
+      )}
+      disabled={disabled}
+      onClick={() => picker.current?.click()}
+      aria-label="Attach files"
+    >
+      {icon ?? <Paperclip className="size-3.5" />}
+      {label}
+    </Button>
+  );
+
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size={nonEmpty(label) ? 'sm' : 'icon-sm'}
-        className={cn(
-          nonEmpty(label) ? 'pointer-coarse:h-9' : 'pointer-coarse:size-9',
-          className,
-        )}
-        disabled={disabled}
-        onClick={() => picker.current?.click()}
-        aria-label="Attach files"
-      >
-        {icon ?? <Paperclip className="size-3.5" />}
-        {label}
-      </Button>
+      {nonEmpty(label) ? (
+        button
+      ) : (
+        <Tooltip>
+          <TooltipTrigger iconOnly render={button} />
+          <TooltipContent>Attach files</TooltipContent>
+        </Tooltip>
+      )}
 
       <input
         ref={picker}

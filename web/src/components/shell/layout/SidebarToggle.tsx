@@ -84,7 +84,7 @@ export function SidebarToggle({
 
   return (
     <Tooltip>
-      <TooltipTrigger render={button} />
+      <TooltipTrigger iconOnly render={button} />
       <TooltipContent>
         <ShortcutHint id="sidebar.toggle">{label}</ShortcutHint>
       </TooltipContent>

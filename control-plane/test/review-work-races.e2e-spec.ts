@@ -562,10 +562,25 @@ const renewed = (outcomes: readonly Outcome[], runner: RunnerId) =>
       each.result.value === 'renewed',
   );
 
-const renewalsHeld = (outcomes: readonly Outcome[]): boolean =>
-  renewed(outcomes, HOLDER).every((each) => each.action.when === 'early') &&
-  (renewed(outcomes, OTHER).length === 0 ||
-    claimedByOther(outcomes).length > 0);
+// The claim leases the work until expiry. A renewal leases it for LEASE_MS from when it renews, so a renewal at
+// expiry or later holds when the runner renewed earlier, within LEASE_MS before.
+const leaseRanAt = (renewals: readonly Outcome[], at: When): boolean =>
+  at === 'early' ||
+  renewals.some(
+    (each) =>
+      TIMES[each.action.when] < TIMES[at] &&
+      TIMES[at] < TIMES[each.action.when] + LEASE_MS,
+  );
+
+const renewalsHeld = (outcomes: readonly Outcome[]): boolean => {
+  const byHolder = renewed(outcomes, HOLDER);
+
+  return (
+    byHolder.every((each) => leaseRanAt(byHolder, each.action.when)) &&
+    (renewed(outcomes, OTHER).length === 0 ||
+      claimedByOther(outcomes).length > 0)
+  );
+};
 
 const HANDED_BACK: readonly LeaseAction['kind'][] = ['unclaim', 'fail'];
 

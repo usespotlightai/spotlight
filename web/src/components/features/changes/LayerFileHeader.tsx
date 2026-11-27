@@ -2,6 +2,11 @@ import { ChevronRight, MessageSquarePlus } from 'lucide-react';
 
 import { DiffStat } from '@/components/shared/DiffStat';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { LayerFile } from '@/lib/change-stack';
 import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
@@ -66,15 +71,23 @@ export function LayerFileHeader({
 
       <div className="flex shrink-0 items-center gap-1 pr-3">
         {onComment && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Comment on this file"
-            className="relative text-muted-foreground pointer-coarse:after:absolute pointer-coarse:after:-inset-2"
-            onClick={onComment}
-          >
-            <MessageSquarePlus aria-hidden />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              iconOnly
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Comment on this file"
+                  className="relative text-muted-foreground pointer-coarse:after:absolute pointer-coarse:after:-inset-2"
+                  onClick={onComment}
+                />
+              }
+            >
+              <MessageSquarePlus aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent>Comment on this file</TooltipContent>
+          </Tooltip>
         )}
 
         <DiffStat

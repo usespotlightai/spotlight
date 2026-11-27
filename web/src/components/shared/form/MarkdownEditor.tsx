@@ -8,7 +8,14 @@ import {
   LinkExtension,
   LinkNode,
 } from '@lexical/link';
-import { ListExtension, ListItemNode, ListNode } from '@lexical/list';
+import {
+  $isListItemNode,
+  $isListNode,
+  ListExtension,
+  ListItemNode,
+  ListNode,
+  type ListType,
+} from '@lexical/list';
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
@@ -26,9 +33,12 @@ import {
   TableRowNode,
 } from '@lexical/table';
 import {
+  $getSelection,
+  $isRangeSelection,
   configExtension,
   defineExtension,
   type EditorThemeClasses,
+  TextNode,
 } from 'lexical';
 import { useState } from 'react';
 
@@ -53,6 +63,35 @@ const NODES = [
 const URL_MATCHERS = [
   createLinkMatcherWithRegExp(/https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"]/),
 ];
+
+const LIST_MARKERS: Partial<Record<ListType, RegExp>> = {
+  bullet: /^[-*+] $/,
+  number: /^\d+[.)] $/,
+};
+
+const $dropTypedListMarker = (node: TextNode) => {
+  const item = node.getParent();
+  const list = item?.getParent();
+  const selection = $getSelection();
+
+  if (
+    !$isListItemNode(item) ||
+    !$isListNode(list) ||
+    item.getFirstChild() !== node ||
+    !$isRangeSelection(selection) ||
+    !selection.isCollapsed() ||
+    selection.anchor.key !== node.getKey()
+  ) {
+    return;
+  }
+
+  const typed = node.getTextContent().slice(0, selection.anchor.offset);
+  const marker = LIST_MARKERS[list.getListType()];
+
+  if (marker?.test(typed)) {
+    node.spliceText(0, typed.length, '', true);
+  }
+};
 
 const TEXT = {
   bold: 'font-semibold',
@@ -155,6 +194,8 @@ export function MarkdownEditor({
       editable: !readOnly,
       nodes: NODES,
       theme: THEMES[size],
+      register: (editor) =>
+        editor.registerNodeTransform(TextNode, $dropTypedListMarker),
       dependencies: [
         RichTextExtension,
         ListExtension,
