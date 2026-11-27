@@ -58,6 +58,11 @@ const onboarding = (
 ) => ({
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
   canSetUp: done.includes('github') && done.includes('harness'),
+  setupRefusal: !done.includes('github')
+    ? 'code-unreachable'
+    : done.includes('harness')
+      ? null
+      : 'needs-egress',
   viewerIsAdmin: true,
   setupChat: null,
   ...over,
@@ -265,13 +270,29 @@ describe('SetupSteps', () => {
     expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
   });
 
-  it('offers nothing for configuration until GitHub and egress are ready', () => {
-    onboardingState.data = onboarding({ canSetUp: false }, [
-      'github',
-      'harness',
-    ]);
+  it('shows the setup disabled, with what to do first, until GitHub and a host are ready', () => {
+    onboardingState.data = onboarding();
     showing();
 
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toHaveAccessibleDescription('Install the GitHub App first.');
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
+  });
+
+  it('asks for a host first once GitHub is ready', () => {
+    onboardingState.data = onboarding(
+      { canSetUp: false, setupRefusal: 'needs-egress' },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toHaveAccessibleDescription('Connect a host first.');
     expect(screen.queryByText('Choose the config folder')).toBeNull();
     expect(screen.queryByText(/egress/)).toBeNull();
   });
@@ -328,13 +349,16 @@ describe('SetupSteps', () => {
   });
 
   it('keeps the setup to workspace owners and admins', () => {
-    onboardingState.data = onboarding({ viewerIsAdmin: false }, [
-      'github',
-      'harness',
-    ]);
+    onboardingState.data = onboarding(
+      { viewerIsAdmin: false, setupRefusal: 'needs-an-admin' },
+      ['github', 'harness'],
+    );
     showing();
 
     expect(screen.queryByText('Choose the config folder')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Continue in chat' }),
+    ).toBeNull();
     expect(
       screen.getByText(
         'Only a workspace owner or admin can set up configuration as code.',
@@ -344,7 +368,11 @@ describe('SetupSteps', () => {
 
   it('shows a member who is setting the team up', () => {
     onboardingState.data = onboarding(
-      { viewerIsAdmin: false, setupChat: chat({ id: null }) },
+      {
+        viewerIsAdmin: false,
+        setupRefusal: 'needs-an-admin',
+        setupChat: chat({ id: null }),
+      },
       ['github', 'harness'],
     );
     showing();
