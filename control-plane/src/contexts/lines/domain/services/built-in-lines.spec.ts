@@ -44,6 +44,15 @@ describe('the built-in Delivery line', () => {
     expect(passes('code-review')).toEqual(['spec', 'implementation']);
   });
 
+  it('sends work back to implementation when its checks fail or its pull request conflicts', () => {
+    const backTo = (happening: string) =>
+      delivery?.reactions.find((each) => each.happening.value === happening)?.to
+        .value;
+
+    expect(backTo('github.checks.failed')).toBe('implementation');
+    expect(backTo('github.pull_request.conflicted')).toBe('implementation');
+  });
+
   it('lets implementation pass work on to code review, or back to spec', () => {
     expect(passes('implementation')).toEqual(['code-review', 'spec']);
   });

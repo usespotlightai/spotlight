@@ -1041,6 +1041,19 @@ describe('Run', () => {
       );
     });
 
+    it('asks for the next turn, not an answer, while the task is on hold', () => {
+      taskStation.mockReturnValue(mine());
+      runs.mockReturnValue([
+        run({ state: 'suspended', yourMessage: 'answer' }),
+      ]);
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-placeholder', 'Tell the agent what to do next…');
+    });
+
     it('resumes the line at its station', async () => {
       const user = userEvent.setup();
       taskStation.mockReturnValue(mine());
@@ -1333,17 +1346,14 @@ describe('Run', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('offers to answer the question right here, so the run carries on', () => {
+    it('offers to reply right here, so the run carries on', () => {
       runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
 
       renderRun();
 
       expect(
         screen.getByRole('textbox', { name: 'Answer Implementation' }),
-      ).toHaveAttribute(
-        'aria-placeholder',
-        'Answer the question to continue the run…',
-      );
+      ).toHaveAttribute('aria-placeholder', 'Reply to continue the run…');
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {

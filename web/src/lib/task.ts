@@ -67,6 +67,15 @@ export const mayLand = (
   );
 };
 
+export const stopsRun = (
+  stations: readonly Placed[],
+  task: Task,
+  stationId: string,
+): boolean =>
+  task.progress === 'in-progress' &&
+  task.stationId !== stationId &&
+  stations.find((each) => each.id === stationId)?.kind === 'completed';
+
 type Station = Placed & { readonly name: string };
 
 export type MoveTarget = Station & { readonly share: number };

@@ -79,7 +79,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
         actions={
           <div className="flex items-center gap-1.5">
             <span className="hidden whitespace-nowrap text-muted-foreground text-xs tabular-nums @xl/pane:inline">
-              {formatCount(merged)} {which}PRs merged
+              {formatCount(merged)} Spotlight {which}PRs merged
             </span>
             {pickers}
             <Button
@@ -100,7 +100,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
           shares={flow.types}
           focus={focus}
           playing={playing}
-          label={`${formatCount(merged)} merged ${which}pull requests at ${percentile}: ${stages
+          label={`${formatCount(merged)} merged ${which}pull requests by Spotlight at ${percentile}: ${stages
             .map((stage) => `${stage.label} ${formatDurationOrNone(stage.ms)}`)
             .join(
               ', ',

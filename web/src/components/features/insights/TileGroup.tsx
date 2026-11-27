@@ -5,15 +5,21 @@ import { InfoTooltip } from '@/components/shared/InfoTooltip';
 
 type TileGroupProps = {
   title: string;
+  aside?: string;
   tooltip?: string;
   children: ReactNode;
 };
 
-export function TileGroup({ title, tooltip, children }: TileGroupProps) {
+export function TileGroup({ title, aside, tooltip, children }: TileGroupProps) {
   return (
     <section data-slot="tile-group" className="flex flex-col gap-3">
       <h3 className="flex min-h-7 items-center gap-1.5 font-medium text-foreground text-sm">
         {title}
+        {aside && (
+          <span className="font-normal text-muted-foreground text-xs">
+            {aside}
+          </span>
+        )}
         {tooltip && <InfoTooltip tooltip={tooltip} />}
       </h3>
       <InsightsTiles label={title}>{children}</InsightsTiles>

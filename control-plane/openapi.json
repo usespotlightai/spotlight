@@ -15653,6 +15653,47 @@
         ]
       }
     },
+    "/workspaces/{slug}/github/installations": {
+      "get": {
+        "operationId": "listGitHubInstallations",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GitHubInstallationResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "List the installations of the App that the caller can reach on GitHub",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/me/notifications/push-key": {
       "get": {
         "operationId": "getPushKey",
@@ -21461,6 +21502,54 @@
           }
         },
         "summary": "Stop briefing a memory to runs, saying why",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
+    "/teams/{teamId}/memories/{memoryId}/restore": {
+      "post": {
+        "operationId": "restoreTeamMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such memory for this caller"
+          },
+          "409": {
+            "description": "It is not retired, or a newer memory replaced it"
+          }
+        },
+        "summary": "Brief a retired memory to runs again",
         "tags": [
           "memories"
         ]
@@ -34546,6 +34635,18 @@
             "type": "boolean",
             "description": "Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes"
           },
+          "setupRefusal": {
+            "type": "string",
+            "enum": [
+              "needs-an-admin",
+              "code-unreachable",
+              "needs-egress",
+              null
+            ],
+            "nullable": true,
+            "example": "code-unreachable",
+            "description": "What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one"
+          },
           "viewerIsAdmin": {
             "type": "boolean",
             "description": "Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts"
@@ -34565,6 +34666,7 @@
           "provisioning",
           "steps",
           "canSetUp",
+          "setupRefusal",
           "viewerIsAdmin",
           "setupChat"
         ]
@@ -34601,13 +34703,32 @@
           "installUrl"
         ]
       },
+      "GitHubInstallationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "81234567",
+            "description": "The installation id that GitHub assigned"
+          },
+          "account": {
+            "type": "string",
+            "example": "acme",
+            "description": "The GitHub organisation or user the App is installed on"
+          }
+        },
+        "required": [
+          "id",
+          "account"
+        ]
+      },
       "ConnectGitHubRequestDto": {
         "type": "object",
         "properties": {
           "installationId": {
             "type": "string",
             "example": "81234567",
-            "description": "The installation GitHub named when it sent you back"
+            "description": "The installation GitHub named when it sent you back, or one from the installations list"
           }
         },
         "required": [
@@ -38528,6 +38649,11 @@
                 "$ref": "#/components/schemas/MemoryLinkResponseDto"
               }
             ]
+          },
+          "restorable": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether a person can restore it: a person retired it and no newer memory replaced it"
           }
         },
         "required": [
@@ -38549,7 +38675,8 @@
           "provenance",
           "runs",
           "superseded",
-          "successor"
+          "successor",
+          "restorable"
         ]
       },
       "RetireMemoryRequestDto": {
@@ -38934,6 +39061,11 @@
               }
             ]
           },
+          "restorable": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether a person can restore it: a person retired it and no newer memory replaced it"
+          },
           "steps": {
             "type": "array",
             "items": {
@@ -38967,6 +39099,7 @@
           "runs",
           "superseded",
           "successor",
+          "restorable",
           "steps",
           "notes"
         ]
@@ -46370,7 +46503,7 @@
               "unmeasured",
               "failing"
             ],
-            "description": "qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while every verdict of the judge and of people is the same; failing when they do not agree well enough, or the claims of the judge cannot be read"
+            "description": "qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while people give every such run the same verdict; failing when they do not agree well enough, or the claims of the judge cannot be read"
           },
           "agreement": {
             "type": "number",

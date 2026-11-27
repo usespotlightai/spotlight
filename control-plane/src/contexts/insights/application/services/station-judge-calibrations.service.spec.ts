@@ -60,7 +60,7 @@ describe('StationJudgeCalibrations', () => {
     },
   );
 
-  it('says a judge whose pairs all have one verdict is unmeasured, not failing', async () => {
+  it('says a judge is unmeasured, not failing, while people give every pair the same verdict', async () => {
     await expect(
       calibrated({ hiddenReason: 'no-agreement', pairs: 12 }).calibrationOf(
         STATION,

@@ -97,6 +97,7 @@ describe('GitHubReviewPosting', () => {
       comments: [
         { path: 'a.ts', side: 'new', line: 3, startLine: null, body: 'Here' },
       ],
+      onFiles: [{ path: 'b.ts', body: 'About b' }],
     });
 
     expect(submit).toHaveBeenCalledWith(
@@ -106,6 +107,7 @@ describe('GitHubReviewPosting', () => {
         comments: [
           { path: 'a.ts', side: 'new', line: 3, startLine: null, body: 'Here' },
         ],
+        onFiles: [{ path: 'b.ts', body: 'About b' }],
       }),
     );
     expect(posted).toEqual({

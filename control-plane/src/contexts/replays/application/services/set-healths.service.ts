@@ -2,6 +2,10 @@ import type { StationConfigs } from '@replays/application/services/station-confi
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import {
+  type ClaimFlips,
+  claimFlipsOf,
+} from '@replays/domain/services/claim-flips';
 import { minGainUnder } from '@replays/domain/services/gain-estimate';
 import {
   HEALTH_SAMPLES_PER_GROUP,
@@ -12,6 +16,7 @@ import {
   setHealthOf,
   wantsCalibration,
 } from '@replays/domain/services/set-health';
+import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -90,6 +95,12 @@ export class SetHealths {
       standard.fingerprint,
       standard.minGain,
     );
+  }
+
+  async claimFlipsIn(replayId: ReplayId): Promise<readonly ClaimFlips[]> {
+    const replay = await this.replays.find(replayId);
+
+    return replay ? claimFlipsOf(replay.entries) : [];
   }
 
   async calibrationWanted(

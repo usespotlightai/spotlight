@@ -50,6 +50,7 @@ export interface PullRequestReviewsPort {
       readonly event: ReviewEvent;
       readonly body: string;
       readonly comments: readonly LineComment[];
+      readonly onFiles: readonly FileComment[];
     },
   ): Promise<SubmittedReview>;
 

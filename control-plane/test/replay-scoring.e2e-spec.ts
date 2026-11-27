@@ -10,6 +10,10 @@ import {
   type JudgePort,
   type JudgeRequest,
 } from '@insights/application/ports/judge.port';
+import {
+  SIDE_BY_SIDE_JUDGE,
+  type SideBySideJudgePort,
+} from '@insights/application/ports/side-by-side-judge.port';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
@@ -26,6 +30,7 @@ import { SystemClock } from '@platform/time/system-clock';
 import { DeleteChangeJudgings } from '@replays/application/services/delete-change-judgings.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
+import { WorkSideBySideJudgings } from '@replays/application/services/work-side-by-side-judgings.service';
 import {
   taskComparisons,
   totalsOf,
@@ -163,6 +168,25 @@ const judge: JudgePort = {
       },
     };
   },
+};
+
+// The candidate's replay pairs against its baseline on the change people accepted. Unanswered here, each pairing
+// would queue a judging session for the pool's runner, which the claims below would take as a replay run.
+const pairJudge: SideBySideJudgePort = {
+  roundOf: () => null,
+  judgePair: async (request) => ({
+    status: 'judged' as const,
+    model: 'stub/pair-judge',
+    verdict: {
+      preferred: 'tie' as const,
+      reasons: [
+        {
+          text: 'Both drain the queue.',
+          hunks: [request.a.hunks[0]?.id ?? '', request.b.hunks[0]?.id ?? ''],
+        },
+      ],
+    },
+  }),
 };
 
 let app: INestApplication;
@@ -389,6 +413,8 @@ const processed = async () => {
   await app.get(WorkChangeStacks).idle();
   await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
+  await app.get(WorkSideBySideJudgings).processDue();
+  await app.get(WorkSideBySideJudgings).idle();
 };
 
 beforeAll(async () => {
@@ -401,7 +427,9 @@ beforeAll(async () => {
       .overrideProvider(CHANGE_STACK_GENERATOR)
       .useValue(generator)
       .overrideProvider(JUDGE)
-      .useValue(judge),
+      .useValue(judge)
+      .overrideProvider(SIDE_BY_SIDE_JUDGE)
+      .useValue(pairJudge),
   );
   db = app.get(DRIZZLE);
   team = await createTeam(
@@ -784,6 +812,7 @@ describe('a replay at a station that checks and judges', () => {
           .where(inArray(schema.changeStack.runId, replayRuns))
       ).map((each) => each.trial),
     ).toEqual([true, true, true, true]);
+    expect(await db.select().from(schema.assistSession)).toEqual([]);
   }, 120_000);
 });
 

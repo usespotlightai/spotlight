@@ -337,7 +337,7 @@ export class ReplayCheckJudgeResponseDto {
   @ApiProperty({
     enum: JUDGE_CALIBRATION_STATES,
     description:
-      'qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while every verdict of the judge and of people is the same; failing when they do not agree well enough, or the claims of the judge cannot be read',
+      'qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while people give every such run the same verdict; failing when they do not agree well enough, or the claims of the judge cannot be read',
   })
   readonly state: string;
 

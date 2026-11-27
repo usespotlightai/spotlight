@@ -6,6 +6,7 @@ import { SettingsSection } from '@/components/features/settings/SettingsSection'
 import { TeamSkillRow } from '@/components/features/skills/TeamSkillRow';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
+import { TerraformResourceLink } from '@/components/shared/TerraformResourceLink';
 import { useTeamSkills } from '@/hooks/api/useTeamSkills';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
@@ -50,7 +51,10 @@ export function TeamSkills() {
       )}
 
       {skills.data?.skills.length === 0 && (
-        <SettingsEmpty>No skills defined for this team.</SettingsEmpty>
+        <SettingsEmpty>
+          No skills. Define them in Terraform with{' '}
+          <TerraformResourceLink resource="skill" />.
+        </SettingsEmpty>
       )}
 
       {listed.length > 0 && (

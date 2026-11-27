@@ -43,7 +43,7 @@ const labelFor = (mode: Mode, station: string): string => {
 export const WRITE_A_MESSAGE = 'Write a message…';
 
 const PLACEHOLDERS: Record<Mode, string> = {
-  answering: 'Answer the question to continue the run…',
+  answering: 'Reply to continue the run…',
   driving: 'Tell the agent what to do next…',
   holds: 'Your message puts the task on hold…',
   restarts: 'Say what to change…',
@@ -69,9 +69,14 @@ export function RunComposer({
   const send = useSendMessage();
   const sendToTask = useSendTaskMessage();
   const stop = useStopRun();
-  const { line, station: currentStation } = useTaskStation(teamId, taskId);
+  const {
+    line,
+    station: currentStation,
+    task,
+  } = useTaskStation(teamId, taskId);
   const answering = yourMessage === 'answer';
-  const mode = MODES[yourMessage] ?? 'message';
+  const mode =
+    answering && task?.hold ? 'driving' : (MODES[yourMessage] ?? 'message');
   const shared = useSharedDraft(taskId);
 
   return (
