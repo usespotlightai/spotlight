@@ -8,6 +8,7 @@ import { SettingsSection } from '@/components/features/settings/SettingsSection'
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
 import { useWorkspaceSecrets } from '@/hooks/api/useWorkspaceSecrets';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import type { WorkspaceSecret } from '@/lib/secret';
 
@@ -16,7 +17,7 @@ export function Secrets(): ReactElement | null {
   const secrets = useWorkspaceSecrets(slug);
   const [setting, setSetting] = useState<WorkspaceSecret | null>(null);
 
-  if (slug === undefined || slug === '') {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

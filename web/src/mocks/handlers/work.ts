@@ -13,6 +13,7 @@ import type {
   SendMessageRequestDto,
   TaskResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -203,7 +204,7 @@ const onMessage = (
 ) => {
   const asked = located.task.awaitingReview?.conversationId;
 
-  if (yourMessage === 'answer' && asked !== undefined && asked !== '') {
+  if (yourMessage === 'answer' && nonEmpty(asked)) {
     reviewAnswered(located.task, world().runs[located.task.id] ?? [], asked);
   }
   if (yourMessage === 'holds') {
@@ -334,7 +335,7 @@ export const workHandlers: RequestHandler[] = [
         )
         ?.stations.find((each) => each.kind === 'completed');
       const to =
-        next === 'move-on' && stationId !== undefined && stationId !== ''
+        next === 'move-on' && nonEmpty(stationId)
           ? stationId
           : next === 'finish'
             ? (completed?.id ?? task.stationId)

@@ -8,6 +8,8 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 
+import { nonEmpty } from '@/lib/non-empty';
+
 const KEYBOARD_STEP = 16;
 
 type Pane = {
@@ -105,7 +107,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     shown && pane.limit ? pane.limit(shown) : limitOf(shown);
 
   useLayoutEffect(() => {
-    if (pane.property !== undefined && pane.property !== '' && !resizing) {
+    if (nonEmpty(pane.property) && !resizing) {
       paneRef.current?.style.setProperty(pane.property, `${width}px`);
     }
   }, [pane.property, width, resizing]);
@@ -135,7 +137,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
 
     if (pane.onDrag) {
       pane.onDrag(clamped);
-    } else if (pane.property !== undefined && pane.property !== '') {
+    } else if (nonEmpty(pane.property)) {
       paneRef.current?.style.setProperty(pane.property, `${clamped}px`);
     } else if (paneRef.current) {
       paneRef.current.style.width = `${clamped}px`;

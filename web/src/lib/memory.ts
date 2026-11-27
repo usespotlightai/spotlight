@@ -11,6 +11,7 @@ import {
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
 import { ANOTHER_TOOL } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { teamSectionPath } from '@/lib/team';
 
 export type ProposedMemory = ProposedMemoryResponseDto;
@@ -115,7 +116,7 @@ export const appliesTo = (memory: Scoped): string => {
 };
 
 export const memoryFilesOf = (memory: Scoped): string | null => {
-  if (memory.repository === null || memory.repository === '') {
+  if (!nonEmpty(memory.repository)) {
     return null;
   }
 
@@ -151,9 +152,7 @@ export const proposalTitleOf = (memory: ProposedMemory): string => {
     memory.state === 'approved' ? 'Memory approved' : 'Memory rejected';
   const who = memory.decision?.name;
 
-  return who !== undefined && who !== null && who !== ''
-    ? `${outcome} by ${who}`
-    : outcome;
+  return nonEmpty(who) ? `${outcome} by ${who}` : outcome;
 };
 
 const PROPOSAL_STATUSES: Record<ProposedMemory['state'], ApprovalStatus> = {
@@ -217,7 +216,7 @@ export const paramsOf = (filter: MemoryFilter): Record<string, string> =>
     ...(filter.status === 'retired' ? [['status', 'retired'] as const] : []),
     ...FILTERED.flatMap((key) => {
       const value = filter[key];
-      return value !== null && value !== '' ? [[key, value] as const] : [];
+      return nonEmpty(value) ? [[key, value] as const] : [];
     }),
   ]);
 
@@ -287,7 +286,7 @@ export const memoryPathsOf = (
   [
     ...new Set([
       ...memories.flatMap((memory) => memory.paths),
-      ...(chosen !== null && chosen !== '' ? [chosen] : []),
+      ...(nonEmpty(chosen) ? [chosen] : []),
     ]),
   ].sort();
 
@@ -312,17 +311,16 @@ export const placeTreeOf = (
     joinedBy: ' › ',
     children: [],
   }));
-  const repository: PlaceNode[] =
-    memory.repository !== null && memory.repository !== ''
-      ? [
-          {
-            kind: 'repository',
-            label: memory.repository,
-            joinedBy: ' › ',
-            children: paths,
-          },
-        ]
-      : [];
+  const repository: PlaceNode[] = nonEmpty(memory.repository)
+    ? [
+        {
+          kind: 'repository',
+          label: memory.repository,
+          joinedBy: ' › ',
+          children: paths,
+        },
+      ]
+    : [];
   const stations: PlaceNode[] = station
     ? [
         {
@@ -344,11 +342,8 @@ export const placeTreeOf = (
   }
 
   return {
-    kind: memory.lineId !== null && memory.lineId !== '' ? 'line' : 'team',
-    label:
-      memory.lineId !== null && memory.lineId !== ''
-        ? 'Line deleted'
-        : 'The whole team',
+    kind: nonEmpty(memory.lineId) ? 'line' : 'team',
+    label: nonEmpty(memory.lineId) ? 'Line deleted' : 'The whole team',
     joinedBy: null,
     children: repository,
   };

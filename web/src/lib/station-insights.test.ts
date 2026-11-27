@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { nonEmpty } from '@/lib/non-empty';
 import {
   configFingerprint,
   countedColumnsOf,
@@ -135,10 +136,7 @@ describe('configFingerprint', () => {
     partial<FingerprintGroup>({
       fingerprint,
       firstDay,
-      pullRequest:
-        pullRequest !== null && pullRequest !== ''
-          ? { url: pullRequest }
-          : null,
+      pullRequest: nonEmpty(pullRequest) ? { url: pullRequest } : null,
     });
 
   it('names the newest config, when it started and the pull request that brought it', () => {

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
 import type { SharedTrace, TargetStation } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 import { toast } from '@/lib/toast';
 import { inputElement } from '@/test/elements';
 import { erase, pressEnter, textOf, write } from '@/test/lexical';
@@ -329,7 +330,7 @@ describe('NewChatComposer', () => {
 
     const returning = async (prompt: string | null = null, write_?: string) => {
       showing();
-      if (write_ !== undefined && write_ !== '') {
+      if (nonEmpty(write_)) {
         await write(box(), write_);
       }
       cleanup();

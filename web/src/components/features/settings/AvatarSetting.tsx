@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { AvatarChange } from '@/hooks/api/useAvatar';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED = 'image/png,image/jpeg,image/webp,image/gif';
@@ -79,7 +80,7 @@ export function AvatarSetting({
     >
       {editable ? (
         <>
-          {avatarUrl !== null && avatarUrl !== '' ? (
+          {nonEmpty(avatarUrl) ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 aria-label={label}

@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import type { TileBones } from '@/lib/insights-tiles';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 export function InsightsTileSkeleton({
@@ -27,9 +28,7 @@ export function InsightsTileSkeleton({
           ) : (
             <span className="line-clamp-1">{label}</span>
           )}
-          {tooltip !== undefined && tooltip !== '' && (
-            <InfoTooltip tooltip={tooltip} />
-          )}
+          {nonEmpty(tooltip) && <InfoTooltip tooltip={tooltip} />}
         </dt>
         <dd className="flex flex-1 flex-col">
           <span className="flex flex-col items-start gap-0.5">

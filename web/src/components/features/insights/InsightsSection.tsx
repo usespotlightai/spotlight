@@ -2,7 +2,7 @@ import { type ReactElement, type ReactNode, useId } from 'react';
 
 import { SectionLevel } from '@/components/features/insights/section-level';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
-import type { TooltipText } from '@/lib/tooltip-note';
+import { hasTooltip, type TooltipText } from '@/lib/tooltip-note';
 
 type InsightsSectionProps = {
   title: string;
@@ -35,9 +35,7 @@ export function InsightsSection({
             {aside}
           </span>
         )}
-        {tooltip !== undefined && tooltip !== '' && (
-          <InfoTooltip tooltip={tooltip} />
-        )}
+        {hasTooltip(tooltip) && <InfoTooltip tooltip={tooltip} />}
       </h2>
       <SectionLevel value={3}>
         <div className="flex flex-col gap-10">{children}</div>

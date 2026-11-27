@@ -8,6 +8,7 @@ import {
   shortTimeOf,
   spentOn,
 } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { ERROR_LABELS, REASON_LABELS } from '@/lib/run-network';
 import type { TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
@@ -58,21 +59,14 @@ export function DetailHeader({
           {formatShortDuration(node.ms)}
         </DetailProperty>
 
-        {node.step?.status !== null &&
-          node.step?.status !== undefined &&
-          node.step.status !== '' && (
-            <DetailProperty
-              name="Status"
-              failed={node.step.status === 'failed'}
-            >
-              {node.step.status}
-            </DetailProperty>
-          )}
-        {node.step?.tool !== null &&
-          node.step?.tool !== undefined &&
-          node.step.tool !== '' && (
-            <DetailProperty name="Tool">{node.step.tool}</DetailProperty>
-          )}
+        {nonEmpty(node.step?.status) && (
+          <DetailProperty name="Status" failed={node.step.status === 'failed'}>
+            {node.step.status}
+          </DetailProperty>
+        )}
+        {nonEmpty(node.step?.tool) && (
+          <DetailProperty name="Tool">{node.step.tool}</DetailProperty>
+        )}
         {node.connection?.error && (
           <DetailProperty name="Error" failed>
             {ERROR_LABELS[node.connection.error]}
@@ -91,10 +85,10 @@ export function DetailHeader({
         {node.connection && node.connection.count > 1 && (
           <DetailProperty name="Count">{node.connection.count}</DetailProperty>
         )}
-        {model !== null && model !== '' && (
+        {nonEmpty(model) && (
           <DetailProperty name="Model">{model}</DetailProperty>
         )}
-        {tokens !== null && tokens !== '' && (
+        {nonEmpty(tokens) && (
           <DetailProperty name="Tokens">{tokens}</DetailProperty>
         )}
         {node.cost !== null && (

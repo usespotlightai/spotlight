@@ -10,6 +10,7 @@ import {
   readsAsCode,
   shownInputs,
 } from '@/lib/approval';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 export function ApprovalAction({
@@ -27,14 +28,12 @@ export function ApprovalAction({
 
         return (
           <FactRow key={input.name}>
-            {label !== null && label !== '' && (
+            {nonEmpty(label) && (
               <dt className={cn(FACT_LABEL, 'truncate first-letter:uppercase')}>
                 {label}
               </dt>
             )}
-            <dd
-              className={cn((label === null || label === '') && 'col-span-2')}
-            >
+            <dd className={cn(!nonEmpty(label) && 'col-span-2')}>
               {readsAsCode(approval, input) ? (
                 <>
                   <CodeBlock command={input.value} className="px-2.5 py-1.5" />

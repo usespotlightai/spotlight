@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useRunnerPools } from '@/hooks/api/useRunnerPools';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import { PUSH_POOL, SPOTLIGHT_EGRESS_TIP } from '@/lib/runner';
 
 const PLATFORM = 'spotlight';
@@ -24,7 +25,7 @@ export function PoolEgress({
   const { data: pools } = useRunnerPools(workspace?.id);
   const egress = pools?.find((each) => each.key === poolKey)?.provision?.egress;
 
-  if (egress === null || egress === undefined || egress === '') {
+  if (!nonEmpty(egress)) {
     return (
       <span className="min-w-0 truncate text-muted-foreground text-xs">
         {PUSH_POOL}

@@ -4,6 +4,7 @@ import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { MeterBar } from '@/components/features/stations/judge/MeterBar';
 import type { ComparisonStat, PairsStat } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 
 type JudgeStatisticsProps = {
   pairs: PairsStat;
@@ -41,9 +42,7 @@ export function JudgeStatistics({
             label={stat.label}
             value={stat.value}
             detail={
-              stat.failing === true &&
-              stat.detail !== null &&
-              stat.detail !== '' ? (
+              stat.failing === true && nonEmpty(stat.detail) ? (
                 <span className="text-destructive">{stat.detail}</span>
               ) : (
                 stat.detail

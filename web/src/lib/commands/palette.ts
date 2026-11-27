@@ -18,6 +18,7 @@ import {
 
 import type { Registered } from '@/lib/commands/registry';
 import { type ShortcutId, shortcutOf } from '@/lib/commands/shortcuts';
+import { nonEmpty } from '@/lib/non-empty';
 
 export type PaletteAction = {
   readonly id: ShortcutId;
@@ -56,7 +57,7 @@ export const paletteActions = (
       return (
         shortcut.inPalette !== false &&
         shortcut.focused !== true &&
-        (command.to === undefined || command.to === '')
+        !nonEmpty(command.to)
       );
     })
     .map((command) => ({

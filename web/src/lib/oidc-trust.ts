@@ -1,12 +1,13 @@
 import type { OidcTrustSummaryResponseDto } from '@/lib/api';
 import { formatDate } from '@/lib/date-format';
+import { nonEmpty } from '@/lib/non-empty';
 import { since } from '@/lib/since';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type OidcTrust = OidcTrustSummaryResponseDto;
 
 export const describeIssued = (lastIssuedAt: string | null): string =>
-  lastIssuedAt !== null && lastIssuedAt !== ''
+  nonEmpty(lastIssuedAt)
     ? `Issued ${since(lastIssuedAt)}`
     : 'Never issued a token';
 
@@ -23,17 +24,15 @@ const minutes = (count: number): string =>
   count === 1 ? '1 minute' : `${count} minutes`;
 
 export const trustNote = (trust: OidcTrust): TooltipNote => ({
-  title:
-    trust.createdBy.name !== null && trust.createdBy.name !== ''
-      ? `Created by ${trust.createdBy.name}`
-      : 'Created by a deleted account',
-  body:
-    trust.createdBy.name !== null && trust.createdBy.name !== ''
-      ? 'Its tokens act for this person.'
-      : 'Its tokens act for that account.',
+  title: nonEmpty(trust.createdBy.name)
+    ? `Created by ${trust.createdBy.name}`
+    : 'Created by a deleted account',
+  body: nonEmpty(trust.createdBy.name)
+    ? 'Its tokens act for this person.'
+    : 'Its tokens act for that account.',
   rows: [
     ['Created', exactly(trust.createdAt)],
-    ...(trust.lastIssuedAt !== null && trust.lastIssuedAt !== ''
+    ...(nonEmpty(trust.lastIssuedAt)
       ? [['Last issued', exactly(trust.lastIssuedAt)] as const]
       : []),
     ['Issuer', trust.issuer],

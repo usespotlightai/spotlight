@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMatch } from 'react-router';
 
+import { nonEmpty } from '@/lib/non-empty';
 import type { Team } from '@/lib/team';
 
 export function useCurrentTeam(teams: readonly Team[]): Team | null {
@@ -10,7 +11,7 @@ export function useCurrentTeam(teams: readonly Team[]): Team | null {
   const here = inTeam ?? inSettings ?? null;
   const [last, setLast] = useState<string | null>(null);
 
-  if (here !== null && here !== '' && here !== last) {
+  if (nonEmpty(here) && here !== last) {
     setLast(here);
   }
 

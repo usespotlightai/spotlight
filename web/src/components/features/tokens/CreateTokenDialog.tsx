@@ -17,6 +17,7 @@ import {
   type CreatedWorkspaceToken,
   useCreateWorkspaceToken,
 } from '@/hooks/api/useCreateWorkspaceToken';
+import { nonEmpty } from '@/lib/non-empty';
 import { sanitizeSlug, slugify } from '@/lib/slug';
 import {
   expiryAfter,
@@ -82,7 +83,7 @@ export function CreateTokenDialog({
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
 
-    if (!named || workspaceId === undefined || workspaceId === '' || busy) {
+    if (!named || !nonEmpty(workspaceId) || busy) {
       return;
     }
 

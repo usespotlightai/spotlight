@@ -4,6 +4,7 @@ import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import type { MemoryDraft } from '@/hooks/useMemoryDraft';
 import type { LineResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 
 const CONTROL = 'w-full rounded-md';
 
@@ -68,9 +69,7 @@ export function MemoryPlaceEditor({
                   <li className={PATHS_LEAF}>
                     <FieldInput
                       value={draft.paths}
-                      disabled={
-                        draft.repository === null || draft.repository === ''
-                      }
+                      disabled={!nonEmpty(draft.repository)}
                       onChange={(event) => draft.setPaths(event.target.value)}
                       placeholder="Paths, separated by commas"
                       aria-label="Paths"

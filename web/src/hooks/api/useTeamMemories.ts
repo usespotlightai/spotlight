@@ -2,6 +2,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { listTeamMemories, type TeamMemoryResponseDto } from '@/lib/api';
 import type { MemoryFilter } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 
 export const teamMemoryKeys = {
@@ -26,21 +27,15 @@ export function useTeamMemories(
         path: { teamId: required(teamId) },
         query: {
           status: filter.status,
-          ...(filter.kind !== null && filter.kind !== ''
-            ? { kind: filter.kind }
-            : {}),
-          ...(filter.lineId !== null && filter.lineId !== ''
-            ? { lineId: filter.lineId }
-            : {}),
-          ...(filter.stationId !== null && filter.stationId !== ''
+          ...(nonEmpty(filter.kind) ? { kind: filter.kind } : {}),
+          ...(nonEmpty(filter.lineId) ? { lineId: filter.lineId } : {}),
+          ...(nonEmpty(filter.stationId)
             ? { stationId: filter.stationId }
             : {}),
-          ...(filter.repository !== null && filter.repository !== ''
+          ...(nonEmpty(filter.repository)
             ? { repository: filter.repository }
             : {}),
-          ...(filter.path !== null && filter.path !== ''
-            ? { path: filter.path }
-            : {}),
+          ...(nonEmpty(filter.path) ? { path: filter.path } : {}),
         },
         throwOnError: true,
       });

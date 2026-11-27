@@ -10,6 +10,7 @@ import { journalKeys } from '@/hooks/api/useRunJournals';
 import { startChat, type ChatResponseDto } from '@/lib/api';
 import type { ChatSetup } from '@/lib/chat';
 import { refreshAfterWrite } from '@/lib/live-writes';
+import { nonEmpty } from '@/lib/non-empty';
 
 type StartChatInput = {
   teamId: string;
@@ -39,7 +40,7 @@ export function useStartChat(): UseMutationResult<
         throwOnError: true,
       });
       queryClient.setQueryData(chatKeys.one(data.id), data);
-      if (data.runId !== null && data.runId !== '') {
+      if (nonEmpty(data.runId)) {
         const fresh = { updatedAt: 0 };
         queryClient.setQueryData(
           journalKeys.runsOfChat(data.id),

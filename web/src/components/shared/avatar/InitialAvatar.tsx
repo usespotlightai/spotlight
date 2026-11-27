@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type InitialAvatarProps = {
@@ -29,7 +30,7 @@ export function InitialAvatar({
           : 'rounded',
       )}
     >
-      {src !== undefined && src !== null && src !== '' && (
+      {nonEmpty(src) && (
         <AvatarImage
           src={src}
           alt=""

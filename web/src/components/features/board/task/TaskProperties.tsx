@@ -10,6 +10,7 @@ import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import type { LineResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Task } from '@/lib/task';
 
 type TaskPropertiesProps = {
@@ -27,10 +28,7 @@ export function TaskProperties({
 }: TaskPropertiesProps): ReactElement {
   const moveTask = useMoveTask();
   const station = line?.stations.find((each) => each.id === task.stationId);
-  const linked =
-    slug !== undefined && slug !== '' && teamId !== undefined && teamId !== ''
-      ? { slug, teamId }
-      : null;
+  const linked = nonEmpty(slug) && nonEmpty(teamId) ? { slug, teamId } : null;
 
   return (
     <aside className={TASK_PROPERTIES}>
@@ -45,8 +43,7 @@ export function TaskProperties({
             value={station.id}
             held={task.hold}
             onChange={(stationId) =>
-              teamId !== undefined &&
-              teamId !== '' &&
+              nonEmpty(teamId) &&
               moveTask.mutate({
                 teamId,
                 lineId: line.id,
@@ -59,7 +56,7 @@ export function TaskProperties({
           />
         )}
 
-        {teamId !== undefined && teamId !== '' && (
+        {nonEmpty(teamId) && (
           <AssigneePicker teamId={teamId} task={task} variant="row" />
         )}
 

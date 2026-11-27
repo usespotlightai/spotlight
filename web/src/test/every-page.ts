@@ -1,4 +1,5 @@
 import type { Page } from '@/hooks/api/usePagedList';
+import { nonEmpty } from '@/lib/non-empty';
 
 export const everyPage = async <T>(
   read: (before: string | undefined) => Promise<Page<T>>,
@@ -10,7 +11,7 @@ export const everyPage = async <T>(
     const page = await read(before);
     items.push(...page.items);
     before = page.next ?? undefined;
-  } while (before !== undefined && before !== '');
+  } while (nonEmpty(before));
 
   return items;
 };

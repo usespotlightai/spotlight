@@ -5,16 +5,12 @@ import { MemoryFilterMenu } from '@/components/features/memory/MemoryFilterMenu'
 import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import { WriteMemoryButton } from '@/components/features/memory/WriteMemoryButton';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function Memory(): ReactElement | null {
   const { slug, teamId } = useParams();
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

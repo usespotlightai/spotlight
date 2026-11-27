@@ -10,6 +10,7 @@ import type {
 } from '@/lib/api';
 import { formatStation, type StationNames } from '@/lib/insights';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
+import { nonEmpty } from '@/lib/non-empty';
 
 export const PERCENTILES = ['p50', 'p75', 'p90', 'p95'] as const;
 
@@ -327,10 +328,9 @@ const pipelineStageOf =
   (names: StationNames) =>
   (stage: FlowStageResponseDto): PipelineStage => ({
     id: stage.stationId ?? stage.kind,
-    label:
-      stage.stationId !== null && stage.stationId !== ''
-        ? formatStation(names, stage.stationId)
-        : STAGES_TEXT[stage.kind],
+    label: nonEmpty(stage.stationId)
+      ? formatStation(names, stage.stationId)
+      : STAGES_TEXT[stage.kind],
     station: stage.kind === 'station',
     times: byTypeOf(stage.times),
   });

@@ -4,6 +4,7 @@ import type {
   SkillReportResponseDto,
   TrendRuleResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { GROWTH_ID, PLATFORM_ID } from '@/mocks/world';
 import type { HistoryRun } from '@/mocks/world/insights-history';
 import {
@@ -165,7 +166,7 @@ export const toolsOf = (
   );
   const dismissals = runs.flatMap((run) =>
     run.calls.flatMap((call) =>
-      call.dismissed !== null && call.dismissed !== ''
+      nonEmpty(call.dismissed)
         ? [{ tool: call.dismissed, server: call.server }]
         : [],
     ),

@@ -19,6 +19,7 @@ import {
   pullRequestsNarrowedBy,
 } from '@/lib/insights-pull-requests';
 import { formatDay } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { isOneOf } from '@/lib/one-of';
 
 const PICKED: readonly PullRequestFilterKey[] = [
@@ -45,18 +46,13 @@ export function PullRequestFilters({
     onChange({ ...filter, [key]: value ?? undefined });
 
   const oneRepository =
-    filter.repository === undefined ||
-    filter.repository === '' ||
-    repositories.includes(filter.repository);
+    !nonEmpty(filter.repository) || repositories.includes(filter.repository);
   const others = pullRequestsNarrowedBy(filter).filter(
     (key) => !PICKED.includes(key) || (key === 'repository' && !oneRepository),
   );
 
   const picked = PICKED.filter(
-    (key) =>
-      filter[key] !== undefined &&
-      filter[key] !== '' &&
-      (key !== 'repository' || oneRepository),
+    (key) => nonEmpty(filter[key]) && (key !== 'repository' || oneRepository),
   );
 
   return (

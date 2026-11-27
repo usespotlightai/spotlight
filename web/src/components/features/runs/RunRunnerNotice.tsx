@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { formatDate } from '@/lib/date-format';
+import { nonEmpty } from '@/lib/non-empty';
 import { type Run, waitReason } from '@/lib/run';
 import { since } from '@/lib/since';
 
@@ -13,7 +14,7 @@ export function RunRunnerNotice({
 }: RunRunnerNoticeProps): ReactElement | null {
   const reason = waitReason(run);
 
-  if (reason !== null && reason !== '' && run.waiting) {
+  if (nonEmpty(reason) && run.waiting) {
     return (
       <p
         role="status"

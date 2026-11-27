@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { useMarkInboxChatRead } from '@/hooks/api/useMarkInboxChatRead';
 import type { Chat } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function useMarkChatReadOnView(
   slug: string | undefined,
@@ -13,12 +14,7 @@ export function useMarkChatReadOnView(
   const messageCount = chat?.messages.length;
 
   useEffect(() => {
-    if (
-      slug === undefined ||
-      slug === '' ||
-      chatId === undefined ||
-      chatId === ''
-    ) {
+    if (!nonEmpty(slug) || !nonEmpty(chatId)) {
       return;
     }
 

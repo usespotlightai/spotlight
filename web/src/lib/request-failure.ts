@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 import { fieldOf, isRecord } from '@/lib/record';
 
 export type SentRequest = {
@@ -88,9 +89,7 @@ export const failureHeadline = (thrown: unknown): string => {
       STATUS_TEXT[status] ??
       (typeof error === 'string' ? error : null) ??
       (typeof title === 'string' ? title : null);
-    return reason !== null && reason !== ''
-      ? `${status} ${reason}`
-      : `HTTP ${status}`;
+    return nonEmpty(reason) ? `${status} ${reason}` : `HTTP ${status}`;
   }
 
   if (sent) {

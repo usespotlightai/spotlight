@@ -2,6 +2,7 @@ import { useLines } from '@/hooks/api/useLines';
 import { useTaskPullRequests } from '@/hooks/api/useTaskPullRequests';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import { useTask } from '@/hooks/api/useTasks';
+import { nonEmpty } from '@/lib/non-empty';
 import { loading } from '@/lib/query';
 
 export function useTaskFooterLoading(
@@ -9,14 +10,7 @@ export function useTaskFooterLoading(
   taskId: string | null | undefined,
   runStationId?: string | null,
 ): boolean {
-  const known =
-    teamId !== undefined &&
-    teamId !== '' &&
-    taskId !== undefined &&
-    taskId !== null &&
-    taskId !== ''
-      ? taskId
-      : undefined;
+  const known = nonEmpty(teamId) && nonEmpty(taskId) ? taskId : undefined;
   const task = useTask(teamId, known);
   const lines = useLines(teamId);
   const pullRequests = useTaskPullRequests(teamId, known);

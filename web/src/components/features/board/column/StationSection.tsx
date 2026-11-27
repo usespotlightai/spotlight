@@ -12,6 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type StationSectionProps = {
@@ -77,7 +78,7 @@ export function StationSection({
         <StationIcon share={share} color={color} className="-mr-1.5" />
 
         <h2 className="flex min-w-0 font-medium text-foreground text-sm">
-          {to !== undefined && to !== '' ? (
+          {nonEmpty(to) ? (
             <TrailLink
               to={to}
               draggable={false}

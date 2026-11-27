@@ -28,6 +28,7 @@ import {
   submitReview,
 } from '@/lib/api';
 import { client } from '@/lib/api/client.gen';
+import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
 import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
@@ -679,8 +680,7 @@ describe('the mock inbox', () => {
 
     for (const withdrawn of [agreed, gone, changed]) {
       expect(
-        withdrawn.withdrawnAt !== null &&
-          withdrawn.withdrawnAt !== '' &&
+        nonEmpty(withdrawn.withdrawnAt) &&
           withdrawn.withdrawnAt > withdrawn.openedAt,
       ).toBe(true);
     }

@@ -19,6 +19,7 @@ import {
   inputOf,
   restOf,
 } from '@/lib/detail';
+import { nonEmpty } from '@/lib/non-empty';
 import { describeConnection } from '@/lib/run-network';
 import { runIdOf, type TraceNode } from '@/lib/trace';
 
@@ -85,12 +86,8 @@ export function SpanDetail({
           }
         />
 
-        {runId !== null && runId !== '' && (
-          <RunJudgeScore teamId={teamId} runId={runId} />
-        )}
-        {runId !== null && runId !== '' && (
-          <RunNetwork teamId={teamId} runId={runId} />
-        )}
+        {nonEmpty(runId) && <RunJudgeScore teamId={teamId} runId={runId} />}
+        {nonEmpty(runId) && <RunNetwork teamId={teamId} runId={runId} />}
 
         {cause && <DetailDescription description={cause} />}
         {input && <DetailDescription description={input} />}
@@ -99,7 +96,7 @@ export function SpanDetail({
         {step?.change && (
           <DetailSection title="Diff" copy={step.change.after}>
             <p className="flex gap-2 text-muted-foreground text-xs">
-              {step.change.path !== null && step.change.path !== '' && (
+              {nonEmpty(step.change.path) && (
                 <span className="truncate">{step.change.path}</span>
               )}
               {step.locations.length > 0 && (

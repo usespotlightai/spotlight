@@ -27,6 +27,7 @@ import { useSlideFrom } from '@/hooks/useSlideFrom';
 import { useTabLinks } from '@/hooks/useTabLinks';
 import { useWorkspaceOverlays } from '@/hooks/useWorkspaceOverlays';
 import type { SplitSide } from '@/lib/app-tabs';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
@@ -80,10 +81,9 @@ export function Workspace({ pages }: WorkspaceProps): ReactElement | null {
       )
     );
   };
-  const paneIds =
-    tabs.panes.right !== undefined && tabs.panes.right !== ''
-      ? [tabs.panes.left, tabs.panes.right]
-      : [tabs.panes.left];
+  const paneIds = nonEmpty(tabs.panes.right)
+    ? [tabs.panes.left, tabs.panes.right]
+    : [tabs.panes.left];
   const dropSides = (index: number): SplitSide[] => {
     if (paneIds.length === 1 || narrow) {
       return paneIds[index] === tabs.activeId ? ['left', 'right'] : [];
@@ -99,7 +99,7 @@ export function Workspace({ pages }: WorkspaceProps): ReactElement | null {
     onPlace: tabs.place,
   };
 
-  if (slug === undefined || slug === '') {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

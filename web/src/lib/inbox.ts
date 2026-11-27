@@ -11,6 +11,7 @@ import type {
 } from '@/lib/api';
 import { formatDate } from '@/lib/date-format';
 import { RESOLVED_PREVIEW, OPEN_PREVIEW } from '@/lib/judge-disagreement';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Person } from '@/lib/person';
 import type { ShownProgress } from '@/lib/run';
 import { teamPath } from '@/lib/team';
@@ -186,7 +187,7 @@ export const workedOn = (
   at: string | null = null,
 ): RunJournal[] => {
   const ran = worked.filter((each) => each.runId === runId);
-  const answers = runId !== null && runId !== '' ? answersTo(notes, runId) : [];
+  const answers = nonEmpty(runId) ? answersTo(notes, runId) : [];
 
   if (answers.length === 0) {
     return ran;
@@ -204,7 +205,7 @@ export const workedOn = (
       const began = journal.marks.startedAt;
 
       return (
-        began !== null && began !== ''
+        nonEmpty(began)
           ? inside(Date.parse(began))
           : until === Number.POSITIVE_INFINITY
       )
@@ -317,9 +318,7 @@ export const inboxItemPath = (
   runId?: string,
 ): string =>
   `${inboxPath(slug)}/${encodeURIComponent(id)}${
-    runId !== undefined && runId !== ''
-      ? `?run=${encodeURIComponent(runId)}`
-      : ''
+    nonEmpty(runId) ? `?run=${encodeURIComponent(runId)}` : ''
   }`;
 
 export const inboxRunPath = (
@@ -410,8 +409,8 @@ export const shownAt = (
   notes: readonly Note[],
   runId: string | null,
 ): number | null =>
-  notes.find((note) => runId !== null && runId !== '' && note.runId === runId)
-    ?.position ?? null;
+  notes.find((note) => nonEmpty(runId) && note.runId === runId)?.position ??
+  null;
 
 export const previewOf = (item: InboxItem): string => {
   if (item.inboxRequest?.form === 'memories') {

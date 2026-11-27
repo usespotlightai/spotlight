@@ -17,6 +17,7 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStackInView } from '@/hooks/useStackInView';
 import type { ChangeStack } from '@/lib/change-stack';
+import { nonEmpty } from '@/lib/non-empty';
 import type { CodeReview } from '@/lib/review';
 import { StackVisitorContext } from '@/lib/review-context';
 
@@ -108,11 +109,7 @@ export function ChangeStackPage({
         <ChangeStackLayout
           view={view}
           title={<Breadcrumbs segments={trail} />}
-          actions={
-            taskId !== null && taskId !== undefined && taskId !== '' ? (
-              <SubmitReviewButton />
-            ) : undefined
-          }
+          actions={nonEmpty(taskId) ? <SubmitReviewButton /> : undefined}
           back={back}
         />
       </DecisionsProvider>

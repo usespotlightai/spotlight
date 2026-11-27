@@ -6,6 +6,7 @@ import {
 
 import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { submitReview } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import type { ReviewVerdict } from '@/lib/review';
 
 type SubmitReviewInput = {
@@ -36,7 +37,7 @@ export function useSubmitReview(): UseMutationResult<
         body: {
           verdict,
           body,
-          ...(repository !== null && repository !== '' ? { repository } : {}),
+          ...(nonEmpty(repository) ? { repository } : {}),
         },
         throwOnError: true,
       });

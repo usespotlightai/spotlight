@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
 import { api, json, notFound } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -27,7 +28,7 @@ const workspaceAs = () => ({
 const completedStationsOf = (teamId: string, lineId: string | null) =>
   new Set(
     (world().lines[teamId] ?? [])
-      .filter((line) => lineId === null || lineId === '' || line.id === lineId)
+      .filter((line) => !nonEmpty(lineId) || line.id === lineId)
       .flatMap((line) => line.stations)
       .filter((station) => station.kind === 'completed')
       .map((station) => station.id),

@@ -8,6 +8,7 @@ import type {
   StationResponseDto,
   StationRunOutcomeResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { world } from '@/mocks/world';
 import { hookFailuresAt, runFailuresOf } from '@/mocks/world/insights';
 import { type HistoryRun, history } from '@/mocks/world/insights-history';
@@ -196,10 +197,9 @@ const groupOf = (
     ran: true,
     config: null,
     changes: [...version.changes],
-    pullRequest:
-      version.pullRequest !== null && version.pullRequest !== ''
-        ? { url: version.pullRequest }
-        : null,
+    pullRequest: nonEmpty(version.pullRequest)
+      ? { url: version.pullRequest }
+      : null,
     runs: [...runs],
     tally,
     rates: {

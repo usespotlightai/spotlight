@@ -1,4 +1,5 @@
 import type { JournalStep } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 
 const TOOL_VERBS = new Map<string | null, string>([
   ['read', 'Read'],
@@ -68,7 +69,7 @@ const withoutToolName = (step: JournalStep): string => {
     (name) => step.text === name || step.text.startsWith(`${name} `),
   );
 
-  return named !== undefined && named !== ''
+  return nonEmpty(named)
     ? step.text.slice(named.length).trimStart()
     : step.text;
 };
@@ -87,11 +88,9 @@ export interface ShownStep {
 
 const delegatedOf = (step: JournalStep): string | null =>
   [
-    step.input !== null && step.input !== '' ? `Asked: ${step.input}` : null,
+    nonEmpty(step.input) ? `Asked: ${step.input}` : null,
     step.detail,
-    step.output !== null && step.output !== ''
-      ? `Answered: ${step.output}`
-      : null,
+    nonEmpty(step.output) ? `Answered: ${step.output}` : null,
   ]
     .filter(Boolean)
     .join('\n\n') || null;
@@ -138,7 +137,7 @@ export const doingOf = (step: JournalStep): string => {
     return 'Thinking';
   }
   const hook = step.kind === 'hook' ? HOOK_DOING.get(step.text) : undefined;
-  if (hook !== undefined && hook !== '') {
+  if (nonEmpty(hook)) {
     return hook;
   }
   const verb =

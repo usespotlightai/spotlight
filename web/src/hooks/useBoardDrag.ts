@@ -17,6 +17,7 @@ import { useDragGuard } from '@/hooks/useDragGuard';
 import { useDragSensors } from '@/hooks/useDragSensors';
 import type { StationResponseDto } from '@/lib/api';
 import { type Landing, landingFor } from '@/lib/dragging';
+import { nonEmpty } from '@/lib/non-empty';
 import { mayLand, type Task } from '@/lib/task';
 
 const kindOf = (
@@ -97,8 +98,7 @@ export function useBoardDrag(board: Board): BoardDragResult {
   const drop = ({ active, over }: DragEndEvent) => {
     if (
       !over ||
-      board.teamId === undefined ||
-      board.teamId === '' ||
+      !nonEmpty(board.teamId) ||
       active.id === over.id ||
       active.data.current?.kind !== 'task'
     ) {

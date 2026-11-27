@@ -8,6 +8,7 @@ import { TeamMemberRowSkeleton } from '@/components/features/settings/TeamMember
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { useChangeMemberRole } from '@/hooks/api/useChangeMemberRole';
 import { useMembers } from '@/hooks/api/useMembers';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import type { Team } from '@/lib/team';
 
@@ -87,7 +88,7 @@ export function TeamMembers({
           onOpenChange={setInviting}
           slug={slug}
           teams={teams}
-          teamIds={teamId !== undefined && teamId !== '' ? [teamId] : []}
+          teamIds={nonEmpty(teamId) ? [teamId] : []}
         />
       )}
     </>

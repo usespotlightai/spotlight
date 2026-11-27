@@ -5,13 +5,14 @@ import { FilterMenu } from '@/components/shared/filter/FilterMenu';
 import { FilterRow } from '@/components/shared/filter/FilterRow';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { MEMBER_SHOWS, SHOW_PARAM, showOf } from '@/lib/members';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function MembersFilterMenu(): ReactElement {
   const [params, setParams] = useSearchParams();
   const show = showOf(params);
 
   const change = (next: string | null) =>
-    setParams(next !== null && next !== '' ? { [SHOW_PARAM]: next } : {}, {
+    setParams(nonEmpty(next) ? { [SHOW_PARAM]: next } : {}, {
       replace: true,
     });
 

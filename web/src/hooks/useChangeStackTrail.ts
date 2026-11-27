@@ -1,5 +1,6 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import { runPath, type TeamRun } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { teamCrumb } from '@/lib/team-crumb';
@@ -13,21 +14,14 @@ export function useChangeStackTrail(
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   return [
-    ...(team && slug !== undefined && slug !== ''
-      ? [teamCrumb(slug, team)]
-      : []),
-    ...(run &&
-    slug !== undefined &&
-    slug !== '' &&
-    teamId !== undefined &&
-    teamId !== ''
+    ...(team && nonEmpty(slug) ? [teamCrumb(slug, team)] : []),
+    ...(run && nonEmpty(slug) && nonEmpty(teamId)
       ? [
           {
             label: run.taskTitle ?? 'Run',
-            to:
-              run.taskId !== null && run.taskId !== ''
-                ? taskPath(slug, teamId, run.taskId)
-                : undefined,
+            to: nonEmpty(run.taskId)
+              ? taskPath(slug, teamId, run.taskId)
+              : undefined,
           },
           {
             label: run.station?.name ?? 'Run',

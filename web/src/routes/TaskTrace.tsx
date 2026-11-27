@@ -18,6 +18,7 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import { useTask } from '@/hooks/api/useTasks';
 import { useTaskTrace } from '@/hooks/api/useTaskTrace';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
@@ -34,7 +35,7 @@ export function TaskTrace(): ReactElement | null {
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   const base: BreadcrumbSegment[] =
-    slug !== undefined && slug !== '' && teamId !== undefined && teamId !== ''
+    nonEmpty(slug) && nonEmpty(teamId)
       ? [
           ...(team
             ? [
@@ -47,24 +48,14 @@ export function TaskTrace(): ReactElement | null {
             : []),
           {
             label: task?.title ?? 'Task',
-            to:
-              taskId !== undefined && taskId !== ''
-                ? taskPath(slug, teamId, taskId)
-                : undefined,
+            to: nonEmpty(taskId) ? taskPath(slug, teamId, taskId) : undefined,
           },
           { label: 'Trace' },
         ]
       : [];
   const { trail, forward } = useTrail(base, 2);
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === '' ||
-    taskId === undefined ||
-    taskId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId) || !nonEmpty(taskId)) {
     return null;
   }
 

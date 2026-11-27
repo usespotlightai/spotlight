@@ -15,6 +15,7 @@ import {
 } from '@/lib/insights';
 import { changeKey } from '@/lib/insights-changes';
 import { formatDay } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { stationPath } from '@/lib/station';
 
 type OutputTableProps = {
@@ -56,7 +57,7 @@ export function OutputTable({
       header: 'Spend',
       numeric: true,
       cell: (day) =>
-        day.spend && currency !== null && currency !== ''
+        day.spend && nonEmpty(currency)
           ? spentIn(day.spend.amount, currency)
           : '–',
     },

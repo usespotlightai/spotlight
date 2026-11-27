@@ -6,6 +6,7 @@ import { MessageCard } from '@/components/features/inbox/conversation/MessageCar
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import type { Attachment } from '@/lib/attachment';
 import type { ConversationItem } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { stationShare } from '@/lib/station';
 
 type InboxAskedProps = {
@@ -39,7 +40,7 @@ export function InboxAsked({
             {title}
           </h1>
 
-          {description !== null && description !== '' && (
+          {nonEmpty(description) && (
             <ExpandableText what="description">
               <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
                 {description}

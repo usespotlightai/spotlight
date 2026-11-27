@@ -6,6 +6,7 @@ import {
 
 import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { draftReviewComment } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import type { ReviewSpot } from '@/lib/review';
 
 type DraftReviewCommentInput = {
@@ -36,7 +37,7 @@ export function useDraftReviewComment(): UseMutationResult<
         body: {
           body,
           ...on,
-          ...(repository !== null && repository !== '' ? { repository } : {}),
+          ...(nonEmpty(repository) ? { repository } : {}),
         },
         throwOnError: true,
       });

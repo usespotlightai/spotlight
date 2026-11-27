@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent } from 'react';
 
+import { nonEmpty } from '@/lib/non-empty';
 import type { Progress } from '@/lib/run';
 
 const EVERY_MS = 500;
@@ -13,7 +14,7 @@ export function useRunStream(
   const bump = useEffectEvent(onBump);
 
   useEffect(() => {
-    if (runId === undefined || runId === '' || !open) {
+    if (!nonEmpty(runId) || !open) {
       return;
     }
 

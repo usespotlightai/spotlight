@@ -8,6 +8,7 @@ import type {
   RunnerActivityResponseDto,
   RunnerFleetResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
 import { since } from '@/lib/since';
@@ -172,10 +173,7 @@ export const servedBy = (
 ): NamedHarness[] =>
   namedHarnesses(
     host.images
-      .filter(
-        (image) =>
-          image.unavailableReason === null || image.unavailableReason === '',
-      )
+      .filter((image) => !nonEmpty(image.unavailableReason))
       .flatMap((image) => image.harnesses)
       .filter(
         (each, at, all) =>
@@ -387,9 +385,7 @@ export const warmSandboxLabel = (
 ): string => {
   const what = count === 1 ? 'Warm sandbox' : `${count} warm sandboxes`;
 
-  return lineName !== undefined && lineName !== ''
-    ? `${what} for ${lineName}`
-    : what;
+  return nonEmpty(lineName) ? `${what} for ${lineName}` : what;
 };
 
 export const idleSandboxLabel = (sandbox: IdleSandbox): string =>
@@ -420,7 +416,7 @@ export const sandboxStatusTip = (
   }
 
   return isWarm(sandbox)
-    ? `Sandbox has ${lineName !== undefined && lineName !== '' ? `${lineName}’s` : 'this line’s'} repositories set up. It takes the first run of a task on this line.`
+    ? `Sandbox has ${nonEmpty(lineName) ? `${lineName}’s` : 'this line’s'} repositories set up. It takes the first run of a task on this line.`
     : 'Sandbox holds this task’s workspace for its next run.';
 };
 

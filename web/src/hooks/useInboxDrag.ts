@@ -11,6 +11,7 @@ import { useResolveInboxEntry } from '@/hooks/api/useResolveInboxEntry';
 import { useDragGuard } from '@/hooks/useDragGuard';
 import { useDragSensors } from '@/hooks/useDragSensors';
 import { entryKey, type InboxEntry, reopenable, resolvable } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 
 export const OPEN_DROP = 'open';
 export const RESOLVED_DROP = 'resolved';
@@ -43,7 +44,7 @@ export function useInboxDrag(
   const drop = ({ active, over }: DragEndEvent) => {
     const entry = entries.find((each) => entryKey(each) === active.id);
 
-    if (slug === undefined || slug === '' || !entry) {
+    if (!nonEmpty(slug) || !entry) {
       return;
     }
     if (over?.id === RESOLVED_DROP && resolvable(entry)) {

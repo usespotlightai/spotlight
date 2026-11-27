@@ -8,6 +8,7 @@ import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
 import { answerPlaceholder } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
 
 type InboxComposerProps = {
@@ -52,9 +53,7 @@ export function InboxComposer({
         />
       }
       onStop={
-        runId !== null && runId !== ''
-          ? () => stop.mutate({ teamId, runId })
-          : undefined
+        nonEmpty(runId) ? () => stop.mutate({ teamId, runId }) : undefined
       }
       onSend={({ body, attachments, coAuthors, draftGeneration }, restore) =>
         answer.mutate(

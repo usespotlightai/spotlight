@@ -6,6 +6,8 @@ import {
   type RouteObject,
 } from 'react-router';
 
+import { nonEmpty } from '@/lib/non-empty';
+
 import { APP_TABS_KEY, panesOf, placeAt, storedTabs } from './lib/app-tabs.ts';
 import { isLazyPage, type LazyPage } from './lib/lazy-page.ts';
 import { workspacePages } from './workspace-pages.tsx';
@@ -31,7 +33,7 @@ export const visiblePaths = (
 ): string[] => {
   const slug = WORKSPACE_PATH.exec(pathname)?.[1];
 
-  if (slug === undefined || slug === '') {
+  if (!nonEmpty(slug)) {
     return [pathname];
   }
 

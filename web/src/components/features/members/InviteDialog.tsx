@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useInviteToWorkspace } from '@/hooks/api/useInviteToWorkspace';
 import type { InviteToWorkspaceRequestDto } from '@/lib/api';
 import type { InviteOutcome } from '@/lib/members';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Team } from '@/lib/team';
 
 const NO_TEAMS: readonly string[] = [];
@@ -31,7 +32,7 @@ export function InviteDialog({
   const sending = invite.isPending;
 
   const send = (spec: InviteToWorkspaceRequestDto) => {
-    if (slug !== undefined && slug !== '' && !sending) {
+    if (nonEmpty(slug) && !sending) {
       invite.mutate(spec, { onSuccess: setSent });
     }
   };

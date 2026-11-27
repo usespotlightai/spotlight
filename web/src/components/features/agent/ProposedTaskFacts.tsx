@@ -7,6 +7,7 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Attachment } from '@/lib/attachment';
 import { type Proposal, proposedStationOf } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 import { stationShare } from '@/lib/station';
 import { taskPath } from '@/lib/task';
 
@@ -33,7 +34,7 @@ export function ProposedTaskFacts({
       <FactRow>
         <dt className={FACT_LABEL}>Task</dt>
         <dd>
-          {proposal.taskId !== null && proposal.taskId !== '' ? (
+          {nonEmpty(proposal.taskId) ? (
             <TrailLink
               id={titleId}
               data-focus-next
@@ -53,7 +54,7 @@ export function ProposedTaskFacts({
       <FactRow>
         <dt className={FACT_LABEL}>Station</dt>
         <dd>
-          {station !== null && station !== '' ? (
+          {nonEmpty(station) ? (
             <p className={`${FACT_VALUE} flex items-center gap-2`}>
               <StationIcon
                 share={stationShare(
@@ -74,23 +75,21 @@ export function ProposedTaskFacts({
         </dd>
       </FactRow>
 
-      {!made &&
-        proposal.description !== null &&
-        proposal.description !== '' && (
-          <FactRow>
-            <dt className={FACT_LABEL}>Details</dt>
-            <dd>
-              <MarkdownEditor
-                key={proposal.description}
-                readOnly
-                initialValue={proposal.description}
-                placeholder=""
-                ariaLabel={`What ${proposal.title} is about`}
-                className="border-none bg-transparent p-0 text-sm"
-              />
-            </dd>
-          </FactRow>
-        )}
+      {!made && nonEmpty(proposal.description) && (
+        <FactRow>
+          <dt className={FACT_LABEL}>Details</dt>
+          <dd>
+            <MarkdownEditor
+              key={proposal.description}
+              readOnly
+              initialValue={proposal.description}
+              placeholder=""
+              ariaLabel={`What ${proposal.title} is about`}
+              className="border-none bg-transparent p-0 text-sm"
+            />
+          </dd>
+        </FactRow>
+      )}
 
       {!made && attachments.length > 0 && (
         <FactRow>

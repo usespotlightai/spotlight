@@ -13,6 +13,7 @@ import type {
   TeamMemoryResponseDto,
   WriteMemoryRequestDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -97,17 +98,11 @@ const listed = (
     .filter(
       (memory) =>
         memory.status === (status === '' ? 'active' : status) &&
-        (kind === null || kind === '' || memory.kind === kind) &&
-        (lineId === null || lineId === '' || memory.lineId === lineId) &&
-        (stationId === null ||
-          stationId === '' ||
-          memory.stationId === stationId) &&
-        (repository === null ||
-          repository === '' ||
-          memory.repository === repository) &&
-        (path === null ||
-          path === '' ||
-          memory.paths.some((each) => each.startsWith(path))),
+        (!nonEmpty(kind) || memory.kind === kind) &&
+        (!nonEmpty(lineId) || memory.lineId === lineId) &&
+        (!nonEmpty(stationId) || memory.stationId === stationId) &&
+        (!nonEmpty(repository) || memory.repository === repository) &&
+        (!nonEmpty(path) || memory.paths.some((each) => each.startsWith(path))),
     )
     .sort((a, b) => sinceOf(b) - sinceOf(a));
 };
@@ -199,11 +194,8 @@ const memoryHandlers = [
     const status = query.get('status');
     const kind = query.get('kind');
     if (
-      (status !== null &&
-        status !== '' &&
-        status !== 'active' &&
-        status !== 'retired') ||
-      (kind !== null && kind !== '' && !isKind(kind))
+      (nonEmpty(status) && status !== 'active' && status !== 'retired') ||
+      (nonEmpty(kind) && !isKind(kind))
     ) {
       return problem(422, 'Sorry, no memory has that status or kind.');
     }
@@ -327,14 +319,11 @@ const memoryHandlers = [
         );
       }
 
-      const supersedes =
-        input.supersedes !== undefined &&
-        input.supersedes !== null &&
-        input.supersedes !== ''
-          ? (Object.values(teamMemories())
-              .flat()
-              .find((memory) => memory.handle === input.supersedes)?.id ?? null)
-          : null;
+      const supersedes = nonEmpty(input.supersedes)
+        ? (Object.values(teamMemories())
+            .flat()
+            .find((memory) => memory.handle === input.supersedes)?.id ?? null)
+        : null;
       const remembered: ProposedMemoryResponseDto = {
         id: nextId('memory'),
         kind: input.kind,
@@ -489,15 +478,10 @@ const chatHandlers = [
       }
 
       const input = await request.json();
-      const targetStation =
-        input.targetStation !== undefined && input.targetStation !== ''
-          ? targetStationOf(teamId, input.targetStation)
-          : null;
-      if (
-        input.targetStation !== undefined &&
-        input.targetStation !== '' &&
-        !targetStation
-      ) {
+      const targetStation = nonEmpty(input.targetStation)
+        ? targetStationOf(teamId, input.targetStation)
+        : null;
+      if (nonEmpty(input.targetStation) && !targetStation) {
         return problem(422, 'Sorry, the team has no such station.');
       }
       if (!input.harness) {

@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useWorkspaceAvatar } from '@/hooks/api/useAvatar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
@@ -20,7 +21,7 @@ export function WorkspaceGeneral(): ReactElement | null {
   const change = useWorkspaceAvatar(slug);
   const shown = workspace.data ?? null;
 
-  if (slug === undefined || slug === '') {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

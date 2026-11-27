@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 import { useLocation } from 'react-router';
 
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
+import { nonEmpty } from '@/lib/non-empty';
 import { fieldOf, isRecord } from '@/lib/record';
 
 export const isTrail = (value: unknown): value is BreadcrumbSegment[] =>
@@ -41,8 +42,7 @@ const collapse = (segments: BreadcrumbSegment[]): BreadcrumbSegment[] =>
     (crumb, index) =>
       !(
         index > 0 &&
-        crumb.to !== undefined &&
-        crumb.to !== '' &&
+        nonEmpty(crumb.to) &&
         segments[index - 1]?.to === crumb.to
       ),
   );

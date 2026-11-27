@@ -5,6 +5,7 @@ import { useApproveMemories } from '@/hooks/api/useApproveMemories';
 import { useRejectMemory } from '@/hooks/api/useRejectMemory';
 import { useRestoreMemory } from '@/hooks/api/useRestoreMemory';
 import type { ProposedMemory } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 
 type MemoryDecisionProps = {
   slug: string;
@@ -39,7 +40,7 @@ export function MemoryDecision({
           memories: [
             {
               id: memory.id,
-              ...(body !== undefined && body !== '' ? { body } : {}),
+              ...(nonEmpty(body) ? { body } : {}),
             },
           ],
         })

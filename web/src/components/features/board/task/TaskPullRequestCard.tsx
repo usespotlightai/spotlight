@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { TaskPullRequestStateIcon } from '@/components/features/board/task/TaskPullRequestStateIcon';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { DiffStat } from '@/components/shared/DiffStat';
+import { nonEmpty } from '@/lib/non-empty';
 import { pullRequestOf } from '@/lib/pull-request-link';
 import {
   type PullRequestState,
@@ -40,7 +41,7 @@ export function TaskPullRequestCard({
   return (
     <div data-slot="pull-request-card" className="flex flex-col gap-2.5">
       <div className="flex flex-col gap-0.5">
-        {title !== null && title !== '' && (
+        {nonEmpty(title) && (
           <p className="font-medium text-foreground text-sm leading-snug">
             {title}
           </p>
@@ -50,11 +51,9 @@ export function TaskPullRequestCard({
         </p>
       </div>
 
-      {((author !== null && author !== '') ||
-        (updatedAt !== null && updatedAt !== '') ||
-        changedFiles !== null) && (
+      {(nonEmpty(author) || nonEmpty(updatedAt) || changedFiles !== null) && (
         <div className="flex items-center gap-2.5 whitespace-nowrap text-muted-foreground text-xs">
-          {author !== null && author !== '' && (
+          {nonEmpty(author) && (
             <span className="flex min-w-0 items-center gap-1">
               <PersonAvatar
                 person={{ name: author, image: authorImage }}
@@ -63,7 +62,7 @@ export function TaskPullRequestCard({
               <span className="truncate">{author}</span>
             </span>
           )}
-          {updatedAt !== null && updatedAt !== '' && (
+          {nonEmpty(updatedAt) && (
             <span className="shrink-0">{since(updatedAt)}</span>
           )}
           {additions !== null && deletions !== null && (
@@ -77,7 +76,7 @@ export function TaskPullRequestCard({
         </div>
       )}
 
-      {state && named !== null && named !== '' && (
+      {state && nonEmpty(named) && (
         <span
           className={cn(
             'flex h-5 w-fit items-center gap-1 rounded-full px-2 text-xs',

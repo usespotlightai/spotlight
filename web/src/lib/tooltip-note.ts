@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 type TooltipRow = readonly [label: string, value: string];
 
 type TooltipList = {
@@ -14,6 +15,10 @@ export type TooltipNote = {
 
 export type TooltipText = string | TooltipNote;
 
+export const hasTooltip = (
+  tooltip: TooltipText | undefined,
+): tooltip is TooltipText => tooltip !== undefined && tooltip !== '';
+
 const withoutStop = (text: string): string => text.replace(/\.$/, '');
 
 export const tooltipText = (
@@ -24,9 +29,7 @@ export const tooltipText = (
     ? tooltip
     : `${[
         tooltip.title !== named && tooltip.title,
-        tooltip.body !== undefined &&
-          tooltip.body !== '' &&
-          withoutStop(tooltip.body),
+        nonEmpty(tooltip.body) && withoutStop(tooltip.body),
         ...(tooltip.rows ?? []).map(([label, value]) => `${label}: ${value}`),
         tooltip.list &&
           tooltip.list.items.length > 0 &&

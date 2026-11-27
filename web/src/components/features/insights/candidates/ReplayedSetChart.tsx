@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 
 import { ReplayedScatter } from '@/components/features/insights/candidates/ReplayedScatter';
 import { type CandidatesSet, replayedPoints } from '@/lib/insights-candidates';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ReplayedSetChartProps = {
   set: CandidatesSet;
@@ -13,7 +14,7 @@ export function ReplayedSetChart({ set }: ReplayedSetChartProps): ReactElement {
 
   return (
     <>
-      {points.length === 0 || currency === null || currency === '' ? (
+      {points.length === 0 || !nonEmpty(currency) ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
           Nothing on this set has a priced score yet. Show the table to see the
           replays.

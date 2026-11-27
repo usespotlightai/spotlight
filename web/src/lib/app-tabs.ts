@@ -12,6 +12,7 @@ import { matchPath } from 'react-router';
 
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { inboxPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { fieldOf, isRecord } from '@/lib/record';
 import { type Team, teamSectionPath } from '@/lib/team';
 import { isTrail } from '@/lib/trail';
@@ -168,7 +169,7 @@ const shownSideBySide = (
   splitId: string | undefined,
   splitSide: SplitSide = 'right',
 ): AppTabs =>
-  splitId !== undefined && splitId !== '' && splitId !== activeId
+  nonEmpty(splitId) && splitId !== activeId
     ? { tabs, activeId, splitId, splitSide }
     : { tabs, activeId };
 
@@ -221,17 +222,13 @@ export const placed = (tabs: AppTabs, id: string, side: SplitSide): AppTabs => {
       ? (there ?? neighbourOf(tabs, id)?.id)
       : (panes[other] ?? tabs.activeId);
 
-  return stays !== undefined && stays !== ''
-    ? shownSideBySide(tabs.tabs, id, stays, other)
-    : tabs;
+  return nonEmpty(stays) ? shownSideBySide(tabs.tabs, id, stays, other) : tabs;
 };
 
 export const withoutPane = (tabs: AppTabs, side: SplitSide): AppTabs => {
   const kept = panesOf(tabs)[opposite(side)];
 
-  return kept !== undefined && kept !== ''
-    ? shownSideBySide(tabs.tabs, kept, undefined)
-    : tabs;
+  return nonEmpty(kept) ? shownSideBySide(tabs.tabs, kept, undefined) : tabs;
 };
 
 export const moved = (tabs: AppTabs, id: string, to: string): AppTabs => {
@@ -330,9 +327,7 @@ const hrefAt = (target: Element | null, origin: string): string | null => {
 
   const path = holder?.getAttribute(LINK_ATTRIBUTE);
 
-  return path !== undefined && path !== null && path !== ''
-    ? new URL(path, origin).href
-    : null;
+  return nonEmpty(path) ? new URL(path, origin).href : null;
 };
 
 export const workspaceLinkAt = (
@@ -341,12 +336,12 @@ export const workspaceLinkAt = (
   slug: string,
 ): WorkspaceLink | null => {
   const href = hrefAt(target, origin);
-  if (href === null || href === '') {
+  if (!nonEmpty(href)) {
     return null;
   }
   const path = tabPathOf(href, origin, slug);
 
-  return path !== null && path !== '' ? { href, path } : null;
+  return nonEmpty(path) ? { href, path } : null;
 };
 
 const TAB_ICONS: readonly (readonly [string, LucideIcon])[] = [

@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type SettingsRowProps = {
@@ -36,7 +37,7 @@ export function SettingsRow({
             stack && '@max-md/pane:basis-auto',
           )}
         >
-          {htmlFor !== undefined && htmlFor !== '' ? (
+          {nonEmpty(htmlFor) ? (
             <label htmlFor={htmlFor} className={LABEL}>
               {label}
             </label>

@@ -8,6 +8,7 @@ import {
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import type { NestedHeading } from '@/lib/nested-table';
+import { hasTooltip } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const INDENTS = {
@@ -59,7 +60,7 @@ export function NestedHeadings({
           <span aria-hidden className="truncate">
             {heading.label}
           </span>
-          {heading.tooltip !== undefined && heading.tooltip !== '' && (
+          {hasTooltip(heading.tooltip) && (
             <InfoTooltip tooltip={heading.tooltip} />
           )}
           {column < headings.length - 1 || trailing ? (

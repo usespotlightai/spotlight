@@ -15,6 +15,7 @@ import {
   type MemoryUpkeepResponseDto,
 } from '@/lib/api';
 import type { MemoryUpkeep, UpkeepDecision } from '@/lib/memory-upkeep';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 
 const memoryUpkeepKeys = {
@@ -27,11 +28,7 @@ export function useMemoryUpkeep(
 ): UseQueryResult<MemoryUpkeepResponseDto> {
   return useQuery({
     queryKey: memoryUpkeepKeys.one(upkeepId),
-    enabled:
-      teamId !== undefined &&
-      teamId !== '' &&
-      upkeepId !== undefined &&
-      upkeepId !== '',
+    enabled: nonEmpty(teamId) && nonEmpty(upkeepId),
     queryFn: async () => {
       const { data } = await readMemoryUpkeep({
         path: { teamId: required(teamId), upkeepId: required(upkeepId) },

@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 
 import { useCardLevel } from '@/components/features/insights/section-level';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
-import type { TooltipText } from '@/lib/tooltip-note';
+import { hasTooltip, type TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 type CardTitleProps = {
@@ -32,9 +32,7 @@ export function CardTitle({
       >
         {title}
       </Heading>
-      {description !== undefined && description !== '' && (
-        <InfoTooltip tooltip={description} />
-      )}
+      {hasTooltip(description) && <InfoTooltip tooltip={description} />}
     </span>
   );
 }

@@ -4,6 +4,7 @@ import { MissingImage } from '@/components/shared/attachment/MissingImage';
 import { ZoomableImage } from '@/components/shared/attachment/ZoomableImage';
 import { useObjectUrl } from '@/hooks/useObjectUrl';
 import type { ImageSource } from '@/lib/attachment';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ImagePreviewProps = {
   source: ImageSource;
@@ -20,11 +21,11 @@ export function ImagePreview({
   const url = 'url' in source ? source.url : local;
   const [failed, setFailed] = useState<string | null>(null);
 
-  if (url !== null && url !== '' && failed === url) {
+  if (nonEmpty(url) && failed === url) {
     return <MissingImage name={name} />;
   }
 
-  return url !== null && url !== '' ? (
+  return nonEmpty(url) ? (
     <ZoomableImage
       src={url}
       name={name}

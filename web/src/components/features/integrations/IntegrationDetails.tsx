@@ -19,6 +19,7 @@ import {
   teamAccountPurpose,
   usesTeamAccount,
 } from '@/lib/integration';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type IntegrationDetailsProps = {
@@ -121,10 +122,7 @@ export function IntegrationDetails({
         <FactRow>
           <dt className={FACT_LABEL}>Tools</dt>
           <dd
-            className={cn(
-              FACT_VALUE,
-              problem !== null && problem !== '' && 'text-destructive',
-            )}
+            className={cn(FACT_VALUE, nonEmpty(problem) && 'text-destructive')}
           >
             {problem ?? formatToolsRead(spec)}
           </dd>

@@ -13,6 +13,7 @@ import type {
 import type { LineRange } from '@/lib/changes';
 import { formatDate } from '@/lib/date-format';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import { nonEmpty } from '@/lib/non-empty';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type StationJudgeAgreement = StationJudgeAgreementResponseDto;
@@ -136,7 +137,7 @@ const KAPPA_BODY =
 
 const kappaNoteOf = (lead: string | null = null): TooltipNote => ({
   title: 'Cohen’s kappa',
-  body: lead !== null && lead !== '' ? `${lead} ${KAPPA_BODY}` : KAPPA_BODY,
+  body: nonEmpty(lead) ? `${lead} ${KAPPA_BODY}` : KAPPA_BODY,
   rows: KAPPA_ROWS,
 });
 
@@ -225,14 +226,14 @@ export const formatDay = (day: string): string =>
 const NEW_SIDE = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))?/;
 
 export const formatHunk = (hunk: CitedHunk): string => {
-  if (hunk.path === null || hunk.path === '') {
+  if (!nonEmpty(hunk.path)) {
     return hunk.id;
   }
 
   const file = hunk.path.slice(hunk.path.lastIndexOf('/') + 1);
   const line = hunk.header?.match(NEW_SIDE)?.at(1);
 
-  return line !== undefined && line !== '' ? `${file}:${line}` : file;
+  return nonEmpty(line) ? `${file}:${line}` : file;
 };
 
 export const lineRangeOf = (hunk: CitedHunk): LineRange | null => {
@@ -258,7 +259,7 @@ export const lineRangeOf = (hunk: CitedHunk): LineRange | null => {
 
 export const formatStep = (citation: Citation): string =>
   [citation.step?.tool ?? citation.step?.kind, 'step']
-    .filter((each) => each !== undefined && each !== null && each !== '')
+    .filter((each) => nonEmpty(each))
     .join(' ');
 
 export const COVERAGE_PARTS = [

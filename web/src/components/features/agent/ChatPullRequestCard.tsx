@@ -16,6 +16,7 @@ import {
   pullRequestStatusOf,
   pullRequestTitleOf,
 } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 import { stationShare } from '@/lib/station';
 import { taskPath } from '@/lib/task';
 
@@ -76,7 +77,7 @@ export function ChatPullRequestCard({
             </dd>
           </FactRow>
 
-          {task && station !== null && station !== '' && (
+          {task && nonEmpty(station) && (
             <FactRow>
               <dt className={FACT_LABEL}>Station</dt>
               <dd>

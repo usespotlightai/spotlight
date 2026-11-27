@@ -8,6 +8,7 @@ import type {
   TypeShareResponseDto,
   WeekShareResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { isOneOf } from '@/lib/one-of';
 
 export type InsightsPullRequests = InsightsPullRequestsResponseDto;
@@ -96,7 +97,7 @@ export const pullRequestFilterOf = (
     PULL_REQUEST_FILTER_KEYS.flatMap((key) => {
       const value = params.get(key);
 
-      return value !== null && value !== '' && valid(key, value)
+      return nonEmpty(value) && valid(key, value)
         ? [[key, value] as const]
         : [];
     }),
@@ -211,7 +212,7 @@ export const weekFilter = (
 ): PullRequestFilter =>
   mergedPullRequestsFilter({
     week,
-    ...(repository !== null && repository !== '' ? { repository } : {}),
+    ...(nonEmpty(repository) ? { repository } : {}),
     ...(author ? { author } : {}),
   });
 

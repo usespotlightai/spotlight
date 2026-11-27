@@ -1,5 +1,6 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import { teamSectionPath } from '@/lib/team';
 import { teamCrumb } from '@/lib/team-crumb';
 
@@ -12,13 +13,8 @@ export function useAgentChatTrail(
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   return [
-    ...(team && slug !== undefined && slug !== ''
-      ? [teamCrumb(slug, team)]
-      : []),
-    ...(slug !== undefined &&
-    slug !== '' &&
-    teamId !== undefined &&
-    teamId !== ''
+    ...(team && nonEmpty(slug) ? [teamCrumb(slug, team)] : []),
+    ...(nonEmpty(slug) && nonEmpty(teamId)
       ? [{ label: 'Agent', to: teamSectionPath(slug, teamId, 'agent') }]
       : []),
     { label: title ?? 'Chat' },

@@ -6,6 +6,7 @@ import { STATION_COLUMN } from '@/components/features/stations/station-column';
 import { StationTabs } from '@/components/features/stations/StationTabs';
 import { PageTitle } from '@/components/shared/PageTitle';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { type StationTab, stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
@@ -47,7 +48,7 @@ export function StationHeading({
           )}
         </div>
 
-        {station.description !== null && station.description !== '' && (
+        {nonEmpty(station.description) && (
           <p className="text-muted-foreground text-sm leading-5">
             {station.description}
           </p>

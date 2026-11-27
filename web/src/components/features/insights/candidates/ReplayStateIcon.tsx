@@ -8,6 +8,7 @@ import {
 import type { ReactElement } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
+import { nonEmpty } from '@/lib/non-empty';
 import { formatState, type ReplayState, stateNote } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
@@ -34,9 +35,7 @@ export function ReplayStateIcon({
   return (
     <WithTooltip
       tooltip={
-        note !== null && note !== ''
-          ? `${formatState(state)}. ${note}`
-          : formatState(state)
+        nonEmpty(note) ? `${formatState(state)}. ${note}` : formatState(state)
       }
     >
       <span className="inline-flex shrink-0">

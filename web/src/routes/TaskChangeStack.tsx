@@ -12,6 +12,7 @@ import { useTaskReview } from '@/hooks/api/useTaskReview';
 import { useTask } from '@/hooks/api/useTasks';
 import { useTaskTrail } from '@/hooks/useTaskTrail';
 import { notFound } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -29,12 +30,7 @@ export function TaskChangeStack(): ReactElement | null {
     candidate.stations.some((station) => station.id === task?.stationId),
   );
   const toTask =
-    slug !== undefined &&
-    slug !== '' &&
-    teamId !== undefined &&
-    teamId !== '' &&
-    taskId !== undefined &&
-    taskId !== ''
+    nonEmpty(slug) && nonEmpty(teamId) && nonEmpty(taskId)
       ? taskPath(slug, teamId, taskId)
       : '';
   const { trail, forward } = useTrail([
@@ -45,14 +41,7 @@ export function TaskChangeStack(): ReactElement | null {
     { label: 'Change stack' },
   ]);
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === '' ||
-    taskId === undefined ||
-    taskId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId) || !nonEmpty(taskId)) {
     return null;
   }
 

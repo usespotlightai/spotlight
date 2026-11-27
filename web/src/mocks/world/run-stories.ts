@@ -7,6 +7,7 @@ import type {
   RunJournalResponseDto,
   TaskRunResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
 import { perWorld, world } from '@/mocks/world';
 import type { HistoryRun } from '@/mocks/world/insights-history';
@@ -186,7 +187,7 @@ const pullLabel = (url: string): string => {
 };
 
 const opened = (context: Context): string =>
-  context.pullRequest !== null && context.pullRequest !== ''
+  nonEmpty(context.pullRequest)
     ? `[${pullLabel(context.pullRequest)}](${context.pullRequest})`
     : 'the pull request';
 
@@ -393,7 +394,7 @@ const buildStory = (context: Context): Omit<RunStory, 'spend'> => {
             ),
           ]
         : []),
-      ...(delivers && context.pullRequest !== null && context.pullRequest !== ''
+      ...(delivers && nonEmpty(context.pullRequest)
         ? [
             execute(
               `gh pr create --title "${context.title}"`,
@@ -444,7 +445,7 @@ const reviewStory = (context: Context): Omit<RunStory, 'spend'> => {
       'Approved, merging.',
       'Send it back: it needs a test for the empty case.',
     ),
-    output: `Reviewed ${context.pullRequest !== null && context.pullRequest !== '' ? pullLabel(context.pullRequest) : 'the change'}.`,
+    output: `Reviewed ${nonEmpty(context.pullRequest) ? pullLabel(context.pullRequest) : 'the change'}.`,
   };
 };
 

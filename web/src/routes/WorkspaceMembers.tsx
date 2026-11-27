@@ -14,6 +14,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useWorkspaceInvites } from '@/hooks/api/useWorkspaceInvites';
 import { useWorkspaceMembers } from '@/hooks/api/useWorkspaceMembers';
 import { showOf, showsInvites } from '@/lib/members';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 import { workspacePath } from '@/lib/workspace';
@@ -33,7 +34,7 @@ export function WorkspaceMembers(): ReactElement | null {
   const [inviting, setInviting] = useState(false);
   const show = showOf(params);
 
-  if (slug === undefined || slug === '') {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

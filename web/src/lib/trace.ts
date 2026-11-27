@@ -1,5 +1,6 @@
 import type { TaskTraceResponseDto, TraceNodeResponseDto } from '@/lib/api';
 import { repoRelative } from '@/lib/changes';
+import { nonEmpty } from '@/lib/non-empty';
 
 export type Trace = TaskTraceResponseDto;
 
@@ -34,10 +35,9 @@ export const laidOut = (
   trace: Trace,
 ): { left: number; width: number } => {
   const whole = Math.max(trace.ms, 1);
-  const from =
-    trace.startedAt !== null && trace.startedAt !== ''
-      ? at(trace.startedAt)
-      : at(node.startedAt);
+  const from = nonEmpty(trace.startedAt)
+    ? at(trace.startedAt)
+    : at(node.startedAt);
 
   return {
     left: ((at(node.startedAt) - from) / whole) * 100,
@@ -75,12 +75,7 @@ export const lastChangeTo = (run: TraceNode, path: string): TraceNode | null =>
     .filter((node) => {
       const changed = node.step?.change?.path;
 
-      return (
-        changed !== undefined &&
-        changed !== null &&
-        changed !== '' &&
-        repoRelative(changed) === path
-      );
+      return nonEmpty(changed) && repoRelative(changed) === path;
     })
     .reduce<TraceNode | null>(
       (last, node) =>

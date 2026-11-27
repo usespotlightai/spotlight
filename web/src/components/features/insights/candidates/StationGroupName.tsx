@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { formatStation, type StationNames } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 
 type StationGroupNameProps = {
   stationId: string;
@@ -18,9 +19,7 @@ export function StationGroupName({
       <span className="truncate font-medium text-foreground">
         {formatStation(names, stationId)}
       </span>
-      {line !== undefined && line !== '' && (
-        <span className="text-muted-foreground">{line}</span>
-      )}
+      {nonEmpty(line) && <span className="text-muted-foreground">{line}</span>}
     </p>
   );
 }

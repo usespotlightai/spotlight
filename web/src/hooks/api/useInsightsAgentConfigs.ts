@@ -11,6 +11,7 @@ import type {
   AgentConfigsNarrowed,
   InsightsAgentConfigs,
 } from '@/lib/insights-changes';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 
 const insightsAgentConfigsKeys = {
@@ -42,7 +43,7 @@ const insightsAgentConfigsQuery = (
         path: { teamId: required(teamId) },
         query: {
           period,
-          ...(narrowed.stationId !== null && narrowed.stationId !== ''
+          ...(nonEmpty(narrowed.stationId)
             ? { stationId: narrowed.stationId }
             : {}),
           ...(narrowed.size !== null ? { size: narrowed.size } : {}),

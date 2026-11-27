@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { RowIcon } from '@/components/shared/RowIcon';
 import { WithTooltip } from '@/components/shared/WithTooltip';
+import { nonEmpty } from '@/lib/non-empty';
 import { describeIssued, type OidcTrust, trustNote } from '@/lib/oidc-trust';
 
 type OidcTrustRowProps = {
@@ -29,7 +30,7 @@ export function OidcTrustRow({ trust }: OidcTrustRowProps): ReactElement {
       >
         <WithTooltip tooltip={trustNote(trust)}>
           <span className="whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-            {trust.lastIssuedAt !== null && trust.lastIssuedAt !== '' ? (
+            {nonEmpty(trust.lastIssuedAt) ? (
               <time dateTime={trust.lastIssuedAt}>
                 {describeIssued(trust.lastIssuedAt)}
               </time>

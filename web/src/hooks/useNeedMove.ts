@@ -1,6 +1,7 @@
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
+import { nonEmpty } from '@/lib/non-empty';
 import { transitionMove } from '@/lib/transition';
 
 const NEED = '[data-need]';
@@ -29,10 +30,9 @@ export function useNeedMove(
     const shown = (open ? body : head).current?.querySelector<HTMLElement>(
       NEED,
     );
-    moving.current =
-      shown?.dataset.need !== undefined && shown.dataset.need !== ''
-        ? { need: shown.dataset.need, from: shown.getBoundingClientRect() }
-        : null;
+    moving.current = nonEmpty(shown?.dataset.need)
+      ? { need: shown.dataset.need, from: shown.getBoundingClientRect() }
+      : null;
     setOpen((was) => !was);
   };
   useLayoutEffect(() => {

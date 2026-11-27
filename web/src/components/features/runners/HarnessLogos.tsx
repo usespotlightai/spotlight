@@ -1,12 +1,11 @@
 import type { ReactElement } from 'react';
 
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
+import { nonEmpty } from '@/lib/non-empty';
 import type { NamedHarness } from '@/lib/runner';
 
 const named = (harness: NamedHarness) =>
-  harness.version !== null &&
-  harness.version !== undefined &&
-  harness.version !== ''
+  nonEmpty(harness.version)
     ? `${harness.name} ${harness.version}`
     : harness.name;
 

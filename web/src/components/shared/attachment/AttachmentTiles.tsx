@@ -11,6 +11,7 @@ import {
   drawn,
   sized,
 } from '@/lib/attachment';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const TILE =
@@ -29,7 +30,7 @@ export function AttachmentTiles({
 }): ReactElement | null {
   const { slug } = useParams();
 
-  if (slug === undefined || slug === '' || attachments.length === 0) {
+  if (!nonEmpty(slug) || attachments.length === 0) {
     return null;
   }
 

@@ -8,12 +8,13 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useQueryCacheOwnedBy } from '@/hooks/useQueryCacheOwner';
+import { nonEmpty } from '@/lib/non-empty';
 import { ownQueryCache, queryCacheOwner } from '@/lib/query-cache';
 
 const cachedFor = (owner: string | null, restoring = false) => {
   const queryClient = new QueryClient();
   queryClient.setQueryData(['inbox'], ['item of the earlier user']);
-  if (owner !== null && owner !== '') {
+  if (nonEmpty(owner)) {
     ownQueryCache(owner);
   }
 

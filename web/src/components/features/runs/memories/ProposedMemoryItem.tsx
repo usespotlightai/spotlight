@@ -6,6 +6,7 @@ import { MemoryHandleLink } from '@/components/features/runs/memories/MemoryHand
 import { PillLink } from '@/components/shared/PillLink';
 import { inboxItemPath } from '@/lib/inbox';
 import { KIND_LABELS, proposalStateOf, type RunProposal } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ProposedMemoryItemProps = {
   slug: string;
@@ -31,7 +32,7 @@ export function ProposedMemoryItem({
         ...(waiting !== null && waiting !== false && waiting !== ''
           ? []
           : [proposalStateOf(proposal)]),
-        ...(proposal.handle !== null && proposal.handle !== ''
+        ...(nonEmpty(proposal.handle)
           ? [
               <MemoryHandleLink
                 key="handle"

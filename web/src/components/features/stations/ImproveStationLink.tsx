@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { PillLink } from '@/components/shared/PillLink';
 import type { TargetStation } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 import type { PillSize, PillVariant } from '@/lib/pill';
 import { teamSectionPath } from '@/lib/team';
 
@@ -32,7 +33,7 @@ export function ImproveStationLink({
       to={teamSectionPath(slug, teamId, 'agent')}
       state={{
         targetStation,
-        ...(prompt !== undefined && prompt !== '' ? { prompt } : {}),
+        ...(nonEmpty(prompt) ? { prompt } : {}),
       }}
       variant={variant}
       size={size}

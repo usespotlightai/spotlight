@@ -3,16 +3,12 @@ import { useParams } from 'react-router';
 
 import { TeamRuns } from '@/components/features/runs/TeamRuns';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function Runs(): ReactElement | null {
   const { slug, teamId } = useParams();
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

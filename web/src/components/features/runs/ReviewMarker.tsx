@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { inboxItemPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Review } from '@/lib/run';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -24,7 +25,7 @@ export function ReviewMarker({
     <li>
       <TrailLink
         to={
-          slug !== undefined && slug !== ''
+          nonEmpty(slug)
             ? inboxItemPath(slug, review.conversationId, runId)
             : ''
         }

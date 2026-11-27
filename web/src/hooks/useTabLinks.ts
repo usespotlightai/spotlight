@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent } from 'react';
 
 import { workspaceLinkAt } from '@/lib/app-tabs';
+import { nonEmpty } from '@/lib/non-empty';
 
 const MIDDLE_BUTTON = 1;
 
@@ -14,12 +15,7 @@ export function useTabLinks(
   openAt: (path: string) => void,
 ): void {
   const clicked = useEffectEvent((event: MouseEvent) => {
-    if (
-      slug === undefined ||
-      slug === '' ||
-      event.defaultPrevented ||
-      !asksForTab(event)
-    ) {
+    if (!nonEmpty(slug) || event.defaultPrevented || !asksForTab(event)) {
       return;
     }
 

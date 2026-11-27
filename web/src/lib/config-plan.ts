@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 import {
   CHANGED_WITHIN,
   type ConfigChange,
@@ -169,11 +170,7 @@ const leafOf = (change: ConfigChange): PlanLeaf => {
   const now = quoted(shownValue(change.part, change.now));
   const base = { id: idOf(change), mark: change.kind };
 
-  if (
-    change.part === 'repository' &&
-    change.name !== null &&
-    change.name !== ''
-  ) {
+  if (change.part === 'repository' && nonEmpty(change.name)) {
     return {
       ...base,
       name: `repository ${JSON.stringify(change.name)}`,
@@ -183,7 +180,7 @@ const leafOf = (change: ConfigChange): PlanLeaf => {
     };
   }
 
-  if (change.part === 'profile' && change.name !== null && change.name !== '') {
+  if (change.part === 'profile' && nonEmpty(change.name)) {
     return {
       ...base,
       name: 'profile',
@@ -199,8 +196,7 @@ const leafOf = (change: ConfigChange): PlanLeaf => {
     was: change.kind === 'added' ? null : was,
     now: change.kind === 'removed' ? null : now,
     note:
-      change.kind === 'changed' &&
-      !(was !== null && was !== '' && now !== null && now !== '')
+      change.kind === 'changed' && !(nonEmpty(was) && nonEmpty(now))
         ? 'changed'
         : null,
   };
@@ -229,14 +225,12 @@ export const configPlan = (changes: readonly ConfigChange[]): PlanEntry[] => {
 
   for (const change of changes) {
     const list = LISTS[change.part];
-    const isListed = list !== undefined && list !== '';
+    const isListed = nonEmpty(list);
     const within =
       list ??
-      (change.part === 'judge' && change.name !== null && change.name !== ''
-        ? 'judge'
-        : null);
+      (change.part === 'judge' && nonEmpty(change.name) ? 'judge' : null);
 
-    if (within !== null && within !== '') {
+    if (nonEmpty(within)) {
       if (!grouped.has(within)) {
         grouped.add(within);
         out.push({
@@ -248,9 +242,7 @@ export const configPlan = (changes: readonly ConfigChange[]): PlanEntry[] => {
             .filter((each) =>
               isListed
                 ? each.part === change.part
-                : each.part === 'judge' &&
-                  each.name !== null &&
-                  each.name !== '',
+                : each.part === 'judge' && nonEmpty(each.name),
             )
             .map(isListed ? itemOf : leafOf),
         });

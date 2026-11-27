@@ -1,6 +1,7 @@
 import type { HarnessResponseDto } from '@/lib/api';
 import { type PendingAttachment, uploadedImage } from '@/lib/attachment';
 import type { Reference } from '@/lib/chat-input';
+import { nonEmpty } from '@/lib/non-empty';
 
 export const CHAT_DRAFTS_KEY = 'spotlight.chat-drafts';
 
@@ -108,7 +109,7 @@ export const prefillSignature = (prefill: {
 }): string => {
   const { text, references, repositories = [], setup } = prefill;
 
-  return (text !== undefined && text !== null && text !== '') ||
+  return nonEmpty(text) ||
     references.length > 0 ||
     repositories.length > 0 ||
     Boolean(setup)

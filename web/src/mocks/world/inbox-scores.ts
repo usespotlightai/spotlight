@@ -4,6 +4,7 @@ import type {
   StationAlertFiringResponseDto,
 } from '@/lib/api';
 import type { LabelSource, RunScores } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
 import { GROWTH_LINES } from '@/mocks/world/growth';
 import { ALERT_ID, COST_ALERT_ID } from '@/mocks/world/inbox';
@@ -104,7 +105,7 @@ const citedStep = (index: number, tool: string | null, text: string) => ({
   kind: 'step' as const,
   step: {
     index,
-    kind: tool !== null && tool !== '' ? 'tool' : 'message',
+    kind: nonEmpty(tool) ? 'tool' : 'message',
     tool,
     text,
   },

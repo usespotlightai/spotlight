@@ -31,6 +31,7 @@ import {
   type SetCandidate,
 } from '@/lib/insights-candidates';
 import { formatPercent } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { configChangesOf } from '@/lib/station-config';
 import { cn } from '@/lib/utils';
 
@@ -99,7 +100,7 @@ export function CandidateComparisonRow({
             <GainTrack gain={candidate.gainOverLive} />
           </div>
           <NestedCell heading="Cost per run" strong>
-            {costNote !== null && costNote !== '' ? (
+            {nonEmpty(costNote) ? (
               <Tooltip>
                 <TooltipTrigger
                   // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
@@ -125,7 +126,7 @@ export function CandidateComparisonRow({
           )}
           <NestedCell heading="Runs">{formatCount(shown.runs)}</NestedCell>
 
-          {link !== null && link !== '' ? (
+          {nonEmpty(link) ? (
             <ExternalPillLink
               href={link}
               className="-my-0.5 justify-self-start whitespace-nowrap @4xl:justify-self-end @lg:group-data-compact/nested:justify-self-end"

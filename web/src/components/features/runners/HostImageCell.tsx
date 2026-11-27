@@ -6,6 +6,7 @@ import { UnavailableImagesPill } from '@/components/features/runners/Unavailable
 import { Pill } from '@/components/shared/Pill';
 import { useOverflows } from '@/hooks/useOverflows';
 import type { HostImageResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { imageShortName } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
@@ -23,9 +24,8 @@ export function HostImageCell({
   }
 
   const others = images.filter((image) => image !== defaultImage);
-  const unavailable = others.filter(
-    (image) =>
-      image.unavailableReason !== null && image.unavailableReason !== '',
+  const unavailable = others.filter((image) =>
+    nonEmpty(image.unavailableReason),
   );
 
   return (
@@ -37,8 +37,7 @@ export function HostImageCell({
           '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]',
       )}
     >
-      {defaultImage.unavailableReason !== null &&
-      defaultImage.unavailableReason !== '' ? (
+      {nonEmpty(defaultImage.unavailableReason) ? (
         <UnavailableImagesPill
           unavailable={[defaultImage]}
           className="min-w-20 shrink-[100]"

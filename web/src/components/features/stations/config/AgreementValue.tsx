@@ -12,6 +12,7 @@ import {
   readingWord,
   tooFewRunsNote,
 } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 
 const VALUE = 'flex flex-wrap items-center gap-x-1.5';
 
@@ -54,9 +55,7 @@ export function AgreementValue({
       >
         {formatStat(agreement)}
       </span>
-      {band !== null && band !== '' && (
-        <span className="text-muted-foreground">{band}</span>
-      )}
+      {nonEmpty(band) && <span className="text-muted-foreground">{band}</span>}
       {below ? (
         <WarningTooltip
           data-slot="below-minimum"

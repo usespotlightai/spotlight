@@ -3,6 +3,7 @@ import type {
   InboxApprovalResponseDto,
 } from '@/lib/api';
 import { WAITING_FOR_APPROVAL } from '@/lib/approval-status';
+import { nonEmpty } from '@/lib/non-empty';
 
 export type Approval = InboxApprovalResponseDto;
 
@@ -118,7 +119,7 @@ export const askedFor = (approval: Approval): string => {
     return `Spotlight asked to ${wanted}. You edited its inputs.`;
   }
 
-  return approval.intent !== null && approval.intent !== ''
+  return nonEmpty(approval.intent)
     ? sentence(`Spotlight would like to ${approval.intent}`)
     : `Spotlight would like to use ${approval.name}. ${approval.because}`;
 };

@@ -41,6 +41,7 @@ import {
 } from '@/lib/insights-pull-requests';
 import { formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import { nonEmpty } from '@/lib/non-empty';
 import { isKeyOf, isOneOf, keysOf } from '@/lib/one-of';
 import { RANGES, type Range, rangeOf } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
@@ -195,7 +196,7 @@ const runFilterOf = (params: URLSearchParams): RunFilter =>
     RUN_FILTER_KEYS.flatMap((key) => {
       const value = params.get(key);
 
-      if (value === null || value === '') {
+      if (!nonEmpty(value)) {
         return [];
       }
       if (key === 'outcome' && !isOneOf(RUN_ENDINGS, value)) {
@@ -259,7 +260,7 @@ export const paramsOf = (view: InsightsView): Record<string, string> =>
       : [['period', view.period] as const]),
     ...filterKeysOf(view.tab).flatMap((key) => {
       const value = view.filter[key];
-      return value !== undefined && value !== '' ? [[key, value] as const] : [];
+      return nonEmpty(value) ? [[key, value] as const] : [];
     }),
     ...(LISTED_TABS.includes(view.tab) && view.page > 1
       ? [['page', String(view.page)] as const]
@@ -555,7 +556,7 @@ export const signalValue = (
     return '–';
   }
   if (reading.signal === 'cost') {
-    return reading.currency !== null && reading.currency !== ''
+    return nonEmpty(reading.currency)
       ? spentIn(value, reading.currency)
       : value.toFixed(2);
   }
@@ -610,9 +611,7 @@ export const signalTick = (reading: SignalReading, value: number): string => {
 
   const number = value.toLocaleString('en', { maximumFractionDigits: 2 });
 
-  return reading.signal === 'cost' &&
-    reading.currency !== null &&
-    reading.currency !== ''
+  return reading.signal === 'cost' && nonEmpty(reading.currency)
     ? value.toLocaleString('en', {
         style: 'currency',
         currency: reading.currency,

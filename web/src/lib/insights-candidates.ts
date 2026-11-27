@@ -10,6 +10,7 @@ import { spentIn } from '@/lib/inbox';
 import { formatCount } from '@/lib/insights';
 import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import { nonEmpty } from '@/lib/non-empty';
 import { formatHeldOutRuns } from '@/lib/replay-words';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
@@ -140,7 +141,7 @@ export const replayedFrontiersOf = (
   const bySearch = new Map<string, ReplayedPoint[]>();
 
   for (const point of points) {
-    if (point.frontier && point.searchId !== null && point.searchId !== '') {
+    if (point.frontier && nonEmpty(point.searchId)) {
       bySearch.set(point.searchId, [
         ...(bySearch.get(point.searchId) ?? []),
         point,

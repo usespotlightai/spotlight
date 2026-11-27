@@ -11,6 +11,7 @@ import { useTaskReview } from '@/hooks/api/useTaskReview';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useChangeStackTrail } from '@/hooks/useChangeStackTrail';
 import { notFound } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { runPath } from '@/lib/run';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -25,14 +26,7 @@ export function RunChangeStack(): ReactElement | null {
   const run = found.data;
   const { trail, forward } = useTrail(useChangeStackTrail(slug, teamId, run));
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === '' ||
-    runId === undefined ||
-    runId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId) || !nonEmpty(runId)) {
     return null;
   }
 

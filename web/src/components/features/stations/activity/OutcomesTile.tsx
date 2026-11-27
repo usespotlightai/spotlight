@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TONE_FILL } from '@/components/shared/outcome-tones';
 import { formatShare, type ShownDelta } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   OUTCOME_NOTE,
   OUTCOMES_TITLE,
@@ -39,9 +40,7 @@ export function OutcomesTile({
   const withChange = (shown: string, key: OutcomeKey) => {
     const change = changes?.[key]?.shown;
 
-    return change !== undefined && change !== ''
-      ? `${shown}, ${change}`
-      : shown;
+    return nonEmpty(change) ? `${shown}, ${change}` : shown;
   };
 
   return (

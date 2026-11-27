@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useDesktopHandoff } from '@/hooks/useDesktopHandoff';
 import { openInDesktop } from '@/lib/desktop';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function DesktopHandoff({
   children,
@@ -11,7 +12,7 @@ export function DesktopHandoff({
 }): ReactNode {
   const { link, stayHere } = useDesktopHandoff();
 
-  if (link === null || link === '') {
+  if (!nonEmpty(link)) {
     return children;
   }
 

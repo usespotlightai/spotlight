@@ -3,6 +3,7 @@ import type {
   UpkeepProposalResponseDto,
 } from '@/lib/api';
 import type { ApprovalStatus } from '@/lib/approval-status';
+import { nonEmpty } from '@/lib/non-empty';
 import { teamSectionPath } from '@/lib/team';
 
 export type MemoryUpkeep = MemoryUpkeepResponseDto;
@@ -55,9 +56,7 @@ export const changeTitleOf = (proposal: UpkeepProposal): string => {
       : `Kept ${named}`;
   const who = proposal.decidedBy?.name;
 
-  return who !== undefined && who !== null && who !== ''
-    ? `${done} by ${who}`
-    : done;
+  return nonEmpty(who) ? `${done} by ${who}` : done;
 };
 
 const STATUSES: Record<UpkeepProposal['state'], ApprovalStatus> = {

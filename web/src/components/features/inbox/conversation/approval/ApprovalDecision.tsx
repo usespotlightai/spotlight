@@ -4,6 +4,7 @@ import { ApprovalApproveButton } from '@/components/features/inbox/conversation/
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
 import type { Approval } from '@/lib/approval';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ApprovalDecisionProps = {
   approval: Approval;
@@ -35,9 +36,7 @@ export function ApprovalDecision({
         approval={approval}
         disabled={pending || !onApprove}
         disabledBecause={
-          onlyFor !== null && onlyFor !== ''
-            ? `Only ${onlyFor} can approve this`
-            : null
+          nonEmpty(onlyFor) ? `Only ${onlyFor} can approve this` : null
         }
         keyed={keyed}
         onApprove={onApprove}

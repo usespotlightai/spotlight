@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import type { ApiSpecViewResponseDto } from '@/lib/api';
 import { formatReadProblem } from '@/lib/api-spec';
+import { nonEmpty } from '@/lib/non-empty';
 
 type IntegrationReadProblemProps = {
   spec: ApiSpecViewResponseDto;
@@ -13,7 +14,7 @@ export function IntegrationReadProblem({
 }: IntegrationReadProblemProps): ReactElement | null {
   const problem = formatReadProblem(spec);
 
-  if (problem === null || problem === '') {
+  if (!nonEmpty(problem)) {
     return null;
   }
 

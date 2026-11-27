@@ -13,6 +13,7 @@ import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { notFound } from '@/lib/error';
 import { JournalDemandContext } from '@/lib/journal-demand';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, type Loadable, loading } from '@/lib/query';
 
 type Query = UseQueryResult;
@@ -67,12 +68,7 @@ export function Run(): ReactElement | null {
     following: conversation?.latestRun,
   });
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

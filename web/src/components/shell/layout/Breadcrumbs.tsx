@@ -3,6 +3,7 @@ import { Fragment, type ReactElement } from 'react';
 import { Link } from 'react-router';
 
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
+import { nonEmpty } from '@/lib/non-empty';
 import { useTabTitle } from '@/lib/tab-title';
 import { cn } from '@/lib/utils';
 
@@ -46,7 +47,7 @@ export function Breadcrumbs({
     );
     const content = (
       <>
-        {avatar !== undefined && avatar !== '' && (
+        {nonEmpty(avatar) && (
           <InitialAvatar name={avatar} className="bg-card" />
         )}
         <span className={cn('truncate', folds && '@max-[40rem]/pane:sr-only')}>
@@ -72,7 +73,7 @@ export function Breadcrumbs({
           />
         )}
 
-        {to !== undefined && to !== '' ? (
+        {nonEmpty(to) ? (
           <Link
             to={to}
             title={label}

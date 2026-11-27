@@ -1,5 +1,6 @@
 import type { ReactNode, ReactElement } from 'react';
 
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type FilterRowProps = {
@@ -24,7 +25,7 @@ export function FilterRow({
         compact ? 'min-h-7' : 'min-h-8',
       )}
     >
-      {htmlFor !== undefined && htmlFor !== '' ? (
+      {nonEmpty(htmlFor) ? (
         <label htmlFor={htmlFor} className={shown}>
           {label}
         </label>

@@ -7,6 +7,7 @@ import {
 import { runnerPoolKeys } from '@/hooks/api/useRunnerPools';
 import { createRunnerPool } from '@/lib/api';
 import { messageOf } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 
 const POOL_TOKEN_HEADER = 'Spotlight-Pool-Token';
 
@@ -31,7 +32,7 @@ export function useCreateRunnerPool(
 
       const token = response?.headers.get(POOL_TOKEN_HEADER);
 
-      if (data && token !== undefined && token !== null && token !== '') {
+      if (data && nonEmpty(token)) {
         return { key: data.key, token };
       }
 

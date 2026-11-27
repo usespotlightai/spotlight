@@ -4,16 +4,12 @@ import { useParams } from 'react-router';
 import { AgentChats } from '@/components/features/agent/AgentChats';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function Agent(): ReactElement | null {
   const { slug, teamId } = useParams();
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

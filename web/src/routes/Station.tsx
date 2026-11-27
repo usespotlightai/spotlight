@@ -14,6 +14,7 @@ import { useStation } from '@/hooks/api/useStation';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { useStationTabLoading } from '@/hooks/useStationTabLoading';
 import { useStationTrail } from '@/hooks/useStationTrail';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { DEFAULT_STATION_TAB, stationTab } from '@/lib/station';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -49,15 +50,7 @@ export function Station(): ReactElement {
     );
   }
 
-  if (
-    !line ||
-    !station ||
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === '' ||
-    !tab
-  ) {
+  if (!line || !station || !nonEmpty(slug) || !nonEmpty(teamId) || !tab) {
     return (
       <PageNotice title="Station not found">
         <p className="text-muted-foreground text-sm">

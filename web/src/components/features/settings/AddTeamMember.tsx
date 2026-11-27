@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAddTeamMember } from '@/hooks/api/useAddTeamMember';
 import { useWorkspaceMembers } from '@/hooks/api/useWorkspaceMembers';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 
 type AddTeamMemberProps = {
@@ -37,7 +38,7 @@ export function AddTeamMember({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        disabled={teamId === undefined || teamId === '' || add.isPending}
+        disabled={!nonEmpty(teamId) || add.isPending}
         render={<SectionButton />}
       >
         {add.isPending ? 'Adding…' : 'Add a member'}

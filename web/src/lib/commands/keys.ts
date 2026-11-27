@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 export type Chord = string;
 
 export type Keys = readonly Chord[];
@@ -24,11 +25,11 @@ export const chordOf = (event: KeyboardEvent): Chord | null => {
   const key =
     named ?? (event.key.length === 1 ? event.key.toLowerCase() : null);
 
-  if (key === null || key === '') {
+  if (!nonEmpty(key)) {
     return null;
   }
 
-  const isNamed = named !== undefined && named !== '';
+  const isNamed = nonEmpty(named);
 
   const altGraph =
     event.getModifierState('AltGraph') ||

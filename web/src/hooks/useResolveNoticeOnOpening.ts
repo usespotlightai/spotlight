@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useResolveInboxNotice } from '@/hooks/api/useResolveInboxNotice';
+import { nonEmpty } from '@/lib/non-empty';
 
 const RESOLVE_AFTER_MS = 3000;
 
@@ -14,10 +15,8 @@ export function useResolveNoticeOnOpening(
 
   useEffect(() => {
     if (
-      slug === undefined ||
-      slug === '' ||
-      pending === null ||
-      pending === '' ||
+      !nonEmpty(slug) ||
+      !nonEmpty(pending) ||
       resolvedOnOpening.current === pending
     ) {
       return;

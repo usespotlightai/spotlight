@@ -18,6 +18,7 @@ import type {
   TallyCountedResponseDto,
   TallyDeltasResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { isKeyOf } from '@/lib/one-of';
 import { tallyCountOf } from '@/lib/station-insights';
 import { world } from '@/mocks/world';
@@ -537,7 +538,7 @@ const countedOf = (
 };
 
 const isDismissed = ({ dismissed }: { readonly dismissed: string | null }) =>
-  dismissed !== null && dismissed !== '';
+  nonEmpty(dismissed);
 
 export const stationsOf = (
   teamId: string,
@@ -1079,7 +1080,7 @@ export const insightsTracesOf = (
   const matching = inRange.filter((run) =>
     Object.entries(RUN_MATCHERS).every(([key, matches]) => {
       const value = params.get(key);
-      return value === null || value === '' || matches(run, value);
+      return !nonEmpty(value) || matches(run, value);
     }),
   );
   const unfinished = unfinishedIn(teamId, params);

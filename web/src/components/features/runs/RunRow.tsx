@@ -11,6 +11,7 @@ import { useMenuActions } from '@/hooks/useMenuActions';
 import { useOpenIntent } from '@/hooks/useOpenIntent';
 import { useStopRunAction } from '@/hooks/useStopRunAction';
 import type { TaskHoldResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { type Run, runStatus, stoppable } from '@/lib/run';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
@@ -73,10 +74,7 @@ export function RunRow({
           title={title}
           className={cn(
             'min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md',
-            taskTitle !== null &&
-              taskTitle !== undefined &&
-              taskTitle !== '' &&
-              'basis-full @xl/pane:basis-auto',
+            nonEmpty(taskTitle) && 'basis-full @xl/pane:basis-auto',
           )}
         >
           {title}
@@ -87,17 +85,14 @@ export function RunRow({
         )}
 
         <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1 @xl/pane:contents">
-          {taskTitle !== null &&
-            taskTitle !== undefined &&
-            taskTitle !== '' &&
-            run.station && (
-              <span
-                title={run.station.name}
-                className="min-w-[6rem] truncate text-muted-foreground text-xs @xl/pane:min-w-0 @xl/pane:shrink-0"
-              >
-                {run.station.name}
-              </span>
-            )}
+          {nonEmpty(taskTitle) && run.station && (
+            <span
+              title={run.station.name}
+              className="min-w-[6rem] truncate text-muted-foreground text-xs @xl/pane:min-w-0 @xl/pane:shrink-0"
+            >
+              {run.station.name}
+            </span>
+          )}
 
           <span className="ml-auto flex shrink-0 items-center gap-2">
             {onHold && <OnHoldPill hold={onHold} />}
@@ -127,7 +122,7 @@ function EndedPill({ run }: { run: Run }) {
   const Icon = ENDED_ICONS[run.state];
   const status = runStatus(run);
 
-  if (!Icon || status === null || status === '') {
+  if (!Icon || !nonEmpty(status)) {
     return null;
   }
 

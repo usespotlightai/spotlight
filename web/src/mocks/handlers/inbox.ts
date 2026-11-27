@@ -16,6 +16,7 @@ import type {
 } from '@/lib/api';
 import type { RunScores } from '@/lib/judge';
 import { MAX_NOTE } from '@/lib/judge-disagreement';
+import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -69,7 +70,7 @@ const chatOf = (id: string) =>
 const taskOf = (taskId: string) => {
   const teamId = teamOfTask(taskId);
 
-  return teamId !== undefined && teamId !== ''
+  return nonEmpty(teamId)
     ? world().tasks[teamId]?.find((task) => task.id === taskId)
     : undefined;
 };
@@ -122,7 +123,7 @@ const answerReviewOf = (item: InboxConversation) => {
   reviewAnswered(task, world().runs[item.taskId] ?? [], item.id);
 
   const teamId = teamOfTask(item.taskId);
-  if (teamId !== undefined && teamId !== '') {
+  if (nonEmpty(teamId)) {
     seenAgain(teamId, item.taskId);
   }
 };
@@ -586,17 +587,13 @@ const notMetRefusalOf = (
 const refusedAnswer = (
   disagreement: JudgeDisagreementResponseDto,
 ): Response | null => {
-  if (disagreement.withdrawnAt !== null && disagreement.withdrawnAt !== '') {
+  if (nonEmpty(disagreement.withdrawnAt)) {
     return problem(
       409,
       `Judge disagreement ${disagreement.id} is withdrawn. The judge and people agree now, the claims changed, or the run no longer has people’s verdict.`,
     );
   }
-  if (
-    disagreement.askedOf !== null &&
-    disagreement.askedOf !== '' &&
-    disagreement.askedOf !== SAM.id
-  ) {
+  if (nonEmpty(disagreement.askedOf) && disagreement.askedOf !== SAM.id) {
     return problem(
       403,
       `Judge disagreement ${disagreement.id} asks another person. Only that person can answer it.`,
@@ -763,10 +760,9 @@ const draftedComment = (
   review: CodeReviewResponseDto,
   drafted: DraftReviewCommentRequestDto,
 ) => {
-  const answering =
-    drafted.replyTo !== undefined && drafted.replyTo !== ''
-      ? review.comments.find((each) => each.id === drafted.replyTo)
-      : undefined;
+  const answering = nonEmpty(drafted.replyTo)
+    ? review.comments.find((each) => each.id === drafted.replyTo)
+    : undefined;
 
   return {
     id: nextId('comment'),
@@ -870,7 +866,7 @@ const reviewHandlers = [
         (each) => each.repository === (submitted.repository ?? null),
       )?.pullRequest;
 
-      if (landsOn === undefined || landsOn === null || landsOn === '') {
+      if (!nonEmpty(landsOn)) {
         return problem(409, 'Sorry, there is no pull request to review yet.');
       }
       const id = nextId('review');

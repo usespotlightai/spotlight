@@ -4,6 +4,7 @@ import { ApprovalDecision } from '@/components/features/inbox/conversation/appro
 import { ApprovalDismissal } from '@/components/features/inbox/conversation/approval/ApprovalDismissal';
 import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
 import type { Approval, ApprovalAnswer, ApprovalMode } from '@/lib/approval';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ApprovalControlsProps = {
   approval: Approval;
@@ -75,7 +76,7 @@ export function ApprovalControls({
       onlyFor={onlyFor}
       keyed={keyed}
       onApprove={
-        onlyFor !== null && onlyFor !== ''
+        nonEmpty(onlyFor)
           ? undefined
           : () => onDecide({ approve: true, body: '' })
       }

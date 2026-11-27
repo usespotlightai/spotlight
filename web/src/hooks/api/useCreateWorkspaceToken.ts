@@ -7,6 +7,7 @@ import {
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
 import { createWorkspaceToken } from '@/lib/api';
 import { messageOf } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 import type { TokenSpec } from '@/lib/token';
 
@@ -33,7 +34,7 @@ export function useCreateWorkspaceToken(
 
       const token = response?.headers.get(WORKSPACE_TOKEN_HEADER);
 
-      if (data && token !== undefined && token !== null && token !== '') {
+      if (data && nonEmpty(token)) {
         return { name: data.name, token };
       }
 

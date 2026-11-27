@@ -1,6 +1,8 @@
 import { getSharedHighlighter } from '@pierre/diffs';
 import { useEffect, useState } from 'react';
 
+import { nonEmpty } from '@/lib/non-empty';
+
 const THEME = { light: 'github-light', dark: 'github-dark' } as const;
 
 export function useHighlightedShell(
@@ -12,7 +14,7 @@ export function useHighlightedShell(
   } | null>(null);
 
   useEffect(() => {
-    if (command === undefined || command === '') {
+    if (!nonEmpty(command)) {
       return;
     }
 
@@ -41,9 +43,7 @@ export function useHighlightedShell(
     };
   }, [command]);
 
-  return command !== undefined &&
-    command !== '' &&
-    highlighted?.command === command
+  return nonEmpty(command) && highlighted?.command === command
     ? highlighted.html
     : null;
 }

@@ -9,6 +9,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
 import { useTeamSkills } from '@/hooks/api/useTeamSkills';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { pointedSkill } from '@/lib/skills';
 
@@ -20,7 +21,7 @@ export function TeamSkills(): ReactElement | null {
 
   useScrollToHash(Boolean(skills.data));
 
-  if (teamId === undefined || teamId === '') {
+  if (!nonEmpty(teamId)) {
     return null;
   }
 

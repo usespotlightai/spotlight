@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { ShownDelta } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<ShownDelta['tone'], string> = {
@@ -46,7 +47,7 @@ export function DeltaGlyph({ delta, tooltip }: DeltaGlyphProps): ReactElement {
     </span>
   );
 
-  return tooltip !== undefined && tooltip !== '' ? (
+  return nonEmpty(tooltip) ? (
     <WithTooltip tooltip={tooltip}>{mark}</WithTooltip>
   ) : (
     mark

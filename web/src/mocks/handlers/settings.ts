@@ -10,6 +10,7 @@ import type {
   OnboardingResponseDto,
   SetToolRuleRequestDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { daysAgo } from '@/mocks/clock';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { scenario } from '@/mocks/scenario';
@@ -74,11 +75,7 @@ const setupChatOf = (teamId: string): OnboardingResponseDto['setupChat'] => {
   );
 
   return (
-    chats.find(
-      (each) => each.pullRequest !== null && each.pullRequest !== '',
-    ) ??
-    chats.at(0) ??
-    null
+    chats.find((each) => nonEmpty(each.pullRequest)) ?? chats.at(0) ?? null
   );
 };
 

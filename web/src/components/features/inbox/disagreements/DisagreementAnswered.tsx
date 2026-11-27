@@ -9,6 +9,7 @@ import {
   NO_CLAIM_COVERS_IT,
   WHAT_WAS_WRONG,
 } from '@/lib/judge-disagreement';
+import { nonEmpty } from '@/lib/non-empty';
 
 type DisagreementAnsweredProps = {
   disagreement: JudgeDisagreement;
@@ -33,7 +34,7 @@ export function DisagreementAnswered({
           )}
         </dd>
       </FactRow>
-      {answer.note !== null && answer.note !== '' && (
+      {nonEmpty(answer.note) && (
         <FactRow wide>
           <dt className={FACT_LABEL}>{WHAT_WAS_WRONG}</dt>
           <dd className={FACT_VALUE}>{answer.note}</dd>

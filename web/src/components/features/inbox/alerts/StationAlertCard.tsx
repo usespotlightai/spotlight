@@ -16,6 +16,7 @@ import { useStationAlert } from '@/hooks/api/useStationAlert';
 import { notFound } from '@/lib/error';
 import { formatStation, stationNamesOf, targetStationOf } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { stationPath } from '@/lib/station';
 import {
@@ -80,7 +81,7 @@ export function StationAlertCard({
         <p className="break-words text-foreground text-sm">
           {formatFiring(firing)} {formatLimit(firing)}
         </p>
-        {firing.resolvedAt !== null && firing.resolvedAt !== '' && (
+        {nonEmpty(firing.resolvedAt) && (
           <p className="text-muted-foreground text-sm">
             {formatResolved(firing, formatDay(firing.resolvedAt.slice(0, 10)))}
           </p>

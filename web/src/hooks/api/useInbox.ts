@@ -10,6 +10,7 @@ import {
 } from '@/lib/api';
 import { entryKey, type InboxEntry } from '@/lib/inbox';
 import { liveStaleTime, useLivePoll } from '@/lib/live';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 
 export const inboxKeys = {
@@ -71,11 +72,7 @@ export function useInboxItem(
 
   return useQuery({
     queryKey: inboxKeys.item(slug, itemId),
-    enabled:
-      slug !== undefined &&
-      slug !== '' &&
-      itemId !== undefined &&
-      itemId !== '',
+    enabled: nonEmpty(slug) && nonEmpty(itemId),
     refetchInterval: livePollMs,
     staleTime: liveStaleTime,
     queryFn: async () => {
@@ -94,11 +91,7 @@ export function useInboxNotice(
 ): UseQueryResult<InboxNoticeResponseDto> {
   return useQuery({
     queryKey: inboxKeys.notice(slug, noticeId),
-    enabled:
-      slug !== undefined &&
-      slug !== '' &&
-      noticeId !== undefined &&
-      noticeId !== '',
+    enabled: nonEmpty(slug) && nonEmpty(noticeId),
     queryFn: async () => {
       const { data } = await readInboxNotice({
         path: { slug: required(slug), noticeId: required(noticeId) },

@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { DiffStat } from '@/components/shared/DiffStat';
 import { Button } from '@/components/ui/button';
 import type { LayerFile } from '@/lib/change-stack';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const STATUS: Record<LayerFile['file']['status'], string | null> = {
@@ -51,7 +52,7 @@ export function LayerFileHeader({
           )}
         />
         <span className="min-w-0 truncate font-medium text-foreground">
-          {file.previousPath !== null && file.previousPath !== '' && (
+          {nonEmpty(file.previousPath) && (
             <span className="text-muted-foreground">
               {file.previousPath} →{' '}
             </span>
@@ -59,7 +60,7 @@ export function LayerFileHeader({
           {file.path}
         </span>
 
-        {status !== null && status !== '' && (
+        {nonEmpty(status) && (
           <span className="shrink-0 text-faint">{status}</span>
         )}
       </button>

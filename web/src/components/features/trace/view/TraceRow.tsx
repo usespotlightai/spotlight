@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { TraceBar } from '@/components/features/trace/view/TraceBar';
 import { TraceEgressMark } from '@/components/features/trace/view/TraceEgressMark';
 import { TraceRunVerdict } from '@/components/features/trace/view/TraceRunVerdict';
+import { nonEmpty } from '@/lib/non-empty';
 import { runIdOf, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
@@ -85,9 +86,7 @@ export const TraceRow = memo(function TraceRow({
           </span>
         )}
         {node.egressEnforcement === 'not-enforced' && <TraceEgressMark />}
-        {runId !== null && runId !== '' && (
-          <TraceRunVerdict teamId={teamId} runId={runId} />
-        )}
+        {nonEmpty(runId) && <TraceRunVerdict teamId={teamId} runId={runId} />}
       </div>
 
       <TraceBar node={node} trace={trace} />

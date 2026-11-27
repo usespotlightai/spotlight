@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 
+import { nonEmpty } from '@/lib/non-empty';
 import {
   type CodeReview,
   type ReviewSpot,
@@ -53,7 +54,7 @@ export function ReviewProvider({
 
   const reviewing = useMemo(
     () =>
-      taskId !== null && taskId !== undefined && taskId !== ''
+      nonEmpty(taskId)
         ? {
             teamId,
             taskId,

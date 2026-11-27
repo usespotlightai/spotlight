@@ -4,6 +4,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useLines } from '@/hooks/api/useLines';
+import { nonEmpty } from '@/lib/non-empty';
 import { linePath } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +20,7 @@ export function CreateTaskLink({
   const { data: lines } = useLines(teamId);
   const line = lines?.[0];
 
-  return teamId !== undefined && teamId !== '' && line ? (
+  return nonEmpty(teamId) && line ? (
     <TrailLink
       to={linePath(slug, teamId, line.id)}
       className={cn(

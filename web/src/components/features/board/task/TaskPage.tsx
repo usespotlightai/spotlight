@@ -18,6 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import type { LineResponseDto } from '@/lib/api';
 import { holdPathOf } from '@/lib/hold';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Task } from '@/lib/task';
 import { linePath, teamPath } from '@/lib/team';
 
@@ -41,7 +42,7 @@ export function TaskPage({
   const hold = task.hold;
 
   const remove = () => {
-    if (teamId === undefined || teamId === '') {
+    if (!nonEmpty(teamId)) {
       return;
     }
 
@@ -50,7 +51,7 @@ export function TaskPage({
       {
         onSuccess: () =>
           void navigate(
-            slug !== undefined && slug !== '' && line
+            nonEmpty(slug) && line
               ? linePath(slug, teamId, line.id)
               : teamPath(slug ?? '', teamId),
           ),
@@ -69,10 +70,7 @@ export function TaskPage({
             <OnHoldPill
               hold={hold}
               to={
-                slug !== undefined &&
-                slug !== '' &&
-                teamId !== undefined &&
-                teamId !== ''
+                nonEmpty(slug) && nonEmpty(teamId)
                   ? holdPathOf(slug, teamId, hold)
                   : undefined
               }
@@ -86,7 +84,7 @@ export function TaskPage({
           <main className="flex min-w-0 flex-col gap-3">
             <PageTitle>{task.title}</PageTitle>
 
-            {task.description !== null && task.description !== '' ? (
+            {nonEmpty(task.description) ? (
               <MarkdownEditor
                 readOnly
                 initialValue={task.description}

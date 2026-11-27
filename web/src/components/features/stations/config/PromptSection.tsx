@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { AuthoredText } from '@/components/features/stations/config/AuthoredText';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { nonEmpty } from '@/lib/non-empty';
 
 type PromptSectionProps = {
   stationId: string;
@@ -15,7 +16,7 @@ export function PromptSection({
 }: PromptSectionProps): ReactElement {
   return (
     <TabSection title="Prompt">
-      {prompt !== null && prompt !== undefined && prompt !== '' ? (
+      {nonEmpty(prompt) ? (
         <AuthoredText>
           <MarkdownEditor
             key={stationId}

@@ -23,6 +23,7 @@ import {
   HOLD_VERDICTS,
   heldBecause,
 } from '@/lib/hold';
+import { nonEmpty } from '@/lib/non-empty';
 import { toast } from '@/lib/toast';
 
 type ResumeDialogProps = {
@@ -222,7 +223,7 @@ export function ResumeDialog({
               <p>
                 A turn is in progress. You can resume the line when it ends.
               </p>
-              {turn !== null && turn !== '' && (
+              {nonEmpty(turn) && (
                 <Button
                   type="button"
                   variant="outline"

@@ -17,6 +17,7 @@ import {
   type LayerQuestion,
   type QuestionAnswer,
 } from '@/lib/change-stack';
+import { nonEmpty } from '@/lib/non-empty';
 import { YOU } from '@/lib/person';
 import { useStackVisitor } from '@/lib/review-context';
 
@@ -75,7 +76,7 @@ export function LayerQuestionThread({
             avatar={<ReviewerAvatar />}
             author={(me ?? YOU).name}
           >
-            {answered.reply !== null && answered.reply !== '' ? (
+            {nonEmpty(answered.reply) ? (
               <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
                 {answered.reply}
               </p>
@@ -121,7 +122,7 @@ export function LayerQuestionThread({
                 expected answer.
               </p>
             )}
-            {current.feedback !== null && current.feedback !== '' && (
+            {nonEmpty(current.feedback) && (
               <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
                 {current.feedback}
               </p>

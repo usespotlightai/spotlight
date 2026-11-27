@@ -15,6 +15,7 @@ import type {
   RunJournal,
 } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
+import { nonEmpty } from '@/lib/non-empty';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
 
@@ -33,9 +34,7 @@ const runsDuring = (
     })
     .map((run) => run.runId);
 
-  return visit.first.runId !== null && visit.first.runId !== ''
-    ? [visit.first.runId, ...during]
-    : during;
+  return nonEmpty(visit.first.runId) ? [visit.first.runId, ...during] : during;
 };
 
 type FoldedVisitRowProps = {

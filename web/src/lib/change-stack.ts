@@ -9,6 +9,7 @@ import type {
   StackCohortResponseDto,
   StackLayerResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 
@@ -82,7 +83,7 @@ export const taskChangesPath = (
 ): string => {
   const at = `${taskPath(slug, teamId, taskId)}/changes`;
 
-  return repository !== null && repository !== ''
+  return nonEmpty(repository)
     ? `${at}?${new URLSearchParams({ repository }).toString()}`
     : at;
 };

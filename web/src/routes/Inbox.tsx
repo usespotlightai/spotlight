@@ -23,6 +23,7 @@ import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useTimedFlag } from '@/hooks/useTimedFlag';
 import { entryKey, inboxPath } from '@/lib/inbox';
 import { DISCLOSURE_MS } from '@/lib/motion';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -91,7 +92,7 @@ export function Inbox(): ReactElement | null {
     (inbox.data?.length === 0 && resolvedInbox.data?.length === 0);
   const showsOutlet = !listing || nothingToList;
 
-  if (slug === undefined || slug === '') {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

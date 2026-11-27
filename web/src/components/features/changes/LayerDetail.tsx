@@ -15,6 +15,7 @@ import {
   layersOf,
   linesOf,
 } from '@/lib/change-stack';
+import { nonEmpty } from '@/lib/non-empty';
 
 type LayerDetailProps = {
   stack: ChangeStack;
@@ -88,11 +89,7 @@ export function LayerDetail({
   };
 
   const reveal = (place: CitedPlace) => {
-    if (
-      place.layerId !== null &&
-      place.layerId !== '' &&
-      place.layerId !== layer.id
-    ) {
+    if (nonEmpty(place.layerId) && place.layerId !== layer.id) {
       onPick(place.layerId);
       return;
     }

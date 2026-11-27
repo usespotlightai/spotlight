@@ -16,6 +16,7 @@ import {
   formatType,
   type InsightsPullRequest,
 } from '@/lib/insights-pull-requests';
+import { nonEmpty } from '@/lib/non-empty';
 import { SKIP_OFF_SCREEN } from '@/lib/off-screen';
 import { since } from '@/lib/since';
 import { taskPath } from '@/lib/task';
@@ -55,11 +56,7 @@ export function PullRequestsTable({
   const roomy = useElementWidth(frame) >= ROOMY_WIDTH;
 
   const writtenBy = (pullRequest: InsightsPullRequest) => {
-    if (
-      pullRequest.by === 'spotlight' &&
-      pullRequest.taskId !== null &&
-      pullRequest.taskId !== ''
-    ) {
+    if (pullRequest.by === 'spotlight' && nonEmpty(pullRequest.taskId)) {
       return (
         <span className="flex min-w-0 items-center gap-2">
           <TrailLink

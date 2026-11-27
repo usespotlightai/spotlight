@@ -1,6 +1,7 @@
 import { type ReactNode, useId, type ReactElement } from 'react';
 
 import { Collapsible } from '@/components/shared/Collapsible';
+import { nonEmpty } from '@/lib/non-empty';
 
 type StepProps = {
   title: string;
@@ -45,7 +46,7 @@ export function Step({
 
         <Collapsible open={open} appear={false}>
           <div id={contentId} className="flex flex-col gap-2 pt-1">
-            {description !== undefined && description !== '' && (
+            {nonEmpty(description) && (
               <p className="text-muted-foreground text-xs">{description}</p>
             )}
             {children}

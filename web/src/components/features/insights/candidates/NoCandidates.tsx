@@ -5,6 +5,7 @@ import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { nonEmpty } from '@/lib/non-empty';
 import { linePath, teamPath } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +28,7 @@ export function NoCandidates({
         action={
           <TrailLink
             to={
-              lineId !== null && lineId !== ''
+              nonEmpty(lineId)
                 ? linePath(slug, teamId, lineId)
                 : teamPath(slug, teamId)
             }
@@ -36,9 +37,7 @@ export function NoCandidates({
               'rounded-full bg-card shadow-none',
             )}
           >
-            {lineId !== null && lineId !== ''
-              ? 'Open the line'
-              : 'Open the team’s lines'}
+            {nonEmpty(lineId) ? 'Open the line' : 'Open the team’s lines'}
           </TrailLink>
         }
       >

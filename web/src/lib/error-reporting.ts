@@ -9,6 +9,7 @@ import {
 
 import { readStored, writeStored } from '@/hooks/useStoredState';
 import { type ErrorReportingResponseDto, getErrorReporting } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { isRecord } from '@/lib/record';
 import { isGatewayStatus } from '@/lib/request-failure';
 
@@ -34,7 +35,7 @@ export async function startErrorReporting(): Promise<void> {
 }
 
 function start(reporting: ErrorReportingResponseDto): void {
-  if (reporting.dsn !== null && reporting.dsn !== '') {
+  if (nonEmpty(reporting.dsn)) {
     init(errorReportingOptions(reporting));
   }
 }
@@ -115,7 +116,7 @@ export function errorReportingOptions(
 }
 
 export function reportAs(userId: string | null): void {
-  setUser(userId !== null && userId !== '' ? { id: userId } : null);
+  setUser(nonEmpty(userId) ? { id: userId } : null);
 }
 
 export function withGatewayErrorReported(
@@ -141,10 +142,7 @@ export function scrubbed(event: ErrorEvent): ErrorEvent {
     delete event.request.cookies;
     delete event.request.data;
 
-    if (
-      event.request.headers?.Referer !== undefined &&
-      event.request.headers.Referer !== ''
-    ) {
+    if (nonEmpty(event.request.headers?.Referer)) {
       event.request.headers.Referer = urlShape(event.request.headers.Referer);
     }
   }

@@ -1,5 +1,6 @@
 import type { StationResponseDto, TaskResponseDto } from '@/lib/api';
 import { formatDate } from '@/lib/date-format';
+import { nonEmpty } from '@/lib/non-empty';
 import { stationShare } from '@/lib/station';
 import { teamPath } from '@/lib/team';
 
@@ -116,7 +117,7 @@ export const placed = (
   const rest = tasks.filter((each) => each.id !== taskId);
   const landed = { ...moving, stationId };
 
-  if (afterTaskId === null || afterTaskId === '') {
+  if (!nonEmpty(afterTaskId)) {
     const first = rest.findIndex((each) => each.stationId === stationId);
     const at = first === -1 ? rest.length : first;
     return [...rest.slice(0, at), landed, ...rest.slice(at)];

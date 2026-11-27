@@ -20,6 +20,7 @@ import {
   readTaskJournal,
   readTaskTrace,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import { ALERT_ID } from '@/mocks/world/inbox';
@@ -200,7 +201,7 @@ describe('one run history across the mock', () => {
       throwOnError: true,
     });
     const tasks = data.pullRequests.flatMap((each) =>
-      each.taskId !== null && each.taskId !== '' ? [each.taskId] : [],
+      nonEmpty(each.taskId) ? [each.taskId] : [],
     );
     const answers = await Promise.all(
       tasks.map((taskId) => listTaskRuns({ path: { teamId, taskId } })),

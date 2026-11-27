@@ -4,18 +4,12 @@ import { useParams } from 'react-router';
 import { MemoryUpkeepReview } from '@/components/features/memory/upkeep/MemoryUpkeepReview';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function MemoryUpkeep(): ReactElement | null {
   const { slug, teamId, upkeepId } = useParams();
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === '' ||
-    upkeepId === undefined ||
-    upkeepId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId) || !nonEmpty(upkeepId)) {
     return null;
   }
 

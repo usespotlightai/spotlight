@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 export type Whence = {
   slug: string;
   teamId: string;
@@ -5,19 +6,12 @@ export type Whence = {
 };
 
 export const stateFor = ({ slug, teamId, from }: Whence): string =>
-  [
-    slug,
-    teamId,
-    from !== undefined && from !== '' ? encodeURIComponent(from) : '',
-  ]
+  [slug, teamId, nonEmpty(from) ? encodeURIComponent(from) : '']
     .join(':')
     .replace(/:$/, '');
 
 export const somewhereHere = (path: string | undefined): string | null =>
-  path !== undefined &&
-  path !== '' &&
-  /^\/(?!\/)/.test(path) &&
-  !path.includes('\\')
+  nonEmpty(path) && /^\/(?!\/)/.test(path) && !path.includes('\\')
     ? path
     : null;
 
@@ -30,15 +24,12 @@ export const whenceFrom = (state: string | null): Whence | null => {
     return null;
   }
 
-  const left =
-    from !== undefined && from !== ''
-      ? somewhereHere(decodeURIComponent(from))
-      : null;
+  const left = nonEmpty(from) ? somewhereHere(decodeURIComponent(from)) : null;
 
   return {
     slug,
     teamId,
-    ...(left !== null && left !== '' ? { from: left } : {}),
+    ...(nonEmpty(left) ? { from: left } : {}),
   };
 };
 

@@ -8,6 +8,7 @@ import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
 import { TabDrag } from '@/components/shell/tabs/TabDrag';
 import { useAppTabs } from '@/hooks/useAppTabs';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
+import { nonEmpty } from '@/lib/non-empty';
 import { TabTitleContext } from '@/lib/tab-title';
 
 const TEAMS = [
@@ -21,7 +22,7 @@ function Page({ title, to }: PageProps) {
   return (
     <>
       <Breadcrumbs segments={[{ label: title }]} />
-      {to !== undefined && to !== '' && <Link to={to}>Open</Link>}
+      {nonEmpty(to) && <Link to={to}>Open</Link>}
     </>
   );
 }

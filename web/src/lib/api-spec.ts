@@ -1,4 +1,5 @@
 import type { ApiSpecViewResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { since } from '@/lib/since';
 
 const SPEC_KINDS: Readonly<Record<ApiSpecViewResponseDto['kind'], string>> = {
@@ -14,9 +15,7 @@ export const formatReadProblem = ({
   kind,
   problem,
 }: ApiSpecViewResponseDto): string | null =>
-  problem !== null && problem !== ''
-    ? `Its ${SPEC_KINDS[kind]} ${problem}.`
-    : null;
+  nonEmpty(problem) ? `Its ${SPEC_KINDS[kind]} ${problem}.` : null;
 
 export const formatToolsRead = ({
   kind,

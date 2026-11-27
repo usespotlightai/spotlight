@@ -5,6 +5,7 @@ import type { TipPlacement } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
 import { formatCount, formatShare } from '@/lib/insights';
 import type { ReplayedPoint } from '@/lib/insights-candidates';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ReplayedPointTipProps = {
   point: ReplayedPoint;
@@ -29,7 +30,7 @@ export function ReplayedPointTip({
             `${formatShare(point.value)} of ${formatCount(point.scored)} scored ${point.scored === 1 ? 'run' : 'runs'}`,
           ],
           ['Cost per run', spentIn(point.cost, currency)],
-          ...(point.heldOut !== null && point.heldOut !== ''
+          ...(nonEmpty(point.heldOut)
             ? ([['Held out', point.heldOut]] as [string, string][])
             : []),
           ...(point.frontier

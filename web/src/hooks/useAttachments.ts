@@ -15,6 +15,7 @@ import {
   pasteFiles,
   sizeProblem,
 } from '@/lib/attachment';
+import { nonEmpty } from '@/lib/non-empty';
 import { uploadAttachment } from '@/lib/upload-attachment';
 
 const uniqueKey = (): string =>
@@ -74,7 +75,7 @@ export function useAttachments(
         size: file.size,
         contentType: file.type,
         imageSource: drawn(file.type) ? { blob: file } : null,
-        ...(problem !== null && problem !== ''
+        ...(nonEmpty(problem)
           ? { state: 'failed', problem }
           : { state: 'uploading' }),
       };

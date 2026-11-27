@@ -12,6 +12,7 @@ import {
 } from '@/lib/approval-status';
 import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
 import { stretchesOf } from '@/lib/journal-step';
+import { nonEmpty } from '@/lib/non-empty';
 import { fieldOf, isRecord } from '@/lib/record';
 import { teamSectionPath } from '@/lib/team';
 
@@ -175,9 +176,7 @@ const momentOf = (message: ChatMessage): ChatMoment =>
         };
 
 const later = (at: string, floor: string | null): string =>
-  floor !== null && floor !== '' && Date.parse(floor) > Date.parse(at)
-    ? floor
-    : at;
+  nonEmpty(floor) && Date.parse(floor) > Date.parse(at) ? floor : at;
 
 const starterOf = (
   journal: RunJournal,
@@ -197,9 +196,7 @@ const starterOf = (
     )
     .reduce<string | null>(
       (found, message) =>
-        found !== null &&
-        found !== '' &&
-        Date.parse(found) >= Date.parse(message.at)
+        nonEmpty(found) && Date.parse(found) >= Date.parse(message.at)
           ? found
           : message.at,
       null,
@@ -288,11 +285,7 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
 };
 
 export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>
-  turn?.message?.takenUpBy !== undefined &&
-  turn.message.takenUpBy !== null &&
-  turn.message.takenUpBy !== ''
-    ? [turn.message.takenUpBy]
-    : [];
+  nonEmpty(turn?.message?.takenUpBy) ? [turn.message.takenUpBy] : [];
 
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
   open: 'pending',
@@ -317,7 +310,7 @@ export const proposalTitleOf = (proposal: Proposal): string =>
   PROPOSAL_TITLES[proposal.state];
 
 export const proposedStationOf = (proposal: Proposal): string | null =>
-  proposal.stationName !== null && proposal.stationName !== ''
+  nonEmpty(proposal.stationName)
     ? [proposal.lineName, proposal.stationName].filter(Boolean).join(' › ')
     : null;
 
@@ -353,14 +346,14 @@ export const pullRequestNameOf = (url: string): string => {
 export const pullRequestStationOf = (
   pullRequest: ChatPullRequest,
 ): string | null =>
-  pullRequest.stationName !== null && pullRequest.stationName !== ''
+  nonEmpty(pullRequest.stationName)
     ? [pullRequest.lineName, pullRequest.stationName]
         .filter(Boolean)
         .join(' › ')
     : null;
 
 export const proposalText = (proposal: Proposal): string =>
-  proposal.description !== null && proposal.description !== ''
+  nonEmpty(proposal.description)
     ? `${proposal.title}\n\n${proposal.description}`
     : proposal.title;
 

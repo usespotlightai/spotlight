@@ -7,6 +7,7 @@ import { Composer } from '@/components/shared/form/Composer';
 import { Logo } from '@/components/shared/icons';
 import { useDeleteReviewComment } from '@/hooks/api/useDeleteReviewComment';
 import { useEditReviewComment } from '@/hooks/api/useEditReviewComment';
+import { nonEmpty } from '@/lib/non-empty';
 import { routeOf, type ReviewComment, whoWrote } from '@/lib/review';
 import { useReviewing } from '@/lib/review-context';
 import { since } from '@/lib/since';
@@ -75,9 +76,7 @@ export function ReviewCommentItem({
               </span>
               <span className="text-faint">
                 {since(comment.createdAt)}
-                {comment.editedAt !== null &&
-                  comment.editedAt !== '' &&
-                  ' · edited'}
+                {nonEmpty(comment.editedAt) && ' · edited'}
               </span>
               <ReviewCommentState
                 comment={comment}

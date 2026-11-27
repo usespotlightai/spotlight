@@ -5,6 +5,7 @@ import { IntegrationFacts } from '@/components/features/integrations/Integration
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { inaccessibleOf } from '@/lib/github';
+import { nonEmpty } from '@/lib/non-empty';
 
 type GitHubDetailsProps = {
   installed: boolean;
@@ -39,7 +40,7 @@ export function GitHubDetails({
                 Agents read code and open pull requests through it.
               </span>
             </div>
-            {href !== null && href !== '' && (
+            {nonEmpty(href) && (
               <GitHubAppLink href={href} installed={installed} />
             )}
           </div>

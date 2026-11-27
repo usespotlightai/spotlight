@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import type { AppTab } from '@/lib/app-tabs';
 import { desktopApp } from '@/lib/desktop';
+import { nonEmpty } from '@/lib/non-empty';
 import { settingsPath } from '@/lib/settings';
 
 type Tabs = {
@@ -65,7 +66,7 @@ export function useDesktopCommands(slug: string | undefined, tabs: Tabs): void {
     }
 
     if (command === 'settings') {
-      if (slug !== undefined && slug !== '') {
+      if (nonEmpty(slug)) {
         void navigate(settingsPath(slug));
       }
       return;

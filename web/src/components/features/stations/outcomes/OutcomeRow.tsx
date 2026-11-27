@@ -10,6 +10,7 @@ import {
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { OutcomeIcon } from '@/components/shared/OutcomeIcon';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { nonEmpty } from '@/lib/non-empty';
 import { since } from '@/lib/since';
 import {
   formatChecks,
@@ -40,14 +41,14 @@ export function OutcomeRow({ run, to }: OutcomeRowProps): ReactElement {
           {resolutionLabel(run)}
         </TrailLink>
 
-        {run.failure !== null && run.failure !== '' && (
+        {nonEmpty(run.failure) && (
           <span className="relative hidden @4xl:flex @lg:group-data-compact/nested:flex">
             <InfoTooltip tooltip={run.failure} />
           </span>
         )}
       </span>
 
-      {run.failure !== null && run.failure !== '' && (
+      {nonEmpty(run.failure) && (
         <p className="col-span-full pl-(--cell-indent,0.5rem) text-muted-foreground text-xs @4xl:hidden @lg:group-data-compact/nested:hidden">
           {run.failure}
         </p>

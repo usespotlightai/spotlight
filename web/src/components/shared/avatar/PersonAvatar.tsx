@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type Person = {
@@ -30,7 +31,7 @@ export function PersonAvatar({
         className,
       )}
     >
-      {person.image !== null && person.image !== '' && (
+      {nonEmpty(person.image) && (
         <AvatarImage src={person.image} alt={person.name} />
       )}
 

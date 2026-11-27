@@ -8,6 +8,7 @@ import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
+import { nonEmpty } from '@/lib/non-empty';
 import { type Progress, type TeamRun, underway } from '@/lib/run';
 import type { LatestRun } from '@/lib/run-notes';
 
@@ -43,12 +44,7 @@ export function useRunRefresh({
     void queryClient.invalidateQueries({
       queryKey: changeStackKeys.forRun(runId),
     });
-    if (
-      teamId !== undefined &&
-      teamId !== '' &&
-      runId !== undefined &&
-      runId !== ''
-    ) {
+    if (nonEmpty(teamId) && nonEmpty(runId)) {
       void queryClient.invalidateQueries({
         queryKey: runMemoryKeys.forRun(teamId, runId),
       });

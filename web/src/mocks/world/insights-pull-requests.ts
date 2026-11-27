@@ -10,6 +10,7 @@ import {
   PULL_REQUEST_TYPES,
   type PullRequestType,
 } from '@/lib/insights-pull-requests';
+import { nonEmpty } from '@/lib/non-empty';
 import { GROWTH_ID, PLATFORM_ID } from '@/mocks/world';
 import {
   GROWTH_DAYS,
@@ -333,7 +334,7 @@ const numbered = (
   }
   const revertedBy = new Map(
     all.flatMap((each) =>
-      each.revertOf !== null && each.revertOf !== ''
+      nonEmpty(each.revertOf)
         ? [[each.revertOf, numbers.get(each.key) ?? 0] as const]
         : [],
     ),
@@ -607,10 +608,7 @@ const LIST_MATCHERS: {
 };
 
 const shownOf = (fact: PullRequestFact): InsightsPullRequestResponseDto => {
-  const spend =
-    fact.taskId !== null && fact.taskId !== ''
-      ? spendOfTask(fact.taskId)
-      : null;
+  const spend = nonEmpty(fact.taskId) ? spendOfTask(fact.taskId) : null;
 
   return {
     pullRequest: `https://github.com/${fact.repository}/pull/${fact.number}`,

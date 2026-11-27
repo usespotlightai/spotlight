@@ -9,6 +9,7 @@ import {
 import { usePushKey } from '@/hooks/api/usePushKey';
 import { subscribeToPush, unsubscribeFromPush } from '@/lib/api';
 import { desktopApp } from '@/lib/desktop';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   currentPushSubscription,
   keysOf,
@@ -71,8 +72,8 @@ const stateOf = (
     return 'off';
   }
 
-  if (publicKey !== null && publicKey !== '' && pushSupported()) {
-    return browser.endpoint !== null && browser.endpoint !== '' ? 'on' : 'off';
+  if (nonEmpty(publicKey) && pushSupported()) {
+    return nonEmpty(browser.endpoint) ? 'on' : 'off';
   }
 
   return 'on-while-open';
@@ -101,12 +102,7 @@ export function useBrowserNotifications(): BrowserNotificationsResult {
         return;
       }
 
-      if (
-        publicKey !== null &&
-        publicKey !== '' &&
-        pushSupported() &&
-        !desktopApp()
-      ) {
+      if (nonEmpty(publicKey) && pushSupported() && !desktopApp()) {
         await subscribeToPush({
           body: keysOf(await subscribedPush(publicKey)),
           throwOnError: true,

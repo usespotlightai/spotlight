@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 
 import { useCommands } from '@/hooks/useCommands';
 import type { LineResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { creatingOf, entryStationOf } from '@/lib/task-create';
 
 export function useCreateTaskKey(
@@ -21,12 +22,7 @@ export function useCreateTaskKey(
     }),
   );
 
-  if (
-    creating !== null &&
-    creating !== created &&
-    entry !== null &&
-    entry !== ''
-  ) {
+  if (creating !== null && creating !== created && nonEmpty(entry)) {
     setCreated(creating);
     onCreate(entry);
   }
@@ -38,8 +34,6 @@ export function useCreateTaskKey(
   }, [created]);
 
   useCommands(
-    entry !== null && entry !== ''
-      ? [{ id: 'task.create', run: () => onCreate(entry) }]
-      : [],
+    nonEmpty(entry) ? [{ id: 'task.create', run: () => onCreate(entry) }] : [],
   );
 }

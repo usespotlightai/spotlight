@@ -18,6 +18,7 @@ import { useBoardTasks } from '@/hooks/useBoardTasks';
 import { useBoardView } from '@/hooks/useBoardView';
 import { useCreateTaskKey } from '@/hooks/useCreateTaskKey';
 import { BOARD_VIEWS, type BoardView } from '@/lib/board';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, type Loadable, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { teamCrumb } from '@/lib/team-crumb';
@@ -43,18 +44,11 @@ export function LineBoard(): ReactElement | null {
   useCreateTaskKey(line, setAdding);
 
   const { trail, forward } = useTrail([
-    ...(team && slug !== undefined && slug !== ''
-      ? [teamCrumb(slug, team)]
-      : []),
+    ...(team && nonEmpty(slug) ? [teamCrumb(slug, team)] : []),
     { label: line?.name ?? '' },
   ]);
 
-  if (
-    slug === undefined ||
-    slug === '' ||
-    teamId === undefined ||
-    teamId === ''
-  ) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

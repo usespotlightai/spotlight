@@ -6,7 +6,11 @@ export default defineConfig({
     'react-doctor/prefer-dynamic-import': 'off',
   },
   ignore: {
-    files: ['src/lib/api/**'],
+    files: [
+      'src/lib/api/**',
+      'src/components/ui/**',
+      'src/components/shared/icons/**',
+    ],
     overrides: [
       {
         files: ['src/hooks/api/useSignIn.ts'],

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Task } from '@/lib/task';
 
 type TaskStateProps = {
@@ -22,7 +23,7 @@ export function TaskState({
   if (task.waitingForYou) {
     const asked = <WaitingForYouPill />;
 
-    return stateTo !== undefined && stateTo !== '' ? (
+    return nonEmpty(stateTo) ? (
       <Link to={stateTo} className="outline-none">
         {asked}
       </Link>

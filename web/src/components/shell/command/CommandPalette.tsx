@@ -21,6 +21,7 @@ import {
   type PalettePick,
   type PaletteSection,
 } from '@/lib/commands/targets';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Role } from '@/lib/role';
 import { creatingState } from '@/lib/task-create';
 import type { Team } from '@/lib/team';
@@ -116,15 +117,13 @@ export function CommandPalette({
                   >
                     <target.icon />
                     <span className="truncate">{target.label}</span>
-                    {((target.context !== undefined && target.context !== '') ||
-                      shortcut !== null) && (
+                    {(nonEmpty(target.context) || shortcut !== null) && (
                       <span className="ml-auto flex shrink-0 items-center gap-3">
-                        {target.context !== undefined &&
-                          target.context !== '' && (
-                            <span className="text-muted-foreground text-xs">
-                              {target.context}
-                            </span>
-                          )}
+                        {nonEmpty(target.context) && (
+                          <span className="text-muted-foreground text-xs">
+                            {target.context}
+                          </span>
+                        )}
                         {shortcut && <ShortcutKeys id={shortcut} />}
                       </span>
                     )}

@@ -8,6 +8,7 @@ import { Logo } from '@/components/shared/icons';
 import { Pill } from '@/components/shared/Pill';
 import type { Decision } from '@/lib/decision';
 import type { Disputing } from '@/lib/decisions-context';
+import { nonEmpty } from '@/lib/non-empty';
 import { since } from '@/lib/since';
 
 type DecisionThreadProps = {
@@ -44,7 +45,7 @@ export function DecisionThread({
             {decision.why}
           </p>
 
-          {reasoningAt !== null && reasoningAt !== '' && (
+          {nonEmpty(reasoningAt) && (
             <Link
               to={reasoningAt}
               target="_blank"

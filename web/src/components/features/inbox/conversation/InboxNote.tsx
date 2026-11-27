@@ -23,6 +23,7 @@ import {
   type Note,
   type RunJournal,
 } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type InboxNoteProps = {
@@ -58,17 +59,17 @@ export function InboxNote({
   const arriving = arrived ? ARRIVING : undefined;
   useInAppLinks(written);
 
-  const shows = note.form === 'setup' && teamId;
+  const shows = note.form === 'setup' && nonEmpty(teamId);
   const approval = note.approval;
   const connection = note.connection;
 
   return (
     <li
-      ref={sight(note.runId !== null && note.runId !== '' ? [note.runId] : [])}
+      ref={sight(nonEmpty(note.runId) ? [note.runId] : [])}
       data-note={note.position}
       className={cn('flex flex-col gap-1.5', arriving)}
     >
-      {(shows === undefined || shows === false || shows === '') && (
+      {!shows && (
         <StationTag
           name={note.station}
           color={note.stationColor}
@@ -77,9 +78,7 @@ export function InboxNote({
         />
       )}
 
-      {prompt !== undefined && prompt !== '' && (
-        <PromptDisclosure prompt={prompt} />
-      )}
+      {nonEmpty(prompt) && <PromptDisclosure prompt={prompt} />}
 
       {worked.length > 0 && <InboxWork journals={worked} />}
 
@@ -98,7 +97,7 @@ export function InboxNote({
             }
           />
         </Dockable>
-      ) : shows !== undefined && shows !== false && shows !== '' ? (
+      ) : shows ? (
         <SetupSteps
           teamId={teamId}
           body={note.body}

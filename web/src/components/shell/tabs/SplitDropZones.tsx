@@ -4,6 +4,7 @@ import { use, useRef, type ReactElement } from 'react';
 import { TabDragContext, zoneId } from '@/components/shell/tabs/tab-drag';
 import { useNarrowerThan } from '@/hooks/useNarrowerThan';
 import type { SplitSide } from '@/lib/app-tabs';
+import { nonEmpty } from '@/lib/non-empty';
 import { TWO_PANES_PX } from '@/lib/panes';
 import { cn } from '@/lib/utils';
 
@@ -45,7 +46,7 @@ function SplitDropZone({ side }: { side: SplitSide }) {
       <div
         className={cn(
           'absolute inset-1.5 rounded-md bg-card/70 ring-[0.5px] ring-border shadow-pane backdrop-blur-[2px] transition-opacity duration-150',
-          draggedId !== null && draggedId !== '' && overSide === side
+          nonEmpty(draggedId) && overSide === side
             ? 'opacity-100'
             : 'opacity-0',
         )}

@@ -13,6 +13,7 @@ import {
   MAX_INVITED_AT_ONCE,
   sameAddress,
 } from '@/lib/members';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Role } from '@/lib/role';
 import { daysAgo } from '@/mocks/clock';
 import { entryOf } from '@/mocks/entry';
@@ -245,7 +246,7 @@ const inviteHandlers = [
           `Email address is not valid. Received: ${notAnAddress.trim()}`,
         );
       }
-      if (unknownTeam !== undefined && unknownTeam !== '') {
+      if (nonEmpty(unknownTeam)) {
         return problem(422, `Team ${unknownTeam} is not in this workspace.`);
       }
 

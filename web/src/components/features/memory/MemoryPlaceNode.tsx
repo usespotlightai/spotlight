@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 
 import { MemoryPlaceToggle } from '@/components/features/memory/MemoryPlaceToggle';
 import type { PlaceNode } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const DOTTED =
@@ -67,7 +68,7 @@ export function MemoryPlaceNode({
             onToggle={() => onToggle(at)}
           />
         )}
-        {node.joinedBy !== null && node.joinedBy !== '' && (
+        {nonEmpty(node.joinedBy) && (
           <span
             aria-hidden
             data-transition-part

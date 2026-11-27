@@ -5,7 +5,7 @@ import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ShownDelta, TileDrill } from '@/lib/insights';
-import type { TooltipText } from '@/lib/tooltip-note';
+import { hasTooltip, type TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const AGAINST = 'Against the previous period';
@@ -47,7 +47,7 @@ export function InsightsTile({
         <span className="line-clamp-2" title={label}>
           {label}
         </span>
-        {tooltip !== undefined && tooltip !== '' && (
+        {hasTooltip(tooltip) && (
           <span className="flex h-5 shrink-0 items-center">
             <InfoTooltip tooltip={tooltip} />
           </span>

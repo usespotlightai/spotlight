@@ -1,6 +1,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { readMemoryReview, type MemoryReviewResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 
 export const memoryReviewKeys = {
@@ -20,13 +21,7 @@ export function useMemoryReview({
 }: MemoryReviewOf): UseQueryResult<MemoryReviewResponseDto> {
   return useQuery({
     queryKey: memoryReviewKeys.forRun(runId),
-    enabled:
-      teamId !== undefined &&
-      teamId !== '' &&
-      taskId !== undefined &&
-      taskId !== '' &&
-      runId !== undefined &&
-      runId !== '',
+    enabled: nonEmpty(teamId) && nonEmpty(taskId) && nonEmpty(runId),
     queryFn: async () => {
       const { data } = await readMemoryReview({
         path: {

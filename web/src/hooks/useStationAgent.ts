@@ -1,5 +1,6 @@
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { capitalized } from '@/lib/agent-choice';
+import { nonEmpty } from '@/lib/non-empty';
 
 type StationAgent = {
   harness: string | null | undefined;
@@ -41,14 +42,8 @@ export function useStationAgent({
     effort:
       efforts.length > 0
         ? {
-            name:
-              effort !== undefined && effort !== null && effort !== ''
-                ? capitalized(effort)
-                : 'Default',
-            at:
-              effort !== undefined && effort !== null && effort !== ''
-                ? efforts.indexOf(effort) + 1
-                : 0,
+            name: nonEmpty(effort) ? capitalized(effort) : 'Default',
+            at: nonEmpty(effort) ? efforts.indexOf(effort) + 1 : 0,
             levels: efforts.map(capitalized),
           }
         : null,

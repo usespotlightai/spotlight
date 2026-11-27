@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 import type { TraceNode } from '@/lib/trace';
 
 export interface Description {
@@ -15,7 +16,7 @@ const PROSE_TITLES: Record<string, string> = {
 export const inputOf = (node: TraceNode): Description | null => {
   const step = node.step;
 
-  if (step?.input === undefined || step.input === null || step.input === '') {
+  if (!nonEmpty(step?.input)) {
     return null;
   }
 
@@ -41,9 +42,7 @@ export const answeredBy = (node: TraceNode): Description | null => {
 
   const back = step.detail ?? step.output;
 
-  return back !== null && back !== ''
-    ? { title: 'Output', body: back, prose: false }
-    : null;
+  return nonEmpty(back) ? { title: 'Output', body: back, prose: false } : null;
 };
 
 export interface Field {
@@ -140,7 +139,7 @@ export const contentsOf = (node: TraceNode): Contents => {
           ? 'Reported'
           : null;
 
-      if (label !== null && label !== '') {
+      if (nonEmpty(label)) {
         kinds.set(label, (kinds.get(label) ?? 0) + 1);
       }
 

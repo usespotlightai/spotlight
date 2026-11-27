@@ -2,6 +2,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { readJudgeDisagreement } from '@/lib/api';
 import type { JudgeDisagreement } from '@/lib/judge-disagreement';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 
 export const judgeDisagreementKeys = {
@@ -15,11 +16,7 @@ export function useJudgeDisagreement(
 ): UseQueryResult<JudgeDisagreement> {
   return useQuery({
     queryKey: judgeDisagreementKeys.of(teamId, disagreementId),
-    enabled:
-      teamId !== undefined &&
-      teamId !== '' &&
-      disagreementId !== undefined &&
-      disagreementId !== '',
+    enabled: nonEmpty(teamId) && nonEmpty(disagreementId),
     queryFn: async (): Promise<JudgeDisagreement> => {
       const { data } = await readJudgeDisagreement({
         path: {

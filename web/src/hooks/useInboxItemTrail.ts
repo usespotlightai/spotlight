@@ -1,6 +1,7 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import type { InboxItem } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { taskPath } from '@/lib/task';
 import { teamCrumb } from '@/lib/team-crumb';
 
@@ -14,10 +15,8 @@ export function useInboxItemTrail(
   );
 
   return [
-    ...(team && slug !== undefined && slug !== ''
-      ? [teamCrumb(slug, team)]
-      : []),
-    ...(item && slug !== undefined && slug !== ''
+    ...(team && nonEmpty(slug) ? [teamCrumb(slug, team)] : []),
+    ...(item && nonEmpty(slug)
       ? [{ label: item.title, to: taskPath(slug, item.teamId, item.taskId) }]
       : []),
   ];

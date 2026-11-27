@@ -16,6 +16,7 @@ import {
   type UpkeepDecision,
   type UpkeepProposal,
 } from '@/lib/memory-upkeep';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type UpkeepProposalCardProps = {
@@ -88,7 +89,7 @@ export function UpkeepProposalCard({
             </dd>
           </FactRow>
         ))}
-        {proposal.body !== null && proposal.body !== '' && (
+        {nonEmpty(proposal.body) && (
           <FactRow>
             <dt className={FACT_LABEL}>Merged</dt>
             <dd className={FACT_VALUE}>{proposal.body}</dd>

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Doc } from 'yjs';
 
 import { useMe } from '@/hooks/useMe';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   collabUrl,
   colorOf,
@@ -65,13 +66,7 @@ export function useSharedDraft(taskId: string | undefined): SharedDraft | null {
   const image = me?.image ?? null;
 
   useEffect(() => {
-    if (
-      taskId === undefined ||
-      taskId === '' ||
-      id === undefined ||
-      id === '' ||
-      name === undefined
-    ) {
+    if (!nonEmpty(taskId) || !nonEmpty(id) || name === undefined) {
       return;
     }
 

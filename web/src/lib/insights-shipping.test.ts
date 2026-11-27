@@ -19,6 +19,7 @@ import {
   slowestFirst,
   type TypeMerge,
 } from '@/lib/insights-shipping';
+import { nonEmpty } from '@/lib/non-empty';
 import { partial } from '@/test/partial';
 
 const HOUR = 3_600_000;
@@ -57,7 +58,7 @@ const stage = (
   stationId: string | null = null,
 ): FlowStageResponseDto => ({
   kind,
-  lineId: stationId !== null && stationId !== '' ? 'line_1' : null,
+  lineId: nonEmpty(stationId) ? 'line_1' : null,
   stationId,
   times: byTyped,
 });

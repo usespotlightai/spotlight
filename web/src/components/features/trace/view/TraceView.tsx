@@ -19,6 +19,7 @@ import {
 } from '@/lib/citation-targets';
 import { formatShortDuration } from '@/lib/inbox';
 import { lineRangeOf } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   ancestorsOf,
   lastChangeTo,
@@ -134,10 +135,9 @@ export function TraceView({ trace, teamId }: TraceViewProps): ReactElement {
         return node ? () => reveal(node, null) : null;
       },
       hunk: (hunk) => {
-        const node =
-          hunk.path !== null && hunk.path !== ''
-            ? lastChangeTo(displayed, hunk.path)
-            : null;
+        const node = nonEmpty(hunk.path)
+          ? lastChangeTo(displayed, hunk.path)
+          : null;
         return node ? () => reveal(node, lineRangeOf(hunk)) : null;
       },
     };

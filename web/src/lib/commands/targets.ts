@@ -17,6 +17,7 @@ import type { LineResponseDto } from '@/lib/api';
 import { emailsPath } from '@/lib/emails';
 import { inboxPath } from '@/lib/inbox';
 import { membersPath } from '@/lib/members';
+import { nonEmpty } from '@/lib/non-empty';
 import { keysOf } from '@/lib/one-of';
 import { isAdmin, type Role } from '@/lib/role';
 import { runnersPath } from '@/lib/runner';
@@ -57,9 +58,7 @@ export type CommandSection = {
 };
 
 export const commandKeywords = (target: CommandTarget): string[] =>
-  target.context !== undefined && target.context !== ''
-    ? [target.label, target.context]
-    : [target.label];
+  nonEmpty(target.context) ? [target.label, target.context] : [target.label];
 
 export const commandMatch = (
   _value: string,

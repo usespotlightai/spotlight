@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const EDGE_FADE =
@@ -15,12 +16,9 @@ export function AuthoredText({
 }): ReactElement {
   return (
     <div
-      className={cn(
-        'flex min-w-0 flex-col gap-2',
-        label !== undefined && label !== '' && 'pt-2',
-      )}
+      className={cn('flex min-w-0 flex-col gap-2', nonEmpty(label) && 'pt-2')}
     >
-      {label !== undefined && label !== '' && (
+      {nonEmpty(label) && (
         <p className="text-muted-foreground text-xs">{label}</p>
       )}
       <ScrollArea

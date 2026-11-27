@@ -9,6 +9,7 @@ import { useSession } from '@/hooks/api/useSession';
 import { useVerifyOnSignIn } from '@/hooks/useVerifyOnSignIn';
 import { verifyEmailPath } from '@/lib/emails';
 import { messageOf } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const WIDTH = 'w-80';
@@ -33,7 +34,7 @@ export function VerifyEmail(): ReactElement | null {
   const signedIn = Boolean(session?.user);
   const verify = useVerifyOnSignIn(token, signedIn);
 
-  if (reading || token === undefined || token === '') {
+  if (reading || !nonEmpty(token)) {
     return null;
   }
 

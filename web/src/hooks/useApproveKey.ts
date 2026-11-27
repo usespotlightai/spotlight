@@ -1,6 +1,7 @@
 import { useCommands } from '@/hooks/useCommands';
 import { type FocusWithinResult, useFocusWithin } from '@/hooks/useFocusWithin';
 import type { ApprovalMode } from '@/lib/approval';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ApproveKey = {
   mode: ApprovalMode;
@@ -27,9 +28,7 @@ const approvalOf = ({
     return blank ? null : onApproveEdited;
   }
 
-  return mode === 'viewing' && (onlyFor === null || onlyFor === '')
-    ? onApprove
-    : null;
+  return mode === 'viewing' && !nonEmpty(onlyFor) ? onApprove : null;
 };
 
 type ApproveKeyResult = {

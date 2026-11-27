@@ -16,6 +16,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useResolveNoticeOnOpening } from '@/hooks/useResolveNoticeOnOpening';
 import { notFound } from '@/lib/error';
 import { inboxPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -33,7 +34,7 @@ export function InboxNotice(): ReactElement {
   );
 
   const base: BreadcrumbSegment[] = [
-    ...(team && slug !== undefined && slug !== ''
+    ...(team && nonEmpty(slug)
       ? [{ label: team.name, avatar: team.name, to: teamPath(slug, team.id) }]
       : []),
     ...(notice ? [{ label: notice.headline }] : []),
@@ -62,7 +63,7 @@ export function InboxNotice(): ReactElement {
     );
   }
 
-  if (!notice || slug === undefined || slug === '' || notFound(resolve.error)) {
+  if (!notice || !nonEmpty(slug) || notFound(resolve.error)) {
     return <InboxGone />;
   }
 

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 
 import { useVerifyMyEmail } from '@/hooks/api/useVerifyMyEmail';
 import type { UserEmailResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function useVerifyOnSignIn(
   token: string | undefined,
@@ -12,12 +13,7 @@ export function useVerifyOnSignIn(
   const started = useRef<string | null>(null);
 
   useEffect(() => {
-    if (
-      !signedIn ||
-      token === undefined ||
-      token === '' ||
-      started.current === token
-    ) {
+    if (!signedIn || !nonEmpty(token) || started.current === token) {
       return;
     }
 

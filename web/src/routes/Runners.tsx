@@ -12,6 +12,7 @@ import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useStoredState } from '@/hooks/useStoredState';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 import { asRunnerFilter, FALLBACK_RUNNER_FILTER } from '@/lib/runner';
@@ -27,7 +28,7 @@ export function Runners(): ReactElement | null {
   const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUNNER_FILTER);
   const { trail, forward } = useTrail([{ label: 'Runners' }]);
 
-  if (slug === undefined || slug === '') {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

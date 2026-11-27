@@ -12,6 +12,7 @@ import {
   type TeamMemory,
   workStationsOf,
 } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 
 type Draftable = Pick<
   TeamMemory,
@@ -95,7 +96,7 @@ export function useMemoryDraft(
       lineId,
       stationId,
       repository,
-      paths: repository !== null && repository !== '' ? pathsIn(paths) : [],
+      paths: nonEmpty(repository) ? pathsIn(paths) : [],
     }),
   };
 }

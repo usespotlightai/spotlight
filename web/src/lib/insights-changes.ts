@@ -15,6 +15,7 @@ import {
   shownDeltaOf,
 } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import { nonEmpty } from '@/lib/non-empty';
 import type { ComparedRow } from '@/lib/tally-comparison';
 
 export type InsightsChanges = InsightsChangesResponseDto;
@@ -108,10 +109,8 @@ export const formatAgentConfigWithin = (
 ): string =>
   [
     formatModel(agentConfig.model),
-    agentConfig.effort !== null && agentConfig.effort !== ''
-      ? `${agentConfig.effort} effort`
-      : null,
-    agentConfig.profileKey !== null && agentConfig.profileKey !== ''
+    nonEmpty(agentConfig.effort) ? `${agentConfig.effort} effort` : null,
+    nonEmpty(agentConfig.profileKey)
       ? `${agentConfig.profileKey} profile`
       : null,
   ]

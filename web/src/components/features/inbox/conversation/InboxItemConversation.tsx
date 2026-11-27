@@ -31,6 +31,7 @@ import {
   stationOf,
   suggestsClosing,
 } from '@/lib/inbox-item';
+import { nonEmpty } from '@/lib/non-empty';
 import { shownProgress } from '@/lib/run';
 
 const CLOSE_TASK = 'close-task';
@@ -129,7 +130,7 @@ export function InboxItemConversation({
           openAt={shownAt(item.notes, params.get('run'))}
           prompt={promptOf(item)}
           live={
-            item.runId !== null && item.runId !== '' && progress ? (
+            nonEmpty(item.runId) && progress ? (
               <RunActivity
                 runId={item.runId}
                 journals={workedOn(worked, item.notes, item.runId)}

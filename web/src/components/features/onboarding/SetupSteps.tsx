@@ -18,6 +18,7 @@ import { useGitHub } from '@/hooks/api/useGitHub';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
 import { chatPath } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { runnersPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
@@ -131,15 +132,11 @@ export function SetupSteps({
   const onboarding = query.data;
   const github = useGitHub(slug);
 
-  if (
-    slug !== undefined &&
-    slug !== '' &&
-    (loading(query) || loading(github))
-  ) {
+  if (nonEmpty(slug) && (loading(query) || loading(github))) {
     return <SetupStepsSkeleton about={about} />;
   }
 
-  if (slug !== undefined && slug !== '' && failed(query)) {
+  if (nonEmpty(slug) && failed(query)) {
     return (
       <div className="flex flex-col gap-6">
         {about && (
@@ -156,7 +153,7 @@ export function SetupSteps({
     );
   }
 
-  if (!onboarding || slug === undefined || slug === '') {
+  if (!onboarding || !nonEmpty(slug)) {
     return (
       <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
         {body}
@@ -167,11 +164,7 @@ export function SetupSteps({
   const configuring = (): ReactNode => {
     const chat = onboarding.setupChat;
 
-    if (
-      chat?.pullRequest !== null &&
-      chat?.pullRequest !== undefined &&
-      chat.pullRequest !== ''
-    ) {
+    if (nonEmpty(chat?.pullRequest)) {
       return (
         <a
           href={chat.pullRequest}
@@ -184,7 +177,7 @@ export function SetupSteps({
       );
     }
 
-    if (chat?.id !== null && chat?.id !== undefined && chat.id !== '') {
+    if (nonEmpty(chat?.id)) {
       return (
         <Link to={chatPath(slug, teamId, chat.id)} className={setupLinkClass}>
           Open setup chat

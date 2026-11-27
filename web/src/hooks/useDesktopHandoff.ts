@@ -8,6 +8,7 @@ import {
   opensInDesktop,
   skipHandoff,
 } from '@/lib/desktop';
+import { nonEmpty } from '@/lib/non-empty';
 
 const linkAtLoad = (): string | null =>
   desktopApp() || !opensInDesktop() || handoffSkipped()
@@ -21,7 +22,7 @@ export function useDesktopHandoff(): DesktopHandoffResult {
   const [atLoad] = useState(link);
 
   useEffect(() => {
-    if (atLoad !== null && atLoad !== '') {
+    if (nonEmpty(atLoad)) {
       handOffOnce(atLoad);
     }
   }, [atLoad]);

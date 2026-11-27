@@ -7,6 +7,7 @@ import type {
   TraceRunResponseDto,
 } from '@/lib/api';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
+import { nonEmpty } from '@/lib/non-empty';
 import { perWorld } from '@/mocks/world';
 import {
   EXPERIMENTS_ID,
@@ -247,9 +248,7 @@ const callsOf = (draw: Draw, profile: Profile): ServerCalls[] =>
         failed,
         ms: around(draw, use.p50Ms),
         dismissed:
-          use.dismissible !== null &&
-          use.dismissible !== '' &&
-          chance(draw, 0.04)
+          nonEmpty(use.dismissible) && chance(draw, 0.04)
             ? use.dismissible
             : null,
       };
@@ -313,10 +312,7 @@ const makeRun = (
     model: profile.model,
     effort: version.effort,
     profileKey: null,
-    repositories:
-      task.repository !== null && task.repository !== ''
-        ? [task.repository]
-        : [],
+    repositories: nonEmpty(task.repository) ? [task.repository] : [],
     openedBy: task.openedBy,
     queuedAt: new Date(queuedAt).toISOString(),
     startedAt: new Date(startedAt).toISOString(),
@@ -339,7 +335,7 @@ const makeRun = (
           }
         : null,
     passed:
-      onward && outcome.to !== null && outcome.to !== ''
+      onward && nonEmpty(outcome.to)
         ? {
             to: outcome.to,
             at: new Date(
@@ -838,10 +834,7 @@ const worldRuns = (
         model: profile.model,
         effort: version.effort,
         profileKey: null,
-        repositories:
-          record.repository !== null && record.repository !== ''
-            ? [record.repository]
-            : [],
+        repositories: nonEmpty(record.repository) ? [record.repository] : [],
         openedBy: task.createdBy?.id ?? SAM.id,
         queuedAt: new Date(startedAt - 40_000).toISOString(),
         startedAt: each.startedAt,

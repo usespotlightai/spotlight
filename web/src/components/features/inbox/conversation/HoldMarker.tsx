@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 
 import type { NoteResumptionResponseDto } from '@/lib/api';
 import type { Note } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 
 const WHERE_IT_WENT: Record<
   NoteResumptionResponseDto['next'],
@@ -37,13 +38,11 @@ export function HoldMarker({ note }: { note: Note }): ReactElement {
         {who} resumed the line.
         {resumption && ` ${WHERE_IT_WENT[resumption.next](resumption.station)}`}
       </p>
-      {resumption?.summary !== null &&
-        resumption?.summary !== undefined &&
-        resumption.summary !== '' && (
-          <p className="max-w-prose whitespace-pre-wrap text-foreground text-sm">
-            {resumption.summary}
-          </p>
-        )}
+      {nonEmpty(resumption?.summary) && (
+        <p className="max-w-prose whitespace-pre-wrap text-foreground text-sm">
+          {resumption.summary}
+        </p>
+      )}
     </div>
   );
 }

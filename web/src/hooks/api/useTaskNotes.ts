@@ -7,6 +7,7 @@ import {
 import { useCallback, useContext } from 'react';
 
 import { listTaskNotes, type NoteResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 
 const taskNoteKeys = {
@@ -47,7 +48,7 @@ export function usePrefetchTaskNotes(): (range: TaskNotesRange) => void {
 
   return useCallback(
     (range: TaskNotesRange) => {
-      if (client && range.teamId !== undefined && range.teamId !== '') {
+      if (client && nonEmpty(range.teamId)) {
         client.query(taskNotesQuery(range)).catch(() => undefined);
       }
     },

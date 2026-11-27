@@ -13,6 +13,7 @@ import type {
   TraceNodeResponseDto,
   TraceStationResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { perWorld, world } from '@/mocks/world';
 import { foldedAround } from '@/mocks/world/folded-visits';
 import {
@@ -220,7 +221,7 @@ const briefingOf = (located: Located, story: RunStory): string => {
   return [
     `## ${name}\n\n${role}`,
     `## The task\n\n${task}`,
-    ...(story.before !== undefined && story.before !== ''
+    ...(nonEmpty(story.before)
       ? [`## What came before\n\n${story.before}`]
       : []),
   ].join('\n\n');
@@ -525,9 +526,7 @@ export const tracedTaskOf = (
     outputs: new Map(
       runs.flatMap((run) => {
         const output = storyOf(run.id).output;
-        return output !== undefined && output !== ''
-          ? [[run.id, output] as const]
-          : [];
+        return nonEmpty(output) ? [[run.id, output] as const] : [];
       }),
     ),
   };
